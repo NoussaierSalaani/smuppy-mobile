@@ -1,0 +1,872 @@
+import React, { useState, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Dimensions,
+  StatusBar,
+  Modal,
+  FlatList,
+  TextInput,
+  Animated,
+  PanResponder,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Video } from 'expo-av';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+
+const { width, height } = Dimensions.get('window');
+
+// Mock data - posts du profil
+const MOCK_PROFILE_POSTS = [
+  {
+    id: '1',
+    type: 'video',
+    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
+    description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing when you just let go and enjoy the moment.',
+    likes: 1234,
+    comments: 273,
+    user: {
+      id: 'user1',
+      name: 'Dianne Russell',
+      avatar: 'https://i.pravatar.cc/150?img=5',
+    },
+  },
+  {
+    id: '2',
+    type: 'image',
+    media: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
+    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
+    description: 'Mountain vibes 🏔️ Nothing beats this view!',
+    likes: 892,
+    comments: 156,
+    user: {
+      id: 'user1',
+      name: 'Dianne Russell',
+      avatar: 'https://i.pravatar.cc/150?img=5',
+    },
+  },
+  {
+    id: '3',
+    type: 'video',
+    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800',
+    description: 'Nature at its finest 🌿',
+    likes: 2341,
+    comments: 89,
+    user: {
+      id: 'user1',
+      name: 'Dianne Russell',
+      avatar: 'https://i.pravatar.cc/150?img=5',
+    },
+  },
+];
+
+// Mock comments
+const MOCK_COMMENTS = [
+  {
+    id: '1',
+    user: { name: 'Tung Tran', avatar: 'https://i.pravatar.cc/150?img=11' },
+    text: '🔥🔥🔥',
+    likes: 1800,
+    replies: 12,
+    timeAgo: '2h',
+  },
+  {
+    id: '2',
+    user: { name: 'marvel_fanatic', avatar: 'https://i.pravatar.cc/150?img=12' },
+    text: "You've got to comission this man.",
+    likes: 1800,
+    replies: 12,
+    timeAgo: '3h',
+  },
+  {
+    id: '3',
+    user: { name: 'Badli', avatar: 'https://i.pravatar.cc/150?img=13' },
+    text: 'Cool! 😎',
+    likes: 1800,
+    replies: 12,
+    timeAgo: '4h',
+  },
+  {
+    id: '4',
+    user: { name: 'Dadaboyy', avatar: 'https://i.pravatar.cc/150?img=14' },
+    text: "Seems like I'm still a beginner, cause what!! This is huge.",
+    likes: 1800,
+    replies: 12,
+    timeAgo: '5h',
+  },
+];
+
+const PostDetailProfileScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const insets = useSafeAreaInsets();
+  
+  // Params
+  const { postId, profilePosts = MOCK_PROFILE_POSTS } = route.params || {};
+  const initialIndex = profilePosts.findIndex(p => p.id === postId) || 0;
+  
+  // States
+  const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isFan, setIsFan] = useState(false);
+  const [theyFollowMe, setTheyFollowMe] = useState(false); // Est-ce qu'ils me suivent ?
+  const [showComments, setShowComments] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [expandedDescription, setExpandedDescription] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [showLikeAnimation, setShowLikeAnimation] = useState(false);
+  
+  // TODO: Récupérer depuis Supabase si l'user du post me suit
+  // setTheyFollowMe(checkIfTheyFollowMe(currentPost.user.id));
+  
+  // Refs
+  const videoRef = useRef(null);
+  const flatListRef = useRef(null);
+  const likeAnimationScale = useRef(new Animated.Value(0)).current;
+  const lastTap = useRef(0);
+  
+  // Current post
+  const currentPost = profilePosts[currentIndex] || MOCK_PROFILE_POSTS[0];
+  
+  // Double tap to like
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    
+    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
+      // Double tap detected
+      if (!isLiked) {
+        setIsLiked(true);
+        triggerLikeAnimation();
+      }
+    } else {
+      // Single tap - toggle pause/play for video
+      if (currentPost.type === 'video') {
+        setIsPaused(!isPaused);
+      }
+    }
+    lastTap.current = now;
+  };
+  
+  // Like animation
+  const triggerLikeAnimation = () => {
+    setShowLikeAnimation(true);
+    likeAnimationScale.setValue(0);
+    
+    Animated.sequence([
+      Animated.spring(likeAnimationScale, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+      Animated.timing(likeAnimationScale, {
+        toValue: 0,
+        duration: 200,
+        delay: 500,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setShowLikeAnimation(false));
+  };
+  
+  // Handle swipe to next/prev post
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index);
+      setIsPaused(false);
+    }
+  }).current;
+  
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+  
+  // Format numbers
+  const formatNumber = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+  };
+  
+  // Render post item
+  const renderPostItem = ({ item, index }) => (
+    <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <View style={[styles.postContainer, { height: height }]}>
+        {/* Media */}
+        {item.type === 'video' ? (
+          <Video
+            ref={index === currentIndex ? videoRef : null}
+            source={{ uri: item.media }}
+            style={styles.media}
+            resizeMode="cover"
+            isLooping
+            isMuted={isMuted}
+            shouldPlay={index === currentIndex && !isPaused}
+            posterSource={{ uri: item.thumbnail }}
+            usePoster
+          />
+        ) : (
+          <Image source={{ uri: item.media }} style={styles.media} />
+        )}
+        
+        {/* Gradient overlay bottom */}
+        <View style={styles.gradientOverlay} />
+        
+        {/* Like animation */}
+        {showLikeAnimation && index === currentIndex && (
+          <Animated.View
+            style={[
+              styles.likeAnimation,
+              {
+                transform: [{ scale: likeAnimationScale }],
+                opacity: likeAnimationScale,
+              },
+            ]}
+          >
+            <Ionicons name="heart" size={100} color={COLORS.primaryGreen} />
+          </Animated.View>
+        )}
+        
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => setShowMenu(true)}
+          >
+            <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Right actions */}
+        <View style={styles.rightActions}>
+          <TouchableOpacity style={styles.actionBtn}>
+            <Ionicons name="share-social-outline" size={28} color="#FFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => setIsLiked(!isLiked)}
+          >
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={28}
+              color={isLiked ? COLORS.primaryGreen : '#FFF'}
+            />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => setIsBookmarked(!isBookmarked)}
+          >
+            <Ionicons
+              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={28}
+              color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+            />
+          </TouchableOpacity>
+          
+          {item.type === 'video' && (
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => setIsMuted(!isMuted)}
+            >
+              <Ionicons
+                name={isMuted ? 'volume-mute' : 'volume-high'}
+                size={28}
+                color="#FFF"
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {/* Bottom content */}
+        <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 10 }]}>
+          {/* User info */}
+          <View style={styles.userRow}>
+            <TouchableOpacity
+              style={styles.userInfo}
+              onPress={() => navigation.navigate('UserProfile', { userId: item.user.id })}
+            >
+              <Image source={{ uri: item.user.avatar }} style={styles.avatar} />
+              <Text style={styles.userName}>{item.user.name}</Text>
+            </TouchableOpacity>
+            
+            {/* Bouton Fan - logique:
+                - Si déjà fan → pas de bouton (rien)
+                - Si pas fan + ils me suivent → "Track" 
+                - Si pas fan + ils me suivent pas → "+ Fan"
+            */}
+            {!isFan && (
+              <TouchableOpacity
+                style={styles.fanBtn}
+                onPress={() => setIsFan(true)}
+              >
+                {!theyFollowMe && (
+                  <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                )}
+                <Text style={styles.fanBtnText}>
+                  {theyFollowMe ? 'Track' : 'Fan'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {/* Description */}
+          <TouchableOpacity
+            onPress={() => setExpandedDescription(!expandedDescription)}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={styles.description}
+              numberOfLines={expandedDescription ? undefined : 2}
+            >
+              {item.description}
+              {!expandedDescription && item.description.length > 80 && (
+                <Text style={styles.moreText}> ...more</Text>
+              )}
+            </Text>
+          </TouchableOpacity>
+          
+          {/* Comment input */}
+          <TouchableOpacity
+            style={styles.commentInputContainer}
+            onPress={() => setShowComments(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.commentPlaceholder}>Add a comment...</Text>
+            <View style={styles.commentStats}>
+              <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
+              <Text style={styles.commentCount}>{formatNumber(item.comments)}</Text>
+              <Ionicons
+                name="heart"
+                size={18}
+                color={COLORS.primaryGreen}
+                style={{ marginLeft: 12 }}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+  
+  // Render comment item
+  const renderCommentItem = ({ item }) => (
+    <View style={styles.commentItem}>
+      <Image source={{ uri: item.user.avatar }} style={styles.commentAvatar} />
+      <View style={styles.commentContent}>
+        <Text style={styles.commentUserName}>{item.user.name}</Text>
+        <Text style={styles.commentText}>{item.text}</Text>
+        <View style={styles.commentActions}>
+          <Text style={styles.commentTime}>{item.timeAgo}</Text>
+          <TouchableOpacity>
+            <Text style={styles.commentReply}>Reply</Text>
+          </TouchableOpacity>
+        </View>
+        {item.replies > 0 && (
+          <TouchableOpacity style={styles.viewReplies}>
+            <Text style={styles.viewRepliesText}>
+              View replies ({item.replies})
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={COLORS.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+      <TouchableOpacity style={styles.commentLike}>
+        <Ionicons name="heart-outline" size={18} color={COLORS.textMuted} />
+        <Text style={styles.commentLikeCount}>{formatNumber(item.likes)}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      
+      {/* Posts FlatList (vertical scroll) */}
+      <FlatList
+        ref={flatListRef}
+        data={profilePosts.length > 0 ? profilePosts : MOCK_PROFILE_POSTS}
+        renderItem={renderPostItem}
+        keyExtractor={(item) => item.id}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        snapToInterval={height}
+        decelerationRate="fast"
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
+        getItemLayout={(data, index) => ({
+          length: height,
+          offset: height * index,
+          index,
+        })}
+      />
+      
+      {/* Comments Modal */}
+      <Modal
+        visible={showComments}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowComments(false)}
+      >
+        <View style={styles.commentsModalOverlay}>
+          <TouchableOpacity
+            style={styles.commentsModalBackdrop}
+            onPress={() => setShowComments(false)}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.commentsModalContent}
+          >
+            {/* Handle */}
+            <View style={styles.modalHandle} />
+            
+            {/* Header */}
+            <View style={styles.commentsHeader}>
+              <View style={styles.commentsHeaderLeft}>
+                <Ionicons name="chatbubble-outline" size={20} color="#FFF" />
+                <Text style={styles.commentsCount}>{currentPost.comments}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowComments(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Comments list */}
+            <FlatList
+              data={MOCK_COMMENTS}
+              renderItem={renderCommentItem}
+              keyExtractor={(item) => item.id}
+              style={styles.commentsList}
+              showsVerticalScrollIndicator={false}
+            />
+            
+            {/* Comment input */}
+            <View style={[styles.commentInputBar, { paddingBottom: insets.bottom + 10 }]}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Add a comment..."
+                placeholderTextColor={COLORS.textMuted}
+                value={commentText}
+                onChangeText={setCommentText}
+              />
+              <TouchableOpacity style={styles.emojiBtn}>
+                <Ionicons name="happy-outline" size={24} color={COLORS.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.sendBtn,
+                  commentText.length > 0 && styles.sendBtnActive,
+                ]}
+              >
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color={commentText.length > 0 ? COLORS.primaryGreen : COLORS.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+      
+      {/* Menu Modal */}
+      <Modal
+        visible={showMenu}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuContent}>
+            <View style={styles.modalHandle} />
+            
+            <TouchableOpacity style={styles.menuItem}>
+              <Ionicons name="share-social-outline" size={24} color="#FFF" />
+              <Text style={styles.menuItemText}>Share</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem}>
+              <Ionicons name="link-outline" size={24} color="#FFF" />
+              <Text style={styles.menuItemText}>Copy Link</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem}>
+              <Ionicons name="flag-outline" size={24} color="#FFF" />
+              <Text style={styles.menuItemText}>Report</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.menuCancel}
+              onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.darkBg,
+  },
+  postContainer: {
+    width: width,
+    position: 'relative',
+  },
+  media: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  
+  // Like animation
+  likeAnimation: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -50,
+    marginLeft: -50,
+    zIndex: 100,
+  },
+  
+  // Header
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  headerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Right actions
+  rightActions: {
+    position: 'absolute',
+    right: 16,
+    bottom: 200,
+    alignItems: 'center',
+    gap: 20,
+  },
+  actionBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Bottom content
+  bottomContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+  },
+  
+  // User row
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  fanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: COLORS.primaryGreen,
+    gap: 4,
+  },
+  fanBtnActive: {
+    backgroundColor: COLORS.primaryGreen,
+    borderColor: COLORS.primaryGreen,
+  },
+  fanBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primaryGreen,
+  },
+  fanBtnTextActive: {
+    color: COLORS.darkBg,
+  },
+  
+  // Description
+  description: {
+    fontSize: 14,
+    color: '#FFF',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  moreText: {
+    color: COLORS.textMuted,
+  },
+  
+  // Comment input container
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  commentPlaceholder: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+  },
+  commentStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentCount: {
+    fontSize: 14,
+    color: '#FFF',
+    marginLeft: 6,
+  },
+  
+  // Comments Modal
+  commentsModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  commentsModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  commentsModalContent: {
+    backgroundColor: COLORS.cardBg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: height * 0.7,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  commentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  commentsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  commentsCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  commentsList: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  
+  // Comment item
+  commentItem: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 12,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#FFF',
+    lineHeight: 20,
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  commentReply: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  viewReplies: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  viewRepliesText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+  },
+  commentLike: {
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  commentLikeCount: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  
+  // Comment input bar
+  commentInputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    gap: 12,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#FFF',
+  },
+  emojiBtn: {
+    padding: 4,
+  },
+  sendBtn: {
+    padding: 4,
+  },
+  sendBtnActive: {
+    opacity: 1,
+  },
+  
+  // Menu Modal
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuContent: {
+    backgroundColor: COLORS.cardBg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#FFF',
+  },
+  menuCancel: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.border,
+    alignItems: 'center',
+  },
+  menuCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+});
+
+export default PostDetailProfileScreen;

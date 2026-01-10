@@ -1,5 +1,4 @@
-// src/screens/home/VibesFeed.js
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +9,8 @@ import {
   Dimensions,
   Modal,
   Animated,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,44 +102,81 @@ export default function VibesFeed() {
   const [interests, setInterests] = useState(USER_INTERESTS);
   const [selectedPost, setSelectedPost] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   // Navigate to user profile
-  const goToUserProfile = (userId) => {
+  const goToUserProfile = useCallback((userId) => {
     setModalVisible(false);
     navigation.navigate('UserProfile', { userId });
-  };
+  }, [navigation]);
 
   // Navigate to Peak view
-  const goToPeakView = (peak, index) => {
+  const goToPeakView = useCallback((peak, index) => {
     navigation.navigate('PeakView', {
       peaks: PEAKS_DATA,
       initialIndex: index,
     });
-  };
+  }, [navigation]);
 
   // Get active filters
-  const activeFilters = interests.filter(i => i.active).map(i => i.name);
+  const activeFilters = useMemo(() =>
+    interests.filter(i => i.active).map(i => i.name),
+    [interests]
+  );
 
   // Filter posts
-  const filteredPosts = activeFilters.length > 0
-    ? VIBES_POSTS.filter(post => activeFilters.includes(post.category))
-    : VIBES_POSTS;
+  const filteredPosts = useMemo(() =>
+    activeFilters.length > 0
+      ? VIBES_POSTS.filter(post => activeFilters.includes(post.category))
+      : VIBES_POSTS,
+    [activeFilters]
+  );
 
   // Toggle interest
-  const toggleInterest = (id) => {
-    setInterests(interests.map(interest =>
+  const toggleInterest = useCallback((id) => {
+    setInterests(prevInterests => prevInterests.map(interest =>
       interest.id === id ? { ...interest, active: !interest.active } : interest
     ));
-  };
+  }, []);
 
   // Format numbers
-  const formatNumber = (num) => {
+  const formatNumber = useCallback((num) => {
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
-  };
+  }, []);
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Simulate API call - replace with real Supabase fetch
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setHasMore(true);
+    setRefreshing(false);
+  }, []);
+
+  // Load more vibes
+  const onLoadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    // Simulate API call - replace with real Supabase pagination
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setHasMore(false); // No more mock data
+    setLoadingMore(false);
+  }, [loadingMore, hasMore]);
+
+  // Handle scroll end for infinite loading
+  const handleScrollEnd = useCallback((event) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 200;
+    if (isNearBottom && hasMore) {
+      onLoadMore();
+    }
+  }, [hasMore, onLoadMore]);
 
   // Get columns for masonry
-  const getColumns = () => {
+  const getColumns = useCallback(() => {
     const leftColumn = [];
     const rightColumn = [];
     let leftHeight = 0;
@@ -155,9 +193,9 @@ export default function VibesFeed() {
     });
 
     return { leftColumn, rightColumn };
-  };
+  }, [filteredPosts]);
 
-  const { leftColumn, rightColumn } = getColumns();
+  const { leftColumn, rightColumn } = useMemo(() => getColumns(), [getColumns]);
 
   // Render Peak card
   const renderPeakCard = (peak, index) => (
@@ -229,7 +267,7 @@ export default function VibesFeed() {
     </TouchableOpacity>
   );
 
-  // Render modal - Post en plein écran
+  // Render modal - Full screen post
   const renderModal = () => (
     <Modal
       visible={modalVisible}
@@ -244,7 +282,7 @@ export default function VibesFeed() {
         >
           {selectedPost && (
             <>
-              {/* Image plein écran avec X dessus */}
+              {/* Full screen image with close button */}
               <View style={styles.modalImageContainer}>
                 <Image
                   source={{ uri: selectedPost.media }}
@@ -252,7 +290,7 @@ export default function VibesFeed() {
                   resizeMode="cover"
                 />
                 
-                {/* Bouton X sur l'image */}
+                {/* Close button on image */}
                 <TouchableOpacity 
                   style={[styles.closeButton, { top: insets.top + 12 }]}
                   onPress={() => setModalVisible(false)}
@@ -264,7 +302,7 @@ export default function VibesFeed() {
                 </TouchableOpacity>
               </View>
 
-              {/* Infos du post */}
+              {/* Post info */}
               <View style={styles.modalInfo}>
                 <TouchableOpacity 
                   style={styles.modalUser}
@@ -325,11 +363,20 @@ export default function VibesFeed() {
 
   return (
     <View style={styles.container}>
-      <Animated.ScrollView 
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        onMomentumScrollEnd={handleScrollEnd}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
+        }
       >
         {/* PEAKS SECTION */}
         <View style={styles.peaksSection}>
@@ -399,6 +446,12 @@ export default function VibesFeed() {
               <Ionicons name="images-outline" size={64} color={COLORS.gray} />
               <Text style={styles.emptyTitle}>No vibes found</Text>
               <Text style={styles.emptySubtitle}>Try selecting different interests</Text>
+            </View>
+          )}
+
+          {loadingMore && (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
             </View>
           )}
 
@@ -647,7 +700,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
 
-  // ===== MODAL (Post plein écran) =====
+  // ===== MODAL (Full screen post) =====
   modalContainer: {
     flex: 1,
     backgroundColor: COLORS.white,
@@ -759,5 +812,11 @@ const styles = StyleSheet.create({
   },
   relatedImage: {
     width: '100%',
+  },
+
+  // Pagination
+  loadingMore: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
 });

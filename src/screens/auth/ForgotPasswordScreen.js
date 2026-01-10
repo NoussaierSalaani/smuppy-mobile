@@ -54,7 +54,6 @@ export default function ForgotPasswordScreen({ navigation }) {
     setEmailError(error);
     
     if (!error) {
-      console.log('Sending code to:', email);
       setShowSuccessModal(true);
     }
   };

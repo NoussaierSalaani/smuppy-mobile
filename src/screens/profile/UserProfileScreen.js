@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
 const HEADER_MAX_HEIGHT = 280;
@@ -21,19 +22,7 @@ const HEADER_MIN_HEIGHT = 100;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const CARD_WIDTH = (width - 48) / 2;
 
-// Couleurs Smuppy Design System
-const COLORS = {
-  primaryGreen: '#11E3A3',
-  cyan1: '#00E5FF',
-  darkBg: '#0D0D0D',
-  cardBg: '#1A1A1A',
-  border: '#2A2A2A',
-  textMuted: '#6B7280',
-  textPrimary: '#FFFFFF',
-  error: '#EF4444',
-};
-
-// Mock data - à remplacer par Supabase
+// Mock data - replace with Supabase
 const MOCK_USER = {
   id: 'user123',
   username: 'GameMaster_X',

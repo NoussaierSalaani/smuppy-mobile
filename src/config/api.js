@@ -1,36 +1,31 @@
 /**
- * Configuration des APIs externes
- * 
- * ⚠️ SÉCURITÉ : Ce fichier ne doit JAMAIS être commité sur GitHub public
- * Ajouter à .gitignore : src/config/api.js
- * 
- * Pour la production, utiliser des variables d'environnement :
- * - React Native : react-native-config
- * - Expo : expo-constants avec app.json extra
+ * External API Configuration
+ *
+ * API keys are loaded from environment variables via ENV config.
+ * See .env.example for required variables.
  */
+import { ENV } from './env';
 
 // ============================================
 // GOOGLE APIS
 // ============================================
 export const GOOGLE_API = {
-    // Clé API Google (Places, Maps, etc.)
-    API_KEY: 'AIzaSyAsdPSCcyNVghsz1pKZd0w02fJokTP0mW0',
-    
+    // API key loaded from environment
+    API_KEY: ENV.GOOGLE_API_KEY,
+
     // Endpoints
     PLACES_AUTOCOMPLETE: 'https://maps.googleapis.com/maps/api/place/autocomplete/json',
     PLACES_DETAILS: 'https://maps.googleapis.com/maps/api/place/details/json',
     GEOCODING: 'https://maps.googleapis.com/maps/api/geocode/json',
   };
-  
+
   // ============================================
-  // BACKEND API (à configurer plus tard)
+  // BACKEND API
   // ============================================
   export const BACKEND_API = {
-    // URL de base de ton backend
-    BASE_URL: __DEV__ 
-      ? 'http://localhost:3000/api'  // Développement
-      : 'https://api.smuppy.com/api', // Production
-    
+    // Base URL loaded from environment
+    BASE_URL: ENV.API_URL,
+
     // Endpoints
     AUTH: {
       LOGIN: '/auth/login',
@@ -43,19 +38,19 @@ export const GOOGLE_API = {
       UPDATE: '/user/update',
     },
   };
-  
+
   // ============================================
-  // AUTRES SERVICES (à ajouter selon besoins)
+  // OTHER SERVICES (add as needed)
   // ============================================
   export const SERVICES = {
-    // Firebase (si utilisé)
-    // FIREBASE_API_KEY: 'xxx',
-    
-    // Stripe (si utilisé pour paiements)
-    // STRIPE_PUBLISHABLE_KEY: 'xxx',
-    
+    // Firebase (if used)
+    // FIREBASE_API_KEY: ENV.FIREBASE_API_KEY,
+
+    // Stripe (if used for payments)
+    // STRIPE_PUBLISHABLE_KEY: ENV.STRIPE_PUBLISHABLE_KEY,
+
     // Analytics
-    // MIXPANEL_TOKEN: 'xxx',
+    // MIXPANEL_TOKEN: ENV.MIXPANEL_TOKEN,
   };
   
   // ============================================

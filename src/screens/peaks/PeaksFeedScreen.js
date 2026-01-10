@@ -13,19 +13,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
 
-const COLORS = {
-  primary: '#11E3A3',
-  dark: '#0A0A0F',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-  cardBg: '#1C1C1E',
-};
-
-// Mock data pour les Peaks
+// Mock data for Peaks
 const MOCK_PEAKS = [
   {
     id: '1',
@@ -117,7 +110,7 @@ const PeaksFeedScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
-  const [peaks, setPeaks] = useState(MOCK_PEAKS);
+  const [peaks] = useState(MOCK_PEAKS);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

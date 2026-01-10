@@ -69,7 +69,7 @@ export default function ResetCodeScreen({ navigation, route }) {
     Keyboard.dismiss();
     setTimeout(() => {
       if (canAction) {
-        tryAction(() => { clearCode(false); console.log('Resend code to:', email); });
+        tryAction(() => { clearCode(false); });
         setShowModal(true);
       } else {
         setShowModal(true);

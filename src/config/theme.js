@@ -1,63 +1,85 @@
 export const COLORS = {
     // Primary - Gradient colors
-    primary: '#00cdb5',           // Cyan (début du gradient)
-    primaryDark: '#0066ac',       // Bleu (fin du gradient)
-    primaryLight: '#E6FAF8',      // Fond input valid/focus
-    
-    // Legacy (garder pour compatibilité)
+    primary: '#00cdb5',           // Cyan (gradient start)
+    primaryDark: '#0066ac',       // Blue (gradient end)
+    primaryLight: '#E6FAF8',      // Input valid/focus background
+
+    // Legacy (keep for compatibility)
     cyan: '#00cdb5',
     cyanBlue: '#28B7D4',
     blue: '#009BC5',
     blueMedium: '#0081BE',
     blueDark: '#0066ac',
-    
+
     // Dark
     dark: '#0a252f',
     darkGray: '#393C43',
-    
+
     // Gray scale
     gray: '#676C75',
     graySecondary: '#6C7C82',
     grayMuted: '#9cadbc',
     grayLight: '#CED3D5',
     grayBorder: '#E5E7EB',
-    
+
     // Base
     white: '#FFFFFF',
-    
+
     // Status
     error: '#FF3B30',
     errorLight: '#FEF2F2',
     errorBorder: '#FECACA',
     success: '#00cdb5',
-    
+
     // Backgrounds
     background: '#FFFFFF',
     backgroundSecondary: '#F9FAFB',
     backgroundFocus: '#F0FDFB',
     backgroundValid: '#E6FAF8',
     backgroundDisabled: '#EFF1F2',
-    
+
     // Buttons
     buttonDisabled: '#CED3D5',
     buttonBorder: '#A6D7C8',
     buttonBorderLight: '#B5C9C3',
-    
+
     // Section
     sectionTitle: '#08363B',
-    
+
     // Overlay
     overlay: 'rgba(0, 0, 0, 0.5)',
     overlayLight: 'rgba(255, 255, 255, 0.9)',
   };
+
+// Dark theme colors (used in Peaks, Profile, etc.)
+export const DARK_COLORS = {
+    primary: '#11E3A3',           // Green accent
+    primaryGreen: '#11E3A3',      // Alias for primary
+    primaryDark: '#0EBF8A',       // Darker green
+    cyan: '#00E5FF',              // Cyan accent
+    dark: '#0A0A0F',              // Near black background
+    darkBg: '#0D0D0D',            // Darker background variant
+    darkCard: '#1C1C1E',          // Card background
+    cardBg: '#1A1A1A',            // Alternative card bg
+    border: '#2A2A2A',            // Border color
+    white: '#FFFFFF',
+    textPrimary: '#FFFFFF',       // Primary text
+    textMuted: '#6B7280',         // Muted text
+    gray: '#8E8E93',              // iOS gray
+    grayLight: '#6E6E73',
+    red: '#FF6B6B',               // Danger/unfollow color
+    error: '#EF4444',             // Error color
+    overlay: 'rgba(0, 0, 0, 0.4)',
+    cardBgTransparent: 'rgba(28, 28, 30, 0.95)',
+  };
   
   export const GRADIENTS = {
-    // Primary gradient (bleu-vert) - À UTILISER PARTOUT
+    // Primary gradient (cyan-blue) - USE EVERYWHERE
     primary: ['#00cdb5', '#0066ac'],
     primaryStart: { x: 0, y: 0 },
     primaryEnd: { x: 1, y: 0 },
-    
-    // Diagonal (pour icônes)
+
+    // Diagonal (for icons)
     diagonal: ['#00cdb5', '#0066ac'],
     diagonalStart: { x: 0, y: 0 },
     diagonalEnd: { x: 1, y: 1 },
@@ -80,17 +102,17 @@ export const COLORS = {
     bottomNavWhite: ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.9)'],
   };
   
-  // STYLE CAPSULE UNIFIÉ - À UTILISER DANS TOUS LES ÉCRANS
+  // UNIFIED CAPSULE STYLE - USE IN ALL SCREENS
   export const FORM = {
     // Input
     inputHeight: 56,
-    inputRadius: 28,              // Capsule parfaite = height/2
+    inputRadius: 28,              // Perfect capsule = height/2
     inputBorderWidth: 1.5,
     inputPaddingHorizontal: 20,
     
     // Button
     buttonHeight: 56,
-    buttonRadius: 28,             // Capsule parfaite = height/2
+    buttonRadius: 28,             // Perfect capsule = height/2
     
     // Small button
     buttonSmallHeight: 48,
@@ -227,6 +249,6 @@ export const COLORS = {
   
   export const Z_INDEX = { base: 0, dropdown: 10, sticky: 20, fixed: 30, modal: 40, popover: 50, tooltip: 60 };
   
-  const theme = { COLORS, GRADIENTS, FORM, FONTS, TYPOGRAPHY, SPACING, SIZES, SHADOWS, BORDERS, ANIMATION, Z_INDEX };
-  
+  const theme = { COLORS, DARK_COLORS, GRADIENTS, FORM, FONTS, TYPOGRAPHY, SPACING, SIZES, SHADOWS, BORDERS, ANIMATION, Z_INDEX };
+
   export default theme;

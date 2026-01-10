@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Dimensions,
   Modal,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -15,17 +14,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import RecordButton from '../../components/peaks/RecordButton';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
-const { width, height } = Dimensions.get('window');
-
-const COLORS = {
-  primary: '#11E3A3',
-  primaryDark: '#0EBF8A',
-  dark: '#0A0A0F',
-  darkCard: '#1C1C1E',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-};
 
 const DURATION_OPTIONS = [
   { value: 6, label: '6s', icon: '⚡' },
@@ -58,7 +48,7 @@ const CreatePeakScreen = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
-  // Reset complet
+  // Full reset
   const resetCamera = () => {
     setIsRecording(false);
     setRecordedVideo(null);
@@ -66,13 +56,13 @@ const CreatePeakScreen = () => {
     setCameraKey(prev => prev + 1);
   };
 
-  // Afficher l'alerte custom
+  // Show custom alert
   const showCustomAlert = (message) => {
     setAlertMessage(message);
     setShowAlert(true);
   };
 
-  // Fermer l'alerte et reset
+  // Close alert and reset
   const closeAlert = () => {
     setShowAlert(false);
     setAlertMessage('');
@@ -91,7 +81,7 @@ const CreatePeakScreen = () => {
     }
   };
 
-  // Démarrer l'enregistrement
+  // Start recording
   const handleRecordStart = async () => {
     setIsRecording(true);
     setRecordedVideo(null);
@@ -106,25 +96,24 @@ const CreatePeakScreen = () => {
         setIsRecording(false);
         setIsPreviewPlaying(false);
       } catch (error) {
-        console.log('Recording error:', error);
         setIsRecording(false);
         showCustomAlert('Unable to record video. Please try again.');
       }
     }
   };
 
-  // Fin de l'enregistrement
-  const handleRecordEnd = async (recordedDuration) => {
+  // End recording
+  const handleRecordEnd = async (_recordedDuration) => {
     if (cameraRef.current && isRecording) {
       try {
         cameraRef.current.stopRecording();
       } catch (error) {
-        console.log('Stop recording error:', error);
+        // Stop recording error handled silently
       }
     }
   };
 
-  // Enregistrement trop court
+  // Recording too short
   const handleRecordCancel = (message) => {
     setIsRecording(false);
     setRecordedVideo(null);
@@ -138,7 +127,7 @@ const CreatePeakScreen = () => {
     showCustomAlert(message);
   };
 
-  // Fermer l'écran
+  // Close screen
   const handleClose = async () => {
     if (cameraRef.current && isRecording) {
       try {

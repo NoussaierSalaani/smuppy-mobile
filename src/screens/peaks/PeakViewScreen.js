@@ -15,15 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
-const { width, height } = Dimensions.get('window');
-
-const COLORS = {
-  primary: '#11E3A3',
-  dark: '#0A0A0F',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-};
+const { width } = Dimensions.get('window');
 
 const PeakViewScreen = () => {
   const insets = useSafeAreaInsets();
@@ -145,10 +139,10 @@ const PeakViewScreen = () => {
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
         return Math.abs(gestureState.dy) > 20 || Math.abs(gestureState.dx) > 20;
       },
-      onPanResponderRelease: (evt, gestureState) => {
+      onPanResponderRelease: (_evt, gestureState) => {
         const { dx, dy } = gestureState;
         
         if (Math.abs(dy) > Math.abs(dx)) {

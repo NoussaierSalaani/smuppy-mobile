@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   Image,
   Dimensions,
   Modal,
-  Animated,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -140,28 +142,33 @@ const STORIES = [
   { id: '5', name: 'Lisa', avatar: 'https://i.pravatar.cc/100?img=23', isVerified: false, hasStory: true },
 ];
 
+const _PAGE_SIZE = 5; // For future pagination
+
 export default function FanFeed() {
   const navigation = useNavigation();
   const { handleScroll } = useTabBar();
   const [posts, setPosts] = useState(FAN_POSTS);
   const [showComments, setShowComments] = useState(false);
-  const [selectedPost, setSelectedPost] = useState(null);
+  const [_selectedPost, setSelectedPost] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   // Navigate to user profile
-  const goToUserProfile = (userId) => {
+  const goToUserProfile = useCallback((userId) => {
     navigation.navigate('UserProfile', { userId });
-  };
+  }, [navigation]);
 
   // Format numbers
-  const formatNumber = (num) => {
+  const formatNumber = useCallback((num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
-  };
+  }, []);
 
   // Toggle like
-  const toggleLike = (postId) => {
-    setPosts(posts.map(post => {
+  const toggleLike = useCallback((postId) => {
+    setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
@@ -171,11 +178,11 @@ export default function FanFeed() {
       }
       return post;
     }));
-  };
+  }, []);
 
   // Toggle save
-  const toggleSave = (postId) => {
-    setPosts(posts.map(post => {
+  const toggleSave = useCallback((postId) => {
+    setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
@@ -185,13 +192,34 @@ export default function FanFeed() {
       }
       return post;
     }));
-  };
+  }, []);
 
   // Open comments
-  const openComments = (post) => {
+  const openComments = useCallback((post) => {
     setSelectedPost(post);
     setShowComments(true);
-  };
+  }, []);
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Simulate API call - replace with real Supabase fetch
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setPosts(FAN_POSTS);
+    setHasMore(true);
+    setRefreshing(false);
+  }, []);
+
+  // Load more posts
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    // Simulate API call - replace with real Supabase pagination
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // In real app: fetch next page and append
+    setHasMore(false); // No more mock data
+    setLoadingMore(false);
+  }, [loadingMore, hasMore]);
 
   // Render story item
   const renderStory = (story) => (
@@ -229,9 +257,9 @@ export default function FanFeed() {
     </TouchableOpacity>
   );
 
-  // Render post
-  const renderPost = (post, index) => (
-    <View key={post.id} style={styles.postContainer}>
+  // Render post item for FlatList
+  const renderPost = useCallback(({ item: post, index }) => (
+    <View style={styles.postContainer}>
       {/* Header */}
       <View style={styles.postHeader}>
         <TouchableOpacity 
@@ -345,7 +373,41 @@ export default function FanFeed() {
       {/* Divider */}
       {index < posts.length - 1 && <View style={styles.postDivider} />}
     </View>
-  );
+  ), [posts.length, goToUserProfile, toggleLike, toggleSave, openComments, formatNumber]);
+
+  // List header with stories
+  const ListHeader = useMemo(() => (
+    <View style={styles.storiesSection}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {STORIES.map(renderStory)}
+      </ScrollView>
+    </View>
+  ), []);
+
+  // List footer with loading indicator
+  const ListFooter = useCallback(() => {
+    if (loadingMore) {
+      return (
+        <View style={styles.loadingMore}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      );
+    }
+    if (!hasMore) {
+      return (
+        <View style={styles.endOfFeed}>
+          <Ionicons name="checkmark-circle" size={50} color={COLORS.primary} />
+          <Text style={styles.endOfFeedTitle}>You're All Caught Up</Text>
+          <Text style={styles.endOfFeedSubtitle}>
+            You've seen all posts from people you follow
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }, [loadingMore, hasMore]);
+
+  const keyExtractor = useCallback((item) => String(item.id), []);
 
   // Comments Modal
   const renderCommentsModal = () => (
@@ -409,32 +471,27 @@ export default function FanFeed() {
 
   return (
     <View style={styles.container}>
-      <Animated.ScrollView 
+      <FlatList
+        data={posts}
+        renderItem={renderPost}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-      >
-        {/* Stories */}
-        <View style={styles.storiesSection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {STORIES.map(renderStory)}
-          </ScrollView>
-        </View>
-
-        {/* Posts */}
-        {posts.map((post, index) => renderPost(post, index))}
-
-        {/* End of Feed */}
-        <View style={styles.endOfFeed}>
-          <Ionicons name="checkmark-circle" size={50} color={COLORS.primary} />
-          <Text style={styles.endOfFeedTitle}>You're All Caught Up</Text>
-          <Text style={styles.endOfFeedSubtitle}>
-            You've seen all posts from people you follow
-          </Text>
-        </View>
-
-        <View style={{ height: 100 }} />
-      </Animated.ScrollView>
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
+        }
+        contentContainerStyle={styles.listContent}
+      />
 
       {renderCommentsModal()}
     </View>
@@ -749,5 +806,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
     color: COLORS.primary,
+  },
+
+  // Pagination styles
+  listContent: {
+    paddingBottom: 100,
+  },
+  loadingMore: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
 });

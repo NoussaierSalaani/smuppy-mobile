@@ -19,24 +19,16 @@ import { Video } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const COLORS = {
-  primary: '#11E3A3',
-  dark: '#0A0A0F',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-  cardBg: 'rgba(28, 28, 30, 0.95)',
-  overlay: 'rgba(0,0,0,0.4)',
-};
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const VISIBILITY_OPTIONS = [
   { value: 24, label: '24h' },
   { value: 48, label: '48h' },
 ];
 
-// Fake location suggestions
+// Sample location suggestions
 const LOCATION_SUGGESTIONS = [
   'Gym Iron Paradise',
   'Central Park, NYC',
@@ -117,18 +109,9 @@ const PeakPreviewScreen = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const peakData = {
-        videoUri,
-        duration,
-        textOverlay,
-        location,
-        feedDuration,
-        saveToProfile,
-        replyTo,
-      };
-      
-      console.log('Publishing peak:', peakData);
-      
+      // Peak data to be sent to API:
+      // { videoUri, duration, textOverlay, location, feedDuration, saveToProfile, replyTo }
+
       Alert.alert(
         'Peak published! 🎉',
         replyTo ? 'Your reply has been posted' : 'Your Peak is now live',
@@ -360,7 +343,7 @@ const PeakPreviewScreen = () => {
               </View>
             </View>
 
-            {/* Save to profile - TOUJOURS VISIBLE */}
+            {/* Save to profile - ALWAYS VISIBLE */}
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
                 <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />

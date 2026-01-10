@@ -14,18 +14,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const COLORS = {
-  primary: '#11E3A3',
-  dark: '#0A0A0F',
-  gray: '#8E8E93',
-  white: '#FFFFFF',
-  red: '#FF6B6B',
-};
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
 // Sample fans data
-// isFanOfMe = true → cette personne me suit
-// iAmFanOf = true → je suis cette personne
+// isFanOfMe = true → this person follows me
+// iAmFanOf = true → I follow this person
 // unfollowedAt = date when I unfollowed (for 7-day block)
 const SAMPLE_FANS = [
   { id: '1', name: 'Hannah Smith', username: '@hannahsmith', avatar: 'https://i.pravatar.cc/100?img=1', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowedAt: null },

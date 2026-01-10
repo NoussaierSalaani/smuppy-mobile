@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.6;
 
-const COLORS = {
-  primary: '#11E3A3',
-  dark: '#0A0A0F',
-  gray: '#8E8E93',
-  white: '#FFFFFF',
-};
-
-const PeakCard = ({ peak, onPress }) => {
+const PeakCard = memo(({ peak, onPress }) => {
   const formatViews = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -41,7 +35,7 @@ const PeakCard = ({ peak, onPress }) => {
         resizeMode="cover"
       />
 
-      {/* Indicateur de réponses (Peak Chain) */}
+      {/* Replies indicator (Peak Chain) */}
       {peak.repliesCount > 0 && (
         <View style={styles.chainBadge}>
           <Ionicons name="link" size={12} color={COLORS.white} />
@@ -49,12 +43,12 @@ const PeakCard = ({ peak, onPress }) => {
         </View>
       )}
 
-      {/* Durée */}
+      {/* Duration */}
       <View style={styles.durationBadge}>
         <Text style={styles.durationText}>{peak.duration}s</Text>
       </View>
 
-      {/* Overlay avec infos */}
+      {/* Overlay with info */}
       <LinearGradient
         colors={['transparent', 'rgba(0,0,0,0.7)']}
         style={styles.overlay}
@@ -78,7 +72,7 @@ const PeakCard = ({ peak, onPress }) => {
       </LinearGradient>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

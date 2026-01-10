@@ -142,7 +142,7 @@ const FILTER_TABS = [
 ];
 
 // ============================================
-// COMPOSANT PRINCIPAL
+// MAIN COMPONENT
 // ============================================
 
 const SearchScreen = () => {
@@ -155,7 +155,7 @@ const SearchScreen = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchResults, setSearchResults] = useState([]);
 
-  // Filtrer les résultats
+  // Filter results
   useEffect(() => {
     if (searchQuery.length > 0) {
       const filtered = ALL_USERS.filter(user => 
@@ -169,7 +169,7 @@ const SearchScreen = () => {
   }, [searchQuery]);
 
   // ============================================
-  // FONCTIONS
+  // FUNCTIONS
   // ============================================
 
   const handleGoBack = () => {
@@ -196,15 +196,15 @@ const SearchScreen = () => {
     navigation.navigate('UserProfile', { userId: user.id });
   };
 
-  const handlePostPress = (post) => {
-    console.log('Open post:', post.id);
+  const handlePostPress = (_post) => {
+    // TODO: Navigate to post detail
   };
 
-  const handleRemoveRecentSearch = (id) => {
-    console.log('Remove:', id);
+  const handleRemoveRecentSearch = (_id) => {
+    // TODO: Remove from recent searches
   };
 
-  // Séparer les posts en 2 colonnes pour effet Pinterest
+  // Split posts into 2 columns for Pinterest effect
   const getColumns = () => {
     const leftColumn = [];
     const rightColumn = [];
@@ -223,7 +223,7 @@ const SearchScreen = () => {
   const { leftColumn, rightColumn } = getColumns();
 
   // ============================================
-  // RENDER CARD PINTEREST
+  // RENDER PINTEREST CARD
   // ============================================
 
   const renderPinterestCard = (item) => (
@@ -245,14 +245,14 @@ const SearchScreen = () => {
         </View>
       )}
       
-      {/* Durée vidéo */}
+      {/* Video duration */}
       {item.duration && (
         <View style={styles.durationBadge}>
           <Text style={styles.durationText}>{item.duration}</Text>
         </View>
       )}
       
-      {/* Info en bas */}
+      {/* Bottom info */}
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle} numberOfLines={2}>
           {item.title}

@@ -62,7 +62,6 @@ export default function CreatePostScreen({ navigation, route }) {
       }
       setLoading(false);
     } catch (error) {
-      console.log('Error loading media:', error);
       setLoading(false);
     }
   };

@@ -5,12 +5,12 @@ import { Animated } from 'react-native';
 const TabBarContext = createContext();
 
 export function TabBarProvider({ children }) {
-  // Animation value: 0 = visible, 1 = hidden (pour scroll)
+  // Animation value: 0 = visible, 1 = hidden (for scroll)
   const hideAnim = useRef(new Animated.Value(0)).current;
   const isVisible = useRef(true);
   const lastScrollY = useRef(0);
 
-  // État pour cacher SEULEMENT le BottomNav (Xplorer)
+  // State to hide ONLY the BottomNav (Xplorer screen)
   const [bottomBarHidden, setBottomBarHidden] = useState(false);
 
   // TopBar translate (scroll animation)
@@ -90,7 +90,7 @@ export function TabBarProvider({ children }) {
     topBarTranslate,
     bottomBarTranslate,
     barsOpacity,
-    // BottomNav visibility (pour Xplorer)
+    // BottomNav visibility (for Xplorer)
     bottomBarHidden,
     setBottomBarHidden,
     // Methods

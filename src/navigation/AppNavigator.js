@@ -25,7 +25,7 @@ export default function AppNavigator() {
 
     const checkReady = () => {
       if (sessionLoaded && minTimeElapsed) {
-        // Fade out le splash
+        // Fade out the splash
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
@@ -36,7 +36,7 @@ export default function AppNavigator() {
       }
     };
 
-    // Charger la session
+    // Load session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       sessionLoaded = true;
@@ -44,12 +44,12 @@ export default function AppNavigator() {
       checkReady();
     });
 
-    // Écouter les changements de session
+    // Listen to session changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
-    // Temps minimum d'affichage du splash (600ms)
+    // Minimum splash display time (600ms)
     const timer = setTimeout(() => {
       minTimeElapsed = true;
       checkReady();
@@ -65,7 +65,7 @@ export default function AppNavigator() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       
-      {/* App Content - rendu en arrière-plan */}
+      {/* App Content - rendered in background */}
       {isReady && (
         <UserProvider>
           <TabBarProvider>
@@ -93,7 +93,7 @@ export default function AppNavigator() {
         </UserProvider>
       )}
 
-      {/* Splash Screen - par dessus, disparaît en fade */}
+      {/* Splash Screen - on top, fades out */}
       {!hideSplash && (
         <Animated.View style={[styles.splashOverlay, { opacity: fadeAnim }]}>
           <LinearGradient 

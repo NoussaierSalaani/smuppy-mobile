@@ -1,20 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const SPORTS = ['Football', 'Basketball', 'Tennis', 'Swimming', 'Running', 'Cycling', 'Yoga', 'Boxing', 'Golf', 'Rugby', 'Volleyball', 'Baseball', 'MMA', 'CrossFit', 'Hiking'];
-const WELLNESS = ['Meditation', 'Nutrition', 'Sleep', 'Stretching', 'Breathing', 'Mental Health', 'Spa', 'Massage'];
+import { getInterests } from '../../services/database';
 
 export default function InterestsScreen({ navigation }) {
-  const [selected, setSelected] = useState(['Cycling', 'Yoga']);
+    const [selected, setSelected] = useState([]);
+    const [interests, setInterests] = useState([]);
+    const [loading, setLoading] = useState(true);
+  
+    // Load interests from Supabase
+    useEffect(() => {
+      loadInterests();
+    }, []);
+  
+    const loadInterests = async () => {
+      setLoading(true);
+      const { data, error } = await getInterests();
+      if (data && !error) {
+        setInterests(data);
+      }
+      setLoading(false);
+    };
 
-  const toggle = (item) => {
-    if (selected.includes(item)) {
-      setSelected(selected.filter(i => i !== item));
-    } else {
-      setSelected([...selected, item]);
-    }
-  };
+    const toggle = (item) => {
+        if (selected.includes(item.id)) {
+          setSelected(selected.filter(i => i !== item.id));
+        } else {
+          setSelected([...selected, item.id]);
+        }
+      };
 
   return (
     <View style={styles.container}>
@@ -29,18 +43,18 @@ export default function InterestsScreen({ navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
         <Text style={styles.sectionTitle}>Sports</Text>
         <View style={styles.tagsContainer}>
-          {SPORTS.map((item) => (
-            <TouchableOpacity key={item} style={[styles.tag, selected.includes(item) && styles.tagActive]} onPress={() => toggle(item)}>
-              <Text style={[styles.tagText, selected.includes(item) && styles.tagTextActive]}>{item}</Text>
+        {interests.filter(i => i.category === 'sports').map((item) => (
+            <TouchableOpacity key={item.id} style={[styles.tag, selected.includes(item.id) && styles.tagActive]} onPress={() => toggle(item)}>
+              <Text style={[styles.tagText, selected.includes(item.id) && styles.tagTextActive]}>{item.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Bien-être</Text>
+        <Text style={styles.sectionTitle}>Wellness</Text>
         <View style={styles.tagsContainer}>
-          {WELLNESS.map((item) => (
-            <TouchableOpacity key={item} style={[styles.tag, selected.includes(item) && styles.tagActive]} onPress={() => toggle(item)}>
-              <Text style={[styles.tagText, selected.includes(item) && styles.tagTextActive]}>{item}</Text>
+          {interests.filter(i => i.category === 'wellness').map((item) => (
+            <TouchableOpacity key={item.id} style={[styles.tag, selected.includes(item.id) && styles.tagActive]} onPress={() => toggle(item)}>
+              <Text style={[styles.tagText, selected.includes(item.id) && styles.tagTextActive]}>{item.name}</Text>
             </TouchableOpacity>
           ))}
         </View>

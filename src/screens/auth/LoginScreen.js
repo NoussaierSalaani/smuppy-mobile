@@ -295,13 +295,13 @@ export default function LoginScreen({ navigation }) {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Social Login */}
+            {/* Social Login - CARDS AGRANDIES */}
             <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7} onPress={() => console.log('Google Login')}>
-                <GoogleLogo size={24} />
+              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7} onPress={() => { /* TODO: Google Login */ }}>
+                <GoogleLogo size={28} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7} onPress={() => console.log('Apple Login')}>
-                <Ionicons name="logo-apple" size={26} color="#0a252f" />
+              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7} onPress={() => { /* TODO: Apple Login */ }}>
+                <Ionicons name="logo-apple" size={30} color="#0a252f" />
               </TouchableOpacity>
             </View>
 
@@ -543,18 +543,18 @@ const styles = StyleSheet.create({
     color: '#676C75',
   },
   
-  // Social
+  // Social - CARDS AGRANDIES (72x72 au lieu de 56x56)
   socialRow: { 
     flexDirection: 'row', 
     justifyContent: 'center', 
-    gap: SPACING.md, 
-    marginBottom: SPACING.md,
+    gap: SPACING.lg, 
+    marginBottom: SPACING.lg,
   },
   socialBtn: { 
-    width: 56, 
-    height: 56, 
-    borderRadius: 16, 
-    borderWidth: 1, 
+    width: 72, 
+    height: 72, 
+    borderRadius: 20, 
+    borderWidth: 1.5, 
     borderColor: '#E5E7EB', 
     backgroundColor: COLORS.white, 
     justifyContent: 'center', 

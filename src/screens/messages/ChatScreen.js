@@ -167,7 +167,7 @@ export default function ChatScreen({ route, navigation }) {
         Alert.alert('Permission needed', 'Please allow microphone access to send voice messages.');
       }
     } catch (error) {
-      console.log('Permission error:', error);
+      // Permission error handled silently
     }
   };
 
@@ -190,7 +190,6 @@ export default function ChatScreen({ route, navigation }) {
       }, 1000);
 
     } catch (error) {
-      console.log('Failed to start recording:', error);
       Alert.alert('Error', 'Could not start recording. Please check microphone permissions.');
     }
   };
@@ -221,7 +220,6 @@ export default function ChatScreen({ route, navigation }) {
       setRecordingDuration(0);
 
     } catch (error) {
-      console.log('Failed to stop recording:', error);
       setIsRecording(false);
       setRecordingDuration(0);
     }
@@ -235,7 +233,6 @@ export default function ChatScreen({ route, navigation }) {
       setIsRecording(false);
       setRecordingDuration(0);
     } catch (error) {
-      console.log('Failed to cancel recording:', error);
       setIsRecording(false);
       setRecordingDuration(0);
     }
@@ -259,7 +256,7 @@ export default function ChatScreen({ route, navigation }) {
       }, 100);
 
     } catch (error) {
-      console.log('Failed to play voice:', error);
+      // Voice playback error handled silently
     }
   };
 

@@ -3,8 +3,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { View } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
-// Empêche le splash natif de se cacher automatiquement
+// Prevent native splash from hiding automatically
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
@@ -31,7 +32,7 @@ export default function App() {
         setFontsLoaded(true);
       } catch (error) {
         console.log('Error loading fonts:', error);
-        setFontsLoaded(true); // Continue même si erreur
+        setFontsLoaded(true); // Continue even if error
       }
     }
 
@@ -45,12 +46,14 @@ export default function App() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return null; // Attend que les fonts soient chargées
+    return null; // Wait for fonts to load
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <AppNavigator />
-    </View>
+    <ErrorBoundary>
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <AppNavigator />
+      </View>
+    </ErrorBoundary>
   );
 }

@@ -32,7 +32,7 @@ export default function FeedScreen() {
       setActiveTab(0);
       setBottomBarHidden(false);
       showBars();
-    }, [])
+    }, [setBottomBarHidden, showBars])
   );
 
   useEffect(() => {
@@ -61,34 +61,34 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Scroll horizontal pour les 3 tabs */}
+      {/* Horizontal scroll for 3 tabs */}
       <ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
-        scrollEnabled={activeTab !== 2} // Désactiver le swipe sur Xplorer
+        scrollEnabled={activeTab !== 2} // Disable swipe on Xplorer
         contentOffset={{ x: 0, y: 0 }}
         style={styles.horizontalScroll}
       >
-        {/* Fan - avec marginTop pour le header */}
+        {/* Fan - with marginTop for header */}
         <View style={[styles.page, { marginTop: totalHeaderHeight }]}>
           <FanFeed />
         </View>
 
-        {/* Vibes - avec marginTop pour le header */}
+        {/* Vibes - with marginTop for header */}
         <View style={[styles.page, { marginTop: totalHeaderHeight }]}>
           <VibesFeed />
         </View>
 
-        {/* Xplorer - SANS marginTop, map plein écran derrière le header */}
+        {/* Xplorer - NO marginTop, full screen map behind header */}
         <View style={styles.page}>
           <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
         </View>
       </ScrollView>
 
-      {/* Header par-dessus tout */}
+      {/* Header above all */}
       <HomeHeader activeTab={TABS[activeTab]} onTabChange={handleTabChange} />
     </View>
   );

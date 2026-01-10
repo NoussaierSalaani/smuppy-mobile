@@ -4,17 +4,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { COLORS } from '../../config/theme';
+import { COLORS, SPACING } from '../../config/theme';
 import { supabase } from '../../config/supabase';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 
+// Style unifié Smuppy (même que LoginScreen)
 const FORM = {
-  inputHeight: 50,
-  inputRadius: 25,
-  buttonHeight: 50,
-  buttonRadius: 25,
+  inputHeight: 56,
+  inputRadius: 28,
+  buttonHeight: 56,
+  buttonRadius: 28,
 };
 
 const GoogleLogo = ({ size = 20 }) => (
@@ -65,149 +66,139 @@ export default function SignupScreen({ navigation }) {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-          style={styles.keyboardView}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
           <View style={styles.content}>
-            
-            {/* Section 1: Header */}
-            <View style={styles.section}>
+            {/* Spacer pour remplacer le bouton Back (même hauteur que LoginScreen) */}
+            <View style={styles.backBtnSpacer} />
+
+            {/* Header */}
+            <View style={styles.headerContainer}>
               <Text style={styles.title}>Create an Account</Text>
               <Text style={styles.subtitle}>A platform to connect, inspire, track and have fun</Text>
             </View>
 
-            {/* Section 2: Email */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Email address</Text>
-              <View style={[
-                styles.inputBox, 
-                emailFocused && styles.inputFocused,
-                email.length > 0 && !emailValid && styles.inputError,
-                email.length > 0 && emailValid && styles.inputValid,
-              ]}>
-                <Ionicons name="mail-outline" size={18} color={email.length > 0 && !emailValid ? '#FF3B30' : emailFocused ? '#00cdb5' : '#9cadbc'} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="mailusersmuppy@mail.com" 
-                  placeholderTextColor="#9cadbc" 
-                  value={email} 
-                  onChangeText={setEmail} 
-                  keyboardType="email-address" 
-                  autoCapitalize="none" 
-                  autoCorrect={false}
-                  onFocus={() => setEmailFocused(true)}
-                  onBlur={() => setEmailFocused(false)}
-                />
-                {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={18} color="#00cdb5" />}
-              </View>
+            {/* Email */}
+            <Text style={styles.label}>Email address</Text>
+            <View style={[
+              styles.inputBox, 
+              emailFocused && styles.inputFocused,
+              email.length > 0 && !emailValid && styles.inputError,
+              email.length > 0 && emailValid && styles.inputValid,
+            ]}>
+              <Ionicons name="mail-outline" size={20} color={email.length > 0 && !emailValid ? '#FF3B30' : emailFocused ? '#00cdb5' : '#9cadbc'} />
+              <TextInput 
+                style={styles.input} 
+                placeholder="mailusersmuppy@mail.com" 
+                placeholderTextColor="#9cadbc" 
+                value={email} 
+                onChangeText={setEmail} 
+                keyboardType="email-address" 
+                autoCapitalize="none" 
+                autoCorrect={false}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+              />
+              {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#00cdb5" />}
+            </View>
+            {email.length > 0 && !emailValid && <Text style={styles.errorText}>Please enter a valid email address</Text>}
+
+            {/* Password */}
+            <Text style={styles.labelPassword}>Password</Text>
+            <View style={[
+              styles.inputBoxPassword, 
+              passwordFocused && styles.inputFocused,
+              password.length > 0 && !passwordValid && styles.inputError,
+              password.length > 0 && passwordValid && styles.inputValid,
+            ]}>
+              <Ionicons name="lock-closed-outline" size={20} color={password.length > 0 && !passwordValid ? '#FF3B30' : passwordFocused ? '#00cdb5' : '#9cadbc'} />
+              <TextInput 
+                style={styles.input} 
+                placeholder="••••••••••" 
+                placeholderTextColor="#9cadbc" 
+                value={password} 
+                onChangeText={setPassword} 
+                secureTextEntry={!showPassword} 
+                onFocus={() => setPasswordFocused(true)} 
+                onBlur={() => setPasswordFocused(false)} 
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#9cadbc" />
+              </TouchableOpacity>
             </View>
 
-            {/* Section 3: Password */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Password</Text>
-              <View style={[
-                styles.inputBox, 
-                passwordFocused && styles.inputFocused,
-                password.length > 0 && !passwordValid && styles.inputError,
-                password.length > 0 && passwordValid && styles.inputValid,
-              ]}>
-                <Ionicons name="lock-closed-outline" size={18} color={password.length > 0 && !passwordValid ? '#FF3B30' : passwordFocused ? '#00cdb5' : '#9cadbc'} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="••••••••••" 
-                  placeholderTextColor="#9cadbc" 
-                  value={password} 
-                  onChangeText={setPassword} 
-                  secureTextEntry={!showPassword} 
-                  onFocus={() => setPasswordFocused(true)} 
-                  onBlur={() => setPasswordFocused(false)} 
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={18} color="#9cadbc" />
-                </TouchableOpacity>
-              </View>
-              {/* Password Strength */}
-              {password.length > 0 && (
-                <View style={styles.strengthContainer}>
-                  <View style={styles.strengthBarBg}>
-                    <View style={[styles.strengthBar, { width: strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%', backgroundColor: strengthLevel.color }]} />
-                  </View>
-                  <Text style={[styles.strengthText, { color: strengthLevel.color }]}>{strengthLevel.label}</Text>
+            {/* Password Strength - Juste la barre */}
+            {password.length > 0 && (
+              <View style={styles.strengthContainer}>
+                <View style={styles.strengthBarBg}>
+                  <View style={[
+                    styles.strengthBar, 
+                    { 
+                      width: strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%', 
+                      backgroundColor: strengthLevel.color 
+                    }
+                  ]} />
                 </View>
-              )}
-            </View>
+                <Text style={[styles.strengthText, { color: strengthLevel.color }]}>{strengthLevel.label}</Text>
+              </View>
+            )}
 
-            {/* Section 4: Signup Button */}
-            <View style={styles.section}>
-              <LinearGradient
-                colors={isFormValid ? ['#00cdb5', '#0066ac'] : ['#CED3D5', '#CED3D5']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.btn}
+            {/* Signup Button */}
+            <LinearGradient
+              colors={isFormValid ? ['#00cdb5', '#0066ac'] : ['#CED3D5', '#CED3D5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.btn}
+            >
+              <TouchableOpacity
+                style={styles.btnInner}
+                onPress={handleSignup}
+                disabled={!isFormValid || loading}
+                activeOpacity={0.8}
               >
-                <TouchableOpacity
-                  style={styles.btnInner}
-                  onPress={handleSignup}
-                  disabled={!isFormValid || loading}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.btnText}>{loading ? 'Creating account...' : 'Set-up your account'}</Text>
-                  {!loading && <Ionicons name="arrow-forward" size={18} color={COLORS.white} />}
-                </TouchableOpacity>
-              </LinearGradient>
-            </View>
+                <Text style={styles.btnText}>{loading ? 'Creating account...' : 'Set-up your account'}</Text>
+                {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
+              </TouchableOpacity>
+            </LinearGradient>
 
-            {/* Section 5: Divider */}
+            {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>Or</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Section 6: Social Buttons */}
-            <View style={styles.section}>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <GoogleLogo size={20} />
-                <Text style={styles.socialBtnText}>Continue with Google</Text>
+            {/* Social Buttons */}
+            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+              <GoogleLogo size={24} />
+              <Text style={styles.socialBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+              <Ionicons name="logo-apple" size={26} color="#0a252f" />
+              <Text style={styles.socialBtnText}>Continue with Apple</Text>
+            </TouchableOpacity>
+
+            {/* Login Link */}
+            <View style={styles.loginRow}>
+              <Text style={styles.loginText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLinkRow}>
+                <Text style={styles.loginLink}>Log In</Text>
+                <Ionicons name="arrow-forward" size={14} color="#00cdb5" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.section}>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <Ionicons name="logo-apple" size={22} color="#0a252f" />
-                <Text style={styles.socialBtnText}>Continue with Apple</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Section 7: Login Link */}
-            <View style={styles.section}>
-              <View style={styles.loginRow}>
-                <Text style={styles.loginText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLinkRow}>
-                  <Text style={styles.loginLink}>Log In</Text>
-                  <Ionicons name="arrow-forward" size={12} color="#00cdb5" />
-                </TouchableOpacity>
+            {/* Terms - EN BAS */}
+            <TouchableOpacity style={styles.termsRow} onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
+              <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
+                {agreeTerms && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
               </View>
-            </View>
+              <Text style={styles.termsText}>I agree to the <Text style={styles.termsLink}>Terms and Conditions</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>.</Text>
+            </TouchableOpacity>
 
-            {/* Section 8: Terms */}
-            <View style={styles.section}>
-              <TouchableOpacity style={styles.termsRow} onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
-                <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
-                  {agreeTerms && <Ionicons name="checkmark" size={11} color={COLORS.white} />}
-                </View>
-                <Text style={styles.termsText}>I agree to the <Text style={styles.termsLink}>Terms and Conditions</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>.</Text>
-              </TouchableOpacity>
+            {/* Footer */}
+            <View style={styles.footer}>
+              <SmuppyText width={120} variant="dark" />
             </View>
-
-            {/* Section 9: Footer */}
-            <View style={styles.section}>
-              <View style={styles.footer}>
-                <SmuppyText width={90} variant="dark" />
-              </View>
-            </View>
-
           </View>
         </KeyboardAvoidingView>
 
@@ -226,37 +217,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: { 
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+    flex: 1, 
+    paddingHorizontal: SPACING.xl, 
+    paddingTop: SPACING.sm,
   },
   
-  // Chaque section prend une part égale de l'espace
-  section: {
-    flex: 1,
-    justifyContent: 'center',
+  // Spacer pour aligner avec LoginScreen
+  backBtnSpacer: {
+    height: 60,
   },
   
   // Header
+  headerContainer: { 
+    alignItems: 'center', 
+    marginBottom: 32, // FIXE 32px
+  },
   title: { 
-    fontFamily: 'WorkSans-Bold', 
-    fontSize: 24, 
+    fontFamily: 'WorkSans-Bold',
+    fontSize: 28, 
     color: '#0a252f', 
-    textAlign: 'center',
+    textAlign: 'center', 
+    marginBottom: 4,
   },
   subtitle: { 
-    fontSize: 12, 
+    fontSize: 14, 
     color: '#676C75', 
     textAlign: 'center',
-    marginTop: 4,
   },
   
   // Form
   label: { 
-    fontSize: 12, 
+    fontSize: 14, 
     fontWeight: '600', 
     color: '#0a252f', 
-    marginBottom: 6,
+    marginBottom: 8,
+  },
+  labelPassword: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#0a252f', 
+    marginBottom: 8,
+    marginTop: 20, // FIXE 20px d'espace avant Password
   },
   inputBox: { 
     flexDirection: 'row', 
@@ -265,7 +266,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, 
     borderColor: '#CED3D5', 
     borderRadius: FORM.inputRadius, 
-    paddingHorizontal: 16, 
+    paddingHorizontal: 20, 
+    marginBottom: 16, 
+    backgroundColor: COLORS.white,
+  },
+  inputBoxPassword: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    height: FORM.inputHeight, 
+    borderWidth: 1.5, 
+    borderColor: '#CED3D5', 
+    borderRadius: FORM.inputRadius, 
+    paddingHorizontal: 20, 
+    marginBottom: 28, // FIXE 28px après Password
     backgroundColor: COLORS.white,
   },
   inputFocused: {
@@ -279,24 +292,32 @@ const styles = StyleSheet.create({
   inputError: { 
     borderColor: '#FF3B30',
     backgroundColor: '#FEF2F2',
+    marginBottom: 4,
   },
   input: { 
     flex: 1, 
-    fontSize: 14, 
+    fontSize: 16, 
     color: '#0a252f', 
-    marginLeft: 10,
+    marginLeft: 12,
+  },
+  errorText: { 
+    fontSize: 13, 
+    color: '#FF3B30', 
+    marginBottom: 16, 
+    marginLeft: 8,
   },
   
   // Password Strength
   strengthContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    marginTop: 8, 
-    gap: 8,
+    marginTop: -20, 
+    marginBottom: 28, // FIXE 28px
+    gap: 10,
   },
   strengthBarBg: { 
     flex: 1, 
-    height: 3, 
+    height: 4, 
     backgroundColor: '#E5E7EB', 
     borderRadius: 2, 
     overflow: 'hidden',
@@ -306,34 +327,35 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   strengthText: { 
-    fontSize: 10, 
+    fontSize: 12, 
     fontWeight: '600', 
-    minWidth: 55,
+    minWidth: 70,
   },
   
   // Button
   btn: { 
     height: FORM.buttonHeight, 
-    borderRadius: FORM.buttonRadius,
+    borderRadius: FORM.buttonRadius, 
+    marginBottom: 28, // FIXE 28px
   },
   btnInner: { 
     flex: 1, 
     flexDirection: 'row', 
     justifyContent: 'center', 
     alignItems: 'center', 
-    gap: 6,
+    gap: 8,
   },
   btnText: { 
     color: COLORS.white, 
-    fontSize: 14, 
+    fontSize: 16, 
     fontWeight: '600',
   },
   
   // Divider
   dividerRow: { 
     flexDirection: 'row', 
-    alignItems: 'center',
-    paddingVertical: 4,
+    alignItems: 'center', 
+    marginBottom: 28, // FIXE 28px
   },
   dividerLine: { 
     flex: 1, 
@@ -341,8 +363,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
   },
   dividerText: { 
-    paddingHorizontal: 10, 
-    fontSize: 11, 
+    paddingHorizontal: SPACING.sm, 
+    fontSize: 13, 
     color: '#676C75',
   },
   
@@ -355,11 +377,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, 
     borderColor: '#E5E7EB', 
     borderRadius: FORM.buttonRadius, 
-    backgroundColor: COLORS.white,
-    gap: 8,
+    backgroundColor: COLORS.white, 
+    marginBottom: 12, // Même que LoginScreen entre les 2 boutons
+    gap: 10,
   },
   socialBtnText: { 
-    fontSize: 13, 
+    fontSize: 15, 
     fontWeight: '500', 
     color: '#0a252f',
   },
@@ -368,19 +391,21 @@ const styles = StyleSheet.create({
   loginRow: { 
     flexDirection: 'row', 
     justifyContent: 'center', 
-    alignItems: 'center',
+    alignItems: 'center', 
+    marginTop: 12, // Espace après le dernier bouton social
+    marginBottom: 8, // Même que SPACING.sm de LoginScreen
   },
   loginText: { 
-    fontSize: 12, 
+    fontSize: 14, 
     color: '#676C75',
   },
   loginLinkRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: 3,
+    gap: 4,
   },
   loginLink: { 
-    fontSize: 12, 
+    fontSize: 14, 
     fontWeight: '600', 
     color: '#00cdb5',
   },
@@ -388,15 +413,16 @@ const styles = StyleSheet.create({
   // Terms
   termsRow: { 
     flexDirection: 'row', 
-    alignItems: 'flex-start',
+    alignItems: 'flex-start', 
+    marginBottom: 8, // Même que SPACING.sm
   },
   checkbox: { 
-    width: 18, 
-    height: 18, 
-    borderWidth: 1.5, 
+    width: 22, 
+    height: 22, 
+    borderWidth: 2, 
     borderColor: '#CED3D5', 
-    borderRadius: 4, 
-    marginRight: 8, 
+    borderRadius: 6, 
+    marginRight: SPACING.sm, 
     justifyContent: 'center', 
     alignItems: 'center', 
     backgroundColor: COLORS.white,
@@ -407,9 +433,9 @@ const styles = StyleSheet.create({
   },
   termsText: { 
     flex: 1, 
-    fontSize: 10, 
+    fontSize: 12, 
     color: '#676C75', 
-    lineHeight: 14,
+    lineHeight: 18,
   },
   termsLink: { 
     color: '#00cdb5', 
@@ -418,6 +444,9 @@ const styles = StyleSheet.create({
   
   // Footer
   footer: { 
-    alignItems: 'center',
+    flex: 1, 
+    justifyContent: 'flex-end', 
+    alignItems: 'center', 
+    paddingBottom: SPACING.md,
   },
 });

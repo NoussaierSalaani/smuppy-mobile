@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Image,
   Dimensions,
@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Rect } from 'react-native-svg';
+import { DARK_COLORS as COLORS } from '../../config/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 260;
@@ -151,7 +151,7 @@ const ProfileScreen = ({ navigation, route }) => {
         title: 'Share Profile',
       });
     } catch (error) {
-      console.log('Share error:', error);
+      // Share error handled silently
     }
   };
 
@@ -311,37 +311,31 @@ const ProfileScreen = ({ navigation, route }) => {
     </View>
   );
 
-  // ==================== RENDER POSTS ====================
-  const renderPosts = () => {
-    if (posts.length === 0) return renderEmpty();
-
-    return (
-      <View style={styles.postsGrid}>
-        {posts.map((post) => (
-          <TouchableOpacity key={post.id} style={styles.postCard}>
-            <Image source={{ uri: post.thumbnail }} style={styles.postThumb} />
-            {post.duration && (
-              <View style={styles.duration}>
-                <Text style={styles.durationText}>{post.duration}</Text>
-              </View>
-            )}
-            <TouchableOpacity style={styles.postMenu}>
-              <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
-            </TouchableOpacity>
-            <View style={styles.postInfo}>
-              <Text style={styles.postTitle} numberOfLines={2}>{post.title}</Text>
-              <View style={styles.postMeta}>
-                <Image source={{ uri: post.authorAvatar }} style={styles.authorPic} />
-                <Text style={styles.authorName}>{post.author}</Text>
-                <Ionicons name="heart" size={12} color="#FF6B6B" />
-                <Text style={styles.likes}>{post.likes}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+  // ==================== RENDER POST ITEM ====================
+  const renderPostItem = useCallback(({ item: post }) => (
+    <TouchableOpacity style={styles.postCard}>
+      <Image source={{ uri: post.thumbnail }} style={styles.postThumb} />
+      {post.duration && (
+        <View style={styles.duration}>
+          <Text style={styles.durationText}>{post.duration}</Text>
+        </View>
+      )}
+      <TouchableOpacity style={styles.postMenu}>
+        <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
+      </TouchableOpacity>
+      <View style={styles.postInfo}>
+        <Text style={styles.postTitle} numberOfLines={2}>{post.title}</Text>
+        <View style={styles.postMeta}>
+          <Image source={{ uri: post.authorAvatar }} style={styles.authorPic} />
+          <Text style={styles.authorName}>{post.author}</Text>
+          <Ionicons name="heart" size={12} color="#FF6B6B" />
+          <Text style={styles.likes}>{post.likes}</Text>
+        </View>
       </View>
-    );
-  };
+    </TouchableOpacity>
+  ), []);
+
+  const keyExtractor = useCallback((item) => item.id, []);
 
   // ==================== RENDER COLLECTIONS ====================
   const renderCollections = () => {
@@ -453,22 +447,35 @@ const ProfileScreen = ({ navigation, route }) => {
     </Modal>
   );
 
+  // ==================== LIST HEADER ====================
+  const ListHeader = useMemo(() => (
+    <>
+      {renderHeader()}
+      {renderTabs()}
+      {activeTab === 'collection' && renderCollections()}
+      {activeTab === 'posts' && posts.length === 0 && renderEmpty()}
+    </>
+  ), [activeTab, posts.length, user, isOwnProfile]);
+
   // ==================== MAIN RENDER ====================
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
-      <ScrollView
+
+      <FlatList
+        data={activeTab === 'posts' ? posts : []}
+        renderItem={renderPostItem}
+        keyExtractor={keyExtractor}
+        numColumns={2}
+        columnWrapperStyle={posts.length > 0 ? styles.postsRow : undefined}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={<View style={{ height: 120 }} />}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#11E3A3" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
         }
-      >
-        {renderHeader()}
-        {renderTabs()}
-        {activeTab === 'posts' ? renderPosts() : renderCollections()}
-        <View style={{ height: 120 }} />
-      </ScrollView>
+      />
 
       {renderBioModal()}
       {renderTabMenu()}
@@ -711,12 +718,14 @@ const styles = StyleSheet.create({
     color: '#0A0A0F',
   },
 
-  // ===== POSTS GRID =====
-  postsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    gap: 12,
+  // ===== POSTS LIST =====
+  listContent: {
+    paddingBottom: 20,
+  },
+  postsRow: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   postCard: {
     width: GRID_ITEM_WIDTH,

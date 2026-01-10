@@ -10,6 +10,7 @@ export { default as Tag } from './Tag';
 export { default as Toggle } from './Toggle';
 export { default as TabBar } from './TabBar';
 export { default as BottomNav } from './BottomNav';
+export { default as ErrorBoundary } from './ErrorBoundary';
 export { 
   default as SmuppyLogo, 
   SmuppyIcon, 

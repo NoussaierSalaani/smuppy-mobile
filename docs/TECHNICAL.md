@@ -1,6 +1,6 @@
 # SMUPPY - Documentation Technique
 
-> Dernière mise à jour: 11 janvier 2026
+> Dernière mise à jour: 12 janvier 2026
 
 ## Table des Matières
 
@@ -10,8 +10,10 @@
 4. [Media Upload (S3 + CloudFront)](#media-upload-s3--cloudfront)
 5. [Supabase Edge Functions](#supabase-edge-functions)
 6. [Variables d'Environnement](#variables-denvironnement)
-7. [Hooks Disponibles](#hooks-disponibles)
-8. [Services](#services)
+7. [Sentry Error Tracking](#sentry-error-tracking)
+8. [Hooks Disponibles](#hooks-disponibles)
+9. [Services](#services)
+10. [Database Schema](#database-schema)
 
 ---
 
@@ -19,15 +21,16 @@
 
 | Catégorie | Technologie | Version |
 |-----------|-------------|---------|
-| Framework | React Native + Expo | SDK 52 |
+| Framework | React Native + Expo | SDK 54 |
 | Backend | Supabase | - |
-| State Management | Zustand | - |
+| State Management | Zustand | v5 |
 | Data Fetching | React Query (TanStack) | v5 |
 | Storage Media | AWS S3 + CloudFront | - |
 | Notifications | Expo Notifications | - |
 | Navigation | React Navigation | v6 |
 | Listes | FlashList | - |
 | Images | expo-image | - |
+| Error Tracking | Sentry | v7.8 |
 
 ---
 
@@ -388,6 +391,9 @@ S3_BUCKET_NAME=smuppy-media
 CLOUDFRONT_URL=https://dc8kq67t0asis.cloudfront.net
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
+
+# Sentry Error Tracking
+SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
 ```
 
 ### Accès dans le code
@@ -397,7 +403,129 @@ import { ENV } from '../config/env';
 
 console.log(ENV.SUPABASE_URL);
 console.log(ENV.CLOUDFRONT_URL);
+console.log(ENV.SENTRY_DSN);
 ```
+
+---
+
+## Sentry Error Tracking
+
+### Configuration
+
+| Paramètre | Valeur |
+|-----------|--------|
+| **Organisation** | smuppy-inc |
+| **Projet** | react-native |
+| **Dashboard** | https://smuppy-inc.sentry.io |
+| **Status** | ✅ Actif en production |
+
+### Fichiers
+
+| Fichier | Description |
+|---------|-------------|
+| `src/lib/sentry.ts` | Configuration et helpers Sentry |
+| `src/config/env.ts` | Expose `ENV.SENTRY_DSN` |
+| `app.config.js` | Charge `SENTRY_DSN` depuis `.env` |
+
+### Initialisation
+
+Sentry est initialisé automatiquement au démarrage de l'app dans `App.js`:
+
+```javascript
+import { initSentry, setUserContext } from './src/lib/sentry';
+
+// Initialize Sentry early (before any other code)
+initSentry();
+```
+
+### Configuration Sentry
+
+```javascript
+// src/lib/sentry.ts
+Sentry.init({
+  dsn: ENV.SENTRY_DSN,
+  environment: ENV.APP_ENV,              // 'dev', 'staging', 'production'
+  tracesSampleRate: 0.2,                 // 20% des transactions en prod
+  profilesSampleRate: 0.1,               // 10% des profils en prod
+  enableAutoSessionTracking: true,
+  attachStacktrace: true,
+
+  // Erreurs ignorées
+  ignoreErrors: [
+    'Network request failed',
+    'Failed to fetch',
+    'AbortError',
+  ],
+});
+```
+
+### Utilisation
+
+```javascript
+import {
+  captureException,
+  captureMessage,
+  setUserContext,
+  addBreadcrumb
+} from '../lib/sentry';
+
+// Capturer une erreur avec contexte
+try {
+  await riskyOperation();
+} catch (error) {
+  captureException(error, {
+    screen: 'ProfileScreen',
+    action: 'loadProfile'
+  });
+}
+
+// Définir le contexte utilisateur (après login)
+setUserContext({
+  id: user.id,
+  username: user.username
+});
+
+// Ajouter un breadcrumb pour debugging
+addBreadcrumb('User clicked buy button', 'user-action', {
+  productId: '123'
+});
+
+// Capturer un message
+captureMessage('Payment completed', 'info', {
+  amount: 99.99
+});
+```
+
+### Expo Go Limitation
+
+Sentry nécessite des modules natifs qui ne sont pas disponibles dans Expo Go. Le code gère automatiquement ce cas:
+
+```javascript
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (isExpoGo) {
+  console.log('Sentry disabled in Expo Go');
+  return;
+}
+```
+
+**Pour le tracking d'erreurs complet**, utilise un development build:
+```bash
+npx expo run:ios
+# ou
+npx expo run:android
+```
+
+### Dashboard Sentry
+
+Accès: https://smuppy-inc.sentry.io
+
+Fonctionnalités disponibles:
+- 📊 Crash reports en temps réel
+- 🔍 Stack traces détaillées
+- 👤 Contexte utilisateur
+- 📈 Performance monitoring
+- 🔔 Alertes configurables
 
 ---
 
@@ -485,6 +613,58 @@ const coverUrl = await uploadCoverImage(imageUri);
 // Upload post
 const postUrl = await uploadPostImage(imageUri);
 ```
+
+---
+
+## Database Schema
+
+### Tables
+
+| Table | Colonnes |
+|-------|----------|
+| `posts` | id, author_id, media_url, media_type, caption, visibility, location, likes_count, comments_count, created_at, updated_at |
+| `comments` | id, user_id, post_id, peak_id, parent_comment_id, text, likes_count, created_at |
+| `likes` | id, user_id, post_id, peak_id, created_at |
+| `follows` | follower_id, following_id, created_at |
+| `messages` | id, sender_id, receiver_id, text, media_url, is_read, created_at |
+| `push_tokens` | id, user_id, token, platform, device_name, created_at, updated_at |
+| `notification_logs` | id, recipient_id, type, success, error, metadata, created_at |
+
+### Indexes (Performance)
+
+```sql
+-- Posts
+CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX idx_posts_author_id ON posts(author_id);
+
+-- Likes
+CREATE INDEX idx_likes_post_id ON likes(post_id);
+CREATE INDEX idx_likes_user_id ON likes(user_id);
+
+-- Follows
+CREATE INDEX idx_follows_follower_id ON follows(follower_id);
+CREATE INDEX idx_follows_following_id ON follows(following_id);
+
+-- Comments
+CREATE INDEX idx_comments_post_id ON comments(post_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+
+-- Messages
+CREATE INDEX idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX idx_messages_receiver_id ON messages(receiver_id);
+
+-- Push Tokens
+CREATE INDEX idx_push_tokens_user_id ON push_tokens(user_id);
+```
+
+### Triggers (Notifications automatiques)
+
+| Table | Trigger | Action |
+|-------|---------|--------|
+| `likes` | `on_new_like` | Notifie le propriétaire du post |
+| `follows` | `on_new_follow` | Notifie l'utilisateur suivi |
+| `messages` | `on_new_message` | Notifie le destinataire |
+| `comments` | `on_new_comment` | Notifie le propriétaire du post |
 
 ---
 

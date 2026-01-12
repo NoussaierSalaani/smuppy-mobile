@@ -1,5 +1,47 @@
 # Changelog - Performance & Scalability Optimization
 
+## Version 1.2.1 - 12 Janvier 2026
+
+### Sentry Error Tracking - Production Ready
+
+**DSN configuré et activé en production.**
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Organisation | smuppy-inc |
+| Projet | react-native |
+| Dashboard | https://smuppy-inc.sentry.io |
+| Status | ✅ Actif |
+
+**Fichiers impliqués:**
+| Fichier | Rôle |
+|---------|------|
+| `.env` | `SENTRY_DSN` ajouté |
+| `src/lib/sentry.ts` | Configuration et helpers |
+| `src/config/env.ts` | Expose `ENV.SENTRY_DSN` |
+| `app.config.js` | Charge DSN via `extra.sentryDsn` |
+
+**Fonctionnalités:**
+- 📊 Crash reporting automatique
+- 🔍 Stack traces avec source maps
+- 👤 Contexte utilisateur (id, username)
+- 📈 Performance monitoring (20% sampling)
+- 🔔 Alertes configurables sur le dashboard
+- ⚡ Désactivé automatiquement en Expo Go
+
+**Usage:**
+```javascript
+import { captureException, setUserContext } from '../lib/sentry';
+
+// Après login
+setUserContext({ id: user.id, username: user.username });
+
+// Capturer erreur
+captureException(error, { screen: 'Profile', action: 'load' });
+```
+
+---
+
 ## Version 1.2.0 - 11 Janvier 2026
 
 ### Overview

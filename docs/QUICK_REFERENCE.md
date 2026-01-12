@@ -1,6 +1,6 @@
 # Smuppy Mobile - Quick Reference Guide
 
-> Dernière mise à jour: 11 janvier 2026
+> Dernière mise à jour: 12 janvier 2026
 
 ## État Actuel de l'Infrastructure
 
@@ -12,7 +12,7 @@
 | Images | expo-image | ✅ Cached |
 | API Cache | React Query | ✅ 5min stale |
 | State | Zustand | ✅ Optimized |
-| Errors | Sentry | ✅ Tracking |
+| **Errors** | **Sentry** | ✅ **[Dashboard](https://smuppy-inc.sentry.io)** |
 | Security | SSL Pinning | ✅ Protected |
 | Rate Limit | AsyncStorage | ✅ Persistent |
 | Offline | NetInfo | ✅ Supported |
@@ -117,15 +117,30 @@ updatePreferences({ theme: 'dark' });
 
 ### 7. Error Tracking (Sentry)
 
+**Dashboard:** https://smuppy-inc.sentry.io
+
 ```javascript
-import { captureError, setUserContext } from '../lib/sentry';
+import {
+  captureException,
+  captureMessage,
+  setUserContext,
+  addBreadcrumb
+} from '../lib/sentry';
 
 // Capture error with context
-captureError(error, { screen: 'ProfileScreen', action: 'loadProfile' });
+captureException(error, { screen: 'ProfileScreen', action: 'loadProfile' });
 
 // Set user context (after login)
-setUserContext({ id: user.id, email: user.email });
+setUserContext({ id: user.id, username: user.username });
+
+// Add breadcrumb for debugging
+addBreadcrumb('Button clicked', 'user-action', { buttonId: 'submit' });
+
+// Capture message
+captureMessage('Payment completed', 'info', { amount: 99.99 });
 ```
+
+**Note:** Sentry est désactivé en Expo Go. Utilise `npx expo run:ios` pour le tracking complet.
 
 ---
 
@@ -145,10 +160,17 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 
 ### Sentry Setup
 
-1. Create project at sentry.io
-2. Get DSN
-3. Add to .env
-4. Errors auto-captured!
+| Paramètre | Valeur |
+|-----------|--------|
+| Organisation | smuppy-inc |
+| Projet | react-native |
+| Dashboard | https://smuppy-inc.sentry.io |
+| Status | ✅ Actif |
+
+**Fichiers:**
+- `src/lib/sentry.ts` - Config & helpers
+- `src/config/env.ts` - `ENV.SENTRY_DSN`
+- `app.config.js` - Charge depuis `.env`
 
 ---
 
@@ -280,4 +302,4 @@ queryClient.invalidateQueries(['feed']);
 
 ---
 
-*Quick Reference v1.2 - 11 Janvier 2026*
+*Quick Reference v1.2.1 - 12 Janvier 2026*

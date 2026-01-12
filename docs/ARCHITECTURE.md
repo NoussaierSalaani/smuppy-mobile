@@ -1,6 +1,6 @@
 # Smuppy Mobile - Architecture & Infrastructure Documentation
 
-> Dernière mise à jour: 11 janvier 2026
+> Dernière mise à jour: 12 janvier 2026
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -60,9 +60,17 @@ Smuppy est une application mobile React Native/Expo conçue pour scaler à **2+ 
 ### Security & Monitoring
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| @sentry/react-native | 6.x | Error tracking & monitoring |
+| @sentry/react-native | 7.x | Error tracking & crash reporting |
 | expo-secure-store | - | Secure token storage |
 | @react-native-community/netinfo | 11.x | Network status |
+
+**Sentry Configuration:**
+| Setting | Value |
+|---------|-------|
+| Organization | smuppy-inc |
+| Project | react-native |
+| Dashboard | https://smuppy-inc.sentry.io |
+| Status | ✅ Active (production) |
 
 ### Backend & Infrastructure
 | Technology | Purpose |
@@ -183,6 +191,7 @@ Smuppy est une application mobile React Native/Expo conçue pour scaler à **2+ 
 | S3 Bucket | `smuppy-media` (us-east-1) |
 | CloudFront | `https://dc8kq67t0asis.cloudfront.net` |
 | Expo Push | `https://exp.host/--/api/v2/push/send` |
+| Sentry Dashboard | `https://smuppy-inc.sentry.io` |
 
 ---
 

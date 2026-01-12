@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
+import { supabase } from '../../config/supabase';
 
 export default function NewPasswordScreen({ navigation }) {
   const [password, setPassword] = useState('');
@@ -15,7 +16,8 @@ export default function NewPasswordScreen({ navigation }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isFocusedPassword, setIsFocusedPassword] = useState(false);
   const [isFocusedConfirm, setIsFocusedConfirm] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   // Validation avec PASSWORD_RULES centralisées
@@ -32,9 +34,37 @@ export default function NewPasswordScreen({ navigation }) {
   // Form valide seulement si TOUS les critères sont remplis
   const isValid = passwordValid && passwordsMatch;
 
-  const handleSubmit = useCallback(() => {
-    if (isValid) navigate('PasswordSuccess');
-  }, [isValid, navigate]);
+  const handleSubmit = useCallback(async () => {
+    if (!isValid || isLoading) return;
+
+    setIsLoading(true);
+    try {
+      // Update password via Supabase Auth
+      const { error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        // SECURITY: Generic error message
+        Alert.alert(
+          'Erreur',
+          'Impossible de mettre à jour le mot de passe. Veuillez réessayer.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Success - navigate to success screen
+      navigate('PasswordSuccess');
+    } catch (err) {
+      console.error('[NewPassword] Update error:', err);
+      Alert.alert(
+        'Erreur',
+        'Une erreur est survenue. Veuillez réessayer.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isValid, isLoading, password, navigate]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);
@@ -179,15 +209,21 @@ export default function NewPasswordScreen({ navigation }) {
           )}
 
           {/* Submit Button */}
-          <LinearGradient 
-            colors={isValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled} 
-            start={GRADIENTS.primaryStart} 
-            end={GRADIENTS.primaryEnd} 
+          <LinearGradient
+            colors={isValid && !isLoading ? GRADIENTS.primary : GRADIENTS.buttonDisabled}
+            start={GRADIENTS.primaryStart}
+            end={GRADIENTS.primaryEnd}
             style={styles.btn}
           >
-            <TouchableOpacity style={styles.btnInner} onPress={handleSubmit} disabled={!isValid || disabled} activeOpacity={0.8}>
-              <Text style={styles.btnText}>Reset Password</Text>
-              <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+            <TouchableOpacity style={styles.btnInner} onPress={handleSubmit} disabled={!isValid || disabled || isLoading} activeOpacity={0.8}>
+              {isLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <Text style={styles.btnText}>Reset Password</Text>
+                  <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                </>
+              )}
             </TouchableOpacity>
           </LinearGradient>
 

@@ -1,12 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import { supabase } from '../../config/supabase';
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// SECURITY: Generic message that doesn't reveal if email exists
+const SUCCESS_MESSAGE = "Si un compte existe avec cet email, tu recevras un lien de réinitialisation.";
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -14,6 +18,7 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Flèche retour → goBack pour animation normale
   const handleGoBack = useCallback(() => {
@@ -34,10 +39,10 @@ export default function ForgotPasswordScreen({ navigation }) {
     setHasSubmitted(false);
   }, []);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     Keyboard.dismiss();
     setHasSubmitted(true);
-    
+
     if (!email.trim()) {
       setEmailError('Email is required');
       return;
@@ -46,9 +51,29 @@ export default function ForgotPasswordScreen({ navigation }) {
       setEmailError('Please enter a valid email');
       return;
     }
-    
+
     setEmailError('');
-    setShowSuccessModal(true);
+    setIsLoading(true);
+
+    try {
+      // SECURITY: Call Supabase resetPasswordForEmail
+      // Supabase returns success even if email doesn't exist (by design)
+      // This prevents email enumeration attacks
+      await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: 'smuppy://reset-password',
+      });
+
+      // SECURITY: Always show success regardless of whether email exists
+      // This prevents attackers from discovering valid emails
+      setShowSuccessModal(true);
+    } catch (error) {
+      // SECURITY: Even on error, show success to prevent email enumeration
+      // Log error internally but don't reveal to user
+      console.error('[ForgotPassword] Error:', error);
+      setShowSuccessModal(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, [email]);
 
   const handleContinue = useCallback(() => {
@@ -114,15 +139,21 @@ export default function ForgotPasswordScreen({ navigation }) {
             {hasSubmitted && emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
             {/* Send Button */}
-            <LinearGradient 
-              colors={isFormValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled} 
-              start={GRADIENTS.primaryStart} 
-              end={GRADIENTS.primaryEnd} 
+            <LinearGradient
+              colors={isFormValid && !isLoading ? GRADIENTS.primary : GRADIENTS.buttonDisabled}
+              start={GRADIENTS.primaryStart}
+              end={GRADIENTS.primaryEnd}
               style={styles.btn}
             >
-              <TouchableOpacity style={styles.btnInner} onPress={handleSend} disabled={!isFormValid} activeOpacity={0.8}>
-                <Text style={styles.btnText}>Send code</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+              <TouchableOpacity style={styles.btnInner} onPress={handleSend} disabled={!isFormValid || isLoading} activeOpacity={0.8}>
+                {isLoading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <>
+                    <Text style={styles.btnText}>Send code</Text>
+                    <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                  </>
+                )}
               </TouchableOpacity>
             </LinearGradient>
 
@@ -146,29 +177,28 @@ export default function ForgotPasswordScreen({ navigation }) {
           </ScrollView>
         </KeyboardAvoidingView>
 
-        {/* Success Modal */}
+        {/* Success Modal - SECURITY: Generic message, doesn't reveal if email exists */}
         <Modal visible={showSuccessModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
-              <LinearGradient 
-                colors={GRADIENTS.primary} 
-                start={GRADIENTS.primaryStart} 
-                end={GRADIENTS.primaryEnd} 
+              <LinearGradient
+                colors={GRADIENTS.primary}
+                start={GRADIENTS.primaryStart}
+                end={GRADIENTS.primaryEnd}
                 style={styles.modalIcon}
               >
                 <Ionicons name="mail" size={36} color={COLORS.white} />
               </LinearGradient>
-              <Text style={styles.modalTitle}>Code Sent!</Text>
-              <Text style={styles.modalMessage}>We've sent a verification code to</Text>
-              <Text style={styles.modalEmail}>{email}</Text>
-              <LinearGradient 
-                colors={GRADIENTS.primary} 
-                start={GRADIENTS.primaryStart} 
-                end={GRADIENTS.primaryEnd} 
+              <Text style={styles.modalTitle}>Email envoyé</Text>
+              <Text style={styles.modalMessage}>{SUCCESS_MESSAGE}</Text>
+              <LinearGradient
+                colors={GRADIENTS.primary}
+                start={GRADIENTS.primaryStart}
+                end={GRADIENTS.primaryEnd}
                 style={styles.modalBtn}
               >
                 <TouchableOpacity style={styles.modalBtnInner} onPress={handleContinue} activeOpacity={0.8}>
-                  <Text style={styles.modalBtnText}>Continue</Text>
+                  <Text style={styles.modalBtnText}>Continuer</Text>
                   <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
                 </TouchableOpacity>
               </LinearGradient>
@@ -224,8 +254,7 @@ const styles = StyleSheet.create({
   modalBox: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },
   modalIcon: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
   modalTitle: { fontFamily: 'WorkSans-Bold', fontSize: 24, color: COLORS.dark, marginBottom: 12 },
-  modalMessage: { fontSize: 15, color: COLORS.gray, textAlign: 'center', lineHeight: 22 },
-  modalEmail: { fontSize: 15, color: COLORS.primary, fontWeight: '600', marginBottom: 24 },
+  modalMessage: { fontSize: 15, color: COLORS.gray, textAlign: 'center', lineHeight: 22, marginBottom: 24, paddingHorizontal: 8 },
   modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, overflow: 'hidden' },
   modalBtnInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },

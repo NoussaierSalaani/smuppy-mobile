@@ -6,9 +6,9 @@ import { COLORS, SIZES } from '../../config/theme';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
+import { supabase } from '../../config/supabase';
 
-const CODE_LENGTH = 5;
-const VALID_CODE = '12345';
+const CODE_LENGTH = 6; // Supabase OTP is 6 digits
 
 export default function ResetCodeScreen({ navigation, route }) {
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
@@ -39,19 +39,36 @@ export default function ResetCodeScreen({ navigation, route }) {
     if (shouldFocus) setTimeout(() => inputs.current[0]?.focus(), 100);
   }, []);
 
-  const verifyCode = useCallback((fullCode) => {
+  const verifyCode = useCallback(async (fullCode) => {
     setIsVerifying(true);
     setError('');
     Keyboard.dismiss();
-    setTimeout(() => {
-      if (fullCode === VALID_CODE) {
-        navigate('NewPassword', { email });
-      } else {
-        setError('Invalid verification code. Please try again.');
+
+    try {
+      // Verify OTP with Supabase
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: fullCode,
+        type: 'recovery',
+      });
+
+      if (verifyError) {
+        // SECURITY: Generic error message, don't reveal specifics
+        setError('Code invalide ou expiré. Veuillez réessayer.');
         triggerShake();
+        setIsVerifying(false);
+        return;
       }
+
+      // Success - navigate to new password screen
+      navigate('NewPassword', { email, session: data.session });
+    } catch (err) {
+      console.error('[ResetCode] Verification error:', err);
+      setError('Une erreur est survenue. Veuillez réessayer.');
+      triggerShake();
+    } finally {
       setIsVerifying(false);
-    }, 100);
+    }
   }, [navigate, email, triggerShake]);
 
   const handleChange = useCallback((text, index) => {
@@ -68,13 +85,28 @@ export default function ResetCodeScreen({ navigation, route }) {
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) inputs.current[index - 1]?.focus();
   }, [code]);
 
-  const handleResend = useCallback(() => {
+  const handleResend = useCallback(async () => {
     Keyboard.dismiss();
-    setTimeout(() => {
-      if (canAction) tryAction(() => clearCode(false));
+
+    if (!canAction) {
       setShowModal(true);
-    }, 100);
-  }, [canAction, tryAction, clearCode, setShowModal]);
+      return;
+    }
+
+    try {
+      // Resend OTP via Supabase
+      await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: 'smuppy://reset-password',
+      });
+
+      tryAction(() => clearCode(false));
+      setShowModal(true);
+    } catch (err) {
+      console.error('[ResetCode] Resend error:', err);
+      // Still show modal even on error (security: don't reveal if email exists)
+      setShowModal(true);
+    }
+  }, [canAction, tryAction, clearCode, setShowModal, email]);
 
   const getBoxStyle = useCallback((index) => {
     if (error) return [styles.codeBox, styles.codeBoxError];
@@ -182,10 +214,10 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, fontWeight: '400', color: COLORS.dark, textAlign: 'center', lineHeight: 22 },
   emailText: { color: COLORS.primary, fontWeight: '600' },
   
-  // Code Input - CARRÉS avec SIZES.radiusMd
+  // Code Input - 6 digits for Supabase OTP
   label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: 12 },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  codeBox: { width: 58, height: 58, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 24, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
+  codeBox: { width: 48, height: 56, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
   codeBoxFocused: { borderColor: COLORS.primary, borderWidth: 2 },
   codeBoxFilled: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.backgroundValid },
   codeBoxError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: COLORS.errorLight },

@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, StatusBar, Dimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../config/supabase';
+import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import { TabBarProvider } from '../context/TabBarContext';
@@ -15,6 +16,7 @@ const RootStack = createStackNavigator();
 
 export default function AppNavigator() {
   const [session, setSession] = useState(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hideSplash, setHideSplash] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -39,6 +41,8 @@ export default function AppNavigator() {
     // Load session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      // Check if email is verified
+      setEmailVerified(!!session?.user?.email_confirmed_at);
       sessionLoaded = true;
       setIsReady(true);
       checkReady();
@@ -47,6 +51,15 @@ export default function AppNavigator() {
     // Listen to session changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      // Update email verification status
+      setEmailVerified(!!session?.user?.email_confirmed_at);
+
+      // Register device session on sign in
+      if (_event === 'SIGNED_IN' && session) {
+        registerDeviceSession().catch(err => {
+          console.error('[AppNavigator] Device registration failed:', err);
+        });
+      }
     });
 
     // Minimum splash display time (600ms)
@@ -79,9 +92,11 @@ export default function AppNavigator() {
                   }),
                 }}
               >
-                {session ? (
+                {session && emailVerified ? (
+                  // User is logged in and email is verified
                   <RootStack.Screen name="Main" component={MainNavigator} />
                 ) : (
+                  // User is not logged in OR email not verified
                   <>
                     <RootStack.Screen name="Auth" component={AuthNavigator} />
                     <RootStack.Screen name="Main" component={MainNavigator} />

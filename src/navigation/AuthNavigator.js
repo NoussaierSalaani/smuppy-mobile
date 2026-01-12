@@ -11,6 +11,7 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetCodeScreen from '../screens/auth/ResetCodeScreen';
 import NewPasswordScreen from '../screens/auth/NewPasswordScreen';
 import PasswordSuccessScreen from '../screens/auth/PasswordSuccessScreen';
+import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
 
 // Biometric screens
 import EnableBiometricScreen from '../screens/auth/EnableBiometricScreen';
@@ -52,6 +53,7 @@ export default function AuthNavigator() {
       <Stack.Screen name="ResetCode" component={ResetCodeScreen} />
       <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
       <Stack.Screen name="PasswordSuccess" component={PasswordSuccessScreen} />
+      <Stack.Screen name="EmailVerificationPending" component={EmailVerificationPendingScreen} options={{ gestureEnabled: false }} />
 
       {/* Biometric */}
       <Stack.Screen name="EnableBiometric" component={EnableBiometricScreen} options={{ gestureEnabled: false }} />

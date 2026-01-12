@@ -1,0 +1,623 @@
+/**
+ * Media Upload Service
+ * Handles uploads to AWS S3 with presigned URLs and CloudFront CDN
+ */
+
+import * as FileSystem from 'expo-file-system';
+import { ENV } from '../config/env';
+import { captureException } from '../lib/sentry';
+import {
+  compressImage,
+  compressAvatar,
+  compressCover,
+  compressPost,
+  compressThumbnail,
+  CompressedImage,
+  CompressionOptions,
+} from '../utils/imageCompression';
+
+// ============================================
+// TYPES
+// ============================================
+
+export interface UploadOptions {
+  folder?: 'avatars' | 'covers' | 'posts' | 'messages' | 'thumbnails';
+  compress?: boolean;
+  compressionOptions?: CompressionOptions;
+  onProgress?: (progress: number) => void;
+  metadata?: Record<string, string>;
+}
+
+export interface UploadResult {
+  success: boolean;
+  key?: string;
+  url?: string;
+  cdnUrl?: string;
+  error?: string;
+  fileSize?: number;
+}
+
+export interface PresignedUrlResponse {
+  uploadUrl: string;
+  key: string;
+  cdnUrl: string;
+}
+
+export interface MediaFile {
+  uri: string;
+  type: 'image' | 'video';
+  fileName?: string;
+  mimeType?: string;
+}
+
+// ============================================
+// CONFIGURATION
+// ============================================
+
+const S3_CONFIG = {
+  bucket: ENV.S3_BUCKET_NAME || '',
+  region: ENV.AWS_REGION || 'eu-west-3',
+  cloudFrontUrl: ENV.CLOUDFRONT_URL || '',
+};
+
+// Supported MIME types
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/x-m4v'];
+
+// Max file sizes (in bytes)
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Generate a unique file key for S3
+ */
+const generateFileKey = (
+  folder: string,
+  userId: string,
+  fileName: string,
+  extension: string
+): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${folder}/${userId}/${timestamp}-${random}.${extension}`;
+};
+
+/**
+ * Get file extension from URI or MIME type
+ */
+const getFileExtension = (uri: string, mimeType?: string): string => {
+  // Try to get from MIME type first
+  if (mimeType) {
+    const mimeExtensions: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/gif': 'gif',
+      'video/mp4': 'mp4',
+      'video/quicktime': 'mov',
+      'video/x-m4v': 'm4v',
+    };
+    if (mimeExtensions[mimeType]) {
+      return mimeExtensions[mimeType];
+    }
+  }
+
+  // Fall back to URI extension
+  const match = uri.match(/\.([^.]+)$/);
+  return match ? match[1].toLowerCase() : 'jpg';
+};
+
+/**
+ * Get MIME type from extension
+ */
+const getMimeType = (extension: string): string => {
+  const mimeTypes: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    m4v: 'video/x-m4v',
+  };
+  return mimeTypes[extension] || 'application/octet-stream';
+};
+
+/**
+ * Get file info
+ */
+const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean }> => {
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    return {
+      size: (info as { size?: number }).size || 0,
+      exists: info.exists,
+    };
+  } catch {
+    return { size: 0, exists: false };
+  }
+};
+
+/**
+ * Read file as base64
+ */
+const readFileAsBase64 = async (uri: string): Promise<string> => {
+  return await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+};
+
+/**
+ * Validate file before upload
+ */
+const validateFile = async (
+  uri: string,
+  type: 'image' | 'video',
+  mimeType?: string
+): Promise<{ valid: boolean; error?: string }> => {
+  const fileInfo = await getFileInfo(uri);
+
+  if (!fileInfo.exists) {
+    return { valid: false, error: 'File not found' };
+  }
+
+  const maxSize = type === 'image' ? MAX_IMAGE_SIZE : MAX_VIDEO_SIZE;
+  if (fileInfo.size > maxSize) {
+    const maxSizeMB = maxSize / (1024 * 1024);
+    return { valid: false, error: `File too large. Max size: ${maxSizeMB}MB` };
+  }
+
+  if (mimeType) {
+    const supportedTypes = type === 'image' ? SUPPORTED_IMAGE_TYPES : SUPPORTED_VIDEO_TYPES;
+    if (!supportedTypes.includes(mimeType)) {
+      return { valid: false, error: `Unsupported file type: ${mimeType}` };
+    }
+  }
+
+  return { valid: true };
+};
+
+// ============================================
+// PRESIGNED URL FUNCTIONS
+// ============================================
+
+/**
+ * Get presigned URL from Supabase Edge Function
+ */
+export const getPresignedUrl = async (
+  fileName: string,
+  folder: string,
+  contentType: string
+): Promise<PresignedUrlResponse | null> => {
+  try {
+    const supabaseUrl = ENV.SUPABASE_URL;
+    const supabaseKey = ENV.SUPABASE_ANON_KEY;
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/media-presigned-url`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          fileName,
+          folder,
+          contentType,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to get presigned URL');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting presigned URL:', error);
+    captureException(error as Error, { context: 'getPresignedUrl' });
+    return null;
+  }
+};
+
+/**
+ * Alternative: Generate presigned URL client-side
+ * Note: This requires AWS credentials in the app (less secure)
+ * Prefer server-side generation when possible
+ */
+export const generatePresignedUrlClientSide = (
+  key: string,
+  contentType: string,
+  expiresIn: number = 3600
+): string => {
+  // This is a simplified version - in production, use AWS SDK or server-side
+  const bucket = S3_CONFIG.bucket;
+  const region = S3_CONFIG.region;
+
+  // Direct S3 URL (not presigned - for reference only)
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+};
+
+// ============================================
+// CLOUDFRONT URL FUNCTIONS
+// ============================================
+
+/**
+ * Convert S3 key to CloudFront URL
+ */
+export const getCloudFrontUrl = (key: string): string => {
+  if (!S3_CONFIG.cloudFrontUrl) {
+    // Fall back to S3 URL if CloudFront not configured
+    return `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${key}`;
+  }
+  return `${S3_CONFIG.cloudFrontUrl}/${key}`;
+};
+
+/**
+ * Convert S3 URL to CloudFront URL
+ */
+export const s3ToCloudFront = (s3Url: string): string => {
+  if (!S3_CONFIG.cloudFrontUrl) return s3Url;
+
+  // Extract key from S3 URL
+  const keyMatch = s3Url.match(/amazonaws\.com\/(.+)$/);
+  if (keyMatch) {
+    return `${S3_CONFIG.cloudFrontUrl}/${keyMatch[1]}`;
+  }
+  return s3Url;
+};
+
+/**
+ * Get optimized CloudFront URL with image transformations
+ * Note: Requires CloudFront with Lambda@Edge or CloudFront Functions
+ */
+export const getOptimizedImageUrl = (
+  key: string,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+    format?: 'webp' | 'jpeg' | 'png';
+  } = {}
+): string => {
+  const baseUrl = getCloudFrontUrl(key);
+
+  // If you have image optimization set up, add query params
+  const params = new URLSearchParams();
+  if (options.width) params.append('w', options.width.toString());
+  if (options.height) params.append('h', options.height.toString());
+  if (options.quality) params.append('q', options.quality.toString());
+  if (options.format) params.append('f', options.format);
+
+  const queryString = params.toString();
+  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+};
+
+// ============================================
+// UPLOAD FUNCTIONS
+// ============================================
+
+/**
+ * Upload file to S3 using presigned URL
+ */
+export const uploadToS3 = async (
+  fileUri: string,
+  presignedUrl: string,
+  contentType: string,
+  onProgress?: (progress: number) => void
+): Promise<boolean> => {
+  try {
+    // Read file
+    const fileBase64 = await readFileAsBase64(fileUri);
+    const fileBlob = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
+
+    // Upload using fetch with PUT
+    const response = await fetch(presignedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: fileBlob,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
+    }
+
+    onProgress?.(100);
+    return true;
+  } catch (error) {
+    console.error('S3 upload error:', error);
+    captureException(error as Error, { context: 'uploadToS3' });
+    return false;
+  }
+};
+
+/**
+ * Upload using Expo FileSystem (better for large files)
+ */
+export const uploadWithFileSystem = async (
+  fileUri: string,
+  presignedUrl: string,
+  contentType: string,
+  onProgress?: (progress: number) => void
+): Promise<boolean> => {
+  try {
+    const uploadResult = await FileSystem.uploadAsync(presignedUrl, fileUri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
+
+    if (uploadResult.status !== 200) {
+      throw new Error(`Upload failed: ${uploadResult.status}`);
+    }
+
+    onProgress?.(100);
+    return true;
+  } catch (error) {
+    console.error('FileSystem upload error:', error);
+    captureException(error as Error, { context: 'uploadWithFileSystem' });
+    return false;
+  }
+};
+
+// ============================================
+// MAIN UPLOAD FUNCTIONS
+// ============================================
+
+/**
+ * Upload a single image
+ */
+export const uploadImage = async (
+  userId: string,
+  imageUri: string,
+  options: UploadOptions = {}
+): Promise<UploadResult> => {
+  const {
+    folder = 'posts',
+    compress = true,
+    compressionOptions,
+    onProgress,
+  } = options;
+
+  try {
+    // Validate
+    const validation = await validateFile(imageUri, 'image');
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    // Compress if needed
+    let finalUri = imageUri;
+    let mimeType = 'image/jpeg';
+    let fileSize = 0;
+
+    if (compress) {
+      let compressed: CompressedImage;
+
+      switch (folder) {
+        case 'avatars':
+          compressed = await compressAvatar(imageUri);
+          break;
+        case 'covers':
+          compressed = await compressCover(imageUri);
+          break;
+        case 'thumbnails':
+          compressed = await compressThumbnail(imageUri);
+          break;
+        default:
+          compressed = compressionOptions
+            ? await compressImage(imageUri, compressionOptions)
+            : await compressPost(imageUri);
+      }
+
+      finalUri = compressed.uri;
+      mimeType = compressed.mimeType;
+      fileSize = compressed.fileSize;
+      onProgress?.(30); // Compression done
+    }
+
+    // Generate file key
+    const extension = getFileExtension(finalUri, mimeType);
+    const key = generateFileKey(folder, userId, 'image', extension);
+
+    // Get presigned URL
+    onProgress?.(40);
+    const presignedData = await getPresignedUrl(key, folder, mimeType);
+
+    if (!presignedData) {
+      return { success: false, error: 'Failed to get upload URL' };
+    }
+
+    // Upload
+    onProgress?.(50);
+    const uploadSuccess = await uploadWithFileSystem(
+      finalUri,
+      presignedData.uploadUrl,
+      mimeType,
+      (p) => onProgress?.(50 + (p * 0.5)) // 50-100%
+    );
+
+    if (!uploadSuccess) {
+      return { success: false, error: 'Upload failed' };
+    }
+
+    return {
+      success: true,
+      key: presignedData.key,
+      url: `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${presignedData.key}`,
+      cdnUrl: presignedData.cdnUrl || getCloudFrontUrl(presignedData.key),
+      fileSize,
+    };
+  } catch (error) {
+    console.error('Image upload error:', error);
+    captureException(error as Error, { context: 'uploadImage', folder });
+    return { success: false, error: 'Upload failed' };
+  }
+};
+
+/**
+ * Upload a video
+ */
+export const uploadVideo = async (
+  userId: string,
+  videoUri: string,
+  options: UploadOptions = {}
+): Promise<UploadResult> => {
+  const { folder = 'posts', onProgress } = options;
+
+  try {
+    // Validate
+    const validation = await validateFile(videoUri, 'video');
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    const extension = getFileExtension(videoUri);
+    const mimeType = getMimeType(extension);
+    const key = generateFileKey(folder, userId, 'video', extension);
+
+    // Get presigned URL
+    onProgress?.(20);
+    const presignedData = await getPresignedUrl(key, folder, mimeType);
+
+    if (!presignedData) {
+      return { success: false, error: 'Failed to get upload URL' };
+    }
+
+    // Upload
+    onProgress?.(30);
+    const uploadSuccess = await uploadWithFileSystem(
+      videoUri,
+      presignedData.uploadUrl,
+      mimeType,
+      (p) => onProgress?.(30 + (p * 0.7)) // 30-100%
+    );
+
+    if (!uploadSuccess) {
+      return { success: false, error: 'Upload failed' };
+    }
+
+    const fileInfo = await getFileInfo(videoUri);
+
+    return {
+      success: true,
+      key: presignedData.key,
+      url: `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${presignedData.key}`,
+      cdnUrl: presignedData.cdnUrl || getCloudFrontUrl(presignedData.key),
+      fileSize: fileInfo.size,
+    };
+  } catch (error) {
+    console.error('Video upload error:', error);
+    captureException(error as Error, { context: 'uploadVideo', folder });
+    return { success: false, error: 'Upload failed' };
+  }
+};
+
+/**
+ * Upload multiple files
+ */
+export const uploadMultiple = async (
+  userId: string,
+  files: MediaFile[],
+  options: UploadOptions = {}
+): Promise<UploadResult[]> => {
+  const results: UploadResult[] = [];
+  const totalFiles = files.length;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const fileProgress = (progress: number) => {
+      const overallProgress = ((i / totalFiles) + (progress / 100 / totalFiles)) * 100;
+      options.onProgress?.(overallProgress);
+    };
+
+    const result = file.type === 'video'
+      ? await uploadVideo(userId, file.uri, { ...options, onProgress: fileProgress })
+      : await uploadImage(userId, file.uri, { ...options, onProgress: fileProgress });
+
+    results.push(result);
+  }
+
+  return results;
+};
+
+/**
+ * Upload avatar with automatic compression
+ */
+export const uploadAvatar = (userId: string, imageUri: string): Promise<UploadResult> => {
+  return uploadImage(userId, imageUri, { folder: 'avatars', compress: true });
+};
+
+/**
+ * Upload cover image with automatic compression
+ */
+export const uploadCoverImage = (userId: string, imageUri: string): Promise<UploadResult> => {
+  return uploadImage(userId, imageUri, { folder: 'covers', compress: true });
+};
+
+/**
+ * Upload post media
+ */
+export const uploadPostMedia = (
+  userId: string,
+  mediaUri: string,
+  type: 'image' | 'video',
+  onProgress?: (progress: number) => void
+): Promise<UploadResult> => {
+  return type === 'video'
+    ? uploadVideo(userId, mediaUri, { folder: 'posts', onProgress })
+    : uploadImage(userId, mediaUri, { folder: 'posts', compress: true, onProgress });
+};
+
+// ============================================
+// DELETE FUNCTIONS
+// ============================================
+
+/**
+ * Delete file from S3
+ * Note: This should be done server-side for security
+ */
+export const deleteFromS3 = async (key: string): Promise<boolean> => {
+  try {
+    const response = await fetch(`${ENV.API_URL}/media/delete`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ key }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Delete error:', error);
+    captureException(error as Error, { context: 'deleteFromS3', key });
+    return false;
+  }
+};
+
+export default {
+  uploadImage,
+  uploadVideo,
+  uploadMultiple,
+  uploadAvatar,
+  uploadCoverImage,
+  uploadPostMedia,
+  deleteFromS3,
+  getCloudFrontUrl,
+  s3ToCloudFront,
+  getOptimizedImageUrl,
+  getPresignedUrl,
+};

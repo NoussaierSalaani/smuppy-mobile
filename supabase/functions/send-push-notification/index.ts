@@ -33,6 +33,13 @@ interface RequestBody {
   channelId?: string;
 }
 
+// ========================================
+// SECURITY: Rate Limiting Configuration
+// ========================================
+const RATE_LIMIT_MAX_REQUESTS = 50; // Max 50 requests
+const RATE_LIMIT_WINDOW_MINUTES = 1;  // Per minute
+const ENDPOINT_NAME = 'send-push-notification';
+
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
   'https://smuppy.com',
@@ -51,6 +58,42 @@ const getCorsHeaders = (origin: string | null) => {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Credentials': 'true',
   };
+};
+
+interface RateLimitResult {
+  allowed: boolean;
+  current_count: number;
+  max_requests: number;
+  remaining?: number;
+  retry_after?: number;
+  message?: string;
+}
+
+/**
+ * Check rate limit using Supabase function
+ */
+const checkRateLimit = async (
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<RateLimitResult> => {
+  try {
+    const { data, error } = await supabase.rpc('check_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: ENDPOINT_NAME,
+      p_max_requests: RATE_LIMIT_MAX_REQUESTS,
+      p_window_minutes: RATE_LIMIT_WINDOW_MINUTES,
+    });
+
+    if (error) {
+      console.error('Rate limit check error:', error);
+      return { allowed: true, current_count: 0, max_requests: RATE_LIMIT_MAX_REQUESTS };
+    }
+
+    return data as RateLimitResult;
+  } catch (e) {
+    console.error('Rate limit exception:', e);
+    return { allowed: true, current_count: 0, max_requests: RATE_LIMIT_MAX_REQUESTS };
+  }
 };
 
 serve(async (req) => {
@@ -95,6 +138,32 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+    // ========================================
+
+    // ========================================
+    // SECURITY: Check rate limit
+    // ========================================
+    const rateLimitResult = await checkRateLimit(supabase, user.id);
+
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          retry_after: rateLimitResult.retry_after,
+          message: `Too many requests. Max ${RATE_LIMIT_MAX_REQUESTS} per minute.`,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimitResult.retry_after || 60),
+            'X-RateLimit-Limit': String(RATE_LIMIT_MAX_REQUESTS),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
     }
     // ========================================
 

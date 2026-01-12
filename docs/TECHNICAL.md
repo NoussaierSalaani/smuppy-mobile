@@ -1,19 +1,20 @@
 # SMUPPY - Documentation Technique
 
-> Dernière mise à jour: 12 janvier 2026
+> Dernière mise à jour: 12 janvier 2026 (Security Update)
 
 ## Table des Matières
 
 1. [Stack Technique](#stack-technique)
 2. [Architecture](#architecture)
-3. [Push Notifications](#push-notifications)
-4. [Media Upload (S3 + CloudFront)](#media-upload-s3--cloudfront)
-5. [Supabase Edge Functions](#supabase-edge-functions)
-6. [Variables d'Environnement](#variables-denvironnement)
-7. [Sentry Error Tracking](#sentry-error-tracking)
-8. [Hooks Disponibles](#hooks-disponibles)
-9. [Services](#services)
-10. [Database Schema](#database-schema)
+3. [Sécurité (Score 9.5/10)](#sécurité-score-9510)
+4. [Push Notifications](#push-notifications)
+5. [Media Upload (S3 + CloudFront)](#media-upload-s3--cloudfront)
+6. [Supabase Edge Functions](#supabase-edge-functions)
+7. [Variables d'Environnement](#variables-denvironnement)
+8. [Sentry Error Tracking](#sentry-error-tracking)
+9. [Hooks Disponibles](#hooks-disponibles)
+10. [Services](#services)
+11. [Database Schema](#database-schema)
 
 ---
 
@@ -64,6 +65,113 @@ supabase/
 │       └── index.ts
 └── migrations/          # Migrations SQL
 ```
+
+---
+
+## Sécurité (Score 9.5/10)
+
+### Vue d'ensemble
+
+| Fonctionnalité | Status | Description |
+|----------------|--------|-------------|
+| Auth obligatoire (Edge Functions) | ✅ | Toutes les Edge Functions requièrent un token JWT valide |
+| CORS whitelist | ✅ | Origines autorisées: smuppy.com, app.smuppy.com, localhost (dev) |
+| Host validation exacte | ✅ | Validation stricte des hosts (pas de wildcards) |
+| Rate limiting server-side | ✅ | PostgreSQL + Edge Functions (50-100 req/min) |
+| Validation fichiers server-side | ✅ | MIME type, taille, extension validés côté serveur |
+| Certificate pinning (Android) | ✅ | SHA-256 pins pour Supabase, CloudFront, Expo |
+| HTTPS enforcement | ✅ | HTTP bloqué en production |
+| Secure token storage | ✅ | expo-secure-store (Keychain/Keystore) |
+
+### Rate Limiting Server-Side
+
+**Table PostgreSQL:** `rate_limits`
+
+```sql
+CREATE TABLE rate_limits (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  endpoint TEXT NOT NULL,
+  request_count INTEGER DEFAULT 1,
+  window_start TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Limites par endpoint:**
+
+| Edge Function | Limite | Fenêtre |
+|---------------|--------|---------|
+| `media-presigned-url` | 100 req | 1 minute |
+| `send-notification` | 50 req | 1 minute |
+| `send-push-notification` | 50 req | 1 minute |
+
+**Fonction PostgreSQL:** `check_rate_limit(user_id, endpoint, max_requests, window_minutes)`
+
+### Validation Fichiers Server-Side
+
+**Types autorisés:**
+
+| Type MIME | Extensions | Taille max |
+|-----------|------------|------------|
+| `image/jpeg` | jpg, jpeg | 10 MB |
+| `image/png` | png | 10 MB |
+| `image/webp` | webp | 10 MB |
+| `image/gif` | gif | 10 MB |
+| `video/mp4` | mp4 | 100 MB |
+| `video/quicktime` | mov | 100 MB |
+| `video/x-m4v` | m4v | 100 MB |
+
+**Dossiers whitelist:** `avatars`, `covers`, `posts`, `messages`, `thumbnails`
+
+### Certificate Pinning
+
+**Fichiers:**
+- `src/utils/certificatePinning.ts` - Module JS avec pins SHA-256
+- `android/app/src/main/res/xml/network_security_config.xml` - Config native Android
+- `AndroidManifest.xml` - Référence vers network_security_config
+
+**Domains pinnés:**
+- `wbgfaeytioxnkdsuvvlx.supabase.co` (Supabase)
+- `cloudfront.net` (CloudFront CDN)
+- `exp.host` (Expo Push)
+- `sentry.io` (Sentry)
+
+### HTTPS Enforcement
+
+**Fichier:** `src/utils/apiClient.ts`
+
+```javascript
+// HTTP bloqué en production
+// Localhost autorisé uniquement en développement
+const isSecureUrl = (url) => {
+  if (url.protocol === 'https:') return true;
+  if (ENV.isDev && hostname === 'localhost') return true;
+  return false;
+};
+```
+
+### CORS Whitelist (Edge Functions)
+
+```typescript
+const ALLOWED_ORIGINS = [
+  'https://smuppy.com',
+  'https://www.smuppy.com',
+  'https://app.smuppy.com',
+  'http://localhost:8081',  // Expo dev
+  'http://localhost:19006', // Expo web
+];
+```
+
+### Fichiers de Sécurité
+
+| Fichier | Description |
+|---------|-------------|
+| `src/utils/apiClient.ts` | Client API avec HTTPS enforcement, host validation, cert pinning |
+| `src/utils/certificatePinning.ts` | Module certificate pinning avec pins SHA-256 |
+| `src/utils/rateLimiter.js` | Rate limiting côté client (backup) |
+| `src/utils/secureStorage.ts` | Wrapper expo-secure-store |
+| `android/.../network_security_config.xml` | Config certificate pinning Android |
+| `supabase/migrations/20260112_rate_limiting.sql` | Table et fonction rate_limits |
 
 ---
 

@@ -1,6 +1,8 @@
 /**
  * API Client with Security Features
  * - SSL Certificate Validation
+ * - Certificate Pinning
+ * - HTTPS Enforcement
  * - Retry Logic with Exponential Backoff
  * - Request Timeout
  * - Token Injection
@@ -11,6 +13,7 @@ import { storage, STORAGE_KEYS } from './secureStorage';
 import { ENV } from '../config/env';
 import { captureException, addBreadcrumb } from '../lib/sentry';
 import NetInfo from '@react-native-community/netinfo';
+import { isHostPinned, getPinnedHosts } from './certificatePinning';
 
 // Configuration
 const API_TIMEOUT = 15000; // 15 seconds
@@ -44,6 +47,40 @@ const isAllowedHost = (url: string): boolean => {
     return ALLOWED_HOSTS.includes(urlObj.host);
   } catch {
     return false;
+  }
+};
+
+/**
+ * SECURITY: Enforce HTTPS in production
+ * Returns true if URL uses HTTPS or is allowed HTTP in development
+ */
+const isSecureUrl = (url: string): boolean => {
+  try {
+    const urlObj = new URL(url);
+
+    // HTTPS is always allowed
+    if (urlObj.protocol === 'https:') {
+      return true;
+    }
+
+    // HTTP only allowed in development for localhost
+    if (ENV.isDev && (urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1' || urlObj.hostname === '10.0.2.2')) {
+      return true;
+    }
+
+    // Block HTTP in production
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Log pinning status for security monitoring
+ */
+const logPinningStatus = (host: string): void => {
+  if (isHostPinned(host)) {
+    addBreadcrumb(`Request to pinned host: ${host}`, 'security');
   }
 };
 
@@ -124,10 +161,25 @@ const request = async <T = unknown>(endpoint: string, options: RequestOptions = 
   // Build URL
   const url = endpoint.startsWith('http') ? endpoint : `${ENV.API_URL}${endpoint}`;
 
+  // SECURITY: Enforce HTTPS in production
+  if (!isSecureUrl(url)) {
+    console.warn('HTTPS required. HTTP request blocked:', url);
+    captureException(new Error('HTTP request blocked'), { url, reason: 'https_required' });
+    return { success: false, error: 'HTTPS required', blocked: true };
+  }
+
   // Validate host for security
   if (url.startsWith('http') && !isAllowedHost(url) && !endpoint.startsWith(ENV.API_URL || '')) {
     console.warn('Request to untrusted host blocked:', url);
     return { success: false, error: 'Untrusted host', blocked: true };
+  }
+
+  // Log certificate pinning status
+  try {
+    const urlObj = new URL(url);
+    logPinningStatus(urlObj.host);
+  } catch {
+    // Ignore URL parsing errors
   }
 
   // Check network before request

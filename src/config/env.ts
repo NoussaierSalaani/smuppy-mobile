@@ -15,9 +15,14 @@ export const ENV = {
   GOOGLE_API_KEY: extra.googleApiKey || '',
 
   // Backend API
+  // Note: Use HTTPS even in development for security testing
+  // For local dev with self-signed certs, use ngrok or similar tunnels
   API_URL: __DEV__
-    ? (extra.apiUrlDev || 'http://localhost:3000/api')
+    ? (extra.apiUrlDev || 'https://localhost:3000/api')
     : (extra.apiUrlProd || 'https://api.smuppy.com/api'),
+
+  // HTTPS enforcement
+  ENFORCE_HTTPS: !__DEV__, // Always enforce in production
 
   // AWS S3 & CloudFront
   AWS_REGION: extra.awsRegion || 'eu-west-3',

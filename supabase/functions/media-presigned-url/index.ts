@@ -3,8 +3,15 @@
  *
  * Generates presigned URLs for secure direct uploads to S3
  *
+ * SECURITY FEATURES:
+ * - Mandatory authentication
+ * - Server-side rate limiting (100 req/min)
+ * - File size limits (10MB images, 100MB videos)
+ * - MIME type validation
+ * - CORS whitelist
+ *
  * POST /functions/v1/media-presigned-url
- * Body: { fileName: string, folder: string, contentType: string }
+ * Body: { fileName: string, folder: string, contentType: string, fileSize?: number }
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -18,6 +25,19 @@ const S3_BUCKET = Deno.env.get('S3_BUCKET_NAME') || 'smuppy-media';
 const CLOUDFRONT_URL = Deno.env.get('CLOUDFRONT_URL') || '';
 const AWS_ACCESS_KEY_ID = Deno.env.get('AWS_ACCESS_KEY_ID') || '';
 const AWS_SECRET_ACCESS_KEY = Deno.env.get('AWS_SECRET_ACCESS_KEY') || '';
+
+// ========================================
+// SECURITY: Rate Limiting Configuration
+// ========================================
+const RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 requests
+const RATE_LIMIT_WINDOW_MINUTES = 1;  // Per minute
+const ENDPOINT_NAME = 'media-presigned-url';
+
+// ========================================
+// SECURITY: File Size Limits (in bytes)
+// ========================================
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;  // 10 MB
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB
 
 // Initialize S3 client
 const s3Client = new S3Client({
@@ -48,20 +68,103 @@ const getCorsHeaders = (origin: string | null) => {
   };
 };
 
+// ========================================
+// SECURITY: Allowed MIME Types with file signatures
+// ========================================
+const ALLOWED_TYPES: Record<string, { maxSize: number; extensions: string[] }> = {
+  'image/jpeg': { maxSize: MAX_IMAGE_SIZE, extensions: ['jpg', 'jpeg'] },
+  'image/png': { maxSize: MAX_IMAGE_SIZE, extensions: ['png'] },
+  'image/webp': { maxSize: MAX_IMAGE_SIZE, extensions: ['webp'] },
+  'image/gif': { maxSize: MAX_IMAGE_SIZE, extensions: ['gif'] },
+  'video/mp4': { maxSize: MAX_VIDEO_SIZE, extensions: ['mp4'] },
+  'video/quicktime': { maxSize: MAX_VIDEO_SIZE, extensions: ['mov'] },
+  'video/x-m4v': { maxSize: MAX_VIDEO_SIZE, extensions: ['m4v'] },
+};
+
 interface RequestBody {
   fileName: string;
   folder: string;
   contentType: string;
+  fileSize?: number;
 }
+
+interface RateLimitResult {
+  allowed: boolean;
+  current_count: number;
+  max_requests: number;
+  remaining?: number;
+  retry_after?: number;
+  message?: string;
+}
+
+/**
+ * Check rate limit using Supabase function
+ */
+const checkRateLimit = async (
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<RateLimitResult> => {
+  try {
+    const { data, error } = await supabase.rpc('check_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: ENDPOINT_NAME,
+      p_max_requests: RATE_LIMIT_MAX_REQUESTS,
+      p_window_minutes: RATE_LIMIT_WINDOW_MINUTES,
+    });
+
+    if (error) {
+      console.error('Rate limit check error:', error);
+      // Fail open - allow request if rate limit check fails
+      return { allowed: true, current_count: 0, max_requests: RATE_LIMIT_MAX_REQUESTS };
+    }
+
+    return data as RateLimitResult;
+  } catch (e) {
+    console.error('Rate limit exception:', e);
+    // Fail open
+    return { allowed: true, current_count: 0, max_requests: RATE_LIMIT_MAX_REQUESTS };
+  }
+};
+
+/**
+ * Validate file extension matches content type
+ */
+const validateFileExtension = (fileName: string, contentType: string): boolean => {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  if (!extension) return false;
+
+  const typeConfig = ALLOWED_TYPES[contentType];
+  if (!typeConfig) return false;
+
+  return typeConfig.extensions.includes(extension);
+};
+
+/**
+ * Validate file size against content type limits
+ */
+const validateFileSize = (fileSize: number | undefined, contentType: string): { valid: boolean; maxSize: number } => {
+  const typeConfig = ALLOWED_TYPES[contentType];
+  if (!typeConfig) {
+    return { valid: false, maxSize: 0 };
+  }
+
+  if (fileSize && fileSize > typeConfig.maxSize) {
+    return { valid: false, maxSize: typeConfig.maxSize };
+  }
+
+  return { valid: true, maxSize: typeConfig.maxSize };
+};
 
 /**
  * Generate unique file key
  */
-const generateKey = (folder: string, fileName: string): string => {
+const generateKey = (folder: string, fileName: string, userId: string): string => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  const extension = fileName.split('.').pop() || 'jpg';
-  return `${folder}/${timestamp}-${random}.${extension}`;
+  const extension = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+  // Include user ID hash in path for better organization and security
+  const userHash = userId.substring(0, 8);
+  return `${folder}/${userHash}/${timestamp}-${random}.${extension}`;
 };
 
 /**
@@ -125,11 +228,35 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
     // ========================================
+    // SECURITY: Check rate limit
+    // ========================================
+    const rateLimitResult = await checkRateLimit(supabase, user.id);
+
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          retry_after: rateLimitResult.retry_after,
+          message: `Too many requests. Max ${RATE_LIMIT_MAX_REQUESTS} per minute.`,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimitResult.retry_after || 60),
+            'X-RateLimit-Limit': String(RATE_LIMIT_MAX_REQUESTS),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
 
     // Parse request body
     const body: RequestBody = await req.json();
-    const { fileName, folder, contentType } = body;
+    const { fileName, folder, contentType, fileSize } = body;
 
     // Validate required fields
     if (!fileName || !folder || !contentType) {
@@ -148,43 +275,82 @@ serve(async (req) => {
       );
     }
 
-    // Validate content type
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
-      'video/mp4', 'video/quicktime', 'video/x-m4v'
-    ];
-    if (!allowedTypes.includes(contentType)) {
+    // ========================================
+    // SECURITY: Validate content type
+    // ========================================
+    if (!ALLOWED_TYPES[contentType]) {
       return new Response(
-        JSON.stringify({ error: `Invalid content type. Allowed: ${allowedTypes.join(', ')}` }),
+        JSON.stringify({ error: `Invalid content type. Allowed: ${Object.keys(ALLOWED_TYPES).join(', ')}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Generate unique key
-    const key = generateKey(folder, fileName);
+    // ========================================
+    // SECURITY: Validate file extension matches content type
+    // ========================================
+    if (!validateFileExtension(fileName, contentType)) {
+      return new Response(
+        JSON.stringify({
+          error: 'File extension does not match content type',
+          expected_extensions: ALLOWED_TYPES[contentType].extensions,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Create presigned URL
+    // ========================================
+    // SECURITY: Validate file size
+    // ========================================
+    const sizeValidation = validateFileSize(fileSize, contentType);
+    if (!sizeValidation.valid) {
+      const maxSizeMB = sizeValidation.maxSize / (1024 * 1024);
+      return new Response(
+        JSON.stringify({
+          error: `File too large. Maximum size: ${maxSizeMB}MB`,
+          max_size_bytes: sizeValidation.maxSize,
+        }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Generate unique key with user ID for organization
+    const key = generateKey(folder, fileName, user.id);
+
+    // Create presigned URL with content length restriction
     const command = new PutObjectCommand({
       Bucket: S3_BUCKET,
       Key: key,
       ContentType: contentType,
+      // Add content length condition if fileSize provided
+      ...(fileSize && { ContentLength: fileSize }),
+      // Add metadata
+      Metadata: {
+        'uploaded-by': user.id,
+        'original-filename': fileName,
+      },
     });
 
     const uploadUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600, // 1 hour
     });
 
-    // Return response
+    // Return response with rate limit headers
     return new Response(
       JSON.stringify({
         uploadUrl,
         key,
         cdnUrl: getCloudFrontUrl(key),
         expiresIn: 3600,
+        maxFileSize: sizeValidation.maxSize,
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': String(RATE_LIMIT_MAX_REQUESTS),
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining || 0),
+        },
       }
     );
 

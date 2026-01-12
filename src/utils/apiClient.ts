@@ -18,19 +18,30 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 second
 
 // Allowed hosts for SSL (prevent MITM)
+// SECURITY: Use exact matching to prevent subdomain bypass attacks
 const ALLOWED_HOSTS: string[] = [
   ENV.SUPABASE_URL?.replace('https://', '').split('/')[0],
   'api.smuppy.app',
+  'api.smuppy.com',
   'smuppy.app',
+  'smuppy.com',
+  'www.smuppy.com',
+  'app.smuppy.com',
+  'wbgfaeytioxnkdsuvvlx.supabase.co', // Supabase project
+  'exp.host', // Expo push notifications
+  'cloudflare-dns.com', // DNS validation
 ].filter((host): host is string => Boolean(host));
 
 /**
- * Check if host is allowed (basic SSL pinning)
+ * Check if host is allowed (strict exact matching)
+ * SECURITY: Uses exact match instead of endsWith() to prevent subdomain bypass
+ * e.g., evil-api.smuppy.app would be blocked
  */
 const isAllowedHost = (url: string): boolean => {
   try {
     const urlObj = new URL(url);
-    return ALLOWED_HOSTS.some((host) => urlObj.host.endsWith(host));
+    // SECURITY: Exact match only - no subdomain wildcards
+    return ALLOWED_HOSTS.includes(urlObj.host);
   } catch {
     return false;
   }

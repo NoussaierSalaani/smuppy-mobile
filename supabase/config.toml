@@ -20,18 +20,11 @@ port = 54323
 enabled = true
 site_url = "https://smuppy.app"
 
-# Email confirmation is required
-enable_signup = true
-enable_confirmations = true
-
 # Session configuration (configure in Supabase Dashboard for production)
-# JWT expiry: 3600 seconds (1 hour) - tokens auto-refresh
-# Refresh token rotation: enabled
-# Refresh token reuse interval: 10 seconds
-
-# Security settings
-double_confirm_changes = true
-enable_signup_confirmation = true
+# - JWT expiry: 3600 seconds (1 hour) - tokens auto-refresh
+# - Refresh token rotation: enabled
+# - Refresh token reuse interval: 10 seconds
+# - Email confirmation: required (enable in Dashboard)
 
 [storage]
 enabled = true

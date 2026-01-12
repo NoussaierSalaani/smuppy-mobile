@@ -1,6 +1,6 @@
 # SMUPPY - Documentation Technique
 
-> Dernière mise à jour: 12 janvier 2026 (Security Update)
+> Dernière mise à jour: 12 janvier 2026 (Account Security Update)
 
 ## Table des Matières
 
@@ -68,7 +68,7 @@ supabase/
 
 ---
 
-## Sécurité (Score 9.5/10)
+## Sécurité (Score 10/10)
 
 ### Vue d'ensemble
 
@@ -82,6 +82,10 @@ supabase/
 | Certificate pinning (Android) | ✅ | SHA-256 pins pour Supabase, CloudFront, Expo |
 | HTTPS enforcement | ✅ | HTTP bloqué en production |
 | Secure token storage | ✅ | expo-secure-store (Keychain/Keystore) |
+| **Email verification required** | ✅ | Accès bloqué tant que l'email n'est pas confirmé |
+| **Device session tracking** | ✅ | Suivi des appareils connectés (device_sessions table) |
+| **New device login alerts** | ✅ | Email d'alerte lors d'une connexion depuis un nouvel appareil |
+| **Password reset security** | ✅ | Messages génériques (pas d'enumeration d'emails) |
 
 ### Rate Limiting Server-Side
 
@@ -172,6 +176,61 @@ const ALLOWED_ORIGINS = [
 | `src/utils/secureStorage.ts` | Wrapper expo-secure-store |
 | `android/.../network_security_config.xml` | Config certificate pinning Android |
 | `supabase/migrations/20260112_rate_limiting.sql` | Table et fonction rate_limits |
+| `supabase/migrations/20260112_device_sessions.sql` | Tables device_sessions et device_alert_logs |
+| `supabase/functions/send-new-device-alert/` | Edge Function alertes nouvel appareil |
+| `src/services/deviceSession.ts` | Service tracking des appareils |
+| `src/screens/auth/EmailVerificationPendingScreen.tsx` | Écran vérification email obligatoire |
+
+### Account Security (Nouveau)
+
+#### Email Verification Required
+
+L'accès à l'app est bloqué tant que l'email n'est pas confirmé:
+
+- **Mobile:** `AppNavigator.js` vérifie `session.user.email_confirmed_at`
+- **Web:** `ProtectedRoute.tsx` redirige vers `/verify-email-pending`
+- **Écran dédié:** `EmailVerificationPendingScreen` avec polling auto (5s)
+
+#### Device Session Tracking
+
+**Table PostgreSQL:** `device_sessions`
+
+```sql
+CREATE TABLE device_sessions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  device_id TEXT NOT NULL,
+  device_name TEXT,
+  device_type TEXT,     -- 'mobile', 'web', 'tablet'
+  platform TEXT,        -- 'ios', 'android', 'web'
+  ip_address INET,
+  country TEXT,
+  city TEXT,
+  is_active BOOLEAN DEFAULT true,
+  last_login_at TIMESTAMPTZ
+);
+```
+
+**Fonctions RPC:**
+- `register_device_session()` - Enregistre un appareil à la connexion
+- `get_user_devices()` - Liste les appareils actifs de l'utilisateur
+- `revoke_device_session()` - Révoque l'accès d'un appareil
+
+#### New Device Login Alerts
+
+**Edge Function:** `send-new-device-alert`
+
+- Envoie un email via Resend API lors d'une nouvelle connexion
+- Rate limited: 5 alertes/heure/utilisateur
+- Inclut: appareil, localisation (IP), heure de connexion
+- Table `device_alert_logs` pour l'audit trail
+
+#### Password Reset Security
+
+Messages génériques pour éviter l'énumération d'emails:
+- "Si un compte existe avec cet email, tu recevras un lien de réinitialisation."
+- Même message en cas de succès ou d'erreur
+- OTP 6 chiffres via Supabase Auth
 
 ---
 

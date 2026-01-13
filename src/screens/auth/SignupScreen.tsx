@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING } from '../../config/theme';
-import { supabase } from '../../config/supabase';
+import { ENV } from '../../config/env';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
@@ -96,35 +96,29 @@ export default function SignupScreen({ navigation }) {
       }
 
       // Step 2: Create account with Supabase
-      const { data, error } = await supabase.auth.signUp({
-        email: emailValidation.email,
-        password
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          email: emailValidation.email,
+          password,
+        }),
       });
 
-      if (error) {
-        let errorMessage = error.message;
-        let errorTitle = 'Signup Failed';
-        if (error.message.includes('already registered')) {
-          errorTitle = 'Email Already Used';
-          errorMessage = 'This email is already registered. Please try logging in or use a different email.';
-        } else if (error.message.includes('invalid email')) {
-          errorTitle = 'Invalid Email';
-          errorMessage = 'Please enter a valid email address.';
-        } else if (error.message.includes('rate limit') || error.message.includes('too many')) {
-          errorTitle = 'Too Many Attempts';
-          errorMessage = 'Please wait a few minutes before trying again.';
-        }
-        setErrorModal({ visible: true, title: errorTitle, message: errorMessage });
-      } else if (data?.user?.identities?.length === 0) {
-        // User already exists - Supabase returns empty identities array
-        setErrorModal({
-          visible: true,
-          title: 'Email Already Used',
-          message: 'This email is already registered. Please try logging in or use a different email.'
-        });
-      } else {
-        navigation.navigate('VerifyCode', { email: emailValidation.email });
+      if (!response.ok) {
+        const message = response.status === 429
+          ? 'Too many attempts. Please wait a few minutes before trying again.'
+          : 'Unable to create account. Please try again.';
+        setErrorModal({ visible: true, title: 'Signup Failed', message });
+        setLoading(false);
+        return;
       }
+
+      navigation.navigate('VerifyCode', { email: emailValidation.email });
     } catch (err) {
       setErrorModal({
         visible: true,

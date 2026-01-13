@@ -4,8 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
+import { ENV } from '../../config/env';
 import { SmuppyText } from '../../components/SmuppyLogo';
-import { supabase } from '../../config/supabase';
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -55,13 +55,23 @@ export default function ForgotPasswordScreen({ navigation }) {
     setEmailError('');
     setIsLoading(true);
 
+    const emailNormalized = email.trim().toLowerCase();
+
     try {
-      // SECURITY: Call Supabase resetPasswordForEmail
-      // Supabase returns success even if email doesn't exist (by design)
-      // This prevents email enumeration attacks
-      await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: 'smuppy://reset-password',
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ email: emailNormalized }),
       });
+
+      if (response.status === 429) {
+        setEmailError('Too many attempts. Please wait a few minutes before trying again.');
+        return;
+      }
 
       // SECURITY: Always show success regardless of whether email exists
       // This prevents attackers from discovering valid emails

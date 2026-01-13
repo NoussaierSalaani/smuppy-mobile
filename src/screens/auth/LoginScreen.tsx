@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
+import { ENV } from '../../config/env';
 import { supabase } from '../../config/supabase';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { biometrics } from '../../utils/biometrics';
@@ -136,21 +137,68 @@ export default function LoginScreen({ navigation }) {
       return;
     }
     setLoading(true);
-    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      setErrorModal({ 
-        visible: true, 
-        title: 'Login Failed', 
-        message: error.message || 'Invalid email or password. Please try again.' 
+    const normalizedEmail = email.trim().toLowerCase();
+    try {
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ email: normalizedEmail, password }),
       });
-      return;
-    }
-    if (data?.session) {
-      await storage.set(STORAGE_KEYS.ACCESS_TOKEN, data.session.access_token);
-      await storage.set(STORAGE_KEYS.REFRESH_TOKEN, data.session.refresh_token);
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = response.status === 429
+          ? 'Too many attempts. Please wait a few minutes and try again.'
+          : 'Invalid email or password. Please try again.';
+        setErrorModal({
+          visible: true,
+          title: 'Login Failed',
+          message,
+        });
+        return;
+      }
+
+      const session = result?.session;
+      if (!session?.access_token || !session?.refresh_token) {
+        setErrorModal({
+          visible: true,
+          title: 'Login Failed',
+          message: 'Invalid email or password. Please try again.',
+        });
+        return;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      if (sessionError) {
+        setErrorModal({
+          visible: true,
+          title: 'Login Failed',
+          message: 'Invalid email or password. Please try again.',
+        });
+        return;
+      }
+
+      await storage.set(STORAGE_KEYS.ACCESS_TOKEN, session.access_token);
+      await storage.set(STORAGE_KEYS.REFRESH_TOKEN, session.refresh_token);
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
+    } catch (error) {
+      setErrorModal({
+        visible: true,
+        title: 'Login Failed',
+        message: 'Invalid email or password. Please try again.'
+      });
+    } finally {
+      setLoading(false);
     }
   }, [email, password]);
 

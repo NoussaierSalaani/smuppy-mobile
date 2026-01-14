@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { supabase } from '../../config/supabase';
+import { ENV } from '../../config/env';
+import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 
 /**
  * EmailVerificationPendingScreen
@@ -58,17 +60,28 @@ export default function EmailVerificationPendingScreen({ route }) {
     setIsResending(true);
 
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email,
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-resend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: ENV.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${ENV.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ email }),
       });
 
-      if (error) {
-        Alert.alert('Error', 'Unable to resend verification email. Please try again.');
-      } else {
-        setResendCooldown(60);
-        Alert.alert('Email Sent', 'A new verification email has been sent to your inbox.');
+      if (response.status === 429) {
+        Alert.alert('Too many attempts', 'Please try again in a few moments.');
+        return;
       }
+
+      if (!response.ok) {
+        Alert.alert('Error', 'Unable to resend verification email. Please try again.');
+        return;
+      }
+
+      setResendCooldown(60);
+      Alert.alert('Email Sent', 'A new verification email has been sent to your inbox.');
     } catch (err) {
       console.error('[EmailPending] Resend error:', err);
       Alert.alert('Error', 'Something went wrong. Please try again.');
@@ -108,7 +121,12 @@ export default function EmailVerificationPendingScreen({ route }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await supabase.auth.signOut();
+              await storage.clear([
+                STORAGE_KEYS.ACCESS_TOKEN,
+                STORAGE_KEYS.REFRESH_TOKEN,
+                STORAGE_KEYS.USER_ID,
+              ]);
+              await supabase.auth.signOut({ scope: 'global' });
             } catch (err) {
               console.error('[EmailPending] Sign out error:', err);
             }

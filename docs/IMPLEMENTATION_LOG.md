@@ -129,3 +129,22 @@ urce of truth to track LOT status, scopes, and reasons
 Files touched
 docs/ROADMAP_LOTS.md (new)
 docs/IMPLEMENTATION_LOG.md (updated)
+
+## LOT G — security(auth): rate-limit resend verification + pending logout clean
+- Date: 2026-01-14
+- Type: LOT
+- Goals:
+  - Ajouter Edge Function `auth-resend` avec rate limit (3 req / 5 min)
+  - Mobile Pending: appeler l’Edge Function (plus de `supabase.auth.resend` direct)
+  - Logout Pending: purge SecureStore (ACCESS_TOKEN, REFRESH_TOKEN, USER_ID) + signOut global
+- Files modified: supabase/functions/auth-resend/index.ts; src/screens/auth/EmailVerificationPendingScreen.tsx; docs/IMPLEMENTATION_LOG.md
+- Notes:
+  - Anti-enum: Edge renvoie toujours success 200 sauf rate-limit 429
+  - Headers requis: Content-Type + apikey + Authorization Bearer = SUPABASE_ANON_KEY
+  - Rate limit: 3 req / 5 min, endpoint hash par email
+- Manual tests (à lancer):
+  - Pending → Resend: succès sans fuite d’info
+  - Spam resend → 429 + message générique
+  - Logout Pending → retour Auth + SecureStore purgé
+  - Email vérifié → accès normal; non vérifié → jamais Main
+  - Bad login password → reste générique "Invalid credentials"

@@ -123,3 +123,9 @@ Dernière mise à jour: 2026-01-13
 - `.gitignore` already contained: `supabase/.temp/`
 - This change reduces repo noise and prevents temp files from being committed again.
 
+
+---
+urce of truth to track LOT status, scopes, and reasons
+Files touched
+docs/ROADMAP_LOTS.md (new)
+docs/IMPLEMENTATION_LOG.md (updated)

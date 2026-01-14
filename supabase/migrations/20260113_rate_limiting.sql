@@ -9,7 +9,7 @@
 -- =============================================
 CREATE TABLE IF NOT EXISTS rate_limits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   endpoint TEXT NOT NULL,
   request_count INTEGER DEFAULT 1,
   window_start TIMESTAMPTZ DEFAULT NOW(),

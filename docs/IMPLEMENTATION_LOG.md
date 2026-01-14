@@ -102,3 +102,24 @@ Dernière mise à jour: 2026-01-13
 - À vérifier: information ou test non confirmé.
 - KO: test ou critère échoué.
 - Timeout: commande lancée mais interrompue par délai.
+
+---
+
+## LOT H — hygiene(repo): ignore Supabase temp file tracked by mistake
+
+**Date:** 2026-01-14  
+**Type:** Repo hygiene (no functional changes)
+
+### Goals
+- Remove mistakenly tracked Supabase temp file from Git index
+- Ensure `supabase/.temp/` remains ignored (already in `.gitignore`)
+
+### Files touched (scope strict)
+- Removed from Git index (cached only):
+  - `supabase/.temp/cli-latest`
+- No other files modified.
+
+### Notes
+- `.gitignore` already contained: `supabase/.temp/`
+- This change reduces repo noise and prevents temp files from being committed again.
+

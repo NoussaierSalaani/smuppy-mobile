@@ -19,7 +19,7 @@ import { supabase } from '../../config/supabase';
  * Shows when user has signed up but hasn't verified their email
  * Blocks access to the app until email is confirmed
  */
-export default function EmailVerificationPendingScreen({ navigation, route }) {
+export default function EmailVerificationPendingScreen({ route }) {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -40,11 +40,8 @@ export default function EmailVerificationPendingScreen({ navigation, route }) {
       try {
         const { data: { session }, error } = await supabase.auth.refreshSession();
         if (!error && session?.user?.email_confirmed_at) {
-          // Email verified! Navigate to biometric setup or main app
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'EnableBiometric' }],
-          });
+          // AppNavigator will switch stacks once email is verified
+          return;
         }
       } catch (err) {
         console.error('[EmailPending] Error checking status:', err);
@@ -53,7 +50,7 @@ export default function EmailVerificationPendingScreen({ navigation, route }) {
 
     const interval = setInterval(checkVerificationStatus, 5000);
     return () => clearInterval(interval);
-  }, [navigation]);
+  }, []);
 
   const handleResendEmail = useCallback(async () => {
     if (resendCooldown > 0 || isResending) return;
@@ -85,10 +82,8 @@ export default function EmailVerificationPendingScreen({ navigation, route }) {
     try {
       const { data: { session }, error } = await supabase.auth.refreshSession();
       if (!error && session?.user?.email_confirmed_at) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'EnableBiometric' }],
-        });
+        setIsCheckingStatus(false);
+        return;
       } else {
         Alert.alert(
           'Not Verified Yet',
@@ -100,7 +95,7 @@ export default function EmailVerificationPendingScreen({ navigation, route }) {
     } finally {
       setIsCheckingStatus(false);
     }
-  }, [navigation]);
+  }, []);
 
   const handleSignOut = useCallback(async () => {
     Alert.alert(
@@ -114,10 +109,6 @@ export default function EmailVerificationPendingScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await supabase.auth.signOut();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
             } catch (err) {
               console.error('[EmailPending] Sign out error:', err);
             }
@@ -125,7 +116,7 @@ export default function EmailVerificationPendingScreen({ navigation, route }) {
         },
       ]
     );
-  }, [navigation]);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>

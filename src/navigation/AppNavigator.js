@@ -7,6 +7,7 @@ import { supabase } from '../config/supabase';
 import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
 import { TabBarProvider } from '../context/TabBarContext';
 import { UserProvider } from '../context/UserContext';
 import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
@@ -92,15 +93,20 @@ export default function AppNavigator() {
                   }),
                 }}
               >
-                {session && emailVerified ? (
-                  // User is logged in and email is verified
+                {!session && (
+                  <RootStack.Screen name="Auth" component={AuthNavigator} />
+                )}
+
+                {session && !emailVerified && (
+                  <RootStack.Screen
+                    name="EmailVerificationPending"
+                    component={EmailVerificationPendingScreen}
+                    initialParams={{ email: session?.user?.email }}
+                  />
+                )}
+
+                {session && emailVerified && (
                   <RootStack.Screen name="Main" component={MainNavigator} />
-                ) : (
-                  // User is not logged in OR email not verified
-                  <>
-                    <RootStack.Screen name="Auth" component={AuthNavigator} />
-                    <RootStack.Screen name="Main" component={MainNavigator} />
-                  </>
                 )}
               </RootStack.Navigator>
             </NavigationContainer>

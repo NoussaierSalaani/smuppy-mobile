@@ -44,3 +44,4 @@ yarn-error.*
 
 # Supabase temp files
 supabase/.temp/
+supabase/.branches/

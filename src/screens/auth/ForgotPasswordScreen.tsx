@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
 import { ENV } from '../../config/env';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -53,9 +54,15 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
 
     setEmailError('');
-    setIsLoading(true);
 
     const emailNormalized = email.trim().toLowerCase();
+    const awsCheck = await checkAWSRateLimit(emailNormalized, 'auth-forgot-password');
+    if (!awsCheck.allowed) {
+      setEmailError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-reset`, {

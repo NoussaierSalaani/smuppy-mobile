@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { validatePassword, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
+import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 const PasswordManagerScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -57,11 +58,29 @@ const PasswordManagerScreen = ({ navigation }) => {
   };
 
   const handleForgotPassword = async () => {
-    tryAction(async () => {
+    try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) await supabase.auth.resetPasswordForEmail(user.email);
-    });
-    setShowModal(true);
+      if (!user?.email) return;
+
+      // Check AWS rate limit first (server-side protection)
+      const normalizedEmail = user.email.trim().toLowerCase();
+      const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
+      if (!awsCheck.allowed) {
+        setErrorModal({
+          visible: true,
+          title: 'Too many attempts',
+          message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes before requesting another reset.`,
+        });
+        return;
+      }
+
+      tryAction(async () => {
+        await supabase.auth.resetPasswordForEmail(normalizedEmail);
+      });
+      setShowModal(true);
+    } catch (err) {
+      console.error('[PasswordManager] Reset error:', err);
+    }
   };
 
   const handleSuccessClose = () => { setSuccessModal(false); navigation.goBack(); };

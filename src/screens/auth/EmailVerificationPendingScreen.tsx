@@ -15,6 +15,7 @@ import { SmuppyText } from '../../components/SmuppyLogo';
 import { supabase } from '../../config/supabase';
 import { ENV } from '../../config/env';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
+import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 /**
  * EmailVerificationPendingScreen
@@ -57,6 +58,14 @@ export default function EmailVerificationPendingScreen({ route }) {
   const handleResendEmail = useCallback(async () => {
     if (resendCooldown > 0 || isResending) return;
 
+    // Check AWS rate limit first (server-side protection) - BEFORE setIsResending
+    const normalizedEmail = email.trim().toLowerCase();
+    const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
+    if (!awsCheck.allowed) {
+      Alert.alert('Too many attempts', `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+      return;
+    }
+
     setIsResending(true);
 
     try {
@@ -67,7 +76,7 @@ export default function EmailVerificationPendingScreen({ route }) {
           apikey: ENV.SUPABASE_ANON_KEY,
           Authorization: `Bearer ${ENV.SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
       if (response.status === 429) {

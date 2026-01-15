@@ -7,6 +7,7 @@ import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { supabase } from '../../config/supabase';
+import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 const CODE_LENGTH = 6; // Supabase OTP is 6 digits
 
@@ -94,8 +95,16 @@ export default function ResetCodeScreen({ navigation, route }) {
     }
 
     try {
+      // Check AWS rate limit first (server-side protection)
+      const normalizedEmail = email.trim().toLowerCase();
+      const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
+      if (!awsCheck.allowed) {
+        setError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+        return;
+      }
+
       // Resend OTP via Supabase
-      await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: 'smuppy://reset-password',
       });
 

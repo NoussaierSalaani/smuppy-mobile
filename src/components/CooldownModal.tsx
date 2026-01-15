@@ -112,7 +112,7 @@ export default function CooldownModal({
 
               {/* Icon */}
               <LinearGradient
-                colors={GRADIENTS.primary}
+                colors={GRADIENTS.primary as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.iconBox}
@@ -133,7 +133,7 @@ export default function CooldownModal({
               <View style={styles.progressBg}>
                 <Animated.View style={[styles.progressBarContainer, { width: progressWidth }]}>
                   <LinearGradient
-                    colors={GRADIENTS.primary}
+                    colors={GRADIENTS.primary as [string, string]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.progressBar}
@@ -148,7 +148,7 @@ export default function CooldownModal({
 
               {/* OK Button */}
               <LinearGradient
-                colors={GRADIENTS.primary}
+                colors={GRADIENTS.primary as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.okBtn}

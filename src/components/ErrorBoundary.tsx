@@ -1,16 +1,33 @@
-import React, { Component } from 'react';
+import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  name?: string;
+  fallback?: ReactNode;
+  minimal?: boolean;
+  title?: string;
+  message?: string;
+  showReportButton?: boolean;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: React.ErrorInfo | null;
+  eventId: string | null;
+}
 
 /**
  * Error Boundary component to catch and handle React errors gracefully.
  * Prevents the entire app from crashing when a component throws an error.
  * Now integrated with Sentry for error tracking.
  */
-class ErrorBoundary extends Component {
-  constructor(props) {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
       hasError: false,
@@ -20,11 +37,11 @@ class ErrorBoundary extends Component {
     };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Store error info for display
     this.setState({ errorInfo });
 

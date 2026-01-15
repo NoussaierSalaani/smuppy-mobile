@@ -11,6 +11,7 @@ import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
 import { validateEmailFull, EMAIL_ERROR_MESSAGES } from '../../services/emailValidation';
+import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 // Style unifié Smuppy (même que LoginScreen)
 const FORM = {
@@ -74,6 +75,19 @@ export default function SignupScreen({ navigation }) {
 
   const handleSignup = async () => {
     if (!isFormValid) return;
+
+    // Check AWS rate limit first (server-side protection)
+    const normalizedEmail = email.trim().toLowerCase();
+    const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-signup');
+    if (!awsCheck.allowed) {
+      setErrorModal({
+        visible: true,
+        title: 'Too Many Attempts',
+        message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -104,7 +118,7 @@ export default function SignupScreen({ navigation }) {
           'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
-          email: emailValidation.email,
+          email: normalizedEmail,
           password,
         }),
       });

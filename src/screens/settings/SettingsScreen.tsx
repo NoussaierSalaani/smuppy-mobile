@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator } from 'react-native';
+import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CommonActions } from '@react-navigation/native';
@@ -89,7 +90,7 @@ const SettingsScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.userSection}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar} />
+        <AvatarImage source={user.avatar} size={50} style={styles.avatar} />
         <Text style={styles.userName}>{user.displayName}</Text>
       </View>
 

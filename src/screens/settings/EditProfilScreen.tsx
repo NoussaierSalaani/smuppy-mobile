@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
+
   TextInput,
   ScrollView,
   StatusBar,
@@ -12,6 +12,7 @@ import {
   ActionSheetIOS,
   Platform,
 } from 'react-native';
+import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -178,7 +179,7 @@ const EditProfilScreen = ({ navigation }) => {
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: avatar }} style={styles.avatar} />
+            <AvatarImage source={avatar} size={100} style={styles.avatar} />
             <TouchableOpacity 
               style={styles.updateButton}
               onPress={showImagePicker}

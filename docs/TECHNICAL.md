@@ -1,6 +1,6 @@
 # SMUPPY - Documentation Technique
 
-> Dernière mise à jour: 12 janvier 2026 (Account Security Update)
+> Dernière mise à jour: 16 janvier 2026 (Auth UX hardening + launch readiness)
 
 ## Table des Matières
 
@@ -68,24 +68,21 @@ supabase/
 
 ---
 
-## Sécurité (Score 10/10)
+## Sécurité (état courant)
 
 ### Vue d'ensemble
 
 | Fonctionnalité | Status | Description |
 |----------------|--------|-------------|
-| Auth obligatoire (Edge Functions) | ✅ | Toutes les Edge Functions requièrent un token JWT valide |
-| CORS whitelist | ✅ | Origines autorisées: smuppy.com, app.smuppy.com, localhost (dev) |
-| Host validation exacte | ✅ | Validation stricte des hosts (pas de wildcards) |
-| Rate limiting server-side | ✅ | PostgreSQL + Edge Functions (50-100 req/min) |
-| Validation fichiers server-side | ✅ | MIME type, taille, extension validés côté serveur |
-| Certificate pinning (Android) | ✅ | SHA-256 pins pour Supabase, CloudFront, Expo |
-| HTTPS enforcement | ✅ | HTTP bloqué en production |
-| Secure token storage | ✅ | expo-secure-store (Keychain/Keystore) |
-| **Email verification required** | ✅ | Accès bloqué tant que l'email n'est pas confirmé |
-| **Device session tracking** | ✅ | Suivi des appareils connectés (device_sessions table) |
-| **New device login alerts** | ✅ | Email d'alerte lors d'une connexion depuis un nouvel appareil |
-| **Password reset security** | ✅ | Messages génériques (pas d'enumeration d'emails) |
+| Auth via Edge Functions | ✅ | `auth-login` / `auth-signup` / `auth-reset` appelés côté mobile (fetch vers functions) |
+| CORS / HTTPS | ✅ | App mobile ne fait que du HTTPS; `apiClient` bloque HTTP non sûr |
+| Rate limiting côté client | ✅ | `checkAWSRateLimit` appelé avant login/signup/forgot/resend OTP |
+| Rate limiting côté serveur | 🟡 | Edge Functions protégées, quotas exacts à reconfirmer en prod |
+| Email vérifié requis | ✅ | `AppNavigator` route vers `EmailVerificationPendingScreen` si `email_confirmed_at` absent |
+| Anti double-tap auth | 🟡 | Présent sur EmailPending resend; manquant sur login/signup/forgot/verify/recovery (à compléter) |
+| Stockage tokens | ✅ | `expo-secure-store` (storage ACCESS/REFRESH_TOKEN) |
+| Sentry | 🟡 | Initialisé via `initSentry`, désactivé sur Expo Go; nécessite DSN en `.env` |
+| Modération (report/block) | ❌ | Non trouvé (pas de flux de report ou block contenu) |
 
 ### Rate Limiting Server-Side
 
@@ -835,6 +832,40 @@ CREATE INDEX idx_push_tokens_user_id ON push_tokens(user_id);
 
 ---
 
+## Launch Readiness (mobile)
+
+### MUST-HAVE avant lancement
+- ✅ Email vérification obligatoire (AppNavigator bloque sur `EmailVerificationPending`)
+- ✅ Auth via Edge Functions + `checkAWSRateLimit` avant chaque appel (login/signup/forgot/resend)
+- 🟡 Anti double-submit à compléter sur: Login, Signup, ForgotPassword, VerifyCode (signup), ResetCode (recovery)
+- 🟡 Sentry: configurer `ENV.SENTRY_DSN`, tester un event dans un build dev-client (pas Expo Go)
+- 🟡 Secrets/env: vérifier `.env` (SUPABASE_URL/KEY, SENTRY_DSN), aucune clé en clair dans le code
+- 🟡 Flows critiques à revalider manuellement: signup → verify → onboarding; forgot → otp → new password
+- 🟡 Release build (dev-client) pour tester Sentry + modules natifs
+
+### Post-launch (Semaine 1-2)
+- 🔄 Ajouter anti double-submit manquant si non fait pré-launch
+- 🔄 Deep linking / universal links pour reset password / onboarding
+- 💤 Analytics (Mixpanel/Amplitude) et A/B tests
+- 💤 Mode sombre / i18n
+- 💤 Modération (report/block) si produit le requiert
+
+### Prochaines Étapes Possibles (reclassées)
+- Pré-launch cible: anti double-submit complet auth, validation Sentry DSN, checklist secrets, smoke tests auth/onboarding
+- Post-launch: Deep Linking, Analytics, i18n, Dark Mode, Offline mode, moderation/report flows
+
+### Release checklist mobile (pré-lancement)
+- Env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV` définis dans `.env`
+- Build: dev-client (pas Expo Go) pour tester Sentry + modules natifs; `npx expo start --dev-client`
+- Smoke AUTH: login, signup + verify email, resend OTP, forgot password → new password, logout/login
+- Onboarding: après verify, parcours complet jusqu'à Main; blocage correct si email non vérifié
+- Rate limit: tentative brute-force rapide sur login/signup → réponse générique + pas de crash
+- Sentry: envoyer un test event depuis dev-client, vérifier réception (DSN actif)
+- Sécurité: vérifier logs (pas de tokens), SecureStore bien purgé au logout
+- OTA/Store: préparer metadata si release store; sinon ignorer
+
+---
+
 ## Commandes Utiles
 
 ```bash
@@ -860,14 +891,20 @@ supabase functions logs media-presigned-url --tail
 
 ---
 
-## Prochaines Étapes Possibles
+## Prochaines Étapes Possibles (reclassées)
 
-- [ ] Deep Linking (liens universels)
-- [ ] Dark Mode
-- [ ] Internationalisation (i18n)
-- [ ] Tests unitaires et E2E
-- [ ] Analytics (Mixpanel/Amplitude)
-- [ ] Offline Mode
+**Pré-launch (priorité)**  
+- [ ] Compléter l’anti double-submit sur tous les écrans auth réseau  
+- [ ] Vérifier Sentry DSN + envoyer un event de test depuis un dev-client  
+- [ ] Checklist secrets/env + smoke tests AUTH/onboarding
+
+**Post-launch**  
+- [ ] Deep Linking (liens universels)  
+- [ ] Dark Mode  
+- [ ] Internationalisation (i18n)  
+- [ ] Analytics (Mixpanel/Amplitude)  
+- [ ] Offline Mode  
+- [ ] Flows de modération/report si requis produit
 
 ---
 

@@ -10,6 +10,7 @@ import { supabase } from '../../config/supabase';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
+import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 const GoogleLogo = ({ size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -136,8 +137,19 @@ export default function LoginScreen({ navigation }) {
       });
       return;
     }
-    setLoading(true);
+
     const normalizedEmail = email.trim().toLowerCase();
+    const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-login');
+    if (!awsCheck.allowed) {
+      setErrorModal({
+        visible: true,
+        title: 'Too Many Attempts',
+        message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-login`, {
         method: 'POST',

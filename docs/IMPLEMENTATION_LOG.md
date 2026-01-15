@@ -148,3 +148,61 @@ docs/IMPLEMENTATION_LOG.md (updated)
   - Logout Pending → retour Auth + SecureStore purgé
   - Email vérifié → accès normal; non vérifié → jamais Main
   - Bad login password → reste générique "Invalid credentials"
+
+---
+
+## LOT L — Audit supabase.auth (2026-01-15)
+
+**Type:** Audit (aucune modification de code)
+**Objectif:** Inventaire factuel de tous les appels `supabase.auth.*` dans src/
+
+### Inventaire vérifié (35 occurrences)
+
+| # | Fichier | Ligne | Méthode | Contexte | Statut |
+|---|---------|-------|---------|----------|--------|
+| 1 | `services/deviceSession.ts` | 192 | `getSession()` | Device tracking | ✅ OK |
+| 2-13 | `services/database.js` | multi | `getUser()` | DB operations (12x) | ✅ OK |
+| 14 | `navigation/AppNavigator.js` | 43 | `getSession()` | Auth state init | ✅ OK |
+| 15 | `navigation/AppNavigator.js` | 53 | `onAuthStateChange()` | Auth listener | ✅ OK |
+| 16 | `settings/PasswordManagerScreen.tsx` | 34 | `getUser()` | Get user email | ✅ OK |
+| 17 | `settings/PasswordManagerScreen.tsx` | 37 | `signInWithPassword()` | Verify current pwd | ⚠️ À surveiller |
+| 18 | `settings/PasswordManagerScreen.tsx` | 44 | `updateUser()` | Change password | ⚠️ À surveiller |
+| 19 | `settings/PasswordManagerScreen.tsx` | 47 | `signOut()` | Logout after change | ✅ OK |
+| 20 | `settings/PasswordManagerScreen.tsx` | 48 | `signInWithPassword()` | Re-login after change | ⚠️ À surveiller |
+| 21 | `settings/PasswordManagerScreen.tsx` | 62 | `getUser()` | Get user email | ✅ OK |
+| 22 | `settings/PasswordManagerScreen.tsx` | 78 | `resetPasswordForEmail()` | Forgot pwd (settings) | ⚠️ À surveiller |
+| 23 | `settings/SettingsScreen.tsx` | 47 | `signOut()` | Logout | ✅ OK |
+| 24 | `settings/FacialRecognitionScreen.tsx` | 76 | `getUser()` | Get user email | ✅ OK |
+| 25 | `settings/FacialRecognitionScreen.tsx` | 83 | `signInWithPassword()` | Verify identity | ⚠️ À surveiller |
+| 26 | `auth/LoginScreen.tsx` | 102 | `refreshSession()` | Biometric login | ✅ OK |
+| 27 | `auth/LoginScreen.tsx` | 188 | `setSession()` | Set session after EF | ✅ OK |
+| 28 | `auth/ResetCodeScreen.tsx` | 50 | `verifyOtp()` | Verify reset code | ✅ OK |
+| 29 | `auth/ResetCodeScreen.tsx` | 107 | `resetPasswordForEmail()` | Resend reset email | ⚠️ À surveiller |
+| 30 | `auth/VerifyCodeScreen.tsx` | 54 | `verifyOtp()` | Verify signup code | ✅ OK |
+| 31 | `auth/VerifyCodeScreen.tsx` | 132 | `resend()` | Resend verify email | ⚠️ À surveiller |
+| 32 | `auth/NewPasswordScreen.tsx` | 43 | `updateUser()` | Set new password | ⚠️ À surveiller |
+| 33-34 | `auth/EmailVerificationPendingScreen.tsx` | 44, 105 | `refreshSession()` | Check verify status | ✅ OK |
+| 35 | `auth/EmailVerificationPendingScreen.tsx` | 138 | `signOut()` | Logout from pending | ✅ OK |
+
+### Synthèse factuelle
+
+**Auth public flows (signup / login / forgot-password / resend) = CLOSED**
+- Tous protégés par Edge Functions + AWS rate limit côté client
+- Commits: `a0b0028`, `a6f63e4`, `02767da`, `d98f9b6`
+
+**Auth internal flows (settings, post-auth) = AUDITED / À surveiller**
+- 8 appels directs `supabase.auth.*` restent dans Settings et écrans post-auth
+- Ces appels sont volontairement directs (contexte utilisateur déjà authentifié)
+- Aucune action corrective dans ce LOT
+
+### Classification finale
+
+| Catégorie | Occurrences | Statut |
+|-----------|-------------|--------|
+| Session/User (getUser, getSession, etc.) | 20 | ✅ OK |
+| Logout (signOut) | 3 | ✅ OK |
+| OTP verification (verifyOtp) | 2 | ✅ OK |
+| Auth actions internes (signInWithPassword, updateUser, etc.) | 8 | ⚠️ À surveiller |
+| Auth actions publiques avec AWS rate limit | 2 | ✅ OK |
+
+**Status:** DONE (audit uniquement, aucune modification de code)

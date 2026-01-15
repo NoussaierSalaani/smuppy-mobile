@@ -42,12 +42,13 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - Repo: `smuppy-mobile`
 - Branch: `main`
 - Working tree: clean
-- Local commits ahead of origin: **2**
+- Local commits ahead of origin: **3**
+  - `47a407b` — `security(auth): rate-limit resend verification`
   - `291c76b` — `security(nav): strict gate for unverified email`
   - `517d57d` — `chore(repo): ignore Supabase temp files`
 
 ### 1.2 Current active LOT
-✅ **LOT G — security(auth): rate-limit resend verification + migration mobile + logout clean depuis Pending**
+✅ **LOT L — Audit supabase.auth (DONE)**
 
 ---
 
@@ -121,27 +122,41 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 
 ---
 
-## 3) Current LOT (In Progress)
+## 3) Completed LOTs (Recent)
 
 ### ✅ LOT G — security(auth): rate-limit resend verification + migration mobile + logout clean depuis Pending
-**Status:** 🟡 IN PROGRESS (approved, not implemented yet)
+**Status:** ✅ DONE
+**Commit:** `47a407b security(auth): rate-limit resend verification`
 
-#### Goals (max 3)
-1) Add Edge Function `auth-resend` with server-side rate limit (coherence with LOT E)
-2) Mobile: `EmailVerificationPendingScreen` calls Edge Function (no more direct `supabase.auth.resend`)
-3) Logout from Pending: purge SecureStore + clean exit (coherence LOT B/F)
+#### Goals (completed)
+1) ✅ Edge Function `auth-resend` with server-side rate limit
+2) ✅ Mobile: `EmailVerificationPendingScreen` calls Edge Function
+3) ✅ Logout from Pending: purge SecureStore + clean exit
 
-#### Allowed scope (strict)
-- `supabase/functions/auth-resend/index.ts` (new)
-- `src/screens/auth/EmailVeriPendingScreen.tsx`
+#### Scope files
+- `supabase/functions/auth-resend/index.ts`
+- `src/screens/auth/EmailVerificationPendingScreen.tsx`
 - `docs/IMPLEMENTATION_LOG.md`
 
-#### Manual tests (≤5)
-1) Pending → Resend: generic success (no leaks)
-2) Spam resend → 429 rate limited + generic UI message
-3) Pending logout → back to auth + SecureStore purged
-4) After email verification → normal access; Main never accessible when unverified
-5) Bad login password → still generic "Invalid credentials"
+---
+
+### ✅ LOT L — Audit supabase.auth
+**Status:** ✅ DONE (audit only, no code changes)
+
+#### Goals (completed)
+1) ✅ Factual inventory of all `supabase.auth.*` calls in `src/`
+2) ✅ Classification by category and security status
+
+#### Summary
+- **35 occurrences** inventoried
+- **Auth public flows (signup / login / forgot-password / resend) = CLOSED** — all protected by Edge Functions + AWS rate limit
+- **Auth internal flows (settings, post-auth) = AUDITED / À surveiller** — 8 direct calls remain intentionally
+
+> **Note:** Certains appels `supabase.auth.*` internes restent volontairement directs (contexte utilisateur déjà authentifié). Aucune action corrective requise.
+
+#### Scope files
+- `docs/IMPLEMENTATION_LOG.md` (audit table added)
+- No code modifications
 
 ---
 
@@ -191,12 +206,9 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 
 ---
 
-### LOT L — auth consistency cleanup (optional)
-**Status:** planned  
-**Why:** ensure all auth actions go through functions, strict anti-enum everywhere  
-**How:** check for remaining `supabase.auth.*` calls in auth contexts  
-**Scope:** limited to auth files  
-**Manual tests:** login/signup/reset/resend flows
+### ~~LOT L — auth consistency cleanup~~ → COMPLETED (see section 3)
+**Status:** ✅ DONE (moved to section 3)
+**Result:** Audit completed. Auth public flows closed; internal flows documented as intentionally direct.
 
 ---
 

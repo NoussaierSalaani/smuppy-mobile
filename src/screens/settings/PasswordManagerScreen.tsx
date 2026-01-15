@@ -85,7 +85,7 @@ const PasswordManagerScreen = ({ navigation }) => {
 
   const handleSuccessClose = () => { setSuccessModal(false); navigation.goBack(); };
 
-  const renderPasswordInput = (label, value, setValue, showPassword, setShowPassword, placeholder = '', onFocus, onBlur) => (
+  const renderPasswordInput = (label: string, value: string, setValue: (v: string) => void, showPassword: boolean, setShowPassword: (v: boolean) => void, placeholder = '', onFocus?: () => void, onBlur?: () => void) => (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={styles.passwordInputContainer}>

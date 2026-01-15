@@ -224,6 +224,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
       {/* Footer - Position absolute fixe en bas (ne monte pas avec clavier) */}
       <View style={styles.footer} pointerEvents="none">
+        {/* @ts-expect-error SmuppyText is JS component without type definitions */}
         <SmuppyText width={140} variant="dark" />
       </View>
 

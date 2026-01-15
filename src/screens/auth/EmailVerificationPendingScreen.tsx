@@ -150,7 +150,7 @@ export default function EmailVerificationPendingScreen({ route }) {
       <View style={styles.content}>
         {/* Header Icon */}
         <LinearGradient
-          colors={GRADIENTS.primary}
+          colors={GRADIENTS.primary as [string, string]}
           start={GRADIENTS.primaryStart}
           end={GRADIENTS.primaryEnd}
           style={styles.iconContainer}
@@ -198,7 +198,7 @@ export default function EmailVerificationPendingScreen({ route }) {
 
         {/* Check Status Button */}
         <LinearGradient
-          colors={GRADIENTS.primary}
+          colors={GRADIENTS.primary as [string, string]}
           start={GRADIENTS.primaryStart}
           end={GRADIENTS.primaryEnd}
           style={styles.btn}
@@ -245,6 +245,7 @@ export default function EmailVerificationPendingScreen({ route }) {
 
         {/* Footer */}
         <View style={styles.footer}>
+          {/* @ts-expect-error SmuppyText is JS component without type definitions */}
           <SmuppyText width={140} variant="dark" />
         </View>
       </View>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   Dimensions,
   Modal,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useProfile } from '../../hooks';
 
 const { width } = Dimensions.get('window');
 const HEADER_MAX_HEIGHT = 280;
@@ -21,17 +23,16 @@ const HEADER_MIN_HEIGHT = 100;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const CARD_WIDTH = (width - 48) / 2;
 
-// Mock data - replace with Supabase
-const MOCK_USER = {
-  id: 'user123',
-  username: 'GameMaster_X',
-  displayName: 'Alex Chen',
-  avatar: 'https://i.pravatar.cc/150?img=12',
-  coverImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800',
-  bio: 'Pro gamer | Streaming daily | Love RPGs & FPS 🎮',
-  fanCount: 787,
-  postCount: 38,
-  isVerified: true, // Ajouté pour le Chat
+const DEFAULT_PROFILE = {
+  id: 'unknown',
+  username: 'user',
+  displayName: 'Utilisateur',
+  avatar: null,
+  coverImage: null,
+  bio: '',
+  fanCount: 0,
+  postCount: 0,
+  isVerified: false,
 };
 
 const MOCK_POSTS = [
@@ -81,6 +82,22 @@ const UserProfileScreen = () => {
   // Déterminer si c'est notre profil ou celui d'un autre
   const userId = route?.params?.userId;
   const isOwnProfile = !userId;
+  const { data: profileData, isLoading, isError } = useProfile(userId);
+
+  const profile = useMemo(() => {
+    const data = profileData || {};
+    return {
+      id: data.id || userId || DEFAULT_PROFILE.id,
+      username: data.username || DEFAULT_PROFILE.username,
+      displayName: data.full_name || data.username || DEFAULT_PROFILE.displayName,
+      avatar: data.avatar_url || DEFAULT_PROFILE.avatar,
+      coverImage: data.cover_url || DEFAULT_PROFILE.coverImage,
+      bio: data.bio || DEFAULT_PROFILE.bio,
+      fanCount: data.fan_count ?? DEFAULT_PROFILE.fanCount,
+      postCount: data.post_count ?? DEFAULT_PROFILE.postCount,
+      isVerified: data.is_verified ?? DEFAULT_PROFILE.isVerified,
+    };
+  }, [profileData, userId]);
   
   // États
   const [isFan, setIsFan] = useState(false);
@@ -160,16 +177,15 @@ const UserProfileScreen = () => {
     }
   };
   
-  // ✅ CORRIGÉ - Navigation vers message avec objet conversation complet
   const handleMessagePress = () => {
     if (isFan) {
       const conversation = {
-        id: `conv_${MOCK_USER.id}`,
+        id: `conv_${profile.id}`,
         user: {
-          id: MOCK_USER.id,
-          name: MOCK_USER.displayName,
-          avatar: MOCK_USER.avatar,
-          isVerified: MOCK_USER.isVerified || false,
+          id: profile.id,
+          name: profile.displayName,
+          avatar: profile.avatar,
+          isVerified: profile.isVerified || false,
           isOnline: true,
         },
       };
@@ -192,6 +208,44 @@ const UserProfileScreen = () => {
     const options = { day: 'numeric', month: 'long', year: 'numeric' };
     return blockEndDate.toLocaleDateString('en-US', options);
   };
+
+  // States: missing userId or loading/error
+  if (!userId) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+        <Text style={styles.displayName}>Profile not found</Text>
+        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
+          This profile is unavailable. Please try again.
+        </Text>
+        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
+          <Text style={styles.fanButtonText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primaryGreen} />
+        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  if (isError || !profileData) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+        <Text style={styles.displayName}>Unable to load profile</Text>
+        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
+          Please check your connection or try again later.
+        </Text>
+        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
+          <Text style={styles.fanButtonText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // ✅ CORRIGÉ - Render Post Card avec bonne route
   const renderPostCard = ({ item }) => (
@@ -252,9 +306,9 @@ const UserProfileScreen = () => {
         </TouchableOpacity>
         
         <View style={styles.compactInfo}>
-          <AvatarImage source={MOCK_USER.avatar} size={32} />
+          <AvatarImage source={profile.avatar} size={32} />
           <Text style={styles.compactStats}>
-            {MOCK_USER.fanCount} Fan · {MOCK_USER.postCount} Post
+            {profile.fanCount} Fan · {profile.postCount} Post
           </Text>
         </View>
         
@@ -294,7 +348,7 @@ const UserProfileScreen = () => {
         {/* Header Normal */}
         <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
           {/* Cover Image */}
-          <OptimizedImage source={MOCK_USER.coverImage} style={styles.coverImage} />
+          <OptimizedImage source={profile.coverImage} style={styles.coverImage} />
           <View style={styles.coverOverlay} />
           
           {/* Top Navigation */}
@@ -328,19 +382,19 @@ const UserProfileScreen = () => {
           
           {/* Profile Info */}
           <View style={styles.profileInfo}>
-            <AvatarImage source={MOCK_USER.avatar} size={80} style={styles.avatar} />
+            <AvatarImage source={profile.avatar} size={80} style={styles.avatar} />
             
             <View style={styles.userInfo}>
-              <Text style={styles.displayName}>{MOCK_USER.displayName}</Text>
-              <Text style={styles.username}>@{MOCK_USER.username}</Text>
+              <Text style={styles.displayName}>{profile.displayName}</Text>
+              <Text style={styles.username}>@{profile.username}</Text>
               
               <View style={styles.statsRow}>
                 <Text style={styles.statsText}>
-                  <Text style={styles.statsNumber}>{MOCK_USER.fanCount}</Text> Fan
+                  <Text style={styles.statsNumber}>{profile.fanCount}</Text> Fan
                 </Text>
                 <Text style={styles.statsDot}>·</Text>
                 <Text style={styles.statsText}>
-                  <Text style={styles.statsNumber}>{MOCK_USER.postCount}</Text> Post
+                  <Text style={styles.statsNumber}>{profile.postCount}</Text> Post
                 </Text>
               </View>
             </View>
@@ -349,8 +403,8 @@ const UserProfileScreen = () => {
         
         {/* Bio Section */}
         <View style={styles.bioSection}>
-          {MOCK_USER.bio ? (
-            <Text style={styles.bioText}>{MOCK_USER.bio}</Text>
+          {profile.bio ? (
+            <Text style={styles.bioText}>{profile.bio}</Text>
           ) : isOwnProfile ? (
             <TouchableOpacity style={styles.addBioBtn}>
               <Text style={styles.addBioText}>+ Add Bio</Text>

@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ const COLORS = {
 };
 
 const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }) => {
+  const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -56,13 +58,13 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }) =>
   }, [visible]);
 
   const handleSelectPost = () => {
-    onClose();
-    setTimeout(() => onSelectPost(), 100);
+    onClose?.();
+    setTimeout(() => onSelectPost?.(), 100);
   };
 
   const handleSelectPeak = () => {
-    onClose();
-    setTimeout(() => onSelectPeak(), 100);
+    onClose?.();
+    setTimeout(() => onSelectPeak?.(), 100);
   };
 
   if (!visible) return null;
@@ -70,16 +72,19 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }) =>
   return (
     <Modal transparent visible={visible} animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-        <TouchableOpacity 
-          style={styles.backdrop} 
-          activeOpacity={1} 
-          onPress={onClose}
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={() => onClose?.()}
         />
-        
-        <Animated.View 
+
+        <Animated.View
           style={[
             styles.container,
-            { transform: [{ translateY: slideAnim }] }
+            {
+              transform: [{ translateY: slideAnim }],
+              paddingBottom: Math.max(40, insets.bottom + 20),
+            }
           ]}
         >
           {/* Handle */}
@@ -127,9 +132,9 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }) =>
           </View>
 
           {/* Cancel Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.cancelButton}
-            onPress={onClose}
+            onPress={() => onClose?.()}
           >
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>

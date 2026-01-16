@@ -207,15 +207,30 @@ export default function CreatePostScreen({ navigation, route }) {
   // No permission view
   if (!hasPermission && !loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Ionicons name="images-outline" size={60} color={COLORS.gray} />
-        <Text style={styles.permissionText}>Allow access to your photos</Text>
-        <TouchableOpacity 
-          style={styles.permissionButton} 
-          onPress={() => MediaLibrary.requestPermissionsAsync()}
+      <View style={styles.container}>
+        {/* Close button */}
+        <TouchableOpacity
+          style={[styles.permissionCloseButton, { top: insets.top + 10 }]}
+          onPress={() => navigation.goBack()}
         >
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          <Ionicons name="close" size={28} color={COLORS.dark} />
         </TouchableOpacity>
+        <View style={styles.centered}>
+          <Ionicons name="images-outline" size={60} color={COLORS.gray} />
+          <Text style={styles.permissionText}>Allow access to your photos</Text>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={async () => {
+              const { status } = await MediaLibrary.requestPermissionsAsync();
+              if (status === 'granted') {
+                setHasPermission(true);
+                loadMedia();
+              }
+            }}
+          >
+            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -343,8 +358,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   centered: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  permissionCloseButton: {
+    position: 'absolute',
+    left: SPACING.lg,
+    zIndex: 10,
   },
 
   // Header

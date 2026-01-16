@@ -13,6 +13,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  Share,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -194,10 +197,18 @@ const PostDetailVibesFeedScreen = () => {
   const [isFan, setIsFan] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [gridPosts, setGridPosts] = useState(MOCK_GRID_POSTS);
+
+  // Loading states for anti spam-click
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [fanLoading, setFanLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -269,14 +280,91 @@ const PostDetailVibesFeedScreen = () => {
   // Handle scroll
   const handleScroll = (event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
-    
+
     if (offsetY > 50 && viewState === VIEW_STATES.FULLSCREEN) {
       handleSwipeDown();
     } else if (offsetY < -50 && viewState !== VIEW_STATES.FULLSCREEN) {
       handleSwipeUp();
     }
   };
-  
+
+  // Toggle like with anti spam-click
+  const toggleLike = async () => {
+    if (likeLoading) return;
+    setLikeLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setIsLiked(!isLiked);
+      if (!isLiked) {
+        triggerLikeAnimation();
+      }
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  // Toggle bookmark with anti spam-click
+  const toggleBookmark = async () => {
+    if (bookmarkLoading) return;
+    setBookmarkLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setIsBookmarked(!isBookmarked);
+    } finally {
+      setBookmarkLoading(false);
+    }
+  };
+
+  // Become fan with anti spam-click
+  const becomeFan = async () => {
+    if (fanLoading) return;
+    setFanLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setIsFan(true);
+    } finally {
+      setFanLoading(false);
+    }
+  };
+
+  // Share post with anti spam-click
+  const handleShare = async () => {
+    if (shareLoading) return;
+    setShareLoading(true);
+    try {
+      setShowMenu(false);
+      await Share.share({
+        message: `Check out this post by ${currentPost.user.name} on Smuppy!`,
+      });
+    } catch (error) {
+      // User cancelled or error - silent fail
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  // Report post with anti spam-click
+  const handleReport = async () => {
+    if (reportLoading) return;
+    setReportLoading(true);
+    try {
+      setShowMenu(false);
+      setShowReportModal(true);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // Submit report
+  const submitReport = (reason) => {
+    setShowReportModal(false);
+    Alert.alert(
+      'Report Submitted',
+      'Thank you for your report. We will review this content.',
+      [{ text: 'OK' }]
+    );
+  };
+
   // Format numbers
   const formatNumber = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -419,32 +507,50 @@ const PostDetailVibesFeedScreen = () => {
               
               {/* Right actions */}
               <View style={styles.rightActions}>
-                <TouchableOpacity style={styles.actionBtn}>
-                  <Ionicons name="share-social-outline" size={28} color="#FFF" />
-                </TouchableOpacity>
-                
                 <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => setIsLiked(!isLiked)}
+                  style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+                  onPress={handleShare}
+                  disabled={shareLoading}
                 >
-                  <Ionicons
-                    name={isLiked ? 'heart' : 'heart-outline'}
-                    size={28}
-                    color={isLiked ? COLORS.primaryGreen : '#FFF'}
-                  />
+                  {shareLoading ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Ionicons name="share-social-outline" size={28} color="#FFF" />
+                  )}
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => setIsBookmarked(!isBookmarked)}
+                  style={[styles.actionBtn, likeLoading && styles.actionBtnDisabled]}
+                  onPress={toggleLike}
+                  disabled={likeLoading}
                 >
-                  <Ionicons
-                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                    size={28}
-                    color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
-                  />
+                  {likeLoading ? (
+                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                  ) : (
+                    <Ionicons
+                      name={isLiked ? 'heart' : 'heart-outline'}
+                      size={28}
+                      color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                    />
+                  )}
                 </TouchableOpacity>
-                
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, bookmarkLoading && styles.actionBtnDisabled]}
+                  onPress={toggleBookmark}
+                  disabled={bookmarkLoading}
+                >
+                  {bookmarkLoading ? (
+                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                  ) : (
+                    <Ionicons
+                      name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                      size={28}
+                      color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+                    />
+                  )}
+                </TouchableOpacity>
+
                 {currentPost.type === 'video' && (
                   <TouchableOpacity
                     style={styles.actionBtn}
@@ -473,15 +579,22 @@ const PostDetailVibesFeedScreen = () => {
                   
                   {!isFan && (
                     <TouchableOpacity
-                      style={styles.fanBtn}
-                      onPress={() => setIsFan(true)}
+                      style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
+                      onPress={becomeFan}
+                      disabled={fanLoading}
                     >
-                      {!theyFollowMe && (
-                        <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                      {fanLoading ? (
+                        <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                      ) : (
+                        <>
+                          {!theyFollowMe && (
+                            <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                          )}
+                          <Text style={styles.fanBtnText}>
+                            {theyFollowMe ? 'Track' : 'Fan'}
+                          </Text>
+                        </>
                       )}
-                      <Text style={styles.fanBtnText}>
-                        {theyFollowMe ? 'Track' : 'Fan'}
-                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -685,30 +798,104 @@ const PostDetailVibesFeedScreen = () => {
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Share</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                Alert.alert('Link Copied', 'Post link copied to clipboard!');
+              }}
+            >
               <Ionicons name="link-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Copy Link</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                navigation.navigate('UserProfile', { userId: currentPost.user.id });
+              }}
+            >
               <Ionicons name="person-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>View Profile</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="flag-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Report</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.menuCancel}
               onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowReportModal(false)}
+        >
+          <View style={styles.menuContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.reportTitle}>Report this post</Text>
+            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('spam')}
+            >
+              <Text style={styles.reportOptionText}>Spam or misleading</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('inappropriate')}
+            >
+              <Text style={styles.reportOptionText}>Inappropriate content</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('harassment')}
+            >
+              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('violence')}
+            >
+              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('other')}
+            >
+              <Text style={styles.reportOptionText}>Other</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuCancel}
+              onPress={() => setShowReportModal(false)}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -794,6 +981,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  actionBtnDisabled: {
+    opacity: 0.6,
+  },
   
   // Bottom content
   bottomContent: {
@@ -833,6 +1023,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: COLORS.primaryGreen,
     gap: 4,
+    minWidth: 70,
+    justifyContent: 'center',
+  },
+  fanBtnDisabled: {
+    opacity: 0.6,
   },
   fanBtnText: {
     fontSize: 14,
@@ -1207,6 +1402,31 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // Report modal
+  reportTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  reportSubtitle: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  reportOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  reportOptionText: {
+    fontSize: 16,
     color: '#FFF',
   },
 });

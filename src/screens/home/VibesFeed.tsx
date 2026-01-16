@@ -394,7 +394,7 @@ export default function VibesFeed() {
             <Text style={styles.peaksSectionTitle}>Peaks</Text>
             <TouchableOpacity 
               style={styles.peaksSeeAll}
-              onPress={() => navigation.navigate('PeaksFeed')}
+              onPress={() => navigation.navigate('Peaks')}
             >
               <Text style={styles.peaksSeeAllText}>See all</Text>
               <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />

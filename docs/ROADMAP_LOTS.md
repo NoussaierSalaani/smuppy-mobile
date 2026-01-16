@@ -40,12 +40,9 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 
 ### 1.1 Repo state
 - Repo: `smuppy-mobile`
-- Branch: `main`
+- Branch: `docs/update-product-roadmap-and-ui-flows` (doc-only)
 - Working tree: clean
-- Local commits ahead of origin: **3**
-  - `47a407b` — `security(auth): rate-limit resend verification`
-  - `291c76b` — `security(nav): strict gate for unverified email`
-  - `517d57d` — `chore(repo): ignore Supabase temp files`
+- Local commits ahead of origin: **0**
 
 ### 1.2 Current active LOT
 ✅ **LOT L — Audit supabase.auth (DONE)**
@@ -214,8 +211,6 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 
 ## 6) How to Resume Work (Copy/Paste Checklist)
 
-Whenever resuming the project, always run:
-
 ```bash
 git status -sb
 git diff --name-only
@@ -224,4 +219,85 @@ Then read:
 docs/ROADMAP_LOTS.md
 docs/IMPLEMENTATION_LOG.md
 Then continue from the next LOT marked 🟡 IN PROGRESS / planned.
-EOF
+```
+
+---
+
+## 7) Inventaire (état réel — Jan 2026)
+
+- **Auth / Onboarding / Security**
+  - Ce que montre le code: AppNavigator rend Main uniquement si session + `email_confirmed_at`. Signup → VerifyCode → EnableBiometric → onboarding (TellUsAboutYou → … → Success → Main). Forgot/Reset/NewPassword restent dans Auth. Tokens en SecureStore. Anti double-submit présent sur VerifyCode/ResetCode/NewPassword (usePreventDoubleNavigation) et via `loading` sur Login/Signup/Forgot/EnableBiometric. LoginScreen déjà conforme (erreurs génériques + bouton disabled pendant `loading`).
+  - Manques/obsolète: Onboarding non forcé pour un login existant; anti spam-click à compléter sur autres boutons réseau (auth/onboarding + actions post); pas de flux report/block/mute.
+- **Navigation (tabs)**
+  - Réel: Tabs = Home (Fan/Vibes/Xplorer), Peaks, CreateTab, Notifications, Profile. Home embarque FanFeed (mock), VibesFeed (masonry mock), XplorerFeed (map mock).
+  - Manques: Explorer réel (Phase 4); Settings accessible via Profile stack mais pas affiché en tab; pas de placeholders dédiés pour sections manquantes.
+- **Feeds (Fan/Vibes)**
+  - Réel: FanFeed/VibesFeed avec données mock; PostDetailFanFeedScreen/PostDetailVibesFeedScreen présents; actions like/save/share/+Fan/report non branchées au backend.
+  - Manques: Connexion Supabase, focus post 60%, anti double-click sur actions.
+- **Peaks**
+  - Réel: PeaksFeedScreen + PeakViewScreen + CreatePeak/Preview (mock).
+  - Manques: Backend et navigation croisée avec Home; commentaires/replies absents.
+- **Explorer map**
+  - Réel: XplorerFeed map (react-native-maps) avec filtres max 3, markers mock; permission location demandée.
+  - Manques: Recherche réelle, spots vérifiés/premium, pas d’import.
+- **Modération / Trust & Safety**
+  - Réel: Guidelines mentionne report; `ReportProblemScreen` (Settings) en placeholder; pas de block/mute/report contenu.
+  - Manques: Statuts moderation (active/limited/under_review/hidden/removed), tolérance zéro thèmes interdits.
+- **Roadmap / Launch readiness**
+  - Réel: Branch doc en cours; roadmap phases (0-5) ci-dessous; checklist launch mise à jour pour env/Sentry/smoke auth.
+
+---
+
+## 8) Roadmap par phases (MVP-first)
+- **PHASE 0 — Foundations**: auth + security + anti-spam click.
+- **PHASE 1 — Core Feeds**: Fan + Vibes masonry + post focus 60% + actions like/save/share/+Fan/report.
+- **PHASE 2 — Comments**: Peas de commentaires; replies fans-only.
+- **PHASE 3 — Modération launch-safe**: reports, block/mute, statuts active/limited/under_review/hidden/removed; tolérance zéro thèmes interdits.
+- **PHASE 4 — Explorer MVP**: spots verified-only, places pro premium, search + filtres max 3, pas d’import.
+- **PHASE 5+ — Extensions**: algo avancé, mood soft, events, pro schedules, tracking opt-in, ads.
+
+## 9) Priorités actuelles (MVP)
+1) Stabiliser les flows UI + navigation (Home tabs, Peaks, Profile, Settings).  
+2) Compléter l’anti spam-click sur les boutons réseau restants (auth/onboarding + actions post).  
+3) UI polish (couleurs/typo) plus tard.
+
+## 10) UI Completion (MVP-first)
+> LOTS proposés (ordre recommandé, scopes petits, UI seulement)
+
+- **LOT UI-1 — Home tabs en état de marche (Fan/Vibes/Xplorer)**
+  - Objectif: stabiliser FeedScreen + TabBar (scroll, reset active tab), FanFeed/VibesFeed mocks cohérents, Xplorer map affichée sans crash.
+  - Fichiers: `src/screens/home/FeedScreen.tsx`, `src/screens/home/FanFeed.tsx`, `src/screens/home/VibesFeed.tsx`, `src/screens/home/XplorerFeed.tsx`, `src/components/HomeHeader.*`.
+  - Tests rapides: (1) Login → Home; swipe Fan/Vibes/Xplorer; (2) Xplorer affiche carte + filtres max 3; (3) retour Fan/Vibes conserve header; (4) tab Create ouvre popup.
+
+- **LOT UI-2 — Post Focus 60% + actions (Fan/Vibes)**
+  - Objectif: utiliser PostDetailFanFeedScreen/PostDetailVibesFeedScreen comme focus; brancher actions like/save/share/+Fan/report (no comments en Phase 1) avec anti double-click.
+  - Fichiers: `src/screens/home/PostDetailFanFeedScreen.tsx`, `src/screens/home/PostDetailVibesFeedScreen.tsx`, `src/components/CreateOptionsPopup.*`, services/actions concernés.
+  - Tests rapides: (1) Depuis FanFeed, ouvrir un post → focus 60%; (2) actions désactivées pendant requête; (3) bouton report ouvre placeholder; (4) navigation back stable.
+
+- **LOT UI-3 — Peaks MVP (feed + create)**
+  - Objectif: PeaksFeedScreen stable (pas de crash), navigation PeakView/Preview/Create cohérente, placeholders propres.
+  - Fichiers: `src/screens/peaks/PeaksFeedScreen.js`, `src/screens/peaks/PeakViewScreen.js`, `src/screens/peaks/CreatePeakScreen.js`, `src/screens/peaks/PeakPreviewScreen.js`.
+  - Tests rapides: (1) Tab Peaks → scroll feed; (2) ouvrir PeakView; (3) lancer CreatePeak → Preview → back; (4) retourner Home sans crash.
+
+- **LOT UI-4 — Explorer placeholder (Phase 4 ready)**
+  - Objectif: sécuriser XplorerFeed pour Phase 4 (filtres max 3, markers mock vérifiés-only, search placeholder, UX permission claire).
+  - Fichiers: `src/screens/home/XplorerFeed.tsx`, `src/components` si besoin (filter modal).
+  - Tests rapides: (1) permission refusée → modal info; (2) filtres >3 impossible; (3) bouton search placeholder; (4) back to Home sans freeze.
+
+- **LOT UI-5 — Notifications + Profile minimal**
+  - Objectif: NotificationsScreen sans crash (pull-to-refresh), ProfileScreen basique (bio/photos/settings).
+  - Fichiers: `src/screens/notifications/NotificationsScreen.js`, `src/screens/profile/ProfileScreen.tsx`, `src/screens/profile/UserProfileScreen.tsx`, `src/screens/profile/FansListScreen.tsx`.
+  - Tests rapides: (1) Tab Notifications → refresh; (2) Tab Profile → open Settings; (3) ouvrir UserProfile; (4) back navigation stable.
+
+- **LOT UI-6 — Settings & Onboarding polish (anti spam-click)**
+  - Objectif: couvrir anti double-submit sur boutons réseau restants (Signup, Forgot, onboarding Next), clarifier gating avant Main.
+  - Fichiers: `src/screens/auth/*.tsx` (Signup/Forgot/Verify/Reset/NewPassword), `src/screens/onboarding/*.tsx`, `src/hooks/usePreventDoubleClick.ts`.
+  - Tests rapides: (1) Signup → Verify → EnableBiometric → Onboarding → Success → Main; (2) Forgot → Reset → NewPassword; (3) spam tap sur boutons réseau ne déclenche pas de doublons; (4) Main absent si email non vérifié.
+
+## 11) Launch Readiness Checklist (mobile)
+- Env vars: `.env` contient `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV` (aucun secret en clair).
+- Build: dev-client requis (`npx expo start --dev-client`), Sentry test event envoyé.
+- Auth/Onboarding smoke: login, signup → verify → onboarding complet; forgot → otp → reset; resend OTP; logout purge SecureStore; Main bloqué si email non vérifié.
+- Rate limit: brute-force rapide sur login/signup/forgot → message générique, pas de crash.
+- Logs: vérifier qu’aucun token n’est loggé (console + Sentry breadcrumbs).
+- Git workflow: avant commit → `git status -sb`, `git diff`; après commit → `git show --name-only --oneline -1`.

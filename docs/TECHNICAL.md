@@ -1,6 +1,6 @@
 # SMUPPY - Documentation Technique
 
-> Dernière mise à jour: 16 janvier 2026 (Auth UX hardening + launch readiness)
+> Dernière mise à jour: 20 janvier 2026 (align état réel auth/navigation + roadmap MVP)
 
 ## Table des Matières
 
@@ -79,10 +79,20 @@ supabase/
 | Rate limiting côté client | ✅ | `checkAWSRateLimit` appelé avant login/signup/forgot/resend OTP |
 | Rate limiting côté serveur | 🟡 | Edge Functions protégées, quotas exacts à reconfirmer en prod |
 | Email vérifié requis | ✅ | `AppNavigator` route vers `EmailVerificationPendingScreen` si `email_confirmed_at` absent |
-| Anti double-tap auth | 🟡 | Présent sur EmailPending resend; manquant sur login/signup/forgot/verify/recovery (à compléter) |
+| Onboarding | 🟡 | Parcours post-signup (EnableBiometric → onboarding → Success) avant Main; non forcé pour un login existant |
+| Recovery flow | ✅ | Forgot/Reset/NewPassword restent dans Auth; Main jamais monté sans session + email vérifié |
+| Anti double-submit (auth) | 🟡 | Couvert: VerifyCodeScreen, ResetCodeScreen, NewPasswordScreen (usePreventDoubleNavigation). Boutons disabled via `loading`: LoginScreen, SignupScreen, ForgotPasswordScreen, EnableBiometricScreen. Reste à couvrir: autres boutons réseau auth/onboarding |
 | Stockage tokens | ✅ | `expo-secure-store` (storage ACCESS/REFRESH_TOKEN) |
 | Sentry | 🟡 | Initialisé via `initSentry`, désactivé sur Expo Go; nécessite DSN en `.env` |
-| Modération (report/block) | ❌ | Non trouvé (pas de flux de report ou block contenu) |
+| Modération (report/block) | ❌ | Pas de flux de report/block/mute en prod; `ReportProblemScreen` (settings) en placeholder |
+
+### Navigation & écrans (état réel)
+- **AppNavigator**: rend Main uniquement si `session` + `email_confirmed_at`; sinon Auth ou EmailVerificationPending.
+- **Tabs MainNavigator**: Home (Fan/Vibes/Xplorer), Peaks, CreateTab, Notifications, Profile.
+- **Feeds**: FanFeed + VibesFeed en mock; PostDetailFanFeedScreen/PostDetailVibesFeedScreen présents; XplorerFeed = carte (react-native-maps) avec filtres max 3, markers mock.
+- **Peaks**: PeaksFeedScreen + PeakViewScreen + CreatePeakScreen/PeakPreview (mock data).
+- **Onboarding**: screens TellUsAboutYou, AccountType, Interests, Profession/BusinessDetails, Expertise, Guidelines, Success; déclenché après signup → EnableBiometric.
+- **Modération/Trust & Safety**: pas de block/mute/report post; Guidelines mentionne le report; Settings inclut `ReportProblemScreen` (TODO backend).
 
 ### Rate Limiting Server-Side
 
@@ -832,37 +842,34 @@ CREATE INDEX idx_push_tokens_user_id ON push_tokens(user_id);
 
 ---
 
+## Expo / Metro (cohérence)
+- Un seul Metro en parallèle.
+- Expo Go: `npx expo start -c`
+- Dev build: `npx expo start -c --dev-client`
+- Fermer l'app avant un nouveau scan (QR/dev-client).
+- Si Wi‑Fi/5G change: `npx expo start --tunnel -c`
+
+## Priorités actuelles (MVP)
+1) Stabiliser les flows UI + navigation (Home tabs, Peaks, Profile, Settings).  
+2) Compléter l’anti spam-click sur les boutons réseau restants (auth/onboarding + actions post).  
+3) UI polish (couleurs/typo) plus tard.
+
+## Roadmap produit (phases)
+- **PHASE 0 — Foundations**: auth + security + anti-spam click.
+- **PHASE 1 — Core Feeds**: Fan + Vibes masonry + post focus 60% + actions like/save/share/+Fan/report.
+- **PHASE 2 — Comments**: Peas de commentaires; replies fans-only.
+- **PHASE 3 — Modération launch-safe**: reports, block/mute, statuts active/limited/under_review/hidden/removed; tolérance zéro thèmes interdits.
+- **PHASE 4 — Explorer MVP**: spots verified-only, places pro premium, search + filtres max 3, pas d’import.
+- **PHASE 5+ — Extensions**: algo avancé, mood soft, events, pro schedules, tracking opt-in, ads.
+
 ## Launch Readiness (mobile)
-
-### MUST-HAVE avant lancement
-- ✅ Email vérification obligatoire (AppNavigator bloque sur `EmailVerificationPending`)
-- ✅ Auth via Edge Functions + `checkAWSRateLimit` avant chaque appel (login/signup/forgot/resend)
-- 🟡 Anti double-submit à compléter sur: Login, Signup, ForgotPassword, VerifyCode (signup), ResetCode (recovery)
-- 🟡 Sentry: configurer `ENV.SENTRY_DSN`, tester un event dans un build dev-client (pas Expo Go)
-- 🟡 Secrets/env: vérifier `.env` (SUPABASE_URL/KEY, SENTRY_DSN), aucune clé en clair dans le code
-- 🟡 Flows critiques à revalider manuellement: signup → verify → onboarding; forgot → otp → new password
-- 🟡 Release build (dev-client) pour tester Sentry + modules natifs
-
-### Post-launch (Semaine 1-2)
-- 🔄 Ajouter anti double-submit manquant si non fait pré-launch
-- 🔄 Deep linking / universal links pour reset password / onboarding
-- 💤 Analytics (Mixpanel/Amplitude) et A/B tests
-- 💤 Mode sombre / i18n
-- 💤 Modération (report/block) si produit le requiert
-
-### Prochaines Étapes Possibles (reclassées)
-- Pré-launch cible: anti double-submit complet auth, validation Sentry DSN, checklist secrets, smoke tests auth/onboarding
-- Post-launch: Deep Linking, Analytics, i18n, Dark Mode, Offline mode, moderation/report flows
-
-### Release checklist mobile (pré-lancement)
-- Env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV` définis dans `.env`
-- Build: dev-client (pas Expo Go) pour tester Sentry + modules natifs; `npx expo start --dev-client`
-- Smoke AUTH: login, signup + verify email, resend OTP, forgot password → new password, logout/login
-- Onboarding: après verify, parcours complet jusqu'à Main; blocage correct si email non vérifié
-- Rate limit: tentative brute-force rapide sur login/signup → réponse générique + pas de crash
-- Sentry: envoyer un test event depuis dev-client, vérifier réception (DSN actif)
-- Sécurité: vérifier logs (pas de tokens), SecureStore bien purgé au logout
-- OTA/Store: préparer metadata si release store; sinon ignorer
+- **Secrets/env**: `.env` sans secrets en clair; `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV` présents.
+- **Build**: dev-client obligatoire pour valider Sentry/modules natifs (`npx expo start --dev-client`).
+- **Sentry**: envoyer un event de test dans le dev-client; vérifier réception.
+- **Auth/Onboarding smoke**: login, signup → verify → onboarding complet; forgot → otp → reset; resend OTP; logout purge SecureStore; Main absent si email non vérifié.
+- **Rate limit**: tenter brute-force rapide login/signup/forgot → réponses génériques, pas de crash.
+- **Logs**: pas de token en clair; vérifier console + Sentry breadcrumbs.
+- **Git workflow**: avant push/commit → `git status -sb`, `git diff`; après commit → `git show --name-only --oneline -1`.
 
 ---
 

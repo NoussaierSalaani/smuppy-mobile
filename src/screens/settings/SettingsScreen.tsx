@@ -7,19 +7,46 @@ import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { biometrics } from '../../utils/biometrics';
+import { useUser } from '../../context/UserContext';
 
 const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { user: contextUser, getFullName } = useUser();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [biometricType, setBiometricType] = useState(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
-
-  const user = { displayName: 'Ronald Richards', avatar: 'https://i.pravatar.cc/150?img=12' };
+  const [displayName, setDisplayName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     checkBiometrics();
-  }, []);
+    loadUserData();
+  }, [contextUser, getFullName]);
+
+  const loadUserData = async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const authUser = data?.user;
+      const metadata = authUser?.user_metadata || {};
+
+      const name =
+        metadata.full_name ||
+        metadata.name ||
+        getFullName?.() ||
+        authUser?.email ||
+        contextUser?.email ||
+        'User';
+
+      const avatar = metadata.avatar_url || contextUser?.avatar || null;
+
+      setDisplayName(name);
+      setAvatarUrl(avatar);
+    } catch (error) {
+      setDisplayName(getFullName?.() || contextUser?.email || 'User');
+      setAvatarUrl(contextUser?.avatar || null);
+    }
+  };
 
   const checkBiometrics = async () => {
     const available = await biometrics.isAvailable();
@@ -90,8 +117,14 @@ const SettingsScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.userSection}>
-        <AvatarImage source={user.avatar} size={50} style={styles.avatar} />
-        <Text style={styles.userName}>{user.displayName}</Text>
+        {avatarUrl ? (
+          <AvatarImage source={avatarUrl} size={50} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Ionicons name="person" size={28} color="#8E8E93" />
+          </View>
+        )}
+        <Text style={styles.userName}>{displayName}</Text>
       </View>
 
       <View style={styles.menuContainer}>
@@ -130,6 +163,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 40 },
   userSection: { alignItems: 'center', paddingVertical: 24 },
   avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
+  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, marginBottom: 12, backgroundColor: '#F2F2F2', justifyContent: 'center', alignItems: 'center' },
   userName: { fontSize: 18, fontFamily: 'WorkSans-SemiBold', color: '#0A0A0F' },
   menuContainer: { paddingHorizontal: 20, paddingTop: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },

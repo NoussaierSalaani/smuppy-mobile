@@ -25,6 +25,7 @@ import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useContentStore } from '../../store/contentStore';
+import { useUserSafetyStore } from '../../store/userSafetyStore';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -187,6 +188,8 @@ const PostDetailVibesFeedScreen = () => {
 
   // Content store for reports and status
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+  // User safety store for mute/block
+  const { mute, block, isMuted, isBlocked } = useUserSafetyStore();
 
   // Params
   const { postId, post: initialPost } = route.params || {};
@@ -213,6 +216,8 @@ const PostDetailVibesFeedScreen = () => {
   const [fanLoading, setFanLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
+  const [muteLoading, setMuteLoading] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -395,6 +400,79 @@ const PostDetailVibesFeedScreen = () => {
     } else {
       Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.', [{ text: 'OK' }]);
     }
+  };
+
+  // Mute user with anti spam-click
+  const handleMute = async () => {
+    if (muteLoading) return;
+    const userId = currentPost.user?.id;
+    if (!userId) return;
+
+    // Check if already muted
+    if (isMuted(userId)) {
+      setShowMenu(false);
+      Alert.alert('Déjà masqué', 'Cet utilisateur est déjà masqué.', [{ text: 'OK' }]);
+      return;
+    }
+
+    setShowMenu(false);
+    Alert.alert(
+      'Masquer cet utilisateur ?',
+      'Vous ne verrez plus ses publications dans vos feeds.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Masquer',
+          onPress: async () => {
+            setMuteLoading(true);
+            try {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              mute(userId);
+              Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+            } finally {
+              setMuteLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Block user with anti spam-click
+  const handleBlock = async () => {
+    if (blockLoading) return;
+    const userId = currentPost.user?.id;
+    if (!userId) return;
+
+    // Check if already blocked
+    if (isBlocked(userId)) {
+      setShowMenu(false);
+      Alert.alert('Déjà bloqué', 'Cet utilisateur est déjà bloqué.', [{ text: 'OK' }]);
+      return;
+    }
+
+    setShowMenu(false);
+    Alert.alert(
+      'Bloquer cet utilisateur ?',
+      'Vous ne verrez plus ses publications et il ne pourra plus interagir avec vous.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Bloquer',
+          style: 'destructive',
+          onPress: async () => {
+            setBlockLoading(true);
+            try {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              block(userId);
+              Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+            } finally {
+              setBlockLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Format numbers
@@ -866,6 +944,16 @@ const PostDetailVibesFeedScreen = () => {
             >
               <Ionicons name="person-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>View Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
+              <Ionicons name="eye-off-outline" size={24} color="#FFF" />
+              <Text style={styles.menuItemText}>Mute user</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
+              <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
+              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Block user</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleReport}>

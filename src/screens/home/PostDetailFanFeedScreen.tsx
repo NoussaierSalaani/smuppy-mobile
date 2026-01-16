@@ -12,6 +12,9 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  Share,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -156,9 +159,17 @@ const PostDetailFanFeedScreen = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
+
+  // Loading states for anti spam-click
+  const [likeLoading, setLikeLoading] = useState({});
+  const [bookmarkLoading, setBookmarkLoading] = useState({});
+  const [fanLoading, setFanLoading] = useState({});
+  const [shareLoading, setShareLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   
   // Index minimum (ne peut pas remonter plus haut que le post initial)
   const minIndex = initialIndex >= 0 ? initialIndex : 0;
@@ -248,22 +259,86 @@ const PostDetailFanFeedScreen = () => {
     itemVisiblePercentThreshold: 50,
   }).current;
   
-  // Toggle like
-  const toggleLike = (postId) => {
-    setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
-    if (!likedPosts[postId]) {
-      triggerLikeAnimation();
+  // Toggle like with anti spam-click
+  const toggleLike = async (postId) => {
+    if (likeLoading[postId]) return;
+    setLikeLoading(prev => ({ ...prev, [postId]: true }));
+    try {
+      // Simulate network delay (will be replaced with real API)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+      if (!likedPosts[postId]) {
+        triggerLikeAnimation();
+      }
+    } finally {
+      setLikeLoading(prev => ({ ...prev, [postId]: false }));
     }
   };
-  
-  // Toggle bookmark
-  const toggleBookmark = (postId) => {
-    setBookmarkedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+
+  // Toggle bookmark with anti spam-click
+  const toggleBookmark = async (postId) => {
+    if (bookmarkLoading[postId]) return;
+    setBookmarkLoading(prev => ({ ...prev, [postId]: true }));
+    try {
+      // Simulate network delay (will be replaced with real API)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setBookmarkedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+    } finally {
+      setBookmarkLoading(prev => ({ ...prev, [postId]: false }));
+    }
   };
-  
-  // Become fan
-  const becomeFan = (userId) => {
-    setFanStatus(prev => ({ ...prev, [userId]: true }));
+
+  // Become fan with anti spam-click
+  const becomeFan = async (userId) => {
+    if (fanLoading[userId]) return;
+    setFanLoading(prev => ({ ...prev, [userId]: true }));
+    try {
+      // Simulate network delay (will be replaced with real API)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setFanStatus(prev => ({ ...prev, [userId]: true }));
+    } finally {
+      setFanLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Share post with anti spam-click
+  const handleShare = async () => {
+    if (shareLoading) return;
+    setShareLoading(true);
+    try {
+      setShowMenu(false);
+      await Share.share({
+        message: `Check out this post by ${currentPost.user.name} on Smuppy!`,
+        // url: `smuppy://post/${currentPost.id}`, // Deep link for future
+      });
+    } catch (error) {
+      // User cancelled or error - silent fail
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  // Report post with anti spam-click
+  const handleReport = async () => {
+    if (reportLoading) return;
+    setReportLoading(true);
+    try {
+      setShowMenu(false);
+      // Show report modal
+      setShowReportModal(true);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // Submit report
+  const submitReport = (reason) => {
+    setShowReportModal(false);
+    Alert.alert(
+      'Report Submitted',
+      'Thank you for your report. We will review this content.',
+      [{ text: 'OK' }]
+    );
   };
   
   // Format numbers
@@ -337,32 +412,50 @@ const PostDetailFanFeedScreen = () => {
           
           {/* Right actions */}
           <View style={styles.rightActions}>
-            <TouchableOpacity style={styles.actionBtn}>
-              <Ionicons name="share-social-outline" size={28} color="#FFF" />
-            </TouchableOpacity>
-            
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+              onPress={handleShare}
+              disabled={shareLoading}
+            >
+              {shareLoading ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="share-social-outline" size={28} color="#FFF" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionBtn, likeLoading[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleLike(item.id)}
+              disabled={likeLoading[item.id]}
             >
-              <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={28}
-                color={isLiked ? COLORS.primaryGreen : '#FFF'}
-              />
+              {likeLoading[item.id] ? (
+                <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+              ) : (
+                <Ionicons
+                  name={isLiked ? 'heart' : 'heart-outline'}
+                  size={28}
+                  color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                />
+              )}
             </TouchableOpacity>
-            
+
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={[styles.actionBtn, bookmarkLoading[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleBookmark(item.id)}
+              disabled={bookmarkLoading[item.id]}
             >
-              <Ionicons
-                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                size={28}
-                color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
-              />
+              {bookmarkLoading[item.id] ? (
+                <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+              ) : (
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={28}
+                  color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+                />
+              )}
             </TouchableOpacity>
-            
+
             {item.type === 'video' && (
               <TouchableOpacity
                 style={styles.actionBtn}
@@ -391,20 +484,27 @@ const PostDetailFanFeedScreen = () => {
               
               {/* Bouton Fan - logique:
                   - Si déjà fan → pas de bouton (rien)
-                  - Si pas fan + ils me suivent → "Track" 
+                  - Si pas fan + ils me suivent → "Track"
                   - Si pas fan + ils me suivent pas → "+ Fan"
               */}
               {!isFanOfUser && (
                 <TouchableOpacity
-                  style={styles.fanBtn}
+                  style={[styles.fanBtn, fanLoading[item.user.id] && styles.fanBtnDisabled]}
                   onPress={() => becomeFan(item.user.id)}
+                  disabled={fanLoading[item.user.id]}
                 >
-                  {!userFollowsMe && (
-                    <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                  {fanLoading[item.user.id] ? (
+                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                  ) : (
+                    <>
+                      {!userFollowsMe && (
+                        <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                      )}
+                      <Text style={styles.fanBtnText}>
+                        {userFollowsMe ? 'Track' : 'Fan'}
+                      </Text>
+                    </>
                   )}
-                  <Text style={styles.fanBtnText}>
-                    {userFollowsMe ? 'Track' : 'Fan'}
-                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -588,30 +688,104 @@ const PostDetailFanFeedScreen = () => {
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Share</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                Alert.alert('Link Copied', 'Post link copied to clipboard!');
+              }}
+            >
               <Ionicons name="link-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Copy Link</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                navigation.navigate('UserProfile', { userId: currentPost.user.id });
+              }}
+            >
               <Ionicons name="person-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>View Profile</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="flag-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Report</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.menuCancel}
               onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowReportModal(false)}
+        >
+          <View style={styles.menuContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.reportTitle}>Report this post</Text>
+            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('spam')}
+            >
+              <Text style={styles.reportOptionText}>Spam or misleading</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('inappropriate')}
+            >
+              <Text style={styles.reportOptionText}>Inappropriate content</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('harassment')}
+            >
+              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('violence')}
+            >
+              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('other')}
+            >
+              <Text style={styles.reportOptionText}>Other</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuCancel}
+              onPress={() => setShowReportModal(false)}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -692,6 +866,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  actionBtnDisabled: {
+    opacity: 0.6,
+  },
   
   // Bottom content
   bottomContent: {
@@ -733,6 +910,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: COLORS.primaryGreen,
     gap: 4,
+    minWidth: 70,
+    justifyContent: 'center',
+  },
+  fanBtnDisabled: {
+    opacity: 0.6,
   },
   fanBtnText: {
     fontSize: 14,
@@ -946,6 +1128,31 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // Report modal
+  reportTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  reportSubtitle: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  reportOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  reportOptionText: {
+    fontSize: 16,
     color: '#FFF',
   },
 });

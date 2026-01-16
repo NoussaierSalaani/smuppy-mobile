@@ -24,6 +24,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { useContentStore } from '../../store/contentStore';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -183,7 +184,10 @@ const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  
+
+  // Content store for reports and status
+  const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+
   // Params
   const { postId, post: initialPost } = route.params || {};
   const currentPost = initialPost || MOCK_VIBESFEED_POSTS[0];
@@ -349,20 +353,48 @@ const PostDetailVibesFeedScreen = () => {
     setReportLoading(true);
     try {
       setShowMenu(false);
+
+      // Check if already reported (anti-spam)
+      if (hasUserReported(currentPost.id)) {
+        Alert.alert(
+          'Déjà signalé',
+          'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Check if content is already under review
+      if (isUnderReview(currentPost.id)) {
+        Alert.alert(
+          'Sous examen',
+          'Ce contenu est déjà en cours d\'examen par notre équipe.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Show report modal
       setShowReportModal(true);
     } finally {
       setReportLoading(false);
     }
   };
 
-  // Submit report
-  const submitReport = (reason) => {
+  // Submit report to store
+  const submitReport = (reason: string) => {
     setShowReportModal(false);
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for your report. We will review this content.',
-      [{ text: 'OK' }]
-    );
+
+    // Submit to content store
+    const result = storeSubmitReport(currentPost.id, reason);
+
+    if (result.alreadyReported) {
+      Alert.alert('Déjà signalé', result.message, [{ text: 'OK' }]);
+    } else if (result.success) {
+      Alert.alert('Signalé', result.message, [{ text: 'OK' }]);
+    } else {
+      Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.', [{ text: 'OK' }]);
+    }
   };
 
   // Format numbers
@@ -472,7 +504,17 @@ const PostDetailVibesFeedScreen = () => {
               
               {/* Gradient overlay */}
               <View style={styles.gradientOverlay} />
-              
+
+              {/* Under Review Overlay */}
+              {isUnderReview(currentPost.id) && (
+                <View style={styles.underReviewOverlay}>
+                  <View style={styles.underReviewBadge}>
+                    <Ionicons name="alert-circle" size={24} color="#FFF" />
+                    <Text style={styles.underReviewText}>Contenu sous examen</Text>
+                  </View>
+                </View>
+              )}
+
               {/* Like animation */}
               {showLikeAnimation && (
                 <Animated.View
@@ -933,7 +975,34 @@ const styles = StyleSheet.create({
     height: 350,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  
+
+  // Under review overlay
+  underReviewOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  underReviewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,107,107,0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 10,
+  },
+  underReviewText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
   // Like animation
   likeAnimation: {
     position: 'absolute',

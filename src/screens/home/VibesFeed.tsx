@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SIZES, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
+import { useContentStore } from '../../store/contentStore';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -99,6 +100,7 @@ export default function VibesFeed() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { handleScroll } = useTabBar();
+  const { isUnderReview } = useContentStore();
   const [interests, setInterests] = useState(USER_INTERESTS);
   const [selectedPost, setSelectedPost] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -126,13 +128,14 @@ export default function VibesFeed() {
     [interests]
   );
 
-  // Filter posts
-  const filteredPosts = useMemo(() =>
-    activeFilters.length > 0
+  // Filter posts (by category AND hide under_review - SAFETY-2)
+  const filteredPosts = useMemo(() => {
+    const categoryFiltered = activeFilters.length > 0
       ? VIBES_POSTS.filter(post => activeFilters.includes(post.category))
-      : VIBES_POSTS,
-    [activeFilters]
-  );
+      : VIBES_POSTS;
+    // Hide posts that are under review
+    return categoryFiltered.filter(post => !isUnderReview(String(post.id)));
+  }, [activeFilters, isUnderReview]);
 
   // Toggle interest
   const toggleInterest = useCallback((id) => {

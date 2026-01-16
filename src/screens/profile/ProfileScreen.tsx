@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,28 +21,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { supabase } from '../../config/supabase';
+import { useUser } from '../../context/UserContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 260;
 const AVATAR_SIZE = 90;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 
-// Mock Data - Empty for new account
+// Initial empty user (filled from auth/context)
 const INITIAL_USER = {
-  id: '1',
-  displayName: 'Ronald Richards',
+  id: null,
+  displayName: '',
   avatar: null,
-  coverImage: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
+  coverImage: null,
   bio: '',
   location: '',
   stats: {
-    fans: 787,
-    posts: 38,
+    fans: 0,
+    posts: 0,
   },
 };
 
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { user: contextUser, getFullName } = useUser();
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
   
@@ -58,6 +61,60 @@ const ProfileScreen = ({ navigation, route }) => {
   const [showQRModal, setShowQRModal] = useState(false);
   
   const isOwnProfile = route?.params?.userId === undefined;
+
+  // Populate user from Supabase auth + UserContext with safe fallbacks
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUser = async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const authUser = data?.user;
+        const metadata = authUser?.user_metadata || {};
+
+        if (!isMounted) return;
+
+        setUser(prev => ({
+          ...prev,
+          id: authUser?.id || contextUser.id || prev.id,
+          displayName:
+            metadata.full_name ||
+            metadata.name ||
+            getFullName?.() ||
+            authUser?.email ||
+            contextUser.email ||
+            prev.displayName ||
+            'User',
+          avatar: metadata.avatar_url || contextUser.avatar || prev.avatar || null,
+          coverImage: metadata.cover_url || contextUser.coverImage || prev.coverImage || null,
+          bio: metadata.bio || contextUser.bio || '',
+          stats: {
+            fans: contextUser.stats?.fans ?? prev.stats?.fans ?? 0,
+            posts: contextUser.stats?.posts ?? prev.stats?.posts ?? 0,
+          },
+        }));
+      } catch (_error) {
+        if (!isMounted) return;
+        setUser(prev => ({
+          ...prev,
+          displayName: getFullName?.() || contextUser.email || prev.displayName || 'User',
+          avatar: contextUser.avatar || prev.avatar || null,
+          coverImage: contextUser.coverImage || prev.coverImage || null,
+          bio: contextUser.bio || '',
+          stats: {
+            fans: contextUser.stats?.fans ?? prev.stats?.fans ?? 0,
+            posts: contextUser.stats?.posts ?? prev.stats?.posts ?? 0,
+          },
+        }));
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [contextUser, getFullName]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
+import { useContentStore } from '../../store/contentStore';
 
 const { width } = Dimensions.get('window');
 
@@ -147,12 +148,19 @@ const _PAGE_SIZE = 5; // For future pagination
 export default function FanFeed() {
   const navigation = useNavigation();
   const { handleScroll } = useTabBar();
+  const { isUnderReview } = useContentStore();
   const [posts, setPosts] = useState(FAN_POSTS);
   const [showComments, setShowComments] = useState(false);
   const [_selectedPost, setSelectedPost] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  // Filter out posts that are under review (SAFETY-2)
+  const visiblePosts = useMemo(() =>
+    posts.filter(post => !isUnderReview(String(post.id))),
+    [posts, isUnderReview]
+  );
 
   // Navigate to user profile
   const goToUserProfile = useCallback((userId) => {
@@ -375,9 +383,9 @@ export default function FanFeed() {
       )}
 
       {/* Divider */}
-      {index < posts.length - 1 && <View style={styles.postDivider} />}
+      {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
     </View>
-  ), [posts.length, goToUserProfile, toggleLike, toggleSave, openComments, formatNumber]);
+  ), [visiblePosts.length, goToUserProfile, toggleLike, toggleSave, openComments, formatNumber]);
 
   // List header with stories
   const ListHeader = useMemo(() => (
@@ -477,7 +485,7 @@ export default function FanFeed() {
     <View style={styles.container}>
       {/* FlashList - 10x faster than FlatList */}
       <FlashList
-        data={posts}
+        data={visiblePosts}
         renderItem={renderPost}
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeader}

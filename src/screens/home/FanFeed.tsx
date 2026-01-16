@@ -18,6 +18,7 @@ import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useContentStore } from '../../store/contentStore';
+import { useUserSafetyStore } from '../../store/userSafetyStore';
 
 const { width } = Dimensions.get('window');
 
@@ -149,6 +150,7 @@ export default function FanFeed() {
   const navigation = useNavigation();
   const { handleScroll } = useTabBar();
   const { isUnderReview } = useContentStore();
+  const { isHidden } = useUserSafetyStore();
   const [posts, setPosts] = useState(FAN_POSTS);
   const [showComments, setShowComments] = useState(false);
   const [_selectedPost, setSelectedPost] = useState(null);
@@ -156,10 +158,17 @@ export default function FanFeed() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Filter out posts that are under review (SAFETY-2)
+  // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)
   const visiblePosts = useMemo(() =>
-    posts.filter(post => !isUnderReview(String(post.id))),
-    [posts, isUnderReview]
+    posts.filter(post => {
+      // Hide posts under review
+      if (isUnderReview(String(post.id))) return false;
+      // Hide posts from muted/blocked users
+      const authorId = post.user?.id;
+      if (authorId && isHidden(authorId)) return false;
+      return true;
+    }),
+    [posts, isUnderReview, isHidden]
   );
 
   // Navigate to user profile

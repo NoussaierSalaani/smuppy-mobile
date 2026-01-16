@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, SIZES, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import { useContentStore } from '../../store/contentStore';
+import { useUserSafetyStore } from '../../store/userSafetyStore';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -101,6 +102,7 @@ export default function VibesFeed() {
   const navigation = useNavigation();
   const { handleScroll } = useTabBar();
   const { isUnderReview } = useContentStore();
+  const { isHidden } = useUserSafetyStore();
   const [interests, setInterests] = useState(USER_INTERESTS);
   const [selectedPost, setSelectedPost] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -128,14 +130,19 @@ export default function VibesFeed() {
     [interests]
   );
 
-  // Filter posts (by category AND hide under_review - SAFETY-2)
+  // Filter posts (by category AND hide under_review - SAFETY-2 AND hide muted/blocked - SAFETY-3)
   const filteredPosts = useMemo(() => {
     const categoryFiltered = activeFilters.length > 0
       ? VIBES_POSTS.filter(post => activeFilters.includes(post.category))
       : VIBES_POSTS;
-    // Hide posts that are under review
-    return categoryFiltered.filter(post => !isUnderReview(String(post.id)));
-  }, [activeFilters, isUnderReview]);
+    // Hide posts that are under review OR from muted/blocked users
+    return categoryFiltered.filter(post => {
+      if (isUnderReview(String(post.id))) return false;
+      const authorId = post.user?.id;
+      if (authorId && isHidden(authorId)) return false;
+      return true;
+    });
+  }, [activeFilters, isUnderReview, isHidden]);
 
   // Toggle interest
   const toggleInterest = useCallback((id) => {

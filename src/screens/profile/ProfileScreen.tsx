@@ -13,6 +13,7 @@ import {
   Platform,
   RefreshControl,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -21,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { DARK_COLORS as COLORS } from '../../config/theme';
-import { supabase } from '../../config/supabase';
 import { useUser } from '../../context/UserContext';
+import { useCurrentProfile } from '../../hooks';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 260;
@@ -45,7 +46,8 @@ const INITIAL_USER = {
 
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { user: contextUser, getFullName } = useUser();
+  const { user: contextUser } = useUser();
+  const { data: profileData, isLoading: isProfileLoading, isError: profileError } = useCurrentProfile();
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
   
@@ -56,65 +58,69 @@ const ProfileScreen = ({ navigation, route }) => {
   
   // Modal states
   const [showBioModal, setShowBioModal] = useState(false);
-  const [bioText, setBioText] = useState(user.bio);
+  const [bioText, setBioText] = useState('');
   const [showTabMenu, setShowTabMenu] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   
   const isOwnProfile = route?.params?.userId === undefined;
+  const contextMatchesProfile = !!contextUser?.id && (!profileData || contextUser.id === profileData.id);
 
-  // Populate user from Supabase auth + UserContext with safe fallbacks
+  const resolvedProfile = useMemo(() => {
+    const base = profileData || {};
+    const fallback = contextMatchesProfile ? contextUser : {};
+    return {
+      id: base.id || fallback.id || INITIAL_USER.id,
+      displayName:
+        base.full_name ||
+        base.name ||
+        fallback.displayName ||
+        fallback.email ||
+        'Utilisateur',
+      avatar: base.avatar_url || fallback.avatar || INITIAL_USER.avatar,
+      coverImage: base.cover_url || fallback.coverImage || INITIAL_USER.coverImage,
+      bio: base.bio || fallback.bio || INITIAL_USER.bio,
+      location: base.location || fallback.location || INITIAL_USER.location,
+      stats: {
+        fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? INITIAL_USER.stats.fans,
+        posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? INITIAL_USER.stats.posts,
+      },
+    };
+  }, [profileData, contextUser, contextMatchesProfile]);
+
   useEffect(() => {
-    let isMounted = true;
+    setUser(prev => ({
+      ...prev,
+      ...resolvedProfile,
+      stats: resolvedProfile.stats,
+    }));
+  }, [resolvedProfile]);
 
-    const loadUser = async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        const authUser = data?.user;
-        const metadata = authUser?.user_metadata || {};
+  useEffect(() => {
+    setBioText(resolvedProfile.bio || '');
+  }, [resolvedProfile.bio]);
 
-        if (!isMounted) return;
+  if (isProfileLoading && !profileData) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
+      </View>
+    );
+  }
 
-        setUser(prev => ({
-          ...prev,
-          id: authUser?.id || contextUser.id || prev.id,
-          displayName:
-            metadata.full_name ||
-            metadata.name ||
-            getFullName?.() ||
-            authUser?.email ||
-            contextUser.email ||
-            prev.displayName ||
-            'User',
-          avatar: metadata.avatar_url || contextUser.avatar || prev.avatar || null,
-          coverImage: metadata.cover_url || contextUser.coverImage || prev.coverImage || null,
-          bio: metadata.bio || contextUser.bio || '',
-          stats: {
-            fans: contextUser.stats?.fans ?? prev.stats?.fans ?? 0,
-            posts: contextUser.stats?.posts ?? prev.stats?.posts ?? 0,
-          },
-        }));
-      } catch (_error) {
-        if (!isMounted) return;
-        setUser(prev => ({
-          ...prev,
-          displayName: getFullName?.() || contextUser.email || prev.displayName || 'User',
-          avatar: contextUser.avatar || prev.avatar || null,
-          coverImage: contextUser.coverImage || prev.coverImage || null,
-          bio: contextUser.bio || '',
-          stats: {
-            fans: contextUser.stats?.fans ?? prev.stats?.fans ?? 0,
-            posts: contextUser.stats?.posts ?? prev.stats?.posts ?? 0,
-          },
-        }));
-      }
-    };
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [contextUser, getFullName]);
+  if (profileError && !contextMatchesProfile) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+        <Text style={styles.displayName}>Unable to load your profile.</Text>
+        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
+          Please check your connection or try again later.
+        </Text>
+        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
+          <Text style={styles.fanButtonText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

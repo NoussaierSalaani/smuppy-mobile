@@ -23,6 +23,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { useContentStore } from '../../store/contentStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -145,7 +146,10 @@ const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  
+
+  // Content store for reports and status
+  const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+
   // Params
   const { postId, fanFeedPosts = MOCK_FANFEED_POSTS } = route.params || {};
   const initialIndex = fanFeedPosts.findIndex(p => p.id === postId) || 0;
@@ -324,6 +328,27 @@ const PostDetailFanFeedScreen = () => {
     setReportLoading(true);
     try {
       setShowMenu(false);
+
+      // Check if already reported (anti-spam)
+      if (hasUserReported(currentPost.id)) {
+        Alert.alert(
+          'Déjà signalé',
+          'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Check if content is already under review
+      if (isUnderReview(currentPost.id)) {
+        Alert.alert(
+          'Sous examen',
+          'Ce contenu est déjà en cours d\'examen par notre équipe.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       // Show report modal
       setShowReportModal(true);
     } finally {
@@ -331,14 +356,20 @@ const PostDetailFanFeedScreen = () => {
     }
   };
 
-  // Submit report
-  const submitReport = (reason) => {
+  // Submit report to store
+  const submitReport = (reason: string) => {
     setShowReportModal(false);
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for your report. We will review this content.',
-      [{ text: 'OK' }]
-    );
+
+    // Submit to content store
+    const result = storeSubmitReport(currentPost.id, reason);
+
+    if (result.alreadyReported) {
+      Alert.alert('Déjà signalé', result.message, [{ text: 'OK' }]);
+    } else if (result.success) {
+      Alert.alert('Signalé', result.message, [{ text: 'OK' }]);
+    } else {
+      Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.', [{ text: 'OK' }]);
+    }
   };
   
   // Format numbers
@@ -354,10 +385,21 @@ const PostDetailFanFeedScreen = () => {
     const isBookmarked = bookmarkedPosts[item.id];
     const isFanOfUser = fanStatus[item.user.id];
     const userFollowsMe = item.user.followsMe;
-    
+    const postUnderReview = isUnderReview(item.id);
+
     return (
       <TouchableWithoutFeedback onPress={handleDoubleTap}>
         <View style={[styles.postContainer, { height: height }]}>
+          {/* Under Review Overlay */}
+          {postUnderReview && (
+            <View style={styles.underReviewOverlay}>
+              <View style={styles.underReviewBadge}>
+                <Ionicons name="alert-circle" size={24} color="#FFF" />
+                <Text style={styles.underReviewText}>Contenu sous examen</Text>
+              </View>
+            </View>
+          )}
+
           {/* Media */}
           {item.type === 'video' ? (
             <Video
@@ -818,7 +860,34 @@ const styles = StyleSheet.create({
     height: 300,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
-  
+
+  // Under review overlay
+  underReviewOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  underReviewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,107,107,0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 10,
+  },
+  underReviewText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
   // Like animation
   likeAnimation: {
     position: 'absolute',

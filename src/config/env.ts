@@ -3,8 +3,15 @@ import Constants from 'expo-constants';
 /**
  * Environment configuration loaded from app.config.js
  * Values are read from .env file at build time
+ *
+ * Supports:
+ * - EAS builds (production/preview): process.env via app.config.js
+ * - Expo Go (dev): .env file via dotenv/config in app.config.js
  */
-const extra = Constants.expoConfig?.extra || {};
+const extra = Constants.expoConfig?.extra
+  || Constants.manifest?.extra
+  || Constants.manifest2?.extra
+  || {};
 
 export const ENV = {
   // Supabase

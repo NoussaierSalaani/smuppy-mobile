@@ -49,8 +49,8 @@ eas: {
 projectId: 'f38cbb48-8255-45df-ab5b-097b70ee9fea',
       },
 // Environment variables passed to the app
-supabaseUrl: process.env.SUPABASE_URL,
-supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
+supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
 googleApiKey: process.env.GOOGLE_API_KEY,
 apiUrlDev: process.env.API_URL_DEV,
 apiUrlProd: process.env.API_URL_PROD,

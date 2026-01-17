@@ -12,9 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call Edge Function
+        env:
+          SUPABASE_URL: "https://wbgfaeytioxnkdsuvvlx.supabase.co"
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          curl -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/send-signup-reminder" \
+          curl -sfS -X POST \
+            "${SUPABASE_URL}/functions/v1/send-signup-reminder" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${SERVICE_KEY}" \
             -d '{}'

@@ -46,4 +46,5 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refresh_token',
   USER_ID: 'user_id',
   BIOMETRIC_ENABLED: 'biometric_enabled',
+  REMEMBER_ME: 'remember_me',
 };

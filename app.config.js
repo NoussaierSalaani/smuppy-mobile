@@ -4,6 +4,7 @@ expo: {
 owner: 'nou09',
 name: 'Smuppy',
 slug: 'Smuppy',
+scheme: 'smuppy',
 version: '1.0.0',
 orientation: 'portrait',
 icon: './assets/icon.png',
@@ -18,8 +19,13 @@ ios: {
 supportsTablet: true,
 bundleIdentifier: 'com.nou09.Smuppy',
 infoPlist: {
-ITSAppUsesNonExemptEncryption: false,
-      },
+  ITSAppUsesNonExemptEncryption: false,
+  // Allow network requests (required for Supabase Edge Functions)
+  NSAppTransportSecurity: {
+    NSAllowsArbitraryLoads: true,
+    NSAllowsLocalNetworking: true,
+  },
+},
     },
 android: {
 package: 'com.nou09.Smuppy',

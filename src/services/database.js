@@ -12,7 +12,7 @@ import { supabase } from '../config/supabase';
 /**
  * Get current user's profile
  */
-export const getCurrentProfile = async () => {
+export const getCurrentProfile = async (autoCreate = true) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
@@ -20,7 +20,34 @@ export const getCurrentProfile = async () => {
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
+
+  // If no profile exists and autoCreate is enabled, create one
+  if (!data && !error && autoCreate) {
+    console.log('[getCurrentProfile] No profile found, creating one...');
+    const profileData = {
+      id: user.id,
+      email: user.email,
+      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
+      avatar_url: user.user_metadata?.avatar_url || null,
+    };
+    console.log('[getCurrentProfile] Profile data:', profileData);
+
+    const { data: newProfile, error: createError } = await supabase
+      .from('profiles')
+      .insert(profileData)
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('[getCurrentProfile] Failed to create profile:', createError);
+    } else {
+      console.log('[getCurrentProfile] Profile created successfully:', newProfile);
+    }
+
+    return { data: newProfile, error: createError };
+  }
 
   return { data, error };
 };
@@ -33,7 +60,7 @@ export const getProfileById = async (userId) => {
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle(); // Handle case where profile doesn't exist
 
   return { data, error };
 };
@@ -46,7 +73,7 @@ export const getProfileByUsername = async (username) => {
     .from('profiles')
     .select('*')
     .eq('username', username)
-    .single();
+    .maybeSingle(); // Handle case where profile doesn't exist
 
   return { data, error };
 };
@@ -85,6 +112,42 @@ export const createProfile = async (profileData) => {
     .single();
 
   return { data, error };
+};
+
+/**
+ * Ensure profile exists - create if it doesn't
+ * Call this after login/signup to guarantee profile exists
+ */
+export const ensureProfile = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  // Check if profile exists
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (existingProfile) {
+    return { data: existingProfile, error: null, created: false };
+  }
+
+  // Create new profile with defaults from auth user
+  const { data: newProfile, error } = await supabase
+    .from('profiles')
+    .insert({
+      id: user.id,
+      email: user.email,
+      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
+      avatar_url: user.user_metadata?.avatar_url || null,
+      created_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  return { data: newProfile, error, created: true };
 };
 
 // ============================================

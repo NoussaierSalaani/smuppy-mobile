@@ -101,6 +101,8 @@ export default function LoginScreen({ navigation }) {
       if (refreshToken) {
         const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
         if (data?.session && !error) {
+          // Biometric login implies persistent session
+          await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
           await storage.set(STORAGE_KEYS.ACCESS_TOKEN, data.session.access_token);
           await storage.set(STORAGE_KEYS.REFRESH_TOKEN, data.session.refresh_token);
           return;
@@ -199,8 +201,19 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      await storage.set(STORAGE_KEYS.ACCESS_TOKEN, session.access_token);
-      await storage.set(STORAGE_KEYS.REFRESH_TOKEN, session.refresh_token);
+      // Save "Remember Me" preference
+      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+
+      // Only persist tokens if "Remember Me" is checked
+      if (rememberMe) {
+        await storage.set(STORAGE_KEYS.ACCESS_TOKEN, session.access_token);
+        await storage.set(STORAGE_KEYS.REFRESH_TOKEN, session.refresh_token);
+      } else {
+        // Clear any previously stored tokens
+        await storage.delete(STORAGE_KEYS.ACCESS_TOKEN);
+        await storage.delete(STORAGE_KEYS.REFRESH_TOKEN);
+      }
+
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
     } catch (error) {
@@ -212,7 +225,7 @@ export default function LoginScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [email, password]);
+  }, [email, password, rememberMe]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);

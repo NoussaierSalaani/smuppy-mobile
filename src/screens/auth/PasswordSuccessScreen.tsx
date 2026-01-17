@@ -5,13 +5,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 
-export default function PasswordSuccessScreen({ navigation }) {
+export default function PasswordSuccessScreen({ navigation, route }) {
+  const onRecoveryComplete = route?.params?.onRecoveryComplete;
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.navigate('Login');
+      // If we have a recovery callback, use it (AppNavigator handles Main transition)
+      // Otherwise fallback to Login (for non-recovery password changes)
+      if (onRecoveryComplete) {
+        onRecoveryComplete();
+      } else {
+        navigation.navigate('Login');
+      }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [navigation, onRecoveryComplete]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -37,7 +45,9 @@ export default function PasswordSuccessScreen({ navigation }) {
         {/* Redirect Text */}
         <View style={styles.redirectContainer}>
           <View style={styles.loadingDot} />
-          <Text style={styles.redirect}>Redirecting to login...</Text>
+          <Text style={styles.redirect}>
+            {onRecoveryComplete ? 'Entering the app...' : 'Redirecting to login...'}
+          </Text>
         </View>
       </View>
     </SafeAreaView>
@@ -45,8 +55,8 @@ export default function PasswordSuccessScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: COLORS.white,
   },
   content: {
@@ -55,12 +65,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
   },
-  checkCircle: { 
-    width: 90, 
-    height: 90, 
-    borderRadius: 45, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  checkCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: SPACING.xl,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 8 },
@@ -68,11 +78,11 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
-  title: { 
+  title: {
     fontFamily: 'WorkSans-Bold',
-    fontSize: 28, 
-    color: COLORS.dark, 
-    textAlign: 'center', 
+    fontSize: 28,
+    color: COLORS.dark,
+    textAlign: 'center',
     marginBottom: SPACING.md,
   },
   subtitle: {
@@ -93,8 +103,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: COLORS.primary,
   },
-  redirect: { 
-    fontSize: 14, 
+  redirect: {
+    fontSize: 14,
     color: COLORS.gray,
   },
 });

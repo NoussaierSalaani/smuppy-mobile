@@ -8,6 +8,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 import VerifyCodeScreen from '../screens/auth/VerifyCodeScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import CheckEmailScreen from '../screens/auth/CheckEmailScreen';
 import ResetCodeScreen from '../screens/auth/ResetCodeScreen';
 import NewPasswordScreen from '../screens/auth/NewPasswordScreen';
 import PasswordSuccessScreen from '../screens/auth/PasswordSuccessScreen';
@@ -38,9 +39,18 @@ const fadeTransition = {
   },
 };
 
-export default function AuthNavigator() {
+export default function AuthNavigator({ route }) {
+  // Support dynamic initialRouteName from parent (for recovery flow)
+  const initialRouteName = route?.params?.initialRouteName || 'Splash';
+
+  // Callback to signal recovery is complete (passed to NewPasswordScreen)
+  const onRecoveryComplete = route?.params?.onRecoveryComplete;
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: '#fff' } }}>
+    <Stack.Navigator
+      initialRouteName={initialRouteName}
+      screenOptions={{ headerShown: false, cardStyle: { backgroundColor: '#fff' } }}
+    >
       {/* Splash & Welcome */}
       <Stack.Screen name="Splash" component={SplashScreen} options={fadeTransition} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={fadeTransition} />
@@ -50,8 +60,16 @@ export default function AuthNavigator() {
       <Stack.Screen name="Signup" component={SignupScreen} options={{ gestureEnabled: false }} />
       <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="CheckEmail" component={CheckEmailScreen} />
       <Stack.Screen name="ResetCode" component={ResetCodeScreen} />
-      <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
+
+      {/* NewPassword receives onRecoveryComplete via initialParams */}
+      <Stack.Screen
+        name="NewPassword"
+        component={NewPasswordScreen}
+        initialParams={{ onRecoveryComplete }}
+      />
+
       <Stack.Screen name="PasswordSuccess" component={PasswordSuccessScreen} />
       <Stack.Screen name="EmailVerificationPending" component={EmailVerificationPendingScreen} options={{ gestureEnabled: false }} />
 

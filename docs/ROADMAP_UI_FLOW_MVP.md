@@ -1,8 +1,8 @@
 # ROADMAP UI/FLOW MVP - SMUPPY MOBILE
 
 > **Date:** 2026-01-16
-> **Version:** 1.0
-> **Status:** Audit complet - En attente validation
+> **Version:** 1.1
+> **Status:** En cours - UI-P0-1 ✅ UI-P0-1b ✅
 
 ---
 
@@ -559,7 +559,8 @@
 
 | LOT | Nom | Objectif | Fichiers | Tests Manuels | Do NOT DO |
 |-----|-----|----------|----------|---------------|-----------|
-| **UI-P0-1** | Profile API | Connecter ProfileScreen aux données user réel | `ProfileScreen.tsx`, `UserContext.tsx` | Voir son vrai nom/avatar/bio | Ne pas toucher tabs |
+| **UI-P0-1** | Profile API | ✅ DONE - Déjà implémenté | `ProfileScreen.tsx` | Vrai nom/avatar/bio | - |
+| **UI-P0-1b** | Settings Header | ✅ DONE | `SettingsScreen.tsx` | Vrai nom/avatar (pas "Ronald Richards") | Ne pas toucher menu |
 | **UI-P0-2** | Profile Stats | Stats dynamiques fans/following/posts | `ProfileScreen.tsx` | Counts = réels | Ne pas implémenter follow |
 | **UI-P0-3** | Notifications API | Notifications depuis API | `NotificationsScreen.js`, service | Vraies notifs, tap navigation | Ne pas faire mark as read |
 | **UI-P0-4** | Messages List | Conversations depuis API | `MessagesScreen.tsx`, service | Vraies conversations | Ne pas faire envoi |
@@ -627,7 +628,7 @@
 | **Gaps P1** | 8 |
 | **Écrans manquants** | 15 |
 | **LOTs nécessaires** | 14 |
-| **NEXT LOT** | UI-P0-1 Profile API |
+| **NEXT LOT** | UI-P0-2 Profile Stats |
 
 ---
 

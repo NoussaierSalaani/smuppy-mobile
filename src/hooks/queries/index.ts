@@ -20,10 +20,13 @@ export const useCurrentProfile = () => {
     queryKey: queryKeys.user.current(),
     queryFn: async () => {
       const { data, error } = await database.getCurrentProfile();
-      if (error) throw new Error(error);
-      return data;
+      if (error) {
+        const errorMsg = typeof error === 'object' ? (error.message || JSON.stringify(error)) : String(error);
+        throw new Error(errorMsg);
+      }
+      return data; // Can be null if profile doesn't exist yet
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 };
 

@@ -11,7 +11,7 @@ import { checkAWSRateLimit } from '../../services/awsRateLimit';
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // SECURITY: Generic message that doesn't reveal if email exists
-const SUCCESS_MESSAGE = "Si un compte existe avec cet email, tu recevras un lien de réinitialisation.";
+const SUCCESS_MESSAGE = "If an account exists with this email, you will receive a password reset link.";
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -21,7 +21,7 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Flèche retour → goBack pour animation normale
+  // Back button → goBack for normal animation
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
@@ -41,6 +41,8 @@ export default function ForgotPasswordScreen({ navigation }) {
   }, []);
 
   const handleSend = useCallback(async () => {
+    if (isLoading) return; // Prevent double-tap
+
     Keyboard.dismiss();
     setHasSubmitted(true);
 
@@ -54,17 +56,17 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
 
     setEmailError('');
+    setIsLoading(true); // Set loading BEFORE async operations
 
     const emailNormalized = email.trim().toLowerCase();
-    const awsCheck = await checkAWSRateLimit(emailNormalized, 'auth-forgot-password');
-    if (!awsCheck.allowed) {
-      setEmailError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
-      return;
-    }
-
-    setIsLoading(true);
 
     try {
+      const awsCheck = await checkAWSRateLimit(emailNormalized, 'auth-forgot-password');
+      if (!awsCheck.allowed) {
+        setEmailError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+        return;
+      }
+
       const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-reset`, {
         method: 'POST',
         headers: {
@@ -84,18 +86,26 @@ export default function ForgotPasswordScreen({ navigation }) {
       // This prevents attackers from discovering valid emails
       setShowSuccessModal(true);
     } catch (error) {
-      // SECURITY: Even on error, show success to prevent email enumeration
-      // Log error internally but don't reveal to user
-      console.error('[ForgotPassword] Error:', error);
-      setShowSuccessModal(true);
+      // Detect network errors - show user-friendly message instead of fake success
+      const isNetworkError =
+        error instanceof TypeError ||
+        error?.message?.includes('Network request failed') ||
+        error?.message?.includes('Failed to fetch');
+
+      if (isNetworkError) {
+        setEmailError('Unable to send link right now. Please check your connection and try again.');
+      } else {
+        // Other errors: show success for anti-enumeration security
+        setShowSuccessModal(true);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [email]);
+  }, [email, isLoading]);
 
   const handleContinue = useCallback(() => {
     setShowSuccessModal(false);
-    navigation.navigate('ResetCode', { email });
+    navigation.navigate('CheckEmail', { email });
   }, [navigation, email]);
 
   const isFormValid = email.trim().length > 0;
@@ -118,7 +128,7 @@ export default function ForgotPasswordScreen({ navigation }) {
       <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            
+
             {/* Back Button */}
             <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
               <Ionicons name="arrow-back" size={24} color={COLORS.white} />
@@ -127,22 +137,22 @@ export default function ForgotPasswordScreen({ navigation }) {
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Forgot password</Text>
-              <Text style={styles.subtitle}>Enter your email address to recover your password</Text>
+              <Text style={styles.subtitle}>Enter your email address and we'll send you a link to reset your password</Text>
             </View>
 
-            {/* Email Input - returnKeyType default, pas d'action onSubmitEditing */}
+            {/* Email Input */}
             <Text style={styles.label}>Email address</Text>
             <View style={getInputStyle()}>
               <Ionicons name="mail-outline" size={20} color={getIconColor()} />
-              <TextInput 
-                style={styles.input} 
-                placeholder="mailusersmuppy@mail.com" 
+              <TextInput
+                style={styles.input}
+                placeholder="mailusersmuppy@mail.com"
                 placeholderTextColor={COLORS.grayMuted}
-                value={email} 
+                value={email}
                 onChangeText={handleEmailChange}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                keyboardType="email-address" 
+                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -152,7 +162,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             </View>
-            
+
             {hasSubmitted && emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
             {/* Send Button */}
@@ -167,21 +177,12 @@ export default function ForgotPasswordScreen({ navigation }) {
                   <ActivityIndicator color={COLORS.white} />
                 ) : (
                   <>
-                    <Text style={styles.btnText}>Send code</Text>
+                    <Text style={styles.btnText}>Send link</Text>
                     <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
                   </>
                 )}
               </TouchableOpacity>
             </LinearGradient>
-
-            {/* Back to Login */}
-            <View style={styles.loginRow}>
-              <Text style={styles.loginText}>Changed your mind? </Text>
-              <TouchableOpacity onPress={handleGoBack} style={styles.loginLink}>
-                <Text style={styles.linkText}>Back to login</Text>
-                <Ionicons name="arrow-forward" size={14} color={COLORS.primary} />
-              </TouchableOpacity>
-            </View>
 
             {/* Spacer */}
             <View style={styles.spacer} />
@@ -206,7 +207,7 @@ export default function ForgotPasswordScreen({ navigation }) {
               >
                 <Ionicons name="mail" size={36} color={COLORS.white} />
               </LinearGradient>
-              <Text style={styles.modalTitle}>Email envoyé</Text>
+              <Text style={styles.modalTitle}>Email sent</Text>
               <Text style={styles.modalMessage}>{SUCCESS_MESSAGE}</Text>
               <LinearGradient
                 colors={GRADIENTS.primary}
@@ -215,7 +216,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 style={styles.modalBtn}
               >
                 <TouchableOpacity style={styles.modalBtnInner} onPress={handleContinue} activeOpacity={0.8}>
-                  <Text style={styles.modalBtnText}>Continuer</Text>
+                  <Text style={styles.modalBtnText}>Continue</Text>
                   <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
                 </TouchableOpacity>
               </LinearGradient>
@@ -253,12 +254,6 @@ const styles = StyleSheet.create({
   btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginTop: 16, marginBottom: 24 },
   btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
-
-  // Login Link
-  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  loginText: { fontSize: 14, color: COLORS.gray },
-  loginLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  linkText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
 
   // Spacer
   spacer: { flex: 1, minHeight: 200 },

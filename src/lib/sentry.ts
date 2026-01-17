@@ -191,7 +191,16 @@ export const createNavigationContainerRef = Sentry?.createNavigationContainerRef
 
 /**
  * Sentry navigation integration
+ * Wrapped in try/catch to prevent module-level crash
  */
-export const sentryNavigationIntegration = Sentry ? new Sentry.ReactNavigationInstrumentation() : null;
+let sentryNavigationIntegration: any = null;
+try {
+  if (Sentry && typeof Sentry.ReactNavigationInstrumentation === 'function') {
+    sentryNavigationIntegration = new Sentry.ReactNavigationInstrumentation();
+  }
+} catch (e) {
+  console.warn('[Sentry] ReactNavigationInstrumentation not available');
+}
+export { sentryNavigationIntegration };
 
 export default Sentry;

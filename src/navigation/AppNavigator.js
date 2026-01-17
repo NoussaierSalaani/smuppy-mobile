@@ -1,13 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, StatusBar, Dimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Linking from 'expo-linking';
 import { supabase } from '../config/supabase';
+import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
+import { getCurrentProfile } from '../services/database';
 import { TabBarProvider } from '../context/TabBarContext';
 import { UserProvider } from '../context/UserContext';
 import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
@@ -18,9 +21,88 @@ const RootStack = createStackNavigator();
 export default function AppNavigator() {
   const [session, setSession] = useState(null);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false); // Track if user has completed onboarding
   const [isReady, setIsReady] = useState(false);
   const [hideSplash, setHideSplash] = useState(false);
+  const [pendingRecovery, setPendingRecovery] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const lastHandledUrl = useRef(null);
+
+  /**
+   * Callback passed to NewPasswordScreen to signal recovery flow is complete
+   */
+  const handleRecoveryComplete = useCallback(() => {
+    setPendingRecovery(false);
+  }, []);
+
+  /**
+   * Handle deep link URLs for password recovery
+   * Supabase sends: smuppy://reset-password#access_token=xxx&refresh_token=xxx&type=recovery
+   * Also handles query params as fallback: smuppy://reset-password?access_token=xxx&...
+   */
+  const handleDeepLink = useCallback(async (url) => {
+    if (!url) return;
+
+    // Skip if we already handled this exact URL
+    if (lastHandledUrl.current === url) return;
+
+    // Only handle reset-password deep links
+    if (!url.includes('reset-password')) return;
+
+    let access_token = null;
+    let refresh_token = null;
+    let type = null;
+
+    // Try fragment first (#access_token=...&refresh_token=...&type=recovery)
+    const fragmentIndex = url.indexOf('#');
+    if (fragmentIndex !== -1) {
+      const fragment = url.substring(fragmentIndex + 1);
+      const params = new URLSearchParams(fragment);
+      access_token = params.get('access_token');
+      refresh_token = params.get('refresh_token');
+      type = params.get('type');
+    }
+
+    // Fallback: try query params (?access_token=...)
+    if (!access_token) {
+      const queryIndex = url.indexOf('?');
+      if (queryIndex !== -1) {
+        const query = url.substring(queryIndex + 1);
+        const params = new URLSearchParams(query);
+        access_token = params.get('access_token');
+        refresh_token = params.get('refresh_token');
+        type = params.get('type');
+      }
+    }
+
+    // Only process recovery type with valid tokens
+    if (type === 'recovery' && access_token && refresh_token) {
+      // Mark this URL as handled
+      lastHandledUrl.current = url;
+
+      // IMPORTANT: Set pendingRecovery BEFORE setSession
+      // This ensures we show NewPasswordScreen instead of Main
+      setPendingRecovery(true);
+
+      try {
+        const { error } = await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+
+        if (error) {
+          console.error('[DeepLink] Failed to set session:', error.message);
+          setPendingRecovery(false);
+          lastHandledUrl.current = null;
+        }
+        // Success: pendingRecovery=true will force AuthNavigator with NewPassword
+      } catch (err) {
+        console.error('[DeepLink] Error setting session:', err);
+        setPendingRecovery(false);
+        lastHandledUrl.current = null;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     let sessionLoaded = false;
@@ -39,27 +121,64 @@ export default function AppNavigator() {
       }
     };
 
-    // Load session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      // Check if email is verified
-      setEmailVerified(!!session?.user?.email_confirmed_at);
+    // Load session with "Remember Me" check
+    const loadSession = async () => {
+      // Check "Remember Me" preference
+      const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
+
+      // If user didn't check "Remember Me", sign out on app restart
+      if (rememberMe === 'false') {
+        await supabase.auth.signOut();
+        await storage.delete(STORAGE_KEYS.REMEMBER_ME);
+        setSession(null);
+        setEmailVerified(false);
+        setHasProfile(false);
+      } else {
+        // Load existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setEmailVerified(!!session?.user?.email_confirmed_at);
+
+        // Check if user has completed onboarding (has a profile)
+        if (session?.user?.email_confirmed_at) {
+          const { data: profile } = await getCurrentProfile(false); // false = don't auto-create
+          setHasProfile(!!profile);
+        }
+      }
+
       sessionLoaded = true;
       setIsReady(true);
       checkReady();
-    });
+    };
+
+    loadSession();
 
     // Listen to session changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       // Update email verification status
       setEmailVerified(!!session?.user?.email_confirmed_at);
+
+      // Check if user has profile (completed onboarding)
+      if (session?.user?.email_confirmed_at) {
+        const { data: profile } = await getCurrentProfile(false);
+        setHasProfile(!!profile);
+      } else {
+        setHasProfile(false);
+      }
 
       // Register device session on sign in
       if (_event === 'SIGNED_IN' && session) {
         registerDeviceSession().catch(err => {
           console.error('[AppNavigator] Device registration failed:', err);
         });
+      }
+
+      // Reset deep link tracking on sign out
+      if (_event === 'SIGNED_OUT') {
+        lastHandledUrl.current = null;
+        setPendingRecovery(false);
+        setHasProfile(false);
       }
     });
 
@@ -69,23 +188,33 @@ export default function AppNavigator() {
       checkReady();
     }, 600);
 
+    // Handle deep links
+    // Check initial URL (app opened via link)
+    Linking.getInitialURL().then(handleDeepLink);
+
+    // Listen for URLs while app is open
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
     return () => {
       clearTimeout(timer);
       subscription.unsubscribe();
+      linkingSubscription.remove();
     };
-  }, []);
+  }, [handleDeepLink]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      
+
       {/* App Content - rendered in background */}
       {isReady && (
         <UserProvider>
           <TabBarProvider>
             <NavigationContainer>
-              <RootStack.Navigator 
-                screenOptions={{ 
+              <RootStack.Navigator
+                screenOptions={{
                   headerShown: false,
                   animationEnabled: true,
                   cardStyleInterpolator: ({ current }) => ({
@@ -93,11 +222,24 @@ export default function AppNavigator() {
                   }),
                 }}
               >
-                {!session && (
-                  <RootStack.Screen name="Auth" component={AuthNavigator} />
+                {/* Show Auth if: no session OR pendingRecovery OR needs onboarding (no profile) */}
+                {(!session || pendingRecovery || (session && emailVerified && !hasProfile)) && (
+                  <RootStack.Screen
+                    name="Auth"
+                    component={AuthNavigator}
+                    initialParams={{
+                      // If email verified but no profile → start onboarding
+                      initialRouteName: pendingRecovery
+                        ? 'NewPassword'
+                        : (session && emailVerified && !hasProfile)
+                          ? 'EnableBiometric'
+                          : undefined,
+                      onRecoveryComplete: handleRecoveryComplete,
+                    }}
+                  />
                 )}
 
-                {session && !emailVerified && (
+                {session && !emailVerified && !pendingRecovery && (
                   <RootStack.Screen
                     name="EmailVerificationPending"
                     component={EmailVerificationPendingScreen}
@@ -105,7 +247,8 @@ export default function AppNavigator() {
                   />
                 )}
 
-                {session && emailVerified && (
+                {/* Show Main only if: session + email verified + has profile (completed onboarding) */}
+                {session && emailVerified && hasProfile && !pendingRecovery && (
                   <RootStack.Screen name="Main" component={MainNavigator} />
                 )}
               </RootStack.Navigator>
@@ -117,9 +260,9 @@ export default function AppNavigator() {
       {/* Splash Screen - on top, fades out */}
       {!hideSplash && (
         <Animated.View style={[styles.splashOverlay, { opacity: fadeAnim }]}>
-          <LinearGradient 
-            colors={['#00B3C7', '#11E3A3', '#7BEDC6']} 
-            locations={[0, 0.5, 1]} 
+          <LinearGradient
+            colors={['#00B3C7', '#11E3A3', '#7BEDC6']}
+            locations={[0, 0.5, 1]}
             style={styles.gradient}
           >
             <View style={styles.logoContainer}>

@@ -1,0 +1,20 @@
+name: Send Signup Reminders
+
+on:
+  schedule:
+    # Every day at 10:00 AM UTC
+    - cron: '0 10 * * *'
+  # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Edge Function
+        run: |
+          curl -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/send-signup-reminder" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -d '{}'

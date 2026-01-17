@@ -7,6 +7,7 @@ import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { supabase } from '../../config/supabase';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -47,7 +48,14 @@ export default function TellUsAboutYouScreen({ navigation }) {
   const [ageError, setAgeError] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
   
-  const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+  const { navigate, disabled } = usePreventDoubleNavigation(navigation);
+
+  // Cancel onboarding - sign out and go back to Welcome
+  // Account is kept for reminder email (user can complete signup later)
+  const handleCancel = useCallback(async () => {
+    await supabase.auth.signOut();
+    // AppNavigator will automatically show Welcome screen when session is null
+  }, []);
 
   const hasName = name.length > 0;
   const isAgeValid = useMemo(() => getAge(date) >= MIN_AGE, [date]);
@@ -117,9 +125,9 @@ export default function TellUsAboutYouScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           
-          {/* Back Button */}
-          <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={goBack} disabled={disabled}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          {/* Cancel Button - X to cancel onboarding and go back to Welcome */}
+          <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={handleCancel} disabled={disabled}>
+            <Ionicons name="close" size={24} color={COLORS.white} />
           </TouchableOpacity>
 
           {/* Header */}

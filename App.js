@@ -18,12 +18,6 @@ import { useUserStore, useAppStore } from './src/stores';
 // Push Notifications
 import { initializeNotifications, registerPushToken, clearBadge } from './src/services/notifications';
 
-// Prevent native splash from hiding automatically
-SplashScreen.preventAutoHideAsync();
-
-// Initialize Sentry early (before any other code)
-initSentry();
-
 /**
  * Network Monitor Component
  * Tracks online/offline status globally
@@ -107,18 +101,45 @@ export default function App() {
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const forceReady = async () => {
+      if (!isMounted) return;
+      setAppReady(true);
+      try {
+        await SplashScreen.hideAsync();
+      } catch {
+        // best-effort: never crash on splash hide
+      }
+    };
+
+    const watchdog = setTimeout(() => {
+      forceReady();
+    }, 8000);
+
     async function initializeApp() {
       try {
+        // IMPORTANT: do this inside effect (not module-level)
+        try {
+          await SplashScreen.preventAutoHideAsync();
+        } catch {
+          // best-effort
+        }
+
+        // Initialize Sentry inside effect so it can't crash module evaluation
+        try {
+          initSentry();
+        } catch (e) {
+          console.warn('[Sentry] init failed:', e);
+        }
+
         // Load fonts
         await Font.loadAsync({
-          // WorkSans
           'WorkSans-Regular': require('./assets/fonts/WorkSans-Regular.ttf'),
           'WorkSans-Medium': require('./assets/fonts/WorkSans-Medium.ttf'),
           'WorkSans-SemiBold': require('./assets/fonts/WorkSans-SemiBold.ttf'),
           'WorkSans-Bold': require('./assets/fonts/WorkSans-Bold.ttf'),
           'WorkSans-ExtraBold': require('./assets/fonts/WorkSans-ExtraBold.ttf'),
-
-          // Poppins
           'Poppins-Regular': require('./assets/fonts/Poppins-Regular.ttf'),
           'Poppins-Medium': require('./assets/fonts/Poppins-Medium.ttf'),
           'Poppins-SemiBold': require('./assets/fonts/Poppins-SemiBold.ttf'),
@@ -134,20 +155,27 @@ export default function App() {
 
         // Restore query cache
         await restoreQueryCache();
-
-        setAppReady(true);
       } catch (error) {
         console.log('Error initializing app:', error);
-        setAppReady(true); // Continue even if error
+      } finally {
+        clearTimeout(watchdog);
+        await forceReady(); // ALWAYS unlock UI + hide splash
       }
     }
 
     initializeApp();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(watchdog);
+    };
   }, []);
 
   const onLayoutRootView = useCallback(async () => {
     if (appReady) {
-      await SplashScreen.hideAsync();
+      try {
+        await SplashScreen.hideAsync();
+      } catch {}
     }
   }, [appReady]);
 

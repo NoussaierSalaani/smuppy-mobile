@@ -43,6 +43,7 @@ plugins: [
 'expo-secure-store',
 'expo-asset',
 'expo-web-browser',
+'@sentry/react-native',
 ],
 extra: {
 eas: {

@@ -96,7 +96,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'Smuppy <noreply@smuppy.com>',
+            from: 'Smuppy <onboarding@resend.dev>',
             to: user.email,
             subject: "You're almost there! Complete your Smuppy account 🎉",
             html: `

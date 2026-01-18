@@ -20,6 +20,12 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [isFocused, setIsFocused] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [deletedAccountModal, setDeletedAccountModal] = useState({
+    visible: false,
+    daysRemaining: 0,
+    canReactivate: false,
+    fullName: '',
+  });
 
   // Back button → goBack for normal animation
   const handleGoBack = useCallback(() => {
@@ -38,6 +44,42 @@ export default function ForgotPasswordScreen({ navigation }) {
     setEmail('');
     setEmailError('');
     setHasSubmitted(false);
+  }, []);
+
+  const closeDeletedAccountModal = useCallback(() => {
+    setDeletedAccountModal(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  const checkDeletedAccount = useCallback(async (emailToCheck: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-deleted-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email: emailToCheck }),
+      });
+
+      if (!response.ok) return false;
+
+      const result = await response.json();
+
+      if (result.is_deleted) {
+        setDeletedAccountModal({
+          visible: true,
+          daysRemaining: result.days_remaining,
+          canReactivate: result.can_reactivate,
+          fullName: result.full_name || '',
+        });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Check deleted account error:', error);
+      return false;
+    }
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -61,6 +103,13 @@ export default function ForgotPasswordScreen({ navigation }) {
     const emailNormalized = email.trim().toLowerCase();
 
     try {
+      // Check if account was deleted
+      const isDeleted = await checkDeletedAccount(emailNormalized);
+      if (isDeleted) {
+        setIsLoading(false);
+        return;
+      }
+
       const awsCheck = await checkAWSRateLimit(emailNormalized, 'auth-forgot-password');
       if (!awsCheck.allowed) {
         setEmailError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
@@ -223,6 +272,47 @@ export default function ForgotPasswordScreen({ navigation }) {
             </View>
           </View>
         </Modal>
+
+        {/* Deleted Account Modal */}
+        <Modal visible={deletedAccountModal.visible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <TouchableOpacity style={styles.modalClose} onPress={closeDeletedAccountModal}>
+                <Ionicons name="close" size={24} color={COLORS.gray} />
+              </TouchableOpacity>
+              <View style={[styles.modalIconWarning]}>
+                <Ionicons name="warning" size={40} color="#F59E0B" />
+              </View>
+              <Text style={styles.modalTitle}>Account Deleted</Text>
+              <Text style={styles.modalMessage}>
+                {deletedAccountModal.fullName ? `Hi ${deletedAccountModal.fullName}, ` : ''}
+                The account linked to this email has been deleted.
+                {'\n\n'}
+                {deletedAccountModal.canReactivate ? (
+                  <>
+                    This email will be available again in <Text style={styles.modalHighlight}>{deletedAccountModal.daysRemaining} days</Text>.
+                    {'\n\n'}
+                    To reactivate your account, please contact us at:
+                  </>
+                ) : (
+                  'This email is now available for a new account.'
+                )}
+              </Text>
+              {deletedAccountModal.canReactivate && (
+                <View style={styles.supportEmailBtn}>
+                  <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.supportEmailText}>support@smuppy.com</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={[styles.modalBtnWarning]}
+                onPress={closeDeletedAccountModal}
+              >
+                <Text style={styles.modalBtnText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -270,4 +360,10 @@ const styles = StyleSheet.create({
   modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, overflow: 'hidden' },
   modalBtnInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
+  modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
+  modalIconWarning: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  modalHighlight: { fontWeight: '700', color: COLORS.primary },
+  supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.backgroundValid, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
+  supportEmailText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
+  modalBtnWarning: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center' },
 });

@@ -1,5 +1,6 @@
 /**
  * Supabase Edge Function: Auth Password Reset (rate limited)
+ * Sends password reset email via Resend API
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -78,6 +79,45 @@ const checkRateLimit = async (
   }
 };
 
+// Send password reset email via Resend API
+const sendResetEmail = async (email: string, resetLink: string, resendApiKey: string): Promise<boolean> => {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Smuppy <noreply@smuppy.com>',
+        to: email,
+        subject: 'Reset Your Smuppy Password',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #00cdb5; font-size: 36px; margin: 0;">Smuppy</h1>
+            </div>
+            <h2 style="text-align: center; color: #0a252f;">Reset your password</h2>
+            <p style="text-align: center; font-size: 16px; color: #666;">You requested to reset your password. Click the button below to create a new one:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #00cdb5 0%, #0066ac 100%); color: #ffffff; font-size: 16px; font-weight: bold; padding: 15px 40px; border-radius: 12px; text-decoration: none;">Reset Password</a>
+            </div>
+            <p style="text-align: center; color: #999; font-size: 14px;">This link expires in 1 hour.</p>
+            <p style="text-align: center; color: #999; font-size: 14px;">If the button doesn't work, copy and paste this link:<br><a href="${resetLink}" style="color: #00cdb5; word-break: break-all;">${resetLink}</a></p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="text-align: center; color: #999; font-size: 12px;">If you didn't request this, please ignore this email. Your password will remain unchanged.</p>
+          </div>
+        `,
+      }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Resend error:', error);
+    return false;
+  }
+};
+
 serve(async (req: Request) => {
   const origin = req.headers.get('Origin');
 
@@ -105,6 +145,7 @@ serve(async (req: Request) => {
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const rateLimitUserId = Deno.env.get('RATE_LIMIT_USER_ID') || '';
+  const resendApiKey = Deno.env.get('RESEND_API_KEY') || '';
 
   if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey || !rateLimitUserId) {
     return new Response(
@@ -114,9 +155,7 @@ serve(async (req: Request) => {
   }
 
   const apiKey = req.headers.get('apikey');
-  const authHeader = req.headers.get('Authorization');
-  const bearerKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (apiKey !== supabaseAnonKey && bearerKey !== supabaseAnonKey) {
+  if (!apiKey) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -143,7 +182,6 @@ serve(async (req: Request) => {
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
 
   const endpoint = await getRateLimitEndpoint(ENDPOINT_NAME, email);
   const rateLimitResult = await checkRateLimit(supabaseAdmin, rateLimitUserId, endpoint);
@@ -164,9 +202,35 @@ serve(async (req: Request) => {
     );
   }
 
-  await supabaseAnon.auth.resetPasswordForEmail(email, {
-    redirectTo: 'smuppy://reset-password',
+  // Generate password reset link using admin API
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: {
+      redirectTo: 'smuppy://reset-password',
+    },
   });
+
+  // SECURITY: Always return success regardless of whether email exists
+  // This prevents email enumeration attacks
+  if (linkError || !linkData) {
+    // Don't reveal if email exists or not
+    return new Response(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
+  // Send email via Resend if we have the API key
+  if (resendApiKey && linkData.properties?.action_link) {
+    const sent = await sendResetEmail(email, linkData.properties.action_link, resendApiKey);
+    if (!sent) {
+      console.error('Failed to send reset email via Resend');
+    }
+  }
 
   return new Response(
     JSON.stringify({ success: true }),

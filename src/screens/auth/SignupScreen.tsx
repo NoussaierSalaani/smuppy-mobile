@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING } from '../../config/theme';
-import { ENV } from '../../config/env';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
@@ -74,24 +73,26 @@ export default function SignupScreen({ navigation }) {
   const allChecksPassed = passwordChecks.every((check) => check.passed);
 
   const handleSignup = async () => {
-    if (!isFormValid) return;
+    if (!isFormValid || loading) return;
 
-    // Check AWS rate limit first (server-side protection)
-    const normalizedEmail = email.trim().toLowerCase();
-    const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-signup');
-    if (!awsCheck.allowed) {
-      setErrorModal({
-        visible: true,
-        title: 'Too Many Attempts',
-        message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
-      });
-      return;
-    }
-
+    // Prevent double-tap: set loading BEFORE any async operation
     setLoading(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
-      // Step 1: Advanced email validation (format + disposable + MX records)
+      // Check AWS rate limit first (server-side protection)
+      const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-signup');
+      if (!awsCheck.allowed) {
+        setErrorModal({
+          visible: true,
+          title: 'Too Many Attempts',
+          message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
+        });
+        return;
+      }
+
+      // Advanced email validation (format + disposable + MX records)
       const emailValidation = await validateEmailFull(email);
 
       if (!emailValidation.valid) {
@@ -105,34 +106,15 @@ export default function SignupScreen({ navigation }) {
           title: errorTitle,
           message: emailValidation.error || EMAIL_ERROR_MESSAGES.INVALID_FORMAT
         });
-        setLoading(false);
         return;
       }
 
-      // Step 2: Create account with Supabase
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          email: normalizedEmail,
-          password,
-        }),
+      // Navigate to onboarding with email and password
+      // Account creation happens at the end after OTP verification
+      navigation.navigate('TellUsAboutYou', {
+        email: emailValidation.email,
+        password
       });
-
-      if (!response.ok) {
-        const message = response.status === 429
-          ? 'Too many attempts. Please wait a few minutes before trying again.'
-          : 'Unable to create account. Please try again.';
-        setErrorModal({ visible: true, title: 'Signup Failed', message });
-        setLoading(false);
-        return;
-      }
-
-      navigation.navigate('VerifyCode', { email: emailValidation.email });
     } catch (err) {
       setErrorModal({
         visible: true,
@@ -273,7 +255,7 @@ export default function SignupScreen({ navigation }) {
                 disabled={!isFormValid || loading}
                 activeOpacity={0.8}
               >
-                <Text style={styles.btnText}>{loading ? 'Creating account...' : 'Set-up your account'}</Text>
+                <Text style={styles.btnText}>{loading ? 'Validating...' : 'Set-up your account'}</Text>
                 {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
               </TouchableOpacity>
             </LinearGradient>

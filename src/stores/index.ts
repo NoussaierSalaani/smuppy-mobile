@@ -10,43 +10,123 @@ import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ============================================
+// TYPE DEFINITIONS
+// ============================================
+
+interface User {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  avatar?: string;
+  accountType?: 'personal' | 'pro';
+  [key: string]: unknown;
+}
+
+interface UserState {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  setUser: (user: User | null) => void;
+  updateProfile: (updates: Partial<User>) => void;
+  updateAvatar: (avatarUrl: string) => void;
+  setLoading: (loading: boolean) => void;
+  logout: () => void;
+  getFullName: () => string;
+  isPro: () => boolean;
+  isProfileComplete: () => boolean;
+}
+
+interface AppState {
+  isTabBarVisible: boolean;
+  tabBarAnimation: unknown;
+  isOnline: boolean;
+  globalLoading: boolean;
+  errorModal: {
+    visible: boolean;
+    title: string;
+    message: string;
+  };
+  setTabBarVisible: (visible: boolean) => void;
+  setOnline: (online: boolean) => void;
+  setGlobalLoading: (loading: boolean) => void;
+  showError: (title: string, message: string) => void;
+  hideError: () => void;
+}
+
+interface Post {
+  id: string;
+  likes_count?: number;
+  [key: string]: unknown;
+}
+
+interface FeedState {
+  feedCache: Post[];
+  lastFetchTime: number | null;
+  optimisticLikes: Record<string, boolean>;
+  setFeedCache: (posts: Post[]) => void;
+  appendToFeed: (newPosts: Post[]) => void;
+  prependToFeed: (newPost: Post) => void;
+  removeFromFeed: (postId: string) => void;
+  toggleLikeOptimistic: (postId: string, liked: boolean) => void;
+  clearFeed: () => void;
+  isCacheStale: () => boolean;
+}
+
+interface Session {
+  access_token: string;
+  refresh_token: string;
+  user?: unknown;
+  [key: string]: unknown;
+}
+
+interface AuthState {
+  session: Session | null;
+  biometricEnabled: boolean;
+  biometricType: 'face' | 'fingerprint' | null;
+  setSession: (session: Session | null) => void;
+  setBiometric: (enabled: boolean, type?: 'face' | 'fingerprint' | null) => void;
+  clearAuth: () => void;
+}
+
+// ============================================
 // USER STORE
 // ============================================
 
 const initialUserState = {
-  user: null,
+  user: null as User | null,
   isLoading: true,
   isAuthenticated: false,
 };
 
-export const useUserStore = create(
+export const useUserStore = create<UserState>()(
   persist(
     immer((set, get) => ({
       ...initialUserState,
 
       // Actions
-      setUser: (user) =>
+      setUser: (user: User | null) =>
         set((state) => {
           state.user = user;
           state.isAuthenticated = !!user;
           state.isLoading = false;
         }),
 
-      updateProfile: (updates) =>
+      updateProfile: (updates: Partial<User>) =>
         set((state) => {
           if (state.user) {
             state.user = { ...state.user, ...updates };
           }
         }),
 
-      updateAvatar: (avatarUrl) =>
+      updateAvatar: (avatarUrl: string) =>
         set((state) => {
           if (state.user) {
             state.user.avatar = avatarUrl;
           }
         }),
 
-      setLoading: (loading) =>
+      setLoading: (loading: boolean) =>
         set((state) => {
           state.isLoading = loading;
         }),
@@ -91,7 +171,7 @@ export const useUserStore = create(
 // APP STORE (UI State)
 // ============================================
 
-export const useAppStore = create(
+export const useAppStore = create<AppState>()(
   immer((set) => ({
     // Tab bar visibility
     isTabBarVisible: true,
@@ -111,22 +191,22 @@ export const useAppStore = create(
     },
 
     // Actions
-    setTabBarVisible: (visible) =>
+    setTabBarVisible: (visible: boolean) =>
       set((state) => {
         state.isTabBarVisible = visible;
       }),
 
-    setOnline: (online) =>
+    setOnline: (online: boolean) =>
       set((state) => {
         state.isOnline = online;
       }),
 
-    setGlobalLoading: (loading) =>
+    setGlobalLoading: (loading: boolean) =>
       set((state) => {
         state.globalLoading = loading;
       }),
 
-    showError: (title, message) =>
+    showError: (title: string, message: string) =>
       set((state) => {
         state.errorModal = { visible: true, title, message };
       }),
@@ -142,23 +222,23 @@ export const useAppStore = create(
 // FEED STORE (Optimistic Updates)
 // ============================================
 
-export const useFeedStore = create(
+export const useFeedStore = create<FeedState>()(
   immer((set, get) => ({
     // Cached feed data for instant display
-    feedCache: [],
-    lastFetchTime: null,
+    feedCache: [] as Post[],
+    lastFetchTime: null as number | null,
 
     // Optimistic updates for likes
-    optimisticLikes: {}, // postId -> boolean
+    optimisticLikes: {} as Record<string, boolean>,
 
     // Actions
-    setFeedCache: (posts) =>
+    setFeedCache: (posts: Post[]) =>
       set((state) => {
         state.feedCache = posts;
         state.lastFetchTime = Date.now();
       }),
 
-    appendToFeed: (newPosts) =>
+    appendToFeed: (newPosts: Post[]) =>
       set((state) => {
         // Avoid duplicates
         const existingIds = new Set(state.feedCache.map((p) => p.id));
@@ -166,18 +246,18 @@ export const useFeedStore = create(
         state.feedCache = [...state.feedCache, ...uniquePosts];
       }),
 
-    prependToFeed: (newPost) =>
+    prependToFeed: (newPost: Post) =>
       set((state) => {
         state.feedCache = [newPost, ...state.feedCache];
       }),
 
-    removeFromFeed: (postId) =>
+    removeFromFeed: (postId: string) =>
       set((state) => {
         state.feedCache = state.feedCache.filter((p) => p.id !== postId);
       }),
 
     // Optimistic like
-    toggleLikeOptimistic: (postId, liked) =>
+    toggleLikeOptimistic: (postId: string, liked: boolean) =>
       set((state) => {
         state.optimisticLikes[postId] = liked;
         // Update like count in cache
@@ -208,22 +288,22 @@ export const useFeedStore = create(
 // AUTH STORE (Sensitive data)
 // ============================================
 
-export const useAuthStore = create(
+export const useAuthStore = create<AuthState>()(
   immer((set) => ({
     // Session info (not persisted - managed by Supabase)
-    session: null,
+    session: null as Session | null,
 
     // Biometric state
     biometricEnabled: false,
-    biometricType: null, // 'face' | 'fingerprint' | null
+    biometricType: null as 'face' | 'fingerprint' | null,
 
     // Actions
-    setSession: (session) =>
+    setSession: (session: Session | null) =>
       set((state) => {
         state.session = session;
       }),
 
-    setBiometric: (enabled, type = null) =>
+    setBiometric: (enabled: boolean, type: 'face' | 'fingerprint' | null = null) =>
       set((state) => {
         state.biometricEnabled = enabled;
         state.biometricType = type;
@@ -241,11 +321,11 @@ export const useAuthStore = create(
 // ============================================
 
 // Use these selectors to avoid unnecessary re-renders
-export const selectUser = (state) => state.user;
-export const selectIsAuthenticated = (state) => state.isAuthenticated;
-export const selectIsLoading = (state) => state.isLoading;
-export const selectIsOnline = (state) => state.isOnline;
-export const selectFeedCache = (state) => state.feedCache;
+export const selectUser = (state: UserState) => state.user;
+export const selectIsAuthenticated = (state: UserState) => state.isAuthenticated;
+export const selectIsLoading = (state: UserState) => state.isLoading;
+export const selectIsOnline = (state: AppState) => state.isOnline;
+export const selectFeedCache = (state: FeedState) => state.feedCache;
 
 // ============================================
 // RESET ALL STORES (for logout)

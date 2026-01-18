@@ -9,8 +9,8 @@ import Constants from 'expo-constants';
  * - Expo Go (dev): .env file via dotenv/config in app.config.js
  */
 const extra = Constants.expoConfig?.extra
-  || Constants.manifest?.extra
-  || Constants.manifest2?.extra
+  || (Constants.manifest as any)?.extra
+  || (Constants.manifest2 as any)?.extra
   || {};
 
 export const ENV = {

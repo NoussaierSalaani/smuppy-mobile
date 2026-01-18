@@ -22,8 +22,25 @@ import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
 
+// Message type definition
+interface Message {
+  id: number;
+  type: 'text' | 'image' | 'voice' | 'link';
+  content: string | null;
+  time: string;
+  isFromMe: boolean;
+  status?: string;
+  caption?: string;
+  duration?: string;
+  preview?: {
+    title: string;
+    description: string;
+    image: string;
+  };
+}
+
 // Sample messages
-const SAMPLE_MESSAGES = [
+const SAMPLE_MESSAGES: Message[] = [
   {
     id: 1,
     type: 'text',
@@ -114,6 +131,17 @@ export default function ChatScreen({ route, navigation }) {
     sampleRate: 44100,
     numberOfChannels: 2,
     bitRate: 128000,
+    android: {
+      outputFormat: 'mpeg4',
+      audioEncoder: 'aac',
+    },
+    ios: {
+      audioQuality: 96, // AudioQuality.HIGH
+    },
+    web: {
+      mimeType: 'audio/webm',
+      bitsPerSecond: 128000,
+    },
   });
 
   // Audio player hook
@@ -205,7 +233,7 @@ export default function ChatScreen({ route, navigation }) {
       setIsRecording(false);
 
       if (recordingDuration >= 1 && uri) {
-        const newMessage = {
+        const newMessage: Message = {
           id: Date.now(),
           type: 'voice',
           content: uri,
@@ -263,7 +291,7 @@ export default function ChatScreen({ route, navigation }) {
   // Send text message
   const sendMessage = () => {
     if (inputText.trim()) {
-      const newMessage = {
+      const newMessage: Message = {
         id: Date.now(),
         type: 'text',
         content: inputText.trim(),
@@ -440,7 +468,6 @@ export default function ChatScreen({ route, navigation }) {
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id.toString()}
-        estimatedItemSize={80}
         contentContainerStyle={styles.messagesList}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}

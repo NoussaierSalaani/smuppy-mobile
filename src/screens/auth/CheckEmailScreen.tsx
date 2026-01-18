@@ -18,7 +18,8 @@ export default function CheckEmailScreen({ navigation, route }) {
   const { email } = route.params || {};
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
-  const { remainingTime, canAction, trigger: triggerCooldown } = useCooldown(30);
+  const { remaining: remainingTime, isCoolingDown, start: triggerCooldown } = useCooldown(30);
+  const canAction = !isCoolingDown;
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();

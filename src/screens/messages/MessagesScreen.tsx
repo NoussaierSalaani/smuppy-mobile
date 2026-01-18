@@ -304,7 +304,6 @@ export default function MessagesScreen({ navigation }) {
         data={filteredConversations}
         renderItem={renderConversation}
         keyExtractor={(item) => item.id.toString()}
-        estimatedItemSize={76}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={() => (

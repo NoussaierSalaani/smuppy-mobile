@@ -113,12 +113,12 @@ export default function VibesFeed() {
   // Navigate to user profile
   const goToUserProfile = useCallback((userId) => {
     setModalVisible(false);
-    navigation.navigate('UserProfile', { userId });
+    (navigation as any).navigate('UserProfile', { userId });
   }, [navigation]);
 
   // Navigate to Peak view
-  const goToPeakView = useCallback((peak, index) => {
-    navigation.navigate('PeakView', {
+  const goToPeakView = useCallback((peak: any, index: number) => {
+    (navigation as any).navigate('PeakView', {
       peaks: PEAKS_DATA,
       initialIndex: index,
     });
@@ -392,9 +392,9 @@ export default function VibesFeed() {
         <View style={styles.peaksSection}>
           <View style={styles.peaksSectionHeader}>
             <Text style={styles.peaksSectionTitle}>Peaks</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.peaksSeeAll}
-              onPress={() => navigation.navigate('Peaks')}
+              onPress={() => (navigation as any).navigate('Peaks')}
             >
               <Text style={styles.peaksSeeAllText}>See all</Text>
               <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />

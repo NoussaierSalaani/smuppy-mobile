@@ -259,7 +259,6 @@ export default function FansListScreen({ navigation, route }) {
         data={filteredFans}
         renderItem={renderFanItem}
         keyExtractor={(item) => item.id}
-        estimatedItemSize={74}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={

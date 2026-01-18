@@ -20,7 +20,7 @@ import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useContentStore } from '../../store/contentStore';
@@ -151,18 +151,19 @@ const PostDetailFanFeedScreen = () => {
   // Content store for reports and status
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
-  const { mute, block, isMuted, isBlocked } = useUserSafetyStore();
+  const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // Params
-  const { postId, fanFeedPosts = MOCK_FANFEED_POSTS } = route.params || {};
+  const params = route.params as { postId?: string; fanFeedPosts?: typeof MOCK_FANFEED_POSTS } || {};
+  const { postId, fanFeedPosts = MOCK_FANFEED_POSTS } = params;
   const initialIndex = fanFeedPosts.findIndex(p => p.id === postId) || 0;
-  
+
   // States
   const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
-  const [likedPosts, setLikedPosts] = useState({});
-  const [bookmarkedPosts, setBookmarkedPosts] = useState({});
-  const [fanStatus, setFanStatus] = useState({}); // { odId: true/false }
-  const [isMuted, setIsMuted] = useState(true);
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<Record<string, boolean>>({});
+  const [fanStatus, setFanStatus] = useState<Record<string, boolean>>({}); // { odId: true/false }
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -384,7 +385,7 @@ const PostDetailFanFeedScreen = () => {
     if (!userId) return;
 
     // Check if already muted
-    if (isMuted(userId)) {
+    if (isUserMuted(userId)) {
       setShowMenu(false);
       Alert.alert('Déjà masqué', 'Cet utilisateur est déjà masqué.', [{ text: 'OK' }]);
       return;
@@ -484,9 +485,9 @@ const PostDetailFanFeedScreen = () => {
               ref={index === currentIndex ? videoRef : null}
               source={{ uri: item.media }}
               style={styles.media}
-              resizeMode="cover"
+              resizeMode={ResizeMode.COVER}
               isLooping
-              isMuted={isMuted}
+              isMuted={isAudioMuted}
               shouldPlay={index === currentIndex && !isPaused}
               posterSource={{ uri: item.thumbnail }}
               usePoster
@@ -579,10 +580,10 @@ const PostDetailFanFeedScreen = () => {
             {item.type === 'video' && (
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => setIsMuted(!isMuted)}
+                onPress={() => setIsAudioMuted(!isAudioMuted)}
               >
                 <Ionicons
-                  name={isMuted ? 'volume-mute' : 'volume-high'}
+                  name={isAudioMuted ? 'volume-mute' : 'volume-high'}
                   size={28}
                   color="#FFF"
                 />
@@ -596,7 +597,7 @@ const PostDetailFanFeedScreen = () => {
             <View style={styles.userRow}>
               <TouchableOpacity
                 style={styles.userInfo}
-                onPress={() => navigation.navigate('UserProfile', { userId: item.user.id })}
+                onPress={() => (navigation as any).navigate('UserProfile', { userId: item.user.id })}
               >
                 <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
                 <Text style={styles.userName}>{item.user.name}</Text>
@@ -708,7 +709,6 @@ const PostDetailFanFeedScreen = () => {
         data={fanFeedPosts.length > 0 ? fanFeedPosts : MOCK_FANFEED_POSTS}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
-        estimatedItemSize={height}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={height}
@@ -718,11 +718,6 @@ const PostDetailFanFeedScreen = () => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
-        getItemLayout={(data, index) => ({
-          length: height,
-          offset: height * index,
-          index,
-        })}
       />
       
       {/* Comments Modal */}
@@ -760,7 +755,6 @@ const PostDetailFanFeedScreen = () => {
               data={MOCK_COMMENTS}
               renderItem={renderCommentItem}
               keyExtractor={(item) => item.id}
-              estimatedItemSize={80}
               style={styles.commentsList}
               showsVerticalScrollIndicator={false}
             />
@@ -829,7 +823,7 @@ const PostDetailFanFeedScreen = () => {
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
-                navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                (navigation as any).navigate('UserProfile', { userId: currentPost.user.id });
               }}
             >
               <Ionicons name="person-outline" size={24} color="#FFF" />

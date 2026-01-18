@@ -80,7 +80,8 @@ const UserProfileScreen = () => {
   const insets = useSafeAreaInsets();
   
   // Déterminer si c'est notre profil ou celui d'un autre
-  const userId = route?.params?.userId;
+  const params = route?.params as { userId?: string } || {};
+  const userId = params.userId;
   const isOwnProfile = !userId;
   const { data: profileData, isLoading, isError } = useProfile(userId);
 
@@ -189,16 +190,16 @@ const UserProfileScreen = () => {
           isOnline: true,
         },
       };
-      navigation.navigate('Chat', { conversation });
+      (navigation as any).navigate('Chat', { conversation });
     }
   };
-  
+
   // ✅ CORRIGÉ - Gestion des commentaires avec bonne route
-  const handleCommentPress = (postId) => {
+  const handleCommentPress = (postId: string) => {
     if (!isFan && !isOwnProfile) {
       setShowFanRequiredModal(true);
     } else {
-      navigation.navigate('PostDetailFanFeed', { postId });
+      (navigation as any).navigate('PostDetailFanFeed', { postId });
     }
   };
   
@@ -248,11 +249,11 @@ const UserProfileScreen = () => {
   }
 
   // ✅ CORRIGÉ - Render Post Card avec bonne route
-  const renderPostCard = ({ item }) => (
+  const renderPostCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.postCard}
       activeOpacity={0.8}
-      onPress={() => navigation.navigate('PostDetailFanFeed', { postId: item.id })}
+      onPress={() => (navigation as any).navigate('PostDetailFanFeed', { postId: item.id })}
     >
       <View style={styles.thumbnailContainer}>
         <OptimizedImage source={item.thumbnail} style={styles.thumbnail} />
@@ -370,9 +371,9 @@ const UserProfileScreen = () => {
                 </TouchableOpacity>
               )}
               {isOwnProfile && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.navButton}
-                  onPress={() => navigation.navigate('Settings')}
+                  onPress={() => (navigation as any).navigate('Settings')}
                 >
                   <Text style={styles.navIcon}>⚙️</Text>
                 </TouchableOpacity>

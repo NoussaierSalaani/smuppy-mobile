@@ -302,7 +302,10 @@ export default function NotificationsScreen({ navigation }) {
             <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
           </View>
         )}
-        <TouchableOpacity style={styles.settingsButton}>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('NotificationSettings')}
+        >
           <Ionicons name="settings-outline" size={24} color={COLORS.dark} />
         </TouchableOpacity>
       </View>

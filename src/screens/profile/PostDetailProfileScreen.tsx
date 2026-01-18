@@ -18,7 +18,7 @@ import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 
@@ -112,7 +112,8 @@ const PostDetailProfileScreen = () => {
   const insets = useSafeAreaInsets();
   
   // Params
-  const { postId, profilePosts = MOCK_PROFILE_POSTS } = route.params || {};
+  const params = route.params as { postId?: string; profilePosts?: typeof MOCK_PROFILE_POSTS } || {};
+  const { postId, profilePosts = MOCK_PROFILE_POSTS } = params;
   const initialIndex = profilePosts.findIndex(p => p.id === postId) || 0;
   
   // States
@@ -210,7 +211,7 @@ const PostDetailProfileScreen = () => {
             ref={index === currentIndex ? videoRef : null}
             source={{ uri: item.media }}
             style={styles.media}
-            resizeMode="cover"
+            resizeMode={ResizeMode.COVER}
             isLooping
             isMuted={isMuted}
             shouldPlay={index === currentIndex && !isPaused}
@@ -304,7 +305,7 @@ const PostDetailProfileScreen = () => {
           <View style={styles.userRow}>
             <TouchableOpacity
               style={styles.userInfo}
-              onPress={() => navigation.navigate('UserProfile', { userId: item.user.id })}
+              onPress={() => (navigation as any).navigate('UserProfile', { userId: item.user.id })}
             >
               <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
               <Text style={styles.userName}>{item.user.name}</Text>
@@ -408,7 +409,6 @@ const PostDetailProfileScreen = () => {
         data={profilePosts.length > 0 ? profilePosts : MOCK_PROFILE_POSTS}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
-        estimatedItemSize={height}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={height}
@@ -416,11 +416,6 @@ const PostDetailProfileScreen = () => {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
-        getItemLayout={(data, index) => ({
-          length: height,
-          offset: height * index,
-          index,
-        })}
       />
       
       {/* Comments Modal */}
@@ -458,7 +453,6 @@ const PostDetailProfileScreen = () => {
               data={MOCK_COMMENTS}
               renderItem={renderCommentItem}
               keyExtractor={(item) => item.id}
-              estimatedItemSize={80}
               style={styles.commentsList}
               showsVerticalScrollIndicator={false}
             />
@@ -555,7 +549,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   

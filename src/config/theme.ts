@@ -10,6 +10,7 @@ export const COLORS = {
     blue: '#009BC5',
     blueMedium: '#0081BE',
     blueDark: '#0066ac',
+    primaryGreen: '#11E3A3',      // Green accent (alias for dark theme compatibility)
 
     // Dark
     dark: '#0a252f',
@@ -21,6 +22,16 @@ export const COLORS = {
     grayMuted: '#9cadbc',
     grayLight: '#CED3D5',
     grayBorder: '#E5E7EB',
+    gray50: '#F9FAFB',
+    gray100: '#F3F4F6',
+    gray200: '#E5E7EB',
+    gray300: '#D1D5DB',
+    gray400: '#9CA3AF',
+    gray500: '#6B7280',
+    gray600: '#4B5563',
+    gray700: '#374151',
+    gray800: '#1F2937',
+    gray900: '#111827',
 
     // Base
     white: '#FFFFFF',
@@ -49,6 +60,12 @@ export const COLORS = {
     // Overlay
     overlay: 'rgba(0, 0, 0, 0.5)',
     overlayLight: 'rgba(255, 255, 255, 0.9)',
+
+    // Dark theme compatibility aliases
+    textMuted: '#6B7280',
+    darkBg: '#0D0D0D',
+    cardBg: '#1A1A1A',
+    border: '#2A2A2A',
   };
 
 // Dark theme colors (used in Peaks, Profile, etc.)
@@ -75,31 +92,31 @@ export const DARK_COLORS = {
   
   export const GRADIENTS = {
     // Primary gradient (cyan-blue) - USE EVERYWHERE
-    primary: ['#00cdb5', '#0066ac'],
+    primary: ['#00cdb5', '#0066ac'] as const,
     primaryStart: { x: 0, y: 0 },
     primaryEnd: { x: 1, y: 0 },
 
     // Diagonal (for icons)
-    diagonal: ['#00cdb5', '#0066ac'],
+    diagonal: ['#00cdb5', '#0066ac'] as const,
     diagonalStart: { x: 0, y: 0 },
     diagonalEnd: { x: 1, y: 1 },
-    
+
     // Buttons
-    button: ['#00cdb5', '#0066ac'],
-    buttonDisabled: ['#CED3D5', '#CED3D5'],
-    
+    button: ['#00cdb5', '#0066ac'] as const,
+    buttonDisabled: ['#CED3D5', '#CED3D5'] as const,
+
     // Reverse
-    primaryReverse: ['#0066ac', '#00cdb5'],
-    
+    primaryReverse: ['#0066ac', '#00cdb5'] as const,
+
     // Special
-    live: ['#FF5E57', '#FA6B65'],
-    liveDisabled: ['#FFDFDE', '#FFE8E6'],
-    reminder: ['#0081BE', '#00B5C1'],
-    reminderDisabled: ['#AAC9D8', '#9DE7EB'],
-    
+    live: ['#FF5E57', '#FA6B65'] as const,
+    liveDisabled: ['#FFDFDE', '#FFE8E6'] as const,
+    reminder: ['#0081BE', '#00B5C1'] as const,
+    reminderDisabled: ['#AAC9D8', '#9DE7EB'] as const,
+
     // Nav
-    bottomNav: ['rgba(0, 205, 181, 0.9)', 'rgba(0, 205, 181, 0.9)'],
-    bottomNavWhite: ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.9)'],
+    bottomNav: ['rgba(0, 205, 181, 0.9)', 'rgba(0, 205, 181, 0.9)'] as const,
+    bottomNavWhite: ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.9)'] as const,
   };
   
   // UNIFIED CAPSULE STYLE - USE IN ALL SCREENS

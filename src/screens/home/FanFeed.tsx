@@ -172,8 +172,8 @@ export default function FanFeed() {
   );
 
   // Navigate to user profile
-  const goToUserProfile = useCallback((userId) => {
-    navigation.navigate('UserProfile', { userId });
+  const goToUserProfile = useCallback((userId: string) => {
+    (navigation as any).navigate('UserProfile', { userId });
   }, [navigation]);
 
   // Format numbers
@@ -504,7 +504,6 @@ export default function FanFeed() {
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        estimatedItemSize={500}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

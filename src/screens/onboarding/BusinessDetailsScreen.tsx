@@ -196,7 +196,7 @@ export default function SuccessScreen({ navigation }) {
 
       <View style={styles.content}>
         {/* Logo */}
-        <SmuppyLogoFull width={180} />
+        <SmuppyLogoFull textWidth={180} />
 
         {/* Success Circle with Check */}
         <View style={styles.successContainer}>

@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
+import { supabase } from '../../config/supabase';
+import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
@@ -98,7 +100,7 @@ const Firework = ({ x, y, delay, color }) => (
   </>
 );
 
-export default function SuccessScreen({ navigation }) {
+export default function SuccessScreen({ route, navigation }) {
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslate = useRef(new Animated.Value(20)).current;
@@ -107,15 +109,17 @@ export default function SuccessScreen({ navigation }) {
   const ringScale = useRef(new Animated.Value(0.5)).current;
   const ringOpacity = useRef(new Animated.Value(0)).current;
 
+  const { name, onSignupComplete } = route?.params || {};
+
   useEffect(() => {
-    // Logo et texte apparaissent ensemble rapidement
+    // Logo and text appear together quickly
     Animated.parallel([
       Animated.timing(logoOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.timing(textOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.spring(textTranslate, { toValue: 0, friction: 6, useNativeDriver: true }),
     ]).start();
 
-    // Puis le cercle et le check
+    // Then the circle and check
     const circleTimer = setTimeout(() => {
       Animated.parallel([
         Animated.spring(ringScale, { toValue: 1, friction: 4, tension: 50, useNativeDriver: true }),
@@ -128,17 +132,25 @@ export default function SuccessScreen({ navigation }) {
       });
     }, 400);
 
-    // Redirection après 4 secondes
-    const redirectTimer = setTimeout(() => {
-      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-    }, 4000);
+    // After 3s, clear signup flag and trigger navigation to Main
+    const redirectTimer = setTimeout(async () => {
+      // Clear the signup flag
+      await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
 
-    // Cleanup tous les timers
+      // Call the callback to update AppNavigator state
+      if (onSignupComplete) {
+        onSignupComplete();
+      }
+
+      // Refresh session to trigger navigation
+      supabase.auth.refreshSession();
+    }, 3000);
+
     return () => {
       clearTimeout(circleTimer);
       clearTimeout(redirectTimer);
     };
-  }, [navigation]);
+  }, [onSignupComplete]);
 
   const confettis = Array.from({ length: 50 }, (_, i) => (
     <Confetti
@@ -170,18 +182,15 @@ export default function SuccessScreen({ navigation }) {
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Logo DARK - FIX: iconSize + textWidth au lieu de width */}
         <Animated.View style={{ opacity: logoOpacity }}>
           <SmuppyLogoFull iconSize={50} textWidth={130} iconVariant="dark" textVariant="dark" />
         </Animated.View>
 
-        {/* Texte - apparaît en même temps que le logo */}
         <Animated.View style={[styles.textContainer, { opacity: textOpacity, transform: [{ translateY: textTranslate }] }]}>
           <Text style={styles.title}>Your account is</Text>
           <Text style={styles.title}>successfully created</Text>
         </Animated.View>
 
-        {/* Success Circle avec gradient diagonal */}
         <View style={styles.successContainer}>
           <Animated.View style={{ transform: [{ scale: ringScale }], opacity: ringOpacity }}>
             <LinearGradient

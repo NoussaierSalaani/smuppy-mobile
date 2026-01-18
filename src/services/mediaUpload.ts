@@ -148,7 +148,7 @@ const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean
  */
 const readFileAsBase64 = async (uri: string): Promise<string> => {
   return await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
+    encoding: 'base64',
   });
 };
 
@@ -354,7 +354,7 @@ export const uploadWithFileSystem = async (
   try {
     const uploadResult = await FileSystem.uploadAsync(presignedUrl, fileUri, {
       httpMethod: 'PUT',
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      uploadType: 0,
       headers: {
         'Content-Type': contentType,
       },

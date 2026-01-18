@@ -50,8 +50,8 @@ export const useNotifications = (
   const [hasPermission, setHasPermission] = useState(false);
 
   // Refs for listeners
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   /**
    * Handle navigation based on notification data
@@ -175,10 +175,10 @@ export const useNotifications = (
     // Cleanup listeners on unmount
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, [onNotificationReceived, onNotificationTapped, handleNotificationNavigation]);

@@ -5,9 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { supabase } from '../../config/supabase';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -16,9 +14,9 @@ const GENDERS = [
   { id: 'other', icon: 'male-female', label: 'Other', color: '#1C1C1E' },
 ];
 
-const formatDate = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+const formatDate = (d: Date) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
 
-const getAge = (birthDate) => {
+const getAge = (birthDate: Date) => {
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
@@ -26,20 +24,7 @@ const getAge = (birthDate) => {
   return age;
 };
 
-const GenderButton = React.memo(({ item, isActive, onSelect }) => (
-  <TouchableOpacity 
-    style={[styles.genderBox, isActive && { borderColor: item.color, borderWidth: 2, transform: [{ scale: 1.05 }], shadowOpacity: 0.2, elevation: 8 }]} 
-    onPress={() => onSelect(item.id)} 
-    activeOpacity={0.7}
-  >
-    <View style={[styles.genderIcon, { backgroundColor: `${item.color}15` }, isActive && { backgroundColor: item.color }]}>
-      <Ionicons name={item.icon} size={28} color={isActive ? COLORS.white : item.color} />
-    </View>
-    <Text style={[styles.genderText, isActive && { color: item.color, fontWeight: '600' }]}>{item.label}</Text>
-  </TouchableOpacity>
-));
-
-export default function TellUsAboutYouScreen({ navigation }) {
+export default function TellUsAboutYouScreen({ navigation, route }: any) {
   const [name, setName] = useState('');
   const [gender, setGender] = useState('');
   const [date, setDate] = useState(new Date(2000, 0, 1));
@@ -47,25 +32,21 @@ export default function TellUsAboutYouScreen({ navigation }) {
   const [hasSelectedDate, setHasSelectedDate] = useState(false);
   const [ageError, setAgeError] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
-  
-  const { navigate, disabled } = usePreventDoubleNavigation(navigation);
+  const [loading, setLoading] = useState(false);
 
-  // Cancel onboarding - sign out and go back to Welcome
-  // Account is kept for reminder email (user can complete signup later)
-  const handleCancel = useCallback(async () => {
-    await supabase.auth.signOut();
-    // AppNavigator will automatically show Welcome screen when session is null
-  }, []);
+  // Get email and password from SignupScreen
+  const { email, password } = route?.params || {};
+  const { goBack, disabled } = usePreventDoubleNavigation(navigation);
 
-  const hasName = name.length > 0;
+  const hasName = name.trim().length > 0;
   const isAgeValid = useMemo(() => getAge(date) >= MIN_AGE, [date]);
-  const isFormValid = hasName && hasSelectedDate && isAgeValid;
+  const isFormValid = hasName && hasSelectedDate && isAgeValid && gender !== '';
 
-  const validateAge = useCallback((d) => {
-    setAgeError(getAge(d) < MIN_AGE ? 'You must be at least 16 years old to create an account' : '');
+  const validateAge = useCallback((d: Date) => {
+    setAgeError(getAge(d) < MIN_AGE ? 'You must be at least 16 years old' : '');
   }, []);
 
-  const onDateChange = useCallback((_, selected) => {
+  const onDateChange = useCallback((_: any, selected?: Date) => {
     if (Platform.OS === 'android') setShowPicker(false);
     if (selected) {
       setDate(selected);
@@ -74,109 +55,90 @@ export default function TellUsAboutYouScreen({ navigation }) {
     }
   }, [validateAge]);
 
-  const selectGender = useCallback((g) => {
+  const selectGender = useCallback((g: string) => {
     Keyboard.dismiss();
     setGender(g);
   }, []);
 
-  const openPicker = useCallback(() => {
-    Keyboard.dismiss();
-    setShowPicker(true);
-  }, []);
-
-  const closePicker = useCallback(() => setShowPicker(false), []);
-
-  const confirmDate = useCallback(() => {
-    setHasSelectedDate(true);
-    setShowPicker(false);
-    validateAge(date);
-  }, [date, validateAge]);
-
   const handleNext = useCallback(() => {
-    navigate('AccountType', { name, gender, dateOfBirth: date.toISOString() });
-  }, [navigate, name, gender, date]);
-
-  // Style helpers - 3 états: default, focused, valid/error
-  const getInputStyle = () => {
-    if (hasName) return [styles.inputBox, styles.inputBoxValid];
-    if (nameFocused) return [styles.inputBox, styles.inputBoxFocused];
-    return [styles.inputBox];
-  };
-
-  const getDateInputStyle = () => {
-    if (ageError) return [styles.inputBox, styles.inputBoxError];
-    if (hasSelectedDate) return [styles.inputBox, styles.inputBoxValid];
-    return [styles.inputBox];
-  };
-
-  const getNameIconColor = () => {
-    if (hasName || nameFocused) return COLORS.primary;
-    return COLORS.grayMuted;
-  };
-
-  const getDateIconColor = () => {
-    if (ageError) return COLORS.error;
-    if (hasSelectedDate) return COLORS.primary;
-    return COLORS.grayMuted;
-  };
+    if (!isFormValid || loading) return;
+    setLoading(true);
+    navigation.navigate('AccountType', {
+      email,
+      password,
+      name: name.trim(),
+      gender,
+      dateOfBirth: date.toISOString()
+    });
+    setLoading(false);
+  }, [navigation, email, password, name, gender, date, isFormValid, loading]);
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          
-          {/* Cancel Button - X to cancel onboarding and go back to Welcome */}
-          <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={handleCancel} disabled={disabled}>
-            <Ionicons name="close" size={24} color={COLORS.white} />
+
+          <TouchableOpacity
+            style={[styles.backBtn, disabled && styles.disabled]}
+            onPress={goBack}
+            disabled={disabled}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>What is your name?</Text>
-            <Text style={styles.subtitle}>Share your full name to help us get to know you better in our community.</Text>
+            <Text style={styles.title}>Tell us about you</Text>
+            <Text style={styles.subtitle}>Help us personalize your experience</Text>
           </View>
 
           {/* Name Input */}
-          <View style={getInputStyle()}>
-            <Ionicons name="person-outline" size={20} color={getNameIconColor()} />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Eveline" 
-              placeholderTextColor={COLORS.grayMuted} 
-              value={name} 
-              onChangeText={setName} 
-              returnKeyType="done" 
+          <Text style={styles.label}>Full name <Text style={styles.required}>*</Text></Text>
+          <View style={[styles.inputBox, nameFocused && styles.inputFocused, hasName && styles.inputValid]}>
+            <Ionicons name="person-outline" size={20} color={hasName || nameFocused ? COLORS.primary : COLORS.grayMuted} />
+            <TextInput
+              style={styles.input}
+              placeholder="Your name"
+              placeholderTextColor={COLORS.grayMuted}
+              value={name}
+              onChangeText={setName}
+              returnKeyType="done"
               autoCapitalize="words"
               onFocus={() => setNameFocused(true)}
               onBlur={() => setNameFocused(false)}
             />
           </View>
 
-          {/* Greeting */}
-          {hasName && (
-            <View style={styles.greeting}>
-              <Text style={styles.greetingText}>Nice to see you <Text style={styles.greetingName}>{name}</Text>! 👋</Text>
-            </View>
-          )}
-
           {/* Gender Selection */}
-          <Text style={styles.sectionLabel}>What's your gender?</Text>
+          <Text style={styles.label}>Gender</Text>
           <View style={styles.genderRow}>
             {GENDERS.map((g) => (
-              <GenderButton key={g.id} item={g} isActive={gender === g.id} onSelect={selectGender} />
+              <TouchableOpacity
+                key={g.id}
+                style={[styles.genderBox, gender === g.id && { borderColor: g.color, borderWidth: 2 }]}
+                onPress={() => selectGender(g.id)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.genderIcon, { backgroundColor: `${g.color}15` }, gender === g.id && { backgroundColor: g.color }]}>
+                  <Ionicons name={g.icon as any} size={28} color={gender === g.id ? COLORS.white : g.color} />
+                </View>
+                <Text style={[styles.genderText, gender === g.id && { color: g.color }]}>{g.label}</Text>
+              </TouchableOpacity>
             ))}
           </View>
 
           {/* Date of Birth */}
           <Text style={styles.label}>Date of birth <Text style={styles.required}>*</Text></Text>
-          <TouchableOpacity style={getDateInputStyle()} onPress={openPicker} activeOpacity={0.7}>
-            <Ionicons name="calendar-outline" size={20} color={getDateIconColor()} />
+          <TouchableOpacity
+            style={[styles.inputBox, ageError ? styles.inputError : hasSelectedDate && styles.inputValid]}
+            onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="calendar-outline" size={20} color={ageError ? COLORS.error : hasSelectedDate ? COLORS.primary : COLORS.grayMuted} />
             <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
               {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
             </Text>
           </TouchableOpacity>
-          
-          {/* Age Error */}
+
           {!!ageError && (
             <View style={styles.errorRow}>
               <Ionicons name="alert-circle" size={16} color={COLORS.error} />
@@ -188,25 +150,23 @@ export default function TellUsAboutYouScreen({ navigation }) {
           {Platform.OS === 'ios' && (
             <Modal visible={showPicker} transparent animationType="slide">
               <View style={styles.modalOverlay}>
-                <TouchableOpacity style={styles.flex} onPress={closePicker} activeOpacity={1} />
+                <TouchableOpacity style={styles.flex} onPress={() => setShowPicker(false)} activeOpacity={1} />
                 <View style={styles.pickerBox}>
                   <View style={styles.pickerHeader}>
-                    <TouchableOpacity onPress={closePicker}>
+                    <TouchableOpacity onPress={() => setShowPicker(false)}>
                       <Text style={styles.pickerCancel}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={confirmDate}>
+                    <TouchableOpacity onPress={() => { setHasSelectedDate(true); setShowPicker(false); validateAge(date); }}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
                   </View>
-                  <DateTimePicker 
-                    value={date} 
-                    mode="date" 
-                    display="spinner" 
-                    onChange={onDateChange} 
-                    maximumDate={new Date()} 
-                    minimumDate={new Date(1920, 0, 1)} 
-                    textColor={COLORS.dark} 
-                    style={styles.picker} 
+                  <DateTimePicker
+                    value={date}
+                    mode="date"
+                    display="spinner"
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                    minimumDate={new Date(1920, 0, 1)}
                   />
                 </View>
               </View>
@@ -215,33 +175,28 @@ export default function TellUsAboutYouScreen({ navigation }) {
 
           {/* Android Date Picker */}
           {Platform.OS === 'android' && showPicker && (
-            <DateTimePicker 
-              value={date} 
-              mode="date" 
-              display="default" 
-              onChange={onDateChange} 
-              maximumDate={new Date()} 
-              minimumDate={new Date(1920, 0, 1)} 
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+              maximumDate={new Date()}
+              minimumDate={new Date(1920, 0, 1)}
             />
           )}
 
           {/* Next Button */}
           <View style={styles.btnContainer}>
-            <Button 
-              variant="primary" 
-              size="lg" 
-              icon="arrow-forward" 
-              iconPosition="right" 
-              disabled={!isFormValid || disabled} 
+            <Button
+              variant="primary"
+              size="lg"
+              icon="arrow-forward"
+              iconPosition="right"
+              disabled={!isFormValid || loading}
               onPress={handleNext}
             >
               Next
             </Button>
-          </View>
-
-          {/* Footer - dans le scroll */}
-          <View style={styles.footer}>
-            <SmuppyText width={140} variant="dark" />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -253,58 +208,30 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING['3xl'] },
-  disabled: { opacity: 0.6 },
-  
-  // Back Button
   backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
-  
-  // Header - même format que SignupScreen
+  disabled: { opacity: 0.6 },
   header: { alignItems: 'center', marginBottom: 32 },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: '#0a252f', textAlign: 'center', marginBottom: 4 },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
-  
-  // Input - 3 états: default, focused, valid/error
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, marginBottom: SPACING.lg, backgroundColor: COLORS.white },
-  inputBoxFocused: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.white },
-  inputBoxValid: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.backgroundValid },
-  inputBoxError: { backgroundColor: COLORS.errorLight, borderColor: COLORS.error, borderWidth: 2 },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.md },
-  
-  // Error
-  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -SPACING.sm, marginBottom: SPACING.lg, gap: 6 },
-  errorText: { fontSize: 13, fontWeight: '500', color: COLORS.error },
-  required: { color: COLORS.error, fontWeight: '600' },
-  
-  // Greeting
-  greeting: { alignItems: 'center', marginBottom: SPACING.xl },
-  greetingText: { ...TYPOGRAPHY.body, color: COLORS.dark },
-  greetingName: { color: COLORS.primary, fontWeight: '600' },
-  
-  // Labels
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.sm },
-  sectionLabel: { ...TYPOGRAPHY.subtitle, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.lg },
-  
-  // Gender
+  required: { color: COLORS.error },
+  inputBox: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, marginBottom: SPACING.lg, backgroundColor: COLORS.white },
+  inputFocused: { borderColor: COLORS.primary, borderWidth: 2 },
+  inputValid: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: '#E8FAF7' },
+  inputError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEE' },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.md },
+  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -SPACING.sm, marginBottom: SPACING.lg, gap: 6 },
+  errorText: { fontSize: 13, color: COLORS.error },
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.xl, gap: SPACING.md },
-  genderBox: { width: 100, height: 100, backgroundColor: COLORS.white, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusLg, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  genderBox: { width: 100, height: 100, backgroundColor: COLORS.white, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusLg, justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xs },
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark },
-  
-  // Date of Birth
   dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.md },
   placeholder: { color: COLORS.grayMuted },
-  
-  // Date Picker Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: SIZES.radiusXl, borderTopRightRadius: SIZES.radiusXl, paddingBottom: SPACING['3xl'], shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 10 },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
+  pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
   pickerCancel: { ...TYPOGRAPHY.body, color: COLORS.dark },
   pickerDone: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '600' },
-  picker: { height: 200, width: '100%' },
-  
-  // Button
-  btnContainer: { marginTop: SPACING.xl, marginBottom: SPACING.xl },
-  
-  // Footer - dans le scroll avec marginTop auto
-  footer: { alignItems: 'center', marginTop: 'auto' },
+  btnContainer: { marginTop: SPACING.xl },
 });

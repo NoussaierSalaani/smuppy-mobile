@@ -47,6 +47,9 @@ export default function AuthNavigator({ route }) {
   // Callback to signal recovery is complete (passed to NewPasswordScreen)
   const onRecoveryComplete = route?.params?.onRecoveryComplete;
 
+  // Callback to signal signup is complete (passed to SuccessScreen)
+  const onSignupComplete = route?.params?.onSignupComplete;
+
   return (
     <Stack.Navigator
       initialRouteName={initialRouteName}
@@ -88,7 +91,11 @@ export default function AuthNavigator({ route }) {
       <Stack.Screen name="Expertise" component={ExpertiseScreen} />
       <Stack.Screen name="FindFriends" component={FindFriendsScreen} />
       <Stack.Screen name="Guidelines" component={GuidelinesScreen} />
-      <Stack.Screen name="Success" component={SuccessScreen} />
+      <Stack.Screen
+        name="Success"
+        component={SuccessScreen}
+        initialParams={{ onSignupComplete }}
+      />
     </Stack.Navigator>
   );
 }

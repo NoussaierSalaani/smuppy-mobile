@@ -10,7 +10,6 @@ import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
-import { getCurrentProfile } from '../services/database';
 import { TabBarProvider } from '../context/TabBarContext';
 import { UserProvider } from '../context/UserContext';
 import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
@@ -21,10 +20,10 @@ const RootStack = createStackNavigator();
 export default function AppNavigator() {
   const [session, setSession] = useState(null);
   const [emailVerified, setEmailVerified] = useState(false);
-  const [hasProfile, setHasProfile] = useState(false); // Track if user has completed onboarding
   const [isReady, setIsReady] = useState(false);
   const [hideSplash, setHideSplash] = useState(false);
   const [pendingRecovery, setPendingRecovery] = useState(false);
+  const [justSignedUp, setJustSignedUp] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const lastHandledUrl = useRef(null);
 
@@ -126,24 +125,23 @@ export default function AppNavigator() {
       // Check "Remember Me" preference
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
 
+      // Check if user just signed up (need to show SuccessScreen)
+      const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
+      if (signedUp === 'true') {
+        setJustSignedUp(true);
+      }
+
       // If user didn't check "Remember Me", sign out on app restart
       if (rememberMe === 'false') {
         await supabase.auth.signOut();
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setSession(null);
         setEmailVerified(false);
-        setHasProfile(false);
       } else {
         // Load existing session
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setEmailVerified(!!session?.user?.email_confirmed_at);
-
-        // Check if user has completed onboarding (has a profile)
-        if (session?.user?.email_confirmed_at) {
-          const { data: profile } = await getCurrentProfile(false); // false = don't auto-create
-          setHasProfile(!!profile);
-        }
       }
 
       sessionLoaded = true;
@@ -159,16 +157,14 @@ export default function AppNavigator() {
       // Update email verification status
       setEmailVerified(!!session?.user?.email_confirmed_at);
 
-      // Check if user has profile (completed onboarding)
-      if (session?.user?.email_confirmed_at) {
-        const { data: profile } = await getCurrentProfile(false);
-        setHasProfile(!!profile);
-      } else {
-        setHasProfile(false);
-      }
-
       // Register device session on sign in
       if (_event === 'SIGNED_IN' && session) {
+        // Check if this is a new signup (show SuccessScreen)
+        const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
+        if (signedUp === 'true') {
+          setJustSignedUp(true);
+        }
+
         registerDeviceSession().catch(err => {
           console.error('[AppNavigator] Device registration failed:', err);
         });
@@ -178,7 +174,6 @@ export default function AppNavigator() {
       if (_event === 'SIGNED_OUT') {
         lastHandledUrl.current = null;
         setPendingRecovery(false);
-        setHasProfile(false);
       }
     });
 
@@ -222,24 +217,20 @@ export default function AppNavigator() {
                   }),
                 }}
               >
-                {/* Show Auth if: no session OR pendingRecovery OR needs onboarding (no profile) */}
-                {(!session || pendingRecovery || (session && emailVerified && !hasProfile)) && (
+                {/* Show Auth if: no session OR pendingRecovery OR justSignedUp */}
+                {(!session || pendingRecovery || justSignedUp) && (
                   <RootStack.Screen
                     name="Auth"
                     component={AuthNavigator}
                     initialParams={{
-                      // If email verified but no profile → start onboarding
-                      initialRouteName: pendingRecovery
-                        ? 'NewPassword'
-                        : (session && emailVerified && !hasProfile)
-                          ? 'EnableBiometric'
-                          : undefined,
+                      initialRouteName: pendingRecovery ? 'NewPassword' : (justSignedUp ? 'Success' : undefined),
                       onRecoveryComplete: handleRecoveryComplete,
+                      onSignupComplete: () => setJustSignedUp(false),
                     }}
                   />
                 )}
 
-                {session && !emailVerified && !pendingRecovery && (
+                {session && !emailVerified && !pendingRecovery && !justSignedUp && (
                   <RootStack.Screen
                     name="EmailVerificationPending"
                     component={EmailVerificationPendingScreen}
@@ -247,8 +238,8 @@ export default function AppNavigator() {
                   />
                 )}
 
-                {/* Show Main only if: session + email verified + has profile (completed onboarding) */}
-                {session && emailVerified && hasProfile && !pendingRecovery && (
+                {/* Show Main if: session + email verified + not just signed up */}
+                {session && emailVerified && !pendingRecovery && !justSignedUp && (
                   <RootStack.Screen name="Main" component={MainNavigator} />
                 )}
               </RootStack.Navigator>

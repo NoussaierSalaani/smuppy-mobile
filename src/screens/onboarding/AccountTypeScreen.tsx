@@ -12,6 +12,13 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const { width, height } = Dimensions.get('window');
 
+// Type for form errors
+interface FormErrors {
+  name?: string | null;
+  address?: string | null;
+  phone?: string | null;
+}
+
 // Liste des pays avec indicatifs
 const COUNTRIES = [
   { code: 'FR', name: 'France', dial: '+33', flag: '🇫🇷' },
@@ -188,7 +195,7 @@ export default function AccountTypeScreen({ navigation, route }) {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // France par défaut
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<FormErrors>({});
   
   // Refs
   const scrollRef = useRef(null);
@@ -196,7 +203,7 @@ export default function AccountTypeScreen({ navigation, route }) {
   const phoneInputRef = useRef(null);
   const searchTimeout = useRef(null);
 
-  const { name, gender, dateOfBirth } = route?.params || {};
+  const { email, password, name, gender, dateOfBirth } = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   // Keyboard listener
@@ -315,7 +322,7 @@ export default function AccountTypeScreen({ navigation, route }) {
   }, [errors.name]);
 
   const validateForm = useCallback(() => {
-    const newErrors = {};
+    const newErrors: FormErrors = {};
     if (!businessName.trim()) newErrors.name = 'Company name is required';
     if (!businessAddress.trim()) newErrors.address = 'Business address is required';
     if (!businessPhone) newErrors.phone = 'Phone number is required';
@@ -333,13 +340,13 @@ export default function AccountTypeScreen({ navigation, route }) {
   const handleNext = useCallback(() => {
     Keyboard.dismiss();
     if (selected === 'personal') {
-      navigate('Guidelines', { name, gender, dateOfBirth, accountType: 'personal', interests: selectedInterests });
+      navigate('Guidelines', { email, password, name, gender, dateOfBirth, accountType: 'personal', interests: selectedInterests });
     } else {
       if (!validateForm()) return;
       const fullPhone = selectedCountry.dial + businessPhone.replace(/^0+/, '');
-      navigate('Profession', { name, gender, dateOfBirth, accountType: 'business', businessName, businessAddress, businessPhone: fullPhone });
+      navigate('Profession', { email, password, name, gender, dateOfBirth, accountType: 'business', businessName, businessAddress, businessPhone: fullPhone });
     }
-  }, [selected, navigate, name, gender, dateOfBirth, selectedInterests, validateForm, businessName, businessAddress, businessPhone, selectedCountry]);
+  }, [selected, navigate, email, password, name, gender, dateOfBirth, selectedInterests, validateForm, businessName, businessAddress, businessPhone, selectedCountry]);
 
   const handleScroll = useCallback((e) => {
     setCurrentPage(Math.round(e.nativeEvent.contentOffset.x / width));
@@ -461,10 +468,9 @@ export default function AccountTypeScreen({ navigation, route }) {
                   <ScrollView
                     ref={businessScrollRef}
                     style={styles.businessScroll}
-                    contentContainerStyle={[styles.businessContent, { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : SPACING.lg }]}
+                    contentContainerStyle={[styles.businessContent, { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : 100 }]}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
-                    scrollEnabled={keyboardHeight > 0}
                     bounces={false}
                   >
                     <Text style={styles.sectionTitle}>Business details</Text>
@@ -635,7 +641,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: COLORS.dark, textAlign: 'center' },
   
   // Cards
-  cardsRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.md, height: height * 0.20 },
+  cardsRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.xl, height: height * 0.16 },
   card: { width: (width - 80) / 2, maxWidth: 150, aspectRatio: 1, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusXl, justifyContent: 'center', alignItems: 'center', marginHorizontal: SPACING.sm, backgroundColor: COLORS.white },
   cardActivePersonal: { borderColor: '#2563EB', borderWidth: 2.5, transform: [{ scale: 1.08 }], shadowColor: '#2563EB', shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 },
   cardActiveBusiness: { borderColor: '#B45309', borderWidth: 2.5, transform: [{ scale: 1.08 }], shadowColor: '#B45309', shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 },
@@ -654,7 +660,7 @@ const styles = StyleSheet.create({
   pagesContent: { flexGrow: 1 },
   interestPage: { width, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
   pageTitle: { fontSize: 15, fontWeight: '600', color: COLORS.primaryDark, marginBottom: SPACING.lg },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, maxHeight: 220, overflow: 'hidden' },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, maxHeight: 160, overflow: 'hidden' },
   tag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: 20, backgroundColor: COLORS.white, margin: 6 },
   tagActive: { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: COLORS.primary, borderWidth: 2 },
   tagText: { fontSize: 13, fontWeight: '500', color: COLORS.dark, marginLeft: 6 },

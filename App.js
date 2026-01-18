@@ -115,7 +115,7 @@ export default function App() {
 
     const watchdog = setTimeout(() => {
       forceReady();
-    }, 8000);
+    }, 3000);
 
     async function initializeApp() {
       try {

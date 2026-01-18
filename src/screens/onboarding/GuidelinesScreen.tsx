@@ -11,7 +11,7 @@ export default function GuidelinesScreen({ navigation, route }) {
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
-  const handleAccept = () => navigate('Success', params);
+  const handleAccept = () => navigate('VerifyCode', params);
 
   return (
     <SafeAreaView style={styles.container}>

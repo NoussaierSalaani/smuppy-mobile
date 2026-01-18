@@ -14,12 +14,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Video } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { supabase } from '../../config/supabase';
+import { uploadPostMedia } from '../../services/mediaUpload';
+import { createPost } from '../../services/database';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -101,16 +105,50 @@ const PeakPreviewScreen = () => {
   // Publish
   const handlePublish = async () => {
     setIsPublishing(true);
-    
+
     if (videoRef.current) {
       await videoRef.current.stopAsync();
     }
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Peak data to be sent to API:
-      // { videoUri, duration, textOverlay, location, feedDuration, saveToProfile, replyTo }
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to publish a Peak');
+        setIsPublishing(false);
+        return;
+      }
+
+      // Upload video
+      const uploadResult = await uploadPostMedia(user.id, videoUri, 'video');
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Failed to upload video');
+      }
+
+      // Calculate expiry date based on feedDuration (24h or 48h)
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + feedDuration);
+
+      // Create peak in database
+      const peakData = {
+        content: textOverlay || '',
+        media_urls: [uploadResult.cdnUrl || uploadResult.url],
+        media_type: 'video',
+        visibility: 'public',
+        location: location || null,
+        is_peak: true,
+        peak_duration: duration, // 6s, 10s, or 15s
+        peak_expires_at: expiryDate.toISOString(),
+        save_to_profile: saveToProfile,
+        reply_to_peak_id: replyTo || null,
+      };
+
+      const { data: newPeak, error } = await createPost(peakData);
+
+      if (error) {
+        throw new Error(typeof error === 'string' ? error : 'Failed to create Peak');
+      }
 
       Alert.alert(
         'Peak published! 🎉',
@@ -125,7 +163,8 @@ const PeakPreviewScreen = () => {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Unable to publish Peak');
+      console.error('Peak publish error:', error);
+      Alert.alert('Error', error.message || 'Unable to publish Peak');
     } finally {
       setIsPublishing(false);
     }
@@ -362,13 +401,16 @@ const PeakPreviewScreen = () => {
           {/* Publish button */}
           {!keyboardVisible && (
             <View style={[styles.publishContainer, { paddingBottom: insets.bottom + 10 }]}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.publishButton, isPublishing && styles.publishButtonDisabled]}
                 onPress={handlePublish}
                 disabled={isPublishing}
               >
                 {isPublishing ? (
-                  <Text style={styles.publishButtonText}>Publishing...</Text>
+                  <>
+                    <ActivityIndicator size="small" color={COLORS.dark} />
+                    <Text style={styles.publishButtonText}>Publishing...</Text>
+                  </>
                 ) : (
                   <>
                     <Ionicons name="rocket" size={22} color={COLORS.dark} />

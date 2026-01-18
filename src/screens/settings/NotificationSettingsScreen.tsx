@@ -10,14 +10,24 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+interface NotificationSettings {
+  all: boolean;
+  likes: boolean;
+  comments: boolean;
+  tags: boolean;
+  shares: boolean;
+  messages: boolean;
+  peaks: boolean;
+}
+
 const NOTIFICATION_OPTIONS = [
-  { id: 'all', label: 'All' },
-  { id: 'likes', label: 'Likes' },
-  { id: 'comments', label: 'Comments' },
-  { id: 'tags', label: 'Tags' },
-  { id: 'shares', label: 'Shares' },
-  { id: 'messages', label: 'Messages' },
-  { id: 'peaks', label: 'Peaks' },
+  { id: 'all' as keyof NotificationSettings, label: 'All' },
+  { id: 'likes' as keyof NotificationSettings, label: 'Likes' },
+  { id: 'comments' as keyof NotificationSettings, label: 'Comments' },
+  { id: 'tags' as keyof NotificationSettings, label: 'Tags' },
+  { id: 'shares' as keyof NotificationSettings, label: 'Shares' },
+  { id: 'messages' as keyof NotificationSettings, label: 'Messages' },
+  { id: 'peaks' as keyof NotificationSettings, label: 'Peaks' },
 ];
 
 const NotificationSettingsScreen = ({ navigation }) => {
@@ -33,14 +43,19 @@ const NotificationSettingsScreen = ({ navigation }) => {
     peaks: true,
   });
 
-  const toggleSetting = (key) => {
+  const toggleSetting = (key: keyof NotificationSettings) => {
     if (key === 'all') {
       // Toggle all settings
       const newValue = !settings.all;
-      const newSettings = {};
-      NOTIFICATION_OPTIONS.forEach(opt => {
-        newSettings[opt.id] = newValue;
-      });
+      const newSettings: NotificationSettings = {
+        all: newValue,
+        likes: newValue,
+        comments: newValue,
+        tags: newValue,
+        shares: newValue,
+        messages: newValue,
+        peaks: newValue,
+      };
       setSettings(newSettings);
     } else {
       setSettings(prev => ({

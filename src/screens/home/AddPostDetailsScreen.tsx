@@ -17,18 +17,23 @@ import {
   ScrollView,
   Dimensions,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  COLORS, 
-  GRADIENTS, 
-  SPACING, 
+import {
+  COLORS,
+  GRADIENTS,
+  SPACING,
   SIZES,
 } from '../../config/theme';
+import { supabase } from '../../config/supabase';
+import { createPost } from '../../services/database';
+import { uploadPostMedia } from '../../services/mediaUpload';
 
 const { width } = Dimensions.get('window');
 
@@ -68,7 +73,7 @@ const POST_DELAY_MS = 1000;
 export default function AddPostDetailsScreen({ route, navigation }) {
   const { media, postType } = route.params;
   const insets = useSafeAreaInsets();
-  
+
   // State
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState('public');
@@ -76,7 +81,15 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const [taggedPeople, setTaggedPeople] = useState([]);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isPosting, setIsPosting] = useState(false);
-  
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // User data from Supabase
+  const [currentUser, setCurrentUser] = useState({
+    displayName: 'User',
+    username: 'user',
+    avatar: null,
+  });
+
   // Modals
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -84,6 +97,33 @@ export default function AddPostDetailsScreen({ route, navigation }) {
 
   // Refs for cleanup
   const postTimeoutRef = useRef(null);
+
+  // Load user data from Supabase
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Get profile from profiles table
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, username, avatar_url')
+            .eq('id', user.id)
+            .single();
+
+          const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+          const username = profile?.username || user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+          const avatar = profile?.avatar_url || user.user_metadata?.avatar_url || null;
+
+          setCurrentUser({ displayName, username, avatar });
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -101,18 +141,68 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   // HANDLERS
   // ============================================
 
-  const handlePost = useCallback(() => {
+  const handlePost = useCallback(async () => {
     if (isPosting) return;
-    
+
     setIsPosting(true);
-    
-    // Clear any existing timeout
-    if (postTimeoutRef.current) {
-      clearTimeout(postTimeoutRef.current);
-    }
-    
-    // Navigate after delay
-    postTimeoutRef.current = setTimeout(() => {
+    setUploadProgress(0);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to create a post');
+        setIsPosting(false);
+        return;
+      }
+
+      // Upload media files
+      const mediaUrls: string[] = [];
+      const totalFiles = media.length;
+
+      for (let i = 0; i < media.length; i++) {
+        const mediaItem = media[i];
+        const type = mediaItem.mediaType === 'video' ? 'video' : 'image';
+
+        const result = await uploadPostMedia(
+          user.id,
+          mediaItem.uri,
+          type,
+          (progress) => {
+            const overallProgress = ((i / totalFiles) + (progress / 100 / totalFiles)) * 80;
+            setUploadProgress(overallProgress);
+          }
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to upload media');
+        }
+
+        mediaUrls.push(result.cdnUrl || result.url || '');
+      }
+
+      setUploadProgress(85);
+
+      // Create post in database
+      const postData = {
+        content: description,
+        media_urls: mediaUrls,
+        media_type: media.length === 1 ? (media[0].mediaType === 'video' ? 'video' : 'image') : 'multiple',
+        visibility: visibility,
+        location: location || null,
+        is_peak: postType === 'peaks',
+        tagged_users: taggedPeople.map(p => p.id),
+      };
+
+      const { data: newPost, error } = await createPost(postData);
+
+      if (error) {
+        throw new Error(typeof error === 'string' ? error : 'Failed to create post');
+      }
+
+      setUploadProgress(100);
+
+      // Navigate to success
       navigation.navigate('PostSuccess', {
         media,
         postType,
@@ -120,8 +210,14 @@ export default function AddPostDetailsScreen({ route, navigation }) {
         visibility,
         location,
         taggedPeople,
+        postId: newPost?.id,
       });
-    }, POST_DELAY_MS);
+    } catch (error) {
+      console.error('Post creation error:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
+      setIsPosting(false);
+      setUploadProgress(0);
+    }
   }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople]);
 
   const handleBack = useCallback(() => {
@@ -349,9 +445,14 @@ export default function AddPostDetailsScreen({ route, navigation }) {
         <Text style={styles.headerTitle}>Add details</Text>
         <TouchableOpacity onPress={handlePost} disabled={isPosting}>
           <LinearGradient colors={GRADIENTS.primary} style={styles.postButton}>
-            <Text style={styles.postButtonText}>
-              {isPosting ? 'Posting...' : 'Post'}
-            </Text>
+            {isPosting ? (
+              <View style={styles.postingContainer}>
+                <ActivityIndicator size="small" color={COLORS.white} />
+                <Text style={styles.postButtonText}>{Math.round(uploadProgress)}%</Text>
+              </View>
+            ) : (
+              <Text style={styles.postButtonText}>Post</Text>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -378,7 +479,6 @@ export default function AddPostDetailsScreen({ route, navigation }) {
             renderItem={renderMediaPreview}
             keyExtractor={(item) => item.id}
             horizontal
-            estimatedItemSize={60}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.mediaThumbnails}
           />
@@ -387,12 +487,12 @@ export default function AddPostDetailsScreen({ route, navigation }) {
         {/* User Info + Description */}
         <View style={styles.userSection}>
           <AvatarImage
-            source="https://i.pravatar.cc/100?img=33"
+            source={currentUser.avatar || 'https://i.pravatar.cc/100?img=33'}
             size={44}
           />
           <View style={styles.userDetails}>
-            <Text style={styles.currentUserName}>Ronald Richards</Text>
-            <Text style={styles.currentUserHandle}>@ronaldrichards58</Text>
+            <Text style={styles.currentUserName}>{currentUser.displayName}</Text>
+            <Text style={styles.currentUserHandle}>@{currentUser.username}</Text>
           </View>
         </View>
 
@@ -510,6 +610,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
     color: COLORS.white,
+  },
+  postingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 
   // Media

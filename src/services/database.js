@@ -27,7 +27,6 @@ export const getCurrentProfile = async (autoCreate = true) => {
     console.log('[getCurrentProfile] No profile found, creating one...');
     const profileData = {
       id: user.id,
-      email: user.email,
       full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
       username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
       avatar_url: user.user_metadata?.avatar_url || null,
@@ -138,11 +137,9 @@ export const ensureProfile = async () => {
     .from('profiles')
     .insert({
       id: user.id,
-      email: user.email,
       full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
       username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
       avatar_url: user.user_metadata?.avatar_url || null,
-      created_at: new Date().toISOString(),
     })
     .select()
     .single();

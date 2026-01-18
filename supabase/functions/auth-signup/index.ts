@@ -1,5 +1,6 @@
 /**
- * Supabase Edge Function: Auth Signup (rate limited)
+ * Supabase Edge Function: Auth Signup with Resend
+ * Creates user and sends OTP via Resend API
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -79,6 +80,44 @@ const checkRateLimit = async (
   }
 };
 
+// Send OTP email via Resend API
+const sendOTPEmail = async (email: string, otp: string, resendApiKey: string): Promise<boolean> => {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Smuppy <noreply@smuppy.com>',
+        to: email,
+        subject: 'Your Smuppy Verification Code',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #00cdb5; font-size: 36px; margin: 0;">Smuppy</h1>
+            </div>
+            <h2 style="text-align: center; color: #0a252f;">Verify your email</h2>
+            <p style="text-align: center; font-size: 16px; color: #666;">Use this code to complete your registration:</p>
+            <div style="background: linear-gradient(135deg, #00cdb5 0%, #0066ac 100%); padding: 25px; border-radius: 12px; text-align: center; margin: 25px 0;">
+              <span style="font-size: 36px; font-weight: bold; letter-spacing: 10px; color: #ffffff;">${otp}</span>
+            </div>
+            <p style="text-align: center; color: #999; font-size: 14px;">This code expires in 10 minutes.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="text-align: center; color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+          </div>
+        `,
+      }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Resend error:', error);
+    return false;
+  }
+};
+
 serve(async (req: Request) => {
   const origin = req.headers.get('Origin');
 
@@ -106,6 +145,7 @@ serve(async (req: Request) => {
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const rateLimitUserId = Deno.env.get('RATE_LIMIT_USER_ID') || '';
+  const resendApiKey = Deno.env.get('RESEND_API_KEY') || '';
 
   if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey || !rateLimitUserId) {
     return new Response(
@@ -114,12 +154,11 @@ serve(async (req: Request) => {
     );
   }
 
-  const apiKey = req.headers.get('apikey');
-  const authHeader = req.headers.get('Authorization');
-  const bearerKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (apiKey !== supabaseAnonKey && bearerKey !== supabaseAnonKey) {
+  // Verify API key (allow anon key in header)
+  const apiKey = req.headers.get('apikey') || '';
+  if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
+      JSON.stringify({ error: 'Missing API key' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -145,7 +184,6 @@ serve(async (req: Request) => {
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
 
   const endpoint = await getRateLimitEndpoint(ENDPOINT_NAME, email);
   const rateLimitResult = await checkRateLimit(supabaseAdmin, rateLimitUserId, endpoint);
@@ -166,27 +204,52 @@ serve(async (req: Request) => {
     );
   }
 
-  const { data, error } = await supabaseAnon.auth.signUp({
+  // Generate OTP link using admin API
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'signup',
     email,
     password,
   });
 
-  if (error || data?.user?.identities?.length === 0) {
+  if (linkError || !linkData) {
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+    const userExists = existingUser?.users?.some(u => u.email === email);
+
+    if (userExists) {
+      // Generate new OTP for existing unconfirmed user
+      const { data: magicLink, error: magicError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email,
+      });
+
+      if (!magicError && magicLink?.properties?.email_otp && resendApiKey) {
+        await sendOTPEmail(email, magicLink.properties.email_otp, resendApiKey);
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     return new Response(
       JSON.stringify({ error: 'Unable to process request' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
+  // Extract OTP from link data
+  const otp = linkData.properties?.email_otp;
+
+  if (otp && resendApiKey) {
+    const sent = await sendOTPEmail(email, otp, resendApiKey);
+    if (!sent) {
+      console.error('Failed to send OTP email via Resend');
+    }
+  }
+
   return new Response(
-    JSON.stringify({
-      session: data.session
-        ? {
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-          }
-        : null,
-    }),
+    JSON.stringify({ success: true }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },

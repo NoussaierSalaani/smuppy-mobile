@@ -206,7 +206,7 @@ export const parseNotificationData = (
   response: Notifications.NotificationResponse
 ): NotificationData | null => {
   try {
-    const data = response.notification.request.content.data as NotificationData;
+    const data = response.notification.request.content.data as unknown as NotificationData;
     return data;
   } catch {
     return null;
@@ -230,7 +230,7 @@ export const scheduleLocalNotification = async (
     content: {
       title,
       body,
-      data: data as Record<string, unknown>,
+      data: data as unknown as Record<string, unknown>,
       sound: true,
     },
     trigger: trigger || null, // null = immediate

@@ -128,14 +128,33 @@ export default function VerifyCodeScreen({ navigation, route }) {
     Keyboard.dismiss();
 
     try {
-      // Step 1: Verify OTP
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      // Step 1: Verify OTP - try 'email' type first (for generateLink), then 'signup'
+      let data, verifyError;
+
+      // Try with type 'email' first (works with generateLink)
+      const result1 = await supabase.auth.verifyOtp({
         email,
         token: fullCode,
-        type: 'signup',
+        type: 'email',
       });
 
+      if (result1.error) {
+        // Fallback to 'signup' type
+        const result2 = await supabase.auth.verifyOtp({
+          email,
+          token: fullCode,
+          type: 'signup',
+        });
+        data = result2.data;
+        verifyError = result2.error;
+        console.log('[VerifyCode] signup type result:', result2.error?.message);
+      } else {
+        data = result1.data;
+        verifyError = result1.error;
+      }
+
       if (verifyError) {
+        console.log('[VerifyCode] Error:', verifyError.message);
         if (verifyError.message.includes('expired')) {
           setError('Code expired. Please request a new one.');
         } else if (verifyError.message.includes('invalid')) {

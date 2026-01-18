@@ -54,12 +54,11 @@ const ProfileScreen = ({ navigation, route }) => {
   // User state
   const [user, setUser] = useState(INITIAL_USER);
   const [posts, setPosts] = useState([]); // Empty for new account
-  const [collections, setCollections] = useState([]);
-  
+  const [peaks, setPeaks] = useState([]); // Empty for new account
+
   // Modal states
   const [showBioModal, setShowBioModal] = useState(false);
   const [bioText, setBioText] = useState('');
-  const [showTabMenu, setShowTabMenu] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   
   const isOwnProfile = route?.params?.userId === undefined;
@@ -98,29 +97,6 @@ const ProfileScreen = ({ navigation, route }) => {
   useEffect(() => {
     setBioText(resolvedProfile.bio || '');
   }, [resolvedProfile.bio]);
-
-  if (isProfileLoading && !profileData) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
-      </View>
-    );
-  }
-
-  if (profileError && !contextMatchesProfile) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
-        <Text style={styles.displayName}>Unable to load your profile.</Text>
-        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
-          Please check your connection or try again later.
-        </Text>
-        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
-          <Text style={styles.fanButtonText}>Go back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -338,19 +314,12 @@ const ProfileScreen = ({ navigation, route }) => {
 
       <TouchableOpacity
         style={styles.tab}
-        onPress={() => setActiveTab('collection')}
+        onPress={() => setActiveTab('peaks')}
       >
-        <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>
-          Collection
+        <Text style={[styles.tabText, activeTab === 'peaks' && styles.tabTextActive]}>
+          Peaks
         </Text>
-        {activeTab === 'collection' && <View style={styles.tabIndicator} />}
-      </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={styles.tabMore}
-        onPress={() => setShowTabMenu(true)}
-      >
-        <Ionicons name="ellipsis-horizontal" size={18} color="#6E6E73" />
+        {activeTab === 'peaks' && <View style={styles.tabIndicator} />}
       </TouchableOpacity>
     </View>
   );
@@ -400,15 +369,24 @@ const ProfileScreen = ({ navigation, route }) => {
 
   const keyExtractor = useCallback((item) => item.id, []);
 
-  // ==================== RENDER COLLECTIONS ====================
-  const renderCollections = () => {
-    if (collections.length === 0) {
+  // ==================== RENDER PEAKS ====================
+  const renderPeaks = () => {
+    if (peaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>No collections</Text>
+          <Text style={styles.emptyTitle}>No peaks yet</Text>
           <Text style={styles.emptyDesc}>
-            Save posts to your collections
+            Share your best moments as Peaks
           </Text>
+          {isOwnProfile && (
+            <TouchableOpacity
+              style={styles.createBtn}
+              onPress={() => navigation.navigate('CreatePost', { isPeak: true })}
+            >
+              <Text style={styles.createBtnText}>Create a Peak</Text>
+              <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
@@ -447,30 +425,6 @@ const ProfileScreen = ({ navigation, route }) => {
           />
         </View>
       </View>
-    </Modal>
-  );
-
-  // ==================== TAB MENU MODAL ====================
-  const renderTabMenu = () => (
-    <Modal
-      visible={showTabMenu}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowTabMenu(false)}
-    >
-      <TouchableOpacity 
-        style={styles.menuOverlay}
-        activeOpacity={1}
-        onPress={() => setShowTabMenu(false)}
-      >
-        <View style={styles.menuSheet}>
-          <Text style={styles.menuTitle}>Palmares</Text>
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="add-circle-outline" size={20} color="#8E8E93" />
-            <Text style={styles.menuItemText}>Add new tab</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
     </Modal>
   );
 
@@ -515,10 +469,34 @@ const ProfileScreen = ({ navigation, route }) => {
     <>
       {renderHeader()}
       {renderTabs()}
-      {activeTab === 'collection' && renderCollections()}
+      {activeTab === 'peaks' && renderPeaks()}
       {activeTab === 'posts' && posts.length === 0 && renderEmpty()}
     </>
-  ), [activeTab, posts.length, user, isOwnProfile]);
+  ), [activeTab, posts.length, peaks.length, user, isOwnProfile]);
+
+  // ==================== EARLY RETURNS (after all hooks) ====================
+  if (isProfileLoading && !profileData) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  if (profileError && !contextMatchesProfile) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+        <Text style={styles.displayName}>Unable to load your profile.</Text>
+        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
+          Please check your connection or try again later.
+        </Text>
+        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
+          <Text style={styles.fanButtonText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // ==================== MAIN RENDER ====================
   return (
@@ -530,7 +508,6 @@ const ProfileScreen = ({ navigation, route }) => {
         renderItem={renderPostItem}
         keyExtractor={keyExtractor}
         numColumns={2}
-        estimatedItemSize={200}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={<View style={{ height: 120 }} />}
@@ -541,7 +518,6 @@ const ProfileScreen = ({ navigation, route }) => {
       />
 
       {renderBioModal()}
-      {renderTabMenu()}
       {renderQRModal()}
     </View>
   );
@@ -741,10 +717,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#11E3A3',
     borderRadius: 1,
   },
-  tabMore: {
-    marginLeft: 'auto',
-    padding: 8,
-  },
 
   // ===== EMPTY STATE =====
   emptyContainer: {
@@ -908,37 +880,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // ===== TAB MENU =====
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  menuSheet: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  menuTitle: {
-    fontSize: 17,
-    fontFamily: 'WorkSans-Bold',
-    color: '#0A0A0F',
-    marginBottom: 16,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 10,
-  },
-  menuItemText: {
-    fontSize: 15,
-    fontFamily: 'Poppins-Regular',
-    color: '#8E8E93',
-  },
-
   // ===== QR MODAL =====
   qrModalOverlay: {
     flex: 1,
@@ -989,6 +930,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   qrShareText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0A0A0F',
+  },
+
+  // ===== FAN BUTTON (for error state) =====
+  fanButton: {
+    backgroundColor: '#11E3A3',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  fanButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#0A0A0F',

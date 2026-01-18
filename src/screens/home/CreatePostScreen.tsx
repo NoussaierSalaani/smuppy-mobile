@@ -302,7 +302,6 @@ export default function CreatePostScreen({ navigation, route }) {
           renderItem={renderMediaItem}
           keyExtractor={(item) => item.id}
           numColumns={3}
-          estimatedItemSize={ITEM_SIZE}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.mediaGrid}
         />

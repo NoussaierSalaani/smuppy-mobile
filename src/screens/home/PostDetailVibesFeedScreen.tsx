@@ -21,7 +21,7 @@ import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useContentStore } from '../../store/contentStore';
@@ -189,17 +189,18 @@ const PostDetailVibesFeedScreen = () => {
   // Content store for reports and status
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
-  const { mute, block, isMuted, isBlocked } = useUserSafetyStore();
+  const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // Params
-  const { postId, post: initialPost } = route.params || {};
+  const params = route.params as { postId?: string; post?: typeof MOCK_VIBESFEED_POSTS[0] } || {};
+  const { postId, post: initialPost } = params;
   const currentPost = initialPost || MOCK_VIBESFEED_POSTS[0];
-  
+
   // States
   const [viewState, setViewState] = useState(VIEW_STATES.FULLSCREEN);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [isFan, setIsFan] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -409,7 +410,7 @@ const PostDetailVibesFeedScreen = () => {
     if (!userId) return;
 
     // Check if already muted
-    if (isMuted(userId)) {
+    if (isUserMuted(userId)) {
       setShowMenu(false);
       Alert.alert('Déjà masqué', 'Cet utilisateur est déjà masqué.', [{ text: 'OK' }]);
       return;
@@ -483,8 +484,8 @@ const PostDetailVibesFeedScreen = () => {
   };
   
   // Navigate to post detail
-  const handleGridPostPress = (post) => {
-    navigation.push('PostDetailVibesFeed', { postId: post.id, post });
+  const handleGridPostPress = (post: any) => {
+    (navigation as any).push('PostDetailVibesFeed', { postId: post.id, post });
   };
   
   // Render grid post (Pinterest style)
@@ -569,9 +570,9 @@ const PostDetailVibesFeedScreen = () => {
                   ref={videoRef}
                   source={{ uri: currentPost.media }}
                   style={styles.fullscreenMedia}
-                  resizeMode="cover"
+                  resizeMode={ResizeMode.COVER}
                   isLooping
-                  isMuted={isMuted}
+                  isMuted={isAudioMuted}
                   shouldPlay={!isPaused}
                   posterSource={{ uri: currentPost.thumbnail }}
                   usePoster
@@ -674,10 +675,10 @@ const PostDetailVibesFeedScreen = () => {
                 {currentPost.type === 'video' && (
                   <TouchableOpacity
                     style={styles.actionBtn}
-                    onPress={() => setIsMuted(!isMuted)}
+                    onPress={() => setIsAudioMuted(!isAudioMuted)}
                   >
                     <Ionicons
-                      name={isMuted ? 'volume-mute' : 'volume-high'}
+                      name={isAudioMuted ? 'volume-mute' : 'volume-high'}
                       size={28}
                       color="#FFF"
                     />
@@ -691,7 +692,7 @@ const PostDetailVibesFeedScreen = () => {
                 <View style={styles.userRow}>
                   <TouchableOpacity
                     style={styles.userInfo}
-                    onPress={() => navigation.navigate('UserProfile', { userId: currentPost.user.id })}
+                    onPress={() => (navigation as any).navigate('UserProfile', { userId: currentPost.user.id })}
                   >
                     <AvatarImage source={currentPost.user.avatar} size={40} style={styles.avatar} />
                     <Text style={styles.userName}>{currentPost.user.name}</Text>
@@ -876,7 +877,6 @@ const PostDetailVibesFeedScreen = () => {
               data={MOCK_COMMENTS}
               renderItem={renderCommentItem}
               keyExtractor={(item) => item.id}
-              estimatedItemSize={80}
               style={styles.commentsList}
               showsVerticalScrollIndicator={false}
             />
@@ -939,7 +939,7 @@ const PostDetailVibesFeedScreen = () => {
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
-                navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                (navigation as any).navigate('UserProfile', { userId: currentPost.user.id });
               }}
             >
               <Ionicons name="person-outline" size={24} color="#FFF" />

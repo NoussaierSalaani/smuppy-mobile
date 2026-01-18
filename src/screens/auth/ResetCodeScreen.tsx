@@ -192,7 +192,6 @@ export default function ResetCodeScreen({ navigation, route }) {
 
         {/* Footer - HORS du KeyboardAvoidingView, ne bouge JAMAIS */}
         <View style={styles.footer}>
-          {/* @ts-expect-error SmuppyText is JS component without type definitions */}
           <SmuppyText width={140} variant="dark" />
         </View>
 

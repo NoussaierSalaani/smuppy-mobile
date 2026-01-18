@@ -33,11 +33,11 @@ export const useCurrentProfile = () => {
 /**
  * Get profile by ID
  */
-export const useProfile = (userId) => {
+export const useProfile = (userId: string | null | undefined) => {
   return useQuery({
     queryKey: queryKeys.user.profile(userId),
     queryFn: async () => {
-      const { data, error } = await database.getProfileById(userId);
+      const { data, error } = await database.getProfileById(userId!);
       if (error) throw new Error(error);
       return data;
     },
@@ -52,7 +52,7 @@ export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (updates) => {
+    mutationFn: async (updates: Record<string, unknown>) => {
       const { data, error } = await database.updateProfile(updates);
       if (error) throw new Error(error);
       return data;
@@ -72,9 +72,9 @@ export const useUpdateProfile = () => {
  * Get feed posts with infinite scroll
  */
 export const useFeedPosts = () => {
-  const { setFeedCache, appendToFeed } = useFeedStore();
+  const setFeedCache = useFeedStore((state) => state.setFeedCache);
 
-  return useInfiniteQuery({
+  const query = useInfiniteQuery({
     queryKey: queryKeys.posts.all,
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getFeedPosts(pageParam, 10);
@@ -88,22 +88,25 @@ export const useFeedPosts = () => {
     },
     initialPageParam: 0,
     staleTime: 2 * 60 * 1000, // 2 minutes for feed
-    onSuccess: (data) => {
-      // Update feed store for optimistic updates
-      const allPosts = data.pages.flatMap((page) => page.posts);
-      setFeedCache(allPosts);
-    },
   });
+
+  // Update feed cache when data changes (replaces deprecated onSuccess)
+  if (query.data) {
+    const allPosts = query.data.pages.flatMap((page) => page.posts);
+    setFeedCache(allPosts);
+  }
+
+  return query;
 };
 
 /**
  * Get posts by user
  */
-export const useUserPosts = (userId) => {
+export const useUserPosts = (userId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.posts.byUser(userId, 0),
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getPostsByUser(userId, pageParam, 10);
+      const { data, error } = await database.getPostsByUser(userId!, pageParam, 10);
       if (error) throw new Error(error);
       return { posts: data || [], nextPage: pageParam + 1 };
     },
@@ -121,10 +124,10 @@ export const useUserPosts = (userId) => {
  */
 export const useCreatePost = () => {
   const queryClient = useQueryClient();
-  const { prependToFeed } = useFeedStore();
+  const prependToFeed = useFeedStore((state) => state.prependToFeed);
 
   return useMutation({
-    mutationFn: async (postData) => {
+    mutationFn: async (postData: unknown) => {
       const { data, error } = await database.createPost(postData);
       if (error) throw new Error(error);
       return data;
@@ -143,15 +146,15 @@ export const useCreatePost = () => {
  */
 export const useDeletePost = () => {
   const queryClient = useQueryClient();
-  const { removeFromFeed } = useFeedStore();
+  const removeFromFeed = useFeedStore((state) => state.removeFromFeed);
 
   return useMutation({
-    mutationFn: async (postId) => {
+    mutationFn: async (postId: string) => {
       const { error } = await database.deletePost(postId);
       if (error) throw new Error(error);
       return postId;
     },
-    onMutate: async (postId) => {
+    onMutate: async (postId: string) => {
       // Optimistically remove from feed
       removeFromFeed(postId);
     },
@@ -168,11 +171,11 @@ export const useDeletePost = () => {
 /**
  * Check if user liked a post
  */
-export const useHasLiked = (postId) => {
+export const useHasLiked = (postId: string | null | undefined) => {
   return useQuery({
     queryKey: queryKeys.likes.hasLiked(postId),
     queryFn: async () => {
-      const { hasLiked } = await database.hasLikedPost(postId);
+      const { hasLiked } = await database.hasLikedPost(postId!);
       return hasLiked;
     },
     enabled: !!postId,
@@ -185,10 +188,10 @@ export const useHasLiked = (postId) => {
  */
 export const useToggleLike = () => {
   const queryClient = useQueryClient();
-  const { toggleLikeOptimistic } = useFeedStore();
+  const toggleLikeOptimistic = useFeedStore((state) => state.toggleLikeOptimistic);
 
   return useMutation({
-    mutationFn: async ({ postId, liked }) => {
+    mutationFn: async ({ postId, liked }: { postId: string; liked: boolean }) => {
       if (liked) {
         const { error } = await database.unlikePost(postId);
         if (error) throw new Error(error);
@@ -199,7 +202,7 @@ export const useToggleLike = () => {
         return { postId, liked: true };
       }
     },
-    onMutate: async ({ postId, liked }) => {
+    onMutate: async ({ postId, liked }: { postId: string; liked: boolean }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.likes.hasLiked(postId) });
 
@@ -212,14 +215,14 @@ export const useToggleLike = () => {
 
       return { previousValue, postId };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       // Rollback on error
       if (context?.previousValue !== undefined) {
         queryClient.setQueryData(
           queryKeys.likes.hasLiked(context.postId),
           context.previousValue
         );
-        toggleLikeOptimistic(context.postId, context.previousValue);
+        toggleLikeOptimistic(context.postId, context.previousValue as boolean);
       }
     },
   });
@@ -232,11 +235,11 @@ export const useToggleLike = () => {
 /**
  * Check if following a user
  */
-export const useIsFollowing = (userId) => {
+export const useIsFollowing = (userId: string | null | undefined) => {
   return useQuery({
     queryKey: queryKeys.follows.isFollowing(userId),
     queryFn: async () => {
-      const { following } = await database.isFollowing(userId);
+      const { following } = await database.isFollowing(userId!);
       return following;
     },
     enabled: !!userId,
@@ -247,11 +250,11 @@ export const useIsFollowing = (userId) => {
 /**
  * Get followers
  */
-export const useFollowers = (userId) => {
+export const useFollowers = (userId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.follows.followers(userId, 0),
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getFollowers(userId, pageParam, 20);
+      const { data, error } = await database.getFollowers(userId!, pageParam, 20);
       if (error) throw new Error(error);
       return { users: data || [], nextPage: pageParam + 1 };
     },
@@ -267,11 +270,11 @@ export const useFollowers = (userId) => {
 /**
  * Get following
  */
-export const useFollowing = (userId) => {
+export const useFollowing = (userId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.follows.following(userId, 0),
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getFollowing(userId, pageParam, 20);
+      const { data, error } = await database.getFollowing(userId!, pageParam, 20);
       if (error) throw new Error(error);
       return { users: data || [], nextPage: pageParam + 1 };
     },
@@ -291,7 +294,7 @@ export const useToggleFollow = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ userId, isFollowing }) => {
+    mutationFn: async ({ userId, isFollowing }: { userId: string; isFollowing: boolean }) => {
       if (isFollowing) {
         const { error } = await database.unfollowUser(userId);
         if (error) throw new Error(error);
@@ -302,13 +305,13 @@ export const useToggleFollow = () => {
         return { userId, following: true };
       }
     },
-    onMutate: async ({ userId, isFollowing }) => {
+    onMutate: async ({ userId, isFollowing }: { userId: string; isFollowing: boolean }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.follows.isFollowing(userId) });
       const previousValue = queryClient.getQueryData(queryKeys.follows.isFollowing(userId));
       queryClient.setQueryData(queryKeys.follows.isFollowing(userId), !isFollowing);
       return { previousValue, userId };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousValue !== undefined) {
         queryClient.setQueryData(
           queryKeys.follows.isFollowing(context.userId),
@@ -316,7 +319,7 @@ export const useToggleFollow = () => {
         );
       }
     },
-    onSettled: (data) => {
+    onSettled: () => {
       // Invalidate followers/following lists
       queryClient.invalidateQueries({ queryKey: ['follows'] });
     },
@@ -330,11 +333,11 @@ export const useToggleFollow = () => {
 /**
  * Get comments for a post
  */
-export const usePostComments = (postId) => {
+export const usePostComments = (postId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.comments.byPost(postId, 0),
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getPostComments(postId, pageParam, 20);
+      const { data, error } = await database.getPostComments(postId!, pageParam, 20);
       if (error) throw new Error(error);
       return { comments: data || [], nextPage: pageParam + 1 };
     },
@@ -354,12 +357,12 @@ export const useAddComment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ postId, text }) => {
+    mutationFn: async ({ postId, text }: { postId: string; text: string }) => {
       const { data, error } = await database.addComment(postId, text);
       if (error) throw new Error(error);
       return data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.comments.byPost(variables.postId, 0),
       });
@@ -406,7 +409,7 @@ export const useExpertise = () => {
  */
 export const useSaveInterests = () => {
   return useMutation({
-    mutationFn: async (interestIds) => {
+    mutationFn: async (interestIds: string[]) => {
       const { error } = await database.saveUserInterests(interestIds);
       if (error) throw new Error(error);
       return true;

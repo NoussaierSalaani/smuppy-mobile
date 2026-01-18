@@ -182,43 +182,15 @@ export async function registerDeviceSession(): Promise<{
 
 /**
  * Send alert for new device login
+ * TODO: Deploy send-new-device-alert Edge Function to enable this feature
  */
 async function sendNewDeviceAlert(
-  sessionId: string,
-  deviceInfo: DeviceInfo,
-  location: { ip?: string; country?: string; city?: string }
+  _sessionId: string,
+  _deviceInfo: DeviceInfo,
+  _location: { ip?: string; country?: string; city?: string }
 ): Promise<void> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const response = await fetch(
-      `${process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://wbgfaeytioxnkdsuvvlx.supabase.co'}/functions/v1/send-new-device-alert`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          device_session_id: sessionId,
-          device_info: {
-            ...deviceInfo,
-            ip_address: location.ip,
-            country: location.country,
-            city: location.city,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error('[DeviceSession] Alert send failed:', await response.text());
-    }
-  } catch (error) {
-    // Don't throw - alert failure shouldn't block login
-    console.error('[DeviceSession] Alert error:', error);
-  }
+  // Disabled until Edge Function is deployed
+  // Silent no-op to avoid console errors
 }
 
 /**

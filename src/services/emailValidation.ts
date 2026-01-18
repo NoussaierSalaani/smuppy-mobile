@@ -123,21 +123,27 @@ export const checkDomainMx = async (email) => {
     const domain = email.toLowerCase().split('@')[1];
     if (!domain) return false;
 
-    // Use Cloudflare DNS-over-HTTPS
-    const response = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${domain}&type=MX`,
-      {
-        headers: { Accept: 'application/dns-json' },
-        // Short timeout for better UX
-        signal: AbortSignal.timeout(3000),
-      }
-    );
+    // Use Cloudflare DNS-over-HTTPS with manual timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    if (!response.ok) return true; // Fail open
+    try {
+      const response = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${domain}&type=MX`,
+        {
+          headers: { Accept: 'application/dns-json' },
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
 
-    const data = await response.json();
-    return data.Answer && data.Answer.length > 0;
+      if (!response.ok) return true; // Fail open
 
+      const data = await response.json();
+      return data.Answer && data.Answer.length > 0;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     console.warn('MX check failed:', error);
     return true; // Fail open - don't block on network errors

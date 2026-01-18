@@ -1,6 +1,11 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    // TODO: Enable strict mode progressively after dedicated migration
+    // Current status (2026-01-18):
+    //   - strictNullChecks: 168 errors
+    //   - noImplicitAny: 338 errors
+    // Priority fixes: useRef<T | null>, useState<T | null>, route params
     "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
@@ -53,6 +58,7 @@
   "exclude": [
     "node_modules",
     "babel.config.js",
-    "metro.config.js"
+    "metro.config.js",
+    "supabase/functions/**/*"
   ]
 }

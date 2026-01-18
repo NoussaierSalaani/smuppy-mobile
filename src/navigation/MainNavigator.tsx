@@ -21,6 +21,11 @@ import PostSuccessScreen from '../screens/home/PostSuccessScreen';
 // Profile Screens
 import FansListScreen from '../screens/profile/FansListScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
+import PostDetailProfileScreen from '../screens/profile/PostDetailProfileScreen';
+
+// Post Detail Screens
+import PostDetailFanFeedScreen from '../screens/home/PostDetailFanFeedScreen';
+import PostDetailVibesFeedScreen from '../screens/home/PostDetailVibesFeedScreen';
 
 // Settings Screens
 import SettingsScreen from '../screens/settings/SettingsScreen';
@@ -44,14 +49,14 @@ import BottomNav from '../components/BottomNav';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' };
+const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
 
 function TabNavigator({ navigation }) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
 
   return (
     <>
-      <Tab.Navigator tabBar={(props) => <BottomNav {...props} onCreatePress={() => setShowCreatePopup(true)} />} screenOptions={{ headerShown: false }}>
+      <Tab.Navigator id="MainTabs" tabBar={(props) => <BottomNav {...props} onCreatePress={() => setShowCreatePopup(true)} />} screenOptions={{ headerShown: false }}>
         <Tab.Screen name="Home" component={FeedScreen} />
         <Tab.Screen name="Peaks" component={PeaksFeedScreen} />
         <Tab.Screen name="CreateTab" component={CreatePostScreen} />
@@ -71,7 +76,7 @@ function TabNavigator({ navigation }) {
 
 export default function MainNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
+    <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
 
       {/* Search */}
@@ -89,6 +94,11 @@ export default function MainNavigator() {
       {/* Profile Stack */}
       <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Post Detail Screens */}
+      <Stack.Screen name="PostDetailFanFeed" component={PostDetailFanFeedScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="PostDetailVibesFeed" component={PostDetailVibesFeedScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="PostDetailProfile" component={PostDetailProfileScreen} options={{ animation: 'fade' }} />
 
       {/* Settings Stack */}
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

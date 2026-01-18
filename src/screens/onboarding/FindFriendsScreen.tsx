@@ -20,6 +20,7 @@ export default function FindFriendsScreen({ navigation, route }) {
   const handleSkip = () => navigate('Guidelines', params);
 
   const handleFindFriends = useCallback(async () => {
+    if (loading) return;
     setLoading(true);
 
     try {
@@ -217,14 +218,14 @@ const styles = StyleSheet.create({
   iconCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: `${COLORS.primary}15`, justifyContent: 'center', alignItems: 'center' },
 
   title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.sm },
-  subtitle: { fontSize: 16, color: COLORS.grayDark, textAlign: 'center', lineHeight: 24, marginBottom: SPACING.xl },
+  subtitle: { fontSize: 16, color: COLORS.darkGray, textAlign: 'center', lineHeight: 24, marginBottom: SPACING.xl },
 
   featuresList: { marginTop: SPACING.lg },
   featureItem: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.lg, paddingHorizontal: SPACING.md },
   featureText: { fontSize: 15, color: COLORS.dark, marginLeft: SPACING.md, flex: 1 },
 
   loadingContainer: { alignItems: 'center', marginTop: SPACING.xl },
-  loadingText: { fontSize: 16, color: COLORS.grayDark, marginTop: SPACING.md },
+  loadingText: { fontSize: 16, color: COLORS.darkGray, marginTop: SPACING.md },
 
   resultContainer: { alignItems: 'center', marginTop: SPACING.xl, padding: SPACING.xl, backgroundColor: COLORS.backgroundFocus, borderRadius: SIZES.radiusLg },
   resultText: { fontSize: 18, fontWeight: '600', color: COLORS.dark, textAlign: 'center', marginTop: SPACING.md },
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
 
   btnContainer: { marginBottom: SPACING.lg },
   skipBtn: { alignItems: 'center', paddingVertical: SPACING.lg },
-  skipText: { fontSize: 16, color: COLORS.grayDark, textDecorationLine: 'underline' },
+  skipText: { fontSize: 16, color: COLORS.darkGray, textDecorationLine: 'underline' },
 
   footer: { alignItems: 'center', paddingBottom: SPACING.xl },
 });

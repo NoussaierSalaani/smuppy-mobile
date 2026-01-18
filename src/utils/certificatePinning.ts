@@ -58,15 +58,20 @@ const CERTIFICATE_PINS: Record<string, PinConfig> = {
       'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=', // Amazon Root CA 3
     ],
   },
-  // Smuppy API domains
-  'api.smuppy.com': {
-    primary: 'PLACEHOLDER_PIN_API_PRIMARY', // Replace with actual pin
-    backup: ['PLACEHOLDER_PIN_API_BACKUP'],
-  },
-  'smuppy.com': {
-    primary: 'PLACEHOLDER_PIN_MAIN_PRIMARY', // Replace with actual pin
-    backup: ['PLACEHOLDER_PIN_MAIN_BACKUP'],
-  },
+  // TODO: Add Smuppy API domains when deployed
+  // Generate pins with:
+  // openssl s_client -servername DOMAIN -connect DOMAIN:443 </dev/null 2>/dev/null | \
+  //   openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | \
+  //   openssl dgst -sha256 -binary | openssl enc -base64
+  //
+  // 'api.smuppy.com': {
+  //   primary: 'ACTUAL_PIN_HERE',
+  //   backup: ['BACKUP_PIN_HERE'],
+  // },
+  // 'smuppy.com': {
+  //   primary: 'ACTUAL_PIN_HERE',
+  //   backup: ['BACKUP_PIN_HERE'],
+  // },
   // Expo Push Service
   'exp.host': {
     primary: 'r/mIkG3eEpVdm+u/ko/cwxzOMo1bk4TyHIlByibiA5E=', // Expo root

@@ -26,6 +26,7 @@ export default function EnableBiometricScreen({ navigation }) {
   };
 
   const handleEnable = async () => {
+    if (loading) return;
     setLoading(true);
     const result = await biometrics.enable();
     setLoading(false);

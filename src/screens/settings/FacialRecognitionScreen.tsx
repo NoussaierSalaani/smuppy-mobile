@@ -31,6 +31,7 @@ export default function FacialRecognitionScreen({ navigation }) {
   };
 
   const handleToggle = async (value) => {
+    if (loading) return;
     if (value) {
       // Activer : utilise Face ID natif
       setLoading(true);
@@ -109,6 +110,7 @@ export default function FacialRecognitionScreen({ navigation }) {
   };
 
   const handleUpdate = async () => {
+    if (loading) return;
     setLoading(true);
     const result = await biometrics.enable();
     setLoading(false);

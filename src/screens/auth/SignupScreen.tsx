@@ -162,12 +162,12 @@ export default function SignupScreen({ navigation }) {
             <Text style={styles.label}>Email address</Text>
             <View style={[
               styles.inputBox,
-              // Priorité: Error > Valid > Focused
-              email.length > 0 && !emailValid ? styles.inputError :
-              email.length > 0 && emailValid ? styles.inputValid :
+              // Focused = vert, Valid = vert+fond, Error = rouge (seulement si pas focused ET invalide)
+              !emailFocused && email.length > 0 && !emailValid ? styles.inputError :
+              email.length > 0 ? styles.inputValid :
               emailFocused ? styles.inputFocused : null,
             ]}>
-              <Ionicons name="mail-outline" size={20} color={email.length > 0 && !emailValid ? '#FF3B30' : (email.length > 0 || emailFocused) ? '#00cdb5' : '#9cadbc'} />
+              <Ionicons name="mail-outline" size={20} color={!emailFocused && email.length > 0 && !emailValid ? '#FF3B30' : (email.length > 0 || emailFocused) ? '#00cdb5' : '#9cadbc'} />
               <TextInput 
                 style={styles.input} 
                 placeholder="mailusersmuppy@mail.com" 
@@ -182,7 +182,7 @@ export default function SignupScreen({ navigation }) {
               />
               {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#00cdb5" />}
             </View>
-            {email.length > 0 && !emailValid && (
+            {!emailFocused && email.length > 0 && !emailValid && (
               <Text style={styles.errorText}>
                 {(() => {
                   if (isDisposableEmail(email)) {
@@ -202,12 +202,11 @@ export default function SignupScreen({ navigation }) {
               <Text style={styles.labelPassword}>Password</Text>
               <View style={[
                 styles.inputBoxPassword,
-                // Priorité: Error > Valid > Focused
-                password.length > 0 && !passwordValid ? styles.inputError :
-                password.length > 0 && passwordValid ? styles.inputValid :
+                // Focused = vert, Has content = vert+fond (pas de rouge pendant la saisie)
+                password.length > 0 ? styles.inputValid :
                 passwordFocused ? styles.inputFocused : null,
               ]}>
-                <Ionicons name="lock-closed-outline" size={20} color={password.length > 0 && !passwordValid ? '#FF3B30' : (password.length > 0 || passwordFocused) ? '#00cdb5' : '#9cadbc'} />
+                <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? '#00cdb5' : '#9cadbc'} />
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••••"
@@ -223,8 +222,8 @@ export default function SignupScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
 
-              {/* Password Requirements Overlay - only when typing, focused, and keyboard visible */}
-              {password.length > 0 && passwordFocused && keyboardVisible && !allChecksPassed && (
+              {/* Password Requirements Overlay - show when focused and not all checks passed */}
+              {passwordFocused && !allChecksPassed && (
                 <View style={styles.requirementsOverlay}>
                   <View style={styles.requirementsBox}>
                     <Text style={styles.requirementsTitle}>Password must contain:</Text>

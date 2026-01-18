@@ -45,7 +45,7 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - Local commits ahead of origin: **0**
 
 ### 1.2 Current active LOT
-✅ **LOT L — Audit supabase.auth (DONE)**
+✅ **LOT M — GDPR Account Deletion (DONE)**
 
 ---
 
@@ -154,6 +154,38 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 #### Scope files
 - `docs/IMPLEMENTATION_LOG.md` (audit table added)
 - No code modifications
+
+---
+
+### ✅ LOT M — GDPR Account Deletion (Delete Account)
+**Status:** ✅ DONE
+**Date:** 2026-01-18
+
+#### Goals (completed)
+1) ✅ Bouton "Delete Account" dans SettingsScreen avec modal de confirmation
+2) ✅ Edge Function `delete-account` - soft delete RGPD (30 jours de grâce)
+3) ✅ Edge Function `check-deleted-account` - vérification au login
+4) ✅ Edge Function `cleanup-deleted-accounts` - cleanup automatique après 30 jours
+5) ✅ Table `deleted_accounts` pour tracker les comptes supprimés
+6) ✅ Modal informatif au login si compte supprimé
+7) ✅ Documentation mise à jour
+
+#### Scope files
+- `src/screens/settings/SettingsScreen.tsx`
+- `src/screens/auth/LoginScreen.tsx`
+- `supabase/functions/delete-account/index.ts`
+- `supabase/functions/check-deleted-account/index.ts`
+- `supabase/functions/cleanup-deleted-accounts/index.ts`
+- `supabase/migrations/20260118_deleted_accounts.sql`
+- `supabase/README.md`
+- `docs/IMPLEMENTATION_LOG.md`
+- `docs/ROADMAP_LOTS.md`
+
+#### Key outcomes
+- RGPD compliant: 30-day grace period before permanent deletion
+- User can request reactivation via support@smuppy.com
+- Email blocked during grace period, freed after 30 days
+- Informative popup at login if account was deleted
 
 ---
 

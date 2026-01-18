@@ -35,6 +35,12 @@ export default function LoginScreen({ navigation }) {
   const [biometricBlocked, setBiometricBlocked] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
   const [successModal, setSuccessModal] = useState({ visible: false, title: '', message: '' });
+  const [deletedAccountModal, setDeletedAccountModal] = useState({
+    visible: false,
+    daysRemaining: 0,
+    canReactivate: false,
+    fullName: '',
+  });
 
   useEffect(() => { checkBiometrics(); }, []);
 
@@ -132,27 +138,38 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = useCallback(async () => {
     if (!email || !password) {
-      setErrorModal({ 
-        visible: true, 
-        title: 'Missing Information', 
-        message: 'Please fill in all fields to continue.' 
-      });
-      return;
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-login');
-    if (!awsCheck.allowed) {
       setErrorModal({
         visible: true,
-        title: 'Too Many Attempts',
-        message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
+        title: 'Missing Information',
+        message: 'Please fill in all fields to continue.'
       });
       return;
     }
 
+    // Prevent double-tap: set loading BEFORE any async operation
+    if (loading) return;
     setLoading(true);
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
+      // Check if account was deleted
+      const isDeleted = await checkDeletedAccount(normalizedEmail);
+      if (isDeleted) {
+        setLoading(false);
+        return;
+      }
+
+      // Check AWS rate limit
+      const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-login');
+      if (!awsCheck.allowed) {
+        setErrorModal({
+          visible: true,
+          title: 'Too Many Attempts',
+          message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
+        });
+        return;
+      }
       const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-login`, {
         method: 'POST',
         headers: {
@@ -225,7 +242,7 @@ export default function LoginScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [email, password, rememberMe]);
+  }, [email, password, rememberMe, loading]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);
@@ -241,6 +258,42 @@ export default function LoginScreen({ navigation }) {
 
   const closeSuccessModal = useCallback(() => {
     setSuccessModal(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  const closeDeletedAccountModal = useCallback(() => {
+    setDeletedAccountModal(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  const checkDeletedAccount = useCallback(async (emailToCheck: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-deleted-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email: emailToCheck }),
+      });
+
+      if (!response.ok) return false;
+
+      const result = await response.json();
+
+      if (result.is_deleted) {
+        setDeletedAccountModal({
+          visible: true,
+          daysRemaining: result.days_remaining,
+          canReactivate: result.can_reactivate,
+          fullName: result.full_name || '',
+        });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Check deleted account error:', error);
+      return false;
+    }
   }, []);
 
   const isFormValid = email.length > 0 && password.length > 0;
@@ -480,6 +533,52 @@ export default function LoginScreen({ navigation }) {
             </View>
           </View>
         </Modal>
+
+        {/* Deleted Account Modal */}
+        <Modal visible={deletedAccountModal.visible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity style={styles.modalClose} onPress={closeDeletedAccountModal}>
+                <Ionicons name="close" size={24} color={COLORS.gray} />
+              </TouchableOpacity>
+              <View style={[styles.modalIconBox, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="warning" size={40} color="#F59E0B" />
+              </View>
+              <Text style={styles.modalTitle}>Account Deleted</Text>
+              <Text style={styles.modalMessage}>
+                {deletedAccountModal.fullName ? `Hi ${deletedAccountModal.fullName}, ` : ''}
+                The account linked to this email has been deleted.
+                {'\n\n'}
+                {deletedAccountModal.canReactivate ? (
+                  <>
+                    This email will be available again in <Text style={styles.modalHighlight}>{deletedAccountModal.daysRemaining} days</Text>.
+                    {'\n\n'}
+                    To reactivate your account, please contact us at:
+                  </>
+                ) : (
+                  'This email is now available for a new account.'
+                )}
+              </Text>
+              {deletedAccountModal.canReactivate && (
+                <TouchableOpacity
+                  style={styles.supportEmailBtn}
+                  onPress={() => {
+                    closeDeletedAccountModal();
+                  }}
+                >
+                  <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.supportEmailText}>support@smuppy.com</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: '#F59E0B' }]}
+                onPress={closeDeletedAccountModal}
+              >
+                <Text style={styles.modalBtnText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -562,4 +661,7 @@ const styles = StyleSheet.create({
   modalBtnGradient: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius },
   modalBtnInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
+  modalHighlight: { fontWeight: '700', color: COLORS.primary },
+  supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.backgroundValid, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
+  supportEmailText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator, TextInput, Alert } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,11 +13,17 @@ const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser, getFullName } = useUser();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [biometricType, setBiometricType] = useState(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
 
   useEffect(() => {
     checkBiometrics();
@@ -34,17 +40,20 @@ const SettingsScreen = ({ navigation }) => {
         metadata.full_name ||
         metadata.name ||
         getFullName?.() ||
-        authUser?.email ||
-        contextUser?.email ||
+        authUser?.email?.split('@')[0] ||
+        contextUser?.email?.split('@')[0] ||
         'User';
 
       const avatar = metadata.avatar_url || contextUser?.avatar || null;
+      const email = authUser?.email || contextUser?.email || '';
 
       setDisplayName(name);
       setAvatarUrl(avatar);
+      setUserEmail(email);
     } catch (error) {
-      setDisplayName(getFullName?.() || contextUser?.email || 'User');
+      setDisplayName(getFullName?.() || contextUser?.email?.split('@')[0] || 'User');
       setAvatarUrl(contextUser?.avatar || null);
+      setUserEmail(contextUser?.email || '');
     }
   };
 
@@ -59,12 +68,71 @@ const SettingsScreen = ({ navigation }) => {
 
   const MENU_ITEMS = [
     { id: 'profile', icon: 'person-outline', label: 'Profil', screen: 'EditProfil' },
+    { id: 'email', icon: 'mail-outline', label: 'Email', action: () => setShowEmailModal(true) },
     { id: 'password', icon: 'lock-closed-outline', label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: biometricType === 'face' ? 'scan-outline' : 'finger-print-outline', label: biometricType === 'face' ? 'Facial Recognition' : 'Fingerprint', screen: 'FacialRecognition' }] : []),
     { id: 'notifications', icon: 'notifications-outline', label: 'Notifications', screen: 'NotificationSettings' },
     { id: 'report', icon: 'alert-circle-outline', label: 'Report a problem', screen: 'ReportProblem' },
     { id: 'terms', icon: 'document-text-outline', label: 'Terms and policies', screen: 'TermsPolicies' },
   ];
+
+  const handleChangeEmail = async () => {
+    if (!newEmail || !newEmail.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    setChangingEmail(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      if (error) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert(
+          'Verification Required',
+          'A confirmation email has been sent to your new email address. Please check your inbox to confirm the change.',
+          [{ text: 'OK', onPress: () => setShowEmailModal(false) }]
+        );
+        setNewEmail('');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update email. Please try again.');
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
+  const renderEmailModal = () => (
+    <Modal visible={showEmailModal} transparent animationType="fade" onRequestClose={() => !changingEmail && setShowEmailModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={[styles.modalIconBox, { backgroundColor: '#E0F7F4' }]}>
+            <Ionicons name="mail-outline" size={32} color="#11E3A3" />
+          </View>
+          <Text style={styles.modalTitle}>Change Email</Text>
+          <Text style={styles.currentEmail}>{userEmail}</Text>
+          <TextInput
+            style={styles.emailInput}
+            placeholder="Enter new email address"
+            placeholderTextColor="#A0A0A0"
+            value={newEmail}
+            onChangeText={setNewEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowEmailModal(false); setNewEmail(''); }} disabled={changingEmail}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.logoutButton, { backgroundColor: '#11E3A3' }]} onPress={handleChangeEmail} disabled={changingEmail}>
+              {changingEmail ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Update</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -79,6 +147,47 @@ const SettingsScreen = ({ navigation }) => {
       setShowLogoutModal(false);
     } finally {
       setLoggingOut(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not found');
+        return;
+      }
+
+      // Delete user profile first
+      await supabase.from('profiles').delete().eq('id', user.id);
+
+      // Delete user auth (requires Edge Function with service role)
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
+
+      // Clear local storage and sign out
+      await AsyncStorage.multiRemove(['@smuppy_remember_me', '@smuppy_saved_email', '@smuppy_user_profile']);
+      await biometrics.disable();
+      await supabase.auth.signOut({ scope: 'global' });
+
+      setShowDeleteModal(false);
+      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Auth' }] }));
+    } catch (error) {
+      console.error('Delete account error:', error);
+      Alert.alert('Error', 'Failed to delete account. Please try again.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -97,6 +206,28 @@ const SettingsScreen = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} disabled={loggingOut}>
               {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Yes, Logout</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderDeleteModal = () => (
+    <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => !deleting && setShowDeleteModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={[styles.modalIconBox, { backgroundColor: '#FEE2E2' }]}>
+            <Ionicons name="trash-outline" size={32} color="#FF3B30" />
+          </View>
+          <Text style={styles.modalTitle}>Delete Account</Text>
+          <Text style={styles.modalMessage}>This action is permanent and cannot be undone. All your data, posts, and connections will be deleted.</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowDeleteModal(false)} disabled={deleting}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleDeleteAccount} disabled={deleting}>
+              {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Delete</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -125,13 +256,18 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         )}
         <Text style={styles.userName}>{displayName}</Text>
+        <Text style={styles.userEmail}>{userEmail}</Text>
       </View>
 
       <View style={styles.menuContainer}>
         {MENU_ITEMS.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.menuItem} onPress={() => navigation.navigate(item.screen)}>
+          <TouchableOpacity
+            key={item.id}
+            style={styles.menuItem}
+            onPress={() => item.action ? item.action() : navigation.navigate(item.screen)}
+          >
             <View style={styles.menuItemLeft}>
-              <Ionicons name={item.icon} size={22} color="#0A0A0F" />
+              <Ionicons name={item.icon as any} size={22} color="#0A0A0F" />
               <Text style={styles.menuItemLabel}>{item.label}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
@@ -144,6 +280,13 @@ const SettingsScreen = ({ navigation }) => {
             <Text style={[styles.menuItemLabel, styles.logoutLabel]}>Logout</Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => setShowDeleteModal(true)}>
+          <View style={styles.menuItemLeft}>
+            <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+            <Text style={[styles.menuItemLabel, styles.logoutLabel]}>Delete Account</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.logoContainer}>
@@ -151,6 +294,8 @@ const SettingsScreen = ({ navigation }) => {
       </View>
 
       {renderLogoutModal()}
+      {renderEmailModal()}
+      {renderDeleteModal()}
     </View>
   );
 };
@@ -165,6 +310,7 @@ const styles = StyleSheet.create({
   avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
   avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, marginBottom: 12, backgroundColor: '#F2F2F2', justifyContent: 'center', alignItems: 'center' },
   userName: { fontSize: 18, fontFamily: 'WorkSans-SemiBold', color: '#0A0A0F' },
+  userEmail: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#8E8E93', marginTop: 4 },
   menuContainer: { paddingHorizontal: 20, paddingTop: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
   menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -177,6 +323,8 @@ const styles = StyleSheet.create({
   modalIconBox: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontFamily: 'WorkSans-Bold', color: '#0A0A0F', marginBottom: 8 },
   modalMessage: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#0A0A0F', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
+  currentEmail: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#8E8E93', marginBottom: 16 },
+  emailInput: { width: '100%', borderWidth: 1.5, borderColor: '#11E3A3', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: 'Poppins-Regular', color: '#0A0A0F', marginBottom: 20 },
   modalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
   cancelButton: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: '#11E3A3', alignItems: 'center' },
   cancelButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#11E3A3' },

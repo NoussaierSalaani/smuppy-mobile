@@ -206,3 +206,64 @@ docs/IMPLEMENTATION_LOG.md (updated)
 | Auth actions publiques avec AWS rate limit | 2 | ✅ OK |
 
 **Status:** DONE (audit uniquement, aucune modification de code)
+
+---
+
+## LOT M — GDPR Account Deletion (2026-01-18)
+
+**Type:** Feature + Security
+**Objectif:** Implémenter la suppression de compte conforme RGPD avec période de grâce de 30 jours
+
+### Goals (completed)
+1. ✅ Bouton "Delete Account" dans SettingsScreen
+2. ✅ Edge Function `delete-account` (soft delete)
+3. ✅ Edge Function `check-deleted-account` (vérification au login)
+4. ✅ Edge Function `cleanup-deleted-accounts` (cleanup automatique)
+5. ✅ Table `deleted_accounts` pour tracker les comptes supprimés
+6. ✅ Modal informatif au login si compte supprimé
+7. ✅ Documentation mise à jour
+
+### Files modified
+- `src/screens/settings/SettingsScreen.tsx` - Ajout bouton Delete Account + modal
+- `src/screens/auth/LoginScreen.tsx` - Vérification compte supprimé + modal informatif
+- `supabase/functions/delete-account/index.ts` - Soft delete RGPD
+- `supabase/functions/check-deleted-account/index.ts` - Vérification email
+- `supabase/functions/cleanup-deleted-accounts/index.ts` - Cleanup automatique
+- `supabase/migrations/20260118_deleted_accounts.sql` - Table + RLS
+- `supabase/README.md` - Documentation Edge Functions
+- `docs/IMPLEMENTATION_LOG.md` - Ce fichier
+- `docs/ROADMAP_LOTS.md` - Ajout LOT M
+
+### Flow utilisateur
+1. User clique "Delete Account" → Modal de confirmation
+2. Confirmation → compte soft-deleted (email stocké 30 jours)
+3. User déconnecté → retour Auth
+4. Si user essaie de se reconnecter:
+   - Modal informant que le compte est supprimé
+   - Affiche jours restants avant libération email
+   - Contact support@smuppy.com pour réactiver
+5. Après 30 jours → cleanup automatique libère l'email
+
+### Edge Functions déployées
+```bash
+npx supabase functions deploy delete-account --no-verify-jwt
+npx supabase functions deploy check-deleted-account --no-verify-jwt
+npx supabase functions deploy cleanup-deleted-accounts --no-verify-jwt
+```
+
+### Configuration requise
+1. Exécuter le SQL de création de table dans Supabase Dashboard (SQL Editor)
+2. Optionnel: Configurer cron job pour cleanup automatique:
+```sql
+SELECT cron.schedule('cleanup-deleted-accounts', '0 3 * * *',
+  $$SELECT cleanup_deleted_accounts()$$
+);
+```
+
+### Manual tests
+- [ ] Settings → Delete Account → Modal confirmation
+- [ ] Confirmer suppression → déconnexion + retour Auth
+- [ ] Login avec email supprimé → Modal informatif (jours restants)
+- [ ] Vérifier `deleted_accounts` table contient l'entrée
+
+**Status:** DONE

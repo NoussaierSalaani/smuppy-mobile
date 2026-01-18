@@ -161,12 +161,13 @@ export default function SignupScreen({ navigation }) {
             {/* Email */}
             <Text style={styles.label}>Email address</Text>
             <View style={[
-              styles.inputBox, 
-              emailFocused && styles.inputFocused,
-              email.length > 0 && !emailValid && styles.inputError,
-              email.length > 0 && emailValid && styles.inputValid,
+              styles.inputBox,
+              // Priorité: Error > Valid > Focused
+              email.length > 0 && !emailValid ? styles.inputError :
+              email.length > 0 && emailValid ? styles.inputValid :
+              emailFocused ? styles.inputFocused : null,
             ]}>
-              <Ionicons name="mail-outline" size={20} color={email.length > 0 && !emailValid ? '#FF3B30' : emailFocused ? '#00cdb5' : '#9cadbc'} />
+              <Ionicons name="mail-outline" size={20} color={email.length > 0 && !emailValid ? '#FF3B30' : (email.length > 0 || emailFocused) ? '#00cdb5' : '#9cadbc'} />
               <TextInput 
                 style={styles.input} 
                 placeholder="mailusersmuppy@mail.com" 
@@ -201,11 +202,12 @@ export default function SignupScreen({ navigation }) {
               <Text style={styles.labelPassword}>Password</Text>
               <View style={[
                 styles.inputBoxPassword,
-                passwordFocused && styles.inputFocused,
-                password.length > 0 && !passwordValid && styles.inputError,
-                password.length > 0 && passwordValid && styles.inputValid,
+                // Priorité: Error > Valid > Focused
+                password.length > 0 && !passwordValid ? styles.inputError :
+                password.length > 0 && passwordValid ? styles.inputValid :
+                passwordFocused ? styles.inputFocused : null,
               ]}>
-                <Ionicons name="lock-closed-outline" size={20} color={password.length > 0 && !passwordValid ? '#FF3B30' : passwordFocused ? '#00cdb5' : '#9cadbc'} />
+                <Ionicons name="lock-closed-outline" size={20} color={password.length > 0 && !passwordValid ? '#FF3B30' : (password.length > 0 || passwordFocused) ? '#00cdb5' : '#9cadbc'} />
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••••"
@@ -425,11 +427,13 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: '#00cdb5',
-    backgroundColor: '#F0FDFB',
+    borderWidth: 2,
+    backgroundColor: COLORS.white, // Focused sans contenu = fond blanc
   },
   inputValid: {
     borderColor: '#00cdb5',
-    backgroundColor: '#E6FAF8',
+    borderWidth: 2,
+    backgroundColor: '#E6FAF8', // Avec contenu valide = fond vert transparent
   },
   inputError: { 
     borderColor: '#FF3B30',

@@ -31,7 +31,7 @@ android: {
 package: 'com.nou09.Smuppy',
 adaptiveIcon: {
 foregroundImage: './assets/icon.png',
-backgroundColor: '#0A252F',
+backgroundColor: '#11E3A3',
       },
 edgeToEdgeEnabled: true,
 permissions: [

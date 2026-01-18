@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { View } from 'react-native';
@@ -103,37 +103,21 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    const forceReady = async () => {
-      if (!isMounted) return;
-      setAppReady(true);
+    async function initializeApp() {
+      // Hide native splash immediately - our React splash takes over
       try {
         await SplashScreen.hideAsync();
       } catch {
-        // best-effort: never crash on splash hide
+        // Ignore - splash may already be hidden
       }
-    };
 
-    const watchdog = setTimeout(() => {
-      forceReady();
-    }, 3000);
-
-    async function initializeApp() {
       try {
-        // IMPORTANT: do this inside effect (not module-level)
-        try {
-          await SplashScreen.preventAutoHideAsync();
-        } catch {
-          // best-effort
-        }
+        initSentry();
+      } catch (e) {
+        console.warn('[Sentry] init failed:', e);
+      }
 
-        // Initialize Sentry inside effect so it can't crash module evaluation
-        try {
-          initSentry();
-        } catch (e) {
-          console.warn('[Sentry] init failed:', e);
-        }
-
-        // Load fonts
+      try {
         await Font.loadAsync({
           'WorkSans-Regular': require('./assets/fonts/WorkSans-Regular.ttf'),
           'WorkSans-Medium': require('./assets/fonts/WorkSans-Medium.ttf'),
@@ -147,19 +131,14 @@ export default function App() {
           'Poppins-ExtraBold': require('./assets/fonts/Poppins-ExtraBold.ttf'),
         });
 
-        // Initialize rate limiter (load persisted data)
         await rateLimiter.init();
-
-        // Initialize push notifications (Android channels, etc.)
         await initializeNotifications();
-
-        // Restore query cache
-        await restoreQueryCache();
       } catch (error) {
-        console.log('Error initializing app:', error);
+        console.error('Error initializing app:', error);
       } finally {
-        clearTimeout(watchdog);
-        await forceReady(); // ALWAYS unlock UI + hide splash
+        if (isMounted) {
+          setAppReady(true);
+        }
       }
     }
 
@@ -167,33 +146,21 @@ export default function App() {
 
     return () => {
       isMounted = false;
-      clearTimeout(watchdog);
     };
   }, []);
 
-  const onLayoutRootView = useCallback(async () => {
-    if (appReady) {
-      try {
-        await SplashScreen.hideAsync();
-      } catch {}
-    }
-  }, [appReady]);
-
   if (!appReady) {
-    return null; // Wait for initialization
+    return null;
   }
 
   return (
     <ErrorBoundary showReportButton>
       <QueryClientProvider client={queryClient}>
-        {/* Global monitors (no UI) */}
         <NetworkMonitor />
         <UserContextSync />
         <CachePersistence />
         <PushNotificationHandler />
-
-        {/* Main app */}
-        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <View style={{ flex: 1 }}>
           <AppNavigator />
         </View>
       </QueryClientProvider>

@@ -263,7 +263,7 @@ export default function AccountTypeScreen({ navigation, route }) {
         if (errors.address) setErrors(prev => ({ ...prev, address: null }));
       }
     } catch (error) {
-      console.log('Location error:', error);
+      console.error('Location error:', error);
     } finally {
       setIsLoadingLocation(false);
     }

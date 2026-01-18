@@ -27,6 +27,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
   const inputs = useRef([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const isCreatingRef = useRef(false);
 
   // Extract all onboarding data from params
   const {
@@ -66,8 +67,9 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
   // Create account and send OTP
   const createAccountAndSendOTP = useCallback(async () => {
-    if (accountCreated || isCreatingAccount) return;
+    if (accountCreated || isCreatingRef.current) return;
 
+    isCreatingRef.current = true;
     setIsCreatingAccount(true);
     setError('');
 
@@ -83,25 +85,35 @@ export default function VerifyCodeScreen({ navigation, route }) {
       });
 
       if (!response.ok) {
+        const responseText = await response.text();
+
         if (response.status === 429) {
           setError('Too many attempts. Please wait a few minutes.');
           return;
         }
 
-        // Check if email already exists by trying to resend OTP
-        const { error: resendError } = await supabase.auth.resend({
-          type: 'signup',
-          email,
-        });
+        // Try to parse as JSON
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = null;
+        }
 
-        if (resendError) {
-          // Generic message - don't reveal if email exists (anti-enumeration)
-          setError('Unable to verify this email. Please try again or use a different email address.');
+        // Check for 409 errors (deleted account)
+        if (response.status === 409 && errorData?.error === 'account_deleted') {
+          setError(`This email belongs to a deleted account. Please wait ${errorData.days_remaining} days or use a different email.`);
           return;
         }
 
-        // Resend succeeded, account exists but not verified
-        setAccountCreated(true);
+        // Check for 400 errors (invalid credentials = email already registered)
+        if (response.status === 400 && errorData?.error === 'Invalid credentials') {
+          setError('Unable to create account with this email. Please try a different email or login.');
+          return;
+        }
+
+        // Other errors - show generic message
+        setError('Unable to create account. Please try again.');
         return;
       }
 
@@ -110,9 +122,10 @@ export default function VerifyCodeScreen({ navigation, route }) {
       console.error('[VerifyCode] Create account error:', err);
       setError('Connection error. Please check your internet and try again.');
     } finally {
+      isCreatingRef.current = false;
       setIsCreatingAccount(false);
     }
-  }, [email, password, accountCreated, isCreatingAccount]);
+  }, [email, password, accountCreated]);
 
   // Create account on mount
   useEffect(() => {
@@ -128,6 +141,10 @@ export default function VerifyCodeScreen({ navigation, route }) {
     Keyboard.dismiss();
 
     try {
+      // IMPORTANT: Set flag BEFORE verifyOtp because verifyOtp triggers onAuthStateChange
+      // This ensures AppNavigator sees the flag when session is created
+      await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
+
       // Step 1: Verify OTP - try 'email' type first (for generateLink), then 'signup'
       let data, verifyError;
 
@@ -147,14 +164,14 @@ export default function VerifyCodeScreen({ navigation, route }) {
         });
         data = result2.data;
         verifyError = result2.error;
-        console.log('[VerifyCode] signup type result:', result2.error?.message);
       } else {
         data = result1.data;
         verifyError = result1.error;
       }
 
       if (verifyError) {
-        console.log('[VerifyCode] Error:', verifyError.message);
+        // Clear flag since verification failed
+        await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         if (verifyError.message.includes('expired')) {
           setError('Code expired. Please request a new one.');
         } else if (verifyError.message.includes('invalid')) {
@@ -168,6 +185,8 @@ export default function VerifyCodeScreen({ navigation, route }) {
       }
 
       if (!data?.user) {
+        // Clear flag since verification failed
+        await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Verification failed. Please try again.');
         triggerShake();
         clearCode(true);
@@ -175,19 +194,13 @@ export default function VerifyCodeScreen({ navigation, route }) {
       }
 
       // Step 2: Create profile with basic data
-      // Only use columns that exist in profiles table: id, full_name, username, avatar_url
       const username = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       const profileData = {
         full_name: name || username,
         username: username,
       };
 
-      const { error: profileError } = await createProfile(profileData);
-
-      if (profileError) {
-        console.error('[VerifyCode] Profile creation error:', profileError);
-        // Don't fail the flow, profile can be created later
-      }
+      await createProfile(profileData);
 
       // Step 3: Persist session
       await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
@@ -196,10 +209,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
         await storage.set(STORAGE_KEYS.REFRESH_TOKEN, data.session.refresh_token);
       }
 
-      // Step 4: Set flag to show SuccessScreen (prevents immediate switch to Main)
-      await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
-
-      // Step 5: Navigate to Success
+      // Step 4: Navigate to Success
       navigation.reset({
         index: 0,
         routes: [{ name: 'Success', params: { name } }],
@@ -207,6 +217,8 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
     } catch (err) {
       console.error('[VerifyCode] Verification error:', err);
+      // Clear flag since verification failed
+      await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
       setError('Connection error. Please check your internet and try again.');
       triggerShake();
     } finally {

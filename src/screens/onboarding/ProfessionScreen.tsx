@@ -152,21 +152,23 @@ export default function ProfessionScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={goBack} disabled={disabled}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
-        </TouchableOpacity>
-      </View>
+      {/* Content wrapper - takes all space except button */}
+      <View style={styles.contentWrapper}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={goBack} disabled={disabled}>
+            <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
 
-      {/* Title */}
-      <View style={styles.titleBox}>
-        <Text style={styles.title}>What's your profession?</Text>
-        <Text style={styles.subtitle}>Help us personalize your experience</Text>
-      </View>
+        {/* Title */}
+        <View style={styles.titleBox}>
+          <Text style={styles.title}>What's your profession?</Text>
+          <Text style={styles.subtitle}>Help us personalize your experience</Text>
+        </View>
 
-      {/* Search Input */}
-      <View style={styles.searchContainer}>
+        {/* Search Input */}
+        <View style={styles.searchContainer}>
         <View style={getSearchBoxStyle()}>
           <Ionicons 
             name={selectedProfession ? "checkmark-circle" : "search"} 
@@ -271,22 +273,23 @@ export default function ProfessionScreen({ navigation, route }) {
         </>
       )}
 
-      {/* Selected Display */}
-      {selectedProfession && (
-        <View style={styles.selectedContainer}>
-          <View style={styles.selectedCard}>
-            <View style={[styles.selectedIcon, { backgroundColor: selectedProfession.color + '20' }]}>
-              <Ionicons name={selectedProfession.icon} size={32} color={selectedProfession.color} />
+        {/* Selected Display */}
+        {selectedProfession && (
+          <View style={styles.selectedContainer}>
+            <View style={styles.selectedCard}>
+              <View style={[styles.selectedIcon, { backgroundColor: selectedProfession.color + '20' }]}>
+                <Ionicons name={selectedProfession.icon} size={32} color={selectedProfession.color} />
+              </View>
+              <Text style={styles.selectedName}>{selectedProfession.name}</Text>
+              <TouchableOpacity onPress={handleClear}>
+                <Text style={styles.changeBtn}>Change</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.selectedName}>{selectedProfession.name}</Text>
-            <TouchableOpacity onPress={handleClear}>
-              <Text style={styles.changeBtn}>Change</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
-      {/* Next Button - FIXE */}
+      {/* Next Button - Fixed at bottom */}
       <View style={styles.btnBox}>
         <Button 
           variant="primary" 
@@ -305,7 +308,8 @@ export default function ProfessionScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  
+  contentWrapper: { flex: 1 },
+
   // Header
   header: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.base },
   backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },

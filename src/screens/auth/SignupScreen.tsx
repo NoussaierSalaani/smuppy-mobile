@@ -1,11 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING } from '../../config/theme';
+import { ENV } from '../../config/env';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
@@ -39,6 +40,12 @@ export default function SignupScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [deletedAccountModal, setDeletedAccountModal] = useState({
+    visible: false,
+    daysRemaining: 0,
+    canReactivate: false,
+    fullName: '',
+  });
 
   // Track keyboard visibility
   useEffect(() => {
@@ -55,6 +62,53 @@ export default function SignupScreen({ navigation }) {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
+  }, []);
+
+  const closeDeletedAccountModal = useCallback(() => {
+    setDeletedAccountModal(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  // Check if email is available (not deleted, not already registered)
+  const checkEmailAvailable = useCallback(async (emailToCheck: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-email-available`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email: emailToCheck }),
+      });
+
+      if (!response.ok) return true; // Allow on error (will be caught later)
+
+      const result = await response.json();
+
+      if (!result.available) {
+        if (result.reason === 'deleted') {
+          // Show deleted account modal
+          setDeletedAccountModal({
+            visible: true,
+            daysRemaining: result.days_remaining,
+            canReactivate: true,
+            fullName: result.full_name || '',
+          });
+        } else if (result.reason === 'exists') {
+          // Show generic error (don't reveal email exists)
+          setErrorModal({
+            visible: true,
+            title: 'Invalid Credentials',
+            message: 'Unable to create account. Please check your information and try again.',
+          });
+        }
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Check email available error:', error);
+      return true; // Allow on error
+    }
   }, []);
 
   const passwordValid = isPasswordValid(password);
@@ -81,6 +135,13 @@ export default function SignupScreen({ navigation }) {
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
+      // Check if email is available (not deleted, not already registered)
+      const isAvailable = await checkEmailAvailable(normalizedEmail);
+      if (!isAvailable) {
+        setLoading(false);
+        return;
+      }
+
       // Check AWS rate limit first (server-side protection)
       const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-signup');
       if (!awsCheck.allowed) {
@@ -327,6 +388,44 @@ export default function SignupScreen({ navigation }) {
         </KeyboardAvoidingView>
 
         <ErrorModal visible={errorModal.visible} onClose={() => setErrorModal({ ...errorModal, visible: false })} title={errorModal.title} message={errorModal.message} />
+
+        {/* Deleted Account Modal */}
+        <Modal visible={deletedAccountModal.visible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <TouchableOpacity style={styles.modalClose} onPress={closeDeletedAccountModal}>
+                <Ionicons name="close" size={24} color={COLORS.gray} />
+              </TouchableOpacity>
+              <View style={styles.modalIconWarning}>
+                <Ionicons name="warning" size={40} color="#F59E0B" />
+              </View>
+              <Text style={styles.modalTitle}>Account Deleted</Text>
+              <Text style={styles.modalMessage}>
+                {deletedAccountModal.fullName ? `Hi ${deletedAccountModal.fullName}, ` : ''}
+                This email was recently used for an account that has been deleted.
+                {'\n\n'}
+                {deletedAccountModal.canReactivate ? (
+                  <>
+                    This email will be available for a new account in <Text style={styles.modalHighlight}>{deletedAccountModal.daysRemaining} days</Text>.
+                    {'\n\n'}
+                    To reactivate your previous account, contact us at:
+                  </>
+                ) : (
+                  'This email is now available. Please try again.'
+                )}
+              </Text>
+              {deletedAccountModal.canReactivate && (
+                <View style={styles.supportEmailBtn}>
+                  <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.supportEmailText}>support@smuppy.com</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.modalBtnWarning} onPress={closeDeletedAccountModal}>
+                <Text style={styles.modalBtnText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -617,10 +716,23 @@ const styles = StyleSheet.create({
   },
   
   // Footer
-  footer: { 
-    flex: 1, 
-    justifyContent: 'flex-end', 
-    alignItems: 'center', 
+  footer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingBottom: SPACING.md,
   },
+
+  // Modal styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },
+  modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
+  modalIconWarning: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#0a252f', marginBottom: 12, textAlign: 'center' },
+  modalMessage: { fontSize: 14, color: '#676C75', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  modalHighlight: { fontWeight: '700', color: '#00cdb5' },
+  supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E6FAF8', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
+  supportEmailText: { fontSize: 15, fontWeight: '600', color: '#00cdb5' },
+  modalBtnWarning: { width: '100%', height: 56, borderRadius: 28, backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center' },
+  modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
 });

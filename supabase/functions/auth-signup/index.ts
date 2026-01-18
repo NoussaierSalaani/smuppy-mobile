@@ -185,6 +185,30 @@ serve(async (req: Request) => {
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Check if email belongs to a deleted account (GDPR: 30-day grace period)
+  const { data: deletedAccount } = await supabaseAdmin
+    .from('deleted_accounts')
+    .select('email, deleted_at, hard_delete_at, full_name')
+    .eq('email', email)
+    .single();
+
+  if (deletedAccount) {
+    const now = new Date();
+    const hardDeleteAt = new Date(deletedAccount.hard_delete_at);
+    const daysRemaining = Math.max(0, Math.ceil((hardDeleteAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+    return new Response(
+      JSON.stringify({
+        error: 'account_deleted',
+        message: 'This email belongs to a recently deleted account.',
+        days_remaining: daysRemaining,
+        deleted_at: deletedAccount.deleted_at,
+        full_name: deletedAccount.full_name,
+      }),
+      { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   const endpoint = await getRateLimitEndpoint(ENDPOINT_NAME, email);
   const rateLimitResult = await checkRateLimit(supabaseAdmin, rateLimitUserId, endpoint);
 
@@ -213,18 +237,38 @@ serve(async (req: Request) => {
 
   if (linkError || !linkData) {
     // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-    const userExists = existingUser?.users?.some(u => u.email === email);
+    const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
 
-    if (userExists) {
-      // Generate new OTP for existing unconfirmed user
-      const { data: magicLink, error: magicError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
+    if (listError) {
+      return new Response(
+        JSON.stringify({ error: 'Unable to process request' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const existingUser = userList?.users?.find(u => u.email === email);
+
+    if (existingUser) {
+      // Check if user is already confirmed (has verified email)
+      if (existingUser.email_confirmed_at) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid credentials' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // User exists but NOT confirmed - delete and let them restart fresh
+      await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
+
+      // Now create new user
+      const { data: newLinkData, error: newLinkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
         email,
+        password,
       });
 
-      if (!magicError && magicLink?.properties?.email_otp && resendApiKey) {
-        await sendOTPEmail(email, magicLink.properties.email_otp, resendApiKey);
+      if (!newLinkError && newLinkData?.properties?.email_otp && resendApiKey) {
+        await sendOTPEmail(email, newLinkData.properties.email_otp, resendApiKey);
         return new Response(
           JSON.stringify({ success: true }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

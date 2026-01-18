@@ -24,6 +24,7 @@ export default function AppNavigator() {
   const [hideSplash, setHideSplash] = useState(false);
   const [pendingRecovery, setPendingRecovery] = useState(false);
   const [justSignedUp, setJustSignedUp] = useState(false);
+  const [isCheckingSignup, setIsCheckingSignup] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const lastHandledUrl = useRef(null);
 
@@ -109,7 +110,6 @@ export default function AppNavigator() {
 
     const checkReady = () => {
       if (sessionLoaded && minTimeElapsed) {
-        // Fade out the splash
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
@@ -120,25 +120,20 @@ export default function AppNavigator() {
       }
     };
 
-    // Load session with "Remember Me" check
     const loadSession = async () => {
-      // Check "Remember Me" preference
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
 
-      // Check if user just signed up (need to show SuccessScreen)
       const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
       if (signedUp === 'true') {
         setJustSignedUp(true);
       }
 
-      // If user didn't check "Remember Me", sign out on app restart
       if (rememberMe === 'false') {
         await supabase.auth.signOut();
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setSession(null);
         setEmailVerified(false);
       } else {
-        // Load existing session
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setEmailVerified(!!session?.user?.email_confirmed_at);
@@ -151,43 +146,39 @@ export default function AppNavigator() {
 
     loadSession();
 
-    // Listen to session changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      // Update email verification status
-      setEmailVerified(!!session?.user?.email_confirmed_at);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      if (_event === 'SIGNED_IN' && newSession) {
+        setIsCheckingSignup(true);
 
-      // Register device session on sign in
-      if (_event === 'SIGNED_IN' && session) {
-        // Check if this is a new signup (show SuccessScreen)
         const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
         if (signedUp === 'true') {
           setJustSignedUp(true);
         }
+        setSession(newSession);
+        setEmailVerified(!!newSession?.user?.email_confirmed_at);
+        setIsCheckingSignup(false);
 
-        registerDeviceSession().catch(err => {
-          console.error('[AppNavigator] Device registration failed:', err);
-        });
+        registerDeviceSession().catch(() => {});
+        return;
       }
 
-      // Reset deep link tracking on sign out
+      setSession(newSession);
+      setEmailVerified(!!newSession?.user?.email_confirmed_at);
+
       if (_event === 'SIGNED_OUT') {
         lastHandledUrl.current = null;
         setPendingRecovery(false);
+        setJustSignedUp(false);
+        setIsCheckingSignup(false);
       }
     });
 
-    // Minimum splash display time (600ms)
     const timer = setTimeout(() => {
       minTimeElapsed = true;
       checkReady();
     }, 600);
 
-    // Handle deep links
-    // Check initial URL (app opened via link)
     Linking.getInitialURL().then(handleDeepLink);
-
-    // Listen for URLs while app is open
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
       handleDeepLink(url);
     });
@@ -203,7 +194,6 @@ export default function AppNavigator() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* App Content - rendered in background */}
       {isReady && (
         <UserProvider>
           <TabBarProvider>
@@ -217,8 +207,7 @@ export default function AppNavigator() {
                   }),
                 }}
               >
-                {/* Show Auth if: no session OR pendingRecovery OR justSignedUp */}
-                {(!session || pendingRecovery || justSignedUp) && (
+                {(!session || pendingRecovery || justSignedUp || isCheckingSignup) && (
                   <RootStack.Screen
                     name="Auth"
                     component={AuthNavigator}
@@ -230,7 +219,7 @@ export default function AppNavigator() {
                   />
                 )}
 
-                {session && !emailVerified && !pendingRecovery && !justSignedUp && (
+                {session && !emailVerified && !pendingRecovery && !justSignedUp && !isCheckingSignup && (
                   <RootStack.Screen
                     name="EmailVerificationPending"
                     component={EmailVerificationPendingScreen}
@@ -238,8 +227,7 @@ export default function AppNavigator() {
                   />
                 )}
 
-                {/* Show Main if: session + email verified + not just signed up */}
-                {session && emailVerified && !pendingRecovery && !justSignedUp && (
+                {session && emailVerified && !pendingRecovery && !justSignedUp && !isCheckingSignup && (
                   <RootStack.Screen name="Main" component={MainNavigator} />
                 )}
               </RootStack.Navigator>
@@ -248,7 +236,6 @@ export default function AppNavigator() {
         </UserProvider>
       )}
 
-      {/* Splash Screen - on top, fades out */}
       {!hideSplash && (
         <Animated.View style={[styles.splashOverlay, { opacity: fadeAnim }]}>
           <LinearGradient

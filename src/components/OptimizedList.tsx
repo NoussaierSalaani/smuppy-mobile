@@ -1,43 +1,110 @@
 /**
  * OptimizedList Component
- * High-performance list using @shopify/flash-list
+ * High-performance list using @shopify/flash-list v2
  * 10x faster than FlatList for large lists
  */
 
-import React, { memo, useCallback, forwardRef } from 'react';
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import React, { memo, useCallback, forwardRef, ReactNode, ReactElement } from 'react';
+import { StyleSheet, View, Text, ActivityIndicator, ViewStyle, StyleProp } from 'react-native';
+import { FlashList, FlashListRef, ListRenderItem } from '@shopify/flash-list';
 import { COLORS, SPACING, TYPOGRAPHY } from '../config/theme';
+
+interface OptimizedListProps<T> {
+  data: T[] | null;
+  renderItem: ListRenderItem<T>;
+  keyExtractor?: (item: T, index: number) => string;
+  onEndReached?: () => void;
+  onEndReachedThreshold?: number;
+  ListHeaderComponent?: ReactElement | (() => ReactElement) | null;
+  ListFooterComponent?: ReactElement | (() => ReactElement) | null;
+  ListEmptyComponent?: ReactElement | (() => ReactElement) | null;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+  isLoading?: boolean;
+  isLoadingMore?: boolean;
+  emptyText?: string;
+  emptyIcon?: ReactNode;
+  numColumns?: number;
+  horizontal?: boolean;
+  showsVerticalScrollIndicator?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  drawDistance?: number;
+}
+
+interface FeedListProps<T> {
+  posts: T[] | null;
+  renderPost: ListRenderItem<T>;
+  onLoadMore?: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  isLoadingMore?: boolean;
+  ListHeaderComponent?: ReactElement | (() => ReactElement) | null;
+}
+
+interface UserListProps<T> {
+  users: T[] | null;
+  renderUser: ListRenderItem<T>;
+  onLoadMore?: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  isLoadingMore?: boolean;
+}
+
+interface CommentListProps<T> {
+  comments: T[] | null;
+  renderComment: ListRenderItem<T>;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
+  ListHeaderComponent?: ReactElement | (() => ReactElement) | null;
+}
+
+interface GridListProps<T> {
+  items: T[] | null;
+  renderItem: ListRenderItem<T>;
+  numColumns?: number;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
+  spacing?: number;
+}
+
+// Define a type for items with optional id
+interface ItemWithId {
+  id?: string | number;
+}
 
 /**
  * Optimized List component for high-performance scrolling
  */
-const OptimizedList = forwardRef(({
-  data,
-  renderItem,
-  keyExtractor,
-  estimatedItemSize = 100,
-  onEndReached,
-  onEndReachedThreshold = 0.5,
-  ListHeaderComponent,
-  ListFooterComponent,
-  ListEmptyComponent,
-  refreshing = false,
-  onRefresh,
-  isLoading = false,
-  isLoadingMore = false,
-  emptyText = 'No items to display',
-  emptyIcon,
-  numColumns = 1,
-  horizontal = false,
-  showsVerticalScrollIndicator = false,
-  showsHorizontalScrollIndicator = false,
-  contentContainerStyle,
-  ...props
-}, ref) => {
+function OptimizedListInner<T extends ItemWithId>(
+  {
+    data,
+    renderItem,
+    keyExtractor,
+    onEndReached,
+    onEndReachedThreshold = 0.5,
+    ListHeaderComponent,
+    ListFooterComponent,
+    ListEmptyComponent,
+    refreshing = false,
+    onRefresh,
+    isLoading = false,
+    isLoadingMore = false,
+    emptyText = 'No items to display',
+    emptyIcon,
+    numColumns = 1,
+    horizontal = false,
+    showsVerticalScrollIndicator = false,
+    showsHorizontalScrollIndicator = false,
+    contentContainerStyle,
+    drawDistance = 250,
+    ...props
+  }: OptimizedListProps<T>,
+  ref: React.Ref<FlashListRef<T>>
+) {
 
   // Default key extractor
-  const defaultKeyExtractor = useCallback((item, index) => {
+  const defaultKeyExtractor = useCallback((item: T, index: number): string => {
     return item?.id?.toString() || index.toString();
   }, []);
 
@@ -91,7 +158,6 @@ const OptimizedList = forwardRef(({
       data={data || []}
       renderItem={renderItem}
       keyExtractor={keyExtractor || defaultKeyExtractor}
-      estimatedItemSize={estimatedItemSize}
       onEndReached={onEndReached}
       onEndReachedThreshold={onEndReachedThreshold}
       ListHeaderComponent={ListHeaderComponent}
@@ -104,33 +170,37 @@ const OptimizedList = forwardRef(({
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
       contentContainerStyle={contentContainerStyle}
-      // Performance optimizations
-      drawDistance={250}
-      removeClippedSubviews={true}
+      drawDistance={drawDistance}
       {...props}
     />
   );
-});
+}
+
+const OptimizedList = forwardRef(OptimizedListInner) as <T extends ItemWithId>(
+  props: OptimizedListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
+) => ReactElement;
 
 /**
  * Feed List - Optimized for social feed
  */
-export const FeedList = memo(forwardRef(({
-  posts,
-  renderPost,
-  onLoadMore,
-  onRefresh,
-  refreshing,
-  isLoadingMore,
-  ListHeaderComponent,
-  ...props
-}, ref) => {
+function FeedListInner<T extends ItemWithId>(
+  {
+    posts,
+    renderPost,
+    onLoadMore,
+    onRefresh,
+    refreshing,
+    isLoadingMore,
+    ListHeaderComponent,
+    ...props
+  }: FeedListProps<T>,
+  ref: React.Ref<FlashListRef<T>>
+) {
   return (
     <OptimizedList
       ref={ref}
       data={posts}
       renderItem={renderPost}
-      estimatedItemSize={400} // Average post height
       onEndReached={onLoadMore}
       onRefresh={onRefresh}
       refreshing={refreshing}
@@ -140,26 +210,32 @@ export const FeedList = memo(forwardRef(({
       {...props}
     />
   );
-}));
+}
+
+export const FeedList = memo(forwardRef(FeedListInner)) as <T extends ItemWithId>(
+  props: FeedListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
+) => ReactElement;
 
 /**
  * User List - Optimized for followers/following lists
  */
-export const UserList = memo(forwardRef(({
-  users,
-  renderUser,
-  onLoadMore,
-  onRefresh,
-  refreshing,
-  isLoadingMore,
-  ...props
-}, ref) => {
+function UserListInner<T extends ItemWithId>(
+  {
+    users,
+    renderUser,
+    onLoadMore,
+    onRefresh,
+    refreshing,
+    isLoadingMore,
+    ...props
+  }: UserListProps<T>,
+  ref: React.Ref<FlashListRef<T>>
+) {
   return (
     <OptimizedList
       ref={ref}
       data={users}
       renderItem={renderUser}
-      estimatedItemSize={70} // User item height
       onEndReached={onLoadMore}
       onRefresh={onRefresh}
       refreshing={refreshing}
@@ -168,25 +244,31 @@ export const UserList = memo(forwardRef(({
       {...props}
     />
   );
-}));
+}
+
+export const UserList = memo(forwardRef(UserListInner)) as <T extends ItemWithId>(
+  props: UserListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
+) => ReactElement;
 
 /**
  * Comment List - Optimized for comments
  */
-export const CommentList = memo(forwardRef(({
-  comments,
-  renderComment,
-  onLoadMore,
-  isLoadingMore,
-  ListHeaderComponent,
-  ...props
-}, ref) => {
+function CommentListInner<T extends ItemWithId>(
+  {
+    comments,
+    renderComment,
+    onLoadMore,
+    isLoadingMore,
+    ListHeaderComponent,
+    ...props
+  }: CommentListProps<T>,
+  ref: React.Ref<FlashListRef<T>>
+) {
   return (
     <OptimizedList
       ref={ref}
       data={comments}
       renderItem={renderComment}
-      estimatedItemSize={80} // Comment height
       onEndReached={onLoadMore}
       isLoadingMore={isLoadingMore}
       ListHeaderComponent={ListHeaderComponent}
@@ -194,26 +276,32 @@ export const CommentList = memo(forwardRef(({
       {...props}
     />
   );
-}));
+}
+
+export const CommentList = memo(forwardRef(CommentListInner)) as <T extends ItemWithId>(
+  props: CommentListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
+) => ReactElement;
 
 /**
  * Grid List - For media galleries
  */
-export const GridList = memo(forwardRef(({
-  items,
-  renderItem,
-  numColumns = 3,
-  onLoadMore,
-  isLoadingMore,
-  spacing = SPACING.xs,
-  ...props
-}, ref) => {
+function GridListInner<T extends ItemWithId>(
+  {
+    items,
+    renderItem,
+    numColumns = 3,
+    onLoadMore,
+    isLoadingMore,
+    spacing = SPACING.xs,
+    ...props
+  }: GridListProps<T>,
+  ref: React.Ref<FlashListRef<T>>
+) {
   return (
     <OptimizedList
       ref={ref}
       data={items}
       renderItem={renderItem}
-      estimatedItemSize={120}
       numColumns={numColumns}
       onEndReached={onLoadMore}
       isLoadingMore={isLoadingMore}
@@ -221,7 +309,11 @@ export const GridList = memo(forwardRef(({
       {...props}
     />
   );
-}));
+}
+
+export const GridList = memo(forwardRef(GridListInner)) as <T extends ItemWithId>(
+  props: GridListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
+) => ReactElement;
 
 const styles = StyleSheet.create({
   loadingFooter: {
@@ -243,10 +335,6 @@ const styles = StyleSheet.create({
   },
 });
 
-OptimizedList.displayName = 'OptimizedList';
-FeedList.displayName = 'FeedList';
-UserList.displayName = 'UserList';
-CommentList.displayName = 'CommentList';
-GridList.displayName = 'GridList';
+// Note: displayName not set on generic function components as TypeScript doesn't support it well
 
 export default OptimizedList;

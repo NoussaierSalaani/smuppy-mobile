@@ -8,7 +8,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const GENDER_OPTIONS = [
+interface GenderPickerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (gender: string) => void;
+  selectedGender?: string;
+}
+
+interface GenderOption {
+  id: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const GENDER_OPTIONS: GenderOption[] = [
   { id: 'male', label: 'Male', icon: 'male' },
   { id: 'female', label: 'Female', icon: 'female' },
   { id: 'other', label: 'Other', icon: 'person' },
@@ -22,9 +35,9 @@ const GENDER_OPTIONS = [
  * @param {function} onSelect - Callback avec le genre sélectionné
  * @param {string} selectedGender - Genre actuellement sélectionné
  */
-export default function GenderPickerModal({ visible, onClose, onSelect, selectedGender }) {
-  
-  const handleSelect = (gender) => {
+export default function GenderPickerModal({ visible, onClose, onSelect, selectedGender }: GenderPickerModalProps) {
+
+  const handleSelect = (gender: string) => {
     onSelect(gender);
     onClose();
   };

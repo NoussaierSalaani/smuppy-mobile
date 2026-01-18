@@ -4,9 +4,9 @@
  * Features: caching, blurhash placeholders, lazy loading
  */
 
-import React, { memo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
+import React, { memo, ReactNode } from 'react';
+import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
+import { Image, ImageContentFit } from 'expo-image';
 import { COLORS } from '../config/theme';
 
 // Blurhash placeholder for smooth loading
@@ -15,10 +15,47 @@ const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 // Cache policy
 const CACHE_POLICY = 'memory-disk';
 
+interface OptimizedImageProps {
+  source: any;
+  style?: StyleProp<ImageStyle>;
+  contentFit?: ImageContentFit;
+  placeholder?: string;
+  transition?: number;
+  priority?: 'low' | 'normal' | 'high';
+  recyclingKey?: string;
+  onLoad?: () => void;
+  onError?: () => void;
+}
+
+interface AvatarImageProps {
+  source: any;
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+  fallbackColor?: string;
+}
+
+interface PostImageProps {
+  source: any;
+  aspectRatio?: number;
+  style?: StyleProp<ImageStyle>;
+}
+
+interface BackgroundImageProps {
+  source: any;
+  style?: StyleProp<ViewStyle>;
+  children?: ReactNode;
+}
+
+interface ThumbnailImageProps {
+  source: any;
+  size?: number;
+  style?: StyleProp<ImageStyle>;
+}
+
 /**
  * Optimized Image component with caching and placeholders
  */
-const OptimizedImage = memo(({
+const OptimizedImage = memo<OptimizedImageProps>(({
   source,
   style,
   contentFit = 'cover',
@@ -36,9 +73,9 @@ const OptimizedImage = memo(({
     : source;
 
   // Skip rendering if no valid source
-  if (!imageSource || (!imageSource.uri && typeof source !== 'number')) {
+  if (!imageSource || (!imageSource?.uri && typeof source !== 'number')) {
     return (
-      <View style={[styles.placeholder, style]} />
+      <View style={[styles.placeholder, style as StyleProp<ViewStyle>]} />
     );
   }
 
@@ -63,11 +100,11 @@ const OptimizedImage = memo(({
 /**
  * Avatar Image with circular styling
  */
-export const AvatarImage = memo(({
+export const AvatarImage = memo<AvatarImageProps>(({
   source,
   size = 40,
   style,
-  fallbackColor = COLORS.gray200 || '#E5E5E5',
+  fallbackColor = COLORS.gray200,
   ...props
 }) => {
   const avatarStyle = {
@@ -86,7 +123,7 @@ export const AvatarImage = memo(({
   return (
     <OptimizedImage
       source={source}
-      style={[avatarStyle, style]}
+      style={[avatarStyle, style] as StyleProp<ImageStyle>}
       contentFit="cover"
       priority="high"
       {...props}
@@ -97,7 +134,7 @@ export const AvatarImage = memo(({
 /**
  * Post Image with aspect ratio
  */
-export const PostImage = memo(({
+export const PostImage = memo<PostImageProps>(({
   source,
   aspectRatio = 1,
   style,
@@ -106,7 +143,7 @@ export const PostImage = memo(({
   return (
     <OptimizedImage
       source={source}
-      style={[{ width: '100%', aspectRatio }, style]}
+      style={[{ width: '100%', aspectRatio }, style] as StyleProp<ImageStyle>}
       contentFit="cover"
       priority="normal"
       {...props}
@@ -117,7 +154,7 @@ export const PostImage = memo(({
 /**
  * Background Image (full cover)
  */
-export const BackgroundImage = memo(({
+export const BackgroundImage = memo<BackgroundImageProps>(({
   source,
   style,
   children,
@@ -127,7 +164,7 @@ export const BackgroundImage = memo(({
     <View style={[styles.backgroundContainer, style]}>
       <OptimizedImage
         source={source}
-        style={StyleSheet.absoluteFill}
+        style={StyleSheet.absoluteFill as StyleProp<ImageStyle>}
         contentFit="cover"
         priority="low"
         {...props}
@@ -140,7 +177,7 @@ export const BackgroundImage = memo(({
 /**
  * Thumbnail Image (small, high priority)
  */
-export const ThumbnailImage = memo(({
+export const ThumbnailImage = memo<ThumbnailImageProps>(({
   source,
   size = 60,
   style,
@@ -149,7 +186,7 @@ export const ThumbnailImage = memo(({
   return (
     <OptimizedImage
       source={source}
-      style={[{ width: size, height: size, borderRadius: 8 }, style]}
+      style={[{ width: size, height: size, borderRadius: 8 }, style] as StyleProp<ImageStyle>}
       contentFit="cover"
       priority="high"
       transition={100}

@@ -1,22 +1,28 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import React, { ReactNode } from 'react';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SIZES, SHADOWS, TYPOGRAPHY } from '../config/theme';
+import { COLORS, GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger' | 'live' | 'reminder' | 'text';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
+type IconPosition = 'left' | 'right';
+
+interface ButtonProps {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  disabled?: boolean;
+  loading?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconPosition?: IconPosition;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
+  children?: ReactNode;
+}
 
 /**
  * Button Component
- * 
- * @param {string} variant - 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger' | 'live' | 'reminder'
- * @param {string} size - 'xs' | 'sm' | 'md' | 'lg'
- * @param {boolean} disabled - Disable the button
- * @param {boolean} loading - Show loading spinner
- * @param {string} icon - Ionicons icon name
- * @param {string} iconPosition - 'left' | 'right'
- * @param {function} onPress - Press handler
- * @param {object} style - Additional styles
- * @param {object} textStyle - Additional text styles
- * @param {ReactNode} children - Button text or content
  */
 export default function Button({
   variant = 'primary',
@@ -29,7 +35,7 @@ export default function Button({
   style,
   textStyle,
   children,
-}) {
+}: ButtonProps) {
   // Get size styles
   const sizeStyles = {
     xs: {

@@ -1,14 +1,57 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Path, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 /**
  * SmuppyLogo Component System
- * 
+ *
  * VARIANTS:
  * - Icon: 'gradient' (green/cyan bg + dark S) | 'white' (white bg + dark S) | 'dark' (dark bg + gradient S)
  * - Text: 'gradient' (green/cyan) | 'dark' (dark blue) | 'white' (white)
  */
+
+// ============================================
+// TYPE DEFINITIONS
+// ============================================
+
+type IconVariant = 'gradient' | 'white' | 'dark';
+type TextVariant = 'gradient' | 'dark' | 'white';
+type LogoVariant = 'icon' | 'text' | 'full' | 'stacked';
+
+interface SmuppyIconProps {
+  size?: number;
+  variant?: IconVariant;
+}
+
+interface SmuppyTextProps {
+  width?: number;
+  variant?: TextVariant;
+}
+
+interface SmuppyLogoFullProps {
+  iconSize?: number;
+  textWidth?: number;
+  spacing?: number;
+  iconVariant?: IconVariant;
+  textVariant?: TextVariant;
+}
+
+interface SmuppyLogoStackedProps {
+  iconSize?: number;
+  textWidth?: number;
+  spacing?: number;
+  iconVariant?: IconVariant;
+  textVariant?: TextVariant;
+}
+
+interface SmuppyLogoProps {
+  variant?: LogoVariant;
+  size?: number;
+  textWidth?: number;
+  iconVariant?: IconVariant;
+  textVariant?: TextVariant;
+  spacing?: number;
+}
 
 // ============================================
 // ICON VARIANTS
@@ -16,10 +59,8 @@ import Svg, { Path, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 /**
  * SmuppyIcon - Le S dans le carré
- * @param {number} size - Taille de l'icône (défaut: 80)
- * @param {string} variant - 'gradient' (fond vert) | 'white' (fond blanc) | 'dark' (fond noir, S gradient)
  */
-export const SmuppyIcon = ({ size = 80, variant = 'gradient' }) => {
+export const SmuppyIcon: React.FC<SmuppyIconProps> = ({ size = 80, variant = 'gradient' }) => {
   const isGradient = variant === 'gradient';
   const isDark = variant === 'dark';
   
@@ -81,10 +122,8 @@ const SMUPPY_TEXT_PATH = "M184.138 6.12109C185.812 4.4176 191.327 5.23915 191.35
 
 /**
  * SmuppyText - Le texte "Smuppy"
- * @param {number} width - Largeur du texte (défaut: 100)
- * @param {string} variant - 'gradient' | 'dark' | 'white'
  */
-export const SmuppyText = ({ width = 100, variant = 'gradient' }) => {
+export const SmuppyText: React.FC<SmuppyTextProps> = ({ width = 100, variant = 'gradient' }) => {
   // Ratio original: 215x46
   const height = width * (46 / 215);
   
@@ -126,9 +165,9 @@ export const SmuppyText = ({ width = 100, variant = 'gradient' }) => {
 /**
  * SmuppyLogoFull - Icône + Texte côte à côte
  */
-export const SmuppyLogoFull = ({ 
-  iconSize = 50, 
-  textWidth = 120, 
+export const SmuppyLogoFull: React.FC<SmuppyLogoFullProps> = ({
+  iconSize = 50,
+  textWidth = 120,
   spacing = 12,
   iconVariant = 'gradient',
   textVariant = 'gradient'
@@ -142,9 +181,9 @@ export const SmuppyLogoFull = ({
 /**
  * SmuppyLogoStacked - Icône au-dessus du texte
  */
-export const SmuppyLogoStacked = ({ 
-  iconSize = 80, 
-  textWidth = 100, 
+export const SmuppyLogoStacked: React.FC<SmuppyLogoStackedProps> = ({
+  iconSize = 80,
+  textWidth = 100,
   spacing = 16,
   iconVariant = 'gradient',
   textVariant = 'gradient'
@@ -159,9 +198,9 @@ export const SmuppyLogoStacked = ({
 // DEFAULT EXPORT
 // ============================================
 
-const SmuppyLogo = ({ 
-  variant = 'icon', 
-  size = 80, 
+const SmuppyLogo: React.FC<SmuppyLogoProps> = ({
+  variant = 'icon',
+  size = 80,
   textWidth = 100,
   iconVariant = 'gradient',
   textVariant = 'gradient',

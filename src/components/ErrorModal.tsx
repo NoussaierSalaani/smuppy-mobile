@@ -10,22 +10,24 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../config/theme';
 
+interface ErrorModalProps {
+  visible: boolean;
+  onClose: () => void;
+  title?: string;
+  message?: string;
+  buttonText?: string;
+}
+
 /**
  * ErrorModal - Popup d'erreur style app
- * 
- * @param {boolean} visible - Afficher/cacher le modal
- * @param {function} onClose - Callback quand on ferme
- * @param {string} title - Titre du modal
- * @param {string} message - Message à afficher
- * @param {string} buttonText - Texte du bouton (défaut: "Try again")
  */
-export default function ErrorModal({ 
-  visible, 
-  onClose, 
+export default function ErrorModal({
+  visible,
+  onClose,
   title = "Oops!",
   message = "Something went wrong. Please try again.",
   buttonText = "Try again"
-}) {
+}: ErrorModalProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>

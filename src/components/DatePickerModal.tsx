@@ -7,8 +7,22 @@ import {
   TouchableOpacity,
   FlatList,
   Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+interface DatePickerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: (date: string) => void;
+  initialDate?: string;
+}
+
+interface Month {
+  value: string;
+  label: string;
+}
 
 const { width } = Dimensions.get('window');
 const ITEM_HEIGHT = 50;
@@ -46,7 +60,7 @@ const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')
  * @param {function} onConfirm - Callback avec la date sélectionnée (YYYY-MM-DD)
  * @param {string} initialDate - Date initiale (YYYY-MM-DD)
  */
-export default function DatePickerModal({ visible, onClose, onConfirm, initialDate }) {
+export default function DatePickerModal({ visible, onClose, onConfirm, initialDate }: DatePickerModalProps) {
   // Parser la date initiale ou utiliser des valeurs par défaut
   const parseInitialDate = () => {
     if (initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {

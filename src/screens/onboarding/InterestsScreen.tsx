@@ -36,7 +36,7 @@ export default function InterestsScreen({ navigation }) {
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.back}>←</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('Guidelines')}>
+      <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('FindFriends')}>
         <Text style={styles.skip}>Skip →</Text>
       </TouchableOpacity>
 
@@ -86,7 +86,7 @@ export default function InterestsScreen({ navigation }) {
         end={GRADIENTS.primaryEnd} 
         style={styles.btn}
       >
-        <TouchableOpacity style={styles.btnInner} onPress={() => navigation.navigate('Guidelines')}>
+        <TouchableOpacity style={styles.btnInner} onPress={() => navigation.navigate('FindFriends')}>
           <Text style={styles.btnText}>Next →</Text>
         </TouchableOpacity>
       </LinearGradient>

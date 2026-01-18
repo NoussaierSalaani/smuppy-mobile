@@ -23,6 +23,7 @@ import BiometricLoginScreen from '../screens/auth/BiometricLoginScreen';
 import TellUsAboutYouScreen from '../screens/onboarding/TellUsAboutYouScreen';
 import AccountTypeScreen from '../screens/onboarding/AccountTypeScreen';
 import InterestsScreen from '../screens/onboarding/InterestsScreen';
+import FindFriendsScreen from '../screens/onboarding/FindFriendsScreen';
 import GuidelinesScreen from '../screens/onboarding/GuidelinesScreen';
 import SuccessScreen from '../screens/onboarding/SuccessScreen';
 import ProfessionScreen from '../screens/onboarding/ProfessionScreen';
@@ -85,6 +86,7 @@ export default function AuthNavigator({ route }) {
       <Stack.Screen name="Profession" component={ProfessionScreen} />
       <Stack.Screen name="BusinessDetails" component={BusinessDetailsScreen} />
       <Stack.Screen name="Expertise" component={ExpertiseScreen} />
+      <Stack.Screen name="FindFriends" component={FindFriendsScreen} />
       <Stack.Screen name="Guidelines" component={GuidelinesScreen} />
       <Stack.Screen name="Success" component={SuccessScreen} />
     </Stack.Navigator>

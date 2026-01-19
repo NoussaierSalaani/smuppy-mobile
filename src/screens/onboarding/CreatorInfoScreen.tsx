@@ -30,7 +30,6 @@ const getAge = (birthDate: Date) => {
 
 export default function CreatorInfoScreen({ navigation, route }) {
   const [displayName, setDisplayName] = useState('');
-  const [username, setUsername] = useState('');
   const [gender, setGender] = useState('');
   const [date, setDate] = useState(new Date(2000, 0, 1));
   const [showPicker, setShowPicker] = useState(false);
@@ -42,9 +41,8 @@ export default function CreatorInfoScreen({ navigation, route }) {
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const hasDisplayName = displayName.trim().length > 0;
-  const hasUsername = username.trim().length > 0;
   const isAgeValid = useMemo(() => getAge(date) >= MIN_AGE, [date]);
-  const isFormValid = hasDisplayName && hasUsername && hasSelectedDate && isAgeValid && gender !== '';
+  const isFormValid = hasDisplayName && hasSelectedDate && isAgeValid && gender !== '';
 
   const validateAge = useCallback((d: Date) => {
     setAgeError(getAge(d) < MIN_AGE ? 'You must be at least 16 years old' : '');
@@ -64,11 +62,10 @@ export default function CreatorInfoScreen({ navigation, route }) {
     navigate('CreatorOptionalInfo', {
       ...params,
       displayName: displayName.trim(),
-      username: username.trim().toLowerCase(),
       gender,
       dateOfBirth: date.toISOString(),
     });
-  }, [isFormValid, navigate, params, displayName, username, gender, date]);
+  }, [isFormValid, navigate, params, displayName, gender, date]);
 
 
   return (
@@ -104,30 +101,6 @@ export default function CreatorInfoScreen({ navigation, route }) {
                 onFocus={() => setFocusedField('displayName')}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="words"
-              />
-            </View>
-          </LinearGradient>
-
-          {/* Username */}
-          <Text style={styles.label}>Username <Text style={styles.required}>*</Text></Text>
-          <LinearGradient
-            colors={(hasUsername || focusedField === 'username') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.inputGradientBorder}
-          >
-            <View style={[styles.inputInner, hasUsername && styles.inputInnerValid]}>
-              <Text style={[styles.atSymbol, !(hasUsername || focusedField === 'username') && { color: COLORS.grayMuted }]}>@</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="username"
-                placeholderTextColor={COLORS.grayMuted}
-                value={username}
-                onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, ''))}
-                onFocus={() => setFocusedField('username')}
-                onBlur={() => setFocusedField(null)}
-                autoCapitalize="none"
-                autoCorrect={false}
               />
             </View>
           </LinearGradient>
@@ -270,7 +243,6 @@ const styles = StyleSheet.create({
   inputInnerValid: { backgroundColor: '#E8FAF7' },
   inputError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEE' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm },
-  atSymbol: { fontSize: 18, fontWeight: '600', color: COLORS.primary },
   dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.md },
   placeholder: { color: COLORS.grayMuted },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -SPACING.xs, marginBottom: SPACING.md, gap: 6 },

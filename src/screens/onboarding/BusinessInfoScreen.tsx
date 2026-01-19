@@ -28,7 +28,6 @@ const MAX_SOCIAL_FIELDS = 8;
 
 export default function BusinessInfoScreen({ navigation, route }) {
   const [businessName, setBusinessName] = useState('');
-  const [username, setUsername] = useState('');
   const [website, setWebsite] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -49,7 +48,7 @@ export default function BusinessInfoScreen({ navigation, route }) {
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
-  const isFormValid = businessName.trim().length > 0 && username.trim().length >= 3 && address.trim().length > 0;
+  const isFormValid = businessName.trim().length > 0 && address.trim().length > 0;
 
   // Google Places autocomplete
   const searchPlaces = useCallback(async (query: string) => {
@@ -141,13 +140,12 @@ export default function BusinessInfoScreen({ navigation, route }) {
     navigate('Guidelines', {
       ...params,
       businessName: businessName.trim(),
-      username: username.trim().toLowerCase(),
       website: website.trim(),
       businessPhone: phone.trim(),
       businessAddress: address.trim(),
       socialLinks,
     });
-  }, [isFormValid, navigate, params, businessName, username, website, phone, address, socialFields]);
+  }, [isFormValid, navigate, params, businessName, website, phone, address, socialFields]);
 
 
   return (
@@ -183,30 +181,6 @@ export default function BusinessInfoScreen({ navigation, route }) {
                 onFocus={() => setFocusedField('businessName')}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="words"
-              />
-            </View>
-          </LinearGradient>
-
-          {/* Username */}
-          <Text style={styles.label}>Username <Text style={styles.required}>*</Text></Text>
-          <LinearGradient
-            colors={(username.length > 0 || focusedField === 'username') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.inputGradientBorder}
-          >
-            <View style={[styles.inputInner, username.length > 0 && styles.inputInnerValid]}>
-              <Text style={[styles.atSymbol, !(username.length > 0 || focusedField === 'username') && { color: COLORS.grayMuted }]}>@</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="businessname"
-                placeholderTextColor={COLORS.grayMuted}
-                value={username}
-                onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, ''))}
-                onFocus={() => setFocusedField('username')}
-                onBlur={() => setFocusedField(null)}
-                autoCapitalize="none"
-                autoCorrect={false}
               />
             </View>
           </LinearGradient>
@@ -384,12 +358,10 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.sm },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.sm, marginBottom: SPACING.sm },
   addBtn: { padding: 4 },
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm - 2, backgroundColor: COLORS.white },
   inputInnerValid: { backgroundColor: '#E8FAF7' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 13 },
-  atSymbol: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
   locationBtn: { padding: 2 },
   suggestions: { backgroundColor: COLORS.white, borderRadius: 10, marginTop: -SPACING.xs, marginBottom: SPACING.sm, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
   suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },

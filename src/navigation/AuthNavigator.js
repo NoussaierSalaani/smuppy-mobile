@@ -30,6 +30,12 @@ import ProfessionScreen from '../screens/onboarding/ProfessionScreen';
 import BusinessDetailsScreen from '../screens/onboarding/BusinessDetailsScreen';
 import ExpertiseScreen from '../screens/onboarding/ExpertiseScreen';
 
+// NEW: Pro Creator & Business screens
+import CreatorInfoScreen from '../screens/onboarding/CreatorInfoScreen';
+import CreatorOptionalInfoScreen from '../screens/onboarding/CreatorOptionalInfoScreen';
+import BusinessCategoryScreen from '../screens/onboarding/BusinessCategoryScreen';
+import BusinessInfoScreen from '../screens/onboarding/BusinessInfoScreen';
+
 const Stack = createStackNavigator();
 
 const fadeTransition = {
@@ -83,14 +89,19 @@ export default function AuthNavigator({ route }) {
       <Stack.Screen name="BiometricLogin" component={BiometricLoginScreen} options={{ gestureEnabled: false }} />
 
       {/* Onboarding */}
-      <Stack.Screen name="TellUsAboutYou" component={TellUsAboutYouScreen} />
       <Stack.Screen name="AccountType" component={AccountTypeScreen} />
+      <Stack.Screen name="TellUsAboutYou" component={TellUsAboutYouScreen} />
       <Stack.Screen name="Interests" component={InterestsScreen} />
+      <Stack.Screen name="CreatorInfo" component={CreatorInfoScreen} />
+      <Stack.Screen name="CreatorOptionalInfo" component={CreatorOptionalInfoScreen} />
+      <Stack.Screen name="Expertise" component={ExpertiseScreen} />
+      <Stack.Screen name="BusinessCategory" component={BusinessCategoryScreen} />
+      <Stack.Screen name="BusinessInfo" component={BusinessInfoScreen} />
+      <Stack.Screen name="Guidelines" component={GuidelinesScreen} />
+      {/* Legacy screens - kept for compatibility */}
       <Stack.Screen name="Profession" component={ProfessionScreen} />
       <Stack.Screen name="BusinessDetails" component={BusinessDetailsScreen} />
-      <Stack.Screen name="Expertise" component={ExpertiseScreen} />
       <Stack.Screen name="FindFriends" component={FindFriendsScreen} />
-      <Stack.Screen name="Guidelines" component={GuidelinesScreen} />
       <Stack.Screen
         name="Success"
         component={SuccessScreen}

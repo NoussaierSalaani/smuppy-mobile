@@ -172,7 +172,7 @@ export default function SignupScreen({ navigation }) {
 
       // Navigate to onboarding with email and password
       // Account creation happens at the end after OTP verification
-      navigation.navigate('TellUsAboutYou', {
+      navigation.navigate('AccountType', {
         email: emailValidation.email,
         password
       });

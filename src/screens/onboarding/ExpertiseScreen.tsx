@@ -1,182 +1,223 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS, FORM } from '../../config/theme';
+import React, { useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { COLORS, SIZES, SPACING } from '../../config/theme';
+import Button from '../../components/Button';
+import { SmuppyText } from '../../components/SmuppyLogo';
+import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
-const EXPERTISE_CATEGORIES = [
+const { width } = Dimensions.get('window');
+
+// Expertise pages based on project context
+const EXPERTISE_PAGES = [
   {
-    title: 'Coachs & Experts Sportifs',
-    items: ['Personal Trainer', 'Coach Sportif', 'Nutrition Coach', 'Physical Trainer', 'Physiotherapist', 'Mental Coach', 'Rehabilitation Specialist']
+    title: 'Training & Coaching',
+    items: [
+      { name: 'Weight Loss', icon: 'scale-outline', color: '#FF6B6B' },
+      { name: 'Muscle Building', icon: 'barbell-outline', color: '#4ECDC4' },
+      { name: 'Strength Training', icon: 'fitness-outline', color: '#34495E' },
+      { name: 'Cardio Training', icon: 'heart-outline', color: '#E74C3C' },
+      { name: 'HIIT', icon: 'flash-outline', color: '#E67E22' },
+      { name: 'CrossFit', icon: 'flame-outline', color: '#FF5722' },
+      { name: 'Functional Training', icon: 'sync-outline', color: '#00ACC1' },
+      { name: 'Body Transformation', icon: 'trending-up-outline', color: '#FF4081' },
+    ]
   },
   {
-    title: 'AI & Intelligence Artificielle',
-    items: ['AI Coach & Performance Tracking', 'Sports Analyst AI & Big Data', 'Virtual Assistant Developer', 'Wearables & Biometric Sensors']
+    title: 'Sports & Performance',
+    items: [
+      { name: 'Sports Performance', icon: 'trophy-outline', color: '#F39C12' },
+      { name: 'Running', icon: 'walk-outline', color: '#2196F3' },
+      { name: 'Swimming', icon: 'water-outline', color: '#00BCD4' },
+      { name: 'Cycling', icon: 'bicycle-outline', color: '#795548' },
+      { name: 'Boxing', icon: 'fitness-outline', color: '#D32F2F' },
+      { name: 'Martial Arts', icon: 'hand-right-outline', color: '#FF9800' },
+      { name: 'Dance', icon: 'musical-notes-outline', color: '#9C27B0' },
+      { name: 'Athletics', icon: 'ribbon-outline', color: '#3F51B5' },
+    ]
   },
   {
-    title: 'Biohacking & Body Optimization',
-    items: ['Biohacking Expert', 'Physical Performance Expert', 'Regenerative Medicine', 'Cognitive Enhancement', 'Neurostimulation Coach']
+    title: 'Wellness & Health',
+    items: [
+      { name: 'Flexibility', icon: 'body-outline', color: '#9B59B6' },
+      { name: 'Rehabilitation', icon: 'medkit-outline', color: '#3498DB' },
+      { name: 'Nutrition', icon: 'nutrition-outline', color: '#27AE60' },
+      { name: 'Yoga', icon: 'leaf-outline', color: '#1ABC9C' },
+      { name: 'Pilates', icon: 'body-outline', color: '#E91E63' },
+      { name: 'Meditation', icon: 'happy-outline', color: '#607D8B' },
+      { name: 'Stretching', icon: 'resize-outline', color: '#8BC34A' },
+      { name: 'Recovery', icon: 'bandage-outline', color: '#00BCD4' },
+    ]
   },
   {
-    title: 'Sport & Handicap / Inclusion',
-    items: ['Adaptive Sports Coach', 'Paralympic Games Org', 'Engineering for Disability Sports', 'Inclusive Sports Associations']
-  }
+    title: 'Specialized',
+    items: [
+      { name: 'Senior Fitness', icon: 'people-outline', color: '#5C6BC0' },
+      { name: 'Pre/Post Natal', icon: 'heart-circle-outline', color: '#EC407A' },
+      { name: 'Kids Fitness', icon: 'happy-outline', color: '#FF9800' },
+      { name: 'Group Training', icon: 'people-outline', color: '#4CAF50' },
+      { name: 'Online Coaching', icon: 'videocam-outline', color: '#2196F3' },
+      { name: 'Sports Nutrition', icon: 'restaurant-outline', color: '#FF5722' },
+      { name: 'Mental Coaching', icon: 'bulb-outline', color: '#9C27B0' },
+      { name: 'Lifestyle', icon: 'sunny-outline', color: '#FFC107' },
+    ]
+  },
 ];
 
-export default function ExpertiseScreen({ navigation }) {
-  const [selected, setSelected] = useState([]);
+export default function ExpertiseScreen({ navigation, route }) {
+  const [selected, setSelected] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const toggle = (item) => {
-    if (selected.includes(item)) {
-      setSelected(selected.filter(i => i !== item));
-    } else {
-      setSelected([...selected, item]);
-    }
-  };
+  const params = route?.params || {};
+  const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
-  const currentCategory = EXPERTISE_CATEGORIES[currentPage];
+  const toggle = useCallback((itemName: string) => {
+    setSelected(prev =>
+      prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
+    );
+  }, []);
 
-  const handleNext = () => {
-    if (currentPage < EXPERTISE_CATEGORIES.length - 1) {
-      setCurrentPage(currentPage + 1);
-    } else {
-      navigation.navigate('Interests');
-    }
-  };
+  const handleScroll = useCallback((e: any) => {
+    const page = Math.round(e.nativeEvent.contentOffset.x / width);
+    setCurrentPage(page);
+  }, []);
+
+  const handleNext = useCallback(() => {
+    navigate('FindFriends', { ...params, expertise: selected });
+  }, [navigate, params, selected]);
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => currentPage > 0 ? setCurrentPage(currentPage - 1) : navigation.goBack()}>
-        <Text style={styles.back}>←</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      {/* Header - Fixed */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={goBack} disabled={disabled}>
+          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+        </TouchableOpacity>
+      </View>
 
-      <Text style={styles.title}>Area of expertise</Text>
-      <Text style={styles.subtitle}>Describe your area of expertise or the primary domain of your business or interest</Text>
+      {/* Title - Fixed */}
+      <View style={styles.titleBox}>
+        <Text style={styles.title}>Your Expertise</Text>
+        <Text style={styles.subtitle}>Swipe to explore categories</Text>
+      </View>
 
-      <Text style={styles.categoryTitle}>{currentCategory.title}</Text>
-
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.tagsContainer}>
-          {currentCategory.items.map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={[styles.tag, selected.includes(item) && styles.tagActive]} 
-              onPress={() => toggle(item)}
-            >
-              <Text style={[styles.tagText, selected.includes(item) && styles.tagTextActive]}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      {/* Counter - Fixed */}
+      {selected.length > 0 && (
+        <View style={styles.counterBox}>
+          <Text style={styles.counterText}>{selected.length} selected</Text>
         </View>
-      </ScrollView>
+      )}
 
+      {/* Pages - Scrollable horizontally, fixed height */}
+      <View style={styles.pagesContainer}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          {EXPERTISE_PAGES.map((page, pageIndex) => (
+            <View key={pageIndex} style={styles.page}>
+              <Text style={styles.pageTitle}>{page.title}</Text>
+              <View style={styles.tagsWrap}>
+                {page.items.map((item) => {
+                  const isSelected = selected.includes(item.name);
+                  return (
+                    <TouchableOpacity
+                      key={item.name}
+                      style={[styles.tag, isSelected && styles.tagSelected]}
+                      onPress={() => toggle(item.name)}
+                    >
+                      <Ionicons name={item.icon as any} size={16} color={item.color} />
+                      <Text style={styles.tagText}>{item.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Dots - Fixed */}
       <View style={styles.dots}>
-        {EXPERTISE_CATEGORIES.map((_, index) => (
+        {EXPERTISE_PAGES.map((_, index) => (
           <View key={index} style={[styles.dot, currentPage === index && styles.dotActive]} />
         ))}
       </View>
 
-      <LinearGradient 
-        colors={GRADIENTS.primary} 
-        start={GRADIENTS.primaryStart} 
-        end={GRADIENTS.primaryEnd} 
-        style={styles.btn}
-      >
-        <TouchableOpacity style={styles.btnInner} onPress={handleNext}>
-          <Text style={styles.btnText}>
-            {currentPage < EXPERTISE_CATEGORIES.length - 1 ? 'Next →' : 'To end →'}
-          </Text>
-        </TouchableOpacity>
-      </LinearGradient>
-    </View>
+      {/* Button - Fixed */}
+      <View style={styles.btnBox}>
+        <Button
+          variant="primary"
+          size="lg"
+          icon="arrow-forward"
+          iconPosition="right"
+          disabled={selected.length === 0 || disabled}
+          onPress={handleNext}
+        >
+          Next
+        </Button>
+      </View>
+
+      {/* Logo Footer - Fixed */}
+      <View style={styles.footer}>
+        <SmuppyText width={120} variant="dark" />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.white, 
-    paddingHorizontal: 30, 
-    paddingTop: 50 
+  container: { flex: 1, backgroundColor: COLORS.white },
+
+  // Header - Fixed
+  header: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, marginBottom: SPACING.md },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.dark, justifyContent: 'center', alignItems: 'center' },
+
+  // Title - Fixed
+  titleBox: { alignItems: 'center', paddingHorizontal: SPACING.xl, marginBottom: SPACING.sm },
+  title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.xs },
+  subtitle: { fontSize: 14, color: COLORS.grayMuted, textAlign: 'center' },
+
+  // Counter - Fixed
+  counterBox: { alignSelf: 'center', paddingHorizontal: SPACING.base, paddingVertical: SPACING.xs, backgroundColor: '#E8FBF7', borderRadius: 20, marginBottom: SPACING.sm },
+  counterText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+
+  // Pages container - Takes remaining space
+  pagesContainer: { flex: 1 },
+  page: { width, paddingHorizontal: SPACING.xl },
+  pageTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dark, marginBottom: SPACING.md, textAlign: 'center' },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: SPACING.sm },
+
+  // Tags
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: COLORS.grayLight,
+    borderRadius: 18,
+    backgroundColor: COLORS.white,
+    gap: 6,
   },
-  back: { 
-    fontSize: 24, 
-    color: COLORS.dark, 
-    marginBottom: 20 
+  tagSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
-  title: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    color: COLORS.dark, 
-    marginBottom: 10 
-  },
-  subtitle: { 
-    fontSize: 14, 
-    color: COLORS.gray, 
-    marginBottom: 20 
-  },
-  categoryTitle: { 
-    fontSize: 18, 
-    fontWeight: '600', 
-    color: COLORS.primary, 
-    marginBottom: 20 
-  },
-  scroll: { 
-    flex: 1 
-  },
-  tagsContainer: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap' 
-  },
-  tag: { 
-    paddingHorizontal: 16, 
-    paddingVertical: 12, 
-    borderWidth: 1, 
-    borderColor: COLORS.grayLight, 
-    borderRadius: 25, 
-    marginRight: 10, 
-    marginBottom: 12 
-  },
-  tagActive: { 
-    backgroundColor: COLORS.primary, 
-    borderColor: COLORS.primary 
-  },
-  tagText: { 
-    fontSize: 14, 
-    color: COLORS.dark 
-  },
-  tagTextActive: { 
-    color: COLORS.white 
-  },
-  dots: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    marginBottom: 20 
-  },
-  dot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
-    backgroundColor: COLORS.grayLight, 
-    marginHorizontal: 4 
-  },
-  dotActive: { 
-    backgroundColor: COLORS.primary 
-  },
-  btn: { 
-    height: FORM.buttonHeight, 
-    borderRadius: FORM.buttonRadius, 
-    marginBottom: 30 
-  },
-  btnInner: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  btnText: { 
-    color: COLORS.white, 
-    fontSize: 16, 
-    fontWeight: '600' 
-  },
+  tagText: { fontSize: 12, fontWeight: '500', color: COLORS.dark },
+
+  // Dots - Fixed
+  dots: { flexDirection: 'row', justifyContent: 'center', paddingVertical: SPACING.sm },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.grayLight, marginHorizontal: 4 },
+  dotActive: { backgroundColor: COLORS.primary, width: 20 },
+
+  // Bottom - Fixed
+  btnBox: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
+  footer: { alignItems: 'center', paddingBottom: SPACING.md },
 });

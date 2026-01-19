@@ -38,10 +38,20 @@ export default function VerifyCodeScreen({ navigation, route }) {
     dateOfBirth,
     accountType,
     interests,
+    // Pro Creator params
+    displayName,
+    username,
+    bio,
+    website,
+    socialLinks,
+    expertise,
+    // Pro Business params
+    businessCategory,
+    businessCategoryCustom,
+    locationsMode,
     businessName,
     businessAddress,
     businessPhone,
-    profession,
   } = route?.params || {};
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
@@ -224,7 +234,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     } finally {
       setIsVerifying(false);
     }
-  }, [email, name, gender, dateOfBirth, accountType, interests, businessName, businessAddress, businessPhone, profession, navigation, triggerShake, clearCode]);
+  }, [email, name, navigation, triggerShake, clearCode]);
 
   // Handle code input
   const handleChange = useCallback((text, index) => {

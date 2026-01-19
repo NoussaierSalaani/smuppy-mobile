@@ -201,7 +201,7 @@ export default function FindFriendsScreen({ navigation, route }) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <SmuppyText width={140} variant="dark" />
+          <SmuppyText width={120} variant="dark" />
         </View>
       </View>
     </SafeAreaView>
@@ -236,5 +236,5 @@ const styles = StyleSheet.create({
   skipBtn: { alignItems: 'center', paddingVertical: SPACING.lg },
   skipText: { fontSize: 16, color: COLORS.darkGray, textDecorationLine: 'underline' },
 
-  footer: { alignItems: 'center', paddingBottom: SPACING.xl },
+  footer: { alignItems: 'center', paddingTop: SPACING.sm, paddingBottom: SPACING.md },
 });

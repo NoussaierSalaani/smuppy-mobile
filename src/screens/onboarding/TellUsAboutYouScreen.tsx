@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView, KeyboardAvoidingView, Modal, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView, KeyboardAvoidingView, Modal, Keyboard, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
@@ -27,6 +28,7 @@ const getAge = (birthDate: Date) => {
 };
 
 export default function TellUsAboutYouScreen({ navigation, route }: any) {
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [gender, setGender] = useState('');
@@ -39,6 +41,25 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
 
   const { email, password, accountType } = route?.params || {};
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
+
+  const pickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photos to add a profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+    }
+  }, []);
 
   const hasName = name.trim().length > 0;
   const isAgeValid = useMemo(() => getAge(date) >= MIN_AGE, [date]);
@@ -73,9 +94,10 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
       bio: bio.trim(),
       gender,
       dateOfBirth: date.toISOString(),
+      profileImage,
     });
     setLoading(false);
-  }, [navigation, email, password, accountType, name, bio, gender, date, isFormValid, loading]);
+  }, [navigation, email, password, accountType, name, bio, gender, date, profileImage, isFormValid, loading]);
 
 
   return (
@@ -88,6 +110,30 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
           <View style={styles.header}>
             <Text style={styles.title}>Tell us about you</Text>
             <Text style={styles.subtitle}>Help us personalize your experience</Text>
+          </View>
+
+          {/* Profile Photo */}
+          <View style={styles.photoSection}>
+            <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
+              <LinearGradient
+                colors={profileImage ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.photoGradient}
+              >
+                <View style={[styles.photoContainer, profileImage && styles.photoContainerFilled]}>
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                  ) : (
+                    <Ionicons name="camera" size={32} color={COLORS.grayMuted} />
+                  )}
+                </View>
+              </LinearGradient>
+              <View style={styles.photoBadge}>
+                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={COLORS.white} />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add a photo'}</Text>
           </View>
 
           {/* Name Input */}
@@ -282,9 +328,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
-  header: { alignItems: 'center', marginBottom: SPACING.lg },
+  header: { alignItems: 'center', marginBottom: SPACING.md },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
+  // Profile Photo
+  photoSection: { alignItems: 'center', marginBottom: SPACING.lg },
+  photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
+  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoContainerFilled: { backgroundColor: '#E8FAF7' },
+  profileImage: { width: '100%', height: '100%', borderRadius: 52 },
+  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
+  photoLabel: { fontSize: 13, color: COLORS.grayMuted, marginTop: SPACING.xs },
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
   required: { color: COLORS.error },
   inputBox: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, marginBottom: SPACING.sm, backgroundColor: COLORS.white },

@@ -146,6 +146,7 @@ export default function InterestsScreen({ navigation, route }) {
   const scrollRef = useRef<ScrollView>(null);
 
   const params = route?.params || {};
+  const { name } = params;
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const toggle = useCallback((itemName: string) => {
@@ -163,14 +164,19 @@ export default function InterestsScreen({ navigation, route }) {
     navigate('Guidelines', { ...params, interests: selected });
   }, [navigate, params, selected]);
 
+  const handleSkip = useCallback(() => {
+    navigate('Guidelines', { ...params, interests: [] });
+  }, [navigate, params]);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
         {/* Header with Progress Bar - Personal flow step 2/4 */}
         <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={4} />
 
-        {/* Title */}
+        {/* Welcome + Title */}
         <View style={styles.titleBox}>
+          {name && <Text style={styles.welcome}>Nice to meet you, {name}! 👋</Text>}
           <Text style={styles.title}>What are you into?</Text>
           <Text style={styles.subtitle}>Swipe to explore different categories</Text>
         </View>
@@ -228,7 +234,7 @@ export default function InterestsScreen({ navigation, route }) {
           ))}
         </View>
 
-        {/* Button */}
+        {/* Buttons */}
         <View style={styles.btnBox}>
           <Button
             variant="primary"
@@ -240,6 +246,9 @@ export default function InterestsScreen({ navigation, route }) {
           >
             Next
           </Button>
+          <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} disabled={disabled}>
+            <Text style={styles.skipText}>Complete later in Settings</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -252,6 +261,7 @@ const styles = StyleSheet.create({
 
   // Title
   titleBox: { alignItems: 'center', paddingHorizontal: SPACING.xl, marginBottom: SPACING.md },
+  welcome: { fontSize: 16, fontWeight: '600', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.xs },
   title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.xs },
   subtitle: { fontSize: 14, color: COLORS.grayMuted, textAlign: 'center' },
 
@@ -291,4 +301,6 @@ const styles = StyleSheet.create({
 
   // Bottom
   btnBox: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
+  skipBtn: { alignItems: 'center', paddingVertical: SPACING.md },
+  skipText: { fontSize: 14, color: COLORS.grayMuted, textDecorationLine: 'underline' },
 });

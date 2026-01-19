@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SPACING } from '../../config/theme';
+import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -126,10 +127,29 @@ export default function ExpertiseScreen({ navigation, route }) {
               <View style={styles.tagsWrap}>
                 {page.items.map((item) => {
                   const isSelected = selected.includes(item.name);
+                  if (isSelected) {
+                    return (
+                      <LinearGradient
+                        key={item.name}
+                        colors={GRADIENTS.button}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.tagGradient}
+                      >
+                        <TouchableOpacity
+                          style={styles.tagInner}
+                          onPress={() => toggle(item.name)}
+                        >
+                          <Ionicons name={item.icon as any} size={16} color={item.color} />
+                          <Text style={styles.tagText}>{item.name}</Text>
+                        </TouchableOpacity>
+                      </LinearGradient>
+                    );
+                  }
                   return (
                     <TouchableOpacity
                       key={item.name}
-                      style={[styles.tag, isSelected && styles.tagSelected]}
+                      style={styles.tag}
                       onPress={() => toggle(item.name)}
                     >
                       <Ionicons name={item.icon as any} size={16} color={item.color} />
@@ -206,9 +226,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     gap: 6,
   },
-  tagSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  tagGradient: {
+    borderRadius: 18,
+    padding: 2,
+  },
+  tagInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#E8FAF7',
+    gap: 6,
   },
   tagText: { fontSize: 12, fontWeight: '500', color: COLORS.dark },
 

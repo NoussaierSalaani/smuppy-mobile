@@ -3,9 +3,10 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
+import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -80,11 +81,6 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
     }
   }, [socialFields]);
 
-  const getInputStyle = useCallback((field: string, hasValue: boolean) => {
-    if (hasValue) return [styles.inputBox, styles.inputValid];
-    if (focusedField === field) return [styles.inputBox, styles.inputFocused];
-    return [styles.inputBox];
-  }, [focusedField]);
 
   const getNetworkInfo = (id: string) => SOCIAL_NETWORKS.find(n => n.id === id) || SOCIAL_NETWORKS[0];
 
@@ -120,37 +116,51 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
 
           {/* Bio */}
           <Text style={styles.label}>Bio</Text>
-          <View style={[getInputStyle('bio', bio.length > 0), styles.bioBox]}>
-            <TextInput
-              style={styles.bioInput}
-              placeholder="Tell people about yourself..."
-              placeholderTextColor={COLORS.grayMuted}
-              value={bio}
-              onChangeText={setBio}
-              onFocus={() => setFocusedField('bio')}
-              onBlur={() => setFocusedField(null)}
-              multiline
-              maxLength={150}
-            />
-          </View>
+          <LinearGradient
+            colors={(bio.length > 0 || focusedField === 'bio') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.inputGradientBorder, styles.bioGradientBorder]}
+          >
+            <View style={[styles.bioInner, bio.length > 0 && styles.inputInnerValid]}>
+              <TextInput
+                style={styles.bioInput}
+                placeholder="Tell people about yourself..."
+                placeholderTextColor={COLORS.grayMuted}
+                value={bio}
+                onChangeText={setBio}
+                onFocus={() => setFocusedField('bio')}
+                onBlur={() => setFocusedField(null)}
+                multiline
+                maxLength={150}
+              />
+            </View>
+          </LinearGradient>
           <Text style={styles.charCount}>{bio.length}/150</Text>
 
           {/* Website */}
           <Text style={styles.label}>Website</Text>
-          <View style={getInputStyle('website', website.length > 0)}>
-            <Ionicons name="globe-outline" size={18} color={website.length > 0 || focusedField === 'website' ? COLORS.primary : COLORS.grayMuted} />
-            <TextInput
-              style={styles.input}
-              placeholder="https://yourwebsite.com"
-              placeholderTextColor={COLORS.grayMuted}
-              value={website}
-              onChangeText={setWebsite}
-              onFocus={() => setFocusedField('website')}
-              onBlur={() => setFocusedField(null)}
-              autoCapitalize="none"
-              keyboardType="url"
-            />
-          </View>
+          <LinearGradient
+            colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
+              <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? COLORS.primary : COLORS.grayMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="https://yourwebsite.com"
+                placeholderTextColor={COLORS.grayMuted}
+                value={website}
+                onChangeText={setWebsite}
+                onFocus={() => setFocusedField('website')}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
+          </LinearGradient>
 
           {/* Social Links */}
           <View style={styles.sectionHeader}>
@@ -168,24 +178,35 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
               {row.map((field, colIndex) => {
                 const index = rowIndex * 2 + colIndex;
                 const network = getNetworkInfo(field.id);
+                const hasValue = field.value.length > 0;
+
+                const isFocused = focusedField === `social-${index}`;
                 return (
-                  <View key={field.id} style={[getInputStyle(`social-${index}`, field.value.length > 0), styles.socialInput]}>
-                    <Ionicons
-                      name={network.icon as any}
-                      size={16}
-                      color={field.value.length > 0 ? network.color : COLORS.grayMuted}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder={network.label}
-                      placeholderTextColor={COLORS.grayMuted}
-                      value={field.value}
-                      onChangeText={(v) => updateSocialField(index, v)}
-                      onFocus={() => setFocusedField(`social-${index}`)}
-                      onBlur={() => setFocusedField(null)}
-                      autoCapitalize="none"
-                    />
-                  </View>
+                  <LinearGradient
+                    key={field.id}
+                    colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.inputGradientBorder, styles.socialInput]}
+                  >
+                    <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>
+                      <Ionicons
+                        name={network.icon as any}
+                        size={16}
+                        color={(hasValue || isFocused) ? network.color : COLORS.grayMuted}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder={network.label}
+                        placeholderTextColor={COLORS.grayMuted}
+                        value={field.value}
+                        onChangeText={(v) => updateSocialField(index, v)}
+                        onFocus={() => setFocusedField(`social-${index}`)}
+                        onBlur={() => setFocusedField(null)}
+                        autoCapitalize="none"
+                      />
+                    </View>
+                  </LinearGradient>
                 );
               })}
             </View>
@@ -232,10 +253,13 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
   addBtn: { padding: 4 },
   inputBox: { flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
-  inputFocused: { borderColor: COLORS.primary, backgroundColor: COLORS.white },
-  inputValid: { borderColor: COLORS.primary, backgroundColor: '#E8FAF7' },
+  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: '#E8FAF7' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 13 },
   bioBox: { height: 70, alignItems: 'flex-start', paddingVertical: SPACING.sm },
+  bioGradientBorder: { marginBottom: SPACING.sm },
+  bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm - 2, paddingVertical: SPACING.sm - 2, backgroundColor: COLORS.white },
   bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 13, textAlignVertical: 'top', width: '100%' },
   charCount: { fontSize: 11, color: COLORS.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.sm },
   socialRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.xs },

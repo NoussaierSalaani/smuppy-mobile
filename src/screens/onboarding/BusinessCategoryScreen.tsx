@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SPACING, TYPOGRAPHY } from '../../config/theme';
+import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -28,6 +29,7 @@ export default function BusinessCategoryScreen({ navigation, route }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [customCategory, setCustomCategory] = useState('');
   const [locationsMode, setLocationsMode] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
@@ -64,13 +66,37 @@ export default function BusinessCategoryScreen({ navigation, route }) {
         <View style={styles.grid}>
           {BUSINESS_CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat.id;
+            if (isSelected) {
+              return (
+                <LinearGradient
+                  key={cat.id}
+                  colors={GRADIENTS.button}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.categoryCardGradient}
+                >
+                  <TouchableOpacity
+                    style={styles.categoryCardInner}
+                    onPress={() => setSelectedCategory(cat.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.categoryIcon, { backgroundColor: `${cat.color}15` }]}>
+                      <Ionicons name={cat.icon as any} size={26} color={cat.color} />
+                    </View>
+                    <Text style={styles.categoryLabel}>
+                      {cat.label}
+                    </Text>
+                    <View style={styles.checkBadge}>
+                      <Ionicons name="checkmark" size={10} color={COLORS.white} />
+                    </View>
+                  </TouchableOpacity>
+                </LinearGradient>
+              );
+            }
             return (
               <TouchableOpacity
                 key={cat.id}
-                style={[
-                  styles.categoryCard,
-                  isSelected && styles.categoryCardSelected,
-                ]}
+                style={styles.categoryCard}
                 onPress={() => setSelectedCategory(cat.id)}
                 activeOpacity={0.7}
               >
@@ -80,11 +106,6 @@ export default function BusinessCategoryScreen({ navigation, route }) {
                 <Text style={styles.categoryLabel}>
                   {cat.label}
                 </Text>
-                {isSelected && (
-                  <View style={styles.checkBadge}>
-                    <Ionicons name="checkmark" size={10} color={COLORS.white} />
-                  </View>
-                )}
               </TouchableOpacity>
             );
           })}
@@ -93,16 +114,25 @@ export default function BusinessCategoryScreen({ navigation, route }) {
         {/* Custom Category Input */}
         {selectedCategory === 'other' && (
           <View style={styles.customInputBox}>
-            <View style={[styles.inputBox, customCategory.length > 0 && styles.inputValid]}>
-              <TextInput
-                style={styles.input}
-                placeholder="Specify your business type..."
-                placeholderTextColor={COLORS.grayMuted}
-                value={customCategory}
-                onChangeText={setCustomCategory}
-                autoCapitalize="words"
-              />
-            </View>
+            <LinearGradient
+              colors={(customCategory.length > 0 || focusedField === 'customCategory') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.inputGradientBorder}
+            >
+              <View style={[styles.inputInner, customCategory.length > 0 && styles.inputInnerValid]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Specify your business type..."
+                  placeholderTextColor={COLORS.grayMuted}
+                  value={customCategory}
+                  onChangeText={setCustomCategory}
+                  onFocus={() => setFocusedField('customCategory')}
+                  onBlur={() => setFocusedField(null)}
+                  autoCapitalize="words"
+                />
+              </View>
+            </LinearGradient>
           </View>
         )}
 
@@ -110,22 +140,50 @@ export default function BusinessCategoryScreen({ navigation, route }) {
         <View style={styles.locationSection}>
           <Text style={styles.sectionTitle}>Number of Locations</Text>
           <View style={styles.locationRow}>
-            {LOCATIONS_MODES.map((mode) => (
-              <TouchableOpacity
-                key={mode.id}
-                style={[styles.locationCard, locationsMode === mode.id && styles.locationCardActive]}
-                onPress={() => setLocationsMode(mode.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.radio, locationsMode === mode.id && styles.radioActive]}>
-                  {locationsMode === mode.id && <View style={styles.radioInner} />}
-                </View>
-                <View style={styles.locationTextBox}>
-                  <Text style={styles.locationLabel}>{mode.label}</Text>
-                  <Text style={styles.locationDesc}>{mode.desc}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {LOCATIONS_MODES.map((mode) => {
+              const isSelected = locationsMode === mode.id;
+              if (isSelected) {
+                return (
+                  <LinearGradient
+                    key={mode.id}
+                    colors={GRADIENTS.button}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.locationCardGradient}
+                  >
+                    <TouchableOpacity
+                      style={styles.locationCardInner}
+                      onPress={() => setLocationsMode(mode.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.radio, styles.radioActive]}>
+                        <View style={styles.radioInner} />
+                      </View>
+                      <View style={styles.locationTextBox}>
+                        <Text style={styles.locationLabel}>{mode.label}</Text>
+                        <Text style={styles.locationDesc}>{mode.desc}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  key={mode.id}
+                  style={styles.locationCard}
+                  onPress={() => setLocationsMode(mode.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.radio}>
+                    {isSelected && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={styles.locationTextBox}>
+                    <Text style={styles.locationLabel}>{mode.label}</Text>
+                    <Text style={styles.locationDesc}>{mode.desc}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -174,10 +232,19 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.white,
   },
-  categoryCardSelected: {
-    borderColor: COLORS.primary,
-    borderWidth: 2,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  categoryCardGradient: {
+    width: '31%',
+    borderRadius: SIZES.radiusLg,
+    padding: 2,
+    marginBottom: SPACING.sm,
+  },
+  categoryCardInner: {
+    flex: 1,
+    paddingVertical: SPACING.md - 2,
+    paddingHorizontal: SPACING.xs,
+    borderRadius: SIZES.radiusLg - 2,
+    alignItems: 'center',
+    backgroundColor: '#E8FAF7',
   },
   categoryIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xs },
   categoryLabel: { fontSize: 11, fontWeight: '600', color: COLORS.dark, textAlign: 'center' },
@@ -186,7 +253,9 @@ const styles = StyleSheet.create({
   // Custom Input
   customInputBox: { marginBottom: SPACING.md },
   inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, backgroundColor: COLORS.white },
-  inputValid: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: '#E8FAF7' },
+  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: '#E8FAF7' },
   input: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14 },
 
   // Locations
@@ -204,7 +273,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     marginBottom: SPACING.xs,
   },
-  locationCardActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+  locationCardGradient: { borderRadius: SIZES.radiusLg, padding: 2, marginBottom: SPACING.xs },
+  locationCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm - 2,
+    paddingHorizontal: SPACING.base - 2,
+    borderRadius: SIZES.radiusLg - 2,
+    backgroundColor: '#E8FAF7',
+  },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
   radioActive: { borderColor: COLORS.primary },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary },

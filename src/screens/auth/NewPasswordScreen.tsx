@@ -81,19 +81,6 @@ export default function NewPasswordScreen({ navigation, route }) {
   }, []);
 
   // Style helpers
-  const getPasswordInputStyle = () => {
-    if (password.length > 0 && passwordValid) return [styles.inputRow, styles.inputRowValid];
-    if (isFocusedPassword) return [styles.inputRow, styles.inputRowFocused];
-    return [styles.inputRow];
-  };
-
-  const getConfirmInputStyle = () => {
-    if (confirmPassword.length > 0 && !passwordsMatch) return [styles.inputRow, styles.inputRowError];
-    if (passwordsMatch) return [styles.inputRow, styles.inputRowValid];
-    if (isFocusedConfirm) return [styles.inputRow, styles.inputRowFocused];
-    return [styles.inputRow];
-  };
-
   const getPasswordIconColor = () => {
     if (password.length > 0 || isFocusedPassword) return COLORS.primary;
     return COLORS.grayMuted;
@@ -166,24 +153,31 @@ export default function NewPasswordScreen({ navigation, route }) {
 
           {/* New Password Input */}
           <Text style={styles.label}>New password</Text>
-          <View style={getPasswordInputStyle()}>
-            <Ionicons name="lock-closed-outline" size={20} color={getPasswordIconColor()} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter new password"
-              placeholderTextColor={COLORS.grayMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoComplete="off"
-              textContentType="none"
-              onFocus={() => setIsFocusedPassword(true)}
-              onBlur={() => setIsFocusedPassword(false)}
-            />
-            <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
-            </TouchableOpacity>
-          </View>
+          <LinearGradient
+            colors={(password.length > 0 || isFocusedPassword) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, password.length > 0 && passwordValid && styles.inputInnerValid]}>
+              <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || isFocusedPassword) ? COLORS.primary : COLORS.grayMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter new password"
+                placeholderTextColor={COLORS.grayMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoComplete="off"
+                textContentType="none"
+                onFocus={() => setIsFocusedPassword(true)}
+                onBlur={() => setIsFocusedPassword(false)}
+              />
+              <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
 
           {/* Password Requirements */}
           {password.length > 0 && !allChecksPassed && (
@@ -215,24 +209,52 @@ export default function NewPasswordScreen({ navigation, route }) {
 
           {/* Confirm Password Input */}
           <Text style={styles.label}>Confirm new password</Text>
-          <View style={getConfirmInputStyle()}>
-            <Ionicons name="lock-closed-outline" size={20} color={getConfirmIconColor()} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm your password"
-              placeholderTextColor={COLORS.grayMuted}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirm}
-              autoComplete="off"
-              textContentType="none"
-              onFocus={() => setIsFocusedConfirm(true)}
-              onBlur={() => setIsFocusedConfirm(false)}
-            />
-            <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
-            </TouchableOpacity>
-          </View>
+          {(confirmPassword.length > 0 && !passwordsMatch) ? (
+            <View style={[styles.inputRow, styles.inputRowError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={COLORS.error} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm your password"
+                placeholderTextColor={COLORS.grayMuted}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirm}
+                autoComplete="off"
+                textContentType="none"
+                onFocus={() => setIsFocusedConfirm(true)}
+                onBlur={() => setIsFocusedConfirm(false)}
+              />
+              <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <LinearGradient
+              colors={(confirmPassword.length > 0 || isFocusedConfirm) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.inputGradientBorder}
+            >
+              <View style={[styles.inputInner, passwordsMatch && styles.inputInnerValid]}>
+                <Ionicons name="lock-closed-outline" size={20} color={(confirmPassword.length > 0 || isFocusedConfirm) ? COLORS.primary : COLORS.grayMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm your password"
+                  placeholderTextColor={COLORS.grayMuted}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirm}
+                  autoComplete="off"
+                  textContentType="none"
+                  onFocus={() => setIsFocusedConfirm(true)}
+                  onBlur={() => setIsFocusedConfirm(false)}
+                />
+                <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          )}
 
           {/* Password Match Indicator */}
           {confirmPassword.length > 0 && (
@@ -355,8 +377,9 @@ const styles = StyleSheet.create({
 
   // Input
   inputRow: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: COLORS.white },
-  inputRowFocused: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.white },
-  inputRowValid: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.backgroundValid },
+  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   inputRowError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: COLORS.errorLight },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, color: COLORS.dark },

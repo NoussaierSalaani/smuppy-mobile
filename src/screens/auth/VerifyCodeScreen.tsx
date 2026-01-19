@@ -3,9 +3,10 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SPACING } from '../../config/theme';
+import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { ENV } from '../../config/env';
 import { supabase } from '../../config/supabase';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
@@ -300,14 +301,6 @@ export default function VerifyCodeScreen({ navigation, route }) {
     }
   }, [canAction, tryAction, clearCode, setShowModal, email]);
 
-  // Style helper
-  const getBoxStyle = useCallback((index) => {
-    if (error) return [styles.codeBox, styles.codeBoxError];
-    if (code[index]) return [styles.codeBox, styles.codeBoxFilled];
-    if (focusedIndex === index) return [styles.codeBox, styles.codeBoxFocused];
-    return [styles.codeBox];
-  }, [error, code, focusedIndex]);
-
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
@@ -343,22 +336,53 @@ export default function VerifyCodeScreen({ navigation, route }) {
             <>
               <Text style={styles.label}>Enter code</Text>
               <Animated.View style={[styles.codeRow, { transform: [{ translateX: shakeAnim }] }]}>
-                {Array.from({ length: CODE_LENGTH }, (_, i) => (
-                  <TextInput
-                    key={i}
-                    ref={(ref) => { inputs.current[i] = ref; }}
-                    style={getBoxStyle(i)}
-                    maxLength={1}
-                    keyboardType="number-pad"
-                    value={code[i]}
-                    onChangeText={(text) => handleChange(text, i)}
-                    onKeyPress={(e) => handleKeyPress(e, i)}
-                    onFocus={() => handleFocus(i)}
-                    onBlur={handleBlur}
-                    selectTextOnFocus
-                    editable={!isVerifying}
-                  />
-                ))}
+                {Array.from({ length: CODE_LENGTH }, (_, i) => {
+                  const isFilled = code[i] !== '';
+                  const hasError = !!error;
+
+                  if (hasError) {
+                    return (
+                      <TextInput
+                        key={i}
+                        ref={(ref) => { inputs.current[i] = ref; }}
+                        style={[styles.codeBox, styles.codeBoxError]}
+                        maxLength={1}
+                        keyboardType="number-pad"
+                        value={code[i]}
+                        onChangeText={(text) => handleChange(text, i)}
+                        onKeyPress={(e) => handleKeyPress(e, i)}
+                        onFocus={() => handleFocus(i)}
+                        onBlur={handleBlur}
+                        selectTextOnFocus
+                        editable={!isVerifying}
+                      />
+                    );
+                  }
+
+                  return (
+                    <LinearGradient
+                      key={i}
+                      colors={isFilled ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.codeBoxGradient}
+                    >
+                      <TextInput
+                        ref={(ref) => { inputs.current[i] = ref; }}
+                        style={[styles.codeBoxInner, isFilled && styles.codeBoxInnerFilled]}
+                        maxLength={1}
+                        keyboardType="number-pad"
+                        value={code[i]}
+                        onChangeText={(text) => handleChange(text, i)}
+                        onKeyPress={(e) => handleKeyPress(e, i)}
+                        onFocus={() => handleFocus(i)}
+                        onBlur={handleBlur}
+                        selectTextOnFocus
+                        editable={!isVerifying}
+                      />
+                    </LinearGradient>
+                  );
+                })}
               </Animated.View>
 
               {/* Error Message */}
@@ -441,8 +465,9 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: SPACING.md },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.md },
   codeBox: { width: 48, height: 54, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
-  codeBoxFocused: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.white },
-  codeBoxFilled: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: '#E8FBF5' },
+  codeBoxGradient: { width: 48, height: 54, borderRadius: SIZES.radiusMd, padding: 2 },
+  codeBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
+  codeBoxInnerFilled: { backgroundColor: '#E8FBF5' },
   codeBoxError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEECEC' },
 
   // Loading

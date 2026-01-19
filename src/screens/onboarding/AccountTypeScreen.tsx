@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SPACING } from '../../config/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -74,48 +75,94 @@ export default function AccountTypeScreen({ navigation, route }) {
         {/* Main Cards - Horizontal Rectangles */}
         <View style={styles.cardsContainer}>
           {/* Personal Card */}
-          <TouchableOpacity
-            style={[
-              styles.card,
-              selected === 'personal' && styles.cardActive,
-              selected === 'pro' && styles.cardInactive,
-            ]}
-            onPress={() => handleSelectMain('personal')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.cardIconBox, selected === 'personal' && styles.cardIconBoxActive]}>
-              <Ionicons name="person-outline" size={26} color={COLORS.dark} />
-            </View>
-            <View style={styles.cardTextBox}>
-              <Text style={[styles.cardTitle, selected === 'pro' && styles.cardTextInactive]}>Personal</Text>
-              <Text style={[styles.cardDesc, selected === 'pro' && styles.cardTextInactive]}>Sports lover & fitness enthusiast</Text>
-            </View>
-            <View style={[styles.radio, selected === 'personal' && styles.radioActive]}>
-              {selected === 'personal' && <View style={styles.radioInner} />}
-            </View>
-          </TouchableOpacity>
+          {selected === 'personal' ? (
+            <LinearGradient
+              colors={GRADIENTS.button}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.cardGradientBorder}
+            >
+              <TouchableOpacity
+                style={styles.cardInner}
+                onPress={() => handleSelectMain('personal')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.cardIconBox, styles.cardIconBoxActive]}>
+                  <Ionicons name="person-outline" size={26} color={COLORS.dark} />
+                </View>
+                <View style={styles.cardTextBox}>
+                  <Text style={styles.cardTitle}>Personal</Text>
+                  <Text style={styles.cardDesc}>For sports lovers & fitness enthusiasts</Text>
+                </View>
+                <View style={[styles.radio, styles.radioActive]}>
+                  <View style={styles.radioInner} />
+                </View>
+              </TouchableOpacity>
+            </LinearGradient>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.card,
+                selected === 'pro' && styles.cardInactive,
+              ]}
+              onPress={() => handleSelectMain('personal')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.cardIconBox}>
+                <Ionicons name="person-outline" size={26} color={COLORS.dark} />
+              </View>
+              <View style={styles.cardTextBox}>
+                <Text style={[styles.cardTitle, selected === 'pro' && styles.cardTextInactive]}>Personal</Text>
+                <Text style={[styles.cardDesc, selected === 'pro' && styles.cardTextInactive]}>For sports lovers & fitness enthusiasts</Text>
+              </View>
+              <View style={styles.radio} />
+            </TouchableOpacity>
+          )}
 
           {/* Professional Card */}
-          <TouchableOpacity
-            style={[
-              styles.card,
-              selected === 'pro' && styles.cardActive,
-              selected === 'personal' && styles.cardInactive,
-            ]}
-            onPress={() => handleSelectMain('pro')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.cardIconBox, selected === 'pro' && styles.cardIconBoxActive]}>
-              <Ionicons name="briefcase-outline" size={26} color={COLORS.dark} />
-            </View>
-            <View style={styles.cardTextBox}>
-              <Text style={[styles.cardTitle, selected === 'personal' && styles.cardTextInactive]}>Professional</Text>
-              <Text style={[styles.cardDesc, selected === 'personal' && styles.cardTextInactive]}>For professionals & businesses</Text>
-            </View>
-            <View style={[styles.radio, selected === 'pro' && styles.radioActive]}>
-              {selected === 'pro' && <View style={styles.radioInner} />}
-            </View>
-          </TouchableOpacity>
+          {selected === 'pro' ? (
+            <LinearGradient
+              colors={GRADIENTS.button}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.cardGradientBorder}
+            >
+              <TouchableOpacity
+                style={styles.cardInner}
+                onPress={() => handleSelectMain('pro')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.cardIconBox, styles.cardIconBoxActive]}>
+                  <Ionicons name="briefcase-outline" size={26} color={COLORS.dark} />
+                </View>
+                <View style={styles.cardTextBox}>
+                  <Text style={styles.cardTitle}>Professional</Text>
+                  <Text style={styles.cardDesc}>For professionals & businesses</Text>
+                </View>
+                <View style={[styles.radio, styles.radioActive]}>
+                  <View style={styles.radioInner} />
+                </View>
+              </TouchableOpacity>
+            </LinearGradient>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.card,
+                selected === 'personal' && styles.cardInactive,
+              ]}
+              onPress={() => handleSelectMain('pro')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.cardIconBox}>
+                <Ionicons name="briefcase-outline" size={26} color={COLORS.dark} />
+              </View>
+              <View style={styles.cardTextBox}>
+                <Text style={[styles.cardTitle, selected === 'personal' && styles.cardTextInactive]}>Professional</Text>
+                <Text style={[styles.cardDesc, selected === 'personal' && styles.cardTextInactive]}>For professionals & businesses</Text>
+              </View>
+              <View style={styles.radio} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Pro Sub-options - Horizontal Rectangles */}
@@ -129,40 +176,88 @@ export default function AccountTypeScreen({ navigation, route }) {
             <Text style={styles.proSubTitle}>What type of professional?</Text>
 
             {/* Creator Card */}
-            <TouchableOpacity
-              style={[styles.proSubCard, proType === 'creator' && styles.proSubCardActive]}
-              onPress={() => handleSelectProType('creator')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.proSubIconBox, proType === 'creator' && styles.proSubIconBoxActive]}>
-                <Ionicons name="videocam-outline" size={22} color={COLORS.dark} />
-              </View>
-              <View style={styles.proSubTextBox}>
-                <Text style={styles.proSubText}>Creator</Text>
-                <Text style={styles.proSubDesc}>Coach, Athlete, Influencer...</Text>
-              </View>
-              <View style={[styles.radio, proType === 'creator' && styles.radioActive]}>
-                {proType === 'creator' && <View style={styles.radioInner} />}
-              </View>
-            </TouchableOpacity>
+            {proType === 'creator' ? (
+              <LinearGradient
+                colors={GRADIENTS.button}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.proSubGradientBorder}
+              >
+                <TouchableOpacity
+                  style={styles.proSubCardInner}
+                  onPress={() => handleSelectProType('creator')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.proSubIconBox, styles.proSubIconBoxActive]}>
+                    <Ionicons name="videocam-outline" size={22} color={COLORS.dark} />
+                  </View>
+                  <View style={styles.proSubTextBox}>
+                    <Text style={styles.proSubText}>Creator</Text>
+                    <Text style={styles.proSubDesc}>Coach, Athlete, Influencer...</Text>
+                  </View>
+                  <View style={[styles.radio, styles.radioActive]}>
+                    <View style={styles.radioInner} />
+                  </View>
+                </TouchableOpacity>
+              </LinearGradient>
+            ) : (
+              <TouchableOpacity
+                style={styles.proSubCard}
+                onPress={() => handleSelectProType('creator')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.proSubIconBox}>
+                  <Ionicons name="videocam-outline" size={22} color={COLORS.dark} />
+                </View>
+                <View style={styles.proSubTextBox}>
+                  <Text style={styles.proSubText}>Creator</Text>
+                  <Text style={styles.proSubDesc}>Coach, Athlete, Influencer...</Text>
+                </View>
+                <View style={styles.radio} />
+              </TouchableOpacity>
+            )}
 
             {/* Business Card */}
-            <TouchableOpacity
-              style={[styles.proSubCard, proType === 'business' && styles.proSubCardActive]}
-              onPress={() => handleSelectProType('business')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.proSubIconBox, proType === 'business' && styles.proSubIconBoxActive]}>
-                <Ionicons name="storefront-outline" size={22} color={COLORS.dark} />
-              </View>
-              <View style={styles.proSubTextBox}>
-                <Text style={styles.proSubText}>Business</Text>
-                <Text style={styles.proSubDesc}>Gym, Studio, Store...</Text>
-              </View>
-              <View style={[styles.radio, proType === 'business' && styles.radioActive]}>
-                {proType === 'business' && <View style={styles.radioInner} />}
-              </View>
-            </TouchableOpacity>
+            {proType === 'business' ? (
+              <LinearGradient
+                colors={GRADIENTS.button}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.proSubGradientBorder}
+              >
+                <TouchableOpacity
+                  style={styles.proSubCardInner}
+                  onPress={() => handleSelectProType('business')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.proSubIconBox, styles.proSubIconBoxActive]}>
+                    <Ionicons name="storefront-outline" size={22} color={COLORS.dark} />
+                  </View>
+                  <View style={styles.proSubTextBox}>
+                    <Text style={styles.proSubText}>Business</Text>
+                    <Text style={styles.proSubDesc}>Gym, Studio, Store...</Text>
+                  </View>
+                  <View style={[styles.radio, styles.radioActive]}>
+                    <View style={styles.radioInner} />
+                  </View>
+                </TouchableOpacity>
+              </LinearGradient>
+            ) : (
+              <TouchableOpacity
+                style={styles.proSubCard}
+                onPress={() => handleSelectProType('business')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.proSubIconBox}>
+                  <Ionicons name="storefront-outline" size={22} color={COLORS.dark} />
+                </View>
+                <View style={styles.proSubTextBox}>
+                  <Text style={styles.proSubText}>Business</Text>
+                  <Text style={styles.proSubDesc}>Gym, Studio, Store...</Text>
+                </View>
+                <View style={styles.radio} />
+              </TouchableOpacity>
+            )}
           </Animated.View>
         )}
 
@@ -218,7 +313,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     marginBottom: SPACING.sm,
   },
-  cardActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+  cardGradientBorder: {
+    borderRadius: SIZES.radiusLg,
+    padding: 2,
+    marginBottom: SPACING.sm,
+  },
+  cardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    borderRadius: SIZES.radiusLg - 2,
+    backgroundColor: '#E8FAF7',
+  },
   cardInactive: { opacity: 0.4 },
   cardIconBox: {
     width: 48,
@@ -263,7 +370,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     marginBottom: SPACING.sm,
   },
-  proSubCardActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+  proSubGradientBorder: {
+    borderRadius: SIZES.radiusLg,
+    padding: 2,
+    marginBottom: SPACING.sm,
+  },
+  proSubCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    borderRadius: SIZES.radiusLg - 2,
+    backgroundColor: '#E8FAF7',
+  },
   proSubIconBox: {
     width: 40,
     height: 40,

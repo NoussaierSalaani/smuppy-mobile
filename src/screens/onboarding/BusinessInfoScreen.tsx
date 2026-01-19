@@ -3,10 +3,11 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator, ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { COLORS, SIZES, SPACING, TYPOGRAPHY } from '../../config/theme';
+import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import { buildPlacesAutocompleteUrl } from '../../config/api';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
@@ -148,11 +149,6 @@ export default function BusinessInfoScreen({ navigation, route }) {
     });
   }, [isFormValid, navigate, params, businessName, username, website, phone, address, socialFields]);
 
-  const getInputStyle = useCallback((field: string, value: string) => {
-    if (value.length > 0) return [styles.inputBox, styles.inputValid];
-    if (focusedField === field) return [styles.inputBox, styles.inputFocused];
-    return [styles.inputBox];
-  }, [focusedField]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -170,58 +166,79 @@ export default function BusinessInfoScreen({ navigation, route }) {
 
           {/* Business Name */}
           <Text style={styles.label}>Business Name <Text style={styles.required}>*</Text></Text>
-          <View style={getInputStyle('businessName', businessName)}>
-            <Ionicons name="business-outline" size={18} color={businessName.length > 0 || focusedField === 'businessName' ? COLORS.primary : COLORS.grayMuted} />
-            <TextInput
-              style={styles.input}
-              placeholder="Your business name"
-              placeholderTextColor={COLORS.grayMuted}
-              value={businessName}
-              onChangeText={setBusinessName}
-              onFocus={() => setFocusedField('businessName')}
-              onBlur={() => setFocusedField(null)}
-              autoCapitalize="words"
-            />
-          </View>
+          <LinearGradient
+            colors={(businessName.length > 0 || focusedField === 'businessName') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, businessName.length > 0 && styles.inputInnerValid]}>
+              <Ionicons name="business-outline" size={18} color={(businessName.length > 0 || focusedField === 'businessName') ? COLORS.primary : COLORS.grayMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="Your business name"
+                placeholderTextColor={COLORS.grayMuted}
+                value={businessName}
+                onChangeText={setBusinessName}
+                onFocus={() => setFocusedField('businessName')}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="words"
+              />
+            </View>
+          </LinearGradient>
 
           {/* Username */}
           <Text style={styles.label}>Username <Text style={styles.required}>*</Text></Text>
-          <View style={getInputStyle('username', username)}>
-            <Text style={styles.atSymbol}>@</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="businessname"
-              placeholderTextColor={COLORS.grayMuted}
-              value={username}
-              onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, ''))}
-              onFocus={() => setFocusedField('username')}
-              onBlur={() => setFocusedField(null)}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
+          <LinearGradient
+            colors={(username.length > 0 || focusedField === 'username') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, username.length > 0 && styles.inputInnerValid]}>
+              <Text style={[styles.atSymbol, !(username.length > 0 || focusedField === 'username') && { color: COLORS.grayMuted }]}>@</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="businessname"
+                placeholderTextColor={COLORS.grayMuted}
+                value={username}
+                onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, ''))}
+                onFocus={() => setFocusedField('username')}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </LinearGradient>
 
           {/* Address */}
           <Text style={styles.label}>Address <Text style={styles.required}>*</Text></Text>
-          <View style={getInputStyle('address', address)}>
-            <TouchableOpacity onPress={detectCurrentLocation} disabled={isLoadingLocation} style={styles.locationBtn}>
-              {isLoadingLocation ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
-              ) : (
-                <Ionicons name="locate" size={18} color={address.length > 0 || focusedField === 'address' ? COLORS.primary : COLORS.grayMuted} />
-              )}
-            </TouchableOpacity>
-            <TextInput
-              style={styles.input}
-              placeholder="Start typing or use location..."
-              placeholderTextColor={COLORS.grayMuted}
-              value={address}
-              onChangeText={handleAddressChange}
-              onFocus={() => setFocusedField('address')}
-              onBlur={() => setFocusedField(null)}
-            />
-            {isLoadingSuggestions && <ActivityIndicator size="small" color={COLORS.primary} />}
-          </View>
+          <LinearGradient
+            colors={(address.length > 0 || focusedField === 'address') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, address.length > 0 && styles.inputInnerValid]}>
+              <TouchableOpacity onPress={detectCurrentLocation} disabled={isLoadingLocation} style={styles.locationBtn}>
+                {isLoadingLocation ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                  <Ionicons name="locate" size={18} color={(address.length > 0 || focusedField === 'address') ? COLORS.primary : COLORS.grayMuted} />
+                )}
+              </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="Start typing or use location..."
+                placeholderTextColor={COLORS.grayMuted}
+                value={address}
+                onChangeText={handleAddressChange}
+                onFocus={() => setFocusedField('address')}
+                onBlur={() => setFocusedField(null)}
+              />
+              {isLoadingSuggestions && <ActivityIndicator size="small" color={COLORS.primary} />}
+            </View>
+          </LinearGradient>
 
           {/* Address Suggestions */}
           {addressSuggestions.length > 0 && focusedField === 'address' && (
@@ -242,33 +259,47 @@ export default function BusinessInfoScreen({ navigation, route }) {
           {/* Optional Fields Row */}
           <Text style={styles.sectionTitle}>Optional</Text>
           <View style={styles.optionalRow}>
-            <View style={[getInputStyle('website', website), styles.optionalInput]}>
-              <Ionicons name="globe-outline" size={18} color={website.length > 0 ? COLORS.primary : COLORS.grayMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder="Website"
-                placeholderTextColor={COLORS.grayMuted}
-                value={website}
-                onChangeText={setWebsite}
-                onFocus={() => setFocusedField('website')}
-                onBlur={() => setFocusedField(null)}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
-            </View>
-            <View style={[getInputStyle('phone', phone), styles.optionalInput]}>
-              <Ionicons name="call-outline" size={18} color={phone.length > 0 ? COLORS.primary : COLORS.grayMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone"
-                placeholderTextColor={COLORS.grayMuted}
-                value={phone}
-                onChangeText={setPhone}
-                onFocus={() => setFocusedField('phone')}
-                onBlur={() => setFocusedField(null)}
-                keyboardType="phone-pad"
-              />
-            </View>
+            <LinearGradient
+              colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.inputGradientBorder, styles.optionalInput]}
+            >
+              <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
+                <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? COLORS.primary : COLORS.grayMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Website"
+                  placeholderTextColor={COLORS.grayMuted}
+                  value={website}
+                  onChangeText={setWebsite}
+                  onFocus={() => setFocusedField('website')}
+                  onBlur={() => setFocusedField(null)}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+              </View>
+            </LinearGradient>
+            <LinearGradient
+              colors={(phone.length > 0 || focusedField === 'phone') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.inputGradientBorder, styles.optionalInput]}
+            >
+              <View style={[styles.inputInner, phone.length > 0 && styles.inputInnerValid]}>
+                <Ionicons name="call-outline" size={18} color={(phone.length > 0 || focusedField === 'phone') ? COLORS.primary : COLORS.grayMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone"
+                  placeholderTextColor={COLORS.grayMuted}
+                  value={phone}
+                  onChangeText={setPhone}
+                  onFocus={() => setFocusedField('phone')}
+                  onBlur={() => setFocusedField(null)}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </LinearGradient>
           </View>
 
           {/* Social Links */}
@@ -287,24 +318,35 @@ export default function BusinessInfoScreen({ navigation, route }) {
               {row.map((field, colIndex) => {
                 const index = rowIndex * 2 + colIndex;
                 const network = getNetworkInfo(field.id);
+                const hasValue = field.value.length > 0;
+                const isFocused = focusedField === `social-${index}`;
+
                 return (
-                  <View key={field.id} style={[getInputStyle(`social-${index}`, field.value), styles.socialInput]}>
-                    <Ionicons
-                      name={network.icon as any}
-                      size={16}
-                      color={field.value.length > 0 ? network.color : COLORS.grayMuted}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder={network.label}
-                      placeholderTextColor={COLORS.grayMuted}
-                      value={field.value}
-                      onChangeText={(v) => updateSocialField(index, v)}
-                      onFocus={() => setFocusedField(`social-${index}`)}
-                      onBlur={() => setFocusedField(null)}
-                      autoCapitalize="none"
-                    />
-                  </View>
+                  <LinearGradient
+                    key={field.id}
+                    colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.inputGradientBorder, styles.socialInput]}
+                  >
+                    <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>
+                      <Ionicons
+                        name={network.icon as any}
+                        size={16}
+                        color={(hasValue || isFocused) ? network.color : COLORS.grayMuted}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder={network.label}
+                        placeholderTextColor={COLORS.grayMuted}
+                        value={field.value}
+                        onChangeText={(v) => updateSocialField(index, v)}
+                        onFocus={() => setFocusedField(`social-${index}`)}
+                        onBlur={() => setFocusedField(null)}
+                        autoCapitalize="none"
+                      />
+                    </View>
+                  </LinearGradient>
                 );
               })}
             </View>
@@ -343,8 +385,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.sm, marginBottom: SPACING.sm },
   addBtn: { padding: 4 },
   inputBox: { flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
-  inputFocused: { borderColor: COLORS.primary, backgroundColor: COLORS.white },
-  inputValid: { borderColor: COLORS.primary, backgroundColor: '#E8FAF7' },
+  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: '#E8FAF7' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 13 },
   atSymbol: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
   locationBtn: { padding: 2 },

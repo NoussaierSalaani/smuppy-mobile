@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { COLORS, SPACING } from '../../config/theme';
+import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import { ENV } from '../../config/env';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
@@ -203,28 +203,47 @@ export default function SignupScreen({ navigation }) {
 
             {/* Email */}
             <Text style={styles.label}>Email address</Text>
-            <View style={[
-              styles.inputBox,
-              // Focused = vert, Valid = vert+fond, Error = rouge (seulement si pas focused ET invalide)
-              !emailFocused && email.length > 0 && !emailValid ? styles.inputError :
-              email.length > 0 ? styles.inputValid :
-              emailFocused ? styles.inputFocused : null,
-            ]}>
-              <Ionicons name="mail-outline" size={20} color={!emailFocused && email.length > 0 && !emailValid ? '#FF3B30' : (email.length > 0 || emailFocused) ? '#00cdb5' : '#9cadbc'} />
-              <TextInput 
-                style={styles.input} 
-                placeholder="mailusersmuppy@mail.com" 
-                placeholderTextColor="#9cadbc" 
-                value={email} 
-                onChangeText={setEmail} 
-                keyboardType="email-address" 
-                autoCapitalize="none" 
-                autoCorrect={false}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-              />
-              {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#00cdb5" />}
-            </View>
+            {(!emailFocused && email.length > 0 && !emailValid) ? (
+              <View style={[styles.inputBox, styles.inputError]}>
+                <Ionicons name="mail-outline" size={20} color="#FF3B30" />
+                <TextInput
+                  style={styles.input}
+                  placeholder="mailusersmuppy@mail.com"
+                  placeholderTextColor="#9cadbc"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => setEmailFocused(false)}
+                />
+              </View>
+            ) : (
+              <LinearGradient
+                colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.inputGradientBorder}
+              >
+                <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? '#00cdb5' : '#9cadbc'} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="mailusersmuppy@mail.com"
+                    placeholderTextColor="#9cadbc"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                  />
+                  {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#00cdb5" />}
+                </View>
+              </LinearGradient>
+            )}
             {!emailFocused && email.length > 0 && !emailValid && (
               <Text style={styles.errorText}>
                 {(() => {
@@ -243,27 +262,29 @@ export default function SignupScreen({ navigation }) {
             {/* Password Section with Overlay */}
             <View style={styles.passwordSection}>
               <Text style={styles.labelPassword}>Password</Text>
-              <View style={[
-                styles.inputBoxPassword,
-                // Focused = vert, Has content = vert+fond (pas de rouge pendant la saisie)
-                password.length > 0 ? styles.inputValid :
-                passwordFocused ? styles.inputFocused : null,
-              ]}>
-                <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? '#00cdb5' : '#9cadbc'} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••••"
-                  placeholderTextColor="#9cadbc"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#9cadbc" />
-                </TouchableOpacity>
-              </View>
+              <LinearGradient
+                colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.inputGradientBorderPassword}
+              >
+                <View style={[styles.inputInnerPassword, password.length > 0 && styles.inputInnerValid]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? '#00cdb5' : '#9cadbc'} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••••"
+                    placeholderTextColor="#9cadbc"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#9cadbc" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
 
               {/* Password Requirements Overlay - show when focused and not all checks passed */}
               {passwordFocused && !allChecksPassed && (
@@ -494,6 +515,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: COLORS.white,
   },
+  inputGradientBorder: {
+    borderRadius: FORM.inputRadius,
+    padding: 2,
+    marginBottom: 16,
+  },
+  inputInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: FORM.inputHeight - 4,
+    borderRadius: FORM.inputRadius - 2,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.white,
+  },
   inputBoxPassword: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -502,21 +536,28 @@ const styles = StyleSheet.create({
     borderColor: '#CED3D5',
     borderRadius: FORM.inputRadius,
     paddingHorizontal: 20,
-    marginBottom: 8, // Réduit car requirements/strength ajoutent leur propre espacement
+    marginBottom: 8,
     backgroundColor: COLORS.white,
   },
-  inputFocused: {
-    borderColor: '#00cdb5',
-    borderWidth: 2,
-    backgroundColor: COLORS.white, // Focused sans contenu = fond blanc
+  inputGradientBorderPassword: {
+    borderRadius: FORM.inputRadius,
+    padding: 2,
+    marginBottom: 8,
   },
-  inputValid: {
-    borderColor: '#00cdb5',
-    borderWidth: 2,
-    backgroundColor: '#E6FAF8', // Avec contenu valide = fond vert transparent
+  inputInnerPassword: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: FORM.inputHeight - 4,
+    borderRadius: FORM.inputRadius - 2,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.white,
   },
-  inputError: { 
+  inputInnerValid: {
+    backgroundColor: '#E6FAF8',
+  },
+  inputError: {
     borderColor: '#FF3B30',
+    borderWidth: 2,
     backgroundColor: '#FEF2F2',
     marginBottom: 4,
   },

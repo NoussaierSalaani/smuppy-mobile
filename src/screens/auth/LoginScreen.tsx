@@ -298,18 +298,6 @@ export default function LoginScreen({ navigation }) {
 
   const isFormValid = email.length > 0 && password.length > 0;
 
-  const getEmailInputStyle = () => {
-    if (email.length > 0) return [styles.inputBox, styles.inputValid];
-    if (emailFocused) return [styles.inputBox, styles.inputFocused];
-    return [styles.inputBox];
-  };
-
-  const getPasswordInputStyle = () => {
-    if (password.length > 0) return [styles.inputBox, styles.inputValid];
-    if (passwordFocused) return [styles.inputBox, styles.inputFocused];
-    return [styles.inputBox];
-  };
-
   const getEmailIconColor = () => {
     if (email.length > 0 || emailFocused) return COLORS.primary;
     return COLORS.grayMuted;
@@ -398,43 +386,57 @@ export default function LoginScreen({ navigation }) {
             {/* Email Input */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Email address</Text>
-              <View style={getEmailInputStyle()}>
-                <Ionicons name="mail-outline" size={20} color={getEmailIconColor()} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="mailusersmuppy@mail.com" 
-                  placeholderTextColor={COLORS.grayMuted} 
-                  value={email} 
-                  onChangeText={setEmail} 
-                  keyboardType="email-address" 
-                  autoCapitalize="none" 
-                  autoCorrect={false} 
-                  onFocus={() => setEmailFocused(true)} 
-                  onBlur={() => setEmailFocused(false)} 
-                />
-              </View>
+              <LinearGradient
+                colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.inputGradientBorder}
+              >
+                <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? COLORS.primary : COLORS.grayMuted} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="mailusersmuppy@mail.com"
+                    placeholderTextColor={COLORS.grayMuted}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                  />
+                </View>
+              </LinearGradient>
             </View>
 
             {/* Password Input */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Password</Text>
-              <View style={getPasswordInputStyle()}>
-                <Ionicons name="lock-closed-outline" size={20} color={getPasswordIconColor()} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="••••••••••" 
-                  placeholderTextColor={COLORS.grayMuted} 
-                  value={password} 
-                  onChangeText={setPassword} 
-                  secureTextEntry={!showPassword} 
-                  autoCorrect={false} 
-                  onFocus={() => setPasswordFocused(true)} 
-                  onBlur={() => setPasswordFocused(false)} 
-                />
-                <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
-                </TouchableOpacity>
-              </View>
+              <LinearGradient
+                colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.inputGradientBorder}
+              >
+                <View style={[styles.inputInner, password.length > 0 && styles.inputInnerValid]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? COLORS.primary : COLORS.grayMuted} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••••"
+                    placeholderTextColor={COLORS.grayMuted}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCorrect={false}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                  />
+                  <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
             </View>
 
             {/* Remember Me */}
@@ -613,8 +615,9 @@ const styles = StyleSheet.create({
   
   // Input
   inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: COLORS.white },
-  inputFocused: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.white },
-  inputValid: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.backgroundValid },
+  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   input: { flex: 1, fontSize: 16, color: COLORS.dark, marginLeft: 12 },
 
   // Remember Me

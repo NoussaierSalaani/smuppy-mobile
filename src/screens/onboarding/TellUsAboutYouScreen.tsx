@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView, KeyboardAvoidingView, Modal, Keyboard } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
+import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -76,11 +77,6 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
     setLoading(false);
   }, [navigation, email, password, accountType, name, bio, gender, date, isFormValid, loading]);
 
-  const getInputStyle = useCallback((field: string, hasValue: boolean) => {
-    if (hasValue) return [styles.inputBox, styles.inputValid];
-    if (focusedField === field) return [styles.inputBox, styles.inputFocused];
-    return [styles.inputBox];
-  }, [focusedField]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -101,68 +97,123 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
 
           {/* Name Input */}
           <Text style={styles.label}>Full name <Text style={styles.required}>*</Text></Text>
-          <View style={getInputStyle('name', hasName)}>
-            <Ionicons name="person-outline" size={20} color={hasName || focusedField === 'name' ? COLORS.primary : COLORS.grayMuted} />
-            <TextInput
-              style={styles.input}
-              placeholder="Your name"
-              placeholderTextColor={COLORS.grayMuted}
-              value={name}
-              onChangeText={setName}
-              returnKeyType="done"
-              autoCapitalize="words"
-              onFocus={() => setFocusedField('name')}
-              onBlur={() => setFocusedField(null)}
-            />
-          </View>
+          <LinearGradient
+            colors={(hasName || focusedField === 'name') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, hasName && styles.inputInnerValid]}>
+              <Ionicons name="person-outline" size={20} color={(hasName || focusedField === 'name') ? COLORS.primary : COLORS.grayMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="Your name"
+                placeholderTextColor={COLORS.grayMuted}
+                value={name}
+                onChangeText={setName}
+                returnKeyType="done"
+                autoCapitalize="words"
+                onFocus={() => setFocusedField('name')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+          </LinearGradient>
 
           {/* Bio Input */}
           <Text style={styles.label}>Bio</Text>
-          <View style={[getInputStyle('bio', bio.length > 0), styles.bioBox]}>
-            <TextInput
-              style={styles.bioInput}
-              placeholder="Tell us a bit about yourself..."
-              placeholderTextColor={COLORS.grayMuted}
-              value={bio}
-              onChangeText={setBio}
-              multiline
-              maxLength={100}
-              onFocus={() => setFocusedField('bio')}
-              onBlur={() => setFocusedField(null)}
-            />
-          </View>
+          <LinearGradient
+            colors={(bio.length > 0 || focusedField === 'bio') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.inputGradientBorder, styles.bioGradientBorder]}
+          >
+            <View style={[styles.bioInner, bio.length > 0 && styles.inputInnerValid]}>
+              <TextInput
+                style={styles.bioInput}
+                placeholder="Tell us a bit about yourself..."
+                placeholderTextColor={COLORS.grayMuted}
+                value={bio}
+                onChangeText={setBio}
+                multiline
+                maxLength={100}
+                onFocus={() => setFocusedField('bio')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+          </LinearGradient>
           <Text style={styles.charCount}>{bio.length}/100</Text>
 
           {/* Gender Selection */}
           <Text style={styles.label}>Gender <Text style={styles.required}>*</Text></Text>
           <View style={styles.genderRow}>
             {GENDERS.map((g) => (
-              <TouchableOpacity
-                key={g.id}
-                style={[styles.genderBox, gender === g.id && { borderColor: g.color, borderWidth: 2 }]}
-                onPress={() => selectGender(g.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.genderIcon, { backgroundColor: `${g.color}15` }, gender === g.id && { backgroundColor: g.color }]}>
-                  <Ionicons name={g.icon as any} size={28} color={gender === g.id ? COLORS.white : g.color} />
-                </View>
-                <Text style={[styles.genderText, gender === g.id && { color: g.color }]}>{g.label}</Text>
-              </TouchableOpacity>
+              gender === g.id ? (
+                <LinearGradient
+                  key={g.id}
+                  colors={GRADIENTS.button}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.genderGradientBorder}
+                >
+                  <TouchableOpacity
+                    style={styles.genderBoxInner}
+                    onPress={() => selectGender(g.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.genderIcon, { backgroundColor: g.color }]}>
+                      <Ionicons name={g.icon as any} size={28} color={COLORS.white} />
+                    </View>
+                    <Text style={[styles.genderText, { color: g.color }]}>{g.label}</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              ) : (
+                <TouchableOpacity
+                  key={g.id}
+                  style={styles.genderBox}
+                  onPress={() => selectGender(g.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.genderIcon, { backgroundColor: `${g.color}15` }]}>
+                    <Ionicons name={g.icon as any} size={28} color={g.color} />
+                  </View>
+                  <Text style={styles.genderText}>{g.label}</Text>
+                </TouchableOpacity>
+              )
             ))}
           </View>
 
           {/* Date of Birth */}
           <Text style={styles.label}>Date of birth <Text style={styles.required}>*</Text></Text>
-          <TouchableOpacity
-            style={[styles.inputBox, ageError ? styles.inputError : hasSelectedDate && styles.inputValid]}
-            onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar-outline" size={20} color={ageError ? COLORS.error : hasSelectedDate ? COLORS.primary : COLORS.grayMuted} />
-            <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
-              {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
-            </Text>
-          </TouchableOpacity>
+          {ageError ? (
+            <TouchableOpacity
+              style={[styles.inputBox, styles.inputError]}
+              onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color={COLORS.error} />
+              <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
+                {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <LinearGradient
+              colors={hasSelectedDate ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.inputGradientBorder}
+            >
+              <TouchableOpacity
+                style={[styles.inputInner, hasSelectedDate && styles.inputInnerValid]}
+                onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={20} color={hasSelectedDate ? COLORS.primary : COLORS.grayMuted} />
+                <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
+                  {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
+                </Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          )}
 
           {!!ageError && (
             <View style={styles.errorRow}>
@@ -247,17 +298,22 @@ const styles = StyleSheet.create({
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
   required: { color: COLORS.error },
   inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
-  inputFocused: { borderColor: COLORS.primary, backgroundColor: COLORS.white },
-  inputValid: { borderColor: COLORS.primary, backgroundColor: '#E8FAF7' },
+  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: '#E8FAF7' },
   inputError: { borderColor: COLORS.error, backgroundColor: '#FEE' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14 },
   bioBox: { height: 60, alignItems: 'flex-start', paddingVertical: SPACING.sm },
+  bioGradientBorder: { marginBottom: SPACING.sm },
+  bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm - 2, backgroundColor: COLORS.white },
   bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, textAlignVertical: 'top', width: '100%' },
   charCount: { fontSize: 11, color: COLORS.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.sm },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -SPACING.xs, marginBottom: SPACING.sm, gap: 6 },
   errorText: { fontSize: 13, color: COLORS.error },
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.md, gap: SPACING.sm },
   genderBox: { width: 95, height: 95, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusLg, justifyContent: 'center', alignItems: 'center' },
+  genderGradientBorder: { width: 95, height: 95, borderRadius: SIZES.radiusLg, padding: 2 },
+  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusLg - 2, backgroundColor: '#E8FAF7', justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xs },
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark },
   dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.md },

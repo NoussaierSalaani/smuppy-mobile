@@ -159,13 +159,6 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   const isFormValid = email.trim().length > 0;
 
-  const getInputStyle = useCallback(() => {
-    if (hasSubmitted && emailError) return [styles.inputBox, styles.inputError];
-    if (email.length > 0) return [styles.inputBox, styles.inputValid];
-    if (isFocused) return [styles.inputBox, styles.inputFocused];
-    return [styles.inputBox];
-  }, [hasSubmitted, emailError, email, isFocused]);
-
   const getIconColor = useCallback(() => {
     if (hasSubmitted && emailError) return COLORS.error;
     if (email.length > 0 || isFocused) return COLORS.primary;
@@ -191,26 +184,56 @@ export default function ForgotPasswordScreen({ navigation }) {
 
             {/* Email Input */}
             <Text style={styles.label}>Email address</Text>
-            <View style={getInputStyle()}>
-              <Ionicons name="mail-outline" size={20} color={getIconColor()} />
-              <TextInput
-                style={styles.input}
-                placeholder="mailusersmuppy@mail.com"
-                placeholderTextColor={COLORS.grayMuted}
-                value={email}
-                onChangeText={handleEmailChange}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {email.length > 0 && (
-                <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="close-circle" size={20} color={COLORS.grayMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
+            {(hasSubmitted && emailError) ? (
+              <View style={[styles.inputBox, styles.inputError]}>
+                <Ionicons name="mail-outline" size={20} color={COLORS.error} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="mailusersmuppy@mail.com"
+                  placeholderTextColor={COLORS.grayMuted}
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {email.length > 0 && (
+                  <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="close-circle" size={20} color={COLORS.grayMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <LinearGradient
+                colors={(email.length > 0 || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.inputGradientBorder}
+              >
+                <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || isFocused) ? COLORS.primary : COLORS.grayMuted} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="mailusersmuppy@mail.com"
+                    placeholderTextColor={COLORS.grayMuted}
+                    value={email}
+                    onChangeText={handleEmailChange}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {email.length > 0 && (
+                    <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                      <Ionicons name="close-circle" size={20} color={COLORS.grayMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </LinearGradient>
+            )}
 
             {hasSubmitted && emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
@@ -334,8 +357,9 @@ const styles = StyleSheet.create({
   // Input
   label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: 8 },
   inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, marginBottom: 8, backgroundColor: COLORS.white },
-  inputFocused: { borderColor: COLORS.primary, borderWidth: 2 },
-  inputValid: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.backgroundValid },
+  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 8 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   inputError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: COLORS.errorLight },
   input: { flex: 1, fontSize: 16, color: COLORS.dark, marginLeft: 12 },
   errorText: { fontSize: 13, color: COLORS.error, marginBottom: 16, marginLeft: 8 },

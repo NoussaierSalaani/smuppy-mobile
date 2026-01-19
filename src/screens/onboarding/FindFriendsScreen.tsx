@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,18 @@ import { ENV } from '../../config/env';
 
 export default function FindFriendsScreen({ navigation, route }) {
   const params = route?.params || {};
+  const { accountType } = params;
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+
+  // Determine step based on account type
+  // Personal: step 3/5, Pro Creator: step 4/6, Pro Business: step 3/5
+  const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') {
+      return { currentStep: 4, totalSteps: 6 };
+    }
+    // Personal and Pro Business both have 5 steps, FindFriends is step 3
+    return { currentStep: 3, totalSteps: 5 };
+  }, [accountType]);
 
   const [loading, setLoading] = useState(false);
   const [friendsFound, setFriendsFound] = useState<number | null>(null);
@@ -107,8 +118,8 @@ export default function FindFriendsScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Progress Bar - Pro Creator flow step 4/6 */}
-      <OnboardingHeader onBack={goBack} disabled={disabled || loading} currentStep={4} totalSteps={6} />
+      {/* Header with Progress Bar */}
+      <OnboardingHeader onBack={goBack} disabled={disabled || loading} currentStep={currentStep} totalSteps={totalSteps} />
 
       <View style={styles.content}>
         {/* Icon */}

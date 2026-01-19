@@ -49,8 +49,8 @@ export default function BusinessCategoryScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        {/* Header with Progress Bar - Pro Business flow step 1/4 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
+        {/* Header with Progress Bar - Pro Business flow step 1/5 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={5} />
 
         {/* Title */}
         <View style={styles.titleBox}>

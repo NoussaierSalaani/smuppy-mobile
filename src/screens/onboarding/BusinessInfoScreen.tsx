@@ -172,7 +172,7 @@ export default function BusinessInfoScreen({ navigation, route }) {
     // Combine country code with phone number if phone is provided
     const fullPhone = phoneNumber.trim() ? `${countryCode.code} ${phoneNumber.trim()}` : '';
 
-    navigate('Guidelines', {
+    navigate('FindFriends', {
       ...params,
       profileImage,
       businessName: businessName.trim(),
@@ -187,8 +187,8 @@ export default function BusinessInfoScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Pro Business flow step 2/4 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={4} />
+        {/* Header with Progress Bar - Pro Business flow step 2/5 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={5} />
 
         <View style={styles.content}>
           <View style={styles.header}>
@@ -245,7 +245,7 @@ export default function BusinessInfoScreen({ navigation, route }) {
 
           {/* Dynamic Welcome Greeting */}
           {hasBusinessName && (
-            <Text style={styles.greeting}>Welcome to Smuppy, {businessName.trim()}! 🎉</Text>
+            <Text style={styles.greeting}>Welcome to Smuppy, <Text style={styles.greetingName}>{businessName.trim()}</Text>! 🎉</Text>
           )}
 
           {/* Address */}
@@ -466,7 +466,8 @@ const styles = StyleSheet.create({
   profileImage: { width: '100%', height: '100%', borderRadius: 34 },
   photoBadge: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
   photoLabel: { fontSize: 11, color: COLORS.grayMuted, marginTop: 4 },
-  greeting: { fontSize: 14, fontWeight: '600', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
+  greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
+  greetingName: { fontWeight: '700', color: COLORS.dark },
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
   required: { color: COLORS.error },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.xs, marginBottom: SPACING.xs },

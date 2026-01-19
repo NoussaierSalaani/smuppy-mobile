@@ -187,6 +187,8 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
               showsVerticalScrollIndicator={false}
               onScroll={handleSocialScroll}
               scrollEventThrottle={16}
+              snapToInterval={60}
+              decelerationRate="fast"
             >
               {socialFields.map((field, index) => {
                 const network = getNetworkInfo(field.id);
@@ -252,34 +254,34 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
+  scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg },
   skipRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: SPACING.sm },
   skipText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
-  header: { alignItems: 'center', marginBottom: SPACING.md },
+  header: { alignItems: 'center', marginBottom: SPACING.lg },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
   subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.sm },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.sm },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
   addBtn: { padding: 4 },
-  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
+  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.md },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight - 4, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
   inputInnerValid: { backgroundColor: '#E8FAF7' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14 },
-  bioGradientBorder: { height: 100, marginBottom: SPACING.sm },
+  bioGradientBorder: { height: 110, marginBottom: SPACING.sm },
   bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm, backgroundColor: COLORS.white },
   bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, textAlignVertical: 'top', width: '100%' },
-  charCount: { fontSize: 11, color: COLORS.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.sm },
+  charCount: { fontSize: 11, color: COLORS.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.md },
   // Social links with scroll indicator
-  socialContainer: { flex: 1, flexDirection: 'row', maxHeight: 180 },
+  socialContainer: { flexDirection: 'row', minHeight: 180, maxHeight: 240 },
   scrollIndicatorContainer: { width: 6, marginRight: SPACING.xs, justifyContent: 'center' },
   scrollIndicatorTrack: { width: 3, height: '100%', backgroundColor: COLORS.grayLight, borderRadius: 2, position: 'relative' },
   scrollIndicatorThumb: { position: 'absolute', width: 3, height: '30%', borderRadius: 2 },
   socialScroll: { flex: 1 },
   socialScrollWithIndicator: { marginLeft: 0 },
-  socialFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xs },
+  socialFieldRow: { flexDirection: 'row', alignItems: 'center', height: 56, marginBottom: SPACING.xs },
   socialInputFlex: { flex: 1, marginBottom: 0 },
   removeBtn: { marginLeft: SPACING.xs, padding: 4 },
-  spacer: { flex: 1, minHeight: SPACING.sm },
-  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
+  spacer: { flex: 1, minHeight: SPACING.xl },
+  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.grayLight },
 });

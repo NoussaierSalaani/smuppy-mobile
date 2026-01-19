@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,10 +8,7 @@ import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// Note: LayoutAnimation removed to prevent position jumping on selection
 
 const EXPERTISE_DATA = [
   {
@@ -82,14 +79,12 @@ export default function ExpertiseScreen({ navigation, route }) {
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const toggle = useCallback((itemName: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelected(prev =>
       prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
     );
   }, []);
 
   const toggleCategory = useCallback((category: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedCategories(prev =>
       prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
     );
@@ -253,10 +248,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: COLORS.grayLight,
     gap: 6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   chipGradientBorder: {
     borderRadius: 25,
     padding: 1.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   chipSelectedInner: {
     flexDirection: 'row',
@@ -266,6 +265,8 @@ const styles = StyleSheet.create({
     borderRadius: 23.5,
     backgroundColor: '#E8FAF7',
     gap: 6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   chipText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
   chipCheck: { width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginLeft: 2 },

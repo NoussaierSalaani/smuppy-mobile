@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { SOCIAL_NETWORKS } from '../../config/constants';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
@@ -244,9 +243,6 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
           >
             {hasAnyData ? 'Next' : 'Skip for Now'}
           </Button>
-          <View style={styles.logoFooter}>
-            <SmuppyText width={120} variant="dark" />
-          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -286,5 +282,4 @@ const styles = StyleSheet.create({
   removeBtn: { marginLeft: SPACING.xs, padding: 4 },
   spacer: { flex: 1, minHeight: SPACING.sm },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
-  logoFooter: { alignItems: 'center', paddingTop: SPACING.sm },
 });

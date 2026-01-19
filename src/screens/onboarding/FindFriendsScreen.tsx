@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { supabase } from '../../config/supabase';
@@ -193,11 +192,6 @@ export default function FindFriendsScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <SmuppyText width={120} variant="dark" />
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -228,6 +222,4 @@ const styles = StyleSheet.create({
   btnContainer: { marginBottom: SPACING.lg },
   skipBtn: { alignItems: 'center', paddingVertical: SPACING.lg },
   skipText: { fontSize: 16, color: COLORS.darkGray, textDecorationLine: 'underline' },
-
-  footer: { alignItems: 'center', paddingTop: SPACING.sm, paddingBottom: SPACING.md },
 });

@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
@@ -274,11 +273,6 @@ export default function AccountTypeScreen({ navigation, route }) {
             Next
           </Button>
         </View>
-
-        {/* Logo Footer */}
-        <View style={styles.footer}>
-          <SmuppyText width={120} variant="dark" />
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -395,5 +389,4 @@ const styles = StyleSheet.create({
 
   // Bottom
   bottomSection: { paddingBottom: SPACING.sm },
-  footer: { alignItems: 'center', paddingBottom: SPACING.md },
 });

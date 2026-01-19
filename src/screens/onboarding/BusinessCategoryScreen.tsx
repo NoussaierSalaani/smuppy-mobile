@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
@@ -193,11 +192,6 @@ export default function BusinessCategoryScreen({ navigation, route }) {
             Next
           </Button>
         </View>
-
-        {/* Logo Footer */}
-        <View style={styles.footer}>
-          <SmuppyText width={120} variant="dark" />
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -287,5 +281,4 @@ const styles = StyleSheet.create({
 
   // Bottom
   bottomSection: { paddingBottom: SPACING.sm },
-  footer: { alignItems: 'center', paddingBottom: SPACING.md },
 });

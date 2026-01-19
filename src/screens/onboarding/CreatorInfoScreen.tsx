@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
@@ -191,9 +190,6 @@ export default function CreatorInfoScreen({ navigation, route }) {
           <Button variant="primary" size="lg" icon="arrow-forward" iconPosition="right" disabled={!isFormValid || disabled} onPress={handleNext}>
             Next
           </Button>
-          <View style={styles.logoFooter}>
-            <SmuppyText width={120} variant="dark" />
-          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -252,7 +248,6 @@ const styles = StyleSheet.create({
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark },
   spacer: { flex: 1, minHeight: SPACING.sm },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
-  logoFooter: { alignItems: 'center', paddingTop: SPACING.sm },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
   pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },

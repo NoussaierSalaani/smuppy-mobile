@@ -11,7 +11,6 @@ import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/them
 import { buildPlacesAutocompleteUrl } from '../../config/api';
 import { SOCIAL_NETWORKS, COUNTRY_CODES } from '../../config/constants';
 import Button from '../../components/Button';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
@@ -394,9 +393,6 @@ export default function BusinessInfoScreen({ navigation, route }) {
           <Button variant="primary" size="lg" icon="arrow-forward" iconPosition="right" disabled={!isFormValid || disabled} onPress={handleNext}>
             Next
           </Button>
-          <View style={styles.logoFooter}>
-            <SmuppyText width={120} variant="dark" />
-          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -447,5 +443,4 @@ const styles = StyleSheet.create({
   socialInputFlex: { flex: 1, marginBottom: 0 },
   removeBtn: { marginLeft: SPACING.xs, padding: 4 },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
-  logoFooter: { alignItems: 'center', paddingTop: SPACING.sm },
 });

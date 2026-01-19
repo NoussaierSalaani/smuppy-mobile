@@ -118,6 +118,10 @@ export default function BusinessInfoScreen({ navigation, route }) {
     }
   }, [socialFields]);
 
+  const removeSocialField = useCallback((index: number) => {
+    setSocialFields(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const getNetworkInfo = (id: string) => SOCIAL_NETWORKS.find(n => n.id === id) || SOCIAL_NETWORKS[0];
 
   const canAddMore = socialFields.length < MAX_SOCIAL_FIELDS;
@@ -287,22 +291,20 @@ export default function BusinessInfoScreen({ navigation, route }) {
             )}
           </View>
 
-          {/* Social Fields - 2 per row */}
-          {socialRows.map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.socialRow}>
-              {row.map((field, colIndex) => {
-                const index = rowIndex * 2 + colIndex;
-                const network = getNetworkInfo(field.id);
-                const hasValue = field.value.length > 0;
-                const isFocused = focusedField === `social-${index}`;
+          {/* Social Fields - Scrollable */}
+          <ScrollView style={styles.socialScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            {socialFields.map((field, index) => {
+              const network = getNetworkInfo(field.id);
+              const hasValue = field.value.length > 0;
+              const isFocused = focusedField === `social-${index}`;
 
-                return (
+              return (
+                <View key={field.id} style={styles.socialFieldRow}>
                   <LinearGradient
-                    key={field.id}
                     colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={[styles.inputGradientBorder, styles.socialInput]}
+                    style={[styles.inputGradientBorder, styles.socialInputFlex]}
                   >
                     <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>
                       <Ionicons
@@ -322,13 +324,13 @@ export default function BusinessInfoScreen({ navigation, route }) {
                       />
                     </View>
                   </LinearGradient>
-                );
-              })}
-            </View>
-          ))}
-
-          {/* Spacer */}
-          <View style={styles.spacer} />
+                  <TouchableOpacity style={styles.removeBtn} onPress={() => removeSocialField(index)}>
+                    <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </ScrollView>
         </ScrollView>
 
         {/* Fixed Footer */}
@@ -368,8 +370,10 @@ const styles = StyleSheet.create({
   suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
   suggestionLast: { borderBottomWidth: 0 },
   suggestionText: { flex: 1, fontSize: 13, color: COLORS.dark, marginLeft: SPACING.xs },
-  socialRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.xs },
-  socialInput: { flex: 1, marginBottom: 0 },
+  socialScroll: { maxHeight: 180 },
+  socialFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xs },
+  socialInputFlex: { flex: 1, marginBottom: 0 },
+  removeBtn: { marginLeft: SPACING.xs, padding: 4 },
   spacer: { flex: 1, minHeight: SPACING.sm },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
   logoFooter: { alignItems: 'center', paddingTop: SPACING.sm },

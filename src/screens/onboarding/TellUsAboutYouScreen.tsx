@@ -7,6 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const MIN_AGE = 16;
@@ -81,15 +82,10 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity
-            style={[styles.backBtn, disabled && styles.disabled]}
-            onPress={goBack}
-            disabled={disabled}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
-          </TouchableOpacity>
+        {/* Header with Progress Bar - Personal flow step 1/4 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
 
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Text style={styles.title}>Tell us about you</Text>
             <Text style={styles.subtitle}>Help us personalize your experience</Text>
@@ -289,8 +285,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING.sm },
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.lg },
+  scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
   disabled: { opacity: 0.6 },
   header: { alignItems: 'center', marginBottom: SPACING.lg },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },

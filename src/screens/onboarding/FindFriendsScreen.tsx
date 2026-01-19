@@ -6,6 +6,7 @@ import * as Contacts from 'expo-contacts';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { supabase } from '../../config/supabase';
 import { ENV } from '../../config/env';
@@ -107,16 +108,10 @@ export default function FindFriendsScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Back Button */}
-        <TouchableOpacity
-          style={[styles.backBtn, disabled && styles.backBtnDisabled]}
-          onPress={goBack}
-          disabled={disabled || loading}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
-        </TouchableOpacity>
+      {/* Header with Progress Bar - Pro Creator flow step 4/6 */}
+      <OnboardingHeader onBack={goBack} disabled={disabled || loading} currentStep={4} totalSteps={6} />
 
+      <View style={styles.content}>
         {/* Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
@@ -210,9 +205,7 @@ export default function FindFriendsScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  content: { flex: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base },
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
-  backBtnDisabled: { opacity: 0.6 },
+  content: { flex: 1, paddingHorizontal: SPACING.xl },
 
   iconContainer: { alignItems: 'center', marginBottom: SPACING.xl },
   iconCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: `${COLORS.primary}15`, justifyContent: 'center', alignItems: 'center' },

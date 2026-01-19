@@ -1,25 +1,36 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 export default function GuidelinesScreen({ navigation, route }) {
   const params = route?.params || {};
+  const { accountType } = params;
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+
+  // Determine step based on account type
+  // Personal: step 3/4, Pro Creator: step 5/6, Pro Business: step 3/4
+  const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') {
+      return { currentStep: 5, totalSteps: 6 };
+    }
+    // Personal and Pro Business both have 4 steps, Guidelines is step 3
+    return { currentStep: 3, totalSteps: 4 };
+  }, [accountType]);
 
   const handleAccept = () => navigate('VerifyCode', params);
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header with Progress Bar */}
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={currentStep} totalSteps={totalSteps} />
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <TouchableOpacity style={[styles.backBtn, disabled && styles.backBtnDisabled]} onPress={goBack} disabled={disabled}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
-        </TouchableOpacity>
 
         {/* Logo */}
         <View style={styles.logoContainer}>
@@ -137,9 +148,7 @@ export default function GuidelinesScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING['3xl'] },
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.lg },
-  backBtnDisabled: { opacity: 0.6 },
+  scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
   logoContainer: { alignItems: 'center', marginBottom: SPACING.lg },
   title: { fontSize: 32, fontWeight: '900', color: '#111214', textAlign: 'left', marginBottom: SPACING.xs, lineHeight: 38 },
   subtitle: { fontSize: 16, fontWeight: '400', color: '#111214', textAlign: 'left', marginBottom: SPACING.xl },

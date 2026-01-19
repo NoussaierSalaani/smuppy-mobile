@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const { width } = Dimensions.get('window');
@@ -91,12 +92,8 @@ export default function ExpertiseScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header - Fixed */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={goBack} disabled={disabled}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
-        </TouchableOpacity>
-      </View>
+      {/* Header with Progress Bar - Pro Creator flow step 3/6 */}
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={3} totalSteps={6} />
 
       {/* Title - Fixed */}
       <View style={styles.titleBox}>
@@ -182,10 +179,6 @@ export default function ExpertiseScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-
-  // Header - Fixed
-  header: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, marginBottom: SPACING.md },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.dark, justifyContent: 'center', alignItems: 'center' },
 
   // Title - Fixed
   titleBox: { alignItems: 'center', paddingHorizontal: SPACING.xl, marginBottom: SPACING.sm },

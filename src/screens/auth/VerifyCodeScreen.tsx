@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard
@@ -12,6 +12,7 @@ import { supabase } from '../../config/supabase';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { createProfile } from '../../services/database';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -57,6 +58,16 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
+
+  // Determine step based on account type - VerifyCode is the last step
+  // Personal: step 4/4, Pro Creator: step 6/6, Pro Business: step 4/4
+  const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') {
+      return { currentStep: 6, totalSteps: 6 };
+    }
+    // Personal and Pro Business both have 4 steps
+    return { currentStep: 4, totalSteps: 4 };
+  }, [accountType]);
 
   // Animation shake
   const triggerShake = useCallback(() => {
@@ -304,20 +315,14 @@ export default function VerifyCodeScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        {/* Header with Progress Bar - last step for all flows */}
+        <OnboardingHeader onBack={goBack} disabled={disabled || isVerifying} currentStep={currentStep} totalSteps={totalSteps} />
+
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back Button */}
-          <TouchableOpacity
-            style={[styles.backBtn, disabled && styles.disabled]}
-            onPress={goBack}
-            disabled={disabled || isVerifying}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
-          </TouchableOpacity>
-
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Verify your email</Text>
@@ -450,11 +455,8 @@ export default function VerifyCodeScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING['3xl'] },
+  content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
   disabled: { opacity: 0.6 },
-
-  // Back Button
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },

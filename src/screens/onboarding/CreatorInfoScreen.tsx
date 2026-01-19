@@ -10,6 +10,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const MIN_AGE = 16;
@@ -71,12 +72,10 @@ export default function CreatorInfoScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={goBack} disabled={disabled}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
-          </TouchableOpacity>
+        {/* Header with Progress Bar - Pro Creator flow step 1/6 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={6} />
 
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Text style={styles.title}>Creator Profile</Text>
             <Text style={styles.subtitle}>Tell us about yourself</Text>
@@ -229,8 +228,7 @@ export default function CreatorInfoScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING.sm },
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
+  content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
   disabled: { opacity: 0.6 },
   header: { alignItems: 'center', marginBottom: 24 },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },

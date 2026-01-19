@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, ScrollView,
@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const SOCIAL_NETWORKS = [
@@ -22,21 +23,16 @@ const SOCIAL_NETWORKS = [
   { id: 'pinterest', icon: 'logo-pinterest', label: 'Pinterest', color: '#E60023' },
 ];
 
-const MAX_SOCIAL_FIELDS = 8;
-
 export default function CreatorOptionalInfoScreen({ navigation, route }) {
   const [bio, setBio] = useState('');
   const [website, setWebsite] = useState('');
   const [socialFields, setSocialFields] = useState<{ id: string; value: string }[]>([
     { id: 'instagram', value: '' },
-    { id: 'tiktok', value: '' },
-    { id: 'youtube', value: '' },
-    { id: 'twitter', value: '' },
-    { id: 'facebook', value: '' },
-    { id: 'snapchat', value: '' },
   ]);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
+  const socialScrollRef = useRef<ScrollView>(null);
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
@@ -76,34 +72,44 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
   const addSocialField = useCallback(() => {
     const usedIds = socialFields.map(f => f.id);
     const available = SOCIAL_NETWORKS.filter(n => !usedIds.includes(n.id));
-    if (available.length > 0 && socialFields.length < MAX_SOCIAL_FIELDS) {
+    if (available.length > 0) {
       setSocialFields(prev => [...prev, { id: available[0].id, value: '' }]);
     }
   }, [socialFields]);
 
+  const removeSocialField = useCallback((index: number) => {
+    // Keep at least one social link field
+    setSocialFields(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev);
+  }, []);
 
   const getNetworkInfo = (id: string) => SOCIAL_NETWORKS.find(n => n.id === id) || SOCIAL_NETWORKS[0];
 
   const hasAnyData = bio.trim() || website.trim() || socialFields.some(f => f.value.trim());
 
-  // Check if can add more fields
-  const canAddMore = socialFields.length < MAX_SOCIAL_FIELDS;
+  // Check if can add more fields (available networks not currently shown)
+  const usedIds = socialFields.map(f => f.id);
+  const canAddMore = SOCIAL_NETWORKS.some(n => !usedIds.includes(n.id));
 
-  // Group social fields into rows of 2
-  const socialRows: { id: string; value: string }[][] = [];
-  for (let i = 0; i < socialFields.length; i += 2) {
-    socialRows.push(socialFields.slice(i, i + 2));
-  }
+  // Show scroll indicator when there are more than 3 social fields
+  const canScrollSocialLinks = socialFields.length > 3;
+
+  const handleSocialScroll = useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollableHeight = contentSize.height - layoutMeasurement.height;
+    if (scrollableHeight > 0) {
+      setScrollPosition(contentOffset.y / scrollableHeight);
+    }
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        {/* Header with Progress Bar - Pro Creator flow step 2/6 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={6} />
+
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={goBack} disabled={disabled}>
-              <Ionicons name="arrow-back" size={24} color={COLORS.white} />
-            </TouchableOpacity>
+          {/* Skip button */}
+          <View style={styles.skipRow}>
             <TouchableOpacity onPress={handleSkip} disabled={disabled}>
               <Text style={styles.skipText}>Skip</Text>
             </TouchableOpacity>
@@ -165,52 +171,72 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
           {/* Social Links */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Social Links</Text>
-            {canAddMore && (
-              <TouchableOpacity style={styles.addBtn} onPress={addSocialField}>
-                <Ionicons name="add-circle" size={24} color={COLORS.primary} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={styles.addBtn} onPress={addSocialField} disabled={!canAddMore}>
+              <Ionicons name="add-circle" size={24} color={canAddMore ? COLORS.primary : COLORS.grayMuted} />
+            </TouchableOpacity>
           </View>
 
-          {/* Social Fields - 2 per row */}
-          {socialRows.map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.socialRow}>
-              {row.map((field, colIndex) => {
-                const index = rowIndex * 2 + colIndex;
+          {/* Social Fields - Scrollable single column with X button and scroll indicator */}
+          <View style={styles.socialContainer}>
+            {/* Scroll indicator on left with gradient */}
+            {canScrollSocialLinks && (
+              <View style={styles.scrollIndicatorContainer}>
+                <View style={styles.scrollIndicatorTrack}>
+                  <LinearGradient
+                    colors={GRADIENTS.button}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={[styles.scrollIndicatorThumb, { top: `${scrollPosition * 70}%` }]}
+                  />
+                </View>
+              </View>
+            )}
+            <ScrollView
+              ref={socialScrollRef}
+              style={[styles.socialScroll, canScrollSocialLinks && styles.socialScrollWithIndicator]}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+              onScroll={handleSocialScroll}
+              scrollEventThrottle={16}
+            >
+              {socialFields.map((field, index) => {
                 const network = getNetworkInfo(field.id);
                 const hasValue = field.value.length > 0;
-
                 const isFocused = focusedField === `social-${index}`;
                 return (
-                  <LinearGradient
-                    key={field.id}
-                    colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.inputGradientBorder, styles.socialInput]}
-                  >
-                    <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>
-                      <Ionicons
-                        name={network.icon as any}
-                        size={16}
-                        color={(hasValue || isFocused) ? network.color : COLORS.grayMuted}
-                      />
-                      <TextInput
-                        style={styles.input}
-                        placeholder={network.label}
-                        placeholderTextColor={COLORS.grayMuted}
-                        value={field.value}
-                        onChangeText={(v) => updateSocialField(index, v)}
-                        onFocus={() => setFocusedField(`social-${index}`)}
-                        onBlur={() => setFocusedField(null)}
-                        autoCapitalize="none"
-                      />
-                    </View>
-                  </LinearGradient>
+                  <View key={field.id} style={styles.socialFieldRow}>
+                    <LinearGradient
+                      colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.inputGradientBorder, styles.socialInputFlex]}
+                    >
+                      <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>
+                        <Ionicons
+                          name={network.icon as any}
+                          size={18}
+                          color={(hasValue || isFocused) ? network.color : COLORS.grayMuted}
+                        />
+                        <TextInput
+                          style={styles.input}
+                          placeholder={network.label}
+                          placeholderTextColor={COLORS.grayMuted}
+                          value={field.value}
+                          onChangeText={(v) => updateSocialField(index, v)}
+                          onFocus={() => setFocusedField(`social-${index}`)}
+                          onBlur={() => setFocusedField(null)}
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    </LinearGradient>
+                    <TouchableOpacity style={styles.removeBtn} onPress={() => removeSocialField(index)}>
+                      <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
                 );
               })}
-            </View>
-          ))}
+            </ScrollView>
+          </View>
 
           {/* Spacer */}
           <View style={styles.spacer} />
@@ -240,9 +266,8 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING.sm },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
+  skipRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: SPACING.sm },
   skipText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
   disabled: { opacity: 0.6 },
   header: { alignItems: 'center', marginBottom: SPACING.md },
@@ -260,8 +285,16 @@ const styles = StyleSheet.create({
   bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm, backgroundColor: COLORS.white },
   bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, textAlignVertical: 'top', width: '100%' },
   charCount: { fontSize: 11, color: COLORS.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.sm },
-  socialRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.xs },
-  socialInput: { flex: 1, marginBottom: 0 },
+  // Social links with scroll indicator
+  socialContainer: { flex: 1, flexDirection: 'row', maxHeight: 180 },
+  scrollIndicatorContainer: { width: 6, marginRight: SPACING.xs, justifyContent: 'center' },
+  scrollIndicatorTrack: { width: 3, height: '100%', backgroundColor: COLORS.grayLight, borderRadius: 2, position: 'relative' },
+  scrollIndicatorThumb: { position: 'absolute', width: 3, height: '30%', borderRadius: 2 },
+  socialScroll: { flex: 1 },
+  socialScrollWithIndicator: { marginLeft: 0 },
+  socialFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xs },
+  socialInputFlex: { flex: 1, marginBottom: 0 },
+  removeBtn: { marginLeft: SPACING.xs, padding: 4 },
   spacer: { flex: 1, minHeight: SPACING.sm },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
   logoFooter: { alignItems: 'center', paddingTop: SPACING.sm },

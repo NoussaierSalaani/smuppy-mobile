@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
+import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 type AccountType = 'personal' | 'pro' | null;
@@ -59,12 +60,8 @@ export default function AccountTypeScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={goBack} disabled={disabled}>
-            <Ionicons name="arrow-back" size={22} color={COLORS.white} />
-          </TouchableOpacity>
-        </View>
+        {/* Header with Progress Bar - 100% for AccountType */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={1} />
 
         {/* Title */}
         <View style={styles.titleBox}>
@@ -291,12 +288,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   inner: { flex: 1, paddingHorizontal: SPACING.xl },
 
-  // Header
-  header: { paddingTop: SPACING.base, marginBottom: SPACING.xl },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.dark, justifyContent: 'center', alignItems: 'center' },
-
   // Title
-  titleBox: { alignItems: 'center', marginBottom: SPACING.xl },
+  titleBox: { alignItems: 'center', marginBottom: SPACING.xl, marginTop: SPACING.sm },
   title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.sm },
   subtitle: { fontSize: 15, color: COLORS.dark, textAlign: 'center' },
 

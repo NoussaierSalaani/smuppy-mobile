@@ -127,34 +127,22 @@ export default function ExpertiseScreen({ navigation, route }) {
               <View style={styles.tagsWrap}>
                 {page.items.map((item) => {
                   const isSelected = selected.includes(item.name);
-                  if (isSelected) {
-                    return (
-                      <LinearGradient
-                        key={item.name}
-                        colors={GRADIENTS.button}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.tagGradient}
-                      >
-                        <TouchableOpacity
-                          style={styles.tagInner}
-                          onPress={() => toggle(item.name)}
-                        >
-                          <Ionicons name={item.icon as any} size={16} color={item.color} />
-                          <Text style={styles.tagText}>{item.name}</Text>
-                        </TouchableOpacity>
-                      </LinearGradient>
-                    );
-                  }
                   return (
-                    <TouchableOpacity
+                    <LinearGradient
                       key={item.name}
-                      style={styles.tag}
-                      onPress={() => toggle(item.name)}
+                      colors={isSelected ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.tagGradient}
                     >
-                      <Ionicons name={item.icon as any} size={16} color={item.color} />
-                      <Text style={styles.tagText}>{item.name}</Text>
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.tagInner, isSelected && styles.tagInnerSelected]}
+                        onPress={() => toggle(item.name)}
+                      >
+                        <Ionicons name={item.icon as any} size={16} color={item.color} />
+                        <Text style={styles.tagText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    </LinearGradient>
                   );
                 })}
               </View>
@@ -214,22 +202,10 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dark, marginBottom: SPACING.md, textAlign: 'center' },
   tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: SPACING.sm },
 
-  // Tags
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 2,
-    borderColor: COLORS.grayLight,
-    borderRadius: 18,
-    backgroundColor: COLORS.white,
-    gap: 6,
-  },
+  // Tags - always use LinearGradient wrapper for consistent rendering
   tagGradient: {
     borderRadius: 18,
     padding: 2,
-    overflow: 'hidden',
   },
   tagInner: {
     flexDirection: 'row',
@@ -237,8 +213,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#E8FAF7',
+    backgroundColor: COLORS.white,
     gap: 6,
+  },
+  tagInnerSelected: {
+    backgroundColor: '#E8FAF7',
   },
   tagText: { fontSize: 12, fontWeight: '500', color: COLORS.dark },
 

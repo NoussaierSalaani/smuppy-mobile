@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
   tagGradient: {
     borderRadius: 18,
     padding: 2,
+    overflow: 'hidden',
   },
   tagInner: {
     flexDirection: 'row',

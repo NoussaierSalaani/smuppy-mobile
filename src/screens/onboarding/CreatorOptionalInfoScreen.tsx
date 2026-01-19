@@ -7,21 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { SOCIAL_NETWORKS } from '../../config/constants';
 import Button from '../../components/Button';
 import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-
-const SOCIAL_NETWORKS = [
-  { id: 'instagram', icon: 'logo-instagram', label: 'Instagram', color: '#E4405F' },
-  { id: 'tiktok', icon: 'logo-tiktok', label: 'TikTok', color: '#000000' },
-  { id: 'youtube', icon: 'logo-youtube', label: 'YouTube', color: '#FF0000' },
-  { id: 'twitter', icon: 'logo-twitter', label: 'X / Twitter', color: '#1DA1F2' },
-  { id: 'facebook', icon: 'logo-facebook', label: 'Facebook', color: '#1877F2' },
-  { id: 'snapchat', icon: 'logo-snapchat', label: 'Snapchat', color: '#FFFC00' },
-  { id: 'linkedin', icon: 'logo-linkedin', label: 'LinkedIn', color: '#0A66C2' },
-  { id: 'pinterest', icon: 'logo-pinterest', label: 'Pinterest', color: '#E60023' },
-];
 
 export default function CreatorOptionalInfoScreen({ navigation, route }) {
   const [bio, setBio] = useState('');
@@ -269,7 +259,6 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
   skipRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: SPACING.sm },
   skipText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
-  disabled: { opacity: 0.6 },
   header: { alignItems: 'center', marginBottom: SPACING.md },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
   subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },

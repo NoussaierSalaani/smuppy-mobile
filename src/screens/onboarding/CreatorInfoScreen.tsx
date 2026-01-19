@@ -229,7 +229,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
-  disabled: { opacity: 0.6 },
   header: { alignItems: 'center', marginBottom: 24 },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },

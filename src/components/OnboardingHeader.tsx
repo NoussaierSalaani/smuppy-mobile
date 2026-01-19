@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,12 +23,22 @@ export default function OnboardingHeader({
   showProgress = true,
   showBackArrow = true,
 }: OnboardingHeaderProps) {
-  // Create array of segments
-  const segments = Array.from({ length: totalSteps }, (_, i) => i + 1);
+  // Memoize segments to avoid recalculating on every render
+  const segments = useMemo(() => {
+    return Array.from({ length: totalSteps }, (_, index) => {
+      const segmentStart = index / totalSteps;
+      const segmentEnd = (index + 1) / totalSteps;
+      return {
+        index,
+        isLast: index === totalSteps - 1,
+        gradientStart: { x: -segmentStart / (segmentEnd - segmentStart), y: 0 },
+        gradientEnd: { x: (1 - segmentStart) / (segmentEnd - segmentStart), y: 0 },
+      };
+    });
+  }, [totalSteps]);
 
   return (
     <View style={styles.container}>
-      {/* Back Arrow - Simple thin arrow, not a button */}
       {showBackArrow && onBack ? (
         <TouchableOpacity
           style={[styles.backArrow, disabled && styles.disabled]}
@@ -43,28 +53,20 @@ export default function OnboardingHeader({
         <View style={styles.backArrowPlaceholder} />
       )}
 
-      {/* Segmented Progress Bar - Full width below */}
       {showProgress && totalSteps > 0 && (
         <View style={styles.progressContainer}>
-          {segments.map((step, index) => {
-            const isCompleted = step <= currentStep;
-            // Calculate gradient start/end based on segment position for continuous gradient effect
-            const segmentStart = index / totalSteps;
-            const segmentEnd = (index + 1) / totalSteps;
-
+          {segments.map((segment) => {
+            const isCompleted = segment.index < currentStep;
             return (
               <View
-                key={step}
-                style={[
-                  styles.segment,
-                  index < segments.length - 1 && styles.segmentMargin,
-                ]}
+                key={segment.index}
+                style={[styles.segment, !segment.isLast && styles.segmentMargin]}
               >
                 {isCompleted ? (
                   <LinearGradient
                     colors={GRADIENTS.button}
-                    start={{ x: -segmentStart / (segmentEnd - segmentStart), y: 0 }}
-                    end={{ x: (1 - segmentStart) / (segmentEnd - segmentStart), y: 0 }}
+                    start={segment.gradientStart}
+                    end={segment.gradientEnd}
                     style={styles.segmentFill}
                   />
                 ) : (

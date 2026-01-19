@@ -27,9 +27,10 @@ export default function VerifyCodeScreen({ navigation, route }) {
   const [accountCreated, setAccountCreated] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  const inputs = useRef([]);
+  const inputs = useRef<TextInput[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const isCreatingRef = useRef(false);
+  const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Extract all onboarding data from params
   const {
@@ -80,11 +81,25 @@ export default function VerifyCodeScreen({ navigation, route }) {
     ]).start();
   }, [shakeAnim]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Clear code
   const clearCode = useCallback((shouldFocus = false) => {
     setCode(Array(CODE_LENGTH).fill(''));
     setError('');
-    if (shouldFocus) setTimeout(() => inputs.current[0]?.focus(), 100);
+    if (shouldFocus) {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(() => inputs.current[0]?.focus(), 100);
+    }
   }, []);
 
   // Create account and send OTP
@@ -456,7 +471,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
-  disabled: { opacity: 0.6 },
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },

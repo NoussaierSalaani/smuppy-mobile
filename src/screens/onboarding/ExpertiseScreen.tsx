@@ -1,19 +1,22 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
-const { width } = Dimensions.get('window');
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
-// Expertise pages based on project context
-const EXPERTISE_PAGES = [
+const EXPERTISE_DATA = [
   {
-    title: 'Training & Coaching',
+    category: 'Training & Coaching',
+    icon: 'barbell',
     items: [
       { name: 'Weight Loss', icon: 'scale-outline', color: '#FF6B6B' },
       { name: 'Muscle Building', icon: 'barbell-outline', color: '#4ECDC4' },
@@ -26,7 +29,8 @@ const EXPERTISE_PAGES = [
     ]
   },
   {
-    title: 'Sports & Performance',
+    category: 'Sports & Performance',
+    icon: 'trophy',
     items: [
       { name: 'Sports Performance', icon: 'trophy-outline', color: '#F39C12' },
       { name: 'Running', icon: 'walk-outline', color: '#2196F3' },
@@ -39,7 +43,8 @@ const EXPERTISE_PAGES = [
     ]
   },
   {
-    title: 'Wellness & Health',
+    category: 'Wellness & Health',
+    icon: 'leaf',
     items: [
       { name: 'Flexibility', icon: 'body-outline', color: '#9B59B6' },
       { name: 'Rehabilitation', icon: 'medkit-outline', color: '#3498DB' },
@@ -52,7 +57,8 @@ const EXPERTISE_PAGES = [
     ]
   },
   {
-    title: 'Specialized',
+    category: 'Specialized',
+    icon: 'star',
     items: [
       { name: 'Senior Fitness', icon: 'people-outline', color: '#5C6BC0' },
       { name: 'Pre/Post Natal', icon: 'heart-circle-outline', color: '#EC407A' },
@@ -68,94 +74,109 @@ const EXPERTISE_PAGES = [
 
 export default function ExpertiseScreen({ navigation, route }) {
   const [selected, setSelected] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(
+    EXPERTISE_DATA.map(cat => cat.category)
+  );
 
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const toggle = useCallback((itemName: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelected(prev =>
       prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
     );
   }, []);
 
-  const handleScroll = useCallback((e: any) => {
-    const page = Math.round(e.nativeEvent.contentOffset.x / width);
-    setCurrentPage(page);
+  const toggleCategory = useCallback((category: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedCategories(prev =>
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
+    );
   }, []);
 
   const handleNext = useCallback(() => {
     navigate('FindFriends', { ...params, expertise: selected });
   }, [navigate, params, selected]);
 
+  const handleSkip = useCallback(() => {
+    navigate('FindFriends', { ...params, expertise: [] });
+  }, [navigate, params]);
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Progress Bar - Pro Creator flow step 3/6 */}
       <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={3} totalSteps={6} />
 
-      {/* Title - Fixed */}
-      <View style={styles.titleBox}>
+      {/* Header */}
+      <View style={styles.header}>
         <Text style={styles.title}>Your Expertise</Text>
-        <Text style={styles.subtitle}>Swipe to explore categories</Text>
+        <Text style={styles.subtitle}>What do you specialize in?</Text>
       </View>
 
-      {/* Counter - Fixed */}
+      {/* Selected counter */}
       {selected.length > 0 && (
-        <View style={styles.counterBox}>
-          <Text style={styles.counterText}>{selected.length} selected</Text>
+        <View style={styles.counterContainer}>
+          <LinearGradient colors={GRADIENTS.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.counterGradient}>
+            <Text style={styles.counterText}>{selected.length} selected</Text>
+          </LinearGradient>
         </View>
       )}
 
-      {/* Pages - Scrollable horizontally, fixed height */}
-      <View style={styles.pagesContainer}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-        >
-          {EXPERTISE_PAGES.map((page, pageIndex) => (
-            <View key={pageIndex} style={styles.page}>
-              <Text style={styles.pageTitle}>{page.title}</Text>
-              <View style={styles.tagsWrap}>
-                {page.items.map((item) => {
-                  const isSelected = selected.includes(item.name);
-                  return (
-                    <LinearGradient
-                      key={item.name}
-                      colors={isSelected ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.tagGradient}
-                    >
+      {/* Scrollable content */}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {EXPERTISE_DATA.map((section) => {
+          const isExpanded = expandedCategories.includes(section.category);
+          const selectedInCategory = section.items.filter(item => selected.includes(item.name)).length;
+
+          return (
+            <View key={section.category} style={styles.section}>
+              {/* Category header */}
+              <TouchableOpacity style={styles.sectionHeader} onPress={() => toggleCategory(section.category)} activeOpacity={0.7}>
+                <View style={styles.sectionTitleRow}>
+                  <View style={[styles.sectionIcon, { backgroundColor: `${section.items[0]?.color}15` }]}>
+                    <Ionicons name={section.icon as any} size={18} color={section.items[0]?.color} />
+                  </View>
+                  <Text style={styles.sectionTitle}>{section.category}</Text>
+                  {selectedInCategory > 0 && (
+                    <View style={styles.sectionBadge}>
+                      <Text style={styles.sectionBadgeText}>{selectedInCategory}</Text>
+                    </View>
+                  )}
+                </View>
+                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.grayMuted} />
+              </TouchableOpacity>
+
+              {/* Items */}
+              {isExpanded && (
+                <View style={styles.itemsGrid}>
+                  {section.items.map((item) => {
+                    const isSelected = selected.includes(item.name);
+                    return (
                       <TouchableOpacity
-                        style={[styles.tagInner, isSelected && styles.tagInnerSelected]}
+                        key={item.name}
+                        style={[styles.chip, isSelected && styles.chipSelected]}
                         onPress={() => toggle(item.name)}
+                        activeOpacity={0.7}
                       >
-                        <Ionicons name={item.icon as any} size={16} color={item.color} />
-                        <Text style={styles.tagText}>{item.name}</Text>
+                        <Ionicons name={item.icon as any} size={16} color={isSelected ? COLORS.white : item.color} />
+                        <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{item.name}</Text>
+                        {isSelected && (
+                          <View style={styles.chipCheck}>
+                            <Ionicons name="checkmark" size={12} color={COLORS.white} />
+                          </View>
+                        )}
                       </TouchableOpacity>
-                    </LinearGradient>
-                  );
-                })}
-              </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-          ))}
-        </ScrollView>
-      </View>
+          );
+        })}
+      </ScrollView>
 
-      {/* Dots - Fixed */}
-      <View style={styles.dots}>
-        {EXPERTISE_PAGES.map((_, index) => (
-          <View key={index} style={[styles.dot, currentPage === index && styles.dotActive]} />
-        ))}
-      </View>
-
-      {/* Button - Fixed */}
-      <View style={styles.btnBox}>
+      {/* Footer */}
+      <View style={styles.footer}>
         <Button
           variant="primary"
           size="lg"
@@ -164,8 +185,11 @@ export default function ExpertiseScreen({ navigation, route }) {
           disabled={selected.length === 0 || disabled}
           onPress={handleNext}
         >
-          Next
+          Continue
         </Button>
+        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} disabled={disabled}>
+          <Text style={styles.skipText}>Complete later in Settings</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -174,45 +198,54 @@ export default function ExpertiseScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
 
-  // Title - Fixed
-  titleBox: { alignItems: 'center', paddingHorizontal: SPACING.xl, marginBottom: SPACING.sm },
-  title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.xs },
-  subtitle: { fontSize: 14, color: COLORS.grayMuted, textAlign: 'center' },
+  // Header
+  header: { paddingHorizontal: SPACING.xl, marginBottom: SPACING.md },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, marginBottom: 4 },
+  subtitle: { fontSize: 14, color: COLORS.grayMuted },
 
-  // Counter - Fixed
-  counterBox: { alignSelf: 'center', paddingHorizontal: SPACING.base, paddingVertical: SPACING.xs, backgroundColor: '#E8FBF7', borderRadius: 20, marginBottom: SPACING.sm },
-  counterText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  // Counter
+  counterContainer: { paddingHorizontal: SPACING.xl, marginBottom: SPACING.sm },
+  counterGradient: { alignSelf: 'flex-start', paddingHorizontal: SPACING.base, paddingVertical: 6, borderRadius: 20 },
+  counterText: { fontSize: 13, fontWeight: '600', color: COLORS.white },
 
-  // Pages container - Takes remaining space
-  pagesContainer: { flex: 1 },
-  page: { width, paddingHorizontal: SPACING.xl },
-  pageTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dark, marginBottom: SPACING.md, textAlign: 'center' },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: SPACING.sm },
+  // Scroll
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.xl },
 
-  // Tags - always use LinearGradient wrapper for consistent rendering
-  tagGradient: {
-    borderRadius: 18,
-    padding: 2,
-  },
-  tagInner: {
+  // Section
+  section: { marginBottom: SPACING.md },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  sectionIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dark },
+  sectionBadge: { backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  sectionBadgeText: { fontSize: 11, fontWeight: '600', color: COLORS.white },
+
+  // Items grid
+  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, paddingTop: SPACING.md },
+
+  // Chips
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 25,
     backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.grayLight,
     gap: 6,
   },
-  tagInnerSelected: {
-    backgroundColor: '#E8FAF7',
+  chipSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
-  tagText: { fontSize: 12, fontWeight: '500', color: COLORS.dark },
+  chipText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
+  chipTextSelected: { color: COLORS.white },
+  chipCheck: { marginLeft: 2 },
 
-  // Dots - Fixed
-  dots: { flexDirection: 'row', justifyContent: 'center', paddingVertical: SPACING.sm },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.grayLight, marginHorizontal: 4 },
-  dotActive: { backgroundColor: COLORS.primary, width: 20 },
-
-  // Bottom - Fixed
-  btnBox: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.sm },
+  // Footer
+  footer: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.grayLight },
+  skipBtn: { alignItems: 'center', paddingVertical: SPACING.md },
+  skipText: { fontSize: 14, color: COLORS.grayMuted },
 });

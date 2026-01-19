@@ -207,7 +207,7 @@ serve(async (req: Request) => {
     type: 'recovery',
     email,
     options: {
-      redirectTo: 'smuppy://reset-password',
+      redirectTo: 'https://wbgfaeytioxnkdsuvvlx.supabase.co/functions/v1/reset-redirect',
     },
   });
 

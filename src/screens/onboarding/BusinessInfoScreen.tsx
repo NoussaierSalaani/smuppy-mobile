@@ -230,51 +230,52 @@ export default function BusinessInfoScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Optional Fields Row */}
-          <Text style={styles.sectionTitle}>Optional</Text>
-          <View style={styles.optionalRow}>
-            <LinearGradient
-              colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.inputGradientBorder, styles.optionalInput]}
-            >
-              <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
-                <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? COLORS.primary : COLORS.grayMuted} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Website"
-                  placeholderTextColor={COLORS.grayMuted}
-                  value={website}
-                  onChangeText={setWebsite}
-                  onFocus={() => setFocusedField('website')}
-                  onBlur={() => setFocusedField(null)}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-              </View>
-            </LinearGradient>
-            <LinearGradient
-              colors={(phone.length > 0 || focusedField === 'phone') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.inputGradientBorder, styles.optionalInput]}
-            >
-              <View style={[styles.inputInner, phone.length > 0 && styles.inputInnerValid]}>
-                <Ionicons name="call-outline" size={18} color={(phone.length > 0 || focusedField === 'phone') ? COLORS.primary : COLORS.grayMuted} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Phone"
-                  placeholderTextColor={COLORS.grayMuted}
-                  value={phone}
-                  onChangeText={setPhone}
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </LinearGradient>
-          </View>
+          {/* Website */}
+          <Text style={styles.label}>Website</Text>
+          <LinearGradient
+            colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
+              <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? COLORS.primary : COLORS.grayMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="https://yourwebsite.com"
+                placeholderTextColor={COLORS.grayMuted}
+                value={website}
+                onChangeText={setWebsite}
+                onFocus={() => setFocusedField('website')}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
+          </LinearGradient>
+
+          {/* Phone Number */}
+          <Text style={styles.label}>Phone Number</Text>
+          <LinearGradient
+            colors={(phone.length > 0 || focusedField === 'phone') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.inputGradientBorder}
+          >
+            <View style={[styles.inputInner, phone.length > 0 && styles.inputInnerValid]}>
+              <Ionicons name="call-outline" size={18} color={(phone.length > 0 || focusedField === 'phone') ? COLORS.primary : COLORS.grayMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="+1 234 567 8900"
+                placeholderTextColor={COLORS.grayMuted}
+                value={phone}
+                onChangeText={setPhone}
+                onFocus={() => setFocusedField('phone')}
+                onBlur={() => setFocusedField(null)}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </LinearGradient>
 
           {/* Social Links */}
           <View style={styles.sectionHeader}>
@@ -359,16 +360,14 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.sm, marginBottom: SPACING.sm },
   addBtn: { padding: 4 },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: 40, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm - 2, backgroundColor: COLORS.white },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight - 4, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
   inputInnerValid: { backgroundColor: '#E8FAF7' },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 13 },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14 },
   locationBtn: { padding: 2 },
   suggestions: { backgroundColor: COLORS.white, borderRadius: 10, marginTop: -SPACING.xs, marginBottom: SPACING.sm, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
   suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
   suggestionLast: { borderBottomWidth: 0 },
   suggestionText: { flex: 1, fontSize: 13, color: COLORS.dark, marginLeft: SPACING.xs },
-  optionalRow: { flexDirection: 'row', gap: SPACING.sm },
-  optionalInput: { flex: 1 },
   socialRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.xs },
   socialInput: { flex: 1, marginBottom: 0 },
   spacer: { flex: 1, minHeight: SPACING.sm },

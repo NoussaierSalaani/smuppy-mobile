@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   locationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
     borderWidth: 1.5,
     borderColor: COLORS.grayLight,
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   locationCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm - 2,
+    paddingVertical: SPACING.md - 2,
     paddingHorizontal: SPACING.base - 2,
     borderRadius: SIZES.radiusLg - 2,
     backgroundColor: '#E8FAF7',

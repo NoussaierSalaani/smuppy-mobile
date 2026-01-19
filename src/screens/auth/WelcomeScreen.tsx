@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { SmuppyIcon, SmuppyText } from '../../components/SmuppyLogo';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -44,25 +44,7 @@ const WelcomeScreen = ({ navigation }) => {
           <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <Text style={styles.welcomeText}>Welcome To</Text>
             <Text style={styles.brandText}>Smuppy</Text>
-            <Text style={styles.taglineText}>Join the ultimate sports and fitness{'\n'}social network</Text>
-
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>10k+</Text>
-                <Text style={styles.statLabel}>Athletes</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>50k+</Text>
-                <Text style={styles.statLabel}>Peaks</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>10k+</Text>
-                <Text style={styles.statLabel}>Gyms</Text>
-              </View>
-            </View>
+            <Text style={styles.taglineText}>The future of physical activities{'\n'}and wellbeing</Text>
           </Animated.View>
         </View>
 
@@ -99,12 +81,6 @@ const styles = StyleSheet.create({
   welcomeText: { fontSize: 52, fontWeight: '700', color: COLORS.white, textAlign: 'center', marginBottom: 0 },
   brandText: { fontSize: 52, fontWeight: '700', color: COLORS.white, textAlign: 'center', marginBottom: 20 },
   taglineText: { fontSize: 16, fontWeight: '400', color: 'rgba(255, 255, 255, 0.7)', textAlign: 'center', lineHeight: 24 },
-  // Stats
-  statsContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 32, paddingHorizontal: 20 },
-  statItem: { flex: 1, alignItems: 'center' },
-  statNumber: { fontSize: 24, fontWeight: '800', color: COLORS.primary },
-  statLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255, 255, 255, 0.6)', marginTop: 2 },
-  statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255, 255, 255, 0.2)' },
   buttonContainer: { paddingHorizontal: 24, paddingBottom: height * 0.08, gap: 16 },
   primaryButtonWrapper: { borderRadius: 30, overflow: 'hidden' },
   primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 30, gap: 8 },

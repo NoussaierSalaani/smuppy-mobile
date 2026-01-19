@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import { supabase } from '../../config/supabase';
@@ -21,6 +20,17 @@ export default function NewPasswordScreen({ navigation, route }) {
   const [errorMessage, setErrorMessage] = useState('');
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
+
+  const handleGoBack = useCallback(() => {
+    Alert.alert(
+      'Leave password reset?',
+      'If you go back, you will need to request a new reset link.',
+      [
+        { text: 'Stay', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: goBack },
+      ]
+    );
+  }, [goBack]);
 
   // Callback from AppNavigator to signal recovery is complete
   const onRecoveryComplete = route?.params?.onRecoveryComplete;
@@ -133,8 +143,8 @@ export default function NewPasswordScreen({ navigation, route }) {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* Back Button */}
-          <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={goBack} disabled={disabled}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={handleGoBack} disabled={disabled}>
+            <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
           </TouchableOpacity>
 
           {/* Header */}
@@ -291,7 +301,6 @@ export default function NewPasswordScreen({ navigation, route }) {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <SmuppyText width={140} variant="dark" />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -365,7 +374,7 @@ const styles = StyleSheet.create({
   },
 
   // Back Button
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
+  backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
 
   // Header
   header: { alignItems: 'center', marginBottom: SPACING['2xl'] },

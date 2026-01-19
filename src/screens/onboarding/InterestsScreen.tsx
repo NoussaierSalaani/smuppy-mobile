@@ -116,7 +116,6 @@ export default function InterestsScreen({ navigation, route }) {
 
       {/* Header */}
       <View style={styles.header}>
-        {name && <Text style={styles.welcome}>Nice to meet you, {name}! 👋</Text>}
         <Text style={styles.title}>What are you into?</Text>
         <Text style={styles.subtitle}>Select your interests to personalize your feed</Text>
       </View>
@@ -159,20 +158,38 @@ export default function InterestsScreen({ navigation, route }) {
                 <View style={styles.itemsGrid}>
                   {section.items.map((item) => {
                     const isSelected = selected.includes(item.name);
+                    if (isSelected) {
+                      return (
+                        <LinearGradient
+                          key={item.name}
+                          colors={GRADIENTS.button}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.chipGradientBorder}
+                        >
+                          <TouchableOpacity
+                            style={styles.chipSelectedInner}
+                            onPress={() => toggle(item.name)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name={item.icon as any} size={16} color={item.color} />
+                            <Text style={styles.chipText}>{item.name}</Text>
+                            <View style={styles.chipCheck}>
+                              <Ionicons name="checkmark" size={10} color={COLORS.white} />
+                            </View>
+                          </TouchableOpacity>
+                        </LinearGradient>
+                      );
+                    }
                     return (
                       <TouchableOpacity
                         key={item.name}
-                        style={[styles.chip, isSelected && styles.chipSelected]}
+                        style={styles.chip}
                         onPress={() => toggle(item.name)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name={item.icon as any} size={16} color={isSelected ? COLORS.white : item.color} />
-                        <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{item.name}</Text>
-                        {isSelected && (
-                          <View style={styles.chipCheck}>
-                            <Ionicons name="checkmark" size={12} color={COLORS.white} />
-                          </View>
-                        )}
+                        <Ionicons name={item.icon as any} size={16} color={item.color} />
+                        <Text style={styles.chipText}>{item.name}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -208,7 +225,6 @@ const styles = StyleSheet.create({
 
   // Header
   header: { paddingHorizontal: SPACING.xl, marginBottom: SPACING.md },
-  welcome: { fontSize: 15, fontWeight: '600', color: COLORS.primary, marginBottom: SPACING.xs },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, marginBottom: 4 },
   subtitle: { fontSize: 14, color: COLORS.grayMuted },
 
@@ -245,13 +261,21 @@ const styles = StyleSheet.create({
     borderColor: COLORS.grayLight,
     gap: 6,
   },
-  chipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+  chipGradientBorder: {
+    borderRadius: 25,
+    padding: 1.5,
+  },
+  chipSelectedInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12.5,
+    paddingVertical: 8.5,
+    borderRadius: 23.5,
+    backgroundColor: '#E8FAF7',
+    gap: 6,
   },
   chipText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
-  chipTextSelected: { color: COLORS.white },
-  chipCheck: { marginLeft: 2 },
+  chipCheck: { width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginLeft: 2 },
 
   // Footer
   footer: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.grayLight },

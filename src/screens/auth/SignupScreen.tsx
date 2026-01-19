@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import { ENV } from '../../config/env';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
 import { validateEmailFull, EMAIL_ERROR_MESSAGES } from '../../services/emailValidation';
@@ -46,6 +45,7 @@ export default function SignupScreen({ navigation }) {
     canReactivate: false,
     fullName: '',
   });
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Track keyboard visibility
   useEffect(() => {
@@ -170,11 +170,12 @@ export default function SignupScreen({ navigation }) {
         return;
       }
 
-      // Navigate to onboarding with email and password
+      // Navigate to onboarding with email, password, and rememberMe
       // Account creation happens at the end after OTP verification
       navigation.navigate('AccountType', {
         email: emailValidation.email,
-        password
+        password,
+        rememberMe
       });
     } catch (err) {
       setErrorModal({
@@ -313,16 +314,24 @@ export default function SignupScreen({ navigation }) {
               <View style={styles.strengthContainer}>
                 <View style={styles.strengthBarBg}>
                   <View style={[
-                    styles.strengthBar, 
-                    { 
-                      width: strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%', 
-                      backgroundColor: strengthLevel.color 
+                    styles.strengthBar,
+                    {
+                      width: strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%',
+                      backgroundColor: strengthLevel.color
                     }
                   ]} />
                 </View>
                 <Text style={[styles.strengthText, { color: strengthLevel.color }]}>{strengthLevel.label}</Text>
               </View>
             )}
+
+            {/* Remember Me */}
+            <TouchableOpacity style={styles.rememberRow} onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
+              </View>
+              <Text style={styles.checkboxLabel}>Remember me</Text>
+            </TouchableOpacity>
 
             {/* Signup Button */}
             <LinearGradient
@@ -369,7 +378,7 @@ export default function SignupScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* Terms - EN BAS */}
+            {/* Terms */}
             <View style={styles.termsRow}>
               <TouchableOpacity onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
                 <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
@@ -378,32 +387,12 @@ export default function SignupScreen({ navigation }) {
               </TouchableOpacity>
               <Text style={styles.termsText}>
                 I agree to the{' '}
-                <Text
-                  style={styles.termsLink}
-                  onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/terms')}
-                >
-                  Terms and Conditions
-                </Text>
+                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/terms')}>Terms and Conditions</Text>
                 ,{' '}
-                <Text
-                  style={styles.termsLink}
-                  onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/privacy')}
-                >
-                  Privacy Policy
-                </Text>
+                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/privacy')}>Privacy Policy</Text>
                 {' '}and{' '}
-                <Text
-                  style={styles.termsLink}
-                  onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/content-policy')}
-                >
-                  Content Policy
-                </Text>.
+                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/content-policy')}>Content Policy</Text>.
               </Text>
-            </View>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-              <SmuppyText width={120} variant="dark" />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -723,45 +712,47 @@ const styles = StyleSheet.create({
     color: '#00cdb5',
   },
   
+  // Remember Me
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#CED3D5',
+    borderRadius: 5,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  checkboxChecked: {
+    backgroundColor: '#00cdb5',
+    borderColor: '#00cdb5',
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#0a252f',
+  },
   // Terms
   termsRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 16,
   },
-  checkbox: { 
-    width: 22, 
-    height: 22, 
-    borderWidth: 2, 
-    borderColor: '#CED3D5', 
-    borderRadius: 6, 
-    marginRight: SPACING.sm, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: COLORS.white,
-  },
-  checkboxChecked: { 
-    backgroundColor: '#00cdb5', 
-    borderColor: '#00cdb5',
-  },
-  termsText: { 
-    flex: 1, 
-    fontSize: 12, 
-    color: '#676C75', 
+  termsText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#676C75',
     lineHeight: 18,
   },
-  termsLink: { 
-    color: '#00cdb5', 
+  termsLink: {
+    color: '#00cdb5',
     fontWeight: '500',
-  },
-  
-  // Footer
-  footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingBottom: SPACING.md,
   },
 
   // Modal styles

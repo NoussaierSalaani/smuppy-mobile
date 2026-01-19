@@ -11,7 +11,6 @@ import { ENV } from '../../config/env';
 import { supabase } from '../../config/supabase';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { createProfile } from '../../services/database';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
@@ -55,6 +54,8 @@ export default function VerifyCodeScreen({ navigation, route }) {
     businessName,
     businessAddress,
     businessPhone,
+    // Session persistence
+    rememberMe = false,
   } = route?.params || {};
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
@@ -230,20 +231,52 @@ export default function VerifyCodeScreen({ navigation, route }) {
         return;
       }
 
-      // Step 2: Create profile with basic data
-      const username = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
-      const profileData = {
-        full_name: name || username,
-        username: username,
+      // Step 2: Create profile with all onboarding data
+      const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      const profileData: Record<string, unknown> = {
+        full_name: name || generatedUsername,
+        username: username || generatedUsername,
+        account_type: accountType || 'personal',
       };
+
+      // Add personal info
+      if (gender) profileData.gender = gender;
+      if (dateOfBirth) profileData.date_of_birth = dateOfBirth;
+
+      // Add pro creator/business specific data
+      if (displayName) profileData.display_name = displayName;
+      if (bio) profileData.bio = bio;
+      if (website) profileData.website = website;
+      if (socialLinks && Object.keys(socialLinks).length > 0) {
+        profileData.social_links = socialLinks;
+      }
+
+      // Add interests/expertise as arrays
+      if (interests && interests.length > 0) {
+        profileData.interests = interests;
+      }
+      if (expertise && expertise.length > 0) {
+        profileData.expertise = expertise;
+      }
+
+      // Add business info
+      if (businessName) profileData.business_name = businessName;
+      if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
+      if (businessAddress) profileData.business_address = businessAddress;
+      if (businessPhone) profileData.business_phone = businessPhone;
+      if (locationsMode) profileData.locations_mode = locationsMode;
 
       await createProfile(profileData);
 
-      // Step 3: Persist session
-      await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
-      if (data.session) {
+      // Step 3: Handle session persistence based on rememberMe
+      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+      if (rememberMe && data.session) {
         await storage.set(STORAGE_KEYS.ACCESS_TOKEN, data.session.access_token);
         await storage.set(STORAGE_KEYS.REFRESH_TOKEN, data.session.refresh_token);
+      } else {
+        // Clear any previously stored tokens
+        await storage.delete(STORAGE_KEYS.ACCESS_TOKEN);
+        await storage.delete(STORAGE_KEYS.REFRESH_TOKEN);
       }
 
       // Step 4: Navigate to Success
@@ -261,7 +294,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     } finally {
       setIsVerifying(false);
     }
-  }, [email, name, navigation, triggerShake, clearCode]);
+  }, [email, name, username, gender, dateOfBirth, accountType, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode]);
 
   // Handle code input
   const handleChange = useCallback((text, index) => {
@@ -449,7 +482,6 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
       {/* Footer */}
       <View style={styles.footer} pointerEvents="none">
-        <SmuppyText width={140} variant="dark" />
       </View>
 
       {/* Cooldown Modal */}

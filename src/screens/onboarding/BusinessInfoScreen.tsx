@@ -1,24 +1,26 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator, ScrollView,
+  KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator, ScrollView, Image, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import { buildPlacesAutocompleteUrl } from '../../config/api';
-import { SOCIAL_NETWORKS, COUNTRY_CODES } from '../../config/constants';
+import { SOCIAL_NETWORKS, COUNTRY_CODES, CountryCode } from '../../config/constants';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 export default function BusinessInfoScreen({ navigation, route }) {
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState('');
   const [website, setWebsite] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0]);
+  const [countryCode, setCountryCode] = useState<CountryCode>(COUNTRY_CODES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [address, setAddress] = useState('');
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
@@ -44,7 +46,27 @@ export default function BusinessInfoScreen({ navigation, route }) {
     };
   }, []);
 
-  const isFormValid = businessName.trim().length > 0 && address.trim().length > 0;
+  const pickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photos to add a profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+    }
+  }, []);
+
+  const hasBusinessName = businessName.trim().length > 0;
+  const isFormValid = hasBusinessName && address.trim().length > 0;
 
   // Google Places autocomplete
   const searchPlaces = useCallback(async (query: string) => {
@@ -152,13 +174,14 @@ export default function BusinessInfoScreen({ navigation, route }) {
 
     navigate('Guidelines', {
       ...params,
+      profileImage,
       businessName: businessName.trim(),
       website: website.trim(),
       businessPhone: fullPhone,
       businessAddress: address.trim(),
       socialLinks,
     });
-  }, [isFormValid, navigate, params, businessName, website, phoneNumber, countryCode, address, socialFields]);
+  }, [isFormValid, navigate, params, profileImage, businessName, website, phoneNumber, countryCode, address, socialFields]);
 
 
   return (
@@ -171,6 +194,30 @@ export default function BusinessInfoScreen({ navigation, route }) {
           <View style={styles.header}>
             <Text style={styles.title}>Business Details</Text>
             <Text style={styles.subtitle}>Tell us about your business</Text>
+          </View>
+
+          {/* Profile Photo */}
+          <View style={styles.photoSection}>
+            <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
+              <LinearGradient
+                colors={profileImage ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.photoGradient}
+              >
+                <View style={[styles.photoContainer, profileImage && styles.photoContainerFilled]}>
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                  ) : (
+                    <Ionicons name="camera" size={24} color={COLORS.grayMuted} />
+                  )}
+                </View>
+              </LinearGradient>
+              <View style={styles.photoBadge}>
+                <Ionicons name={profileImage ? "checkmark" : "add"} size={10} color={COLORS.white} />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add logo'}</Text>
           </View>
 
           {/* Business Name */}
@@ -195,6 +242,11 @@ export default function BusinessInfoScreen({ navigation, route }) {
               />
             </View>
           </LinearGradient>
+
+          {/* Dynamic Welcome Greeting */}
+          {hasBusinessName && (
+            <Text style={styles.greeting}>Welcome to Smuppy, {businessName.trim()}! 🎉</Text>
+          )}
 
           {/* Address */}
           <Text style={styles.label}>Address <Text style={styles.required}>*</Text></Text>
@@ -403,9 +455,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
-  header: { alignItems: 'center', marginBottom: SPACING.md },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
+  header: { alignItems: 'center', marginBottom: SPACING.sm },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
   subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
+  // Profile Photo
+  photoSection: { alignItems: 'center', marginBottom: SPACING.md },
+  photoGradient: { width: 72, height: 72, borderRadius: 36, padding: 2 },
+  photoContainer: { flex: 1, borderRadius: 34, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoContainerFilled: { backgroundColor: '#E8FAF7' },
+  profileImage: { width: '100%', height: '100%', borderRadius: 34 },
+  photoBadge: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
+  photoLabel: { fontSize: 11, color: COLORS.grayMuted, marginTop: 4 },
+  greeting: { fontSize: 14, fontWeight: '600', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
   required: { color: COLORS.error },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.xs, marginBottom: SPACING.xs },

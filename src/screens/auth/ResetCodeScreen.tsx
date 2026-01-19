@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Keyboa
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES } from '../../config/theme';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { supabase } from '../../config/supabase';
@@ -132,7 +131,7 @@ export default function ResetCodeScreen({ navigation, route }) {
             
             {/* Back Button */}
             <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={goBack} disabled={disabled}>
-              <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+              <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
             </TouchableOpacity>
 
             {/* Header */}
@@ -192,7 +191,6 @@ export default function ResetCodeScreen({ navigation, route }) {
 
         {/* Footer - HORS du KeyboardAvoidingView, ne bouge JAMAIS */}
         <View style={styles.footer}>
-          <SmuppyText width={140} variant="dark" />
         </View>
 
         {/* Cooldown Modal */}
@@ -215,7 +213,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   
   // Back Button
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
   
   // Header
   header: { alignItems: 'center', marginBottom: 32 },

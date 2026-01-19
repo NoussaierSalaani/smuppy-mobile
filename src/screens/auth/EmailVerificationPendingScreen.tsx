@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { supabase } from '../../config/supabase';
 import { ENV } from '../../config/env';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
@@ -245,7 +244,6 @@ export default function EmailVerificationPendingScreen({ route }) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <SmuppyText width={140} variant="dark" />
         </View>
       </View>
     </SafeAreaView>

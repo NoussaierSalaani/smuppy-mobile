@@ -10,7 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { ENV } from '../../config/env';
 import { useCooldown } from '../../hooks/useCooldown';
 
@@ -65,7 +64,7 @@ export default function CheckEmailScreen({ navigation, route }) {
       <View style={styles.content}>
         {/* Back Button */}
         <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
         </TouchableOpacity>
 
         {/* Icon */}
@@ -149,7 +148,6 @@ export default function CheckEmailScreen({ navigation, route }) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <SmuppyText width={140} variant="dark" />
         </View>
       </View>
     </SafeAreaView>
@@ -167,13 +165,10 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.base,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    backgroundColor: COLORS.dark,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
+    alignSelf: 'flex-start',
+    padding: 4,
+    marginLeft: -4,
+    marginBottom: SPACING.lg,
   },
   iconContainer: {
     alignItems: 'center',

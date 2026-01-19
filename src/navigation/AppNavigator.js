@@ -17,6 +17,23 @@ import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
 const { width, height } = Dimensions.get('window');
 const RootStack = createStackNavigator();
 
+// Deep linking configuration for React Navigation
+const linking = {
+  prefixes: [
+    Linking.createURL('/'),
+    'smuppy://',
+  ],
+  config: {
+    screens: {
+      Auth: {
+        screens: {
+          NewPassword: 'reset-password',
+        },
+      },
+    },
+  },
+};
+
 export default function AppNavigator() {
   const [session, setSession] = useState(null);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -197,7 +214,7 @@ export default function AppNavigator() {
       {isReady && (
         <UserProvider>
           <TabBarProvider>
-            <NavigationContainer>
+            <NavigationContainer linking={linking}>
               <RootStack.Navigator
                 screenOptions={{
                   headerShown: false,

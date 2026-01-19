@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../config/theme';
 import { biometrics } from '../../utils/biometrics';
-import { SmuppyText } from '../../components/SmuppyLogo';
 
 export default function BiometricLoginScreen({ navigation }) {
   const [biometricType, setBiometricType] = useState(null);
@@ -62,7 +61,6 @@ export default function BiometricLoginScreen({ navigation }) {
       </View>
 
       <View style={styles.footer}>
-        <SmuppyText width={140} variant="dark" />
       </View>
     </SafeAreaView>
   );

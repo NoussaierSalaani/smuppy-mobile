@@ -20,13 +20,21 @@ export const useCurrentProfile = () => {
     queryKey: queryKeys.user.current(),
     queryFn: async () => {
       const { data, error } = await database.getCurrentProfile();
+      // Don't throw for "Not authenticated" - just return null
+      // This happens when user is not logged in or session expired
       if (error) {
-        const errorMsg = typeof error === 'object' ? (error.message || JSON.stringify(error)) : String(error);
-        throw new Error(errorMsg);
+        if (error === 'Not authenticated' || (typeof error === 'object' && error.message === 'Not authenticated')) {
+          console.log('[useCurrentProfile] Not authenticated, returning null');
+          return null;
+        }
+        // For other errors, log but don't throw - return null for resilience
+        console.error('[useCurrentProfile] Error fetching profile:', error);
+        return null;
       }
-      return data; // Can be null if profile doesn't exist yet
+      return data;
     },
     staleTime: 10 * 60 * 1000,
+    retry: 1, // Retry once in case of transient errors
   });
 };
 

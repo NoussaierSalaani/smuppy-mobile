@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
 import { ENV } from '../../config/env';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -173,7 +172,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
             {/* Back Button */}
             <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
-              <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+              <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
             </TouchableOpacity>
 
             {/* Header */}
@@ -261,7 +260,6 @@ export default function ForgotPasswordScreen({ navigation }) {
 
             {/* Footer */}
             <View style={styles.footer}>
-              <SmuppyText width={140} variant="dark" />
             </View>
 
           </ScrollView>
@@ -347,7 +345,7 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 },
 
   // Back Button
-  backBtn: { width: 44, height: 44, backgroundColor: COLORS.dark, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },

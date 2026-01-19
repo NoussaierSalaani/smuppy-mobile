@@ -7,7 +7,6 @@ import Svg, { Path } from 'react-native-svg';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
 import { ENV } from '../../config/env';
 import { supabase } from '../../config/supabase';
-import { SmuppyText } from '../../components/SmuppyLogo';
 import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -491,12 +490,7 @@ export default function LoginScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* Footer */}
-            <View style={styles.footer}>
-              <SmuppyText width={140} variant="dark" />
-            </View>
-
-          </ScrollView>
+                      </ScrollView>
         </KeyboardAvoidingView>
 
         {/* Error Modal */}
@@ -651,8 +645,7 @@ const styles = StyleSheet.create({
   link: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
 
   // Footer
-  footer: { alignItems: 'center', marginTop: 'auto', paddingTop: 8, paddingBottom: 8 },
-
+  
   // Modals
   modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalContent: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },

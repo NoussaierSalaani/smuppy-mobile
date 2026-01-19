@@ -34,10 +34,14 @@ const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 const INITIAL_USER = {
   id: null,
   displayName: '',
+  username: '',
   avatar: null,
   coverImage: null,
   bio: '',
   location: '',
+  accountType: 'personal',
+  interests: [],
+  expertise: [],
   stats: {
     fans: 0,
     posts: 0,
@@ -62,29 +66,36 @@ const ProfileScreen = ({ navigation, route }) => {
   const [showQRModal, setShowQRModal] = useState(false);
   
   const isOwnProfile = route?.params?.userId === undefined;
-  const contextMatchesProfile = !!contextUser?.id && (!profileData || contextUser.id === profileData.id);
 
   const resolvedProfile = useMemo(() => {
     const base = profileData || {};
-    const fallback = contextMatchesProfile ? contextUser : {};
+    // Always use contextUser as fallback, don't require contextMatchesProfile
+    const fallback = contextUser || {};
     return {
       id: base.id || fallback.id || INITIAL_USER.id,
       displayName:
         base.full_name ||
+        base.display_name ||
         base.name ||
-        fallback.displayName ||
+        fallback.firstName && fallback.lastName
+          ? `${fallback.firstName} ${fallback.lastName}`.trim()
+          : fallback.displayName ||
         fallback.email ||
-        'Utilisateur',
+        'User',
+      username: base.username || fallback.username || '',
       avatar: base.avatar_url || fallback.avatar || INITIAL_USER.avatar,
       coverImage: base.cover_url || fallback.coverImage || INITIAL_USER.coverImage,
       bio: base.bio || fallback.bio || INITIAL_USER.bio,
       location: base.location || fallback.location || INITIAL_USER.location,
+      accountType: base.account_type || fallback.accountType || 'personal',
+      interests: base.interests || [],
+      expertise: base.expertise || [],
       stats: {
         fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? INITIAL_USER.stats.fans,
         posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? INITIAL_USER.stats.posts,
       },
     };
-  }, [profileData, contextUser, contextMatchesProfile]);
+  }, [profileData, contextUser]);
 
   useEffect(() => {
     setUser(prev => ({
@@ -452,7 +463,7 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
           </View>
           
-          <Text style={styles.qrUsername}>@{user.displayName.toLowerCase().replace(' ', '')}</Text>
+          <Text style={styles.qrUsername}>@{user.username || user.displayName.toLowerCase().replace(/\s+/g, '')}</Text>
           <Text style={styles.qrHint}>Scan to follow on Smuppy</Text>
           
           <TouchableOpacity style={styles.qrShareBtn} onPress={handleShare}>
@@ -475,7 +486,8 @@ const ProfileScreen = ({ navigation, route }) => {
   ), [activeTab, posts.length, peaks.length, user, isOwnProfile]);
 
   // ==================== EARLY RETURNS (after all hooks) ====================
-  if (isProfileLoading && !profileData) {
+  // Show loading only on initial load when we have no data at all
+  if (isProfileLoading && !profileData && !user.displayName) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -484,19 +496,9 @@ const ProfileScreen = ({ navigation, route }) => {
     );
   }
 
-  if (profileError && !contextMatchesProfile) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
-        <Text style={styles.displayName}>Unable to load your profile.</Text>
-        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
-          Please check your connection or try again later.
-        </Text>
-        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
-          <Text style={styles.fanButtonText}>Go back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // Note: We no longer show a hard error screen - instead, we show the profile
+  // with whatever data we have (from profileData, contextUser, or defaults)
+  // This ensures the user can always access their profile and settings
 
   // ==================== MAIN RENDER ====================
   return (

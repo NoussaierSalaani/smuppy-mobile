@@ -9,15 +9,27 @@ const DEFAULT_USER = {
   id: null,
   firstName: '',
   lastName: '',
+  fullName: '',
+  displayName: '',
   email: '',
   dateOfBirth: '',
   gender: '',
   avatar: null,
   bio: '',
   username: '',
-  accountType: 'personal', // 'personal' | 'pro'
+  accountType: 'personal', // 'personal' | 'pro_creator' | 'pro_local'
   isVerified: false,
   isPremium: false,
+  // Onboarding data
+  interests: [],
+  expertise: [],
+  website: '',
+  socialLinks: {},
+  // Business data
+  businessName: '',
+  businessCategory: '',
+  businessAddress: '',
+  businessPhone: '',
 };
 
 // Créer le context

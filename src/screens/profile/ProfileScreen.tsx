@@ -42,6 +42,10 @@ const INITIAL_USER = {
   accountType: 'personal',
   interests: [],
   expertise: [],
+  website: '',
+  socialLinks: {},
+  businessName: '',
+  businessCategory: '',
   stats: {
     fans: 0,
     posts: 0,
@@ -71,25 +75,35 @@ const ProfileScreen = ({ navigation, route }) => {
     const base = profileData || {};
     // Always use contextUser as fallback, don't require contextMatchesProfile
     const fallback = contextUser || {};
+
+    // Build display name from available sources
+    const displayName =
+      base.full_name ||
+      base.display_name ||
+      base.name ||
+      fallback.fullName ||
+      fallback.displayName ||
+      (fallback.firstName && fallback.lastName
+        ? `${fallback.firstName} ${fallback.lastName}`.trim()
+        : null) ||
+      fallback.email ||
+      'User';
+
     return {
       id: base.id || fallback.id || INITIAL_USER.id,
-      displayName:
-        base.full_name ||
-        base.display_name ||
-        base.name ||
-        fallback.firstName && fallback.lastName
-          ? `${fallback.firstName} ${fallback.lastName}`.trim()
-          : fallback.displayName ||
-        fallback.email ||
-        'User',
+      displayName,
       username: base.username || fallback.username || '',
       avatar: base.avatar_url || fallback.avatar || INITIAL_USER.avatar,
       coverImage: base.cover_url || fallback.coverImage || INITIAL_USER.coverImage,
       bio: base.bio || fallback.bio || INITIAL_USER.bio,
-      location: base.location || fallback.location || INITIAL_USER.location,
+      location: base.location || fallback.location || fallback.businessAddress || INITIAL_USER.location,
       accountType: base.account_type || fallback.accountType || 'personal',
-      interests: base.interests || [],
-      expertise: base.expertise || [],
+      interests: base.interests || fallback.interests || [],
+      expertise: base.expertise || fallback.expertise || [],
+      website: base.website || fallback.website || '',
+      socialLinks: base.social_links || fallback.socialLinks || {},
+      businessName: base.business_name || fallback.businessName || '',
+      businessCategory: base.business_category || fallback.businessCategory || '',
       stats: {
         fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? INITIAL_USER.stats.fans,
         posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? INITIAL_USER.stats.posts,

@@ -39,6 +39,8 @@ const SettingsScreen = ({ navigation }) => {
       const name =
         metadata.full_name ||
         metadata.name ||
+        contextUser?.fullName ||
+        contextUser?.displayName ||
         getFullName?.() ||
         authUser?.email?.split('@')[0] ||
         contextUser?.email?.split('@')[0] ||
@@ -51,7 +53,7 @@ const SettingsScreen = ({ navigation }) => {
       setAvatarUrl(avatar);
       setUserEmail(email);
     } catch (error) {
-      setDisplayName(getFullName?.() || contextUser?.email?.split('@')[0] || 'User');
+      setDisplayName(contextUser?.fullName || contextUser?.displayName || getFullName?.() || contextUser?.email?.split('@')[0] || 'User');
       setAvatarUrl(contextUser?.avatar || null);
       setUserEmail(contextUser?.email || '');
     }

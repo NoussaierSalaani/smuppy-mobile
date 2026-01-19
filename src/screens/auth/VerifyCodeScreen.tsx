@@ -11,6 +11,8 @@ import { ENV } from '../../config/env';
 import { supabase } from '../../config/supabase';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { createProfile } from '../../services/database';
+import { uploadProfileImage } from '../../services/imageUpload';
+import { useUser } from '../../context/UserContext';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
@@ -40,6 +42,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     dateOfBirth,
     accountType,
     interests,
+    profileImage,
     // Pro Creator params
     displayName,
     username,
@@ -60,6 +63,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
+  const { updateProfile: updateUserContext } = useUser();
 
   // Determine step based on account type - VerifyCode is the last step
   // Personal: step 4/4, Pro Creator: step 6/6, Pro Business: step 4/4
@@ -231,13 +235,25 @@ export default function VerifyCodeScreen({ navigation, route }) {
         return;
       }
 
-      // Step 2: Create profile with all onboarding data
+      // Step 2: Upload profile image if exists
+      let avatarUrl: string | null = null;
+      if (profileImage && data.user?.id) {
+        const { url, error: uploadError } = await uploadProfileImage(profileImage, data.user.id);
+        if (!uploadError && url) {
+          avatarUrl = url;
+        }
+      }
+
+      // Step 3: Create profile with all onboarding data
       const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       const profileData: Record<string, unknown> = {
         full_name: name || generatedUsername,
         username: username || generatedUsername,
         account_type: accountType || 'personal',
       };
+
+      // Add avatar URL if uploaded
+      if (avatarUrl) profileData.avatar_url = avatarUrl;
 
       // Add personal info
       if (gender) profileData.gender = gender;
@@ -268,7 +284,29 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
       await createProfile(profileData);
 
-      // Step 3: Handle session persistence based on rememberMe
+      // Step 4: Populate UserContext with onboarding data
+      await updateUserContext({
+        id: data.user?.id,
+        fullName: name || generatedUsername,
+        displayName: displayName || name || generatedUsername,
+        email,
+        dateOfBirth: dateOfBirth || '',
+        gender: gender || '',
+        avatar: avatarUrl,
+        bio: bio || '',
+        username: username || generatedUsername,
+        accountType: accountType || 'personal',
+        interests: interests || [],
+        expertise: expertise || [],
+        website: website || '',
+        socialLinks: socialLinks || {},
+        businessName: businessName || '',
+        businessCategory: businessCategory === 'Other' ? businessCategoryCustom : (businessCategory || ''),
+        businessAddress: businessAddress || '',
+        businessPhone: businessPhone || '',
+      });
+
+      // Step 5: Handle session persistence based on rememberMe
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
       if (rememberMe && data.session) {
         await storage.set(STORAGE_KEYS.ACCESS_TOKEN, data.session.access_token);
@@ -279,7 +317,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
         await storage.delete(STORAGE_KEYS.REFRESH_TOKEN);
       }
 
-      // Step 4: Navigate to Success
+      // Step 6: Navigate to Success
       navigation.reset({
         index: 0,
         routes: [{ name: 'Success', params: { name } }],
@@ -294,7 +332,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     } finally {
       setIsVerifying(false);
     }
-  }, [email, name, username, gender, dateOfBirth, accountType, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode]);
+  }, [email, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext]);
 
   // Handle code input
   const handleChange = useCallback((text, index) => {

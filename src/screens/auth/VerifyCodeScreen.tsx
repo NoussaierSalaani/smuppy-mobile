@@ -359,10 +359,11 @@ export default function VerifyCodeScreen({ navigation, route }) {
                     );
                   }
 
+                  const isFocused = focusedIndex === i;
                   return (
                     <LinearGradient
                       key={i}
-                      colors={isFilled ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                      colors={(isFilled || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.codeBoxGradient}

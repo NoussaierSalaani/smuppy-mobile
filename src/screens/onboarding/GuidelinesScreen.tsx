@@ -14,8 +14,12 @@ export default function GuidelinesScreen({ navigation, route }) {
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   // Determine step based on account type
-  // All account types now have 5 steps, Guidelines is step 4
+  // Personal: step 4/5, Pro Creator: step 5/6, Pro Business: step 4/5
   const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') {
+      return { currentStep: 5, totalSteps: 6 };
+    }
+    // Personal and Pro Business both have 5 steps, Guidelines is step 4
     return { currentStep: 4, totalSteps: 5 };
   }, [accountType]);
 

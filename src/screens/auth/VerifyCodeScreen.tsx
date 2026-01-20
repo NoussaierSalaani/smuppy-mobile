@@ -66,8 +66,12 @@ export default function VerifyCodeScreen({ navigation, route }) {
   const { updateProfile: updateUserContext } = useUser();
 
   // Determine step based on account type - VerifyCode is the last step
-  // All account types now have 5 steps
+  // Personal: step 5/5, Pro Creator: step 6/6, Pro Business: step 5/5
   const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') {
+      return { currentStep: 6, totalSteps: 6 };
+    }
+    // Personal and Pro Business both have 5 steps
     return { currentStep: 5, totalSteps: 5 };
   }, [accountType]);
 

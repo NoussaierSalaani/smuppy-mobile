@@ -35,7 +35,7 @@ const TermsPoliciesScreen = ({ navigation }) => {
       >
         {/* Important Notice */}
         <View style={styles.noticeBox}>
-          <Ionicons name="information-circle" size={20} color="#00cdb5" />
+          <Ionicons name="information-circle" size={20} color="#11E3A3" />
           <Text style={styles.noticeText}>
             By creating an account, you confirm that you have read and agree to all the documents below.
           </Text>

@@ -82,7 +82,7 @@ export const SmuppyIcon: React.FC<SmuppyIconProps> = ({ size = 80, variant = 'gr
       <Defs>
         {isGradient && (
           <LinearGradient id="iconBgGradient" x1="0" y1="0" x2="57.9282" y2="80.0519" gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor="#11E3A3" />
+            <Stop offset="0" stopColor="#0EBF8A" />
             <Stop offset="1" stopColor="#00B3C7" />
           </LinearGradient>
         )}
@@ -93,7 +93,7 @@ export const SmuppyIcon: React.FC<SmuppyIconProps> = ({ size = 80, variant = 'gr
         </LinearGradient>
         {/* S en gradient vert/cyan (pour fond dark) */}
         <LinearGradient id="iconSGradient" x1="18" y1="16" x2="55" y2="58" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor="#11E3A3" />
+          <Stop offset="0" stopColor="#0EBF8A" />
           <Stop offset="1" stopColor="#00B3C7" />
         </LinearGradient>
       </Defs>
@@ -144,7 +144,7 @@ export const SmuppyText: React.FC<SmuppyTextProps> = ({ width = 100, variant = '
       <Defs>
         {/* Gradient vert/cyan */}
         <LinearGradient id="textGradient" x1="0" y1="0" x2="11.5723" y2="74.4849" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor="#11E3A3" />
+          <Stop offset="0" stopColor="#0EBF8A" />
           <Stop offset="1" stopColor="#00B3C7" />
         </LinearGradient>
         {/* Gradient dark */}

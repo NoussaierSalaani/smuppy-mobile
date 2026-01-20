@@ -92,7 +92,7 @@ export default function Card({ variant = 'post', data, size = 'tall', onPress, s
             <LinearGradient
               colors={GRADIENTS.button}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.trackButton}
             >
               <Text style={styles.trackButtonText}>Track</Text>
@@ -119,7 +119,7 @@ export default function Card({ variant = 'post', data, size = 'tall', onPress, s
             <LinearGradient
               colors={GRADIENTS.button}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.trackButton}
             >
               <Text style={styles.trackButtonText}>Invite</Text>

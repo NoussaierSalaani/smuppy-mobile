@@ -166,7 +166,7 @@ export default function NewPasswordScreen({ navigation, route }) {
           <LinearGradient
             colors={(password.length > 0 || isFocusedPassword) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, password.length > 0 && passwordValid && styles.inputInnerValid]}>
@@ -242,7 +242,7 @@ export default function NewPasswordScreen({ navigation, route }) {
             <LinearGradient
               colors={(confirmPassword.length > 0 || isFocusedConfirm) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
             >
               <View style={[styles.inputInner, passwordsMatch && styles.inputInnerValid]}>

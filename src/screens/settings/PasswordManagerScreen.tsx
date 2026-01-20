@@ -102,7 +102,7 @@ const PasswordManagerScreen = ({ navigation }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={[styles.modalIconBox, { backgroundColor: '#E8FBF5' }]}>
-            <Ionicons name="checkmark-circle" size={40} color="#11E3A3" />
+            <Ionicons name="checkmark-circle" size={40} color="#0EBF8A" />
           </View>
           <Text style={styles.modalTitle}>Password Updated!</Text>
           <Text style={styles.modalMessage}>
@@ -175,7 +175,7 @@ const PasswordManagerScreen = ({ navigation }) => {
             <View style={styles.rulesContainer}>
               {passwordRules.map((rule) => (
                 <View key={rule.id} style={styles.ruleRow}>
-                  <Ionicons name={rule.passed ? "checkmark-circle" : "ellipse-outline"} size={16} color={rule.passed ? '#11E3A3' : '#9CA3AF'} />
+                  <Ionicons name={rule.passed ? "checkmark-circle" : "ellipse-outline"} size={16} color={rule.passed ? '#0EBF8A' : '#9CA3AF'} />
                   <Text style={[styles.ruleText, rule.passed && styles.ruleTextPassed]}>{rule.label}</Text>
                 </View>
               ))}
@@ -186,8 +186,8 @@ const PasswordManagerScreen = ({ navigation }) => {
 
           {confirmPassword.length > 0 && (
             <View style={styles.matchRow}>
-              <Ionicons name={passwordsMatch ? "checkmark-circle" : "close-circle"} size={16} color={passwordsMatch ? '#11E3A3' : '#FF3B30'} />
-              <Text style={[styles.matchText, { color: passwordsMatch ? '#11E3A3' : '#FF3B30' }]}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
+              <Ionicons name={passwordsMatch ? "checkmark-circle" : "close-circle"} size={16} color={passwordsMatch ? '#0EBF8A' : '#FF3B30'} />
+              <Text style={[styles.matchText, { color: passwordsMatch ? '#0EBF8A' : '#FF3B30' }]}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
             </View>
           )}
 
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#0A0A0F' },
-  saveButton: { backgroundColor: '#11E3A3', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  saveButton: { backgroundColor: '#0EBF8A', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   saveButtonDisabled: { backgroundColor: '#E8E8E8' },
   saveButtonText: { fontSize: 14, fontWeight: '600', color: '#FFF' },
   saveButtonTextDisabled: { color: '#C7C7CC' },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   matchText: { fontSize: 13, fontWeight: '500' },
   forgotButton: { alignSelf: 'flex-start', marginTop: 8, paddingVertical: 8 },
   forgotButtonDisabled: { opacity: 0.6 },
-  forgotButtonText: { fontSize: 14, fontWeight: '500', color: '#11E3A3' },
+  forgotButtonText: { fontSize: 14, fontWeight: '500', color: '#0EBF8A' },
   forgotButtonTextDisabled: { color: '#9CA3AF' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 },
   modalContent: { width: '100%', backgroundColor: '#FFF', borderRadius: 24, padding: 28, alignItems: 'center' },
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#0A0A0F', marginBottom: 12, textAlign: 'center' },
   modalMessage: { fontSize: 14, color: '#0A0A0F', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   modalMessageBold: { fontWeight: '600' },
-  modalBtn: { width: '100%', paddingVertical: 16, backgroundColor: '#11E3A3', borderRadius: 14, alignItems: 'center' },
+  modalBtn: { width: '100%', paddingVertical: 16, backgroundColor: '#0EBF8A', borderRadius: 14, alignItems: 'center' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
 });
 

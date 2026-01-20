@@ -208,7 +208,7 @@ export default function ForgotPasswordScreen({ navigation }) {
               <LinearGradient
                 colors={(email.length > 0 || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>

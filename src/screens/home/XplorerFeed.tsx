@@ -15,8 +15,8 @@ const hp = (percentage) => (percentage * SCREEN_HEIGHT) / 100;
 const normalize = (size) => Math.round(size * (SCREEN_WIDTH / baseWidth));
 
 const PIN_COLORS = {
-  coach: '#11E3A3',
-  gym: '#11E3A3',
+  coach: '#0EBF8A',
+  gym: '#0EBF8A',
   restaurant: '#00B5C1',
   store: '#0081BE',
 };

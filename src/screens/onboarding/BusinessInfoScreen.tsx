@@ -119,7 +119,7 @@ export default function BusinessInfoScreen({ navigation, route }) {
           <LinearGradient
             colors={(businessName.length > 0 || focusedField === 'businessName') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, businessName.length > 0 && styles.inputInnerValid]}>
@@ -147,7 +147,7 @@ export default function BusinessInfoScreen({ navigation, route }) {
           <LinearGradient
             colors={(address.length > 0 || focusedField === 'address') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, address.length > 0 && styles.inputInnerValid]}>

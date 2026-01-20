@@ -1,16 +1,16 @@
 export const COLORS = {
     // Primary - Smuppy green (splash screen center color)
-    primary: '#11E3A3',           // Smuppy Green
+    primary: '#0EBF8A',           // Smuppy Green
     primaryDark: '#0066ac',       // Blue (gradient end)
     primaryLight: '#E6FAF8',      // Input valid/focus background
 
     // Legacy (keep for compatibility)
-    cyan: '#11E3A3',
+    cyan: '#0EBF8A',
     cyanBlue: '#28B7D4',
     blue: '#009BC5',
     blueMedium: '#0081BE',
     blueDark: '#0066ac',
-    primaryGreen: '#11E3A3',      // Green accent (alias for dark theme compatibility)
+    primaryGreen: '#0EBF8A',      // Green accent (alias for dark theme compatibility)
 
     // Dark
     dark: '#0a252f',
@@ -40,7 +40,7 @@ export const COLORS = {
     error: '#FF3B30',
     errorLight: '#FEF2F2',
     errorBorder: '#FECACA',
-    success: '#11E3A3',
+    success: '#0EBF8A',
 
     // Backgrounds
     background: '#FFFFFF',
@@ -70,8 +70,8 @@ export const COLORS = {
 
 // Dark theme colors (used in Peaks, Profile, etc.)
 export const DARK_COLORS = {
-    primary: '#11E3A3',           // Green accent
-    primaryGreen: '#11E3A3',      // Alias for primary
+    primary: '#0EBF8A',           // Green accent
+    primaryGreen: '#0EBF8A',      // Alias for primary
     primaryDark: '#0EBF8A',       // Darker green
     cyan: '#00E5FF',              // Cyan accent
     dark: '#0A0A0F',              // Near black background
@@ -137,8 +137,8 @@ export const DARK_COLORS = {
     
     // Colors
     inputBorder: '#CED3D5',
-    inputBorderFocus: '#11E3A3',
-    inputBorderValid: '#11E3A3',
+    inputBorderFocus: '#0EBF8A',
+    inputBorderValid: '#0EBF8A',
     inputBorderError: '#FF3B30',
     inputBgFocus: '#F0FDFB',
     inputBgValid: '#E6FAF8',
@@ -146,14 +146,14 @@ export const DARK_COLORS = {
     
     // Icon colors
     iconDefault: '#9cadbc',
-    iconFocus: '#11E3A3',
+    iconFocus: '#0EBF8A',
     iconError: '#FF3B30',
     
     // Text colors
     textPrimary: '#0a252f',
     textSecondary: '#676C75',
     textMuted: '#9cadbc',
-    textLink: '#11E3A3',
+    textLink: '#0EBF8A',
     textError: '#FF3B30',
   };
   
@@ -251,13 +251,13 @@ export const DARK_COLORS = {
     none: { shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
     card: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 2 },
     cardMedium: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-    button: { shadowColor: '#11E3A3', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
-    buttonGradient: { shadowColor: '#11E3A3', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+    button: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+    buttonGradient: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
     nav: { shadowColor: '#0A252F', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2, shadowRadius: 15, elevation: 5 },
     navLight: { shadowColor: '#0A252F', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.1, shadowRadius: 7, elevation: 3 },
     appBar: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
     float: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 3 },
-    inputFocus: { shadowColor: '#11E3A3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 0 },
+    inputFocus: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 0 },
   };
   
   export const BORDERS = { none: 0, thin: 1, medium: 1.5, thick: 2, extraThick: 3 };

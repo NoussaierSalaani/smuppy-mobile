@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     color: '#0A0A0F',
   },
   saveButton: {
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     alignSelf: 'center',
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,

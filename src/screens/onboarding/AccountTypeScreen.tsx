@@ -75,7 +75,7 @@ export default function AccountTypeScreen({ navigation, route }) {
             <LinearGradient
               colors={GRADIENTS.button}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.cardGradientBorder}
             >
               <TouchableOpacity
@@ -120,7 +120,7 @@ export default function AccountTypeScreen({ navigation, route }) {
             <LinearGradient
               colors={GRADIENTS.button}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.cardGradientBorder}
             >
               <TouchableOpacity
@@ -176,7 +176,7 @@ export default function AccountTypeScreen({ navigation, route }) {
               <LinearGradient
                 colors={GRADIENTS.button}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.proSubGradientBorder}
               >
                 <TouchableOpacity
@@ -218,7 +218,7 @@ export default function AccountTypeScreen({ navigation, route }) {
               <LinearGradient
                 colors={GRADIENTS.button}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.proSubGradientBorder}
               >
                 <TouchableOpacity

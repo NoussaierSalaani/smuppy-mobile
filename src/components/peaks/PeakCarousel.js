@@ -15,7 +15,7 @@ const ITEM_SPACING = 12;
 const ACTIVE_ITEM_SIZE = 76;
 
 const COLORS = {
-  primary: '#11E3A3',
+  primary: '#0EBF8A',
   dark: '#0A0A0F',
 };
 

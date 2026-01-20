@@ -114,7 +114,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
           <LinearGradient
             colors={(bio.length > 0 || focusedField === 'bio') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={[styles.inputGradientBorder, styles.bioGradientBorder]}
           >
             <View style={[styles.bioInner, bio.length > 0 && styles.inputInnerValid]}>
@@ -138,7 +138,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
           <LinearGradient
             colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
@@ -199,7 +199,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }) {
                     <LinearGradient
                       colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                       start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
+                      end={{ x: 1, y: 1 }}
                       style={[styles.inputGradientBorder, styles.socialInputFlex]}
                     >
                       <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>

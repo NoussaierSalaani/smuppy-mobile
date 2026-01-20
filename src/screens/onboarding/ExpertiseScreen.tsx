@@ -396,7 +396,7 @@ export default function ExpertiseScreen({ navigation, route }) {
           <LinearGradient
             colors={GRADIENTS.button}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.chipGradientBorder}
           >
             <View style={styles.chipSelectedInner}>

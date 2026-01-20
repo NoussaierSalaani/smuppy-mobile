@@ -135,7 +135,7 @@ export default function CooldownModal({
                   <LinearGradient
                     colors={GRADIENTS.primary}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={styles.progressBar}
                   />
                 </Animated.View>
@@ -150,7 +150,7 @@ export default function CooldownModal({
               <LinearGradient
                 colors={GRADIENTS.primary}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.okBtn}
               >
                 <TouchableOpacity 

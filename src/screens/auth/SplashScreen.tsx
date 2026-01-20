@@ -14,7 +14,7 @@ const SplashScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      <LinearGradient colors={['#00B3C7', '#11E3A3', '#7BEDC6']} locations={[0, 0.5, 1]} style={styles.gradient}>
+      <LinearGradient colors={['#00B3C7', '#0EBF8A', '#7BEDC6']} locations={[0, 0.5, 1]} style={styles.gradient}>
         <View style={styles.logoContainer}>
           <SmuppyIcon size={100} variant="dark" />
         </View>

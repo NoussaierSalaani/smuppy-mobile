@@ -271,7 +271,7 @@ export default function NotificationsScreen({ navigation }) {
               <LinearGradient
                 colors={GRADIENTS.primary}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.followButton}
               >
                 <Text style={styles.followButtonText}>Follow</Text>

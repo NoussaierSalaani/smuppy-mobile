@@ -452,7 +452,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
                       key={i}
                       colors={(isFilled || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                       start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
+                      end={{ x: 1, y: 1 }}
                       style={styles.codeBoxGradient}
                     >
                       <TextInput

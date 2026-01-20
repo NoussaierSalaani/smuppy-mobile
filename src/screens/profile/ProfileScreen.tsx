@@ -317,7 +317,7 @@ const ProfileScreen = ({ navigation, route }) => {
           style={styles.addBioBtn}
           onPress={() => setShowBioModal(true)}
         >
-          <Ionicons name="add" size={16} color="#11E3A3" />
+          <Ionicons name="add" size={16} color="#0EBF8A" />
           <Text style={styles.addBioText}>Add Bio</Text>
         </TouchableOpacity>
       ) : null}
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -669,13 +669,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#11E3A3',
+    borderColor: '#0EBF8A',
     gap: 6,
   },
   addBioText: {
     fontSize: 14,
     fontFamily: 'Poppins-Medium',
-    color: '#11E3A3',
+    color: '#0EBF8A',
   },
   bioSection: {
     paddingHorizontal: 20,
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     color: '#6E6E73',
   },
   tabTextActive: {
-    color: '#11E3A3',
+    color: '#0EBF8A',
   },
   tabIndicator: {
     position: 'absolute',
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     borderRadius: 1,
   },
 
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     color: '#0A0A0F',
     borderWidth: 1.5,
-    borderColor: '#11E3A3',
+    borderColor: '#0EBF8A',
     borderRadius: 14,
     padding: 16,
     textAlignVertical: 'top',
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
   qrShareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
 
   // ===== FAN BUTTON (for error state) =====
   fanButton: {
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,

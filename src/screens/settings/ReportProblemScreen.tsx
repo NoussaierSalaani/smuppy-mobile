@@ -40,7 +40,7 @@ const ReportProblemScreen = ({ navigation }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.successIcon}>
-            <Ionicons name="checkmark-circle" size={60} color="#11E3A3" />
+            <Ionicons name="checkmark-circle" size={60} color="#0EBF8A" />
           </View>
           <Text style={styles.successTitle}>Problem Report Sent Successfully!</Text>
           <Text style={styles.successMessage}>
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
 
   // Send Button
   sendButton: {
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingVertical: 16,
     borderRadius: 28,
     alignItems: 'center',
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   okButton: {
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
     paddingHorizontal: 40,
     paddingVertical: 14,
     borderRadius: 25,

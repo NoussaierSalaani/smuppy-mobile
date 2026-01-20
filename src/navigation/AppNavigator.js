@@ -256,7 +256,7 @@ export default function AppNavigator() {
       {!hideSplash && (
         <Animated.View style={[styles.splashOverlay, { opacity: fadeAnim }]}>
           <LinearGradient
-            colors={['#00B3C7', '#11E3A3', '#7BEDC6']}
+            colors={['#00B3C7', '#0EBF8A', '#7BEDC6']}
             locations={[0, 0.5, 1]}
             style={styles.gradient}
           >
@@ -277,7 +277,7 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
   },
   splashOverlay: {
     ...StyleSheet.absoluteFillObject,

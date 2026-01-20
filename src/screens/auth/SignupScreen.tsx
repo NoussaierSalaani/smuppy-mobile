@@ -201,11 +201,11 @@ export default function SignupScreen({ navigation }) {
               <LinearGradient
                 colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? '#11E3A3' : '#9cadbc'} />
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? '#0EBF8A' : '#9cadbc'} />
                   <TextInput
                     style={styles.input}
                     placeholder="mailusersmuppy@mail.com"
@@ -218,7 +218,7 @@ export default function SignupScreen({ navigation }) {
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
                   />
-                  {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#11E3A3" />}
+                  {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />}
                 </View>
               </LinearGradient>
             )}
@@ -243,11 +243,11 @@ export default function SignupScreen({ navigation }) {
               <LinearGradient
                 colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorderPassword}
               >
                 <View style={[styles.inputInnerPassword, password.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? '#11E3A3' : '#9cadbc'} />
+                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? '#0EBF8A' : '#9cadbc'} />
                   <TextInput
                     style={styles.input}
                     placeholder="••••••••••"
@@ -274,7 +274,7 @@ export default function SignupScreen({ navigation }) {
                         <Ionicons
                           name={check.passed ? 'checkmark-circle' : 'ellipse-outline'}
                           size={16}
-                          color={check.passed ? '#11E3A3' : '#9cadbc'}
+                          color={check.passed ? '#0EBF8A' : '#9cadbc'}
                         />
                         <Text style={[styles.requirementText, check.passed && styles.requirementMet]}>
                           {check.label}
@@ -316,7 +316,7 @@ export default function SignupScreen({ navigation }) {
             <LinearGradient
               colors={isFormValid ? GRADIENTS.button : GRADIENTS.buttonDisabled}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.btn}
             >
               <TouchableOpacity
@@ -353,7 +353,7 @@ export default function SignupScreen({ navigation }) {
               <Text style={styles.loginText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLinkRow}>
                 <Text style={styles.loginLink}>Log In</Text>
-                <Ionicons name="arrow-forward" size={14} color="#11E3A3" />
+                <Ionicons name="arrow-forward" size={14} color="#0EBF8A" />
               </TouchableOpacity>
             </View>
 
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   requirementsTitle: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginBottom: 12 },
   requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   requirementText: { fontSize: 13, color: '#9cadbc' },
-  requirementMet: { color: '#11E3A3' },
+  requirementMet: { color: '#0EBF8A' },
 
   // Strength
   strengthContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
@@ -477,18 +477,18 @@ const styles = StyleSheet.create({
   loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 8 },
   loginText: { fontSize: 14, color: '#676C75' },
   loginLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  loginLink: { fontSize: 14, fontWeight: '600', color: '#11E3A3' },
+  loginLink: { fontSize: 14, fontWeight: '600', color: '#0EBF8A' },
 
   // Checkbox
   rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#CED3D5', borderRadius: 5, marginRight: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
-  checkboxChecked: { backgroundColor: '#11E3A3', borderColor: '#11E3A3' },
+  checkboxChecked: { backgroundColor: '#0EBF8A', borderColor: '#0EBF8A' },
   checkboxLabel: { fontSize: 13, fontWeight: '500', color: '#0a252f' },
 
   // Terms
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 16 },
   termsText: { flex: 1, fontSize: 12, color: '#676C75', lineHeight: 18 },
-  termsLink: { color: '#11E3A3', fontWeight: '500' },
+  termsLink: { color: '#0EBF8A', fontWeight: '500' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
@@ -497,9 +497,9 @@ const styles = StyleSheet.create({
   modalIconWarning: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#0a252f', marginBottom: 12, textAlign: 'center' },
   modalMessage: { fontSize: 14, color: '#676C75', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  modalHighlight: { fontWeight: '700', color: '#11E3A3' },
+  modalHighlight: { fontWeight: '700', color: '#0EBF8A' },
   supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E6FAF8', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
-  supportEmailText: { fontSize: 15, fontWeight: '600', color: '#11E3A3' },
+  supportEmailText: { fontSize: 15, fontWeight: '600', color: '#0EBF8A' },
   modalBtnWarning: { width: '100%', height: 56, borderRadius: 28, backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
 });

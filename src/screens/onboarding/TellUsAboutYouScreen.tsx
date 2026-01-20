@@ -139,7 +139,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
           <LinearGradient
             colors={(hasName || focusedField === 'name') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, hasName && styles.inputInnerValid]}>
@@ -172,7 +172,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
                   key={g.id}
                   colors={GRADIENTS.button}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={styles.genderGradientBorder}
                 >
                   <TouchableOpacity
@@ -219,7 +219,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
             <LinearGradient
               colors={hasSelectedDate ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
             >
               <TouchableOpacity

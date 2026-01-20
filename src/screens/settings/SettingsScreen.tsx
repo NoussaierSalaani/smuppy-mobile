@@ -109,7 +109,7 @@ const SettingsScreen = ({ navigation }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={[styles.modalIconBox, { backgroundColor: '#E0F7F4' }]}>
-            <Ionicons name="mail-outline" size={32} color="#11E3A3" />
+            <Ionicons name="mail-outline" size={32} color="#0EBF8A" />
           </View>
           <Text style={styles.modalTitle}>Change Email</Text>
           <Text style={styles.currentEmail}>{userEmail}</Text>
@@ -127,7 +127,7 @@ const SettingsScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowEmailModal(false); setNewEmail(''); }} disabled={changingEmail}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.logoutButton, { backgroundColor: '#11E3A3' }]} onPress={handleChangeEmail} disabled={changingEmail}>
+            <TouchableOpacity style={[styles.logoutButton, { backgroundColor: '#0EBF8A' }]} onPress={handleChangeEmail} disabled={changingEmail}>
               {changingEmail ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Update</Text>}
             </TouchableOpacity>
           </View>
@@ -326,10 +326,10 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontFamily: 'WorkSans-Bold', color: '#0A0A0F', marginBottom: 8 },
   modalMessage: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#0A0A0F', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
   currentEmail: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#8E8E93', marginBottom: 16 },
-  emailInput: { width: '100%', borderWidth: 1.5, borderColor: '#11E3A3', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: 'Poppins-Regular', color: '#0A0A0F', marginBottom: 20 },
+  emailInput: { width: '100%', borderWidth: 1.5, borderColor: '#0EBF8A', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: 'Poppins-Regular', color: '#0A0A0F', marginBottom: 20 },
   modalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
-  cancelButton: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: '#11E3A3', alignItems: 'center' },
-  cancelButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#11E3A3' },
+  cancelButton: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: '#0EBF8A', alignItems: 'center' },
+  cancelButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#0EBF8A' },
   logoutButton: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: '#FF3B30', alignItems: 'center', justifyContent: 'center' },
   logoutButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#FFF' },
 });

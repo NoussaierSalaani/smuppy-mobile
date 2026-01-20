@@ -16,7 +16,7 @@ import Animated, {
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const COLORS = {
-  primary: '#11E3A3',
+  primary: '#0EBF8A',
   white: '#FFFFFF',
   dark: '#0A0A0F',
   grayDark: '#2C2C2E',

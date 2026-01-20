@@ -113,7 +113,7 @@ const CreateIcon = ({ size = 24 }) => (
     <Defs>
       <LinearGradient id="createGradient" x1="0" y1="0" x2="24" y2="24">
         <Stop offset="0" stopColor="#01B6C5" />
-        <Stop offset="1" stopColor="#11E3A3" />
+        <Stop offset="1" stopColor="#0EBF8A" />
       </LinearGradient>
     </Defs>
     <Path 

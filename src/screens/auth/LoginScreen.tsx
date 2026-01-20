@@ -388,7 +388,7 @@ export default function LoginScreen({ navigation }) {
               <LinearGradient
                 colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
@@ -415,7 +415,7 @@ export default function LoginScreen({ navigation }) {
               <LinearGradient
                 colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, password.length > 0 && styles.inputInnerValid]}>

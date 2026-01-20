@@ -5,7 +5,7 @@ import Svg, { Circle } from 'react-native-svg';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const COLORS = {
-  primary: '#11E3A3',
+  primary: '#0EBF8A',
   primaryFaded: 'rgba(17, 227, 163, 0.3)',
   dark: '#0A0A0F',
 };

@@ -50,7 +50,7 @@ const WelcomeScreen = ({ navigation }) => {
 
         <Animated.View style={[styles.buttonContainer, { opacity: buttonsAnim }]}>
           <TouchableOpacity style={styles.primaryButtonWrapper} onPress={() => navigation.navigate('Signup')} activeOpacity={0.8}>
-            <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryButton}>
+            <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Create an Account?</Text>
               <Text style={styles.arrowIcon}>→</Text>
             </LinearGradient>

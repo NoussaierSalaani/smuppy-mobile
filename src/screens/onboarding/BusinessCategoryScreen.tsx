@@ -89,7 +89,7 @@ export default function BusinessCategoryScreen({ navigation, route }) {
                   key={cat.id}
                   colors={GRADIENTS.button}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={styles.categoryCardGradient}
                 >
                   <TouchableOpacity
@@ -132,7 +132,7 @@ export default function BusinessCategoryScreen({ navigation, route }) {
             <LinearGradient
               colors={GRADIENTS.button}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.categoryCardGradient}
             >
               <TouchableOpacity
@@ -181,7 +181,7 @@ export default function BusinessCategoryScreen({ navigation, route }) {
             <LinearGradient
               colors={(customCategory.length > 0 || focusedField === 'customCategory') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
             >
               <View style={[styles.inputInner, customCategory.length > 0 && styles.inputInnerValid]}>
@@ -212,7 +212,7 @@ export default function BusinessCategoryScreen({ navigation, route }) {
                     key={mode.id}
                     colors={GRADIENTS.button}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={styles.locationCardGradient}
                   >
                     <TouchableOpacity

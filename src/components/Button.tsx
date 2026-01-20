@@ -174,7 +174,7 @@ export default function Button({
         <LinearGradient
           colors={variantStyles.gradient}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={[
             styles.button,
             {

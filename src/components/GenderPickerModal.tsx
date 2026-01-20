@@ -82,7 +82,7 @@ export default function GenderPickerModal({ visible, onClose, onSelect, selected
                   </Text>
                   {isSelected && (
                     <View style={styles.checkmark}>
-                      <Ionicons name="checkmark-circle" size={24} color="#11E3A3" />
+                      <Ionicons name="checkmark-circle" size={24} color="#0EBF8A" />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   optionSelected: {
     backgroundColor: '#E8FBF5',
-    borderColor: '#11E3A3',
+    borderColor: '#0EBF8A',
   },
   optionIcon: {
     width: 52,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   optionIconSelected: {
-    backgroundColor: '#11E3A3',
+    backgroundColor: '#0EBF8A',
   },
   optionLabel: {
     flex: 1,

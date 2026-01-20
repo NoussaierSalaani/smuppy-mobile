@@ -73,7 +73,7 @@ const NotificationSettingsScreen = ({ navigation }) => {
       <Switch
         value={settings[item.id]}
         onValueChange={() => toggleSetting(item.id)}
-        trackColor={{ false: '#E8E8E8', true: '#11E3A3' }}
+        trackColor={{ false: '#E8E8E8', true: '#0EBF8A' }}
         thumbColor="#FFFFFF"
         ios_backgroundColor="#E8E8E8"
       />

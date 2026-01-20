@@ -133,7 +133,7 @@ export default function CreatorInfoScreen({ navigation, route }) {
           <LinearGradient
             colors={(hasDisplayName || focusedField === 'displayName') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, hasDisplayName && styles.inputInnerValid]}>
@@ -165,7 +165,7 @@ export default function CreatorInfoScreen({ navigation, route }) {
                   key={g.id}
                   colors={GRADIENTS.button}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={styles.genderGradientBorder}
                 >
                   <TouchableOpacity
@@ -212,7 +212,7 @@ export default function CreatorInfoScreen({ navigation, route }) {
             <LinearGradient
               colors={hasSelectedDate ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
             >
               <TouchableOpacity

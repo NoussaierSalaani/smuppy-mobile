@@ -149,7 +149,7 @@ export default function EmailVerificationPendingScreen({ route }) {
       <View style={styles.content}>
         {/* Header Icon */}
         <LinearGradient
-          colors={GRADIENTS.primary as [string, string]}
+          colors={GRADIENTS.primary}
           start={GRADIENTS.primaryStart}
           end={GRADIENTS.primaryEnd}
           style={styles.iconContainer}
@@ -197,7 +197,7 @@ export default function EmailVerificationPendingScreen({ route }) {
 
         {/* Check Status Button */}
         <LinearGradient
-          colors={GRADIENTS.primary as [string, string]}
+          colors={GRADIENTS.primary}
           start={GRADIENTS.primaryStart}
           end={GRADIENTS.primaryEnd}
           style={styles.btn}

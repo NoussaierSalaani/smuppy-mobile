@@ -314,7 +314,7 @@ export default function SignupScreen({ navigation }) {
 
             {/* Signup Button */}
             <LinearGradient
-              colors={isFormValid ? ['#00cdb5', '#0066ac'] : ['#CED3D5', '#CED3D5']}
+              colors={isFormValid ? ['#00B3C7', '#11E3A3', '#7BEDC6'] : ['#CED3D5', '#CED3D5']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.btn}

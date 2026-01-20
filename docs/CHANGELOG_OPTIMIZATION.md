@@ -1,5 +1,44 @@
 # Changelog - Performance & Scalability Optimization
 
+## Version 1.3.0 - 20 Janvier 2026
+
+### Design System - Unified Colors & Gradient
+
+**Gradient et couleurs unifiés pour cohérence visuelle.**
+
+| Élément | Ancienne Valeur | Nouvelle Valeur |
+|---------|-----------------|-----------------|
+| Gradient | `['#00B3C7', '#11E3A3', '#7BEDC6']` horizontal | `['#00B3C7', '#0EBF8A', '#72D1AD']` diagonal |
+| Accent Color | `#11E3A3` (vif) | `#0EBF8A` (subtil, meilleure lisibilité) |
+| Mint | `#7BEDC6` (flashy) | `#72D1AD` (doux) |
+| Direction | Horizontal (x:0→1, y:0) | Diagonal (x:0→1, y:0→1) |
+
+**Fichiers modifiés (38 fichiers):**
+- `src/config/theme.ts` - GRADIENTS et COLORS
+- Tous les écrans auth et onboarding
+- Composants: Button, CooldownModal, Tag, Card
+- Screens: Settings, Profile, Home
+
+**Avantages:**
+- ✅ Meilleure lisibilité texte blanc sur gradient
+- ✅ Couleurs plus subtiles et professionnelles
+- ✅ Gradient diagonal pour effet de profondeur
+- ✅ Cohérence visuelle dans toute l'app
+
+**Usage React Native:**
+```javascript
+import { GRADIENTS } from '../config/theme';
+
+<LinearGradient
+  colors={GRADIENTS.primary}  // ['#00B3C7', '#0EBF8A', '#72D1AD']
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 1 }}        // Diagonal!
+  style={styles.button}
+/>
+```
+
+---
+
 ## Version 1.2.1 - 12 Janvier 2026
 
 ### Sentry Error Tracking - Production Ready

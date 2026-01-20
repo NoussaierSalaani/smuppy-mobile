@@ -16,14 +16,12 @@
 #### Primary Colors (Gradient Spectrum)
 | Color | Hex Code | Usage |
 |-------|----------|-------|
-| Primary Teal | `#11E3A3` | Primary accent, buttons, active states |
-| Teal Secondary | `#00CDB5` | Gradient transitions |
-| Cyan | `#00B5C1` | Gradient midpoint, secondary buttons |
-| Cyan Blue | `#28B7D4` | Gradient start, headers |
-| Blue | `#009BC5` | Extended palette |
+| Cyan | `#00B3C7` | Gradient start |
+| Primary Green | `#0EBF8A` | Primary accent, buttons, checkboxes, links (optimized for white text) |
+| Mint | `#72D1AD` | Gradient end (subtle accent) |
+| Dark Navy | `#0A252F` | Primary text, dark UI elements |
 | Blue Medium | `#0081BE` | Extended palette |
 | Blue Dark | `#0066AC` | Extended palette |
-| Dark Navy | `#0A252F` | Primary text, dark UI elements |
 
 #### Neutral Colors
 | Color | Hex Code | Usage |
@@ -49,28 +47,28 @@
 ### Gradients
 
 ```css
-/* Primary Horizontal Gradient */
-background: linear-gradient(90deg, #00B3C7 1.44%, #11E3A3 100%);
-background: linear-gradient(90deg, #28B7D4 -0.13%, #11E3A3 97.18%);
+/* Primary Diagonal Gradient (USE EVERYWHERE) */
+background: linear-gradient(135deg, #00B3C7 0%, #0EBF8A 50%, #72D1AD 100%);
+/* React Native: colors={['#00B3C7', '#0EBF8A', '#72D1AD']} start={{x:0,y:0}} end={{x:1,y:1}} */
 
-/* Diagonal Gradient */
-background: linear-gradient(143.19deg, #28B7D4 0%, #11E3A3 100%);
-
-/* Menu/Navigation Gradient */
-background: linear-gradient(319.45deg, rgba(33, 171, 182, 0.6) 0%, rgba(17, 227, 163, 0.8) 94.14%);
-
-/* Background Overlay */
-background: linear-gradient(323.45deg, #28B7D4 1.86%, #11E3A3 100%);
+/* Optimized for:
+   - White text readability (darker center #0EBF8A)
+   - Subtle gradient effect (mint end #72D1AD)
+   - Diagonal direction for visual depth
+*/
 
 /* Logo Gradient */
 background: linear-gradient(88.32deg, #134456 -38.13%, #0A252F 47.8%);
-background: linear-gradient(117deg, #11E3A3 41.03%, #00B3C7 87.29%);
+background: linear-gradient(117deg, #0EBF8A 41.03%, #00B3C7 87.29%);
 
 /* Live Button Gradient */
 background: linear-gradient(90deg, #FF5E57 1.44%, #FA6B65 100%);
 
 /* Reminder Button Gradient */
 background: linear-gradient(90deg, #0081BE 0%, #00B5C1 100%);
+
+/* Disabled Button */
+background: linear-gradient(90deg, #CED3D5 0%, #CED3D5 100%);
 ```
 
 ### Typography
@@ -689,28 +687,28 @@ color: #0A0A0A;
 ```css
 :root {
   /* Primary Colors */
-  --color-primary: #11E3A3;
-  --color-primary-dark: #00B3C7;
-  --color-accent: #28B7D4;
-  
+  --color-primary: #0EBF8A;
+  --color-cyan: #00B3C7;
+  --color-mint: #72D1AD;
+
   /* Text Colors */
   --color-text-primary: #0A252F;
   --color-text-secondary: #393C43;
   --color-text-muted: #6C7C82;
   --color-text-placeholder: #CED3D5;
-  
+
   /* Background Colors */
   --color-bg-primary: #FFFFFF;
   --color-bg-secondary: #EFF1F2;
   --color-bg-focus: #E7FCF6;
-  
+
   /* Semantic Colors */
   --color-error: #EF4444;
-  --color-success: #11E3A3;
-  
-  /* Gradients */
-  --gradient-primary: linear-gradient(90deg, #00B3C7 1.44%, #11E3A3 100%);
-  --gradient-diagonal: linear-gradient(143.19deg, #28B7D4 0%, #11E3A3 100%);
+  --color-success: #0EBF8A;
+
+  /* Gradients - DIAGONAL */
+  --gradient-primary: linear-gradient(135deg, #00B3C7 0%, #0EBF8A 50%, #72D1AD 100%);
+  --gradient-reverse: linear-gradient(135deg, #72D1AD 0%, #0EBF8A 50%, #00B3C7 100%);
   
   /* Spacing */
   --space-xs: 4px;
@@ -744,6 +742,7 @@ color: #0A0A0A;
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-01-20 | 1.1.0 | Unified gradient and colors: diagonal gradient `['#00B3C7', '#0EBF8A', '#72D1AD']`, accent color `#0EBF8A` |
 | 2026-01-07 | 1.0.0 | Initial design system documentation |
 
 ---

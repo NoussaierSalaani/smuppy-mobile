@@ -80,7 +80,9 @@ export default function CreatorInfoScreen({ navigation, route }) {
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    navigate('CreatorOptionalInfo', {
+    // Skip CreatorOptionalInfo - go directly to Expertise
+    // Bio, website, social links can be added later in Settings
+    navigate('Expertise', {
       ...params,
       profileImage,
       displayName: displayName.trim(),
@@ -93,8 +95,8 @@ export default function CreatorInfoScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Pro Creator flow step 1/6 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={6} />
+        {/* Header with Progress Bar - Pro Creator flow step 1/4 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
 
         <View style={styles.content}>
           <View style={styles.header}>
@@ -115,12 +117,12 @@ export default function CreatorInfoScreen({ navigation, route }) {
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} style={styles.profileImage} />
                   ) : (
-                    <Ionicons name="camera" size={28} color={COLORS.grayMuted} />
+                    <Ionicons name="camera" size={32} color={COLORS.grayMuted} />
                   )}
                 </View>
               </LinearGradient>
               <View style={styles.photoBadge}>
-                <Ionicons name={profileImage ? "checkmark" : "add"} size={12} color={COLORS.white} />
+                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={COLORS.white} />
               </View>
             </TouchableOpacity>
             <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add a photo'}</Text>
@@ -231,6 +233,12 @@ export default function CreatorInfoScreen({ navigation, route }) {
               <Text style={styles.errorText}>{ageError}</Text>
             </View>
           )}
+
+          {/* Info note */}
+          <View style={styles.infoNote}>
+            <Ionicons name="information-circle-outline" size={16} color={COLORS.grayMuted} />
+            <Text style={styles.infoText}>You can add bio, website and social links later in Settings</Text>
+          </View>
         </View>
 
         {/* Fixed Footer */}
@@ -277,12 +285,12 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
   subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
   // Profile Photo
-  photoSection: { alignItems: 'center', marginBottom: SPACING.md },
-  photoGradient: { width: 88, height: 88, borderRadius: 44, padding: 2.5 },
-  photoContainer: { flex: 1, borderRadius: 41, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoSection: { alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.lg },
+  photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
+  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   photoContainerFilled: { backgroundColor: '#E8FAF7' },
-  profileImage: { width: '100%', height: '100%', borderRadius: 41 },
-  photoBadge: { position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
+  profileImage: { width: '100%', height: '100%', borderRadius: 52 },
+  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: COLORS.white },
   photoLabel: { fontSize: 12, color: COLORS.grayMuted, marginTop: 4 },
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: 4, fontSize: 12 },
   required: { color: COLORS.error },
@@ -304,6 +312,8 @@ const styles = StyleSheet.create({
   genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: '#E8FAF7', justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
+  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
+  infoText: { flex: 1, fontSize: 13, color: COLORS.grayMuted, lineHeight: 18 },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },

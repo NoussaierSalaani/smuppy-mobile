@@ -58,10 +58,10 @@ export default function AccountTypeScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.inner}>
-        {/* Header with Progress Bar - 100% for AccountType */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={1} />
+      {/* Header with Progress Bar - 100% for AccountType */}
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={1} />
 
+      <View style={styles.inner}>
         {/* Title */}
         <View style={styles.titleBox}>
           <Text style={styles.title}>What type of account?</Text>
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   inner: { flex: 1, paddingHorizontal: SPACING.xl },
 
   // Title
-  titleBox: { alignItems: 'center', marginBottom: SPACING.xl, marginTop: SPACING.sm },
+  titleBox: { alignItems: 'center', marginBottom: SPACING.xl },
   title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.sm },
   subtitle: { fontSize: 15, color: COLORS.dark, textAlign: 'center' },
 

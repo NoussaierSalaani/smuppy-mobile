@@ -30,7 +30,6 @@ const getAge = (birthDate: Date) => {
 export default function TellUsAboutYouScreen({ navigation, route }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [bio, setBio] = useState('');
   const [gender, setGender] = useState('');
   const [date, setDate] = useState(new Date(2000, 0, 1));
   const [showPicker, setShowPicker] = useState(false);
@@ -91,20 +90,19 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
       password,
       accountType,
       name: name.trim(),
-      bio: bio.trim(),
       gender,
       dateOfBirth: date.toISOString(),
       profileImage,
     });
     setLoading(false);
-  }, [navigation, email, password, accountType, name, bio, gender, date, profileImage, isFormValid, loading]);
+  }, [navigation, email, password, accountType, name, gender, date, profileImage, isFormValid, loading]);
 
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Personal flow step 1/5 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={5} />
+        {/* Header with Progress Bar - Personal flow step 1/4 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
 
         <View style={styles.content}>
           <View style={styles.header}>
@@ -125,12 +123,12 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} style={styles.profileImage} />
                   ) : (
-                    <Ionicons name="camera" size={28} color={COLORS.grayMuted} />
+                    <Ionicons name="camera" size={32} color={COLORS.grayMuted} />
                   )}
                 </View>
               </LinearGradient>
               <View style={styles.photoBadge}>
-                <Ionicons name={profileImage ? "checkmark" : "add"} size={12} color={COLORS.white} />
+                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={COLORS.white} />
               </View>
             </TouchableOpacity>
             <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add a photo'}</Text>
@@ -164,30 +162,6 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
           {hasName && (
             <Text style={styles.greeting}>Nice to meet you, <Text style={styles.greetingName}>{name.trim()}</Text>! 👋</Text>
           )}
-
-          {/* Bio Input */}
-          <Text style={styles.label}>Bio</Text>
-          <LinearGradient
-            colors={(bio.length > 0 || focusedField === 'bio') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.inputGradientBorder, styles.bioGradientBorder]}
-          >
-            <View style={[styles.bioInner, bio.length > 0 && styles.inputInnerValid]}>
-              <TextInput
-                style={styles.bioInput}
-                placeholder="Tell us a bit about yourself..."
-                placeholderTextColor={COLORS.grayMuted}
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                maxLength={100}
-                onFocus={() => setFocusedField('bio')}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
-          </LinearGradient>
-          <Text style={styles.charCount}>{bio.length}/100</Text>
 
           {/* Gender Selection */}
           <Text style={styles.label}>Gender <Text style={styles.required}>*</Text></Text>
@@ -267,6 +241,12 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
               <Text style={styles.errorText}>{ageError}</Text>
             </View>
           )}
+
+          {/* Info note */}
+          <View style={styles.infoNote}>
+            <Ionicons name="information-circle-outline" size={16} color={COLORS.grayMuted} />
+            <Text style={styles.infoText}>You can add bio and more details later in Settings</Text>
+          </View>
         </View>
 
         {/* Fixed Footer */}
@@ -334,12 +314,12 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
   subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
   // Profile Photo
-  photoSection: { alignItems: 'center', marginBottom: SPACING.md },
-  photoGradient: { width: 88, height: 88, borderRadius: 44, padding: 2.5 },
-  photoContainer: { flex: 1, borderRadius: 41, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoSection: { alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.lg },
+  photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
+  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   photoContainerFilled: { backgroundColor: '#E8FAF7' },
-  profileImage: { width: '100%', height: '100%', borderRadius: 41 },
-  photoBadge: { position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
+  profileImage: { width: '100%', height: '100%', borderRadius: 52 },
+  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: COLORS.white },
   photoLabel: { fontSize: 12, color: COLORS.grayMuted, marginTop: 4 },
   label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: 4, fontSize: 12 },
   required: { color: COLORS.error },
@@ -351,10 +331,6 @@ const styles = StyleSheet.create({
   inputInnerValid: { backgroundColor: '#E8FAF7' },
   inputError: { borderColor: COLORS.error, backgroundColor: '#FEE' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
-  bioGradientBorder: { height: 72, marginBottom: SPACING.xs },
-  bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, backgroundColor: COLORS.white },
-  bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 13, textAlignVertical: 'top', width: '100%' },
-  charCount: { fontSize: 10, color: COLORS.grayMuted, textAlign: 'right', marginBottom: SPACING.xs },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -2, marginBottom: SPACING.xs, gap: 4 },
   errorText: { fontSize: 12, color: COLORS.error },
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
@@ -365,6 +341,8 @@ const styles = StyleSheet.create({
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
   dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.sm, fontSize: 14 },
   placeholder: { color: COLORS.grayMuted },
+  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
+  infoText: { flex: 1, fontSize: 13, color: COLORS.grayMuted, lineHeight: 18 },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },

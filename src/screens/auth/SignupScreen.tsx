@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,7 @@ import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import { ENV } from '../../config/env';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
-import { validateEmailFull, EMAIL_ERROR_MESSAGES } from '../../services/emailValidation';
+import { validateEmailAdvanced, EMAIL_ERROR_MESSAGES } from '../../services/emailValidation';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 // Style unifié Smuppy (même que LoginScreen)
@@ -38,7 +38,6 @@ export default function SignupScreen({ navigation }) {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [deletedAccountModal, setDeletedAccountModal] = useState({
     visible: false,
     daysRemaining: 0,
@@ -46,23 +45,6 @@ export default function SignupScreen({ navigation }) {
     fullName: '',
   });
   const [rememberMe, setRememberMe] = useState(false);
-
-  // Track keyboard visibility
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardVisible(true)
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardVisible(false)
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
 
   const closeDeletedAccountModal = useCallback(() => {
     setDeletedAccountModal(prev => ({ ...prev, visible: false }));
@@ -86,7 +68,6 @@ export default function SignupScreen({ navigation }) {
 
       if (!result.available) {
         if (result.reason === 'deleted') {
-          // Show deleted account modal
           setDeletedAccountModal({
             visible: true,
             daysRemaining: result.days_remaining,
@@ -94,7 +75,6 @@ export default function SignupScreen({ navigation }) {
             fullName: result.full_name || '',
           });
         } else if (result.reason === 'exists') {
-          // Show generic error (don't reveal email exists)
           setErrorModal({
             visible: true,
             title: 'Invalid Credentials',
@@ -129,21 +109,23 @@ export default function SignupScreen({ navigation }) {
   const handleSignup = async () => {
     if (!isFormValid || loading) return;
 
-    // Prevent double-tap: set loading BEFORE any async operation
     setLoading(true);
-
     const normalizedEmail = email.trim().toLowerCase();
 
-    try {
-      // Check if email is available (not deleted, not already registered)
-      const isAvailable = await checkEmailAvailable(normalizedEmail);
-      if (!isAvailable) {
-        setLoading(false);
-        return;
-      }
+    // Helper: timeout wrapper for promises (1.5s max per call)
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
+      Promise.race([promise, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
 
-      // Check AWS rate limit first (server-side protection)
-      const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-signup');
+    try {
+      // Run all checks in parallel with 1.5s timeout each for speed
+      const [isAvailable, awsCheck, emailValidation] = await Promise.all([
+        withTimeout(checkEmailAvailable(normalizedEmail), 1500, true),
+        withTimeout(checkAWSRateLimit(normalizedEmail, 'auth-signup'), 1500, { allowed: true }),
+        withTimeout(validateEmailAdvanced(normalizedEmail), 1500, { valid: true, email: normalizedEmail }),
+      ]);
+
+      if (!isAvailable) return;
+
       if (!awsCheck.allowed) {
         setErrorModal({
           visible: true,
@@ -152,9 +134,6 @@ export default function SignupScreen({ navigation }) {
         });
         return;
       }
-
-      // Advanced email validation (format + disposable + MX records)
-      const emailValidation = await validateEmailFull(email);
 
       if (!emailValidation.valid) {
         const errorTitle = emailValidation.code === 'DISPOSABLE_EMAIL'
@@ -170,10 +149,8 @@ export default function SignupScreen({ navigation }) {
         return;
       }
 
-      // Navigate to onboarding with email, password, and rememberMe
-      // Account creation happens at the end after OTP verification
       navigation.navigate('AccountType', {
-        email: emailValidation.email,
+        email: emailValidation.email || normalizedEmail,
         password,
         rememberMe
       });
@@ -326,12 +303,14 @@ export default function SignupScreen({ navigation }) {
             )}
 
             {/* Remember Me */}
-            <TouchableOpacity style={styles.rememberRow} onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
-              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                {rememberMe && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
-              </View>
+            <View style={styles.rememberRow}>
+              <TouchableOpacity onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
+                </View>
+              </TouchableOpacity>
               <Text style={styles.checkboxLabel}>Remember me</Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Signup Button */}
             <LinearGradient
@@ -346,7 +325,7 @@ export default function SignupScreen({ navigation }) {
                 disabled={!isFormValid || loading}
                 activeOpacity={0.8}
               >
-                <Text style={styles.btnText}>{loading ? 'Validating...' : 'Set-up your account'}</Text>
+                <Text style={styles.btnText}>{loading ? 'Validating...' : 'Get Started'}</Text>
                 {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
               </TouchableOpacity>
             </LinearGradient>
@@ -442,320 +421,76 @@ export default function SignupScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.white,
-  },
-  keyboardView: { 
-    flex: 1,
-  },
-  content: { 
-    flex: 1, 
-    paddingHorizontal: SPACING.xl, 
-    paddingTop: SPACING.sm,
-  },
-  
-  // Spacer pour aligner avec LoginScreen (paddingTop 40 - paddingTop content 8 = 32)
-  backBtnSpacer: {
-    height: 32,
-  },
-  
+  container: { flex: 1, backgroundColor: COLORS.white },
+  keyboardView: { flex: 1 },
+  content: { flex: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm },
+  backBtnSpacer: { height: 32 },
+
   // Header
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  title: {
-    fontFamily: 'WorkSans-Bold',
-    fontSize: 28,
-    color: '#0a252f',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#676C75',
-    textAlign: 'center',
-  },
-  
+  headerContainer: { alignItems: 'center', marginBottom: 32 },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: '#0a252f', textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
+
   // Form
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0a252f',
-    marginTop: 30,
-    marginBottom: 8,
-  },
-  labelPassword: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0a252f',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: FORM.inputHeight,
-    borderWidth: 1.5,
-    borderColor: '#CED3D5',
-    borderRadius: FORM.inputRadius,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    backgroundColor: COLORS.white,
-  },
-  inputGradientBorder: {
-    borderRadius: FORM.inputRadius,
-    padding: 2,
-    marginBottom: 16,
-  },
-  inputInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: FORM.inputHeight - 4,
-    borderRadius: FORM.inputRadius - 2,
-    paddingHorizontal: 18,
-    backgroundColor: COLORS.white,
-  },
-  inputBoxPassword: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: FORM.inputHeight,
-    borderWidth: 1.5,
-    borderColor: '#CED3D5',
-    borderRadius: FORM.inputRadius,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: COLORS.white,
-  },
-  inputGradientBorderPassword: {
-    borderRadius: FORM.inputRadius,
-    padding: 2,
-    marginBottom: 8,
-  },
-  inputInnerPassword: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: FORM.inputHeight - 4,
-    borderRadius: FORM.inputRadius - 2,
-    paddingHorizontal: 18,
-    backgroundColor: COLORS.white,
-  },
-  inputInnerValid: {
-    backgroundColor: '#E6FAF8',
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-    borderWidth: 2,
-    backgroundColor: '#FEF2F2',
-    marginBottom: 4,
-  },
-  input: { 
-    flex: 1, 
-    fontSize: 16, 
-    color: '#0a252f', 
-    marginLeft: 12,
-  },
-  errorText: { 
-    fontSize: 13, 
-    color: '#FF3B30', 
-    marginBottom: 16, 
-    marginLeft: 8,
-  },
-  
-  // Password Section Container
-  passwordSection: {
-    position: 'relative',
-    zIndex: 100,
-  },
+  label: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginTop: 30, marginBottom: 8 },
+  labelPassword: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginBottom: 8, marginTop: 8 },
+  inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: '#CED3D5', borderRadius: FORM.inputRadius, paddingHorizontal: 20, marginBottom: 16, backgroundColor: COLORS.white },
+  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 16 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: COLORS.white },
+  inputGradientBorderPassword: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 8 },
+  inputInnerPassword: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: COLORS.white },
+  inputInnerValid: { backgroundColor: '#E6FAF8' },
+  inputError: { borderColor: '#FF3B30', borderWidth: 2, backgroundColor: '#FEF2F2', marginBottom: 4 },
+  input: { flex: 1, fontSize: 16, color: '#0a252f', marginLeft: 12 },
+  errorText: { fontSize: 13, color: '#FF3B30', marginBottom: 16, marginLeft: 8 },
 
-  // Password Requirements Overlay
-  requirementsOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '100%', // Position juste en dessous du password input
-    zIndex: 1000,
-    paddingTop: 4,
-  },
-  requirementsBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  requirementsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0a252f',
-    marginBottom: 12,
-  },
-  requirementRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  requirementText: {
-    fontSize: 13,
-    color: '#9cadbc',
-  },
-  requirementMet: {
-    color: '#00cdb5',
-  },
+  // Password Section
+  passwordSection: { position: 'relative', zIndex: 100 },
+  requirementsOverlay: { position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 1000, paddingTop: 4 },
+  requirementsBox: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  requirementsTitle: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginBottom: 12 },
+  requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  requirementText: { fontSize: 13, color: '#9cadbc' },
+  requirementMet: { color: '#00cdb5' },
 
-  // Password Strength
-  strengthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    gap: 10,
-  },
-  strengthBarBg: { 
-    flex: 1, 
-    height: 4, 
-    backgroundColor: '#E5E7EB', 
-    borderRadius: 2, 
-    overflow: 'hidden',
-  },
-  strengthBar: { 
-    height: '100%', 
-    borderRadius: 2,
-  },
-  strengthText: { 
-    fontSize: 12, 
-    fontWeight: '600', 
-    minWidth: 70,
-  },
-  
+  // Strength
+  strengthContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
+  strengthBarBg: { flex: 1, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, overflow: 'hidden' },
+  strengthBar: { height: '100%', borderRadius: 2 },
+  strengthText: { fontSize: 12, fontWeight: '600', minWidth: 70 },
+
   // Button
-  btn: { 
-    height: FORM.buttonHeight, 
-    borderRadius: FORM.buttonRadius, 
-    marginBottom: 28, // FIXE 28px
-  },
-  btnInner: { 
-    flex: 1, 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    gap: 8,
-  },
-  btnText: { 
-    color: COLORS.white, 
-    fontSize: 16, 
-    fontWeight: '600',
-  },
-  
-  // Divider
-  dividerRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 28, // FIXE 28px
-  },
-  dividerLine: { 
-    flex: 1, 
-    height: 1, 
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: { 
-    paddingHorizontal: SPACING.sm, 
-    fontSize: 13, 
-    color: '#676C75',
-  },
-  
-  // Social Buttons
-  socialBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    height: FORM.buttonHeight, 
-    borderWidth: 1.5, 
-    borderColor: '#E5E7EB', 
-    borderRadius: FORM.buttonRadius, 
-    backgroundColor: COLORS.white, 
-    marginBottom: 12, // Même que LoginScreen entre les 2 boutons
-    gap: 10,
-  },
-  socialBtnText: { 
-    fontSize: 15, 
-    fontWeight: '500', 
-    color: '#0a252f',
-  },
-  
-  // Login Row
-  loginRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginTop: 12, // Espace après le dernier bouton social
-    marginBottom: 8, // Même que SPACING.sm de LoginScreen
-  },
-  loginText: { 
-    fontSize: 14, 
-    color: '#676C75',
-  },
-  loginLinkRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4,
-  },
-  loginLink: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: '#00cdb5',
-  },
-  
-  // Remember Me
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: '#CED3D5',
-    borderRadius: 5,
-    marginRight: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-  },
-  checkboxChecked: {
-    backgroundColor: '#00cdb5',
-    borderColor: '#00cdb5',
-  },
-  checkboxLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#0a252f',
-  },
-  // Terms
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 16,
-  },
-  termsText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#676C75',
-    lineHeight: 18,
-  },
-  termsLink: {
-    color: '#00cdb5',
-    fontWeight: '500',
-  },
+  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginBottom: 28 },
+  btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
 
-  // Modal styles
+  // Divider
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { paddingHorizontal: SPACING.sm, fontSize: 13, color: '#676C75' },
+
+  // Social
+  socialBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: FORM.buttonHeight, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: FORM.buttonRadius, backgroundColor: COLORS.white, marginBottom: 12, gap: 10 },
+  socialBtnText: { fontSize: 15, fontWeight: '500', color: '#0a252f' },
+
+  // Login
+  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 8 },
+  loginText: { fontSize: 14, color: '#676C75' },
+  loginLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  loginLink: { fontSize: 14, fontWeight: '600', color: '#00cdb5' },
+
+  // Checkbox
+  rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#CED3D5', borderRadius: 5, marginRight: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
+  checkboxChecked: { backgroundColor: '#00cdb5', borderColor: '#00cdb5' },
+  checkboxLabel: { fontSize: 13, fontWeight: '500', color: '#0a252f' },
+
+  // Terms
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 16 },
+  termsText: { flex: 1, fontSize: 12, color: '#676C75', lineHeight: 18 },
+  termsLink: { color: '#00cdb5', fontWeight: '500' },
+
+  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalBox: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },
   modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },

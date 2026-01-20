@@ -80,7 +80,9 @@ export default function CreatorInfoScreen({ navigation, route }) {
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    navigate('CreatorOptionalInfo', {
+    // Skip CreatorOptionalInfo - go directly to Expertise
+    // Bio, website, social links can be added later in Settings
+    navigate('Expertise', {
       ...params,
       profileImage,
       displayName: displayName.trim(),
@@ -93,8 +95,8 @@ export default function CreatorInfoScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Pro Creator flow step 1/6 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={6} />
+        {/* Header with Progress Bar - Pro Creator flow step 1/5 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={5} />
 
         <View style={styles.content}>
           <View style={styles.header}>

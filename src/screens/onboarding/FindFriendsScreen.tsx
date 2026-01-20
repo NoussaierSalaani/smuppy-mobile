@@ -16,12 +16,9 @@ export default function FindFriendsScreen({ navigation, route }) {
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   // Determine step based on account type
-  // Personal: step 3/5, Pro Creator: step 4/6, Pro Business: step 3/5
+  // Personal: step 3/5, Pro Creator: step 3/5, Pro Business: step 3/5
   const { currentStep, totalSteps } = useMemo(() => {
-    if (accountType === 'pro_creator') {
-      return { currentStep: 4, totalSteps: 6 };
-    }
-    // Personal and Pro Business both have 5 steps, FindFriends is step 3
+    // All account types now have 5 steps, FindFriends is step 3
     return { currentStep: 3, totalSteps: 5 };
   }, [accountType]);
 

@@ -1,39 +1,27 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator, ScrollView, Image, Alert,
+  KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import { buildPlacesAutocompleteUrl } from '../../config/api';
-import { SOCIAL_NETWORKS, COUNTRY_CODES, CountryCode } from '../../config/constants';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 export default function BusinessInfoScreen({ navigation, route }) {
-  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState<CountryCode>(COUNTRY_CODES[0]);
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [address, setAddress] = useState('');
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [socialFields, setSocialFields] = useState<{ id: string; value: string }[]>([
-    { id: 'instagram', value: '' },
-  ]);
-  const [scrollPosition, setScrollPosition] = useState(0);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const socialScrollRef = useRef<ScrollView>(null);
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
@@ -44,25 +32,6 @@ export default function BusinessInfoScreen({ navigation, route }) {
         clearTimeout(searchTimeout.current);
       }
     };
-  }, []);
-
-  const pickImage = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos to add a profile picture.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
-    }
   }, []);
 
   const hasBusinessName = businessName.trim().length > 0;
@@ -122,67 +91,16 @@ export default function BusinessInfoScreen({ navigation, route }) {
     }
   }, []);
 
-  const updateSocialField = useCallback((index: number, value: string) => {
-    setSocialFields(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], value };
-      return updated;
-    });
-  }, []);
-
-  const addSocialField = useCallback(() => {
-    const usedIds = socialFields.map(f => f.id);
-    const available = SOCIAL_NETWORKS.filter(n => !usedIds.includes(n.id));
-    if (available.length > 0) {
-      setSocialFields(prev => [...prev, { id: available[0].id, value: '' }]);
-    }
-  }, [socialFields]);
-
-  const removeSocialField = useCallback((index: number) => {
-    // Keep at least one social link field
-    setSocialFields(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev);
-  }, []);
-
-  const getNetworkInfo = (id: string) => SOCIAL_NETWORKS.find(n => n.id === id) || SOCIAL_NETWORKS[0];
-
-  // Check if can add more fields (available networks not currently shown)
-  const usedIds = socialFields.map(f => f.id);
-  const canAddMore = SOCIAL_NETWORKS.some(n => !usedIds.includes(n.id));
-
-  // Show scroll indicator when there are more than 3 social fields
-  const canScrollSocialLinks = socialFields.length > 3;
-
-  const handleSocialScroll = useCallback((event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const scrollableHeight = contentSize.height - layoutMeasurement.height;
-    if (scrollableHeight > 0) {
-      setScrollPosition(contentOffset.y / scrollableHeight);
-    }
-  }, []);
-
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    const socialLinks: Record<string, string> = {};
-    socialFields.forEach(field => {
-      if (field.value.trim()) {
-        socialLinks[field.id] = field.value.trim();
-      }
-    });
-
-    // Combine country code with phone number if phone is provided
-    const fullPhone = phoneNumber.trim() ? `${countryCode.code} ${phoneNumber.trim()}` : '';
-
+    // Simplified: only passing essential data
+    // Logo, phone, website, social links can be added later in Settings
     navigate('FindFriends', {
       ...params,
-      profileImage,
       businessName: businessName.trim(),
-      website: website.trim(),
-      businessPhone: fullPhone,
       businessAddress: address.trim(),
-      socialLinks,
     });
-  }, [isFormValid, navigate, params, profileImage, businessName, website, phoneNumber, countryCode, address, socialFields]);
-
+  }, [isFormValid, navigate, params, businessName, address]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -194,30 +112,6 @@ export default function BusinessInfoScreen({ navigation, route }) {
           <View style={styles.header}>
             <Text style={styles.title}>Business Details</Text>
             <Text style={styles.subtitle}>Tell us about your business</Text>
-          </View>
-
-          {/* Profile Photo */}
-          <View style={styles.photoSection}>
-            <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
-              <LinearGradient
-                colors={profileImage ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.photoGradient}
-              >
-                <View style={[styles.photoContainer, profileImage && styles.photoContainerFilled]}>
-                  {profileImage ? (
-                    <Image source={{ uri: profileImage }} style={styles.profileImage} />
-                  ) : (
-                    <Ionicons name="camera" size={24} color={COLORS.grayMuted} />
-                  )}
-                </View>
-              </LinearGradient>
-              <View style={styles.photoBadge}>
-                <Ionicons name={profileImage ? "checkmark" : "add"} size={10} color={COLORS.white} />
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add logo'}</Text>
           </View>
 
           {/* Business Name */}
@@ -293,150 +187,10 @@ export default function BusinessInfoScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Website */}
-          <Text style={styles.label}>Website</Text>
-          <LinearGradient
-            colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.inputGradientBorder}
-          >
-            <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
-              <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? COLORS.primary : COLORS.grayMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder="https://yourwebsite.com"
-                placeholderTextColor={COLORS.grayMuted}
-                value={website}
-                onChangeText={setWebsite}
-                onFocus={() => setFocusedField('website')}
-                onBlur={() => setFocusedField(null)}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
-            </View>
-          </LinearGradient>
-
-          {/* Phone Number with Country Code */}
-          <Text style={styles.label}>Phone Number</Text>
-          <View style={styles.phoneRow}>
-            {/* Country Code Picker */}
-            <TouchableOpacity
-              style={[styles.countryCodeBtn, (phoneNumber.length > 0 || focusedField === 'phone') && styles.countryCodeBtnActive]}
-              onPress={() => setShowCountryPicker(!showCountryPicker)}
-            >
-              <Text style={styles.countryFlag}>{countryCode.flag}</Text>
-              <Text style={styles.countryCodeText}>{countryCode.code}</Text>
-              <Ionicons name="chevron-down" size={14} color={COLORS.grayMuted} />
-            </TouchableOpacity>
-            {/* Phone Input */}
-            <LinearGradient
-              colors={(phoneNumber.length > 0 || focusedField === 'phone') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.inputGradientBorder, styles.phoneInputGradient]}
-            >
-              <View style={[styles.inputInner, phoneNumber.length > 0 && styles.inputInnerValid]}>
-                <TextInput
-                  style={[styles.input, { marginLeft: 0 }]}
-                  placeholder="123 456 7890"
-                  placeholderTextColor={COLORS.grayMuted}
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </LinearGradient>
-          </View>
-          {/* Country Code Dropdown */}
-          {showCountryPicker && (
-            <View style={styles.countryDropdown}>
-              <ScrollView style={styles.countryDropdownScroll} nestedScrollEnabled>
-                {COUNTRY_CODES.map((cc) => (
-                  <TouchableOpacity
-                    key={cc.code}
-                    style={[styles.countryOption, countryCode.code === cc.code && styles.countryOptionActive]}
-                    onPress={() => { setCountryCode(cc); setShowCountryPicker(false); }}
-                  >
-                    <Text style={styles.countryFlag}>{cc.flag}</Text>
-                    <Text style={styles.countryCodeText}>{cc.code}</Text>
-                    <Text style={styles.countryName}>{cc.country}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Social Links */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Social Links</Text>
-            <TouchableOpacity style={styles.addBtn} onPress={addSocialField} disabled={!canAddMore}>
-              <Ionicons name="add-circle" size={24} color={canAddMore ? COLORS.primary : COLORS.grayMuted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Social Fields - Only this section scrollable with indicator */}
-          <View style={styles.socialContainer}>
-            {/* Scroll indicator on left with gradient */}
-            {canScrollSocialLinks && (
-              <View style={styles.scrollIndicatorContainer}>
-                <View style={styles.scrollIndicatorTrack}>
-                  <LinearGradient
-                    colors={GRADIENTS.button}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={[styles.scrollIndicatorThumb, { top: `${scrollPosition * 70}%` }]}
-                  />
-                </View>
-              </View>
-            )}
-            <ScrollView
-              ref={socialScrollRef}
-              style={[styles.socialScroll, canScrollSocialLinks && styles.socialScrollWithIndicator]}
-              showsVerticalScrollIndicator={false}
-              onScroll={handleSocialScroll}
-              scrollEventThrottle={16}
-            >
-              {socialFields.map((field, index) => {
-                const network = getNetworkInfo(field.id);
-                const hasValue = field.value.length > 0;
-                const isFocused = focusedField === `social-${index}`;
-
-                return (
-                  <View key={field.id} style={styles.socialFieldRow}>
-                    <LinearGradient
-                      colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.inputGradientBorder, styles.socialInputFlex]}
-                    >
-                      <View style={[styles.inputInner, hasValue && styles.inputInnerValid]}>
-                        <Ionicons
-                          name={network.icon as any}
-                          size={16}
-                          color={(hasValue || isFocused) ? network.color : COLORS.grayMuted}
-                        />
-                        <TextInput
-                          style={styles.input}
-                          placeholder={network.label}
-                          placeholderTextColor={COLORS.grayMuted}
-                          value={field.value}
-                          onChangeText={(v) => updateSocialField(index, v)}
-                          onFocus={() => setFocusedField(`social-${index}`)}
-                          onBlur={() => setFocusedField(null)}
-                          autoCapitalize="none"
-                        />
-                      </View>
-                    </LinearGradient>
-                    <TouchableOpacity style={styles.removeBtn} onPress={() => removeSocialField(index)}>
-                      <Ionicons name="close-circle" size={24} color={COLORS.error} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </ScrollView>
+          {/* Info note */}
+          <View style={styles.infoNote}>
+            <Ionicons name="information-circle-outline" size={16} color={COLORS.grayMuted} />
+            <Text style={styles.infoText}>You can add logo, phone, website and social links later in Settings</Text>
           </View>
         </View>
 
@@ -455,54 +209,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
-  header: { alignItems: 'center', marginBottom: SPACING.sm },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
-  subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
-  // Profile Photo
-  photoSection: { alignItems: 'center', marginBottom: SPACING.md },
-  photoGradient: { width: 72, height: 72, borderRadius: 36, padding: 2 },
-  photoContainer: { flex: 1, borderRadius: 34, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  photoContainerFilled: { backgroundColor: '#E8FAF7' },
-  profileImage: { width: '100%', height: '100%', borderRadius: 34 },
-  photoBadge: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
-  photoLabel: { fontSize: 11, color: COLORS.grayMuted, marginTop: 4 },
-  greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
+  header: { alignItems: 'center', marginBottom: SPACING.xl },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
+  greeting: { fontSize: 15, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.lg },
   greetingName: { fontWeight: '700', color: COLORS.dark },
-  label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
+  label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 14 },
   required: { color: COLORS.error },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.xs, marginBottom: SPACING.xs },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
-  addBtn: { padding: 4 },
-  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
+  inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.md },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight - 4, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
   inputInnerValid: { backgroundColor: '#E8FAF7' },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14 },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 15 },
   locationBtn: { padding: 2 },
-  suggestions: { backgroundColor: COLORS.white, borderRadius: 10, marginTop: -SPACING.xs, marginBottom: SPACING.sm, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
-  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
+  suggestions: { backgroundColor: COLORS.white, borderRadius: 12, marginTop: -SPACING.sm, marginBottom: SPACING.md, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
   suggestionLast: { borderBottomWidth: 0 },
-  suggestionText: { flex: 1, fontSize: 13, color: COLORS.dark, marginLeft: SPACING.xs },
-  // Phone with country code
-  phoneRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm, gap: SPACING.xs },
-  countryCodeBtn: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight, paddingHorizontal: SPACING.sm, borderRadius: SIZES.radiusInput, borderWidth: 2, borderColor: '#CED3D5', backgroundColor: COLORS.white, gap: 4 },
-  countryCodeBtnActive: { borderColor: COLORS.primary, backgroundColor: '#E8FAF7' },
-  countryFlag: { fontSize: 18 },
-  countryCodeText: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
-  phoneInputGradient: { flex: 1, marginBottom: 0 },
-  countryDropdown: { backgroundColor: COLORS.white, borderRadius: SIZES.radiusInput, marginTop: -SPACING.xs, marginBottom: SPACING.sm, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 4, borderWidth: 1, borderColor: COLORS.grayLight },
-  countryDropdownScroll: { maxHeight: 200 },
-  countryOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.sm, paddingHorizontal: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight, gap: SPACING.xs },
-  countryOptionActive: { backgroundColor: '#E8FAF7' },
-  countryName: { fontSize: 12, color: COLORS.grayMuted },
-  // Social links with scroll indicator
-  socialContainer: { flex: 1, flexDirection: 'row' },
-  scrollIndicatorContainer: { width: 6, marginRight: SPACING.xs, justifyContent: 'center' },
-  scrollIndicatorTrack: { width: 3, height: '100%', backgroundColor: COLORS.grayLight, borderRadius: 2, position: 'relative' },
-  scrollIndicatorThumb: { position: 'absolute', width: 3, height: '30%', borderRadius: 2 },
-  socialScroll: { flex: 1 },
-  socialScrollWithIndicator: { marginLeft: 0 },
-  socialFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xs },
-  socialInputFlex: { flex: 1, marginBottom: 0 },
-  removeBtn: { marginLeft: SPACING.xs, padding: 4 },
-  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
+  suggestionText: { flex: 1, fontSize: 14, color: COLORS.dark, marginLeft: SPACING.sm },
+  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
+  infoText: { flex: 1, fontSize: 13, color: COLORS.grayMuted, lineHeight: 18 },
+  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: COLORS.white },
 });

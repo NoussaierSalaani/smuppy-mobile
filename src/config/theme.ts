@@ -92,21 +92,21 @@ export const DARK_COLORS = {
   
   export const GRADIENTS = {
     // Primary gradient (splash screen colors) - USE EVERYWHERE
-    primary: ['#00B3C7', '#11E3A3', '#7BEDC6'] as const,
+    primary: ['#00B3C7', '#11E3A3', '#4DD4AC'] as const,
     primaryStart: { x: 0, y: 0 },
     primaryEnd: { x: 1, y: 0 },
 
     // Diagonal (for icons)
-    diagonal: ['#00B3C7', '#11E3A3', '#7BEDC6'] as const,
+    diagonal: ['#00B3C7', '#11E3A3', '#4DD4AC'] as const,
     diagonalStart: { x: 0, y: 0 },
     diagonalEnd: { x: 1, y: 1 },
 
     // Buttons
-    button: ['#00B3C7', '#11E3A3', '#7BEDC6'] as const,
+    button: ['#00B3C7', '#11E3A3', '#4DD4AC'] as const,
     buttonDisabled: ['#CED3D5', '#CED3D5'] as const,
 
     // Reverse
-    primaryReverse: ['#7BEDC6', '#11E3A3', '#00B3C7'] as const,
+    primaryReverse: ['#4DD4AC', '#11E3A3', '#00B3C7'] as const,
 
     // Special
     live: ['#FF5E57', '#FA6B65'] as const,

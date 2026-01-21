@@ -103,10 +103,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const userId = profileData?.id || contextUser?.id;
   const {
     data: userPostsData,
-    isLoading: isPostsLoading,
     refetch: refetchPosts,
-    fetchNextPage,
-    hasNextPage,
   } = useUserPosts(userId);
 
   // Separate posts and peaks from the data

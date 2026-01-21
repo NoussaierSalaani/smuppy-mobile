@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,14 +14,24 @@ import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 
-// Sample fans data
-// isFanOfMe = true → this person follows me
-// iAmFanOf = true → I follow this person
-// unfollowCount = number of times unfollowed (0, 1, 2+)
-// lastUnfollowAt = timestamp of last unfollow (for 7-day cooldown after 2nd unfollow)
-const SAMPLE_FANS = [
+// Types
+interface User {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  isVerified: boolean;
+  isFanOfMe: boolean;
+  iAmFanOf: boolean;
+  unfollowCount: number;
+  lastUnfollowAt: number | null;
+}
+
+// Sample data - Replace with real API calls
+const SAMPLE_USERS: User[] = [
   { id: '1', name: 'Hannah Smith', username: '@hannahsmith', avatar: 'https://i.pravatar.cc/100?img=1', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
   { id: '2', name: 'Thomas Lefèvre', username: '@thomaslef', avatar: 'https://i.pravatar.cc/100?img=3', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
   { id: '3', name: 'Mariam Fiori', username: '@mariamfiori', avatar: 'https://i.pravatar.cc/100?img=5', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
@@ -32,294 +42,258 @@ const SAMPLE_FANS = [
   { id: '8', name: 'David Kim', username: '@davidkim', avatar: 'https://i.pravatar.cc/100?img=14', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
 ];
 
-export default function FansListScreen({ navigation, route }) {
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+export default function FansListScreen({ navigation, route }: { navigation: any; route: any }) {
   const insets = useSafeAreaInsets();
-  const fansCount = route?.params?.fansCount || 787;
-  
+  const initialTab = route?.params?.initialTab || 'fans';
+
+  // State
+  const [activeTab, setActiveTab] = useState<'fans' | 'tracking'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
-  const [allUsers, setAllUsers] = useState(SAMPLE_FANS);
+  const [allUsers, setAllUsers] = useState<User[]>(SAMPLE_USERS);
   const [showUnfollowPopup, setShowUnfollowPopup] = useState(false);
-  const [showWarningPopup, setShowWarningPopup] = useState(false); // Warning before 2nd unfollow
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [showWarningPopup, setShowWarningPopup] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Filter to show only users with a relationship (they follow me OR I follow them)
-  const fansWithRelationship = allUsers.filter(user => user.isFanOfMe || user.iAmFanOf);
-
-  // Filter based on search
-  const filteredFans = fansWithRelationship.filter(fan => 
-    fan.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    fan.username.toLowerCase().includes(searchQuery.toLowerCase())
+  // Computed lists
+  const fans = useMemo(() =>
+    allUsers.filter(u => u.isFanOfMe),
+    [allUsers]
   );
 
-  // Check if 7 days have passed since last unfollow (only applies after 2+ unfollows)
-  const canRefollow = (user) => {
-    // If unfollowed less than 2 times, can always refollow
+  const tracking = useMemo(() =>
+    allUsers.filter(u => u.iAmFanOf),
+    [allUsers]
+  );
+
+  // Filter by search
+  const filteredList = useMemo(() => {
+    const list = activeTab === 'fans' ? fans : tracking;
+    if (!searchQuery.trim()) return list;
+
+    const query = searchQuery.toLowerCase();
+    return list.filter(user =>
+      user.name.toLowerCase().includes(query) ||
+      user.username.toLowerCase().includes(query)
+    );
+  }, [activeTab, fans, tracking, searchQuery]);
+
+  // Cooldown helpers
+  const canRefollow = useCallback((user: User): boolean => {
     if (!user.unfollowCount || user.unfollowCount < 2) return true;
-    // After 2+ unfollows, must wait 7 days
     if (!user.lastUnfollowAt) return true;
-    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-    return (Date.now() - user.lastUnfollowAt) >= sevenDaysInMs;
-  };
+    return (Date.now() - user.lastUnfollowAt) >= SEVEN_DAYS_MS;
+  }, []);
 
-  // Get days remaining before can refollow
-  const getDaysRemaining = (lastUnfollowAt) => {
+  const getDaysRemaining = useCallback((lastUnfollowAt: number | null): number => {
     if (!lastUnfollowAt) return 0;
-    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-    const timePassed = Date.now() - lastUnfollowAt;
-    const timeRemaining = sevenDaysInMs - timePassed;
-    return Math.ceil(timeRemaining / (24 * 60 * 60 * 1000));
-  };
+    const timeRemaining = SEVEN_DAYS_MS - (Date.now() - lastUnfollowAt);
+    return Math.max(0, Math.ceil(timeRemaining / (24 * 60 * 60 * 1000)));
+  }, []);
 
-  // Handle Track tap → become a fan (with cooldown check after 2+ unfollows)
-  const handleBecomeFan = (userId) => {
+  // Actions
+  const handleFollow = useCallback((userId: string) => {
     const user = allUsers.find(u => u.id === userId);
+    if (!user) return;
 
-    if (user && !canRefollow(user)) {
-      const daysRemaining = getDaysRemaining(user.lastUnfollowAt);
+    if (!canRefollow(user)) {
+      const days = getDaysRemaining(user.lastUnfollowAt);
       Alert.alert(
         'Cannot follow yet',
-        `You need to wait ${daysRemaining} more day${daysRemaining > 1 ? 's' : ''} before you can follow ${user.name} again.`,
+        `Wait ${days} more day${days > 1 ? 's' : ''} before following ${user.name} again.`,
         [{ text: 'OK' }]
       );
       return;
     }
 
-    setAllUsers(allUsers.map(u =>
+    setAllUsers(prev => prev.map(u =>
       u.id === userId ? { ...u, iAmFanOf: true } : u
     ));
-  };
+  }, [allUsers, canRefollow, getDaysRemaining]);
 
-  // Handle Fan badge tap → show appropriate popup based on unfollow count
-  const handleFanPress = (user) => {
+  const handleUnfollowPress = useCallback((user: User) => {
     setSelectedUser(user);
-
-    // If this is the 2nd unfollow (count = 1), show warning first
     if (user.unfollowCount === 1) {
       setShowWarningPopup(true);
     } else {
       setShowUnfollowPopup(true);
     }
-  };
+  }, []);
 
-  // Handle unfollow confirmation (normal popup)
-  const handleUnfollow = () => {
-    if (selectedUser) {
-      const newCount = (selectedUser.unfollowCount || 0) + 1;
-      setAllUsers(allUsers.map(user =>
-        user.id === selectedUser.id
-          ? {
-              ...user,
-              iAmFanOf: false,
-              unfollowCount: newCount,
-              lastUnfollowAt: Date.now()
-            }
-          : user
-      ));
-    }
-    setShowUnfollowPopup(false);
-    setSelectedUser(null);
-  };
+  const confirmUnfollow = useCallback(() => {
+    if (!selectedUser) return;
 
-  // Handle unfollow after warning (2nd unfollow)
-  const handleUnfollowAfterWarning = () => {
-    if (selectedUser) {
-      setAllUsers(allUsers.map(user =>
-        user.id === selectedUser.id
-          ? {
-              ...user,
-              iAmFanOf: false,
-              unfollowCount: 2,
-              lastUnfollowAt: Date.now()
-            }
-          : user
-      ));
-    }
-    setShowWarningPopup(false);
-    setSelectedUser(null);
-  };
+    setAllUsers(prev => prev.map(user =>
+      user.id === selectedUser.id
+        ? {
+            ...user,
+            iAmFanOf: false,
+            unfollowCount: (user.unfollowCount || 0) + 1,
+            lastUnfollowAt: Date.now()
+          }
+        : user
+    ));
+    closePopups();
+  }, [selectedUser]);
 
-  // Close popups
-  const closePopup = () => {
+  const closePopups = useCallback(() => {
     setShowUnfollowPopup(false);
     setShowWarningPopup(false);
     setSelectedUser(null);
-  };
+  }, []);
 
-  // Render badge based on relationship
-  const renderBadge = (item) => {
+  // Render badge
+  const renderBadge = useCallback((item: User) => {
     const isMutual = item.isFanOfMe && item.iAmFanOf;
-    
-    // Mutuel → Pas de badge (on est fan l'un de l'autre)
-    if (isMutual) {
-      return null;
-    }
-    
-    // Elle me suit mais je ne la suis pas → Track badge (VERT plein)
-    if (item.isFanOfMe && !item.iAmFanOf) {
-      return (
-        <TouchableOpacity
-          style={styles.trackBadge}
-          onPress={() => handleBecomeFan(item.id)}
-        >
-          <Ionicons name="add" size={14} color={COLORS.dark} />
-          <Text style={styles.trackBadgeText}>Track</Text>
-        </TouchableOpacity>
-      );
-    }
-    
-    // Je suis cette personne mais elle ne me suit pas → Fan badge (outline vert)
-    if (item.iAmFanOf && !item.isFanOfMe) {
+
+    if (activeTab === 'fans') {
+      // Fans tab: show Track button if not following back
+      if (!item.iAmFanOf) {
+        return (
+          <TouchableOpacity
+            style={styles.trackBadge}
+            onPress={() => handleFollow(item.id)}
+          >
+            <Ionicons name="add" size={14} color={COLORS.dark} />
+            <Text style={styles.trackBadgeText}>Track</Text>
+          </TouchableOpacity>
+        );
+      }
+      // Mutual - show small indicator
+      if (isMutual) {
+        return (
+          <View style={styles.mutualBadge}>
+            <Ionicons name="swap-horizontal" size={14} color={COLORS.primary} />
+          </View>
+        );
+      }
+    } else {
+      // Tracking tab: show unfollow option
       return (
         <TouchableOpacity
           style={styles.fanBadge}
-          onPress={() => handleFanPress(item)}
+          onPress={() => handleUnfollowPress(item)}
         >
           <Ionicons name="heart" size={12} color={COLORS.primary} />
           <Text style={styles.fanBadgeText}>Fan</Text>
         </TouchableOpacity>
       );
     }
-
     return null;
-  };
+  }, [activeTab, handleFollow, handleUnfollowPress]);
 
-  // Render fan item
-  const renderFanItem = ({ item }) => {
-    const isMutual = item.isFanOfMe && item.iAmFanOf;
-
-    return (
-      <TouchableOpacity
-        style={styles.fanItem}
-        onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-        activeOpacity={0.7}
-      >
-        <AvatarImage source={item.avatar} size={50} />
-        
-        <View style={styles.fanInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.fanName}>{item.name}</Text>
-            {item.isVerified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark" size={10} color="#fff" />
-              </View>
-            )}
-          </View>
-          <Text style={styles.fanUsername}>{item.username}</Text>
-        </View>
-
-        {renderBadge(item)}
-      </TouchableOpacity>
-    );
-  };
-
-  // Unfollow Popup Modal (1st unfollow - no warning)
-  const renderUnfollowPopup = () => (
-    <Modal
-      visible={showUnfollowPopup}
-      transparent
-      animationType="fade"
-      onRequestClose={closePopup}
+  // Render user item
+  const renderUserItem = useCallback(({ item }: { item: User }) => (
+    <TouchableOpacity
+      style={styles.userItem}
+      onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+      activeOpacity={0.7}
     >
-      <TouchableWithoutFeedback onPress={closePopup}>
-        <View style={styles.popupOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.popupContainer}>
-              {selectedUser && (
-                <>
-                  <AvatarImage source={selectedUser.avatar} size={70} style={styles.popupAvatar} />
-                  <Text style={styles.popupName}>{selectedUser.name}</Text>
-                  <Text style={styles.popupUsername}>{selectedUser.username}</Text>
+      <AvatarImage source={item.avatar} size={50} />
 
-                  <Text style={styles.popupInfo}>
-                    Are you sure you want to unfollow?
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.unfollowButton}
-                    onPress={handleUnfollow}
-                  >
-                    <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
-                    <Text style={styles.unfollowButtonText}>Unfollow</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+      <View style={styles.userInfo}>
+        <View style={styles.nameRow}>
+          <Text style={styles.userName}>{item.name}</Text>
+          {item.isVerified && (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark" size={10} color="#fff" />
             </View>
-          </TouchableWithoutFeedback>
+          )}
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+        <Text style={styles.userUsername}>{item.username}</Text>
+      </View>
+
+      {renderBadge(item)}
+    </TouchableOpacity>
+  ), [navigation, renderBadge]);
+
+  const keyExtractor = useCallback((item: User) => item.id, []);
+
+  // Render tabs
+  const renderTabs = () => (
+    <View style={styles.tabsContainer}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'fans' && styles.tabActive]}
+        onPress={() => setActiveTab('fans')}
+      >
+        <Text style={[styles.tabText, activeTab === 'fans' && styles.tabTextActive]}>
+          Fans
+        </Text>
+        <Text style={[styles.tabCount, activeTab === 'fans' && styles.tabCountActive]}>
+          {fans.length}
+        </Text>
+        {activeTab === 'fans' && (
+          <LinearGradient
+            colors={GRADIENTS.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.tabIndicator}
+          />
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'tracking' && styles.tabActive]}
+        onPress={() => setActiveTab('tracking')}
+      >
+        <Text style={[styles.tabText, activeTab === 'tracking' && styles.tabTextActive]}>
+          Tracking
+        </Text>
+        <Text style={[styles.tabCount, activeTab === 'tracking' && styles.tabCountActive]}>
+          {tracking.length}
+        </Text>
+        {activeTab === 'tracking' && (
+          <LinearGradient
+            colors={GRADIENTS.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.tabIndicator}
+          />
+        )}
+      </TouchableOpacity>
+    </View>
   );
 
-  // Warning Popup Modal (2nd unfollow - shows 7-day warning)
-  const renderWarningPopup = () => (
-    <Modal
-      visible={showWarningPopup}
-      transparent
-      animationType="fade"
-      onRequestClose={closePopup}
-    >
-      <TouchableWithoutFeedback onPress={closePopup}>
-        <View style={styles.popupOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.popupContainer}>
-              {selectedUser && (
-                <>
-                  <View style={styles.warningIconContainer}>
-                    <Ionicons name="warning" size={40} color={COLORS.orange} />
-                  </View>
-
-                  <Text style={styles.popupName}>{selectedUser.name}</Text>
-                  <Text style={styles.popupUsername}>{selectedUser.username}</Text>
-
-                  <Text style={styles.popupWarning}>
-                    ⚠️ Attention! If you unfollow now, next time you'll have to wait 7 days before you can follow again.
-                  </Text>
-
-                  <View style={styles.popupButtons}>
-                    <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={closePopup}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.unfollowButton}
-                      onPress={handleUnfollowAfterWarning}
-                    >
-                      <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
-                      <Text style={styles.unfollowButtonText}>Unfollow</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+  // Render empty state
+  const renderEmpty = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons
+        name={activeTab === 'fans' ? 'people-outline' : 'heart-outline'}
+        size={60}
+        color={COLORS.gray}
+      />
+      <Text style={styles.emptyTitle}>
+        {activeTab === 'fans' ? 'No fans yet' : 'Not tracking anyone'}
+      </Text>
+      <Text style={styles.emptyDesc}>
+        {activeTab === 'fans'
+          ? 'Share your content to attract fans'
+          : 'Discover and follow creators you love'}
+      </Text>
+    </View>
   );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
-        
-        <View style={styles.headerTitle}>
-          <Text style={styles.headerText}>Fans</Text>
-          <Text style={styles.fansCount}>{fansCount}</Text>
-        </View>
-        
+
+        <Text style={styles.headerText}>Community</Text>
+
         <View style={{ width: 40 }} />
       </View>
+
+      {/* Tabs */}
+      {renderTabs()}
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -327,7 +301,7 @@ export default function FansListScreen({ navigation, route }) {
           <Ionicons name="search" size={20} color={COLORS.gray} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder={`Search ${activeTab}...`}
             placeholderTextColor={COLORS.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -340,26 +314,87 @@ export default function FansListScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* Fans List */}
+      {/* List */}
       <FlashList
-        data={filteredFans}
-        renderItem={renderFanItem}
-        keyExtractor={(item) => item.id}
+        data={filteredList}
+        renderItem={renderUserItem}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={60} color={COLORS.gray} />
-            <Text style={styles.emptyText}>No fans yet</Text>
-          </View>
-        }
+        ListEmptyComponent={renderEmpty}
       />
 
       {/* Unfollow Popup */}
-      {renderUnfollowPopup()}
+      <Modal
+        visible={showUnfollowPopup}
+        transparent
+        animationType="fade"
+        onRequestClose={closePopups}
+      >
+        <TouchableWithoutFeedback onPress={closePopups}>
+          <View style={styles.popupOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.popupContainer}>
+                {selectedUser && (
+                  <>
+                    <AvatarImage source={selectedUser.avatar} size={70} />
+                    <Text style={styles.popupName}>{selectedUser.name}</Text>
+                    <Text style={styles.popupUsername}>{selectedUser.username}</Text>
+                    <Text style={styles.popupInfo}>
+                      Are you sure you want to unfollow?
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.unfollowButton}
+                      onPress={confirmUnfollow}
+                    >
+                      <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                      <Text style={styles.unfollowButtonText}>Unfollow</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* Warning Popup (2nd unfollow) */}
-      {renderWarningPopup()}
+      <Modal
+        visible={showWarningPopup}
+        transparent
+        animationType="fade"
+        onRequestClose={closePopups}
+      >
+        <TouchableWithoutFeedback onPress={closePopups}>
+          <View style={styles.popupOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.popupContainer}>
+                {selectedUser && (
+                  <>
+                    <View style={styles.warningIconContainer}>
+                      <Ionicons name="warning" size={40} color={COLORS.orange} />
+                    </View>
+                    <Text style={styles.popupName}>{selectedUser.name}</Text>
+                    <Text style={styles.popupUsername}>{selectedUser.username}</Text>
+                    <Text style={styles.popupWarning}>
+                      If you unfollow now, you'll have to wait 7 days before following again.
+                    </Text>
+                    <View style={styles.popupButtons}>
+                      <TouchableOpacity style={styles.cancelButton} onPress={closePopups}>
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.unfollowButton} onPress={confirmUnfollow}>
+                        <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                        <Text style={styles.unfollowButtonText}>Unfollow</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -376,7 +411,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   backButton: {
     width: 40,
@@ -386,24 +421,64 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    alignItems: 'center',
-  },
   headerText: {
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.white,
   },
-  fansCount: {
-    fontSize: 14,
-    color: COLORS.primary,
-    marginTop: 2,
+
+  // Tabs
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1C1C1E',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 6,
+    position: 'relative',
+  },
+  tabActive: {},
+  tabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.gray,
+  },
+  tabTextActive: {
+    color: COLORS.white,
+  },
+  tabCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.gray,
+    backgroundColor: '#2C2C2E',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  tabCountActive: {
+    color: COLORS.dark,
+    backgroundColor: COLORS.primary,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: -1,
+    left: 20,
+    right: 20,
+    height: 2,
+    borderRadius: 1,
   },
 
   // Search
   searchContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -426,20 +501,15 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Fan Item
-  fanItem: {
+  // User Item
+  userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1C1C1E',
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  fanInfo: {
+  userInfo: {
     flex: 1,
     marginLeft: 12,
   },
@@ -447,10 +517,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  fanName: {
+  userName: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  userUsername: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: 2,
   },
   verifiedBadge: {
     width: 16,
@@ -461,13 +536,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 6,
   },
-  fanUsername: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 2,
-  },
 
-  // Track Badge - VERT PLEIN (comme FanFeed suggestions)
+  // Badges
   trackBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,12 +552,10 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     marginLeft: 2,
   },
-
-  // Fan Badge - Outline vert avec coeur
   fanBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(17, 227, 163, 0.1)',
+    backgroundColor: 'rgba(14, 191, 138, 0.1)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -499,6 +567,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
     marginLeft: 4,
+  },
+  mutualBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14, 191, 138, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Empty
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginTop: 16,
+  },
+  emptyDesc: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
 
   // Popup
@@ -516,16 +612,11 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 300,
   },
-  popupAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginBottom: 12,
-  },
   popupName: {
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.white,
+    marginTop: 12,
     marginBottom: 4,
   },
   popupUsername: {
@@ -554,7 +645,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 165, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   popupButtons: {
     flexDirection: 'row',
@@ -586,16 +676,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.red,
     marginLeft: 8,
-  },
-
-  // Empty
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: COLORS.gray,
-    marginTop: 16,
   },
 });

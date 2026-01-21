@@ -267,3 +267,191 @@ SELECT cron.schedule('cleanup-deleted-accounts', '0 3 * * *',
 - [ ] Vérifier `deleted_accounts` table contient l'entrée
 
 **Status:** DONE
+
+---
+
+## LOT N — Profile Screen Redesign + Stats Visibility Strategy (2026-01-21)
+
+**Type:** Feature + UI/UX
+**Objectif:** Refonte complète du ProfileScreen avec design Smuppy unique
+
+### Goals (completed)
+
+#### 1. Avatar avec Peaks Indicator
+- ✅ Bordure gradient (vert → cyan → bleu) si l'utilisateur a des peaks
+- ✅ Style Instagram Stories pour indiquer du contenu non vu
+- ✅ Taille avatar standardisée: 96px (norme réseaux sociaux)
+
+#### 2. Stats Cards avec Shadow
+- ✅ Fans et Posts en cards séparées (plus de badges inline)
+- ✅ Icônes avec gradient
+- ✅ Shadow pour effet "elevated"
+
+#### 3. Pills Style Tabs
+- ✅ Container avec fond gris clair (#F3F4F6)
+- ✅ Tab actif = gradient + shadow
+- ✅ Animation fluide au changement
+
+#### 4. Posts Grid (nouveau style simple)
+- ✅ Grille 3 colonnes
+- ✅ Cards compactes (140px hauteur)
+- ✅ Stats overlay: seulement les coeurs
+- ✅ Icône play si vidéo
+
+#### 5. Peaks Grid (avec stats visuels)
+- ✅ Grille 3 colonnes, cards plus hautes (180px)
+- ✅ Badge durée en haut à droite
+- ✅ Stats overlay: coeurs, vues, réponses, partages
+- ✅ Pas de commentaires sur Peaks (seulement replies)
+
+#### 6. Collections Grid (style détaillé)
+- ✅ Grille 2 colonnes, cards avec shadow
+- ✅ Section info avec titre, auteur, likes
+- ✅ Badge bookmark vert
+- ✅ Privé: visible uniquement par le proprio
+
+#### 7. Cover Photo
+- ✅ Gradient fade vers le blanc (pas de ligne visible)
+- ✅ S'étend derrière avatar et bio
+- ✅ Tap pour modifier (proprio uniquement)
+
+#### 8. Bio Section
+- ✅ Limitée à 2 lignes (collapsed)
+- ✅ Max 6 lignes (expanded)
+- ✅ "Voir plus" / "Voir moins" cliquable
+- ✅ Liens cliquables (URLs, emails, téléphones)
+
+### Stats Visibility Strategy
+
+| Stat | Sur grille | Détail (proprio) | Détail (visiteur) |
+|------|------------|------------------|-------------------|
+| Likes | ✅ | ✅ | ✅ |
+| Vues | Posts: ❌ / Peaks: ✅ | ✅ | ✅ |
+| Partages | Peaks: ✅ | ✅ | ❌ |
+| Saves | ❌ | ✅ | ❌ |
+| Réponses | Peaks: ✅ | ✅ | ✅ |
+
+**Raison:** Likes & Vues = social proof public. Partages & Saves = insights privés créateur.
+
+### Files modified
+- `src/screens/profile/ProfileScreen.tsx` - Refonte complète
+- `src/components/peaks/RecordButton.tsx` - Animation shutter
+- `docs/FEATURES_SPECS.md` - Nouvelle documentation
+- `docs/IMPLEMENTATION_LOG.md` - Ce fichier
+
+### Mock Data (pour démo)
+- 4 mock posts
+- 6 mock peaks
+- 4 mock collections
+- Stats aléatoires pour peaks (likes, vues, réponses, partages)
+
+### Manual tests
+- [ ] Avatar avec peaks → bordure gradient visible
+- [ ] Avatar sans peaks → bordure blanche simple
+- [ ] Stats cards → shadow visible, tap Fans → FansList
+- [ ] Pills tabs → gradient + shadow sur tab actif
+- [ ] Posts grid → 3 colonnes, coeurs en overlay
+- [ ] Peaks grid → 3 colonnes, 4 stats visibles
+- [ ] Collections grid → 2 colonnes, cards avec info
+
+**Status:** DONE (en attente de feedback utilisateur)
+
+---
+
+## LOT O — PeakViewScreen UX/UI Redesign Phase 1 (2026-01-21)
+
+**Type:** Feature + UI/UX
+**Objectif:** Refonte de l'expérience de visualisation des Peaks basée sur les tendances TikTok/Reels
+
+### Goals (completed)
+
+#### 1. Progress Bar (Top)
+- ✅ Position fixe en haut sous safe area
+- ✅ Animation linéaire synchronisée avec durée Peak
+- ✅ Couleur Smuppy (primary green sur fond semi-transparent)
+
+#### 2. Action Buttons (Vertical Right)
+- ✅ Style TikTok aligné à droite
+- ✅ Boutons: Like, Reply, Share, Save
+- ✅ Compteurs sous chaque bouton
+- ✅ Changement d'état visuel (rempli quand actif)
+
+#### 3. Double-Tap Like Animation
+- ✅ Cœur central avec animation spring (scale bounce)
+- ✅ 6 particules explosant en étoile
+- ✅ Haptic feedback Medium
+- ✅ Auto-like si pas déjà liké
+
+#### 4. Gestures Swipe
+- ✅ Swipe UP: Voir réponses / Create reply
+- ✅ Swipe DOWN: Fermer (go back) - NOUVEAU
+- ✅ Swipe LEFT/RIGHT: Navigation entre Peaks
+- ✅ Haptic feedback sur tous les swipes
+
+#### 5. Long-Press Menu
+- ✅ Pause la vidéo après 300ms
+- ✅ Haptic feedback
+- ✅ Modal avec options:
+  - Pas intéressé
+  - Copier le lien
+  - Signaler (rouge)
+  - Annuler
+
+#### 6. User Info (Bottom Left)
+- ✅ Avatar avec bordure gradient Smuppy
+- ✅ Nom d'utilisateur avec text shadow
+- ✅ Compteur de vues
+- ✅ Text overlay / CTA si présent
+- ✅ Indicateur réponses avec "Swipe ↑"
+
+### Files modified
+- `src/screens/peaks/PeakViewScreen.tsx` - Refonte complète
+- `docs/FEATURES_SPECS.md` - Section 3.5 ajoutée
+- `docs/CHANGELOG_OPTIMIZATION.md` - Version 1.4.1
+- `docs/IMPLEMENTATION_LOG.md` - Ce fichier
+- `docs/ROADMAP_LOTS.md` - LOT O ajouté
+
+### Dépendances utilisées
+- `expo-haptics` - Retour haptique
+- `expo-linear-gradient` - Gradient avatar
+- `react-native` Animated - Animations cœur
+
+### Code changes summary
+
+**Nouveaux états:**
+```typescript
+const [showMenu, setShowMenu] = useState(false);
+const [likedPeaks, setLikedPeaks] = useState<Set<string>>(new Set());
+const [savedPeaks, setSavedPeaks] = useState<Set<string>>(new Set());
+const [progress, setProgress] = useState(0);
+```
+
+**Animation particules:**
+```typescript
+const heartParticles = useRef([...Array(6)].map(() => ({
+  scale: new Animated.Value(0),
+  translateX: new Animated.Value(0),
+  translateY: new Animated.Value(0),
+  opacity: new Animated.Value(0),
+}))).current;
+```
+
+**Swipe DOWN gesture:**
+```typescript
+// Dans panResponder
+else if (dy > 80) {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  navigation.goBack();
+}
+```
+
+### Manual tests
+- [ ] Progress bar visible et synchronisée avec durée
+- [ ] Action buttons à droite, compteurs visibles
+- [ ] Double-tap → animation cœur + particules + haptic
+- [ ] Long-press → pause + menu contextuel
+- [ ] Swipe DOWN → ferme l'écran
+- [ ] Swipe UP → réponses ou create Peak
+- [ ] Swipe LEFT/RIGHT → navigation Peaks
+
+**Status:** DONE

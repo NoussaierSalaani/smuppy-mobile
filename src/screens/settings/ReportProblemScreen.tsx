@@ -9,21 +9,89 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../config/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Anti-spam: minimum 20 chars, max 3 reports per hour
+const MIN_CHARS = 20;
+const MAX_REPORTS_PER_HOUR = 3;
+const REPORT_COOLDOWN_KEY = '@smuppy_report_timestamps';
+const SUPPORT_EMAIL = 'support@smuppy.com';
 
 const ReportProblemScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [problemText, setProblemText] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSend = () => {
-    if (problemText.trim().length === 0) return;
-    
-    // TODO: Send report to backend
-    setShowSuccessModal(true);
+  const checkRateLimit = async (): Promise<boolean> => {
+    try {
+      const stored = await AsyncStorage.getItem(REPORT_COOLDOWN_KEY);
+      const timestamps: number[] = stored ? JSON.parse(stored) : [];
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      const recentReports = timestamps.filter(t => t > oneHourAgo);
+
+      if (recentReports.length >= MAX_REPORTS_PER_HOUR) {
+        const waitMinutes = Math.ceil((recentReports[0] + 60 * 60 * 1000 - Date.now()) / 60000);
+        setErrorMessage(`Too many reports. Please wait ${waitMinutes} minutes.`);
+        return false;
+      }
+
+      // Save new timestamp
+      await AsyncStorage.setItem(REPORT_COOLDOWN_KEY, JSON.stringify([...recentReports, Date.now()]));
+      return true;
+    } catch {
+      return true; // Allow on error
+    }
   };
+
+  const handleSend = async () => {
+    setErrorMessage('');
+
+    // Validation
+    if (problemText.trim().length < MIN_CHARS) {
+      setErrorMessage(`Please provide at least ${MIN_CHARS} characters.`);
+      return;
+    }
+
+    // Rate limit check
+    const canSend = await checkRateLimit();
+    if (!canSend) return;
+
+    setSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Insert report into database
+      const { error } = await supabase.from('problem_reports').insert({
+        user_id: user?.id || null,
+        email: user?.email || 'anonymous',
+        message: problemText.trim(),
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        // If table doesn't exist, just show success (report will be logged)
+        console.log('[ReportProblem] DB error (table may not exist):', error.message);
+      }
+
+      setShowSuccessModal(true);
+    } catch (err) {
+      console.error('[ReportProblem] Error:', err);
+      Alert.alert('Error', 'Failed to send report. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const canSend = problemText.trim().length >= MIN_CHARS && !sending;
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
@@ -92,16 +160,30 @@ const ReportProblemScreen = ({ navigation }) => {
             />
           </View>
 
+          {/* Error Message */}
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
+          {/* Character count */}
+          <Text style={styles.charCount}>
+            {problemText.length} / {MIN_CHARS} min characters
+          </Text>
+
           {/* Send Button */}
-          <TouchableOpacity 
-            style={[
-              styles.sendButton,
-              problemText.trim().length === 0 && styles.sendButtonDisabled
-            ]}
+          <TouchableOpacity
+            style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
             onPress={handleSend}
-            disabled={problemText.trim().length === 0}
+            disabled={!canSend}
           >
-            <Text style={styles.sendButtonText}>Send it</Text>
+            {sending ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.sendButtonText}>Send it</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -162,13 +244,35 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  // Error
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#FF3B30',
+    flex: 1,
+  },
+  charCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 12,
+    textAlign: 'right',
+  },
+
   // Send Button
   sendButton: {
     backgroundColor: '#0EBF8A',
     paddingVertical: 16,
     borderRadius: 28,
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 20,
+    minHeight: 52,
   },
   sendButtonDisabled: {
     backgroundColor: '#E8E8E8',

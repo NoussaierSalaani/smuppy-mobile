@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -114,24 +114,51 @@ const ALL_INTERESTS = [
 
 export default function EditInterestsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { currentInterests = [] } = route?.params || {};
-  const [selected, setSelected] = useState<string[]>(currentInterests);
-  const [isSaving, setIsSaving] = useState(false);
-
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
-  const { refetch } = useCurrentProfile();
+  const { data: profileData, refetch } = useCurrentProfile();
   const { updateProfile: updateLocalProfile, user } = useUser();
 
+  // Load interests from route params, profile data, or user context
+  const initialInterests = route?.params?.currentInterests
+    || profileData?.interests
+    || user.interests
+    || [];
+
+  const [selected, setSelected] = useState<string[]>(initialInterests);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Track locked interests (from onboarding - cannot be deselected)
+  const [lockedInterests, setLockedInterests] = useState<string[]>([]);
+
+  // Sync with profile data when it loads and set locked interests
+  useEffect(() => {
+    const interests = profileData?.interests || user.interests || [];
+    if (interests.length > 0) {
+      // Set locked interests only once (first load)
+      if (lockedInterests.length === 0) {
+        setLockedInterests(interests);
+      }
+      if (selected.length === 0) {
+        setSelected(interests);
+      }
+    }
+  }, [profileData, user.interests]);
+
   const hasChanges = useMemo(() => {
+    const currentInterests = profileData?.interests || user.interests || [];
     if (selected.length !== currentInterests.length) return true;
     return !selected.every(item => currentInterests.includes(item));
-  }, [selected, currentInterests]);
+  }, [selected, profileData?.interests, user.interests]);
 
   const toggle = useCallback((itemName: string) => {
+    // Don't allow deselection of locked (onboarding) interests
+    if (lockedInterests.includes(itemName) && selected.includes(itemName)) {
+      return;
+    }
     setSelected(prev =>
       prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
     );
-  }, []);
+  }, [lockedInterests, selected]);
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -157,12 +184,15 @@ export default function EditInterestsScreen({ navigation, route }) {
   };
 
   const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
+    const isLocked = lockedInterests.includes(item.name) && isSelected;
+
     if (isSelected) {
       return (
         <TouchableOpacity
           key={item.name}
           onPress={() => toggle(item.name)}
-          activeOpacity={0.7}
+          activeOpacity={isLocked ? 1 : 0.7}
+          disabled={isLocked}
         >
           <LinearGradient
             colors={GRADIENTS.button}
@@ -173,6 +203,9 @@ export default function EditInterestsScreen({ navigation, route }) {
             <View style={styles.chipSelectedInner}>
               <Ionicons name={item.icon as any} size={16} color={item.color} />
               <Text style={styles.chipText}>{item.name}</Text>
+              {isLocked && (
+                <Ionicons name="lock-closed" size={12} color="#8E8E93" style={{ marginLeft: 2 }} />
+              )}
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -189,7 +222,7 @@ export default function EditInterestsScreen({ navigation, route }) {
         <Text style={styles.chipText}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle]);
+  }, [toggle, lockedInterests]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -221,6 +254,14 @@ export default function EditInterestsScreen({ navigation, route }) {
         <Text style={styles.countText}>
           {selected.length} interest{selected.length !== 1 ? 's' : ''} selected
         </Text>
+        {lockedInterests.length > 0 && (
+          <View style={styles.lockedInfo}>
+            <Ionicons name="lock-closed" size={12} color="#8E8E93" />
+            <Text style={styles.lockedInfoText}>
+              {lockedInterests.length} from onboarding (cannot be removed)
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Scrollable content */}
@@ -308,6 +349,16 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 14,
     color: COLORS.grayMuted,
+  },
+  lockedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  lockedInfoText: {
+    fontSize: 12,
+    color: '#8E8E93',
   },
 
   // Scroll

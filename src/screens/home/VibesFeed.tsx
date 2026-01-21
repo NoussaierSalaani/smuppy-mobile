@@ -324,7 +324,7 @@ export default function VibesFeed() {
                     <Text style={styles.modalCategory}>{selectedPost.category}</Text>
                   </View>
                   <TouchableOpacity style={styles.modalFollowButton}>
-                    <Text style={styles.modalFollowText}>Follow</Text>
+                    <Text style={styles.modalFollowText}>Fan</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
 

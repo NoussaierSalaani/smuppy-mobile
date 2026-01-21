@@ -341,14 +341,14 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
                     <Text style={styles.popupUsername}>{selectedUser.username}</Text>
                     <Text style={styles.popupInfo}>
-                      Are you sure you want to unfollow?
+                      Are you sure you want to unfan?
                     </Text>
                     <TouchableOpacity
                       style={styles.unfollowButton}
                       onPress={confirmUnfollow}
                     >
                       <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
-                      <Text style={styles.unfollowButtonText}>Unfollow</Text>
+                      <Text style={styles.unfollowButtonText}>Unfan</Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -377,7 +377,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
                     <Text style={styles.popupUsername}>{selectedUser.username}</Text>
                     <Text style={styles.popupWarning}>
-                      If you unfollow now, you'll have to wait 7 days before following again.
+                      If you unfan now, you'll have to wait 7 days before becoming a fan again.
                     </Text>
                     <View style={styles.popupButtons}>
                       <TouchableOpacity style={styles.cancelButton} onPress={closePopups}>
@@ -385,7 +385,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.unfollowButton} onPress={confirmUnfollow}>
                         <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
-                        <Text style={styles.unfollowButtonText}>Unfollow</Text>
+                        <Text style={styles.unfollowButtonText}>Unfan</Text>
                       </TouchableOpacity>
                     </View>
                   </>

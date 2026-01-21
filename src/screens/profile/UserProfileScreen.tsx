@@ -494,7 +494,7 @@ const UserProfileScreen = () => {
                 style={styles.modalBtnConfirm}
                 onPress={confirmUnfan}
               >
-                <Text style={styles.modalBtnConfirmText}>Unfollow</Text>
+                <Text style={styles.modalBtnConfirmText}>Unfan</Text>
               </TouchableOpacity>
             </View>
           </View>

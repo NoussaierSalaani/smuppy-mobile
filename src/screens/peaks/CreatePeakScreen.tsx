@@ -26,6 +26,7 @@ const DURATION_OPTIONS: DurationOption[] = [
   { value: 6, label: '6s', icon: '⚡' },
   { value: 10, label: '10s', icon: '' },
   { value: 15, label: '15s', icon: '' },
+  { value: 60, label: '60s', icon: '🏆' },
 ];
 
 interface PeakUser {
@@ -66,9 +67,13 @@ const CreatePeakScreen = (): React.JSX.Element => {
   const [cameraKey, setCameraKey] = useState(1);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
-  // Custom alert state
+  // Custom alert state (for errors)
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+
+  // Toast state (for quick messages like "too short")
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   const toggleCameraFacing = (): void => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -82,7 +87,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
     setCameraKey(prev => prev + 1);
   };
 
-  // Show custom alert
+  // Show custom alert (for errors)
   const showCustomAlert = (message: string): void => {
     setAlertMessage(message);
     setShowAlert(true);
@@ -93,6 +98,16 @@ const CreatePeakScreen = (): React.JSX.Element => {
     setShowAlert(false);
     setAlertMessage('');
     resetCamera();
+  };
+
+  // Show toast (auto-dismiss after 2s)
+  const showToastMessage = (message: string): void => {
+    setToastMessage(message);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+      setToastMessage('');
+    }, 2000);
   };
 
   // Toggle preview play/pause
@@ -125,7 +140,13 @@ const CreatePeakScreen = (): React.JSX.Element => {
         setIsPreviewPlaying(false);
       } catch (error) {
         setIsRecording(false);
-        showCustomAlert('Unable to record video. Please try again.');
+        // Simulator can't record video - show appropriate message
+        const isSimulator = !cameraRef.current;
+        showCustomAlert(
+          isSimulator
+            ? 'Video recording is not available on simulator. Please use a real device.'
+            : 'Unable to record video. Please try again.'
+        );
       }
     }
   };
@@ -141,7 +162,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
     }
   };
 
-  // Recording too short
+  // Recording too short - show toast instead of invasive modal
   const handleRecordCancel = (message: string): void => {
     setIsRecording(false);
     setRecordedVideo(null);
@@ -152,7 +173,8 @@ const CreatePeakScreen = (): React.JSX.Element => {
       } catch (error) {}
     }
 
-    showCustomAlert(message);
+    // Use toast for "too short" messages (less invasive)
+    showToastMessage(message);
   };
 
   // Close screen
@@ -410,6 +432,16 @@ const CreatePeakScreen = (): React.JSX.Element => {
 
       {/* Custom Alert */}
       <CustomAlert />
+
+      {/* Toast (quick non-invasive message) */}
+      {showToast && (
+        <View style={[styles.toastContainer, { top: insets.top + 60 }]}>
+          <View style={styles.toast}>
+            <Ionicons name="time-outline" size={18} color={COLORS.white} />
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -504,15 +536,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   durationOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: 'rgba(14, 191, 138, 0.25)',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
   durationText: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.white,
+    opacity: 0.7,
   },
   durationTextActive: {
-    color: COLORS.dark,
+    color: COLORS.primary,
+    opacity: 1,
   },
   recordButtonContainer: {
     marginBottom: 10,
@@ -658,6 +694,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.dark,
+  },
+
+  // Toast styles
+  toastContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+  },
+  toastText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.white,
   },
 });
 

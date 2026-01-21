@@ -44,8 +44,8 @@ const PasswordManagerScreen = ({ navigation }) => {
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
 
-      await supabase.auth.signOut({ scope: 'global' });
-      await supabase.auth.signInWithPassword({ email: user.email, password: newPassword });
+      // Note: updateUser with new password automatically invalidates other sessions
+      // No need to signOut/signIn which causes app refresh
       setSuccessModal(true);
     } catch (error: unknown) {
       let errorTitle = 'Update Failed';
@@ -172,7 +172,7 @@ const PasswordManagerScreen = ({ navigation }) => {
             </View>
           )}
 
-          {(newPasswordFocused || newPassword.length > 0) && (
+          {(newPasswordFocused || newPassword.length > 0) && !newPasswordValid && (
             <View style={styles.rulesContainer}>
               {passwordRules.map((rule) => (
                 <View key={rule.id} style={styles.ruleRow}>

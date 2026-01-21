@@ -1,5 +1,316 @@
 # Changelog - Performance & Scalability Optimization
 
+## Version 1.4.1 - 21 Janvier 2026
+
+### PeakViewScreen - UX/UI Redesign (Phase 1)
+
+**Refonte complète de l'expérience de visualisation des Peaks basée sur les tendances TikTok/Reels/Stories.**
+
+#### Progress Bar (Top)
+| Propriété | Valeur |
+|-----------|--------|
+| Position | Top, sous safe area |
+| Hauteur | 3px |
+| Animation | Linéaire, synchronisée avec durée Peak |
+| Couleur | `#0EBF8A` sur fond `rgba(255,255,255,0.3)` |
+
+#### Action Buttons (Vertical - Right Side)
+Boutons d'action style TikTok alignés verticalement à droite:
+
+| Bouton | Icône | Compteur |
+|--------|-------|----------|
+| Like | `heart` | Oui |
+| Reply | `chatbubble` | Oui |
+| Share | `paper-plane` | Oui |
+| Save | `bookmark` | Non |
+
+**Style:**
+```javascript
+actionIconContainer: {
+  width: 48,
+  height: 48,
+  borderRadius: 24,
+  backgroundColor: 'rgba(0,0,0,0.3)',
+}
+```
+
+#### Double-Tap Like Animation (Enhanced)
+| Élément | Animation |
+|---------|-----------|
+| Cœur principal | Scale 0 → 1.2 → 1, spring avec damping |
+| 6 particules | Explosion radiale, fade out |
+| Haptic | `ImpactFeedbackStyle.Medium` |
+
+**Particules:**
+- 6 mini-cœurs
+- Angles: 0°, 60°, 120°, 180°, 240°, 300°
+- Distance: 80-120px aléatoire
+
+#### Gestures Swipe
+| Geste | Threshold | Action |
+|-------|-----------|--------|
+| **Swipe UP** | dy < -50 | Réponses / Create reply |
+| **Swipe DOWN** | dy > 80 | Fermer (go back) |
+| **Swipe LEFT** | dx < -50 | Peak suivant |
+| **Swipe RIGHT** | dx > 50 | Peak précédent |
+
+#### Long-Press Menu
+Menu contextuel avec options:
+- Pas intéressé
+- Copier le lien
+- Signaler (rouge)
+- Annuler
+
+**Apparition:** Après 300ms + haptic feedback
+
+#### Avatar avec Gradient Border
+```javascript
+<LinearGradient
+  colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+  style={{ width: 46, height: 46, borderRadius: 23, padding: 2 }}
+>
+  <Image style={{ width: 42, height: 42, borderRadius: 21 }} />
+</LinearGradient>
+```
+
+#### User Info (Bottom Left)
+- Avatar avec gradient Smuppy
+- Nom avec text shadow
+- Compteur de vues
+
+**Fichier modifié:**
+- `src/screens/peaks/PeakViewScreen.tsx`
+
+**Dépendances ajoutées:**
+- `expo-haptics` (retour haptique)
+- `expo-linear-gradient` (déjà présent)
+
+---
+
+## Version 1.4.0 - 21 Janvier 2026
+
+### Profile Screen Redesign (LOT N)
+
+**Refonte complète de l'écran profil avec design unique Smuppy.**
+
+#### Avatar avec Peaks Indicator
+| État | Apparence |
+|------|-----------|
+| Sans peaks | Bordure blanche simple (4px) |
+| Avec peaks | Bordure gradient (vert → cyan → bleu) style Instagram Stories |
+
+**Implémentation:**
+```javascript
+// Si l'utilisateur a des peaks
+<LinearGradient
+  colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 1 }}
+  style={styles.avatarGradientBorder}
+>
+  <AvatarImage source={avatar} size={88} />
+</LinearGradient>
+```
+
+#### Stats Cards (nouveau design)
+| Card | Icône Gradient | Description |
+|------|----------------|-------------|
+| Fans | `#0EBF8A → #11E3A3` | Clickable → FansList |
+| Posts | `#00B5C1 → #0081BE` | Nombre de posts |
+
+**Style card avec shadow:**
+```javascript
+{
+  backgroundColor: '#FFFFFF',
+  borderRadius: 14,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 3,
+}
+```
+
+#### Pills Style Tabs
+| Tab | Contenu | Style grille |
+|-----|---------|--------------|
+| Posts | Posts utilisateur | 3 colonnes, simple |
+| Peaks | Peaks utilisateur | 3 colonnes, avec stats |
+| Collections | Posts sauvegardés | 2 colonnes, cards détaillées |
+
+**Style pills:**
+```javascript
+// Container
+{ backgroundColor: '#F3F4F6', borderRadius: 12, padding: 4 }
+
+// Tab actif
+<LinearGradient colors={['#0EBF8A', '#00B5C1']} style={pillActive}>
+  // Shadow: #0EBF8A, opacity 0.25, radius 6
+</LinearGradient>
+```
+
+#### Grilles de contenu
+
+| Type | Colonnes | Hauteur | Stats visibles |
+|------|----------|---------|----------------|
+| Posts | 3 | 140px | Coeurs uniquement |
+| Peaks | 3 | 180px | Coeurs, vues, réponses, partages |
+| Collections | 2 | 120px + info | Titre, auteur, coeurs |
+
+#### Stats Visibility Strategy
+
+| Stat | Sur grille | Détail (proprio) | Détail (visiteur) |
+|------|------------|------------------|-------------------|
+| **Likes** | ✅ | ✅ | ✅ |
+| **Vues** | Posts: ❌ / Peaks: ✅ | ✅ | ✅ |
+| **Partages** | Peaks: ✅ | ✅ | ❌ |
+| **Saves** | ❌ | ✅ | ❌ |
+| **Réponses** | Peaks: ✅ | ✅ | ✅ |
+
+> **Raison:** Likes & Vues = social proof public. Partages & Saves = insights privés créateur.
+
+#### Cover Photo avec Gradient
+```javascript
+<LinearGradient
+  colors={['transparent', 'transparent', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.85)', '#FFFFFF']}
+  locations={[0, 0.35, 0.55, 0.75, 1]}
+/>
+```
+
+#### Bio Section
+| Propriété | Valeur |
+|-----------|--------|
+| Lignes collapsed | 2 |
+| Lignes expanded | 6 |
+| "Voir plus" condition | `bio.length > 80` OU `> 2 lignes` |
+| Liens cliquables | URLs, emails, téléphones |
+
+**Fichiers modifiés:**
+- `src/screens/profile/ProfileScreen.tsx`
+- `src/components/peaks/RecordButton.tsx`
+
+---
+
+### RecordButton Shutter Animation
+
+**Animation d'obturateur pour le bouton d'enregistrement Peaks.**
+
+| Élément | Description |
+|---------|-------------|
+| Cercle fond | Gris foncé `#2C2C2E` |
+| Cercle progression | Vert `#0EBF8A`, se décharge pendant enregistrement |
+| 6 triangles | Logo Smuppy blanc au centre |
+| Cercle shutter | Blanc, apparaît quand on appuie |
+
+**Animation:**
+```javascript
+// Fermeture (quand on appuie)
+shutterValue.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.cubic) });
+
+// Ouverture (quand on relâche)
+shutterValue.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+
+// Style animé
+const centerCircleStyle = useAnimatedStyle(() => ({
+  opacity: shutterValue.value,
+  transform: [{ scale: interpolate(shutterValue.value, [0, 1], [0.5, 1]) }],
+}));
+```
+
+---
+
+### VideoRecorderScreen (nouveau)
+
+**Nouvel écran d'enregistrement vidéo avec segments de 15 secondes.**
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| Segments | Auto-save tous les 15 secondes |
+| Progress bar | Animation linéaire synchronisée |
+| Camera flip | Avant/arrière |
+| Permissions | Camera + Media Library |
+
+**Fichier:** `src/screens/home/VideoRecorderScreen.tsx`
+
+---
+
+### JavaScript → TypeScript Migration
+
+**Migration majeure de 40+ fichiers JS vers TypeScript.**
+
+| Catégorie | Fichiers migrés |
+|-----------|-----------------|
+| Components | Avatar, BottomNav, Card, Header, HomeHeader, Input, TabBar, Tag, Toggle |
+| Auth components | GoogleLogo, authStyles, index |
+| Peaks components | PeakCard, PeakCarousel, PeakProgressRing, RecordButton |
+| Navigation | AppNavigator, AuthNavigator, MainNavigator |
+| Context | TabBarContext, UserContext |
+| Config | supabase.ts (nouveau), theme.ts, api.ts |
+| Services | database.ts |
+
+**Avantages:**
+- ✅ Type safety pour éviter les bugs runtime
+- ✅ Meilleure autocomplétion IDE
+- ✅ Documentation inline via types
+- ✅ Refactoring plus sûr
+
+---
+
+### Spots Feature + Explorer Map
+
+**Ajout de la fonctionnalité Spots pour l'exploration.**
+
+| Élément | Description |
+|---------|-------------|
+| XplorerFeed | Carte avec markers |
+| Filtres | Maximum 3 filtres actifs |
+| Permissions | Location demandée |
+| Markers | Spots mock vérifiés |
+
+**Commit:** `3305cb4 feat: add spots feature + migrate JS to TypeScript`
+
+---
+
+### Database Migrations
+
+**Nouvelles tables Supabase pour profiles et core.**
+
+| Migration | Tables |
+|-----------|--------|
+| `20260121_profiles.sql` | profiles (extended) |
+| `20260121_core_tables.sql` | posts, peaks, likes, follows, etc. |
+
+**Fichiers:** `supabase/migrations/`
+
+---
+
+### Fans/Tracking Tabs avec Smart Cooldown
+
+**Système de cooldown intelligent pour les actions sociales.**
+
+| Action | Cooldown |
+|--------|----------|
+| Follow/Unfollow | Visuel immédiat, sync backend |
+| Copy link | Toast confirmation |
+
+**Commit:** `fc1ec4e feat: add Fans/Tracking tabs with smart cooldown system`
+
+---
+
+### Profile Connected to Real Database
+
+**Connexion du profil aux données réelles Supabase.**
+
+| Hook | Description |
+|------|-------------|
+| `useCurrentProfile()` | Profil utilisateur connecté |
+| `useUserPosts(userId)` | Posts de l'utilisateur |
+| `useSavedPosts()` | Collections (posts sauvegardés) |
+
+**Commit:** `40c9d75 feat: connect profile to real database data`
+
+---
+
 ## Version 1.3.1 - 20 Janvier 2026
 
 ### State Management - Unified Onboarding Data Flow

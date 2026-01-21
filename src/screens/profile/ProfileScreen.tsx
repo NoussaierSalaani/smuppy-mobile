@@ -7,27 +7,30 @@ import {
   Dimensions,
   StatusBar,
   Modal,
-  TextInput,
   Alert,
   ActionSheetIOS,
   Platform,
   RefreshControl,
   ActivityIndicator,
+  Linking,
+  ScrollView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
+import { VerifiedBadge, PremiumBadge } from '../../components/Badge';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const COVER_HEIGHT = 260;
-const AVATAR_SIZE = 90;
+const COVER_HEIGHT = 282;
+const AVATAR_SIZE = 96;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 
 // Type for profile data from various sources
@@ -60,6 +63,10 @@ interface ProfileDataSource {
   businessName?: string;
   business_category?: string;
   businessCategory?: string;
+  is_verified?: boolean;
+  isVerified?: boolean;
+  is_premium?: boolean;
+  isPremium?: boolean;
   fan_count?: number;
   fans?: number;
   post_count?: number;
@@ -83,11 +90,126 @@ const INITIAL_USER = {
   socialLinks: {},
   businessName: '',
   businessCategory: '',
+  isVerified: false,
+  isPremium: false,
   stats: {
     fans: 0,
     posts: 0,
   },
 };
+
+const BIO_MAX_LINES = 2;
+const BIO_EXPANDED_MAX_LINES = 6;
+
+// Mock data for posts
+const MOCK_POSTS = [
+  {
+    id: 'post-1',
+    content: 'Amazing training session today! 💪 #fitness #workout',
+    media_urls: ['https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400'],
+    media_type: 'image',
+    likes_count: 124,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'post-2',
+    content: 'New personal record on the track 🏃‍♂️',
+    media_urls: ['https://images.unsplash.com/photo-1461896836934- voices?w=400'],
+    media_type: 'video',
+    likes_count: 89,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'post-3',
+    content: 'Sunday morning yoga vibes 🧘‍♀️',
+    media_urls: ['https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400'],
+    media_type: 'image',
+    likes_count: 256,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'post-4',
+    content: 'Team practice was intense today!',
+    media_urls: ['https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400'],
+    media_type: 'image',
+    likes_count: 67,
+    created_at: new Date().toISOString(),
+  },
+];
+
+// Mock data for peaks
+const MOCK_PEAKS = [
+  {
+    id: 'peak-1',
+    content: 'Behind the scenes 🎬',
+    media_urls: ['https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400'],
+    peak_duration: 15,
+    is_peak: true,
+  },
+  {
+    id: 'peak-2',
+    content: 'Quick workout tip',
+    media_urls: ['https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400'],
+    peak_duration: 10,
+    is_peak: true,
+  },
+  {
+    id: 'peak-3',
+    content: 'Match highlights ⚽',
+    media_urls: ['https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400'],
+    peak_duration: 15,
+    is_peak: true,
+  },
+  {
+    id: 'peak-4',
+    content: 'Morning routine',
+    media_urls: ['https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400'],
+    peak_duration: 12,
+    is_peak: true,
+  },
+  {
+    id: 'peak-5',
+    content: 'Training day',
+    media_urls: ['https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400'],
+    peak_duration: 8,
+    is_peak: true,
+  },
+  {
+    id: 'peak-6',
+    content: 'Recovery session',
+    media_urls: ['https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=400'],
+    peak_duration: 15,
+    is_peak: true,
+  },
+];
+
+// Mock data for collections (saved posts)
+const MOCK_COLLECTIONS = [
+  {
+    id: 'saved-1',
+    media_urls: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400'],
+    media_type: 'image',
+    author: { full_name: 'Coach Mike', avatar_url: 'https://randomuser.me/api/portraits/men/32.jpg' },
+  },
+  {
+    id: 'saved-2',
+    media_urls: ['https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=400'],
+    media_type: 'video',
+    author: { full_name: 'Sarah Sports', avatar_url: 'https://randomuser.me/api/portraits/women/44.jpg' },
+  },
+  {
+    id: 'saved-3',
+    media_urls: ['https://images.unsplash.com/photo-1518459031867-a89b944bffe4?w=400'],
+    media_type: 'image',
+    author: { full_name: 'FitLife', avatar_url: 'https://randomuser.me/api/portraits/men/22.jpg' },
+  },
+  {
+    id: 'saved-4',
+    media_urls: ['https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=400'],
+    media_type: 'image',
+    author: { full_name: 'Yoga Master', avatar_url: 'https://randomuser.me/api/portraits/women/65.jpg' },
+  },
+];
 
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
@@ -95,6 +217,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
 
   // User state
   const [user, setUser] = useState(INITIAL_USER);
@@ -113,15 +236,16 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [userPostsData]);
 
   // Filter: posts = not peaks, peaks = is_peak true
-  const posts = useMemo(() =>
-    allUserPosts.filter(post => !post.is_peak),
-    [allUserPosts]
-  );
+  // Use mock data if no real data
+  const posts = useMemo(() => {
+    const realPosts = allUserPosts.filter(post => !post.is_peak);
+    return realPosts.length > 0 ? realPosts : MOCK_POSTS;
+  }, [allUserPosts]);
 
-  const peaks = useMemo(() =>
-    allUserPosts.filter(post => post.is_peak && post.save_to_profile !== false),
-    [allUserPosts]
-  );
+  const peaks = useMemo(() => {
+    const realPeaks = allUserPosts.filter(post => post.is_peak && post.save_to_profile !== false);
+    return realPeaks.length > 0 ? realPeaks : MOCK_PEAKS;
+  }, [allUserPosts]);
 
   // Get saved posts (collections) - only for own profile
   const {
@@ -130,13 +254,15 @@ const ProfileScreen = ({ navigation, route }) => {
   } = useSavedPosts();
 
   const collections = useMemo(() => {
-    if (!savedPostsData?.pages) return [];
-    return savedPostsData.pages.flatMap(page => page.posts);
+    if (!savedPostsData?.pages) return MOCK_COLLECTIONS;
+    const realCollections = savedPostsData.pages.flatMap(page => page.posts);
+    return realCollections.length > 0 ? realCollections : MOCK_COLLECTIONS;
   }, [savedPostsData]);
 
+  // Check if user has peaks (for avatar border indicator)
+  const hasPeaks = peaks.length > 0;
+
   // Modal states
-  const [showBioModal, setShowBioModal] = useState(false);
-  const [bioText, setBioText] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
   
   const isOwnProfile = route?.params?.userId === undefined;
@@ -192,6 +318,8 @@ const ProfileScreen = ({ navigation, route }) => {
       socialLinks: base.social_links || fallback.socialLinks || {},
       businessName: base.business_name || fallback.businessName || '',
       businessCategory: base.business_category || fallback.businessCategory || '',
+      isVerified: base.is_verified ?? fallback.isVerified ?? INITIAL_USER.isVerified,
+      isPremium: base.is_premium ?? fallback.isPremium ?? INITIAL_USER.isPremium,
       stats: {
         fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? INITIAL_USER.stats.fans,
         posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? INITIAL_USER.stats.posts,
@@ -206,10 +334,6 @@ const ProfileScreen = ({ navigation, route }) => {
       stats: resolvedProfile.stats,
     }));
   }, [resolvedProfile]);
-
-  useEffect(() => {
-    setBioText(resolvedProfile.bio || '');
-  }, [resolvedProfile.bio]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -294,9 +418,64 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   // ==================== BIO ====================
-  const saveBio = () => {
-    setUser(prev => ({ ...prev, bio: bioText }));
-    setShowBioModal(false);
+  // Render bio with clickable links (URLs, emails, phone numbers)
+  const renderBioWithLinks = (text: string) => {
+    if (!text) return null;
+
+    // Regex patterns
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+    const phoneRegex = /(\+?[\d\s\-().]{10,})/g;
+
+    // Combined regex to split text
+    const combinedRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+|\+?[\d\s\-().]{10,})/g;
+
+    const parts = text.split(combinedRegex);
+    const matches = text.match(combinedRegex) || [];
+
+    const elements: React.ReactNode[] = [];
+    let matchIndex = 0;
+
+    parts.forEach((part, index) => {
+      if (part) {
+        // Check if this part is a link
+        if (urlRegex.test(part)) {
+          elements.push(
+            <Text
+              key={`link-${index}`}
+              style={styles.bioLink}
+              onPress={() => Linking.openURL(part)}
+            >
+              {part}
+            </Text>
+          );
+        } else if (emailRegex.test(part)) {
+          elements.push(
+            <Text
+              key={`email-${index}`}
+              style={styles.bioLink}
+              onPress={() => Linking.openURL(`mailto:${part}`)}
+            >
+              {part}
+            </Text>
+          );
+        } else if (phoneRegex.test(part) && part.replace(/\D/g, '').length >= 10) {
+          elements.push(
+            <Text
+              key={`phone-${index}`}
+              style={styles.bioLink}
+              onPress={() => Linking.openURL(`tel:${part.replace(/\D/g, '')}`)}
+            >
+              {part}
+            </Text>
+          );
+        } else {
+          elements.push(<Text key={`text-${index}`}>{part}</Text>);
+        }
+      }
+    });
+
+    return <Text style={styles.bioText}>{elements}</Text>;
   };
 
   // ==================== COPY PROFILE LINK ====================
@@ -322,90 +501,136 @@ const ProfileScreen = ({ navigation, route }) => {
   // ==================== RENDER HEADER ====================
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      {/* Cover Image */}
-      <TouchableOpacity 
-        activeOpacity={0.95}
-        onPress={() => isOwnProfile && showImageOptions('cover')}
-      >
-        <View style={styles.coverWrapper}>
+      {/* Cover Image - extends behind content */}
+      <View style={styles.coverAbsolute}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() => isOwnProfile && showImageOptions('cover')}
+          style={styles.coverTouchable}
+        >
           {user.coverImage ? (
             <OptimizedImage source={user.coverImage} style={styles.coverImage} />
           ) : (
             <View style={styles.coverPlaceholder} />
           )}
-          <LinearGradient
-            colors={['transparent', 'rgba(10, 10, 15, 0.95)']}
-            style={styles.coverGradient}
-          />
-          
-          {/* Settings Button */}
-          {isOwnProfile && (
-            <TouchableOpacity
-              style={[styles.settingsBtn, { top: insets.top + 8 }]}
-              onPress={() => navigation.navigate('Settings')}
-            >
-              <Ionicons name="settings-outline" size={22} color="#0A0A0F" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+
+        {/* Gradient that fades the cover into white */}
+        <LinearGradient
+          colors={['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
+          locations={[0, 0.35, 0.55, 0.75, 1]}
+          style={styles.coverGradientOverlay}
+          pointerEvents="none"
+        />
+      </View>
+
+      {/* Settings Button */}
+      {isOwnProfile && (
+        <TouchableOpacity
+          style={[styles.settingsBtn, { top: insets.top + 8 }]}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+
+      {/* Spacer for cover height */}
+      <View style={styles.coverSpacer} />
 
       {/* Avatar & Stats Row */}
       <View style={styles.avatarRow}>
-        <TouchableOpacity 
+        <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => isOwnProfile && showImageOptions('avatar')}
         >
-          {user.avatar ? (
-            <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+          {/* Peaks indicator - gradient border around avatar */}
+          {hasPeaks ? (
+            <LinearGradient
+              colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarGradientBorder}
+            >
+              <View style={styles.avatarInnerBorder}>
+                {user.avatar ? (
+                  <AvatarImage source={user.avatar} size={AVATAR_SIZE - 8} style={styles.avatarWithPeaks} />
+                ) : (
+                  <View style={styles.avatarEmptyWithPeaks}>
+                    <Ionicons name="person" size={32} color="#6E6E73" />
+                  </View>
+                )}
+              </View>
+            </LinearGradient>
           ) : (
-            <View style={styles.avatarEmpty}>
-              <Ionicons name="person" size={36} color="#6E6E73" />
-            </View>
+            user.avatar ? (
+              <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarEmpty}>
+                <Ionicons name="person" size={36} color="#6E6E73" />
+              </View>
+            )
           )}
         </TouchableOpacity>
 
-        {/* Stats Badges */}
-        <View style={styles.statsBadges}>
-          <TouchableOpacity style={styles.badge} onPress={handleFansPress}>
-            <Ionicons name="people" size={14} color="#0A0A0F" />
-            <Text style={styles.badgeValue}>{user.stats.fans}</Text>
-            <Text style={styles.badgeLabel}>Fan</Text>
-          </TouchableOpacity>
-          <View style={styles.badge}>
-            <Ionicons name="albums-outline" size={14} color="#0A0A0F" />
-            <Text style={styles.badgeValue}>{user.stats.posts}</Text>
-            <Text style={styles.badgeLabel}>Post</Text>
-          </View>
+        {/* Stats - Glassmorphism Style */}
+        <View style={styles.statsGlass}>
+          <BlurView intensity={80} tint="light" style={styles.statsBlurContainer}>
+            <TouchableOpacity style={styles.statGlassItem} onPress={handleFansPress}>
+              <Text style={styles.statGlassValue}>{user.stats.fans || 128}</Text>
+              <Text style={styles.statGlassLabel}>Fans</Text>
+            </TouchableOpacity>
+            <View style={styles.statGlassDivider} />
+            <View style={styles.statGlassItem}>
+              <Text style={styles.statGlassValue}>{user.stats.posts || 24}</Text>
+              <Text style={styles.statGlassLabel}>Posts</Text>
+            </View>
+          </BlurView>
         </View>
       </View>
 
       {/* Name & Actions */}
       <View style={styles.nameRow}>
-        <Text style={styles.displayName}>{user.displayName}</Text>
+        <View style={styles.nameWithBadges}>
+          <Text style={styles.displayName}>{user.displayName}</Text>
+          {user.isVerified && <VerifiedBadge size={18} style={styles.badge} />}
+          {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
+        </View>
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
-          <Ionicons name="qr-code-outline" size={20} color="#0A0A0F" />
+          <Ionicons name="qr-code-outline" size={18} color="#0A0A0F" />
         </TouchableOpacity>
       </View>
 
       {/* Bio Section */}
       {user.bio ? (
-        <TouchableOpacity 
-          style={styles.bioSection}
-          onPress={() => isOwnProfile && setShowBioModal(true)}
-        >
-          <Text style={styles.bioText}>{user.bio}</Text>
+        <View style={styles.bioSection}>
+          <Text
+            style={styles.bioText}
+            numberOfLines={bioExpanded ? BIO_EXPANDED_MAX_LINES : BIO_MAX_LINES}
+          >
+            {user.bio}
+          </Text>
+          {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
+            <TouchableOpacity
+              onPress={() => setBioExpanded(!bioExpanded)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.seeMoreBtn}
+            >
+              <Text style={styles.seeMoreText}>
+                {bioExpanded ? 'Voir moins' : 'Voir plus'}
+              </Text>
+            </TouchableOpacity>
+          )}
           {user.location ? (
             <View style={styles.locationRow}>
               <Text style={styles.locationPin}>📍</Text>
               <Text style={styles.locationText}>{user.location}</Text>
             </View>
           ) : null}
-        </TouchableOpacity>
+        </View>
       ) : isOwnProfile ? (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addBioBtn}
-          onPress={() => setShowBioModal(true)}
+          onPress={() => navigation.navigate('Settings', { screen: 'EditProfil' })}
         >
           <Ionicons name="add" size={16} color="#0EBF8A" />
           <Text style={styles.addBioText}>Add Bio</Text>
@@ -423,25 +648,30 @@ const ProfileScreen = ({ navigation, route }) => {
 
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
-      {TABS.map((tab) => (
-        <TouchableOpacity
-          key={tab.key}
-          style={styles.tab}
-          onPress={() => setActiveTab(tab.key)}
-        >
-          <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-            {tab.label}
-          </Text>
-          {activeTab === tab.key && (
-            <LinearGradient
-              colors={GRADIENTS.button}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.tabIndicator}
-            />
-          )}
-        </TouchableOpacity>
-      ))}
+      <View style={styles.pillsContainer}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            onPress={() => setActiveTab(tab.key)}
+            activeOpacity={0.8}
+          >
+            {activeTab === tab.key ? (
+              <LinearGradient
+                colors={['#0EBF8A', '#00B5C1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.pillActive}
+              >
+                <Text style={styles.pillTextActive}>{tab.label}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>{tab.label}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 
@@ -465,9 +695,8 @@ const ProfileScreen = ({ navigation, route }) => {
     </View>
   );
 
-  // ==================== RENDER POST ITEM ====================
+  // ==================== RENDER POST ITEM (Simple grid style) ====================
   const renderPostItem = useCallback(({ item: post }) => {
-    // Get thumbnail (first media URL or placeholder)
     const thumbnail = post.media_urls?.[0] || null;
     const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
 
@@ -480,37 +709,35 @@ const ProfileScreen = ({ navigation, route }) => {
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
           <View style={[styles.postThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
-            <Ionicons name="image-outline" size={32} color="#6E6E73" />
+            <Ionicons name="image-outline" size={24} color="#6E6E73" />
           </View>
         )}
         {isVideo && (
-          <View style={styles.duration}>
-            <Ionicons name="play" size={10} color="#FFF" />
+          <View style={styles.postPlayIcon}>
+            <Ionicons name="play" size={12} color="#FFF" />
           </View>
         )}
-        <TouchableOpacity style={styles.postMenu}>
-          <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
-        </TouchableOpacity>
-        <View style={styles.postInfo}>
-          <Text style={styles.postTitle} numberOfLines={2}>
-            {post.content || 'No caption'}
-          </Text>
-          <View style={styles.postMeta}>
-            <AvatarImage source={post.author?.avatar_url || user.avatar} size={18} />
-            <Text style={styles.authorName}>{post.author?.full_name || user.displayName}</Text>
-            <Ionicons name="heart" size={12} color="#FF6B6B" />
-            <Text style={styles.likes}>{post.likes_count || 0}</Text>
+        {/* Stats overlay at bottom */}
+        <View style={styles.postStatsOverlay}>
+          <View style={styles.postStat}>
+            <Ionicons name="heart" size={12} color="#FFF" />
+            <Text style={styles.postStatText}>{post.likes_count || 0}</Text>
           </View>
         </View>
       </TouchableOpacity>
     );
-  }, [navigation, user.avatar, user.displayName]);
+  }, [navigation]);
 
   const keyExtractor = useCallback((item) => item.id, []);
 
   // ==================== RENDER PEAK ITEM ====================
   const renderPeakItem = useCallback((peak) => {
     const thumbnail = peak.media_urls?.[0] || null;
+    // Mock stats for demo
+    const likes = peak.likes_count || Math.floor(Math.random() * 500) + 50;
+    const views = peak.views_count || Math.floor(Math.random() * 2000) + 200;
+    const replies = peak.replies_count || Math.floor(Math.random() * 30) + 5;
+    const shares = peak.shares_count || Math.floor(Math.random() * 20) + 2;
 
     return (
       <TouchableOpacity
@@ -525,13 +752,28 @@ const ProfileScreen = ({ navigation, route }) => {
             <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
           </View>
         )}
-        <View style={styles.peakOverlay}>
-          <View style={styles.peakDuration}>
-            <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+        {/* Duration badge */}
+        <View style={styles.peakDuration}>
+          <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+        </View>
+        {/* Stats overlay */}
+        <View style={styles.peakStatsOverlay}>
+          <View style={styles.peakStat}>
+            <Ionicons name="heart" size={11} color="#FF6B6B" />
+            <Text style={styles.peakStatText}>{likes}</Text>
           </View>
-          {peak.content && (
-            <Text style={styles.peakCaption} numberOfLines={2}>{peak.content}</Text>
-          )}
+          <View style={styles.peakStat}>
+            <Ionicons name="eye" size={11} color="#FFF" />
+            <Text style={styles.peakStatText}>{views}</Text>
+          </View>
+          <View style={styles.peakStat}>
+            <Ionicons name="chatbubble" size={10} color="#FFF" />
+            <Text style={styles.peakStatText}>{replies}</Text>
+          </View>
+          <View style={styles.peakStat}>
+            <Ionicons name="share-outline" size={11} color="#FFF" />
+            <Text style={styles.peakStatText}>{shares}</Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -568,7 +810,7 @@ const ProfileScreen = ({ navigation, route }) => {
     );
   };
 
-  // ==================== RENDER COLLECTION ITEM ====================
+  // ==================== RENDER COLLECTION ITEM (Detailed card style) ====================
   const renderCollectionItem = useCallback((post) => {
     const thumbnail = post.media_urls?.[0] || null;
     const isVideo = post.media_type === 'video';
@@ -583,25 +825,33 @@ const ProfileScreen = ({ navigation, route }) => {
           <OptimizedImage source={thumbnail} style={styles.collectionThumb} />
         ) : (
           <View style={[styles.collectionThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
-            <Ionicons name="image-outline" size={24} color="#6E6E73" />
+            <Ionicons name="image-outline" size={32} color="#6E6E73" />
           </View>
         )}
         {isVideo && (
           <View style={styles.collectionPlayIcon}>
-            <Ionicons name="play" size={12} color="#FFF" />
+            <Ionicons name="play" size={10} color="#FFF" />
           </View>
         )}
         <View style={styles.collectionSaveIcon}>
           <Ionicons name="bookmark" size={12} color="#FFF" />
         </View>
-        {post.author && (
-          <View style={styles.collectionAuthor}>
-            <AvatarImage source={post.author.avatar_url} size={16} />
-            <Text style={styles.collectionAuthorName} numberOfLines={1}>
-              {post.author.full_name}
-            </Text>
-          </View>
-        )}
+        <TouchableOpacity style={styles.collectionMenu}>
+          <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
+        </TouchableOpacity>
+        <View style={styles.collectionInfo}>
+          <Text style={styles.collectionTitle} numberOfLines={2}>
+            {post.content || 'Saved post'}
+          </Text>
+          {post.author && (
+            <View style={styles.collectionMeta}>
+              <AvatarImage source={post.author.avatar_url} size={18} />
+              <Text style={styles.collectionAuthorName}>{post.author.full_name}</Text>
+              <Ionicons name="heart" size={12} color="#FF6B6B" />
+              <Text style={styles.collectionLikes}>{post.likes_count || 0}</Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
     );
   }, [navigation]);
@@ -639,41 +889,6 @@ const ProfileScreen = ({ navigation, route }) => {
     );
   };
 
-  // ==================== BIO MODAL ====================
-  const renderBioModal = () => (
-    <Modal
-      visible={showBioModal}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => setShowBioModal(false)}
-    >
-      <View style={[styles.bioModal, { paddingTop: insets.top || 20 }]}>
-        <View style={styles.bioModalHeader}>
-          <TouchableOpacity onPress={() => setShowBioModal(false)}>
-            <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
-          </TouchableOpacity>
-          <Text style={styles.bioModalTitle}>Biographies</Text>
-          <TouchableOpacity style={styles.saveBtn} onPress={saveBio}>
-            <Ionicons name="bookmark-outline" size={16} color="#FFF" />
-            <Text style={styles.saveBtnText}>Save</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.bioInputWrap}>
-          <TextInput
-            style={styles.bioInput}
-            placeholder="Write a short biography about your background, hobbies, and interests"
-            placeholderTextColor="#A0A0A0"
-            multiline
-            value={bioText}
-            onChangeText={setBioText}
-            maxLength={300}
-            autoFocus
-          />
-        </View>
-      </View>
-    </Modal>
-  );
-
   // ==================== QR CODE MODAL ====================
   const renderQRModal = () => (
     <Modal
@@ -699,7 +914,7 @@ const ProfileScreen = ({ navigation, route }) => {
           </View>
 
           <Text style={styles.qrUsername}>@{user.username || user.displayName.toLowerCase().replace(/\s+/g, '')}</Text>
-          <Text style={styles.qrHint}>Scan to follow on Smuppy</Text>
+          <Text style={styles.qrHint}>Scan to be my fan!</Text>
 
           {/* Profile Link */}
           <View style={styles.profileLinkContainer}>
@@ -717,16 +932,30 @@ const ProfileScreen = ({ navigation, route }) => {
     </Modal>
   );
 
-  // ==================== LIST HEADER ====================
-  const ListHeader = useMemo(() => (
-    <>
-      {renderHeader()}
-      {renderTabs()}
-      {activeTab === 'posts' && posts.length === 0 && renderEmpty()}
-      {activeTab === 'peaks' && renderPeaks()}
-      {activeTab === 'collections' && renderCollections()}
-    </>
-  ), [activeTab, posts.length, peaks.length, user, isOwnProfile]);
+  // ==================== RENDER TAB CONTENT ====================
+  const renderTabContent = () => {
+    if (activeTab === 'posts') {
+      if (posts.length === 0) {
+        return renderEmpty();
+      }
+      return (
+        <View style={styles.postsGrid}>
+          {posts.map((post) => (
+            <View key={post.id} style={styles.postCardWrapper}>
+              {renderPostItem({ item: post })}
+            </View>
+          ))}
+        </View>
+      );
+    }
+    if (activeTab === 'peaks') {
+      return renderPeaks();
+    }
+    if (activeTab === 'collections') {
+      return renderCollections();
+    }
+    return null;
+  };
 
   // ==================== EARLY RETURNS (after all hooks) ====================
   // Show loading only on initial load when we have no data at all
@@ -748,21 +977,25 @@ const ProfileScreen = ({ navigation, route }) => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      <FlashList
-        data={activeTab === 'posts' ? posts : []}
-        renderItem={renderPostItem}
-        keyExtractor={keyExtractor}
-        numColumns={2}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={<View style={{ height: 120 }} />}
+      {/* Fixed Header */}
+      {renderHeader()}
+
+      {/* Fixed Tabs */}
+      {renderTabs()}
+
+      {/* Scrollable Content Area */}
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
         }
-      />
+      >
+        {renderTabContent()}
+        <View style={{ height: 120 }} />
+      </ScrollView>
 
-      {renderBioModal()}
       {renderQRModal()}
     </View>
   );
@@ -776,11 +1009,19 @@ const styles = StyleSheet.create({
 
   // ===== HEADER =====
   headerContainer: {
-    paddingBottom: 16,
+    paddingBottom: 4,
   },
-  coverWrapper: {
-    height: COVER_HEIGHT,
-    position: 'relative',
+  coverAbsolute: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: COVER_HEIGHT + 150,
+    zIndex: 0,
+  },
+  coverTouchable: {
+    width: '100%',
+    height: '100%',
   },
   coverImage: {
     width: '100%',
@@ -789,14 +1030,17 @@ const styles = StyleSheet.create({
   coverPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#E8E8E8',
   },
-  coverGradient: {
+  coverGradientOverlay: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    height: COVER_HEIGHT * 0.5,
+    bottom: 0,
+  },
+  coverSpacer: {
+    height: COVER_HEIGHT - 60,
   },
   settingsBtn: {
     position: 'absolute',
@@ -804,14 +1048,10 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    zIndex: 10,
   },
 
   // ===== AVATAR ROW =====
@@ -820,7 +1060,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: -50,
+    zIndex: 2,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -839,31 +1079,69 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFFFFF',
   },
-
-  // ===== STATS BADGES =====
-  statsBadges: {
-    flexDirection: 'row',
-    gap: 8,
+  // Avatar with peaks indicator (gradient border)
+  avatarGradientBorder: {
+    width: AVATAR_SIZE + 6,
+    height: AVATAR_SIZE + 6,
+    borderRadius: (AVATAR_SIZE + 6) / 2,
+    padding: 3,
   },
-  badge: {
+  avatarInnerBorder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: '#FFFFFF',
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarWithPeaks: {
+    width: AVATAR_SIZE - 8,
+    height: AVATAR_SIZE - 8,
+    borderRadius: (AVATAR_SIZE - 8) / 2,
+  },
+  avatarEmptyWithPeaks: {
+    width: AVATAR_SIZE - 8,
+    height: AVATAR_SIZE - 8,
+    borderRadius: (AVATAR_SIZE - 8) / 2,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ===== STATS GLASSMORPHISM =====
+  statsGlass: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  statsBlurContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0EBF8A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     borderRadius: 20,
-    gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.4)',
   },
-  badgeValue: {
+  statGlassItem: {
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  statGlassDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
+  statGlassValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0A252F',
   },
-  badgeLabel: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: '#FFFFFF',
-    opacity: 0.9,
+  statGlassLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#555',
   },
 
   // ===== NAME ROW =====
@@ -872,21 +1150,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 16,
+    marginTop: 4,
+    zIndex: 2,
+  },
+  nameWithBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   displayName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0A0A0F',
+    fontFamily: 'WorkSans-SemiBold',
+    fontSize: 20,
+    color: '#0A252F',
+    letterSpacing: -0.2,
+  },
+  badge: {
+    marginLeft: 6,
   },
   actionBtns: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   actionBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
@@ -898,73 +1186,95 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     marginLeft: 20,
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#0EBF8A',
-    gap: 6,
+    gap: 5,
   },
   addBioText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: '#0EBF8A',
   },
   bioSection: {
     paddingHorizontal: 20,
-    marginTop: 12,
+    marginTop: 2,
+    zIndex: 2,
   },
   bioText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0A0A0F',
-    lineHeight: 21,
+    color: '#0A252F',
+    lineHeight: 18,
+  },
+  bioLink: {
+    color: '#0EBF8A',
+    textDecorationLine: 'underline',
+  },
+  seeMoreBtn: {
+    alignSelf: 'flex-start',
+  },
+  seeMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0EBF8A',
+    paddingVertical: 1,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 1,
   },
   locationPin: {
-    fontSize: 12,
-    marginRight: 4,
+    fontSize: 11,
+    marginRight: 3,
   },
   locationText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '400',
     color: '#8E8E93',
   },
 
-  // ===== TABS =====
+  // ===== TABS (PILLS STYLE) =====
   tabsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
   },
-  tab: {
-    paddingVertical: 12,
-    marginRight: 24,
-    position: 'relative',
+  pillsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    padding: 3,
   },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '500',
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  pillActive: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#0EBF8A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  pillText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#8E8E93',
   },
-  tabTextActive: {
-    color: '#0EBF8A',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 2,
-    borderRadius: 1,
+  pillTextActive: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   // ===== EMPTY STATE =====
@@ -1002,69 +1312,69 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // ===== POSTS LIST =====
-  listContent: {
+  // ===== SCROLL CONTENT =====
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingTop: 16,
     paddingBottom: 20,
   },
-  postsRow: {
-    justifyContent: 'space-between',
+
+  // ===== POSTS GRID (Simple style like old collections) =====
+  postsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 16,
-    marginBottom: 12,
+    gap: 8,
+  },
+  postCardWrapper: {
+    width: (SCREEN_WIDTH - 48) / 3,
   },
   postCard: {
-    width: GRID_ITEM_WIDTH,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 14,
+    width: (SCREEN_WIDTH - 48) / 3,
+    height: 140,
+    borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
   },
   postThumb: {
     width: '100%',
-    height: 130,
+    height: '100%',
   },
-  duration: {
+  postPlayIcon: {
     position: 'absolute',
     top: 8,
     left: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  durationText: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#FFF',
-  },
-  postMenu: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  postInfo: {
-    padding: 10,
-  },
-  postTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0A0A0F',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  postMeta: {
+  postStatsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  authorPic: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  postStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  postStatText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  listContent: {
+    paddingBottom: 20,
   },
   authorName: {
     flex: 1,
@@ -1079,7 +1389,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
 
-  // ===== PEAKS GRID =====
+  // ===== PEAKS GRID (with stats) =====
   peaksGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1088,7 +1398,7 @@ const styles = StyleSheet.create({
   },
   peakCard: {
     width: (SCREEN_WIDTH - 48) / 3,
-    height: 160,
+    height: 180,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#1C1C1E',
@@ -1097,60 +1407,71 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  peakOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
   peakDuration: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   peakDurationText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  peakStatsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    gap: 6,
+  },
+  peakStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  peakStatText: {
     fontSize: 10,
     fontWeight: '600',
     color: '#FFF',
   },
-  peakCaption: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#FFF',
-    lineHeight: 14,
-  },
 
-  // ===== COLLECTIONS GRID =====
+  // ===== COLLECTIONS GRID (Detailed card style like old posts) =====
   collectionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 12,
   },
   collectionCard: {
-    width: (SCREEN_WIDTH - 48) / 3,
-    height: 140,
-    borderRadius: 12,
+    width: (SCREEN_WIDTH - 48) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#F5F5F5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   collectionThumb: {
     width: '100%',
-    height: '100%',
+    height: 120,
   },
   collectionPlayIcon: {
     position: 'absolute',
     top: 8,
     left: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1158,80 +1479,51 @@ const styles = StyleSheet.create({
   collectionSaveIcon: {
     position: 'absolute',
     top: 8,
-    right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    right: 36,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(14, 191, 138, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  collectionAuthor: {
+  collectionMenu: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  collectionInfo: {
+    padding: 10,
+  },
+  collectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0A0A0F',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  collectionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 6,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     gap: 4,
   },
   collectionAuthorName: {
     flex: 1,
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#FFF',
-  },
-
-  // ===== BIO MODAL =====
-  bioModal: {
-    flex: 1,
-    backgroundColor: '#FFF',
-  },
-  bioModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-  },
-  bioModalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#0A0A0F',
-  },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0EBF8A',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    gap: 5,
-  },
-  saveBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#FFF',
-  },
-  bioInputWrap: {
-    flex: 1,
-    padding: 20,
-  },
-  bioInput: {
-    flex: 1,
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '400',
-    color: '#0A0A0F',
-    borderWidth: 1.5,
-    borderColor: '#0EBF8A',
-    borderRadius: 14,
-    padding: 16,
-    textAlignVertical: 'top',
-    lineHeight: 22,
+    color: '#8E8E93',
+  },
+  collectionLikes: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#8E8E93',
+    marginLeft: 2,
   },
 
   // ===== QR MODAL =====

@@ -17,6 +17,7 @@ import ChatScreen from '../screens/messages/ChatScreen';
 // Create Post Screens
 import AddPostDetailsScreen from '../screens/home/AddPostDetailsScreen';
 import PostSuccessScreen from '../screens/home/PostSuccessScreen';
+import VideoRecorderScreen from '../screens/home/VideoRecorderScreen';
 
 // Profile Screens
 import FansListScreen from '../screens/profile/FansListScreen';
@@ -89,6 +90,7 @@ export default function MainNavigator() {
 
       {/* Create Post Flow */}
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="VideoRecorder" component={VideoRecorderScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="AddPostDetails" component={AddPostDetailsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PostSuccess" component={PostSuccessScreen} options={{ animation: 'fade' }} />
 

@@ -73,7 +73,7 @@ const NOTIFICATIONS: Notification[] = [
       avatar: 'https://i.pravatar.cc/100?img=1',
       isVerified: true,
     },
-    message: 'started following you',
+    message: 'became your fan',
     time: '2m ago',
     isRead: false,
     isFollowing: false,
@@ -129,7 +129,7 @@ const NOTIFICATIONS: Notification[] = [
       avatar: 'https://i.pravatar.cc/100?img=9',
       isVerified: true,
     },
-    message: 'started following you',
+    message: 'became your fan',
     time: '3h ago',
     isRead: true,
     isFollowing: true,
@@ -194,7 +194,7 @@ export default function NotificationsScreen(): React.JSX.Element {
 
   const filters: Filter[] = [
     { key: 'all', label: 'All' },
-    { key: 'follow', label: 'Follows' },
+    { key: 'follow', label: 'New Fans' },
     { key: 'like', label: 'Likes' },
     { key: 'comment', label: 'Comments' },
   ];
@@ -341,7 +341,7 @@ export default function NotificationsScreen(): React.JSX.Element {
           >
             {(item as UserNotification).isFollowing ? (
               <View style={styles.followingButton}>
-                <Text style={styles.followingButtonText}>Following</Text>
+                <Text style={styles.followingButtonText}>Tracking</Text>
               </View>
             ) : (
               <LinearGradient
@@ -350,7 +350,7 @@ export default function NotificationsScreen(): React.JSX.Element {
                 end={{ x: 1, y: 1 }}
                 style={styles.followButton}
               >
-                <Text style={styles.followButtonText}>Follow</Text>
+                <Text style={styles.followButtonText}>Fan</Text>
               </LinearGradient>
             )}
           </TouchableOpacity>

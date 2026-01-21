@@ -834,8 +834,8 @@ export default function AddPostDetailsScreen({ route, navigation }) {
           {!isLoadingFollowing && followingUsers.length === 0 && (
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={48} color={COLORS.gray} />
-              <Text style={styles.emptyStateText}>You're not following anyone yet</Text>
-              <Text style={styles.emptyStateSubtext}>Follow people to tag them in your posts</Text>
+              <Text style={styles.emptyStateText}>You're not a fan of anyone yet</Text>
+              <Text style={styles.emptyStateSubtext}>Become a fan of people to tag them in your posts</Text>
             </View>
           )}
 

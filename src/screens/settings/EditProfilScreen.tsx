@@ -35,6 +35,7 @@ const EditProfilScreen = ({ navigation }) => {
     ...user,
     fullName: profileData?.full_name || user.fullName,
     avatar: profileData?.avatar_url || user.avatar,
+    bio: profileData?.bio || user.bio || '',
     dateOfBirth: profileData?.date_of_birth || user.dateOfBirth,
     gender: profileData?.gender || user.gender,
     interests: profileData?.interests || user.interests || [],
@@ -44,6 +45,7 @@ const EditProfilScreen = ({ navigation }) => {
   const [avatar, setAvatar] = useState(mergedProfile.avatar || '');
   const [firstName, setFirstName] = useState(mergedProfile.firstName || mergedProfile.fullName?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(mergedProfile.lastName || mergedProfile.fullName?.split(' ').slice(1).join(' ') || '');
+  const [bio, setBio] = useState(mergedProfile.bio || '');
   const [dateOfBirth, setDateOfBirth] = useState(mergedProfile.dateOfBirth || '');
   const [gender, setGender] = useState(mergedProfile.gender || '');
 
@@ -56,12 +58,14 @@ const EditProfilScreen = ({ navigation }) => {
     const merged = {
       avatar: profileData?.avatar_url || user.avatar || '',
       fullName: profileData?.full_name || user.fullName || '',
+      bio: profileData?.bio || user.bio || '',
       dateOfBirth: profileData?.date_of_birth || user.dateOfBirth || '',
       gender: profileData?.gender || user.gender || '',
     };
     setAvatar(merged.avatar);
     setFirstName(user.firstName || merged.fullName?.split(' ')[0] || '');
     setLastName(user.lastName || merged.fullName?.split(' ').slice(1).join(' ') || '');
+    setBio(merged.bio);
     setDateOfBirth(merged.dateOfBirth);
     setGender(merged.gender);
   }, [user, profileData]);
@@ -157,6 +161,7 @@ const EditProfilScreen = ({ navigation }) => {
       await updateDbProfile({
         full_name: fullName,
         avatar_url: avatarUrl,
+        bio: bio,
         date_of_birth: dateOfBirth,
         gender: gender,
       });
@@ -167,6 +172,7 @@ const EditProfilScreen = ({ navigation }) => {
         firstName,
         lastName,
         fullName,
+        bio,
         dateOfBirth,
         gender,
       });
@@ -185,14 +191,40 @@ const EditProfilScreen = ({ navigation }) => {
     }
   };
 
-  // Format date for display (YYYY-MM-DD → DD/MM/YYYY)
-  const formatDateForDisplay = (dateString) => {
+  // Format date for display (various formats → DD/MM/YYYY)
+  const formatDateForDisplay = (dateString: string | Date | null | undefined): string => {
     if (!dateString) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      const [year, month, day] = dateString.split('-');
+
+    // If it's a Date object
+    if (dateString instanceof Date) {
+      const day = String(dateString.getDate()).padStart(2, '0');
+      const month = String(dateString.getMonth() + 1).padStart(2, '0');
+      const year = dateString.getFullYear();
       return `${day}/${month}/${year}`;
     }
-    return dateString;
+
+    // Convert to string if needed
+    const str = String(dateString);
+
+    // YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [year, month, day] = str.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    // ISO timestamp (YYYY-MM-DDTHH:mm:ss...)
+    if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+      const datePart = str.split('T')[0];
+      const [year, month, day] = datePart.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    // Already in DD/MM/YYYY format
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+      return str;
+    }
+
+    return '';
   };
 
   return (
@@ -261,6 +293,22 @@ const EditProfilScreen = ({ navigation }) => {
               placeholder="Last name"
               placeholderTextColor="#C7C7CC"
             />
+          </View>
+
+          {/* Bio */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Bio</Text>
+            <TextInput
+              style={[styles.input, styles.bioInput]}
+              value={bio}
+              onChangeText={(text) => updateField(setBio, text)}
+              placeholder="Tell us about yourself..."
+              placeholderTextColor="#C7C7CC"
+              multiline
+              maxLength={150}
+              textAlignVertical="top"
+            />
+            <Text style={styles.charCount}>{bio.length}/150</Text>
           </View>
 
           {/* Date of Birth - Opens DatePickerModal */}
@@ -407,6 +455,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: '#0A0A0F',
+  },
+  bioInput: {
+    minHeight: 80,
+    paddingTop: 14,
+  },
+  charCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'right',
+    marginTop: 4,
   },
   selectInput: {
     backgroundColor: '#F8F8F8',

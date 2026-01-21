@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator, Alert, Switch } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,12 +8,13 @@ import { supabase } from '../../config/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { biometrics } from '../../utils/biometrics';
 import { useUser } from '../../context/UserContext';
-import { useCurrentProfile } from '../../hooks';
+import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 
 const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser, getFullName } = useUser();
-  const { data: profileData } = useCurrentProfile();
+  const { data: profileData, refetch } = useCurrentProfile();
+  const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -23,6 +24,8 @@ const SettingsScreen = ({ navigation }) => {
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [togglingPrivacy, setTogglingPrivacy] = useState(false);
 
   useEffect(() => {
     checkBiometrics();
@@ -77,11 +80,29 @@ const SettingsScreen = ({ navigation }) => {
       setDisplayName(name);
       setAvatarUrl(avatar);
       setInterests(userInterests);
+      setIsPrivate(profileData?.is_private || false);
     } catch (error) {
       const emailPrefix = contextUser?.email?.split('@')[0] || '';
       setDisplayName(contextUser?.fullName || profileData?.full_name || contextUser?.displayName || getFullName?.() || emailPrefix || 'User');
       setAvatarUrl(profileData?.avatar_url || contextUser?.avatar || null);
       setInterests(profileData?.interests || contextUser?.interests || []);
+      setIsPrivate(profileData?.is_private || false);
+    }
+  };
+
+  const togglePrivacy = async () => {
+    if (togglingPrivacy) return;
+    setTogglingPrivacy(true);
+    try {
+      const newValue = !isPrivate;
+      await updateDbProfile({ is_private: newValue });
+      setIsPrivate(newValue);
+      await refetch();
+    } catch (error) {
+      console.error('Toggle privacy error:', error);
+      Alert.alert('Error', 'Failed to update privacy setting.');
+    } finally {
+      setTogglingPrivacy(false);
     }
   };
 
@@ -243,6 +264,27 @@ const SettingsScreen = ({ navigation }) => {
           </TouchableOpacity>
         ))}
 
+        {/* Privacy Toggle */}
+        <View style={styles.menuItem}>
+          <View style={styles.menuItemLeft}>
+            <Ionicons name={isPrivate ? 'lock-closed-outline' : 'lock-open-outline'} size={22} color="#0A0A0F" />
+            <View>
+              <Text style={styles.menuItemLabel}>Private Account</Text>
+              <Text style={styles.menuItemSubtitle}>
+                {isPrivate ? 'Only fans can see your content' : 'Everyone can see your content'}
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={isPrivate}
+            onValueChange={togglePrivacy}
+            trackColor={{ false: '#E8E8E8', true: '#0EBF8A' }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="#E8E8E8"
+            disabled={togglingPrivacy}
+          />
+        </View>
+
         <TouchableOpacity style={styles.menuItem} onPress={() => setShowLogoutModal(true)}>
           <View style={styles.menuItemLeft}>
             <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
@@ -282,6 +324,7 @@ const styles = StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
   menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   menuItemLabel: { fontSize: 16, fontFamily: 'Poppins-Regular', color: '#0A0A0F' },
+  menuItemSubtitle: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   logoutLabel: { color: '#FF3B30' },
   logoContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 40 },
   logoText: { fontSize: 24, fontFamily: 'WorkSans-Bold', color: '#E8E8E8' },

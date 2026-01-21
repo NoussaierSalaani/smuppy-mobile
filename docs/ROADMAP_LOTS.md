@@ -45,7 +45,7 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - Local commits ahead of origin: **0**
 
 ### 1.2 Current active LOT
-✅ **LOT M — GDPR Account Deletion (DONE)**
+✅ **LOT O — PeakViewScreen UX/UI Redesign Phase 1 (DONE)**
 
 ---
 
@@ -186,6 +186,85 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - User can request reactivation via support@smuppy.com
 - Email blocked during grace period, freed after 30 days
 - Informative popup at login if account was deleted
+
+---
+
+### ✅ LOT N — Profile Screen Redesign + Stats Visibility Strategy
+**Status:** ✅ DONE
+**Date:** 2026-01-21
+
+#### Goals (completed)
+1) ✅ Avatar avec peaks indicator (bordure gradient si l'utilisateur a des peaks)
+2) ✅ Stats Cards avec shadow (Fans, Posts)
+3) ✅ Pills style tabs (Posts, Peaks, Collections)
+4) ✅ Posts grid simple (3 colonnes, coeurs overlay)
+5) ✅ Peaks grid avec stats (coeurs, vues, réponses, partages)
+6) ✅ Collections grid détaillé (2 colonnes, cards avec info)
+7) ✅ Cover photo avec gradient fade
+8) ✅ Bio section (2 lignes, expandable, liens cliquables)
+9) ✅ Stats visibility strategy documentée
+10) ✅ Documentation FEATURES_SPECS.md créée
+
+#### Scope files
+- `src/screens/profile/ProfileScreen.tsx`
+- `src/components/peaks/RecordButton.tsx`
+- `docs/FEATURES_SPECS.md` (nouveau)
+- `docs/IMPLEMENTATION_LOG.md`
+- `docs/ROADMAP_LOTS.md`
+
+#### Stats Visibility Strategy
+| Stat | Sur grille | Détail (proprio) | Détail (visiteur) |
+|------|------------|------------------|-------------------|
+| Likes | ✅ | ✅ | ✅ |
+| Vues | Posts: ❌ / Peaks: ✅ | ✅ | ✅ |
+| Partages | Peaks: ✅ | ✅ | ❌ |
+| Saves | ❌ | ✅ | ❌ |
+| Réponses | Peaks: ✅ | ✅ | ✅ |
+
+#### Key outcomes
+- Design unique Smuppy avec touches distinctives
+- Peaks indicator sur avatar (comme Instagram Stories)
+- Stats visibility alignée sur les bonnes pratiques (likes/vues publics, partages/saves privés)
+- Documentation complète dans FEATURES_SPECS.md
+
+---
+
+### ✅ LOT O — PeakViewScreen UX/UI Redesign Phase 1
+**Status:** ✅ DONE
+**Date:** 2026-01-21
+
+#### Goals (completed)
+1) ✅ Progress bar en haut (toujours visible, synchronisée avec durée Peak)
+2) ✅ Action buttons verticaux à droite (style TikTok: like, reply, share, save)
+3) ✅ Double-tap like avec animation cœur + particules + haptic
+4) ✅ Long-press pause + menu contextuel (pas intéressé, copier lien, signaler)
+5) ✅ Swipe DOWN pour fermer (retour)
+6) ✅ Avatar avec bordure gradient Smuppy
+7) ✅ User info en bas à gauche (nom + vues)
+8) ✅ Documentation FEATURES_SPECS.md mise à jour
+
+#### Scope files
+- `src/screens/peaks/PeakViewScreen.tsx`
+- `docs/FEATURES_SPECS.md`
+- `docs/CHANGELOG_OPTIMIZATION.md`
+- `docs/IMPLEMENTATION_LOG.md`
+- `docs/ROADMAP_LOTS.md`
+
+#### Gestures implémentés
+| Geste | Action |
+|-------|--------|
+| Swipe UP | Voir réponses / Create reply Peak |
+| Swipe DOWN | Fermer (go back) |
+| Swipe LEFT | Peak suivant |
+| Swipe RIGHT | Peak précédent |
+| Double-tap | Like avec animation |
+| Long-press | Pause + menu |
+
+#### Key outcomes
+- Expérience immersive style TikTok/Reels
+- Actions facilement accessibles à droite (pouce)
+- Haptic feedback sur toutes les interactions
+- Menu contextuel pour modération (signaler)
 
 ---
 

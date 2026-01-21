@@ -27,6 +27,7 @@ export interface Profile {
   account_type?: 'personal' | 'pro_creator' | 'pro_local';
   is_verified?: boolean;
   is_premium?: boolean;
+  is_private?: boolean;
   gender?: string;
   date_of_birth?: string;
   interests?: string[];
@@ -188,21 +189,62 @@ export const getProfileByUsername = async (username: string): Promise<DbResponse
 };
 
 /**
- * Update current user's profile
+ * Update current user's profile (creates if doesn't exist)
  */
 export const updateProfile = async (updates: Partial<Profile>): Promise<DbResponse<Profile>> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
+  console.log('[updateProfile] User ID:', user.id);
+  console.log('[updateProfile] Updates:', updates);
+
+  // First, try to update existing profile
+  const updateResult = await supabase
     .from('profiles')
     .update(updates)
     .eq('id', user.id)
-    .select()
-    .single();
+    .select();
 
-  const { data, error } = result as { data: Profile | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  const { data: updateData, error: updateError } = updateResult as {
+    data: Profile[] | null;
+    error: { message: string } | null
+  };
+
+  console.log('[updateProfile] Update result:', { data: updateData, error: updateError?.message });
+
+  // If update succeeded and returned data, return it
+  if (updateData && updateData.length > 0) {
+    return { data: updateData[0], error: null };
+  }
+
+  // If no rows updated (profile doesn't exist), create one
+  if (!updateError && (!updateData || updateData.length === 0)) {
+    console.log('[updateProfile] No profile found, creating one...');
+
+    const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+    const uniqueUsername = `${username}_${Math.floor(Math.random() * 10000)}`;
+
+    const insertResult = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        username: uniqueUsername,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        ...updates,
+      })
+      .select()
+      .single();
+
+    const { data: insertData, error: insertError } = insertResult as {
+      data: Profile | null;
+      error: { message: string } | null
+    };
+
+    console.log('[updateProfile] Insert result:', { data: insertData, error: insertError?.message });
+    return { data: insertData, error: insertError?.message || null };
+  }
+
+  return { data: null, error: updateError?.message || 'Unknown error' };
 };
 
 /**

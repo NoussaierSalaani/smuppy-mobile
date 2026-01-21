@@ -31,9 +31,7 @@ export default function CreatePostScreen({ navigation, route }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   
-  // Get postType from route params (from Profile = 'post' only) or default to 'post'
-  const fromProfile = route?.params?.fromProfile || false;
-  const [postType, setPostType] = useState(route?.params?.postType || 'post');
+  // Post type is always 'post' for this screen (Peaks use CreatePeakScreen)
 
   // Request permissions and load media
   useEffect(() => {
@@ -69,31 +67,59 @@ export default function CreatePostScreen({ navigation, route }) {
   };
 
   // Open camera
-  const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow camera access to take photos.');
-      return;
-    }
+  const openCamera = () => {
+    // Show options: Photo or Video
+    Alert.alert(
+      'Camera',
+      'What do you want to capture?',
+      [
+        {
+          text: 'Photo',
+          onPress: () => takePhoto(),
+        },
+        {
+          text: 'Video',
+          onPress: () => navigation.navigate('VideoRecorder'),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      quality: 0.8,
-      videoMaxDuration: 60,
-    });
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
-    if (!result.canceled && result.assets[0]) {
-      const newMedia = {
-        id: Date.now().toString(),
-        uri: result.assets[0].uri,
-        mediaType: result.assets[0].type === 'video' ? 'video' : 'photo',
-        duration: result.assets[0].duration || 0,
-      };
-      
-      setSelectedMedia([newMedia]);
-      setSelectedPreview(newMedia);
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow camera access to take photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const newMedia = {
+          id: Date.now().toString(),
+          uri: result.assets[0].uri,
+          mediaType: 'photo' as const,
+          duration: 0,
+        };
+
+        setSelectedMedia([newMedia]);
+        setSelectedPreview(newMedia);
+      }
+    } catch (error) {
+      Alert.alert(
+        'Camera not available',
+        'Camera is not available on this device. Please select from your photo library instead.'
+      );
     }
   };
 
@@ -115,8 +141,8 @@ export default function CreatePostScreen({ navigation, route }) {
         return;
       }
       
-      if (item.mediaType === 'video' && item.duration > 60) {
-        Alert.alert('Video too long', 'Videos must be 60 seconds or less.');
+      if (item.mediaType === 'video' && item.duration > 15) {
+        Alert.alert('Video too long', 'Videos must be 15 seconds or less.');
         return;
       }
       
@@ -143,7 +169,7 @@ export default function CreatePostScreen({ navigation, route }) {
 
     navigation.navigate('AddPostDetails', {
       media: selectedMedia,
-      postType: postType,
+      postType: 'post',
     });
   };
 
@@ -350,39 +376,6 @@ export default function CreatePostScreen({ navigation, route }) {
         <TouchableOpacity style={styles.cameraButton} onPress={openCamera}>
           <Ionicons name="camera" size={24} color={COLORS.dark} />
         </TouchableOpacity>
-
-        {/* Post Type Selector - Only show if NOT from profile */}
-        {!fromProfile && (
-          <View style={styles.postTypeSelector}>
-            <TouchableOpacity
-              style={[styles.postTypeButton, postType === 'post' && styles.postTypeButtonActive]}
-              onPress={() => setPostType('post')}
-            >
-              <Ionicons
-                name="images"
-                size={18}
-                color={postType === 'post' ? '#fff' : COLORS.dark}
-              />
-              <Text style={[styles.postTypeText, postType === 'post' && styles.postTypeTextActive]}>
-                Post
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.postTypeButton, postType === 'peaks' && styles.postTypeButtonActive]}
-              onPress={() => setPostType('peaks')}
-            >
-              <Ionicons
-                name="trending-up"
-                size={18}
-                color={postType === 'peaks' ? '#fff' : COLORS.dark}
-              />
-              <Text style={[styles.postTypeText, postType === 'peaks' && styles.postTypeTextActive]}>
-                Peaks
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* Discard Modal */}
@@ -603,31 +596,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  postTypeSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 25,
-    padding: 4,
-  },
-  postTypeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  postTypeButtonActive: {
-    backgroundColor: COLORS.dark,
-  },
-  postTypeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.dark,
-    marginLeft: 6,
-  },
-  postTypeTextActive: {
-    color: '#fff',
   },
 
   // Permission

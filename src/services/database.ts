@@ -4,6 +4,11 @@
 // ============================================
 
 import { supabase } from '../config/supabase';
+import type {
+  Spot as SpotType,
+  SpotReview as SpotReviewType,
+  CreateSpotData,
+} from '../types';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -618,50 +623,12 @@ export const saveUserInterests = async (interestIds: string[]): Promise<{ error:
 
 // ============================================
 // SPOTS (Custom locations by pro creators)
+// Types imported from ../types
 // ============================================
 
-export interface Spot {
-  id: string;
-  creator_id: string;
-  name: string;
-  description?: string;
-  latitude: number;
-  longitude: number;
-  address?: string;
-  city?: string;
-  country?: string;
-  category: string;
-  sport_type?: string;
-  cover_image_url?: string;
-  images?: string[];
-  difficulty_level?: string;
-  estimated_duration?: number;
-  distance?: number;
-  elevation_gain?: number;
-  is_route: boolean;
-  route_points?: object[];
-  visibility: 'public' | 'private' | 'followers';
-  is_verified: boolean;
-  is_featured: boolean;
-  visit_count: number;
-  save_count: number;
-  rating_average: number;
-  rating_count: number;
-  created_at: string;
-  updated_at: string;
-  creator?: Profile;
-}
-
-export interface SpotReview {
-  id: string;
-  user_id: string;
-  spot_id: string;
-  rating: number;
-  comment?: string;
-  images?: string[];
-  created_at: string;
-  user?: Profile;
-}
+export type Spot = SpotType;
+export type SpotReview = SpotReviewType;
+export type { CreateSpotData };
 
 /**
  * Get spots feed with pagination

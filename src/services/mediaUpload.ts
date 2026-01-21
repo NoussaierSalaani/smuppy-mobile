@@ -196,7 +196,7 @@ const readFileAsBase64 = async (uri: string): Promise<string> => {
       console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
       // Use the legacy method as fallback
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
       return base64;
     }

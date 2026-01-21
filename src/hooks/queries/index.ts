@@ -4,7 +4,7 @@
  */
 
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys, invalidateQueries } from '../../lib/queryClient';
+import { queryKeys } from '../../lib/queryClient';
 import * as database from '../../services/database';
 import type { Post } from '../../services/database';
 import { useFeedStore } from '../../stores';

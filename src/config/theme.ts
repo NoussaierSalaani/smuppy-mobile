@@ -226,8 +226,9 @@ export const DARK_COLORS = {
     iconContainerPadding: 4,
     
     // Navigation
-    statusBarHeight: 44, 
-    topNavHeight: 42.56, 
+    statusBarHeight: 44,
+    topNavHeight: 42.56,
+    headerHeight: 56,
     tabNavHeight: 33, 
     bottomNavHeight: 67, 
     bottomNavWidth: 300, 

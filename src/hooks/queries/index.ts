@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, invalidateQueries } from '../../lib/queryClient';
 import * as database from '../../services/database';
+import type { Post } from '../../services/database';
 import { useFeedStore } from '../../stores';
 
 // ============================================
@@ -23,7 +24,8 @@ export const useCurrentProfile = () => {
       // Don't throw for "Not authenticated" - just return null
       // This happens when user is not logged in or session expired
       if (error) {
-        if (error === 'Not authenticated' || (typeof error === 'object' && error.message === 'Not authenticated')) {
+        const errorMsg = typeof error === 'string' ? error : (error as { message?: string })?.message;
+        if (errorMsg === 'Not authenticated') {
           console.log('[useCurrentProfile] Not authenticated, returning null');
           return null;
         }
@@ -135,7 +137,7 @@ export const useCreatePost = () => {
   const prependToFeed = useFeedStore((state) => state.prependToFeed);
 
   return useMutation({
-    mutationFn: async (postData: unknown) => {
+    mutationFn: async (postData: Partial<Post>) => {
       const { data, error } = await database.createPost(postData);
       if (error) throw new Error(error);
       return data;
@@ -458,5 +460,338 @@ export const useInvalidateUserQueries = () => {
     queryClient.removeQueries({ queryKey: queryKeys.posts.all });
     queryClient.removeQueries({ queryKey: ['follows'] });
     queryClient.removeQueries({ queryKey: ['likes'] });
+    queryClient.removeQueries({ queryKey: queryKeys.spots.all });
   };
+};
+
+// ============================================
+// SPOTS HOOKS
+// ============================================
+
+/**
+ * Get spots feed with infinite scroll
+ */
+export const useSpots = () => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.spots.all,
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSpots(pageParam, 20);
+      if (error) throw new Error(error);
+      return { spots: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.spots.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+/**
+ * Get a single spot by ID
+ */
+export const useSpot = (spotId: string | null | undefined) => {
+  return useQuery({
+    queryKey: queryKeys.spots.single(spotId),
+    queryFn: async () => {
+      const { data, error } = await database.getSpotById(spotId!);
+      if (error) throw new Error(error);
+      return data;
+    },
+    enabled: !!spotId,
+  });
+};
+
+/**
+ * Get spots by creator
+ */
+export const useSpotsByCreator = (creatorId: string | null | undefined) => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.spots.byCreator(creatorId, 0),
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSpotsByCreator(creatorId!, pageParam, 20);
+      if (error) throw new Error(error);
+      return { spots: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.spots.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+    enabled: !!creatorId,
+  });
+};
+
+/**
+ * Get spots by category
+ */
+export const useSpotsByCategory = (category: string | null | undefined) => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.spots.byCategory(category, 0),
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSpotsByCategory(category!, pageParam, 20);
+      if (error) throw new Error(error);
+      return { spots: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.spots.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+    enabled: !!category,
+  });
+};
+
+/**
+ * Get spots by sport type
+ */
+export const useSpotsBySportType = (sportType: string | null | undefined) => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.spots.bySportType(sportType, 0),
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSpotsBySportType(sportType!, pageParam, 20);
+      if (error) throw new Error(error);
+      return { spots: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.spots.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+    enabled: !!sportType,
+  });
+};
+
+/**
+ * Find nearby spots
+ */
+export const useNearbySpots = (
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+  radiusKm = 10
+) => {
+  return useQuery({
+    queryKey: queryKeys.spots.nearby(latitude, longitude, radiusKm),
+    queryFn: async () => {
+      const { data, error } = await database.findNearbySpots(latitude!, longitude!, radiusKm);
+      if (error) throw new Error(error);
+      return data || [];
+    },
+    enabled: !!latitude && !!longitude,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+/**
+ * Create spot mutation
+ */
+export const useCreateSpot = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (spotData: Partial<database.Spot>) => {
+      const { data, error } = await database.createSpot(spotData);
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spots.all });
+    },
+  });
+};
+
+/**
+ * Update spot mutation
+ */
+export const useUpdateSpot = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ spotId, updates }: { spotId: string; updates: Partial<database.Spot> }) => {
+      const { data, error } = await database.updateSpot(spotId, updates);
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData(queryKeys.spots.single(data.id), data);
+        queryClient.invalidateQueries({ queryKey: queryKeys.spots.all });
+      }
+    },
+  });
+};
+
+/**
+ * Delete spot mutation
+ */
+export const useDeleteSpot = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (spotId: string) => {
+      const { error } = await database.deleteSpot(spotId);
+      if (error) throw new Error(error);
+      return spotId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spots.all });
+    },
+  });
+};
+
+// ============================================
+// SPOT SAVES HOOKS
+// ============================================
+
+/**
+ * Check if user saved a spot
+ */
+export const useHasSavedSpot = (spotId: string | null | undefined) => {
+  return useQuery({
+    queryKey: queryKeys.spots.hasSaved(spotId),
+    queryFn: async () => {
+      const { saved } = await database.hasSavedSpot(spotId!);
+      return saved;
+    },
+    enabled: !!spotId,
+    staleTime: 60 * 1000,
+  });
+};
+
+/**
+ * Get user's saved spots
+ */
+export const useSavedSpots = () => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.spots.saved(0),
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSavedSpots(pageParam, 20);
+      if (error) throw new Error(error);
+      return { spots: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.spots.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+  });
+};
+
+/**
+ * Toggle save spot mutation
+ */
+export const useToggleSaveSpot = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ spotId, isSaved }: { spotId: string; isSaved: boolean }) => {
+      if (isSaved) {
+        const { error } = await database.unsaveSpot(spotId);
+        if (error) throw new Error(error);
+        return { spotId, saved: false };
+      } else {
+        const { error } = await database.saveSpot(spotId);
+        if (error) throw new Error(error);
+        return { spotId, saved: true };
+      }
+    },
+    onMutate: async ({ spotId, isSaved }: { spotId: string; isSaved: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.spots.hasSaved(spotId) });
+      const previousValue = queryClient.getQueryData(queryKeys.spots.hasSaved(spotId));
+      queryClient.setQueryData(queryKeys.spots.hasSaved(spotId), !isSaved);
+      return { previousValue, spotId };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousValue !== undefined) {
+        queryClient.setQueryData(
+          queryKeys.spots.hasSaved(context.spotId),
+          context.previousValue
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spots.saved(0) });
+    },
+  });
+};
+
+// ============================================
+// SPOT REVIEWS HOOKS
+// ============================================
+
+/**
+ * Get reviews for a spot
+ */
+export const useSpotReviews = (spotId: string | null | undefined) => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.spots.reviews(spotId, 0),
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSpotReviews(spotId!, pageParam, 20);
+      if (error) throw new Error(error);
+      return { reviews: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.reviews.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+    enabled: !!spotId,
+  });
+};
+
+/**
+ * Add spot review mutation
+ */
+export const useAddSpotReview = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      spotId,
+      rating,
+      comment,
+      images,
+    }: {
+      spotId: string;
+      rating: number;
+      comment?: string;
+      images?: string[];
+    }) => {
+      const { data, error } = await database.addSpotReview(spotId, rating, comment, images);
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.spots.reviews(variables.spotId, 0),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.spots.single(variables.spotId),
+      });
+    },
+  });
+};
+
+/**
+ * Delete spot review mutation
+ */
+export const useDeleteSpotReview = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (spotId: string) => {
+      const { error } = await database.deleteSpotReview(spotId);
+      if (error) throw new Error(error);
+      return spotId;
+    },
+    onSuccess: (spotId) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.spots.reviews(spotId, 0),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.spots.single(spotId),
+      });
+    },
+  });
 };

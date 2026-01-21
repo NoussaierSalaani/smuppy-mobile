@@ -15,13 +15,22 @@ import { supabase } from '../../config/supabase';
 import { ENV } from '../../config/env';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import { RouteProp } from '@react-navigation/native';
+
+type EmailVerificationRouteParams = {
+  EmailVerificationPending: { email?: string };
+};
 
 /**
  * EmailVerificationPendingScreen
  * Shows when user has signed up but hasn't verified their email
  * Blocks access to the app until email is confirmed
  */
-export default function EmailVerificationPendingScreen({ route }) {
+export default function EmailVerificationPendingScreen({
+  route
+}: {
+  route: RouteProp<EmailVerificationRouteParams, 'EmailVerificationPending'>
+}): React.ReactNode {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);

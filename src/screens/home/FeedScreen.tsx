@@ -9,7 +9,7 @@ import VibesFeed from './VibesFeed';
 import XplorerFeed from './XplorerFeed';
 
 const { width } = Dimensions.get('window');
-const TABS = ['Fan', 'Vibes', 'Xplorer'];
+const TABS = ['Fan', 'Vibes', 'Xplorer'] as const;
 
 const HEADER_HEIGHT = 50;
 const TABBAR_HEIGHT = 70;

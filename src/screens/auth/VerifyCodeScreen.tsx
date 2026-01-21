@@ -13,6 +13,7 @@ import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { createProfile } from '../../services/database';
 import { uploadProfileImage } from '../../services/imageUpload';
 import { useUser } from '../../context/UserContext';
+import { useUserStore } from '../../stores';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
@@ -64,6 +65,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
   const { updateProfile: updateUserContext } = useUser();
+  const setZustandUser = useUserStore((state) => state.setUser);
 
   // Determine step based on account type - VerifyCode is the last step
   // All account types now have 4 steps
@@ -144,9 +146,9 @@ export default function VerifyCodeScreen({ navigation, route }) {
           return;
         }
 
-        // Check for 400 errors (invalid credentials = email already registered)
+        // Check for 400 errors (invalid credentials)
         if (response.status === 400 && errorData?.error === 'Invalid credentials') {
-          setError('Unable to create account with this email. Please try a different email or login.');
+          setError('Unable to create account. Please try a different email or login if you already have an account.');
           return;
         }
 
@@ -167,7 +169,12 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
   // Create account on mount
   useEffect(() => {
-    if (email && password && !accountCreated) {
+    if (!email || !password) {
+      console.error('[VerifyCode] Missing credentials:', { email: !!email, password: !!password });
+      setError('Missing email or password. Please go back and try again.');
+      return;
+    }
+    if (!accountCreated) {
       createAccountAndSendOTP();
     }
   }, [email, password, accountCreated, createAccountAndSendOTP]);
@@ -281,7 +288,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
       await createProfile(profileData);
 
       // Step 4: Populate UserContext with onboarding data
-      await updateUserContext({
+      const userData = {
         id: data.user?.id,
         fullName: name || generatedUsername,
         displayName: displayName || name || generatedUsername,
@@ -300,7 +307,12 @@ export default function VerifyCodeScreen({ navigation, route }) {
         businessCategory: businessCategory === 'Other' ? businessCategoryCustom : (businessCategory || ''),
         businessAddress: businessAddress || '',
         businessPhone: businessPhone || '',
-      });
+        locationsMode: locationsMode || '',
+      };
+      await updateUserContext(userData);
+
+      // Step 4b: Sync to Zustand store for unified state management
+      setZustandUser(userData);
 
       // Step 5: Handle session persistence based on rememberMe
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
@@ -328,7 +340,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     } finally {
       setIsVerifying(false);
     }
-  }, [email, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext]);
+  }, [email, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext, setZustandUser]);
 
   // Handle code input
   const handleChange = useCallback((text, index) => {

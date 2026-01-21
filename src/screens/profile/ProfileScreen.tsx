@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile } from '../../hooks';
 
@@ -29,6 +29,43 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 260;
 const AVATAR_SIZE = 90;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
+
+// Type for profile data from various sources
+interface ProfileDataSource {
+  id?: string | null;
+  full_name?: string;
+  display_name?: string;
+  name?: string;
+  fullName?: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  username?: string;
+  avatar_url?: string;
+  avatar?: string;
+  cover_url?: string;
+  coverImage?: string;
+  bio?: string;
+  location?: string;
+  businessAddress?: string;
+  account_type?: string;
+  accountType?: string;
+  interests?: string[];
+  expertise?: string[];
+  website?: string;
+  social_links?: Record<string, string>;
+  socialLinks?: Record<string, string>;
+  business_name?: string;
+  businessName?: string;
+  business_category?: string;
+  businessCategory?: string;
+  fan_count?: number;
+  fans?: number;
+  post_count?: number;
+  posts?: number;
+  stats?: { fans?: number; posts?: number };
+}
 
 // Initial empty user (filled from auth/context)
 const INITIAL_USER = {
@@ -72,22 +109,40 @@ const ProfileScreen = ({ navigation, route }) => {
   const isOwnProfile = route?.params?.userId === undefined;
 
   const resolvedProfile = useMemo(() => {
-    const base = profileData || {};
+    const base: ProfileDataSource = profileData || {};
     // Always use contextUser as fallback, don't require contextMatchesProfile
-    const fallback = contextUser || {};
+    const fallback: ProfileDataSource = contextUser || {};
 
-    // Build display name from available sources
-    const displayName =
-      base.full_name ||
-      base.display_name ||
-      base.name ||
-      fallback.fullName ||
-      fallback.displayName ||
-      (fallback.firstName && fallback.lastName
-        ? `${fallback.firstName} ${fallback.lastName}`.trim()
-        : null) ||
-      fallback.email ||
-      'User';
+    // Helper to check if a name looks like an email-derived username
+    const isEmailDerivedName = (name: string | undefined | null): boolean => {
+      if (!name) return true;
+      // Check if name contains dots (like email prefix) or matches email pattern start
+      const email = fallback.email || base.email || '';
+      const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
+      return name.toLowerCase() === emailPrefix.toLowerCase() ||
+             name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
+    };
+
+    // Build display name, preferring actual names over email-derived ones
+    // Priority: contextUser.fullName (from onboarding) > DB full_name > other sources
+    let displayName = 'User';
+
+    // First check contextUser.fullName - this is set during onboarding with the actual name
+    if (fallback.fullName && !isEmailDerivedName(fallback.fullName)) {
+      displayName = fallback.fullName;
+    } else if (base.full_name && !isEmailDerivedName(base.full_name)) {
+      displayName = base.full_name;
+    } else if (base.display_name) {
+      displayName = base.display_name;
+    } else if (fallback.displayName) {
+      displayName = fallback.displayName;
+    } else if (fallback.firstName && fallback.lastName) {
+      displayName = `${fallback.firstName} ${fallback.lastName}`.trim();
+    } else if (base.full_name) {
+      displayName = base.full_name;
+    } else if (fallback.fullName) {
+      displayName = fallback.fullName;
+    }
 
     return {
       id: base.id || fallback.id || INITIAL_USER.id,
@@ -245,11 +300,11 @@ const ProfileScreen = ({ navigation, route }) => {
           
           {/* Settings Button */}
           {isOwnProfile && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.settingsBtn, { top: insets.top + 8 }]}
               onPress={() => navigation.navigate('Settings')}
             >
-              <Ionicons name="settings-outline" size={22} color="#FFF" />
+              <Ionicons name="settings-outline" size={22} color="#0A0A0F" />
             </TouchableOpacity>
           )}
         </View>
@@ -290,10 +345,10 @@ const ProfileScreen = ({ navigation, route }) => {
         <Text style={styles.displayName}>{user.displayName}</Text>
         <View style={styles.actionBtns}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
-            <Ionicons name="qr-code-outline" size={20} color="#FFF" />
+            <Ionicons name="qr-code-outline" size={20} color="#0A0A0F" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="#FFF" />
+            <Ionicons name="share-outline" size={20} color="#0A0A0F" />
           </TouchableOpacity>
         </View>
       </View>
@@ -325,44 +380,51 @@ const ProfileScreen = ({ navigation, route }) => {
   );
 
   // ==================== RENDER TABS ====================
+  const TABS = [
+    { key: 'posts', label: 'Posts' },
+    { key: 'peaks', label: 'Peaks' },
+    { key: 'collections', label: 'Collections' },
+  ] as const;
+
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
-      <TouchableOpacity
-        style={styles.tab}
-        onPress={() => setActiveTab('posts')}
-      >
-        <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>
-          Posts
-        </Text>
-        {activeTab === 'posts' && <View style={styles.tabIndicator} />}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.tab}
-        onPress={() => setActiveTab('peaks')}
-      >
-        <Text style={[styles.tabText, activeTab === 'peaks' && styles.tabTextActive]}>
-          Peaks
-        </Text>
-        {activeTab === 'peaks' && <View style={styles.tabIndicator} />}
-      </TouchableOpacity>
+      {TABS.map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
+          style={styles.tab}
+          onPress={() => setActiveTab(tab.key)}
+        >
+          <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+            {tab.label}
+          </Text>
+          {activeTab === tab.key && (
+            <LinearGradient
+              colors={GRADIENTS.button}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.tabIndicator}
+            />
+          )}
+        </TouchableOpacity>
+      ))}
     </View>
   );
 
   // ==================== RENDER EMPTY STATE ====================
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>No posts</Text>
+      <Ionicons name="images-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+      <Text style={styles.emptyTitle}>No posts yet</Text>
       <Text style={styles.emptyDesc}>
         You're one click away from your{'\n'}first post
       </Text>
       {isOwnProfile && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.createBtn}
           onPress={() => navigation.navigate('CreatePost')}
         >
           <Text style={styles.createBtnText}>Create a post</Text>
-          <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
+          <Ionicons name="arrow-forward" size={16} color="#FFF" />
         </TouchableOpacity>
       )}
     </View>
@@ -399,6 +461,7 @@ const ProfileScreen = ({ navigation, route }) => {
     if (peaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
+          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
           <Text style={styles.emptyTitle}>No peaks yet</Text>
           <Text style={styles.emptyDesc}>
             Share your best moments as Peaks
@@ -406,10 +469,10 @@ const ProfileScreen = ({ navigation, route }) => {
           {isOwnProfile && (
             <TouchableOpacity
               style={styles.createBtn}
-              onPress={() => navigation.navigate('CreatePost', { isPeak: true })}
+              onPress={() => navigation.navigate('CreatePeak')}
             >
               <Text style={styles.createBtnText}>Create a Peak</Text>
-              <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
+              <Ionicons name="arrow-forward" size={16} color="#FFF" />
             </TouchableOpacity>
           )}
         </View>
@@ -417,6 +480,17 @@ const ProfileScreen = ({ navigation, route }) => {
     }
     return null;
   };
+
+  // ==================== RENDER COLLECTIONS ====================
+  const renderCollections = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+      <Text style={styles.emptyTitle}>No collections yet</Text>
+      <Text style={styles.emptyDesc}>
+        Save posts to collections to find them easily later
+      </Text>
+    </View>
+  );
 
   // ==================== BIO MODAL ====================
   const renderBioModal = () => (
@@ -494,8 +568,9 @@ const ProfileScreen = ({ navigation, route }) => {
     <>
       {renderHeader()}
       {renderTabs()}
-      {activeTab === 'peaks' && renderPeaks()}
       {activeTab === 'posts' && posts.length === 0 && renderEmpty()}
+      {activeTab === 'peaks' && renderPeaks()}
+      {activeTab === 'collections' && renderCollections()}
     </>
   ), [activeTab, posts.length, peaks.length, user, isOwnProfile]);
 
@@ -517,7 +592,7 @@ const ProfileScreen = ({ navigation, route }) => {
   // ==================== MAIN RENDER ====================
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
       <FlashList
         data={activeTab === 'posts' ? posts : []}
@@ -542,7 +617,7 @@ const ProfileScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: '#FFFFFF',
   },
 
   // ===== HEADER =====
@@ -560,14 +635,14 @@ const styles = StyleSheet.create({
   coverPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#F5F5F5',
   },
   coverGradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: COVER_HEIGHT * 0.7,
+    height: COVER_HEIGHT * 0.5,
   },
   settingsBtn: {
     position: 'absolute',
@@ -575,9 +650,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   // ===== AVATAR ROW =====
@@ -592,18 +672,18 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 3,
-    borderColor: '#0A0A0F',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
   avatarEmpty: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#0A0A0F',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
 
   // ===== STATS BADGES =====
@@ -622,14 +702,14 @@ const styles = StyleSheet.create({
   },
   badgeValue: {
     fontSize: 15,
-    fontFamily: 'WorkSans-Bold',
-    color: '#0A0A0F',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   badgeLabel: {
     fontSize: 13,
-    fontFamily: 'Poppins-Regular',
-    color: '#0A0A0F',
-    opacity: 0.8,
+    fontWeight: '400',
+    color: '#FFFFFF',
+    opacity: 0.9,
   },
 
   // ===== NAME ROW =====
@@ -642,8 +722,8 @@ const styles = StyleSheet.create({
   },
   displayName: {
     fontSize: 24,
-    fontFamily: 'WorkSans-Bold',
-    color: '#FFF',
+    fontWeight: '700',
+    color: '#0A0A0F',
   },
   actionBtns: {
     flexDirection: 'row',
@@ -653,7 +733,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -674,7 +754,7 @@ const styles = StyleSheet.create({
   },
   addBioText: {
     fontSize: 14,
-    fontFamily: 'Poppins-Medium',
+    fontWeight: '500',
     color: '#0EBF8A',
   },
   bioSection: {
@@ -683,8 +763,8 @@ const styles = StyleSheet.create({
   },
   bioText: {
     fontSize: 14,
-    fontFamily: 'Poppins-Regular',
-    color: '#FFF',
+    fontWeight: '400',
+    color: '#0A0A0F',
     lineHeight: 21,
   },
   locationRow: {
@@ -698,7 +778,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 13,
-    fontFamily: 'Poppins-Regular',
+    fontWeight: '400',
     color: '#8E8E93',
   },
 
@@ -709,7 +789,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: '#E5E7EB',
   },
   tab: {
     paddingVertical: 12,
@@ -718,8 +798,8 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 15,
-    fontFamily: 'Poppins-Medium',
-    color: '#6E6E73',
+    fontWeight: '500',
+    color: '#8E8E93',
   },
   tabTextActive: {
     color: '#0EBF8A',
@@ -730,25 +810,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: '#0EBF8A',
     borderRadius: 1,
   },
 
   // ===== EMPTY STATE =====
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 80,
+    paddingVertical: 60,
     paddingHorizontal: 40,
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: 'WorkSans-Bold',
-    color: '#FFF',
+    fontWeight: '700',
+    color: '#0A0A0F',
     marginBottom: 8,
   },
   emptyDesc: {
     fontSize: 14,
-    fontFamily: 'Poppins-Regular',
+    fontWeight: '400',
     color: '#8E8E93',
     textAlign: 'center',
     lineHeight: 21,
@@ -765,8 +844,8 @@ const styles = StyleSheet.create({
   },
   createBtnText: {
     fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#0A0A0F',
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   // ===== POSTS LIST =====
@@ -780,7 +859,7 @@ const styles = StyleSheet.create({
   },
   postCard: {
     width: GRID_ITEM_WIDTH,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#F5F5F5',
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -799,7 +878,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 10,
-    fontFamily: 'Poppins-Medium',
+    fontWeight: '500',
     color: '#FFF',
   },
   postMenu: {
@@ -818,8 +897,8 @@ const styles = StyleSheet.create({
   },
   postTitle: {
     fontSize: 13,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#FFF',
+    fontWeight: '600',
+    color: '#0A0A0F',
     lineHeight: 18,
     marginBottom: 8,
   },
@@ -836,12 +915,12 @@ const styles = StyleSheet.create({
   authorName: {
     flex: 1,
     fontSize: 11,
-    fontFamily: 'Poppins-Regular',
+    fontWeight: '400',
     color: '#8E8E93',
   },
   likes: {
     fontSize: 11,
-    fontFamily: 'Poppins-Regular',
+    fontWeight: '400',
     color: '#8E8E93',
     marginLeft: 2,
   },
@@ -862,7 +941,7 @@ const styles = StyleSheet.create({
   },
   bioModalTitle: {
     fontSize: 17,
-    fontFamily: 'WorkSans-SemiBold',
+    fontWeight: '600',
     color: '#0A0A0F',
   },
   saveBtn: {
@@ -876,7 +955,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontSize: 13,
-    fontFamily: 'Poppins-Medium',
+    fontWeight: '500',
     color: '#FFF',
   },
   bioInputWrap: {
@@ -886,7 +965,7 @@ const styles = StyleSheet.create({
   bioInput: {
     flex: 1,
     fontSize: 15,
-    fontFamily: 'Poppins-Regular',
+    fontWeight: '400',
     color: '#0A0A0F',
     borderWidth: 1.5,
     borderColor: '#0EBF8A',
@@ -948,7 +1027,7 @@ const styles = StyleSheet.create({
   qrShareText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: '#FFFFFF',
   },
 
   // ===== FAN BUTTON (for error state) =====
@@ -962,7 +1041,7 @@ const styles = StyleSheet.create({
   fanButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: '#FFFFFF',
   },
 });
 

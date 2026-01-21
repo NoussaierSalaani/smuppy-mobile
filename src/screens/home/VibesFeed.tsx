@@ -28,12 +28,12 @@ const PEAK_CARD_HEIGHT = 140;
 
 // User interests (from onboarding)
 const USER_INTERESTS = [
-  { id: 1, name: 'Fitness', icon: 'fitness', active: true },
-  { id: 2, name: 'Yoga', icon: 'body', active: false },
-  { id: 3, name: 'Running', icon: 'walk', active: false },
-  { id: 4, name: 'Nutrition', icon: 'nutrition', active: false },
-  { id: 5, name: 'Camping', icon: 'bonfire', active: false },
-  { id: 6, name: 'Swimming', icon: 'water', active: false },
+  { id: 1, name: 'Fitness', icon: 'fitness' as const, active: true },
+  { id: 2, name: 'Yoga', icon: 'body' as const, active: false },
+  { id: 3, name: 'Running', icon: 'walk' as const, active: false },
+  { id: 4, name: 'Nutrition', icon: 'nutrition' as const, active: false },
+  { id: 5, name: 'Camping', icon: 'bonfire' as const, active: false },
+  { id: 6, name: 'Swimming', icon: 'water' as const, active: false },
 ];
 
 // Mock Peaks data
@@ -113,13 +113,13 @@ export default function VibesFeed() {
   // Navigate to user profile
   const goToUserProfile = useCallback((userId) => {
     setModalVisible(false);
-    (navigation as any).navigate('UserProfile', { userId });
+    navigation.navigate('UserProfile', { userId });
   }, [navigation]);
 
   // Navigate to Peak view
   const goToPeakView = useCallback((peak: any, index: number) => {
-    (navigation as any).navigate('PeakView', {
-      peaks: PEAKS_DATA,
+    navigation.navigate('PeakView', {
+      peakData: PEAKS_DATA as any, // TODO: Replace mock data with real Peak[] from API
       initialIndex: index,
     });
   }, [navigation]);
@@ -394,7 +394,7 @@ export default function VibesFeed() {
             <Text style={styles.peaksSectionTitle}>Peaks</Text>
             <TouchableOpacity
               style={styles.peaksSeeAll}
-              onPress={() => (navigation as any).navigate('Peaks')}
+              onPress={() => navigation.navigate('Peaks')}
             >
               <Text style={styles.peaksSeeAllText}>See all</Text>
               <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />

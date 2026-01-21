@@ -15,9 +15,9 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const MIN_AGE = 16;
 const GENDERS = [
-  { id: 'male', icon: 'male', label: 'Male', color: '#007AFF' },
-  { id: 'female', icon: 'female', label: 'Female', color: '#FF2D92' },
-  { id: 'other', icon: 'male-female', label: 'Other', color: '#1C1C1E' },
+  { id: 'male', icon: 'male' as const, label: 'Male', color: '#007AFF' },
+  { id: 'female', icon: 'female' as const, label: 'Female', color: '#FF2D92' },
+  { id: 'other', icon: 'male-female' as const, label: 'Other', color: '#1C1C1E' },
 ];
 
 const formatDate = (d: Date) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
@@ -174,7 +174,7 @@ export default function CreatorInfoScreen({ navigation, route }) {
                     activeOpacity={0.7}
                   >
                     <View style={[styles.genderIcon, { backgroundColor: g.color }]}>
-                      <Ionicons name={g.icon as any} size={22} color={COLORS.white} />
+                      <Ionicons name={g.icon} size={22} color={COLORS.white} />
                     </View>
                     <Text style={[styles.genderText, { color: g.color }]}>{g.label}</Text>
                   </TouchableOpacity>
@@ -187,7 +187,7 @@ export default function CreatorInfoScreen({ navigation, route }) {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.genderIcon, { backgroundColor: `${g.color}15` }]}>
-                    <Ionicons name={g.icon as any} size={22} color={g.color} />
+                    <Ionicons name={g.icon} size={22} color={g.color} />
                   </View>
                   <Text style={styles.genderText}>{g.label}</Text>
                 </TouchableOpacity>

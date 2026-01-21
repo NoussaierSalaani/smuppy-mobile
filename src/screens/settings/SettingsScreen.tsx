@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,54 +8,80 @@ import { supabase } from '../../config/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { biometrics } from '../../utils/biometrics';
 import { useUser } from '../../context/UserContext';
+import { useCurrentProfile } from '../../hooks';
 
 const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser, getFullName } = useUser();
+  const { data: profileData } = useCurrentProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [changingEmail, setChangingEmail] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [biometricType, setBiometricType] = useState(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState('');
-  const [newEmail, setNewEmail] = useState('');
+  const [interests, setInterests] = useState<string[]>([]);
 
   useEffect(() => {
     checkBiometrics();
     loadUserData();
-  }, [contextUser, getFullName]);
+  }, [contextUser, getFullName, profileData]);
 
   const loadUserData = async () => {
     try {
       const { data } = await supabase.auth.getUser();
       const authUser = data?.user;
       const metadata = authUser?.user_metadata || {};
-
-      const name =
-        metadata.full_name ||
-        metadata.name ||
-        contextUser?.fullName ||
-        contextUser?.displayName ||
-        getFullName?.() ||
-        authUser?.email?.split('@')[0] ||
-        contextUser?.email?.split('@')[0] ||
-        'User';
-
-      const avatar = metadata.avatar_url || contextUser?.avatar || null;
       const email = authUser?.email || contextUser?.email || '';
+      const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
+
+      // Helper to check if a name looks like an email-derived username
+      const isEmailDerivedName = (name: string | undefined | null): boolean => {
+        if (!name) return true;
+        return name.toLowerCase() === emailPrefix ||
+               name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
+      };
+
+      // Find the best name, prioritizing actual names over email-derived ones
+      let name = 'User';
+      const candidates = [
+        contextUser?.fullName,      // From onboarding context
+        metadata.full_name,         // From Supabase auth metadata
+        profileData?.full_name,     // From DB profile
+        metadata.name,
+        contextUser?.displayName,
+        getFullName?.(),
+      ].filter(Boolean) as string[];
+
+      // First try to find a non-email-derived name
+      for (const candidate of candidates) {
+        if (!isEmailDerivedName(candidate)) {
+          name = candidate;
+          break;
+        }
+      }
+      // If all are email-derived, use the first available
+      if (name === 'User' && candidates.length > 0) {
+        name = candidates[0];
+      }
+      // Last resort: email prefix
+      if (name === 'User') {
+        name = emailPrefix || 'User';
+      }
+
+      const avatar = profileData?.avatar_url || metadata.avatar_url || contextUser?.avatar || null;
+      const userInterests = profileData?.interests || contextUser?.interests || [];
 
       setDisplayName(name);
       setAvatarUrl(avatar);
-      setUserEmail(email);
+      setInterests(userInterests);
     } catch (error) {
-      setDisplayName(contextUser?.fullName || contextUser?.displayName || getFullName?.() || contextUser?.email?.split('@')[0] || 'User');
-      setAvatarUrl(contextUser?.avatar || null);
-      setUserEmail(contextUser?.email || '');
+      const emailPrefix = contextUser?.email?.split('@')[0] || '';
+      setDisplayName(contextUser?.fullName || profileData?.full_name || contextUser?.displayName || getFullName?.() || emailPrefix || 'User');
+      setAvatarUrl(profileData?.avatar_url || contextUser?.avatar || null);
+      setInterests(profileData?.interests || contextUser?.interests || []);
     }
   };
 
@@ -69,72 +95,14 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const MENU_ITEMS = [
-    { id: 'profile', icon: 'person-outline', label: 'Profil', screen: 'EditProfil' },
-    { id: 'email', icon: 'mail-outline', label: 'Email', action: () => setShowEmailModal(true) },
-    { id: 'password', icon: 'lock-closed-outline', label: 'Password', screen: 'PasswordManager' },
-    ...(biometricAvailable ? [{ id: 'biometric', icon: biometricType === 'face' ? 'scan-outline' : 'finger-print-outline', label: biometricType === 'face' ? 'Facial Recognition' : 'Fingerprint', screen: 'FacialRecognition' }] : []),
-    { id: 'notifications', icon: 'notifications-outline', label: 'Notifications', screen: 'NotificationSettings' },
-    { id: 'report', icon: 'alert-circle-outline', label: 'Report a problem', screen: 'ReportProblem' },
-    { id: 'terms', icon: 'document-text-outline', label: 'Terms and policies', screen: 'TermsPolicies' },
+    { id: 'profile', icon: 'person-outline' as const, label: 'Profil', screen: 'EditProfil' },
+    { id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } },
+    { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
+    ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Facial Recognition' : 'Fingerprint', screen: 'FacialRecognition' }] : []),
+    { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
+    { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a problem', screen: 'ReportProblem' },
+    { id: 'terms', icon: 'document-text-outline' as const, label: 'Terms and policies', screen: 'TermsPolicies' },
   ];
-
-  const handleChangeEmail = async () => {
-    if (!newEmail || !newEmail.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
-      return;
-    }
-
-    setChangingEmail(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
-        Alert.alert(
-          'Verification Required',
-          'A confirmation email has been sent to your new email address. Please check your inbox to confirm the change.',
-          [{ text: 'OK', onPress: () => setShowEmailModal(false) }]
-        );
-        setNewEmail('');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update email. Please try again.');
-    } finally {
-      setChangingEmail(false);
-    }
-  };
-
-  const renderEmailModal = () => (
-    <Modal visible={showEmailModal} transparent animationType="fade" onRequestClose={() => !changingEmail && setShowEmailModal(false)}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={[styles.modalIconBox, { backgroundColor: '#E0F7F4' }]}>
-            <Ionicons name="mail-outline" size={32} color="#0EBF8A" />
-          </View>
-          <Text style={styles.modalTitle}>Change Email</Text>
-          <Text style={styles.currentEmail}>{userEmail}</Text>
-          <TextInput
-            style={styles.emailInput}
-            placeholder="Enter new email address"
-            placeholderTextColor="#A0A0A0"
-            value={newEmail}
-            onChangeText={setNewEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowEmailModal(false); setNewEmail(''); }} disabled={changingEmail}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.logoutButton, { backgroundColor: '#0EBF8A' }]} onPress={handleChangeEmail} disabled={changingEmail}>
-              {changingEmail ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Update</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -258,7 +226,6 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         )}
         <Text style={styles.userName}>{displayName}</Text>
-        <Text style={styles.userEmail}>{userEmail}</Text>
       </View>
 
       <View style={styles.menuContainer}>
@@ -266,10 +233,10 @@ const SettingsScreen = ({ navigation }) => {
           <TouchableOpacity
             key={item.id}
             style={styles.menuItem}
-            onPress={() => item.action ? item.action() : navigation.navigate(item.screen)}
+            onPress={() => navigation.navigate(item.screen, item.params)}
           >
             <View style={styles.menuItemLeft}>
-              <Ionicons name={item.icon as any} size={22} color="#0A0A0F" />
+              <Ionicons name={item.icon} size={22} color="#0A0A0F" />
               <Text style={styles.menuItemLabel}>{item.label}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
@@ -296,7 +263,6 @@ const SettingsScreen = ({ navigation }) => {
       </View>
 
       {renderLogoutModal()}
-      {renderEmailModal()}
       {renderDeleteModal()}
     </View>
   );
@@ -312,7 +278,6 @@ const styles = StyleSheet.create({
   avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
   avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, marginBottom: 12, backgroundColor: '#F2F2F2', justifyContent: 'center', alignItems: 'center' },
   userName: { fontSize: 18, fontFamily: 'WorkSans-SemiBold', color: '#0A0A0F' },
-  userEmail: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#8E8E93', marginTop: 4 },
   menuContainer: { paddingHorizontal: 20, paddingTop: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
   menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -325,8 +290,6 @@ const styles = StyleSheet.create({
   modalIconBox: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontFamily: 'WorkSans-Bold', color: '#0A0A0F', marginBottom: 8 },
   modalMessage: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#0A0A0F', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
-  currentEmail: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#8E8E93', marginBottom: 16 },
-  emailInput: { width: '100%', borderWidth: 1.5, borderColor: '#0EBF8A', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: 'Poppins-Regular', color: '#0A0A0F', marginBottom: 20 },
   modalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
   cancelButton: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: '#0EBF8A', alignItems: 'center' },
   cancelButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#0EBF8A' },

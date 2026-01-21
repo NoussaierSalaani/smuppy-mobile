@@ -485,7 +485,7 @@ const PostDetailVibesFeedScreen = () => {
   
   // Navigate to post detail
   const handleGridPostPress = (post: any) => {
-    (navigation as any).push('PostDetailVibesFeed', { postId: post.id, post });
+    navigation.navigate('PostDetailVibesFeed', { postId: post.id, post });
   };
   
   // Render grid post (Pinterest style)
@@ -692,7 +692,7 @@ const PostDetailVibesFeedScreen = () => {
                 <View style={styles.userRow}>
                   <TouchableOpacity
                     style={styles.userInfo}
-                    onPress={() => (navigation as any).navigate('UserProfile', { userId: currentPost.user.id })}
+                    onPress={() => navigation.navigate('UserProfile', { userId: currentPost.user.id })}
                   >
                     <AvatarImage source={currentPost.user.avatar} size={40} style={styles.avatar} />
                     <Text style={styles.userName}>{currentPost.user.name}</Text>
@@ -939,7 +939,7 @@ const PostDetailVibesFeedScreen = () => {
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
-                (navigation as any).navigate('UserProfile', { userId: currentPost.user.id });
+                navigation.navigate('UserProfile', { userId: currentPost.user.id });
               }}
             >
               <Ionicons name="person-outline" size={24} color="#FFF" />

@@ -7,7 +7,22 @@
 import { ENV } from './env';
 
 // ============================================
-// GOOGLE APIS
+// NOMINATIM API (OpenStreetMap - FREE)
+// ============================================
+export const NOMINATIM_API = {
+  // Base URL - using public endpoint (for production, consider self-hosting)
+  BASE_URL: 'https://nominatim.openstreetmap.org',
+
+  // Endpoints
+  SEARCH: 'https://nominatim.openstreetmap.org/search',
+  REVERSE: 'https://nominatim.openstreetmap.org/reverse',
+
+  // User agent required by Nominatim ToS
+  USER_AGENT: 'Smuppy/1.0 (contact@smuppy.app)',
+};
+
+// ============================================
+// GOOGLE APIS (kept as backup/optional)
 // ============================================
 export const GOOGLE_API = {
     // API key loaded from environment
@@ -116,3 +131,146 @@ export const GOOGLE_API = {
 
     return `${GOOGLE_API.GEOCODING}?${buildQueryString(params)}`;
   };
+
+// ============================================
+// NOMINATIM HELPER FUNCTIONS (FREE)
+// ============================================
+
+export interface NominatimSearchResult {
+  place_id: number;
+  licence: string;
+  osm_type: string;
+  osm_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    neighbourhood?: string;
+    suburb?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    county?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+    country_code?: string;
+  };
+  boundingbox?: string[];
+}
+
+interface NominatimSearchOptions {
+  limit?: number;
+  countrycodes?: string;
+  language?: string;
+  addressdetails?: boolean;
+}
+
+/**
+ * Search locations using Nominatim (OpenStreetMap) - FREE
+ */
+export const searchNominatim = async (
+  query: string,
+  options: NominatimSearchOptions = {}
+): Promise<NominatimSearchResult[]> => {
+  const params = {
+    q: query,
+    format: 'json',
+    limit: options.limit || 5,
+    addressdetails: options.addressdetails !== false ? 1 : 0,
+    ...(options.countrycodes && { countrycodes: options.countrycodes }),
+    ...(options.language && { 'accept-language': options.language }),
+  };
+
+  const url = `${NOMINATIM_API.SEARCH}?${buildQueryString(params)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': NOMINATIM_API.USER_AGENT,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Nominatim error: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * Reverse geocode coordinates using Nominatim - FREE
+ */
+export const reverseGeocodeNominatim = async (
+  lat: number,
+  lon: number,
+  language?: string
+): Promise<NominatimSearchResult | null> => {
+  const params = {
+    lat: lat,
+    lon: lon,
+    format: 'json',
+    addressdetails: 1,
+    ...(language && { 'accept-language': language }),
+  };
+
+  const url = `${NOMINATIM_API.REVERSE}?${buildQueryString(params)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': NOMINATIM_API.USER_AGENT,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Nominatim error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.error ? null : data;
+};
+
+/**
+ * Format Nominatim result for display
+ */
+export const formatNominatimResult = (result: NominatimSearchResult): {
+  mainText: string;
+  secondaryText: string;
+  fullAddress: string;
+} => {
+  const address = result.address;
+
+  if (!address) {
+    return {
+      mainText: result.display_name.split(',')[0],
+      secondaryText: result.display_name.split(',').slice(1).join(',').trim(),
+      fullAddress: result.display_name,
+    };
+  }
+
+  // Build main text (most specific part)
+  const mainParts = [
+    address.house_number,
+    address.road,
+  ].filter(Boolean);
+
+  const mainText = mainParts.length > 0
+    ? mainParts.join(' ')
+    : address.neighbourhood || address.suburb || address.city || address.town || address.village || result.display_name.split(',')[0];
+
+  // Build secondary text (city, state, country)
+  const secondaryParts = [
+    address.city || address.town || address.village,
+    address.state,
+    address.country,
+  ].filter(Boolean);
+
+  const secondaryText = secondaryParts.join(', ');
+
+  return {
+    mainText,
+    secondaryText,
+    fullAddress: result.display_name,
+  };
+};

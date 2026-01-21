@@ -133,12 +133,13 @@ export default function ForgotPasswordScreen({ navigation }) {
       // SECURITY: Always show success regardless of whether email exists
       // This prevents attackers from discovering valid emails
       setShowSuccessModal(true);
-    } catch (error) {
+    } catch (error: unknown) {
       // Detect network errors - show user-friendly message instead of fake success
+      const errorMessage = error instanceof Error ? error.message : '';
       const isNetworkError =
         error instanceof TypeError ||
-        error?.message?.includes('Network request failed') ||
-        error?.message?.includes('Failed to fetch');
+        errorMessage.includes('Network request failed') ||
+        errorMessage.includes('Failed to fetch');
 
       if (isNetworkError) {
         setEmailError('Unable to send link right now. Please check your connection and try again.');

@@ -738,10 +738,84 @@ color: #0A0A0A;
 
 ---
 
+## State Management Architecture
+
+### Dual Store System
+
+L'app utilise deux systèmes de gestion d'état pour la compatibilité et les performances:
+
+| Store | Type | Usage | Persistance |
+|-------|------|-------|-------------|
+| UserContext | React Context | Données utilisateur onboarding, accessibilité via useUser() | AsyncStorage |
+| Zustand useUserStore | Zustand + Immer | État optimisé, sélecteurs performants | AsyncStorage |
+
+### Types de compte supportés
+
+| Type | Value | Champs spécifiques |
+|------|-------|-------------------|
+| Personnel | `personal` | interests, dateOfBirth, gender |
+| Créateur Pro | `pro_creator` | expertise, bio, website, socialLinks |
+| Business Local | `pro_local` | businessName, businessCategory, businessAddress, businessPhone |
+
+### Flux de données Onboarding → App
+
+```
+VerifyCodeScreen.tsx
+    ├── createProfile() → Supabase (profil persistant)
+    ├── updateUserContext() → UserContext (état React)
+    └── setZustandUser() → Zustand (état optimisé)
+
+ProfileScreen.tsx
+    ├── useUser() → UserContext (fallback)
+    └── useCurrentProfile() → React Query (Supabase)
+
+SettingsScreen.tsx
+    ├── useUser() → UserContext (fallback)
+    └── supabase.auth.getUser() → Metadata auth
+```
+
+### Interface User complète (Zustand)
+
+```typescript
+interface User {
+  // Basic info
+  id, firstName, lastName, fullName, displayName, username, email,
+  avatar, coverImage, bio, location,
+  // Personal info
+  dateOfBirth, gender,
+  // Account
+  accountType: 'personal' | 'pro_creator' | 'pro_local',
+  isVerified, isPremium,
+  // Onboarding
+  interests: string[], expertise: string[],
+  website, socialLinks: Record<string, string>,
+  // Business
+  businessName, businessCategory, businessAddress, businessPhone, locationsMode,
+  // Stats
+  stats: { fans, posts, following }
+}
+```
+
+### Usage
+
+```javascript
+// Méthode 1: UserContext (recommandé pour la compatibilité)
+import { useUser } from '../context/UserContext';
+const { user, updateProfile, getFullName } = useUser();
+
+// Méthode 2: Zustand (recommandé pour les performances)
+import { useUserStore } from '../stores';
+const user = useUserStore(state => state.user);
+const isPro = useUserStore(state => state.isPro());
+```
+
+---
+
 ## Changelog
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-01-20 | 1.2.0 | State management: synchronisation Zustand avec données onboarding, support 3 types de compte |
 | 2026-01-20 | 1.1.0 | Unified gradient and colors: diagonal gradient `['#00B3C7', '#0EBF8A', '#72D1AD']`, accent color `#0EBF8A` |
 | 2026-01-07 | 1.0.0 | Initial design system documentation |
 

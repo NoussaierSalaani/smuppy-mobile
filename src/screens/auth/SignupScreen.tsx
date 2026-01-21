@@ -9,8 +9,6 @@ import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import { ENV } from '../../config/env';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
-import { validateEmailAdvanced, EMAIL_ERROR_MESSAGES } from '../../services/emailValidation';
-import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
 // Style unifié Smuppy (même que LoginScreen)
 const FORM = {
@@ -50,47 +48,6 @@ export default function SignupScreen({ navigation }) {
     setDeletedAccountModal(prev => ({ ...prev, visible: false }));
   }, []);
 
-  // Check if email is available (not deleted, not already registered)
-  const checkEmailAvailable = useCallback(async (emailToCheck: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-email-available`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ email: emailToCheck }),
-      });
-
-      if (!response.ok) return true; // Allow on error (will be caught later)
-
-      const result = await response.json();
-
-      if (!result.available) {
-        if (result.reason === 'deleted') {
-          setDeletedAccountModal({
-            visible: true,
-            daysRemaining: result.days_remaining,
-            canReactivate: true,
-            fullName: result.full_name || '',
-          });
-        } else if (result.reason === 'exists') {
-          setErrorModal({
-            visible: true,
-            title: 'Invalid Credentials',
-            message: 'Unable to create account. Please check your information and try again.',
-          });
-        }
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Check email available error:', error);
-      return true; // Allow on error
-    }
-  }, []);
-
   const passwordValid = isPasswordValid(password);
   const strengthLevel = getPasswordStrengthLevel(password);
   const emailValid = validate.email(email);
@@ -112,49 +69,112 @@ export default function SignupScreen({ navigation }) {
     setLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Helper: timeout wrapper for promises (1.5s max per call)
-    const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
-      Promise.race([promise, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
-
     try {
-      // Run all checks in parallel with 1.5s timeout each for speed
-      const [isAvailable, awsCheck, emailValidation] = await Promise.all([
-        withTimeout(checkEmailAvailable(normalizedEmail), 1500, true),
-        withTimeout(checkAWSRateLimit(normalizedEmail, 'auth-signup'), 1500, { allowed: true }),
-        withTimeout(validateEmailAdvanced(normalizedEmail), 1500, { valid: true, email: normalizedEmail }),
-      ]);
+      // Single combined API call for all checks (fail-closed with 5s timeout)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      if (!isAvailable) return;
+      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-signup-eligibility`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ENV.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ email: normalizedEmail }),
+        signal: controller.signal,
+      });
 
-      if (!awsCheck.allowed) {
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          setErrorModal({
+            visible: true,
+            title: 'Too Many Attempts',
+            message: 'Please wait a few minutes before trying again.',
+          });
+          return;
+        }
+        throw new Error('Server error');
+      }
+
+      const result = await response.json();
+
+      if (!result.eligible) {
+        // Handle different rejection reasons
+        if (result.reason === 'deleted') {
+          setDeletedAccountModal({
+            visible: true,
+            daysRemaining: result.days_remaining || 0,
+            canReactivate: true,
+            fullName: result.full_name || '',
+          });
+          return;
+        }
+
+        if (result.reason === 'exists') {
+          setErrorModal({
+            visible: true,
+            title: 'Invalid Credentials',
+            message: 'Unable to create account. Please check your information and try again.',
+          });
+          return;
+        }
+
+        if (result.reason === 'disposable') {
+          setErrorModal({
+            visible: true,
+            title: 'Invalid Email',
+            message: 'Temporary/disposable emails are not allowed.',
+          });
+          return;
+        }
+
+        if (result.reason === 'invalid_domain') {
+          setErrorModal({
+            visible: true,
+            title: 'Domain Not Found',
+            message: result.error || 'This email domain does not exist.',
+          });
+          return;
+        }
+
+        if (result.reason === 'typo' && result.suggestion) {
+          setErrorModal({
+            visible: true,
+            title: 'Check Your Email',
+            message: `Did you mean @${result.suggestion}?`,
+          });
+          return;
+        }
+
+        // Generic error for other cases
         setErrorModal({
           visible: true,
-          title: 'Too Many Attempts',
-          message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
+          title: 'Invalid Email',
+          message: result.error || 'Please check your email address.',
         });
         return;
       }
 
-      if (!emailValidation.valid) {
-        const errorTitle = emailValidation.code === 'DISPOSABLE_EMAIL'
-          ? 'Invalid Email'
-          : emailValidation.code === 'INVALID_DOMAIN'
-            ? 'Domain Not Found'
-            : 'Invalid Email';
-        setErrorModal({
-          visible: true,
-          title: errorTitle,
-          message: emailValidation.error || EMAIL_ERROR_MESSAGES.INVALID_FORMAT
-        });
-        return;
-      }
-
+      // All checks passed - navigate to next screen
       navigation.navigate('AccountType', {
-        email: emailValidation.email || normalizedEmail,
+        email: result.email || normalizedEmail,
         password,
         rememberMe
       });
     } catch (err) {
+      // Handle timeout (AbortError) - fail-closed
+      if (err instanceof Error && err.name === 'AbortError') {
+        setErrorModal({
+          visible: true,
+          title: 'Server Busy',
+          message: 'Our servers are experiencing high traffic. Please try again in a moment.',
+        });
+        return;
+      }
+
       setErrorModal({
         visible: true,
         title: 'Connection Error',

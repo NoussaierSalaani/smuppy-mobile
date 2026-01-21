@@ -173,7 +173,7 @@ export default function FanFeed() {
 
   // Navigate to user profile
   const goToUserProfile = useCallback((userId: string) => {
-    (navigation as any).navigate('UserProfile', { userId });
+    navigation.navigate('UserProfile', { userId });
   }, [navigation]);
 
   // Format numbers

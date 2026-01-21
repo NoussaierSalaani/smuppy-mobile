@@ -47,10 +47,11 @@ const PasswordManagerScreen = ({ navigation }) => {
       await supabase.auth.signOut({ scope: 'global' });
       await supabase.auth.signInWithPassword({ email: user.email, password: newPassword });
       setSuccessModal(true);
-    } catch (error) {
+    } catch (error: unknown) {
       let errorTitle = 'Update Failed';
-      let errorMessage = error.message || 'Failed to update password. Please try again.';
-      if (error.message?.includes('same')) { errorTitle = 'Same Password'; errorMessage = 'Your new password must be different from your current password.'; }
+      const errMsg = error instanceof Error ? error.message : '';
+      let errorMessage = errMsg || 'Failed to update password. Please try again.';
+      if (errMsg.includes('same')) { errorTitle = 'Same Password'; errorMessage = 'Your new password must be different from your current password.'; }
       setErrorModal({ visible: true, title: errorTitle, message: errorMessage });
     } finally {
       setSaving(false);

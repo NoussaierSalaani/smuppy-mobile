@@ -7,6 +7,7 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -28,6 +29,7 @@ export default function CreatePostScreen({ navigation, route }) {
   const [selectedPreview, setSelectedPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
   
   // Get postType from route params (from Profile = 'post' only) or default to 'post'
   const fromProfile = route?.params?.fromProfile || false;
@@ -148,18 +150,50 @@ export default function CreatePostScreen({ navigation, route }) {
   // Handle close - GO BACK instead of navigate to Home
   const handleClose = () => {
     if (selectedMedia.length > 0) {
-      Alert.alert(
-        'Discard post?',
-        'If you go back, your changes will be lost.',
-        [
-          { text: 'Keep editing', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
-        ]
-      );
+      setShowDiscardModal(true);
     } else {
       navigation.goBack();
     }
   };
+
+  // Render custom discard modal - Smuppy branded
+  const renderDiscardModal = () => (
+    <Modal
+      visible={showDiscardModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowDiscardModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalIconBox}>
+            <Ionicons name="image-outline" size={32} color={COLORS.primary} />
+          </View>
+          <Text style={styles.modalTitle}>Discard post?</Text>
+          <Text style={styles.modalMessage}>
+            If you leave now, your selected photos and videos won't be saved.
+          </Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={styles.keepEditingButton}
+              onPress={() => setShowDiscardModal(false)}
+            >
+              <Text style={styles.keepEditingText}>Keep editing</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.discardButton}
+              onPress={() => {
+                setShowDiscardModal(false);
+                navigation.goBack();
+              }}
+            >
+              <Text style={styles.discardButtonText}>Discard</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   // Render media item
   const renderMediaItem = ({ item }) => {
@@ -284,11 +318,14 @@ export default function CreatePostScreen({ navigation, route }) {
           <Text style={styles.galleryTabText}>Recent</Text>
           <Ionicons name="chevron-down" size={18} color={COLORS.dark} />
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.selectMultiple}>
-          <Ionicons name="copy-outline" size={18} color={COLORS.dark} />
-          <Text style={styles.selectMultipleText}>Select multiple</Text>
-        </TouchableOpacity>
+
+        {/* Selection count indicator */}
+        {selectedMedia.length > 0 && (
+          <View style={styles.selectionCount}>
+            <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+            <Text style={styles.selectionCountText}>{selectedMedia.length} selected</Text>
+          </View>
+        )}
       </View>
 
       {/* Media Grid */}
@@ -321,24 +358,24 @@ export default function CreatePostScreen({ navigation, route }) {
               style={[styles.postTypeButton, postType === 'post' && styles.postTypeButtonActive]}
               onPress={() => setPostType('post')}
             >
-              <Ionicons 
-                name="images" 
-                size={18} 
-                color={postType === 'post' ? '#fff' : COLORS.dark} 
+              <Ionicons
+                name="images"
+                size={18}
+                color={postType === 'post' ? '#fff' : COLORS.dark}
               />
               <Text style={[styles.postTypeText, postType === 'post' && styles.postTypeTextActive]}>
                 Post
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.postTypeButton, postType === 'peaks' && styles.postTypeButtonActive]}
               onPress={() => setPostType('peaks')}
             >
-              <Ionicons 
-                name="trending-up" 
-                size={18} 
-                color={postType === 'peaks' ? '#fff' : COLORS.dark} 
+              <Ionicons
+                name="trending-up"
+                size={18}
+                color={postType === 'peaks' ? '#fff' : COLORS.dark}
               />
               <Text style={[styles.postTypeText, postType === 'peaks' && styles.postTypeTextActive]}>
                 Peaks
@@ -347,6 +384,9 @@ export default function CreatePostScreen({ navigation, route }) {
           </View>
         )}
       </View>
+
+      {/* Discard Modal */}
+      {renderDiscardModal()}
     </View>
   );
 }
@@ -458,13 +498,18 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     marginRight: 4,
   },
-  selectMultiple: {
+  selectionCount: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#E6FAF8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  selectMultipleText: {
+  selectionCountText: {
     fontSize: 14,
-    color: COLORS.dark,
+    fontWeight: '500',
+    color: COLORS.primary,
     marginLeft: 6,
   },
 
@@ -602,5 +647,73 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // Discard Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalIconBox: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#E6FAF8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.dark,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  keepEditingButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    alignItems: 'center',
+  },
+  keepEditingText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  discardButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+  },
+  discardButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
   },
 });

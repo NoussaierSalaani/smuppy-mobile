@@ -262,57 +262,245 @@ export interface ApiError {
 }
 
 // ============================================
+// ICON TYPES
+// ============================================
+
+import type { Ionicons } from '@expo/vector-icons';
+
+/**
+ * Valid Ionicons icon names - use this instead of 'as any' for icon props
+ */
+export type IconName = keyof typeof Ionicons.glyphMap;
+
+// ============================================
+// SPOT TYPES (Custom locations by pro creators/businesses)
+// ============================================
+
+export interface Spot {
+  id: string;
+  creator_id: string;
+  name: string;
+  description?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  city?: string;
+  country?: string;
+  category: SpotCategory;
+  sport_type?: SportType;
+  cover_image_url?: string;
+  images?: string[];
+  difficulty_level?: DifficultyLevel;
+  estimated_duration?: number;
+  distance?: number;
+  elevation_gain?: number;
+  is_route: boolean;
+  route_points?: RoutePoint[];
+  visibility: 'public' | 'private' | 'followers';
+  is_verified: boolean;
+  is_featured: boolean;
+  visit_count: number;
+  save_count: number;
+  rating_average: number;
+  rating_count: number;
+  created_at: string;
+  updated_at: string;
+  creator?: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url?: string | null;
+    is_verified?: boolean;
+  };
+}
+
+export type SpotCategory = 'sport' | 'event' | 'business' | 'meetup' | 'route_point' | 'other';
+
+export type SportType =
+  | 'running' | 'cycling' | 'hiking' | 'climbing' | 'swimming'
+  | 'surfing' | 'skiing' | 'skateboarding' | 'yoga' | 'fitness'
+  | 'basketball' | 'football' | 'tennis' | 'other';
+
+export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'expert';
+
+export interface RoutePoint {
+  lat: number;
+  lon: number;
+  order: number;
+  name?: string;
+}
+
+export interface SpotSave {
+  id: string;
+  user_id: string;
+  spot_id: string;
+  created_at: string;
+}
+
+export interface SpotReview {
+  id: string;
+  user_id: string;
+  spot_id: string;
+  rating: number;
+  comment?: string;
+  images?: string[];
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url?: string | null;
+  };
+}
+
+export interface CreateSpotData {
+  name: string;
+  description?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  city?: string;
+  country?: string;
+  category: SpotCategory;
+  sport_type?: SportType;
+  cover_image_url?: string;
+  images?: string[];
+  difficulty_level?: DifficultyLevel;
+  estimated_duration?: number;
+  distance?: number;
+  elevation_gain?: number;
+  is_route?: boolean;
+  route_points?: RoutePoint[];
+  visibility?: 'public' | 'private' | 'followers';
+}
+
+export interface NearbySpot {
+  id: string;
+  name: string;
+  description?: string;
+  latitude: number;
+  longitude: number;
+  category: SpotCategory;
+  sport_type?: SportType;
+  cover_image_url?: string;
+  distance_km: number;
+  rating_average: number;
+  creator_id: string;
+}
+
+// ============================================
+// PEAK TYPES
+// ============================================
+
+export interface Peak {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: 'image' | 'video';
+  duration?: number;
+  caption?: string;
+  reactions?: Record<string, number>;
+  views_count?: number;
+  created_at: string;
+  createdAt?: string; // Alias for compatibility
+  expires_at?: string;
+  user?: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url?: string | null;
+    is_verified?: boolean;
+  };
+}
+
+// ============================================
 // NAVIGATION TYPES
 // ============================================
 
-export type RootStackParamList = {
+export type MainStackParamList = {
+  // Tab Navigator
+  Tabs: { screen?: string } | undefined;
+
+  // Main Tabs
+  Home: undefined;
+  Peaks: undefined;
+  CreateTab: undefined;
+  Notifications: undefined;
+  Profile: { userId?: string } | undefined;
+
   // Auth
   Login: undefined;
   Signup: undefined;
   ForgotPassword: undefined;
+  CheckEmail: { email: string };
   ResetCode: { email: string };
-  NewPassword: { email: string; code: string };
+  NewPassword: { email?: string; code?: string } | undefined;
   PasswordSuccess: undefined;
-  VerifyCode: { email: string };
+  VerifyCode: { email: string; [key: string]: unknown };
 
   // Onboarding
-  AccountType: undefined;
-  TellUsAboutYou: { accountType: 'fan' | 'creator' };
+  AccountType: { email: string; password: string; name?: string };
+  TellUsAboutYou: { accountType: 'fan' | 'creator' | 'personal' | 'pro_creator' | 'pro_local'; [key: string]: unknown };
+  CreatorInfo: { [key: string]: unknown };
+  CreatorOptionalInfo: { [key: string]: unknown };
+  BusinessCategory: { [key: string]: unknown };
+  BusinessInfo: { [key: string]: unknown };
   Profession: undefined;
-  Interests: undefined;
-  Expertise: undefined;
-  Guidelines: undefined;
+  Interests: { [key: string]: unknown } | undefined;
+  Expertise: { [key: string]: unknown } | undefined;
+  Guidelines: { [key: string]: unknown } | undefined;
   OnboardingSuccess: undefined;
+  Success: undefined;
 
-  // Main
-  MainTabs: undefined;
-  Home: undefined;
-  FanFeed: undefined;
-  VibesFeed: undefined;
+  // Search & Messages
   Search: undefined;
   Messages: undefined;
-  Profile: undefined;
+  NewMessage: undefined;
+  Chat: { conversation: Conversation };
 
   // Details
   UserProfile: { userId: string };
-  PostDetailFanFeed: { postId: string; fanFeedPosts?: Post[] };
+  PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Post[] };
   PostDetailVibesFeed: { postId: string; post?: Post };
-  PostDetailProfile: { postId: string; profilePosts?: Post[] };
-  FansList: { userId: string; type: 'fans' | 'following' };
-  Chat: { conversation: Conversation };
+  PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
+  FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
 
   // Create
-  CreatePost: undefined;
-  AddPostDetails: { media: MediaAsset[] };
+  CreatePost: { fromProfile?: boolean } | undefined;
+  AddPostDetails: { mediaAssets: MediaAsset[]; fromProfile?: boolean };
+  PostSuccess: { postId?: string; mediaType?: string } | undefined;
+
+  // Peaks
+  PeakView: { peakId?: string; peakData?: Peak[]; initialIndex?: number };
+  CreatePeak: { replyToPeak?: Peak } | undefined;
+  PeakPreview: { mediaUri: string; mediaType: 'image' | 'video'; duration?: number; replyToPeakId?: string };
 
   // Settings
   Settings: undefined;
   EditProfile: undefined;
+  EditProfil: undefined;
+  PasswordManager: undefined;
   AccountSettings: undefined;
   PrivacySettings: undefined;
   NotificationSettings: undefined;
+  ReportProblem: undefined;
   TermsPolicies: undefined;
+  FacialRecognition: undefined;
 };
+
+// Alias for backward compatibility
+export type RootStackParamList = MainStackParamList;
+
+// ============================================
+// REACT NAVIGATION GLOBAL TYPE DECLARATION
+// ============================================
+
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends MainStackParamList {}
+  }
+}
 
 // ============================================
 // STORE TYPES

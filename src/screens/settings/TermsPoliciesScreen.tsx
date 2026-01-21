@@ -6,12 +6,69 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Linking,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// Website base URL for legal pages
+const WEBSITE_BASE_URL = 'https://smuppy.com';
+
+// Policy links configuration
+const POLICY_LINKS = [
+  {
+    id: 'terms',
+    title: 'Terms of Service',
+    description: 'Our terms for using Smuppy',
+    url: `${WEBSITE_BASE_URL}/terms`,
+    icon: 'document-text-outline' as const,
+  },
+  {
+    id: 'privacy',
+    title: 'Privacy Policy',
+    description: 'How we handle your data',
+    url: `${WEBSITE_BASE_URL}/privacy`,
+    icon: 'shield-checkmark-outline' as const,
+  },
+  {
+    id: 'community',
+    title: 'Community Guidelines',
+    description: 'Rules for our community',
+    url: `${WEBSITE_BASE_URL}/community-guidelines`,
+    icon: 'people-outline' as const,
+  },
+  {
+    id: 'content',
+    title: 'Content Policy',
+    description: 'What content is allowed',
+    url: `${WEBSITE_BASE_URL}/content-policy`,
+    icon: 'images-outline' as const,
+  },
+  {
+    id: 'cookies',
+    title: 'Cookie Policy',
+    description: 'How we use cookies',
+    url: `${WEBSITE_BASE_URL}/cookies`,
+    icon: 'ellipse-outline' as const,
+  },
+];
+
 const TermsPoliciesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+
+  const openLink = async (url: string, title: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', `Unable to open ${title}. Please try again later.`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open link. Please check your internet connection.');
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -19,7 +76,7 @@ const TermsPoliciesScreen = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -37,74 +94,45 @@ const TermsPoliciesScreen = ({ navigation }) => {
         <View style={styles.noticeBox}>
           <Ionicons name="information-circle" size={20} color="#0EBF8A" />
           <Text style={styles.noticeText}>
-            By creating an account, you confirm that you have read and agree to all the documents below.
+            By using Smuppy, you agree to all the policies below. Tap any item to read the full document on our website.
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>1. Terms of Service</Text>
-        <Text style={styles.paragraph}>
-          Welcome to Smuppy. By creating an account and using our application, you expressly consent to be bound by these Terms of Service, our Privacy Policy, Community Guidelines, and all applicable laws and regulations. Your continued use of the app constitutes acceptance of these terms.
-        </Text>
+        {/* Policy Links */}
+        <View style={styles.linksContainer}>
+          {POLICY_LINKS.map((policy) => (
+            <TouchableOpacity
+              key={policy.id}
+              style={styles.linkItem}
+              onPress={() => openLink(policy.url, policy.title)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.linkIconBox}>
+                <Ionicons name={policy.icon} size={22} color="#0EBF8A" />
+              </View>
+              <View style={styles.linkContent}>
+                <Text style={styles.linkTitle}>{policy.title}</Text>
+                <Text style={styles.linkDescription}>{policy.description}</Text>
+              </View>
+              <Ionicons name="open-outline" size={20} color="#C7C7CC" />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        <Text style={styles.sectionTitle}>2. User Consent & Account Creation</Text>
-        <Text style={styles.paragraph}>
-          By creating an account on Smuppy, you acknowledge and consent to the following:{'\n\n'}
-          • You are at least 16 years of age{'\n'}
-          • You have read and understood these Terms of Service{'\n'}
-          • You have read and understood our Privacy Policy{'\n'}
-          • You have read and understood our Community Guidelines{'\n'}
-          • You consent to the collection and processing of your data as described in our Privacy Policy{'\n'}
-          • You agree to receive notifications related to your account and activity
-        </Text>
-
-        <Text style={styles.sectionTitle}>3. Privacy Policy</Text>
-        <Text style={styles.paragraph}>
-          Your privacy is important to us. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application. Please read this policy carefully. By using Smuppy, you consent to the data practices described in this policy.
-        </Text>
-
-        <Text style={styles.sectionTitle}>4. Data Collection & Processing</Text>
-        <Text style={styles.paragraph}>
-          We collect personal information that you voluntarily provide when registering, including:{'\n\n'}
-          • Email address and account credentials{'\n'}
-          • Profile information (name, photo, interests){'\n'}
-          • Activity data and usage statistics{'\n'}
-          • Device information and location (if permitted){'\n\n'}
-          This data is processed to provide our services, improve user experience, and ensure platform security.
-        </Text>
-
-        <Text style={styles.sectionTitle}>5. User Content</Text>
-        <Text style={styles.paragraph}>
-          You retain ownership of any content you submit, post, or display on or through Smuppy. By posting content, you grant us a worldwide, non-exclusive, royalty-free license to use, modify, and display that content for the purpose of operating and improving our services.
-        </Text>
-
-        <Text style={styles.sectionTitle}>6. Community Guidelines</Text>
-        <Text style={styles.paragraph}>
-          We want Smuppy to be a safe and positive environment for everyone. By using our platform, you agree to:{'\n\n'}
-          • Be respectful of other users{'\n'}
-          • Not post harmful, offensive, or illegal content{'\n'}
-          • Not harass, bully, or discriminate against others{'\n'}
-          • Not share false or misleading information{'\n'}
-          • Report violations to our support team
-        </Text>
-
-        <Text style={styles.sectionTitle}>7. Account Security</Text>
-        <Text style={styles.paragraph}>
-          You are responsible for maintaining the security of your account and password. Smuppy cannot and will not be liable for any loss or damage from your failure to comply with this security obligation. You must notify us immediately of any unauthorized access.
-        </Text>
-
-        <Text style={styles.sectionTitle}>8. Changes to Terms</Text>
-        <Text style={styles.paragraph}>
-          We reserve the right to modify these terms at any time. We will notify users of any material changes by email or in-app notification. Your continued use after changes constitutes acceptance of the new terms.
-        </Text>
-
-        <Text style={styles.sectionTitle}>9. Contact Us</Text>
-        <Text style={styles.paragraph}>
-          If you have any questions about these Terms or wish to exercise your data rights, please contact us at:{'\n\n'}
-          Email: support@smuppy.app{'\n'}
-          Legal: legal@smuppy.app
-        </Text>
-
-        <Text style={styles.lastUpdated}>Last updated: January 2026</Text>
+        {/* Contact Section */}
+        <View style={styles.contactSection}>
+          <Text style={styles.contactTitle}>Questions?</Text>
+          <Text style={styles.contactText}>
+            If you have any questions about our policies or wish to exercise your data rights, please contact us.
+          </Text>
+          <TouchableOpacity
+            style={styles.contactButton}
+            onPress={() => openLink('mailto:legal@smuppy.app', 'Email')}
+          >
+            <Ionicons name="mail-outline" size={18} color="#0EBF8A" />
+            <Text style={styles.contactButtonText}>legal@smuppy.app</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -151,7 +179,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6FAF8',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 24,
     gap: 12,
   },
   noticeText: {
@@ -161,25 +189,74 @@ const styles = StyleSheet.create({
     color: '#0a252f',
     lineHeight: 20,
   },
-  sectionTitle: {
+  linksContainer: {
+    gap: 12,
+  },
+  linkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 14,
+    padding: 16,
+    gap: 14,
+  },
+  linkIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E6FAF8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  linkContent: {
+    flex: 1,
+  },
+  linkTitle: {
+    fontSize: 16,
+    fontFamily: 'WorkSans-SemiBold',
+    color: '#0A0A0F',
+    marginBottom: 2,
+  },
+  linkDescription: {
+    fontSize: 13,
+    fontFamily: 'Poppins-Regular',
+    color: '#8E8E93',
+  },
+  contactSection: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F2',
+    alignItems: 'center',
+  },
+  contactTitle: {
     fontSize: 17,
     fontFamily: 'WorkSans-Bold',
     color: '#0A0A0F',
-    marginBottom: 12,
-    marginTop: 20,
+    marginBottom: 8,
   },
-  paragraph: {
-    fontSize: 15,
+  contactText: {
+    fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#6E6E73',
-    lineHeight: 24,
-  },
-  lastUpdated: {
-    fontSize: 13,
-    fontFamily: 'Poppins-Regular',
-    color: '#C7C7CC',
+    color: '#8E8E93',
     textAlign: 'center',
-    marginTop: 32,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: '#0EBF8A',
+  },
+  contactButtonText: {
+    fontSize: 15,
+    fontFamily: 'Poppins-Medium',
+    color: '#0EBF8A',
   },
 });
 

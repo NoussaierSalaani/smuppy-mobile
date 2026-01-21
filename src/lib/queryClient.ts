@@ -173,6 +173,19 @@ export const queryKeys = {
   expertise: {
     all: () => ['expertise'],
   },
+  // Spots
+  spots: {
+    all: ['spots'],
+    feed: (page) => ['spots', 'feed', page],
+    single: (id) => ['spots', 'detail', id],
+    byCreator: (creatorId, page) => ['spots', 'creator', creatorId, page],
+    byCategory: (category, page) => ['spots', 'category', category, page],
+    bySportType: (sportType, page) => ['spots', 'sport', sportType, page],
+    nearby: (lat, lon, radius) => ['spots', 'nearby', lat, lon, radius],
+    saved: (page) => ['spots', 'saved', page],
+    hasSaved: (spotId) => ['spots', 'saved', 'check', spotId],
+    reviews: (spotId, page) => ['spots', 'reviews', spotId, page],
+  },
 };
 
 export default queryClient;

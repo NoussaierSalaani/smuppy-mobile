@@ -25,46 +25,55 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as MediaLibrary from 'expo-media-library';
 import {
   COLORS,
   GRADIENTS,
   SPACING,
   SIZES,
 } from '../../config/theme';
+import {
+  searchNominatim,
+  formatNominatimResult,
+  NominatimSearchResult,
+} from '../../config/api';
 import { supabase } from '../../config/supabase';
 import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
+import * as Location from 'expo-location';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // ============================================
 // CONSTANTS
 // ============================================
 
 const VISIBILITY_OPTIONS = [
-  { id: 'public', label: 'Public', icon: 'globe-outline', description: 'Anyone can see this post' },
-  { id: 'fans', label: 'Fans Only', icon: 'people-outline', description: 'Only your fans can see this' },
-  { id: 'private', label: 'Private', icon: 'lock-closed-outline', description: 'Only you can see this' },
-];
-
-const SAMPLE_USERS = [
-  { id: 1, name: 'Hannah Smith', username: '@hannahsmith', avatar: 'https://i.pravatar.cc/100?img=1' },
-  { id: 2, name: 'Thomas Lefèvre', username: '@thomaslef', avatar: 'https://i.pravatar.cc/100?img=3' },
-  { id: 3, name: 'Mariam Fiori', username: '@mariamfiori', avatar: 'https://i.pravatar.cc/100?img=5' },
-  { id: 4, name: 'Alex Runner', username: '@alexrunner', avatar: 'https://i.pravatar.cc/100?img=8' },
-  { id: 5, name: 'FitCoach Pro', username: '@fitcoachpro', avatar: 'https://i.pravatar.cc/100?img=12' },
-];
-
-const SAMPLE_LOCATIONS = [
-  '775 Rolling Green Rd.',
-  'Gold Gym, LA',
-  'Central Park, NYC',
-  'Fitness First',
-  'CrossFit Montreal',
-];
+  { id: 'public', label: 'Public', icon: 'globe-outline' as const, description: 'Anyone can see this post' },
+  { id: 'fans', label: 'Fans Only', icon: 'people-outline' as const, description: 'Only your fans can see this' },
+  { id: 'private', label: 'Private', icon: 'lock-closed-outline' as const, description: 'Only you can see this' },
+] as const;
 
 const MAX_DESCRIPTION_LENGTH = 2200;
 const POST_DELAY_MS = 1000;
+
+// Location prediction type (adapted for Nominatim)
+interface LocationPrediction {
+  place_id: string;
+  display_name: string;
+  main_text: string;
+  secondary_text: string;
+  lat: number;
+  lon: number;
+}
+
+// Following user type
+interface FollowingUser {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+}
 
 // ============================================
 // COMPONENT
@@ -76,7 +85,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
 
   // State
   const [description, setDescription] = useState('');
-  const [visibility, setVisibility] = useState('public');
+  const [visibility, setVisibility] = useState<'public' | 'private' | 'fans'>('public');
   const [location, setLocation] = useState('');
   const [taggedPeople, setTaggedPeople] = useState([]);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -86,7 +95,6 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   // User data from Supabase
   const [currentUser, setCurrentUser] = useState({
     displayName: 'User',
-    username: 'user',
     avatar: null,
   });
 
@@ -95,8 +103,29 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
 
+  // Location search
+  const [locationSearch, setLocationSearch] = useState('');
+  const [locationPredictions, setLocationPredictions] = useState<LocationPrediction[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [currentLocationName, setCurrentLocationName] = useState<string | null>(null);
+  const [showMapView, setShowMapView] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 48.8566, // Default to Paris
+    longitude: 2.3522,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  });
+  const [selectedCoords, setSelectedCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const mapRef = useRef<MapView>(null);
+
+  // Following users for tagging
+  const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
+  const [tagSearchQuery, setTagSearchQuery] = useState('');
+  const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
+
   // Refs for cleanup
   const postTimeoutRef = useRef(null);
+  const locationSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load user data from Supabase
   useEffect(() => {
@@ -107,15 +136,42 @@ export default function AddPostDetailsScreen({ route, navigation }) {
           // Get profile from profiles table
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, username, avatar_url')
+            .select('full_name, avatar_url')
             .eq('id', user.id)
             .single();
 
-          const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-          const username = profile?.username || user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+          const email = user.email || '';
+          const emailPrefix = email.split('@')[0]?.toLowerCase() || '';
+
+          // Helper to check if a name looks like an email-derived name
+          const isEmailDerivedName = (name: string | undefined | null): boolean => {
+            if (!name) return true;
+            return name.toLowerCase() === emailPrefix ||
+                   name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
+          };
+
+          // Find the best name, prioritizing actual names over email-derived ones
+          const candidates = [
+            user.user_metadata?.full_name,
+            profile?.full_name,
+            user.user_metadata?.name,
+          ].filter(Boolean) as string[];
+
+          let displayName = 'User';
+          for (const candidate of candidates) {
+            if (!isEmailDerivedName(candidate)) {
+              displayName = candidate;
+              break;
+            }
+          }
+          // If all are email-derived, use the first available
+          if (displayName === 'User' && candidates.length > 0) {
+            displayName = candidates[0];
+          }
+
           const avatar = profile?.avatar_url || user.user_metadata?.avatar_url || null;
 
-          setCurrentUser({ displayName, username, avatar });
+          setCurrentUser({ displayName, avatar });
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -125,14 +181,210 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     loadUserData();
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - important for memory management at scale
   useEffect(() => {
     return () => {
       if (postTimeoutRef.current) {
         clearTimeout(postTimeoutRef.current);
       }
+      if (locationSearchTimeout.current) {
+        clearTimeout(locationSearchTimeout.current);
+      }
+      // Clear location cache on unmount
+      locationCacheRef.current.clear();
     };
   }, []);
+
+  // Fetch following users for tagging - optimized for scale
+  // Only fetch when tag modal opens (lazy loading)
+  const hasLoadedFollowing = useRef(false);
+
+  useEffect(() => {
+    if (!showTagModal || hasLoadedFollowing.current) return;
+
+    const fetchFollowing = async () => {
+      setIsLoadingFollowing(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get users that the current user is following
+        // Optimized query: only fetch needed fields, limit for performance
+        const { data: follows, error } = await supabase
+          .from('follows')
+          .select(`
+            following:profiles!follows_following_id_fkey(id, full_name, avatar_url)
+          `)
+          .eq('follower_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100); // Reasonable limit for tagging
+
+        if (error) {
+          throw error;
+        }
+
+        if (follows) {
+          const users = follows
+            .map((f: { following: FollowingUser }) => f.following)
+            .filter(Boolean) as FollowingUser[];
+          setFollowingUsers(users);
+          hasLoadedFollowing.current = true;
+        }
+      } catch (error) {
+        console.error('Error fetching following:', error);
+      } finally {
+        setIsLoadingFollowing(false);
+      }
+    };
+
+    fetchFollowing();
+  }, [showTagModal]);
+
+  // Search locations with debounce + caching for 2M DAU optimization
+  // Using Nominatim (OpenStreetMap) - 100% FREE
+  const locationCacheRef = useRef<Map<string, LocationPrediction[]>>(new Map());
+
+  useEffect(() => {
+    if (locationSearchTimeout.current) {
+      clearTimeout(locationSearchTimeout.current);
+    }
+
+    const query = locationSearch.trim().toLowerCase();
+    if (!query || query.length < 2) {
+      setLocationPredictions([]);
+      return;
+    }
+
+    // Check cache first (reduces API calls significantly at scale)
+    const cached = locationCacheRef.current.get(query);
+    if (cached) {
+      setLocationPredictions(cached);
+      return;
+    }
+
+    // Debounce 400ms for better UX and reduced API calls
+    locationSearchTimeout.current = setTimeout(async () => {
+      setIsSearchingLocation(true);
+      try {
+        // Use Nominatim (FREE OpenStreetMap geocoding)
+        const results = await searchNominatim(locationSearch, {
+          limit: 5,
+          addressdetails: true,
+        });
+
+        // Transform Nominatim results to our format
+        const predictions: LocationPrediction[] = results.map((result) => {
+          const formatted = formatNominatimResult(result);
+          return {
+            place_id: String(result.place_id),
+            display_name: result.display_name,
+            main_text: formatted.mainText,
+            secondary_text: formatted.secondaryText,
+            lat: parseFloat(result.lat),
+            lon: parseFloat(result.lon),
+          };
+        });
+
+        // Cache the result (limit cache size to prevent memory issues)
+        if (locationCacheRef.current.size > 50) {
+          const firstKey = locationCacheRef.current.keys().next().value;
+          if (firstKey) locationCacheRef.current.delete(firstKey);
+        }
+        locationCacheRef.current.set(query, predictions);
+        setLocationPredictions(predictions);
+      } catch (error) {
+        console.error('Error searching locations:', error);
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }, 400);
+  }, [locationSearch]);
+
+  // Get current location
+  const getCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow location access to use this feature.');
+        return;
+      }
+
+      const currentLocation = await Location.getCurrentPositionAsync({});
+      const coords = {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      };
+
+      // Update map region
+      setMapRegion({
+        ...coords,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+      setSelectedCoords(coords);
+
+      const [address] = await Location.reverseGeocodeAsync(coords);
+
+      if (address) {
+        const locationName = [address.name, address.city, address.region]
+          .filter(Boolean)
+          .join(', ');
+        setLocation(locationName);
+        setCurrentLocationName(locationName);
+        if (!showMapView) {
+          setShowLocationModal(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Could not get your current location.');
+    }
+  };
+
+  // Handle map press to select location
+  const handleMapPress = async (event: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
+    const coords = event.nativeEvent.coordinate;
+    setSelectedCoords(coords);
+
+    try {
+      const [address] = await Location.reverseGeocodeAsync(coords);
+      if (address) {
+        const locationName = [address.name, address.street, address.city, address.region]
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(', ');
+        setLocation(locationName);
+        setCurrentLocationName(locationName);
+      }
+    } catch (error) {
+      console.error('Error reverse geocoding:', error);
+    }
+  };
+
+  // Initialize map with current location when opening map view
+  const openMapView = async () => {
+    setShowMapView(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const currentLocation = await Location.getCurrentPositionAsync({});
+        const coords = {
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        };
+        setMapRegion({
+          ...coords,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        });
+        if (!selectedCoords) {
+          setSelectedCoords(coords);
+        }
+      }
+    } catch (error) {
+      console.log('Could not get current location for map');
+    }
+  };
 
   // Current visibility option
   const currentVisibility = VISIBILITY_OPTIONS.find(v => v.id === visibility);
@@ -164,9 +416,40 @@ export default function AddPostDetailsScreen({ route, navigation }) {
         const mediaItem = media[i];
         const type = mediaItem.mediaType === 'video' ? 'video' : 'image';
 
+        // Get the actual file URI from MediaLibrary asset
+        // This converts ph:// URIs to file:// URIs on iOS
+        let fileUri = mediaItem.uri;
+
+        // Try multiple methods to get a valid file URI
+        if (!fileUri.startsWith('file://') && !fileUri.startsWith('http')) {
+          try {
+            // Method 1: Try getAssetInfoAsync if we have an asset ID
+            if (mediaItem.id) {
+              const assetInfo = await MediaLibrary.getAssetInfoAsync(mediaItem.id);
+              if (assetInfo.localUri) {
+                fileUri = assetInfo.localUri;
+              }
+            }
+
+            // Method 2: If still not a file:// URI, try to get asset by ID
+            if (!fileUri.startsWith('file://') && mediaItem.id) {
+              const asset = await MediaLibrary.getAssetInfoAsync(mediaItem.id, { shouldDownloadFromNetwork: true });
+              if (asset.localUri) {
+                fileUri = asset.localUri;
+              }
+            }
+          } catch (assetError) {
+            console.log('Could not get asset info:', assetError);
+            // On simulator, the URI might work directly
+          }
+        }
+
+        // Log for debugging
+        console.log(`[Upload] Media ${i + 1}/${totalFiles}: ${fileUri.substring(0, 50)}...`);
+
         const result = await uploadPostMedia(
           user.id,
-          mediaItem.uri,
+          fileUri,
           type,
           (progress) => {
             const overallProgress = ((i / totalFiles) + (progress / 100 / totalFiles)) * 80;
@@ -175,7 +458,9 @@ export default function AddPostDetailsScreen({ route, navigation }) {
         );
 
         if (!result.success) {
-          throw new Error(result.error || 'Failed to upload media');
+          // More descriptive error for debugging
+          console.error(`[Upload] Failed for media ${i + 1}:`, result.error);
+          throw new Error(result.error || `Failed to upload media ${i + 1}`);
         }
 
         mediaUrls.push(result.cdnUrl || result.url || '');
@@ -224,7 +509,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     navigation.goBack();
   }, [navigation]);
 
-  const handleSelectVisibility = useCallback((optionId) => {
+  const handleSelectVisibility = useCallback((optionId: 'public' | 'private' | 'fans') => {
     setVisibility(optionId);
     setShowVisibilityModal(false);
   }, []);
@@ -323,46 +608,165 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     <Modal visible={showLocationModal} animationType="slide" presentationStyle="pageSheet">
       <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+          <TouchableOpacity onPress={() => { setShowLocationModal(false); setLocationSearch(''); setShowMapView(false); }}>
             <Ionicons name="close" size={28} color={COLORS.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Add Location</Text>
-          <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+          <TouchableOpacity onPress={() => { setShowLocationModal(false); setLocationSearch(''); setShowMapView(false); }}>
             <Text style={styles.modalDone}>Done</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.modalContent}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={COLORS.gray} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search location..."
-              placeholderTextColor={COLORS.gray}
-              value={location}
-              onChangeText={setLocation}
-              autoFocus
-            />
-            {location.length > 0 && (
-              <TouchableOpacity onPress={() => setLocation('')}>
-                <Ionicons name="close-circle" size={20} color={COLORS.gray} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {SAMPLE_LOCATIONS.map((loc) => (
-            <TouchableOpacity
-              key={loc}
-              style={styles.locationOption}
-              onPress={() => handleSelectLocation(loc)}
-            >
-              <Ionicons name="location-outline" size={22} color={COLORS.gray} />
-              <Text style={styles.locationText}>{loc}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* View Toggle - Search vs Map */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[styles.viewToggleButton, !showMapView && styles.viewToggleButtonActive]}
+            onPress={() => setShowMapView(false)}
+          >
+            <Ionicons name="search" size={18} color={!showMapView ? COLORS.white : COLORS.dark} />
+            <Text style={[styles.viewToggleText, !showMapView && styles.viewToggleTextActive]}>Search</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewToggleButton, showMapView && styles.viewToggleButtonActive]}
+            onPress={openMapView}
+          >
+            <Ionicons name="map" size={18} color={showMapView ? COLORS.white : COLORS.dark} />
+            <Text style={[styles.viewToggleText, showMapView && styles.viewToggleTextActive]}>Map</Text>
+          </TouchableOpacity>
         </View>
+
+        {showMapView ? (
+          /* Map View */
+          <View style={styles.mapContainer}>
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              provider={PROVIDER_GOOGLE}
+              region={mapRegion}
+              onRegionChangeComplete={setMapRegion}
+              onPress={handleMapPress}
+              showsUserLocation
+              showsMyLocationButton
+            >
+              {selectedCoords && (
+                <Marker
+                  coordinate={selectedCoords}
+                  draggable
+                  onDragEnd={handleMapPress}
+                >
+                  <View style={styles.mapMarker}>
+                    <Ionicons name="location" size={32} color={COLORS.primary} />
+                  </View>
+                </Marker>
+              )}
+            </MapView>
+
+            {/* Selected Location Info */}
+            {location && (
+              <View style={styles.mapLocationInfo}>
+                <Ionicons name="location" size={20} color={COLORS.primary} />
+                <Text style={styles.mapLocationText} numberOfLines={2}>{location}</Text>
+                <TouchableOpacity
+                  style={styles.mapConfirmButton}
+                  onPress={() => { setShowLocationModal(false); setShowMapView(false); }}
+                >
+                  <Text style={styles.mapConfirmText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Current Location Button on Map */}
+            <TouchableOpacity style={styles.mapCurrentLocationButton} onPress={getCurrentLocation}>
+              <Ionicons name="navigate" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Search View */
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {/* Current Location Button */}
+            <TouchableOpacity
+              style={styles.currentLocationButton}
+              onPress={getCurrentLocation}
+            >
+              <View style={styles.currentLocationIcon}>
+                <Ionicons name="navigate" size={20} color={COLORS.primary} />
+              </View>
+              <Text style={styles.currentLocationText}>Use current location</Text>
+            </TouchableOpacity>
+
+            {/* Search Bar */}
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={20} color={COLORS.gray} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search location..."
+                placeholderTextColor={COLORS.gray}
+                value={locationSearch}
+                onChangeText={setLocationSearch}
+                autoFocus={!showMapView}
+              />
+              {locationSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setLocationSearch('')}>
+                  <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Loading indicator */}
+            {isSearchingLocation && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            )}
+
+            {/* Location Predictions */}
+            {locationPredictions.map((prediction) => (
+              <TouchableOpacity
+                key={prediction.place_id}
+                style={styles.locationOption}
+                onPress={() => {
+                  setLocation(prediction.main_text);
+                  // Also update map coordinates if available
+                  if (prediction.lat && prediction.lon) {
+                    const coords = { latitude: prediction.lat, longitude: prediction.lon };
+                    setSelectedCoords(coords);
+                    setMapRegion({
+                      ...coords,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    });
+                  }
+                  setShowLocationModal(false);
+                  setLocationSearch('');
+                }}
+              >
+                <Ionicons name="location-outline" size={22} color={COLORS.gray} />
+                <View style={styles.locationTextContainer}>
+                  <Text style={styles.locationText}>
+                    {prediction.main_text}
+                  </Text>
+                  {prediction.secondary_text && (
+                    <Text style={styles.locationSecondaryText}>
+                      {prediction.secondary_text}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {/* No results message */}
+            {locationSearch.length > 2 && !isSearchingLocation && locationPredictions.length === 0 && (
+              <Text style={styles.noResultsText}>No locations found</Text>
+            )}
+          </ScrollView>
+        )}
       </View>
     </Modal>
+  );
+
+  // Filter following users by search query
+  const filteredFollowing = followingUsers.filter(user =>
+    user.full_name?.toLowerCase().includes(tagSearchQuery.toLowerCase())
   );
 
   // Tag People Modal
@@ -370,11 +774,11 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     <Modal visible={showTagModal} animationType="slide" presentationStyle="pageSheet">
       <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => setShowTagModal(false)}>
+          <TouchableOpacity onPress={() => { setShowTagModal(false); setTagSearchQuery(''); }}>
             <Ionicons name="close" size={28} color={COLORS.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Tag People</Text>
-          <TouchableOpacity onPress={() => setShowTagModal(false)}>
+          <TouchableOpacity onPress={() => { setShowTagModal(false); setTagSearchQuery(''); }}>
             <Text style={styles.modalDone}>Done</Text>
           </TouchableOpacity>
         </View>
@@ -384,10 +788,17 @@ export default function AddPostDetailsScreen({ route, navigation }) {
             <Ionicons name="search" size={20} color={COLORS.gray} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search people..."
+              placeholder="Search people you follow..."
               placeholderTextColor={COLORS.gray}
+              value={tagSearchQuery}
+              onChangeText={setTagSearchQuery}
               autoFocus
             />
+            {tagSearchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setTagSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Tagged people chips */}
@@ -399,26 +810,49 @@ export default function AddPostDetailsScreen({ route, navigation }) {
                   style={styles.taggedChip}
                   onPress={() => handleRemoveTag(person.id)}
                 >
-                  <AvatarImage source={person.avatar} size={24} style={styles.taggedChipAvatar} />
-                  <Text style={styles.taggedChipName}>{person.name}</Text>
+                  <AvatarImage source={person.avatar_url || person.avatar} size={24} style={styles.taggedChipAvatar} />
+                  <Text style={styles.taggedChipName}>{person.full_name || person.name}</Text>
                   <Ionicons name="close" size={16} color={COLORS.gray} />
                 </TouchableOpacity>
               ))}
             </View>
           )}
 
-          {SAMPLE_USERS.map((user) => {
+          {/* Loading indicator */}
+          {isLoadingFollowing && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Loading people you follow...</Text>
+            </View>
+          )}
+
+          {/* Empty state */}
+          {!isLoadingFollowing && followingUsers.length === 0 && (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={48} color={COLORS.gray} />
+              <Text style={styles.emptyStateText}>You're not following anyone yet</Text>
+              <Text style={styles.emptyStateSubtext}>Follow people to tag them in your posts</Text>
+            </View>
+          )}
+
+          {/* Following users list */}
+          {filteredFollowing.map((user) => {
             const isTagged = taggedPeople.find(p => p.id === user.id);
             return (
               <TouchableOpacity
                 key={user.id}
                 style={styles.userOption}
-                onPress={() => handleToggleTag(user)}
+                onPress={() => handleToggleTag({
+                  id: user.id,
+                  name: user.full_name,
+                  full_name: user.full_name,
+                  avatar: user.avatar_url,
+                  avatar_url: user.avatar_url,
+                })}
               >
-                <AvatarImage source={user.avatar} size={44} />
+                <AvatarImage source={user.avatar_url} size={44} />
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{user.name}</Text>
-                  <Text style={styles.userUsername}>{user.username}</Text>
+                  <Text style={styles.userName}>{user.full_name || 'User'}</Text>
                 </View>
                 <View style={[styles.checkbox, isTagged && styles.checkboxActive]}>
                   {isTagged && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
@@ -426,6 +860,11 @@ export default function AddPostDetailsScreen({ route, navigation }) {
               </TouchableOpacity>
             );
           })}
+
+          {/* No results for search */}
+          {!isLoadingFollowing && tagSearchQuery && filteredFollowing.length === 0 && followingUsers.length > 0 && (
+            <Text style={styles.noResultsText}>No people found matching "{tagSearchQuery}"</Text>
+          )}
         </View>
       </View>
     </Modal>
@@ -492,7 +931,6 @@ export default function AddPostDetailsScreen({ route, navigation }) {
           />
           <View style={styles.userDetails}>
             <Text style={styles.currentUserName}>{currentUser.displayName}</Text>
-            <Text style={styles.currentUserHandle}>@{currentUser.username}</Text>
           </View>
         </View>
 
@@ -687,11 +1125,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.dark,
   },
-  currentUserHandle: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: COLORS.gray,
-  },
 
   // Description
   descriptionContainer: {
@@ -837,6 +1270,30 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.sm,
   },
 
+  // Current Location Button
+  currentLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    marginBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayBorder,
+  },
+  currentLocationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E6FAF8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  currentLocationText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: COLORS.primary,
+    marginLeft: SPACING.md,
+  },
+
   // Location
   locationOption: {
     flexDirection: 'row',
@@ -845,11 +1302,57 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.grayBorder,
   },
+  locationTextContainer: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
   locationText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 15,
     color: COLORS.dark,
-    marginLeft: SPACING.md,
+  },
+  locationSecondaryText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 2,
+  },
+
+  // Loading & Empty states
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  loadingText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: COLORS.gray,
+  },
+  noResultsText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    paddingVertical: SPACING.lg,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+  },
+  emptyStateText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: COLORS.dark,
+    marginTop: SPACING.md,
+  },
+  emptyStateSubtext: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: SPACING.xs,
   },
 
   // Tagged Chips
@@ -903,11 +1406,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.dark,
   },
-  userUsername: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
-    color: COLORS.gray,
-  },
   checkbox: {
     width: 24,
     height: 24,
@@ -925,5 +1423,100 @@ const styles = StyleSheet.create({
   // Bottom spacer
   bottomSpacer: {
     height: 100,
+  },
+
+  // View Toggle
+  viewToggle: {
+    flexDirection: 'row',
+    marginHorizontal: SPACING.lg,
+    marginVertical: SPACING.md,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 25,
+    padding: 4,
+  },
+  viewToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 22,
+    gap: 6,
+  },
+  viewToggleButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  viewToggleText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: COLORS.dark,
+  },
+  viewToggleTextActive: {
+    color: COLORS.white,
+  },
+
+  // Map Styles
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  map: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  mapMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapLocationInfo: {
+    position: 'absolute',
+    bottom: 20,
+    left: SPACING.lg,
+    right: SPACING.lg,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radiusMd,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  mapLocationText: {
+    flex: 1,
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: COLORS.dark,
+    marginLeft: SPACING.sm,
+  },
+  mapConfirmButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  mapConfirmText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
+    color: COLORS.white,
+  },
+  mapCurrentLocationButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

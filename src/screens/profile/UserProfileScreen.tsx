@@ -23,6 +23,19 @@ const HEADER_MIN_HEIGHT = 100;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const CARD_WIDTH = (width - 48) / 2;
 
+// Type for profile data from API
+interface ProfileApiData {
+  id?: string;
+  username?: string;
+  full_name?: string;
+  avatar_url?: string | null;
+  cover_url?: string | null;
+  bio?: string;
+  fan_count?: number;
+  post_count?: number;
+  is_verified?: boolean;
+}
+
 const DEFAULT_PROFILE = {
   id: 'unknown',
   username: 'user',
@@ -86,7 +99,7 @@ const UserProfileScreen = () => {
   const { data: profileData, isLoading, isError } = useProfile(userId);
 
   const profile = useMemo(() => {
-    const data = profileData || {};
+    const data: ProfileApiData = profileData || {};
     return {
       id: data.id || userId || DEFAULT_PROFILE.id,
       username: data.username || DEFAULT_PROFILE.username,
@@ -185,12 +198,17 @@ const UserProfileScreen = () => {
         user: {
           id: profile.id,
           name: profile.displayName,
-          avatar: profile.avatar,
+          username: profile.username,
+          avatar: profile.avatar || '',
           isVerified: profile.isVerified || false,
           isOnline: true,
         },
+        lastMessage: '',
+        lastMessageTime: new Date().toISOString(),
+        unreadCount: 0,
+        isOnline: true,
       };
-      (navigation as any).navigate('Chat', { conversation });
+      navigation.navigate('Chat', { conversation });
     }
   };
 
@@ -199,7 +217,7 @@ const UserProfileScreen = () => {
     if (!isFan && !isOwnProfile) {
       setShowFanRequiredModal(true);
     } else {
-      (navigation as any).navigate('PostDetailFanFeed', { postId });
+      navigation.navigate('PostDetailFanFeed', { postId });
     }
   };
   
@@ -253,7 +271,7 @@ const UserProfileScreen = () => {
     <TouchableOpacity
       style={styles.postCard}
       activeOpacity={0.8}
-      onPress={() => (navigation as any).navigate('PostDetailFanFeed', { postId: item.id })}
+      onPress={() => navigation.navigate('PostDetailFanFeed', { postId: item.id })}
     >
       <View style={styles.thumbnailContainer}>
         <OptimizedImage source={item.thumbnail} style={styles.thumbnail} />
@@ -373,7 +391,7 @@ const UserProfileScreen = () => {
               {isOwnProfile && (
                 <TouchableOpacity
                   style={styles.navButton}
-                  onPress={() => (navigation as any).navigate('Settings')}
+                  onPress={() => navigation.navigate('Settings')}
                 >
                   <Text style={styles.navIcon}>⚙️</Text>
                 </TouchableOpacity>

@@ -305,7 +305,7 @@ const PostDetailProfileScreen = () => {
           <View style={styles.userRow}>
             <TouchableOpacity
               style={styles.userInfo}
-              onPress={() => (navigation as any).navigate('UserProfile', { userId: item.user.id })}
+              onPress={() => navigation.navigate('UserProfile', { userId: item.user.id })}
             >
               <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
               <Text style={styles.userName}>{item.user.name}</Text>

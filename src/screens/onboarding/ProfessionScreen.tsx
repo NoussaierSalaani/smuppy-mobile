@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Keyboard, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
@@ -8,81 +9,96 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
 const { width } = Dimensions.get('window');
 
+// Type for profession items
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
+interface ProfessionItem {
+  id: string;
+  name: string;
+  icon: IoniconName;
+  color: string;
+  isCustom?: boolean;
+}
+
+interface ProfessionPage {
+  title: string;
+  items: ProfessionItem[];
+}
+
 // Professions par catégorie (swipeable)
-const PROFESSION_PAGES = [
+const PROFESSION_PAGES: ProfessionPage[] = [
   {
     title: 'Training',
     items: [
-      { id: '1', name: 'Personal Trainer', icon: 'fitness', color: '#E63946' },
-      { id: '2', name: 'Sport Coach', icon: 'trophy', color: '#FFD700' },
-      { id: '3', name: 'Boxing Coach', icon: 'fitness', color: '#DC143C' },
-      { id: '4', name: 'Swimming Coach', icon: 'water', color: '#03A9F4' },
-      { id: '5', name: 'CrossFit Coach', icon: 'barbell', color: '#FF4500' },
-      { id: '6', name: 'Running Coach', icon: 'walk', color: '#FF5722' },
-      { id: '7', name: 'Tennis Coach', icon: 'tennisball', color: '#C5E063' },
-      { id: '8', name: 'Golf Instructor', icon: 'golf', color: '#228B22' },
+      { id: '1', name: 'Personal Trainer', icon: 'fitness' as const, color: '#E63946' },
+      { id: '2', name: 'Sport Coach', icon: 'trophy' as const, color: '#FFD700' },
+      { id: '3', name: 'Boxing Coach', icon: 'fitness' as const, color: '#DC143C' },
+      { id: '4', name: 'Swimming Coach', icon: 'water' as const, color: '#03A9F4' },
+      { id: '5', name: 'CrossFit Coach', icon: 'barbell' as const, color: '#FF4500' },
+      { id: '6', name: 'Running Coach', icon: 'walk' as const, color: '#FF5722' },
+      { id: '7', name: 'Tennis Coach', icon: 'tennisball' as const, color: '#C5E063' },
+      { id: '8', name: 'Golf Instructor', icon: 'golf' as const, color: '#228B22' },
     ]
   },
   {
     title: 'Health',
     items: [
-      { id: '9', name: 'Physiotherapist', icon: 'medical', color: '#00B4D8' },
-      { id: '10', name: 'Nutritionist', icon: 'nutrition', color: '#FF9800' },
-      { id: '11', name: 'Dietitian', icon: 'leaf', color: '#4CAF50' },
-      { id: '12', name: 'Sports Doctor', icon: 'medkit', color: '#F44336' },
-      { id: '13', name: 'Chiropractor', icon: 'body-outline', color: '#607D8B' },
-      { id: '14', name: 'Osteopath', icon: 'fitness-outline', color: '#795548' },
-      { id: '15', name: 'Rehab Specialist', icon: 'medical', color: '#009688' },
-      { id: '16', name: 'Mental Coach', icon: 'happy', color: '#3F51B5' },
+      { id: '9', name: 'Physiotherapist', icon: 'medical' as const, color: '#00B4D8' },
+      { id: '10', name: 'Nutritionist', icon: 'nutrition' as const, color: '#FF9800' },
+      { id: '11', name: 'Dietitian', icon: 'leaf' as const, color: '#4CAF50' },
+      { id: '12', name: 'Sports Doctor', icon: 'medkit' as const, color: '#F44336' },
+      { id: '13', name: 'Chiropractor', icon: 'body-outline' as const, color: '#607D8B' },
+      { id: '14', name: 'Osteopath', icon: 'fitness-outline' as const, color: '#795548' },
+      { id: '15', name: 'Rehab Specialist', icon: 'medical' as const, color: '#009688' },
+      { id: '16', name: 'Mental Coach', icon: 'happy' as const, color: '#3F51B5' },
     ]
   },
   {
     title: 'Wellness',
     items: [
-      { id: '17', name: 'Yoga Teacher', icon: 'body', color: '#9B59B6' },
-      { id: '18', name: 'Pilates Instructor', icon: 'body', color: '#E91E63' },
-      { id: '19', name: 'Massage Therapist', icon: 'hand-left', color: '#795548' },
-      { id: '20', name: 'Life Coach', icon: 'happy', color: '#00BCD4' },
-      { id: '21', name: 'Wellness Consultant', icon: 'sparkles', color: '#FF6B35' },
-      { id: '22', name: 'Meditation Guide', icon: 'leaf', color: '#27AE60' },
-      { id: '23', name: 'Spa Manager', icon: 'water', color: '#00BCD4' },
-      { id: '24', name: 'Breathwork Coach', icon: 'cloudy', color: '#81D4FA' },
+      { id: '17', name: 'Yoga Teacher', icon: 'body' as const, color: '#9B59B6' },
+      { id: '18', name: 'Pilates Instructor', icon: 'body' as const, color: '#E91E63' },
+      { id: '19', name: 'Massage Therapist', icon: 'hand-left' as const, color: '#795548' },
+      { id: '20', name: 'Life Coach', icon: 'happy' as const, color: '#00BCD4' },
+      { id: '21', name: 'Wellness Consultant', icon: 'sparkles' as const, color: '#FF6B35' },
+      { id: '22', name: 'Meditation Guide', icon: 'leaf' as const, color: '#27AE60' },
+      { id: '23', name: 'Spa Manager', icon: 'water' as const, color: '#00BCD4' },
+      { id: '24', name: 'Breathwork Coach', icon: 'cloudy' as const, color: '#81D4FA' },
     ]
   },
   {
     title: 'Dance & Arts',
     items: [
-      { id: '25', name: 'Dance Teacher', icon: 'musical-notes', color: '#9C27B0' },
-      { id: '26', name: 'Ballet Instructor', icon: 'body', color: '#F48FB1' },
-      { id: '27', name: 'Salsa Instructor', icon: 'musical-notes', color: '#E91E63' },
-      { id: '28', name: 'Hip Hop Teacher', icon: 'headset', color: '#9C27B0' },
-      { id: '29', name: 'Zumba Instructor', icon: 'musical-note', color: '#FF1493' },
-      { id: '30', name: 'Martial Arts', icon: 'fitness', color: '#8B0000' },
-      { id: '31', name: 'Aerobics Instructor', icon: 'musical-notes', color: '#FF69B4' },
-      { id: '32', name: 'Choreographer', icon: 'videocam', color: '#FF5722' },
+      { id: '25', name: 'Dance Teacher', icon: 'musical-notes' as const, color: '#9C27B0' },
+      { id: '26', name: 'Ballet Instructor', icon: 'body' as const, color: '#F48FB1' },
+      { id: '27', name: 'Salsa Instructor', icon: 'musical-notes' as const, color: '#E91E63' },
+      { id: '28', name: 'Hip Hop Teacher', icon: 'headset' as const, color: '#9C27B0' },
+      { id: '29', name: 'Zumba Instructor', icon: 'musical-note' as const, color: '#FF1493' },
+      { id: '30', name: 'Martial Arts', icon: 'fitness' as const, color: '#8B0000' },
+      { id: '31', name: 'Aerobics Instructor', icon: 'musical-notes' as const, color: '#FF69B4' },
+      { id: '32', name: 'Choreographer', icon: 'videocam' as const, color: '#FF5722' },
     ]
   },
   {
     title: 'Business',
     items: [
-      { id: '33', name: 'Gym Owner', icon: 'business', color: '#607D8B' },
-      { id: '34', name: 'Studio Owner', icon: 'business', color: '#455A64' },
-      { id: '35', name: 'Fitness Manager', icon: 'people', color: '#37474F' },
-      { id: '36', name: 'Athlete', icon: 'medal', color: '#4CAF50' },
-      { id: '37', name: 'Content Creator', icon: 'camera', color: '#424242' },
-      { id: '38', name: 'Fitness Influencer', icon: 'star', color: '#FFC107' },
-      { id: '39', name: 'Brand Ambassador', icon: 'megaphone', color: '#FF6B35' },
-      { id: '40', name: 'Event Organizer', icon: 'calendar', color: '#FF5722' },
+      { id: '33', name: 'Gym Owner', icon: 'business' as const, color: '#607D8B' },
+      { id: '34', name: 'Studio Owner', icon: 'business' as const, color: '#455A64' },
+      { id: '35', name: 'Fitness Manager', icon: 'people' as const, color: '#37474F' },
+      { id: '36', name: 'Athlete', icon: 'medal' as const, color: '#4CAF50' },
+      { id: '37', name: 'Content Creator', icon: 'camera' as const, color: '#424242' },
+      { id: '38', name: 'Fitness Influencer', icon: 'star' as const, color: '#FFC107' },
+      { id: '39', name: 'Brand Ambassador', icon: 'megaphone' as const, color: '#FF6B35' },
+      { id: '40', name: 'Event Organizer', icon: 'calendar' as const, color: '#FF5722' },
     ]
   },
 ];
 
 // Toutes les professions à plat pour la recherche
-const ALL_PROFESSIONS = PROFESSION_PAGES.flatMap(page => page.items);
+const ALL_PROFESSIONS: ProfessionItem[] = PROFESSION_PAGES.flatMap(page => page.items) as ProfessionItem[];
 
 export default function ProfessionScreen({ navigation, route }) {
   const [searchText, setSearchText] = useState('');
-  const [selectedProfession, setSelectedProfession] = useState(null);
+  const [selectedProfession, setSelectedProfession] = useState<ProfessionItem | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -97,7 +113,7 @@ export default function ProfessionScreen({ navigation, route }) {
     return ALL_PROFESSIONS.filter(p => p.name.toLowerCase().includes(search));
   }, [searchText]);
 
-  const handleSelect = useCallback((profession) => {
+  const handleSelect = useCallback((profession: ProfessionItem) => {
     setSelectedProfession(profession);
     setSearchText(profession.name);
     Keyboard.dismiss();
@@ -121,7 +137,7 @@ export default function ProfessionScreen({ navigation, route }) {
       profession = {
         id: `custom_${Date.now()}`,
         name: searchText.trim(),
-        icon: 'briefcase',
+        icon: 'briefcase' as const,
         color: '#6B7280',
         isCustom: true,
       };

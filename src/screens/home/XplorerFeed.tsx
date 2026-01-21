@@ -32,10 +32,10 @@ const MOCK_MARKERS = [
 ];
 
 const FILTER_OPTIONS = [
-  { key: 'coach', label: 'Coaches', icon: 'person', color: PIN_COLORS.coach },
-  { key: 'gym', label: 'Gyms', icon: 'barbell', color: PIN_COLORS.gym },
-  { key: 'restaurant', label: 'Restaurants', icon: 'restaurant', color: PIN_COLORS.restaurant },
-  { key: 'store', label: 'Stores', icon: 'bag-handle', color: PIN_COLORS.store },
+  { key: 'coach', label: 'Coaches', icon: 'person' as const, color: PIN_COLORS.coach },
+  { key: 'gym', label: 'Gyms', icon: 'barbell' as const, color: PIN_COLORS.gym },
+  { key: 'restaurant', label: 'Restaurants', icon: 'restaurant' as const, color: PIN_COLORS.restaurant },
+  { key: 'store', label: 'Stores', icon: 'bag-handle' as const, color: PIN_COLORS.store },
 ];
 
 const MAX_ACTIVE_FILTERS = 3;

@@ -1,5 +1,57 @@
 # Changelog - Performance & Scalability Optimization
 
+## Version 1.3.1 - 20 Janvier 2026
+
+### State Management - Unified Onboarding Data Flow
+
+**Synchronisation Zustand avec données onboarding pour les 3 types de compte.**
+
+| Type de compte | Champs spécifiques |
+|----------------|-------------------|
+| `personal` | interests, dateOfBirth, gender |
+| `pro_creator` | expertise, bio, website, socialLinks |
+| `pro_local` | businessName, businessCategory, businessAddress, businessPhone |
+
+**Problème résolu:**
+- L'interface User de Zustand était trop simple (6 champs)
+- UserContext avait tous les champs mais Zustand restait désynchronisé
+- Les données onboarding n'étaient pas disponibles via Zustand
+
+**Solution implémentée:**
+- Interface User étendue dans `src/stores/index.ts` avec 25+ champs
+- Synchronisation automatique dans `VerifyCodeScreen.tsx`
+- Les deux stores (UserContext + Zustand) reçoivent les mêmes données
+
+**Fichiers modifiés:**
+| Fichier | Changements |
+|---------|-------------|
+| `src/stores/index.ts` | Interface User étendue avec tous les champs onboarding |
+| `src/screens/auth/VerifyCodeScreen.tsx` | Ajout synchronisation Zustand après création profil |
+
+**Interface User complète:**
+```typescript
+interface User {
+  // Basic info
+  id, firstName, lastName, fullName, displayName, username, email, avatar, coverImage, bio, location,
+  // Personal info
+  dateOfBirth, gender, accountType, isVerified, isPremium,
+  // Onboarding data
+  interests: string[], expertise: string[], website, socialLinks,
+  // Business data
+  businessName, businessCategory, businessAddress, businessPhone, locationsMode,
+  // Stats
+  stats: { fans, posts, following }
+}
+```
+
+**Avantages:**
+- ✅ État unifié entre UserContext et Zustand
+- ✅ Toutes les données onboarding disponibles partout
+- ✅ Support complet des 3 types de compte
+- ✅ Zustand prêt pour future migration (performance)
+
+---
+
 ## Version 1.3.0 - 20 Janvier 2026
 
 ### Design System - Unified Colors & Gradient

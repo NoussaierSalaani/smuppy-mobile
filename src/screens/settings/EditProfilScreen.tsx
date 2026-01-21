@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-
   TextInput,
   ScrollView,
   StatusBar,
@@ -17,36 +16,55 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useUser } from '../../context/UserContext';
+import { useCurrentProfile, useUpdateProfile } from '../../hooks';
+import { uploadProfileImage } from '../../services/imageUpload';
 import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
 
 const EditProfilScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, updateProfile } = useUser();
+  const { user, updateProfile: updateLocalProfile } = useUser();
+  const { data: profileData, refetch } = useCurrentProfile();
+  const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [avatarChanged, setAvatarChanged] = useState(false);
 
-  // Form state - initialisé avec les données du UserContext
-  const [avatar, setAvatar] = useState(user.avatar || 'https://i.pravatar.cc/150?img=12');
-  const [firstName, setFirstName] = useState(user.firstName || '');
-  const [lastName, setLastName] = useState(user.lastName || '');
-  const [email, setEmail] = useState(user.email || '');
-  const [dateOfBirth, setDateOfBirth] = useState(user.dateOfBirth || '');
-  const [gender, setGender] = useState(user.gender || '');
+  // Merge profile data from DB and local context
+  const mergedProfile = {
+    ...user,
+    fullName: profileData?.full_name || user.fullName,
+    avatar: profileData?.avatar_url || user.avatar,
+    dateOfBirth: profileData?.date_of_birth || user.dateOfBirth,
+    gender: profileData?.gender || user.gender,
+    interests: profileData?.interests || user.interests || [],
+  };
+
+  // Form state - initialisé avec les données fusionnées
+  const [avatar, setAvatar] = useState(mergedProfile.avatar || '');
+  const [firstName, setFirstName] = useState(mergedProfile.firstName || mergedProfile.fullName?.split(' ')[0] || '');
+  const [lastName, setLastName] = useState(mergedProfile.lastName || mergedProfile.fullName?.split(' ').slice(1).join(' ') || '');
+  const [dateOfBirth, setDateOfBirth] = useState(mergedProfile.dateOfBirth || '');
+  const [gender, setGender] = useState(mergedProfile.gender || '');
 
   // Modals
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
 
-  // Sync with UserContext when it changes
+  // Sync with profile data when it changes
   useEffect(() => {
-    setAvatar(user.avatar || 'https://i.pravatar.cc/150?img=12');
-    setFirstName(user.firstName || '');
-    setLastName(user.lastName || '');
-    setEmail(user.email || '');
-    setDateOfBirth(user.dateOfBirth || '');
-    setGender(user.gender || '');
-  }, [user]);
+    const merged = {
+      avatar: profileData?.avatar_url || user.avatar || '',
+      fullName: profileData?.full_name || user.fullName || '',
+      dateOfBirth: profileData?.date_of_birth || user.dateOfBirth || '',
+      gender: profileData?.gender || user.gender || '',
+    };
+    setAvatar(merged.avatar);
+    setFirstName(user.firstName || merged.fullName?.split(' ')[0] || '');
+    setLastName(user.lastName || merged.fullName?.split(' ').slice(1).join(' ') || '');
+    setDateOfBirth(merged.dateOfBirth);
+    setGender(merged.gender);
+  }, [user, profileData]);
 
   const updateField = (setter, value) => {
     setter(value);
@@ -94,6 +112,7 @@ const EditProfilScreen = ({ navigation }) => {
     });
     if (!result.canceled) {
       setAvatar(result.assets[0].uri);
+      setAvatarChanged(true);
       setHasChanges(true);
     }
   };
@@ -111,26 +130,55 @@ const EditProfilScreen = ({ navigation }) => {
     });
     if (!result.canceled) {
       setAvatar(result.assets[0].uri);
+      setAvatarChanged(true);
       setHasChanges(true);
     }
   };
 
   const handleSave = async () => {
     if (isSaving) return;
-    
+
     setIsSaving(true);
     try {
-      await updateProfile({
-        avatar,
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      // Handle avatar upload if changed
+      let avatarUrl = avatar;
+      if (avatarChanged && avatar && !avatar.startsWith('http')) {
+        const { url, error: uploadError } = await uploadProfileImage(avatar, profileData?.id || user.id || '');
+        if (uploadError) {
+          Alert.alert('Error', 'Failed to upload photo. Please try again.');
+          return;
+        }
+        if (url) avatarUrl = url;
+      }
+
+      // Save to Supabase
+      await updateDbProfile({
+        full_name: fullName,
+        avatar_url: avatarUrl,
+        date_of_birth: dateOfBirth,
+        gender: gender,
+      });
+
+      // Also update local context
+      await updateLocalProfile({
+        avatar: avatarUrl,
         firstName,
         lastName,
-        email,
+        fullName,
         dateOfBirth,
         gender,
       });
+
+      // Refresh data
+      await refetch();
+
       setHasChanges(false);
+      setAvatarChanged(false);
       navigation.goBack();
     } catch (error) {
+      console.error('Save profile error:', error);
       Alert.alert('Error', 'Failed to save profile. Please try again.');
     } finally {
       setIsSaving(false);
@@ -215,20 +263,6 @@ const EditProfilScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={(text) => updateField(setEmail, text)}
-              placeholder="Email"
-              placeholderTextColor="#C7C7CC"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
           {/* Date of Birth - Opens DatePickerModal */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Date of Birth</Text>
@@ -246,8 +280,8 @@ const EditProfilScreen = ({ navigation }) => {
           {/* Gender - Opens GenderPickerModal */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Gender</Text>
-            <TouchableOpacity 
-              style={styles.selectInput} 
+            <TouchableOpacity
+              style={styles.selectInput}
               onPress={() => setShowGenderPicker(true)}
             >
               <Text style={[styles.selectInputText, !gender && styles.selectInputPlaceholder]}>

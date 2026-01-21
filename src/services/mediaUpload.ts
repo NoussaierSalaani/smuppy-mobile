@@ -129,27 +129,79 @@ const getMimeType = (extension: string): string => {
 };
 
 /**
- * Get file info
+ * Get file info - handles various URI formats
  */
 const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean }> => {
   try {
-    const info = await FileSystem.getInfoAsync(uri);
+    // Handle different URI schemes
+    let checkUri = uri;
+
+    // For ph:// URIs on iOS, we can't check directly
+    if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
+      // Assume it exists since it came from MediaLibrary
+      return { size: 0, exists: true };
+    }
+
+    // For http/https URIs
+    if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      return { size: 0, exists: true };
+    }
+
+    const info = await FileSystem.getInfoAsync(checkUri);
     return {
       size: (info as { size?: number }).size || 0,
       exists: info.exists,
     };
-  } catch {
+  } catch (error) {
+    console.log('[getFileInfo] Error checking file:', uri.substring(0, 50), error);
+    // For MediaLibrary URIs, assume they exist
+    if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
+      return { size: 0, exists: true };
+    }
     return { size: 0, exists: false };
   }
 };
 
 /**
- * Read file as base64
+ * Read file as base64 using fetch/blob (modern approach)
+ * Replaces deprecated FileSystem.readAsStringAsync
+ * Handles various URI formats including ph:// on iOS
  */
 const readFileAsBase64 = async (uri: string): Promise<string> => {
-  return await FileSystem.readAsStringAsync(uri, {
-    encoding: 'base64',
-  });
+  try {
+    // Try fetch first (works for most URIs including file://)
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Fetch failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = dataUrl.split(',')[1];
+        if (!base64) {
+          reject(new Error('Failed to extract base64 from data URL'));
+          return;
+        }
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (fetchError) {
+    // Fallback: try using FileSystem for file:// URIs
+    if (uri.startsWith('file://')) {
+      console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
+      // Use the legacy method as fallback
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return base64;
+    }
+    throw fetchError;
+  }
 };
 
 /**

@@ -15,12 +15,41 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
   id: string;
+  // Basic info
   firstName?: string;
   lastName?: string;
+  fullName?: string;
+  displayName?: string;
   username?: string;
+  email?: string;
   avatar?: string;
-  accountType?: 'personal' | 'pro';
-  [key: string]: unknown;
+  coverImage?: string;
+  bio?: string;
+  location?: string;
+  // Personal info
+  dateOfBirth?: string;
+  gender?: string;
+  // Account type: 'personal' | 'pro_creator' | 'pro_local'
+  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  isVerified?: boolean;
+  isPremium?: boolean;
+  // Onboarding data
+  interests?: string[];
+  expertise?: string[];
+  website?: string;
+  socialLinks?: Record<string, string>;
+  // Business data (for pro_local)
+  businessName?: string;
+  businessCategory?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  locationsMode?: string;
+  // Stats
+  stats?: {
+    fans?: number;
+    posts?: number;
+    following?: number;
+  };
 }
 
 interface UserState {
@@ -142,23 +171,32 @@ export const useUserStore = create<UserState>()(
       getFullName: () => {
         const { user } = get();
         if (!user) return '';
-        return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        // Try fullName first, then construct from firstName + lastName
+        if (user.fullName) return user.fullName;
+        if (user.displayName) return user.displayName;
+        return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'User';
       },
 
       isPro: () => {
         const { user } = get();
-        return user?.accountType === 'pro';
+        return user?.accountType === 'pro_creator' || user?.accountType === 'pro_local';
       },
 
       isProfileComplete: () => {
         const { user } = get();
         if (!user) return false;
-        return !!(user.firstName && user.lastName && user.username);
+        // Check required fields based on account type
+        const hasBasicInfo = !!(user.username && (user.fullName || user.displayName || (user.firstName && user.lastName)));
+        if (user.accountType === 'pro_local') {
+          return hasBasicInfo && !!(user.businessName && user.businessCategory);
+        }
+        return hasBasicInfo;
       },
     })),
     {
       name: '@smuppy_user_store',
       storage: createJSONStorage(() => AsyncStorage),
+      // Persist user data and auth state - all user fields are important
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,

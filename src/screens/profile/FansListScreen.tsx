@@ -19,16 +19,17 @@ import { DARK_COLORS as COLORS } from '../../config/theme';
 // Sample fans data
 // isFanOfMe = true → this person follows me
 // iAmFanOf = true → I follow this person
-// unfollowedAt = date when I unfollowed (for 7-day block)
+// unfollowCount = number of times unfollowed (0, 1, 2+)
+// lastUnfollowAt = timestamp of last unfollow (for 7-day cooldown after 2nd unfollow)
 const SAMPLE_FANS = [
-  { id: '1', name: 'Hannah Smith', username: '@hannahsmith', avatar: 'https://i.pravatar.cc/100?img=1', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowedAt: null },
-  { id: '2', name: 'Thomas Lefèvre', username: '@thomaslef', avatar: 'https://i.pravatar.cc/100?img=3', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowedAt: null },
-  { id: '3', name: 'Mariam Fiori', username: '@mariamfiori', avatar: 'https://i.pravatar.cc/100?img=5', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowedAt: null },
-  { id: '4', name: 'Alex Runner', username: '@alexrunner', avatar: 'https://i.pravatar.cc/100?img=8', isVerified: false, isFanOfMe: false, iAmFanOf: true, unfollowedAt: null },
-  { id: '5', name: 'FitCoach Pro', username: '@fitcoachpro', avatar: 'https://i.pravatar.cc/100?img=12', isVerified: true, isFanOfMe: true, iAmFanOf: true, unfollowedAt: null },
-  { id: '6', name: 'Sarah Johnson', username: '@sarahj', avatar: 'https://i.pravatar.cc/100?img=9', isVerified: false, isFanOfMe: true, iAmFanOf: false, unfollowedAt: null },
-  { id: '7', name: 'Mike Chen', username: '@mikechen', avatar: 'https://i.pravatar.cc/100?img=11', isVerified: true, isFanOfMe: false, iAmFanOf: true, unfollowedAt: null },
-  { id: '8', name: 'David Kim', username: '@davidkim', avatar: 'https://i.pravatar.cc/100?img=14', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowedAt: null },
+  { id: '1', name: 'Hannah Smith', username: '@hannahsmith', avatar: 'https://i.pravatar.cc/100?img=1', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '2', name: 'Thomas Lefèvre', username: '@thomaslef', avatar: 'https://i.pravatar.cc/100?img=3', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '3', name: 'Mariam Fiori', username: '@mariamfiori', avatar: 'https://i.pravatar.cc/100?img=5', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '4', name: 'Alex Runner', username: '@alexrunner', avatar: 'https://i.pravatar.cc/100?img=8', isVerified: false, isFanOfMe: false, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '5', name: 'FitCoach Pro', username: '@fitcoachpro', avatar: 'https://i.pravatar.cc/100?img=12', isVerified: true, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '6', name: 'Sarah Johnson', username: '@sarahj', avatar: 'https://i.pravatar.cc/100?img=9', isVerified: false, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '7', name: 'Mike Chen', username: '@mikechen', avatar: 'https://i.pravatar.cc/100?img=11', isVerified: true, isFanOfMe: false, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
+  { id: '8', name: 'David Kim', username: '@davidkim', avatar: 'https://i.pravatar.cc/100?img=14', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
 ];
 
 export default function FansListScreen({ navigation, route }) {
@@ -38,6 +39,7 @@ export default function FansListScreen({ navigation, route }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState(SAMPLE_FANS);
   const [showUnfollowPopup, setShowUnfollowPopup] = useState(false);
+  const [showWarningPopup, setShowWarningPopup] = useState(false); // Warning before 2nd unfollow
   const [selectedUser, setSelectedUser] = useState(null);
 
   // Filter to show only users with a relationship (they follow me OR I follow them)
@@ -49,28 +51,31 @@ export default function FansListScreen({ navigation, route }) {
     fan.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Check if 7 days have passed since unfollow
-  const canRefollow = (unfollowedAt) => {
-    if (!unfollowedAt) return true;
+  // Check if 7 days have passed since last unfollow (only applies after 2+ unfollows)
+  const canRefollow = (user) => {
+    // If unfollowed less than 2 times, can always refollow
+    if (!user.unfollowCount || user.unfollowCount < 2) return true;
+    // After 2+ unfollows, must wait 7 days
+    if (!user.lastUnfollowAt) return true;
     const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-    return (Date.now() - unfollowedAt) >= sevenDaysInMs;
+    return (Date.now() - user.lastUnfollowAt) >= sevenDaysInMs;
   };
 
   // Get days remaining before can refollow
-  const getDaysRemaining = (unfollowedAt) => {
-    if (!unfollowedAt) return 0;
+  const getDaysRemaining = (lastUnfollowAt) => {
+    if (!lastUnfollowAt) return 0;
     const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-    const timePassed = Date.now() - unfollowedAt;
+    const timePassed = Date.now() - lastUnfollowAt;
     const timeRemaining = sevenDaysInMs - timePassed;
     return Math.ceil(timeRemaining / (24 * 60 * 60 * 1000));
   };
 
-  // Handle Track tap → become a fan (with 7-day check)
+  // Handle Track tap → become a fan (with cooldown check after 2+ unfollows)
   const handleBecomeFan = (userId) => {
     const user = allUsers.find(u => u.id === userId);
-    
-    if (user && !canRefollow(user.unfollowedAt)) {
-      const daysRemaining = getDaysRemaining(user.unfollowedAt);
+
+    if (user && !canRefollow(user)) {
+      const daysRemaining = getDaysRemaining(user.lastUnfollowAt);
       Alert.alert(
         'Cannot follow yet',
         `You need to wait ${daysRemaining} more day${daysRemaining > 1 ? 's' : ''} before you can follow ${user.name} again.`,
@@ -78,24 +83,36 @@ export default function FansListScreen({ navigation, route }) {
       );
       return;
     }
-    
-    setAllUsers(allUsers.map(u => 
-      u.id === userId ? { ...u, iAmFanOf: true, unfollowedAt: null } : u
+
+    setAllUsers(allUsers.map(u =>
+      u.id === userId ? { ...u, iAmFanOf: true } : u
     ));
   };
 
-  // Handle Fan badge tap → show unfollow popup
+  // Handle Fan badge tap → show appropriate popup based on unfollow count
   const handleFanPress = (user) => {
     setSelectedUser(user);
-    setShowUnfollowPopup(true);
+
+    // If this is the 2nd unfollow (count = 1), show warning first
+    if (user.unfollowCount === 1) {
+      setShowWarningPopup(true);
+    } else {
+      setShowUnfollowPopup(true);
+    }
   };
 
-  // Handle unfollow confirmation
+  // Handle unfollow confirmation (normal popup)
   const handleUnfollow = () => {
     if (selectedUser) {
-      setAllUsers(allUsers.map(user => 
-        user.id === selectedUser.id 
-          ? { ...user, iAmFanOf: false, unfollowedAt: Date.now() } 
+      const newCount = (selectedUser.unfollowCount || 0) + 1;
+      setAllUsers(allUsers.map(user =>
+        user.id === selectedUser.id
+          ? {
+              ...user,
+              iAmFanOf: false,
+              unfollowCount: newCount,
+              lastUnfollowAt: Date.now()
+            }
           : user
       ));
     }
@@ -103,9 +120,28 @@ export default function FansListScreen({ navigation, route }) {
     setSelectedUser(null);
   };
 
-  // Close popup
+  // Handle unfollow after warning (2nd unfollow)
+  const handleUnfollowAfterWarning = () => {
+    if (selectedUser) {
+      setAllUsers(allUsers.map(user =>
+        user.id === selectedUser.id
+          ? {
+              ...user,
+              iAmFanOf: false,
+              unfollowCount: 2,
+              lastUnfollowAt: Date.now()
+            }
+          : user
+      ));
+    }
+    setShowWarningPopup(false);
+    setSelectedUser(null);
+  };
+
+  // Close popups
   const closePopup = () => {
     setShowUnfollowPopup(false);
+    setShowWarningPopup(false);
     setSelectedUser(null);
   };
 
@@ -176,7 +212,7 @@ export default function FansListScreen({ navigation, route }) {
     );
   };
 
-  // Unfollow Popup Modal
+  // Unfollow Popup Modal (1st unfollow - no warning)
   const renderUnfollowPopup = () => (
     <Modal
       visible={showUnfollowPopup}
@@ -193,11 +229,11 @@ export default function FansListScreen({ navigation, route }) {
                   <AvatarImage source={selectedUser.avatar} size={70} style={styles.popupAvatar} />
                   <Text style={styles.popupName}>{selectedUser.name}</Text>
                   <Text style={styles.popupUsername}>{selectedUser.username}</Text>
-                  
-                  <Text style={styles.popupWarning}>
-                    You won't be able to follow again for 7 days
+
+                  <Text style={styles.popupInfo}>
+                    Are you sure you want to unfollow?
                   </Text>
-                  
+
                   <TouchableOpacity
                     style={styles.unfollowButton}
                     onPress={handleUnfollow}
@@ -205,6 +241,56 @@ export default function FansListScreen({ navigation, route }) {
                     <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
                     <Text style={styles.unfollowButtonText}>Unfollow</Text>
                   </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+
+  // Warning Popup Modal (2nd unfollow - shows 7-day warning)
+  const renderWarningPopup = () => (
+    <Modal
+      visible={showWarningPopup}
+      transparent
+      animationType="fade"
+      onRequestClose={closePopup}
+    >
+      <TouchableWithoutFeedback onPress={closePopup}>
+        <View style={styles.popupOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.popupContainer}>
+              {selectedUser && (
+                <>
+                  <View style={styles.warningIconContainer}>
+                    <Ionicons name="warning" size={40} color={COLORS.orange} />
+                  </View>
+
+                  <Text style={styles.popupName}>{selectedUser.name}</Text>
+                  <Text style={styles.popupUsername}>{selectedUser.username}</Text>
+
+                  <Text style={styles.popupWarning}>
+                    ⚠️ Attention! If you unfollow now, next time you'll have to wait 7 days before you can follow again.
+                  </Text>
+
+                  <View style={styles.popupButtons}>
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={closePopup}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.unfollowButton}
+                      onPress={handleUnfollowAfterWarning}
+                    >
+                      <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                      <Text style={styles.unfollowButtonText}>Unfollow</Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               )}
             </View>
@@ -271,6 +357,9 @@ export default function FansListScreen({ navigation, route }) {
 
       {/* Unfollow Popup */}
       {renderUnfollowPopup()}
+
+      {/* Warning Popup (2nd unfollow) */}
+      {renderWarningPopup()}
     </View>
   );
 }
@@ -444,12 +533,43 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     marginBottom: 12,
   },
-  popupWarning: {
-    fontSize: 12,
-    color: COLORS.red,
+  popupInfo: {
+    fontSize: 14,
+    color: COLORS.gray,
     textAlign: 'center',
     marginBottom: 16,
-    opacity: 0.8,
+  },
+  popupWarning: {
+    fontSize: 13,
+    color: COLORS.orange,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
+  warningIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  popupButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    backgroundColor: '#2C2C2E',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
   },
   unfollowButton: {
     flexDirection: 'row',

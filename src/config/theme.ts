@@ -85,6 +85,7 @@ export const DARK_COLORS = {
     gray: '#8E8E93',              // iOS gray
     grayLight: '#6E6E73',
     red: '#FF6B6B',               // Danger/unfollow color
+    orange: '#FFA500',            // Warning color
     error: '#EF4444',             // Error color
     overlay: 'rgba(0, 0, 0, 0.4)',
     cardBgTransparent: 'rgba(28, 28, 30, 0.95)',

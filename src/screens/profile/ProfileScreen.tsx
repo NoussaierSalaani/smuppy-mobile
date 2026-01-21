@@ -12,9 +12,9 @@ import {
   ActionSheetIOS,
   Platform,
   RefreshControl,
-  Share,
   ActivityIndicator,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -262,15 +262,18 @@ const ProfileScreen = ({ navigation, route }) => {
     setShowBioModal(false);
   };
 
-  // ==================== SHARE ====================
-  const handleShare = async () => {
+  // ==================== COPY PROFILE LINK ====================
+  const getProfileUrl = () => {
+    const username = user.username || user.displayName.toLowerCase().replace(/\s+/g, '');
+    return `https://smuppy.app/u/${username}`;
+  };
+
+  const handleCopyLink = async () => {
     try {
-      await Share.share({
-        message: `Check out ${user.displayName}'s profile on Smuppy! https://smuppy.com/@${user.displayName.toLowerCase().replace(' ', '')}`,
-        title: 'Share Profile',
-      });
+      await Clipboard.setStringAsync(getProfileUrl());
+      Alert.alert('Copied!', 'Profile link copied to clipboard');
     } catch (error) {
-      // Share error handled silently
+      Alert.alert('Error', 'Failed to copy link');
     }
   };
 
@@ -343,14 +346,9 @@ const ProfileScreen = ({ navigation, route }) => {
       {/* Name & Actions */}
       <View style={styles.nameRow}>
         <Text style={styles.displayName}>{user.displayName}</Text>
-        <View style={styles.actionBtns}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
-            <Ionicons name="qr-code-outline" size={20} color="#0A0A0F" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="#0A0A0F" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
+          <Ionicons name="qr-code-outline" size={20} color="#0A0A0F" />
+        </TouchableOpacity>
       </View>
 
       {/* Bio Section */}
@@ -537,26 +535,33 @@ const ProfileScreen = ({ navigation, route }) => {
     >
       <View style={styles.qrModalOverlay}>
         <View style={styles.qrModalContent}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.qrCloseBtn}
             onPress={() => setShowQRModal(false)}
           >
             <Ionicons name="close" size={24} color="#FFF" />
           </TouchableOpacity>
-          
+
           <View style={styles.qrContainer}>
             {/* Simple QR placeholder - replace with actual QR library if needed */}
             <View style={styles.qrCode}>
               <Ionicons name="qr-code" size={150} color="#0A0A0F" />
             </View>
           </View>
-          
+
           <Text style={styles.qrUsername}>@{user.username || user.displayName.toLowerCase().replace(/\s+/g, '')}</Text>
           <Text style={styles.qrHint}>Scan to follow on Smuppy</Text>
-          
-          <TouchableOpacity style={styles.qrShareBtn} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="#0A0A0F" />
-            <Text style={styles.qrShareText}>Share Profile</Text>
+
+          {/* Profile Link */}
+          <View style={styles.profileLinkContainer}>
+            <Text style={styles.profileLinkText} numberOfLines={1}>
+              {getProfileUrl()}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.qrCopyBtn} onPress={handleCopyLink}>
+            <Ionicons name="copy-outline" size={20} color="#FFF" />
+            <Text style={styles.qrCopyText}>Copy profile link</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1015,7 +1020,20 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     marginBottom: 24,
   },
-  qrShareBtn: {
+  profileLinkContainer: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 16,
+    maxWidth: 280,
+  },
+  profileLinkText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+  qrCopyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0EBF8A',
@@ -1024,7 +1042,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     gap: 8,
   },
-  qrShareText: {
+  qrCopyText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',

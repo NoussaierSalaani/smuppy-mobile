@@ -30,6 +30,10 @@ export {
   // Likes
   useHasLiked,
   useToggleLike,
+  // Collections (Saved Posts)
+  useHasSavedPost,
+  useSavedPosts,
+  useToggleSavePost,
   // Follows
   useIsFollowing,
   useFollowers,

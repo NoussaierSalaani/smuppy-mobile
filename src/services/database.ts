@@ -48,9 +48,15 @@ export interface Post {
   author_id: string;
   content?: string;
   media_urls?: string[];
+  media_type?: 'image' | 'video' | 'multiple';
   visibility: 'public' | 'private' | 'fans';
   likes_count?: number;
   comments_count?: number;
+  location?: string | null;
+  is_peak?: boolean;
+  peak_duration?: number;
+  peak_expires_at?: string;
+  save_to_profile?: boolean;
   created_at: string;
   author?: Profile;
   [key: string]: unknown; // Allow additional properties for store compatibility
@@ -411,6 +417,95 @@ export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean 
 
   const { data } = result as { data: { id: string } | null };
   return { hasLiked: !!data };
+};
+
+// ============================================
+// POST SAVES (Bookmarks/Collections)
+// ============================================
+
+/**
+ * Save a post (bookmark)
+ */
+export const savePost = async (postId: string): Promise<DbResponse<{ id: string }>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('post_saves')
+    .insert({
+      user_id: user.id,
+      post_id: postId
+    })
+    .select('id')
+    .single();
+
+  const { data, error } = result as { data: { id: string } | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Unsave a post (remove bookmark)
+ */
+export const unsavePost = async (postId: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('post_saves')
+    .delete()
+    .match({
+      user_id: user.id,
+      post_id: postId
+    });
+
+  const { error } = result as { error: { message: string } | null };
+  return { error: error?.message || null };
+};
+
+/**
+ * Check if current user saved a post
+ */
+export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { saved: false };
+
+  const result = await supabase
+    .from('post_saves')
+    .select('id')
+    .match({
+      user_id: user.id,
+      post_id: postId
+    })
+    .single();
+
+  const { data } = result as { data: { id: string } | null };
+  return { saved: !!data };
+};
+
+/**
+ * Get user's saved posts (collections)
+ */
+export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Post[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const from = page * limit;
+  const to = from + limit - 1;
+
+  const result = await supabase
+    .from('post_saves')
+    .select(`
+      post:posts(
+        *,
+        author:profiles(id, username, full_name, avatar_url, is_verified)
+      )
+    `)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  const { data, error } = result as { data: Array<{ post: Post }> | null; error: { message: string } | null };
+  return { data: data?.map(d => d.post) || null, error: error?.message || null };
 };
 
 // ============================================

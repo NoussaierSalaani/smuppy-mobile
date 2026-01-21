@@ -166,7 +166,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       const peakData = {
         content: textOverlay || '',
         media_urls: [uploadResult.cdnUrl || uploadResult.url],
-        media_type: 'video',
+        media_type: 'video' as const,
         visibility: 'public' as const,
         location: location || null,
         is_peak: true,

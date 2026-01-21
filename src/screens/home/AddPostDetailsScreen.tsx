@@ -469,10 +469,14 @@ export default function AddPostDetailsScreen({ route, navigation }) {
       setUploadProgress(85);
 
       // Create post in database
+      const mediaType = media.length === 1
+        ? (media[0].mediaType === 'video' ? 'video' : 'image')
+        : 'multiple';
+
       const postData = {
         content: description,
         media_urls: mediaUrls,
-        media_type: media.length === 1 ? (media[0].mediaType === 'video' ? 'video' : 'image') : 'multiple',
+        media_type: mediaType as 'image' | 'video' | 'multiple',
         visibility: visibility,
         location: location || null,
         is_peak: postType === 'peaks',

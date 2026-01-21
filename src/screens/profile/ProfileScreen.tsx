@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUser } from '../../context/UserContext';
-import { useCurrentProfile } from '../../hooks';
+import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 260;
@@ -92,14 +92,50 @@ const INITIAL_USER = {
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser } = useUser();
-  const { data: profileData, isLoading: isProfileLoading, isError: profileError } = useCurrentProfile();
+  const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // User state
   const [user, setUser] = useState(INITIAL_USER);
-  const [posts, setPosts] = useState([]); // Empty for new account
-  const [peaks, setPeaks] = useState([]); // Empty for new account
+
+  // Get user's posts from database
+  const userId = profileData?.id || contextUser?.id;
+  const {
+    data: userPostsData,
+    isLoading: isPostsLoading,
+    refetch: refetchPosts,
+    fetchNextPage,
+    hasNextPage,
+  } = useUserPosts(userId);
+
+  // Separate posts and peaks from the data
+  const allUserPosts = useMemo(() => {
+    if (!userPostsData?.pages) return [];
+    return userPostsData.pages.flatMap(page => page.posts);
+  }, [userPostsData]);
+
+  // Filter: posts = not peaks, peaks = is_peak true
+  const posts = useMemo(() =>
+    allUserPosts.filter(post => !post.is_peak),
+    [allUserPosts]
+  );
+
+  const peaks = useMemo(() =>
+    allUserPosts.filter(post => post.is_peak && post.save_to_profile !== false),
+    [allUserPosts]
+  );
+
+  // Get saved posts (collections) - only for own profile
+  const {
+    data: savedPostsData,
+    refetch: refetchSavedPosts,
+  } = useSavedPosts();
+
+  const collections = useMemo(() => {
+    if (!savedPostsData?.pages) return [];
+    return savedPostsData.pages.flatMap(page => page.posts);
+  }, [savedPostsData]);
 
   // Modal states
   const [showBioModal, setShowBioModal] = useState(false);
@@ -178,10 +214,14 @@ const ProfileScreen = ({ navigation, route }) => {
     setBioText(resolvedProfile.bio || '');
   }, [resolvedProfile.bio]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1500);
-  }, []);
+    try {
+      await Promise.all([refetchProfile(), refetchPosts(), refetchSavedPosts()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchProfile, refetchPosts, refetchSavedPosts]);
 
   // ==================== IMAGE PICKER ====================
   const showImageOptions = (type) => {
@@ -429,30 +469,76 @@ const ProfileScreen = ({ navigation, route }) => {
   );
 
   // ==================== RENDER POST ITEM ====================
-  const renderPostItem = useCallback(({ item: post }) => (
-    <TouchableOpacity style={styles.postCard}>
-      <OptimizedImage source={post.thumbnail} style={styles.postThumb} />
-      {post.duration && (
-        <View style={styles.duration}>
-          <Text style={styles.durationText}>{post.duration}</Text>
+  const renderPostItem = useCallback(({ item: post }) => {
+    // Get thumbnail (first media URL or placeholder)
+    const thumbnail = post.media_urls?.[0] || null;
+    const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
+
+    return (
+      <TouchableOpacity
+        style={styles.postCard}
+        onPress={() => navigation.navigate('PostDetail', { postId: post.id })}
+      >
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.postThumb} />
+        ) : (
+          <View style={[styles.postThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="image-outline" size={32} color="#6E6E73" />
+          </View>
+        )}
+        {isVideo && (
+          <View style={styles.duration}>
+            <Ionicons name="play" size={10} color="#FFF" />
+          </View>
+        )}
+        <TouchableOpacity style={styles.postMenu}>
+          <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
+        </TouchableOpacity>
+        <View style={styles.postInfo}>
+          <Text style={styles.postTitle} numberOfLines={2}>
+            {post.content || 'No caption'}
+          </Text>
+          <View style={styles.postMeta}>
+            <AvatarImage source={post.author?.avatar_url || user.avatar} size={18} />
+            <Text style={styles.authorName}>{post.author?.full_name || user.displayName}</Text>
+            <Ionicons name="heart" size={12} color="#FF6B6B" />
+            <Text style={styles.likes}>{post.likes_count || 0}</Text>
+          </View>
         </View>
-      )}
-      <TouchableOpacity style={styles.postMenu}>
-        <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
       </TouchableOpacity>
-      <View style={styles.postInfo}>
-        <Text style={styles.postTitle} numberOfLines={2}>{post.title}</Text>
-        <View style={styles.postMeta}>
-          <AvatarImage source={post.authorAvatar} size={18} />
-          <Text style={styles.authorName}>{post.author}</Text>
-          <Ionicons name="heart" size={12} color="#FF6B6B" />
-          <Text style={styles.likes}>{post.likes}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  ), []);
+    );
+  }, [navigation, user.avatar, user.displayName]);
 
   const keyExtractor = useCallback((item) => item.id, []);
+
+  // ==================== RENDER PEAK ITEM ====================
+  const renderPeakItem = useCallback((peak) => {
+    const thumbnail = peak.media_urls?.[0] || null;
+
+    return (
+      <TouchableOpacity
+        key={peak.id}
+        style={styles.peakCard}
+        onPress={() => navigation.navigate('PeakView', { peakId: peak.id })}
+      >
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.peakThumb} />
+        ) : (
+          <View style={[styles.peakThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
+          </View>
+        )}
+        <View style={styles.peakOverlay}>
+          <View style={styles.peakDuration}>
+            <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+          </View>
+          {peak.content && (
+            <Text style={styles.peakCaption} numberOfLines={2}>{peak.content}</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [navigation]);
 
   // ==================== RENDER PEAKS ====================
   const renderPeaks = () => {
@@ -476,19 +562,85 @@ const ProfileScreen = ({ navigation, route }) => {
         </View>
       );
     }
-    return null;
+
+    // Show peaks grid
+    return (
+      <View style={styles.peaksGrid}>
+        {peaks.map(renderPeakItem)}
+      </View>
+    );
   };
 
+  // ==================== RENDER COLLECTION ITEM ====================
+  const renderCollectionItem = useCallback((post) => {
+    const thumbnail = post.media_urls?.[0] || null;
+    const isVideo = post.media_type === 'video';
+
+    return (
+      <TouchableOpacity
+        key={post.id}
+        style={styles.collectionCard}
+        onPress={() => navigation.navigate('PostDetail', { postId: post.id })}
+      >
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.collectionThumb} />
+        ) : (
+          <View style={[styles.collectionThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="image-outline" size={24} color="#6E6E73" />
+          </View>
+        )}
+        {isVideo && (
+          <View style={styles.collectionPlayIcon}>
+            <Ionicons name="play" size={12} color="#FFF" />
+          </View>
+        )}
+        <View style={styles.collectionSaveIcon}>
+          <Ionicons name="bookmark" size={12} color="#FFF" />
+        </View>
+        {post.author && (
+          <View style={styles.collectionAuthor}>
+            <AvatarImage source={post.author.avatar_url} size={16} />
+            <Text style={styles.collectionAuthorName} numberOfLines={1}>
+              {post.author.full_name}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }, [navigation]);
+
   // ==================== RENDER COLLECTIONS ====================
-  const renderCollections = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
-      <Text style={styles.emptyTitle}>No collections yet</Text>
-      <Text style={styles.emptyDesc}>
-        Save posts to collections to find them easily later
-      </Text>
-    </View>
-  );
+  const renderCollections = () => {
+    if (!isOwnProfile) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>Private</Text>
+          <Text style={styles.emptyDesc}>
+            Collections are only visible to the account owner
+          </Text>
+        </View>
+      );
+    }
+
+    if (collections.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>No collections yet</Text>
+          <Text style={styles.emptyDesc}>
+            Save posts to find them easily later
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.collectionsGrid}>
+        {collections.map(renderCollectionItem)}
+      </View>
+    );
+  };
 
   // ==================== BIO MODAL ====================
   const renderBioModal = () => (
@@ -928,6 +1080,111 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#8E8E93',
     marginLeft: 2,
+  },
+
+  // ===== PEAKS GRID =====
+  peaksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  peakCard: {
+    width: (SCREEN_WIDTH - 48) / 3,
+    height: 160,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1E',
+  },
+  peakThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  peakOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  peakDuration: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  peakDurationText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  peakCaption: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#FFF',
+    lineHeight: 14,
+  },
+
+  // ===== COLLECTIONS GRID =====
+  collectionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  collectionCard: {
+    width: (SCREEN_WIDTH - 48) / 3,
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
+  },
+  collectionThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  collectionPlayIcon: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  collectionSaveIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(14, 191, 138, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  collectionAuthor: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    gap: 4,
+  },
+  collectionAuthorName: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#FFF',
   },
 
   // ===== BIO MODAL =====

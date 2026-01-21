@@ -162,6 +162,12 @@ export const queryKeys = {
   likes: {
     hasLiked: (postId) => ['likes', 'check', postId],
   },
+  // Collections (Saved Posts)
+  collections: {
+    all: ['collections'],
+    saved: (page) => ['collections', 'saved', page],
+    hasSaved: (postId) => ['collections', 'saved', 'check', postId],
+  },
   // Comments
   comments: {
     byPost: (postId, page) => ['comments', postId, page],

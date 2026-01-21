@@ -239,6 +239,82 @@ export const useToggleLike = () => {
 };
 
 // ============================================
+// COLLECTIONS HOOKS (Saved Posts)
+// ============================================
+
+/**
+ * Check if user saved a post
+ */
+export const useHasSavedPost = (postId: string | null | undefined) => {
+  return useQuery({
+    queryKey: queryKeys.collections.hasSaved(postId),
+    queryFn: async () => {
+      const { saved } = await database.hasSavedPost(postId!);
+      return saved;
+    },
+    enabled: !!postId,
+    staleTime: 60 * 1000,
+  });
+};
+
+/**
+ * Get user's saved posts (collections)
+ */
+export const useSavedPosts = () => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.collections.saved(0),
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await database.getSavedPosts(pageParam, 20);
+      if (error) throw new Error(error);
+      return { posts: data || [], nextPage: pageParam + 1 };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.posts.length < 20) return undefined;
+      return lastPage.nextPage;
+    },
+    initialPageParam: 0,
+  });
+};
+
+/**
+ * Toggle save post mutation
+ */
+export const useToggleSavePost = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ postId, isSaved }: { postId: string; isSaved: boolean }) => {
+      if (isSaved) {
+        const { error } = await database.unsavePost(postId);
+        if (error) throw new Error(error);
+        return { postId, saved: false };
+      } else {
+        const { error } = await database.savePost(postId);
+        if (error) throw new Error(error);
+        return { postId, saved: true };
+      }
+    },
+    onMutate: async ({ postId, isSaved }: { postId: string; isSaved: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.collections.hasSaved(postId) });
+      const previousValue = queryClient.getQueryData(queryKeys.collections.hasSaved(postId));
+      queryClient.setQueryData(queryKeys.collections.hasSaved(postId), !isSaved);
+      return { previousValue, postId };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousValue !== undefined) {
+        queryClient.setQueryData(
+          queryKeys.collections.hasSaved(context.postId),
+          context.previousValue
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collections.saved(0) });
+    },
+  });
+};
+
+// ============================================
 // FOLLOWS HOOKS
 // ============================================
 

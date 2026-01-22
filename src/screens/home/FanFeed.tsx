@@ -217,24 +217,28 @@ export default function FanFeed() {
 
   // Toggle like with real API
   const toggleLike = useCallback(async (postId: string) => {
-    // Optimistic update
-    setPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isLiked: !post.isLiked,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-        };
-      }
-      return post;
-    }));
+    // Get current like status from state using functional update
+    let wasLiked = false;
 
-    // Find the post to check current like status
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
+    // Optimistic update and capture current state
+    setPosts(prevPosts => {
+      const post = prevPosts.find(p => p.id === postId);
+      if (post) wasLiked = post.isLiked;
+
+      return prevPosts.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            isLiked: !p.isLiked,
+            likes: p.isLiked ? p.likes - 1 : p.likes + 1,
+          };
+        }
+        return p;
+      });
+    });
 
     try {
-      if (post.isLiked) {
+      if (wasLiked) {
         // Unlike
         const { error } = await unlikePost(postId);
         if (error) {
@@ -270,7 +274,7 @@ export default function FanFeed() {
     } catch (err) {
       console.error('[FanFeed] Like toggle error:', err);
     }
-  }, [posts]);
+  }, []);
 
   // Toggle save
   const toggleSave = useCallback((postId) => {

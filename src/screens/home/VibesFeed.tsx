@@ -450,23 +450,32 @@ export default function VibesFeed() {
 
   // Like/unlike post with engagement tracking
   const toggleLike = useCallback(async (postId: string) => {
-    // Optimistic update
-    setPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isLiked: !post.isLiked,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-        };
-      }
-      return post;
-    }));
+    // Get current like status and category from state using functional update
+    let wasLiked = false;
+    let postCategory = '';
 
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
+    // Optimistic update and capture current state
+    setPosts(prevPosts => {
+      const post = prevPosts.find(p => p.id === postId);
+      if (post) {
+        wasLiked = post.isLiked;
+        postCategory = post.category;
+      }
+
+      return prevPosts.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            isLiked: !p.isLiked,
+            likes: p.isLiked ? p.likes - 1 : p.likes + 1,
+          };
+        }
+        return p;
+      });
+    });
 
     try {
-      if (post.isLiked) {
+      if (wasLiked) {
         await unlikePost(postId);
         setLikedPostIds(prev => {
           const newSet = new Set(prev);
@@ -477,12 +486,12 @@ export default function VibesFeed() {
         await likePost(postId);
         setLikedPostIds(prev => new Set([...prev, postId]));
         // Track engagement for AI mood recommendations
-        trackLike(postId, post.category);
+        trackLike(postId, postCategory);
       }
     } catch (err) {
       console.error('[VibesFeed] Like error:', err);
     }
-  }, [posts, trackLike]);
+  }, [trackLike]);
 
   // Track post view start time for engagement tracking
   const postViewStartRef = useRef<number>(0);

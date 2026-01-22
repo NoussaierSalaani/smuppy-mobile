@@ -71,6 +71,12 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const lastMoodRef = useRef<MoodType | null>(null);
   const currentPostRef = useRef<{ postId: string; startTime: number } | null>(null);
   const moodIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onMoodChangeRef = useRef(onMoodChange);
+
+  // Keep callback ref updated
+  useEffect(() => {
+    onMoodChangeRef.current = onMoodChange;
+  }, [onMoodChange]);
 
   // ============================================================================
   // SESSION MANAGEMENT
@@ -91,7 +97,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
       // Notify if mood changed
       if (lastMoodRef.current !== newMood.primaryMood) {
         lastMoodRef.current = newMood.primaryMood;
-        onMoodChange?.(newMood);
+        onMoodChangeRef.current?.(newMood);
       }
     }, moodUpdateInterval);
 
@@ -99,7 +105,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     const initialMood = moodDetection.analyzeMood();
     setMood(initialMood);
     lastMoodRef.current = initialMood.primaryMood;
-  }, [moodUpdateInterval, onMoodChange]);
+  }, [moodUpdateInterval]);
 
   const endSession = useCallback(() => {
     moodDetection.endSession();
@@ -110,14 +116,15 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     }
   }, []);
 
-  // Start session on mount
+  // Start session on mount only
   useEffect(() => {
     startSession();
 
     return () => {
       endSession();
     };
-  }, [startSession, endSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================================
   // SCROLL TRACKING
@@ -210,9 +217,9 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
     if (lastMoodRef.current !== newMood.primaryMood) {
       lastMoodRef.current = newMood.primaryMood;
-      onMoodChange?.(newMood);
+      onMoodChangeRef.current?.(newMood);
     }
-  }, [onMoodChange]);
+  }, []);
 
   // ============================================================================
   // RETURN

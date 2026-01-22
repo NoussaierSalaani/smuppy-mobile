@@ -1,6 +1,6 @@
 # Implementation Log — Smuppy Mobile
 
-Dernière mise à jour: 2026-01-13
+Dernière mise à jour: 2026-01-22
 
 ## Vue d’ensemble
 | ID | Type | Date | Objectif principal | Status | Tests | Notes |
@@ -453,5 +453,272 @@ else if (dy > 80) {
 - [ ] Swipe DOWN → ferme l'écran
 - [ ] Swipe UP → réponses ou create Peak
 - [ ] Swipe LEFT/RIGHT → navigation Peaks
+
+**Status:** DONE
+
+---
+
+## LOT P — RecordButton S Logo + Badges + Fan Terminology (2026-01-21)
+
+**Type:** Feature + UI/UX + Branding
+**Objectif:** Améliorer le RecordButton, ajouter les badges de vérification, et unifier la terminologie "Fan"
+
+### Goals (completed)
+
+#### 1. RecordButton - S Logo Animation
+- ✅ Remplacer les 6 triangles par le S logo de Smuppy
+- ✅ Animation inflate/deflate avec spring physics
+- ✅ Gradient vert → cyan sur le S
+
+#### 2. Badge Components
+- ✅ VerifiedBadge - Checkmark/Shield vert
+- ✅ PremiumBadge - Étoile dorée
+- ✅ CreatorBadge - Play icon avec gradient Smuppy
+- ✅ Intégration sur ProfileScreen à côté du nom
+
+#### 3. Fan Terminology
+- ✅ "Follow" → "Fan"
+- ✅ "Unfollow" → "Unfan"
+- ✅ "Following" → "Tracking"
+- ✅ "started following you" → "became your fan"
+- ✅ "Scan to follow on Smuppy" → "Scan to be my fan!"
+
+### Files modified
+- `src/components/peaks/RecordButton.tsx` - S logo + inflate/deflate
+- `src/components/Badge.tsx` - Nouveau fichier
+- `src/screens/profile/ProfileScreen.tsx` - Badges, glassmorphism stats
+- `src/screens/notifications/NotificationsScreen.tsx` - Fan terminology
+- `src/screens/profile/FansListScreen.tsx` - Unfan terminology
+- `src/screens/profile/UserProfileScreen.tsx` - Unfan button
+- `src/screens/home/VibesFeed.tsx` - Fan button
+- `src/screens/home/AddPostDetailsScreen.tsx` - Fan messages
+- `docs/FEATURES_SPECS.md` - Documentation mise à jour
+- `docs/CHANGELOG_OPTIMIZATION.md` - Version 1.4.2
+
+### Manual tests
+- [ ] RecordButton: appuyer → S gonfle, relâcher → S dégonfle
+- [ ] ProfileScreen: badges affichés si isVerified/isPremium
+- [ ] NotificationsScreen: onglet "New Fans", boutons "Fan"/"Tracking"
+- [ ] FansListScreen: bouton "Unfan" au lieu de "Unfollow"
+- [ ] QR Modal: "Scan to be my fan!"
+
+**Status:** DONE
+
+---
+
+## LOT Q — API Connections: Follow/Fan, Tag Friends, Share (2026-01-22)
+
+**Type:** Feature + Integration
+**Objectif:** Connecter les fonctionnalités sociales à l'API Supabase réelle et créer l'utilitaire de partage
+
+### Goals (completed)
+
+#### 1. FansListScreen - Connexion API Réelle
+- ✅ Suppression des données mock (MOCK_USERS)
+- ✅ Intégration `getFollowers()`, `getFollowing()`, `followUser()`, `unfollowUser()`
+- ✅ Gestion du state loading et refresh
+- ✅ Pagination avec offset/limit
+
+#### 2. TagFriendModal - Chargement Amis Réels
+- ✅ Suppression des données mock (MOCK_FRIENDS)
+- ✅ Chargement des following depuis `getFollowing()`
+- ✅ Détection des mutuals via `getFollowers()`
+- ✅ Tri: mutuals en premier, puis alphabétique
+
+#### 3. Share Utility (Nouveau fichier)
+- ✅ Création de `src/utils/share.ts`
+- ✅ `generateShareLink()` - Génère URLs pour posts/peaks/profiles
+- ✅ `shareContent()` - Native share dialog
+- ✅ `copyLinkToClipboard()` - Copie dans le presse-papiers
+- ✅ Fonctions helpers: `sharePost()`, `sharePeak()`, `shareProfile()`
+- ✅ Fonctions helpers: `copyPostLink()`, `copyPeakLink()`, `copyProfileLink()`
+
+#### 4. Intégration Share dans les écrans
+- ✅ PeakViewScreen: handleMenuAction pour copy_link et share
+- ✅ PostDetailVibesFeedScreen: handleShare et handleCopyLink
+- ✅ PostDetailFanFeedScreen: handleShare et handleCopyLink
+
+#### 5. Vérification Flows Existants
+- ✅ EditProfilScreen: Flow complet avec upload images vérifié
+- ✅ AddPostDetailsScreen: Flow création post vérifié (média, caption, location, tags, visibility)
+
+### Files modified
+- `src/screens/profile/FansListScreen.tsx` - Refonte complète
+- `src/components/TagFriendModal.tsx` - Connexion API
+- `src/utils/share.ts` - Nouveau fichier
+- `src/screens/peaks/PeakViewScreen.tsx` - Intégration share
+- `src/screens/home/PostDetailVibesFeedScreen.tsx` - Intégration share
+- `src/screens/home/PostDetailFanFeedScreen.tsx` - Intégration share
+- `src/screens/home/VibesFeed.tsx` - Fix interests variable
+- `docs/ROADMAP_LOTS.md` - Documentation
+- `docs/IMPLEMENTATION_LOG.md` - Ce fichier
+- `docs/FEATURES_SPECS.md` - Nouvelles sections
+
+### Share URL Format
+```
+Posts:    https://smuppy.app/p/{postId}
+Peaks:    https://smuppy.app/peak/{peakId}
+Profiles: https://smuppy.app/u/{username}
+```
+
+### Manual tests
+- [ ] FansListScreen: Charger followers/following réels
+- [ ] FansListScreen: Follow/Unfollow fonctionne
+- [ ] TagFriendModal: Affiche les vrais amis
+- [ ] TagFriendModal: Mutuals affichés en premier avec badge
+- [ ] PeakViewScreen: Copier lien fonctionne
+- [ ] PeakViewScreen: Partager ouvre le dialog natif
+- [ ] PostDetail: Copier lien fonctionne
+- [ ] PostDetail: Partager ouvre le dialog natif
+
+**Status:** DONE
+
+---
+
+## LOT R — Smuppy Unique Gestures + AI Mood System (2026-01-22)
+
+**Type:** Feature + AI + UX
+**Objectif:** Créer l'empreinte unique Smuppy avec des gestes distinctifs et un système de recommandation basé sur l'humeur
+
+### Goals (completed)
+
+#### 1. Double-Tap to Like (Geste Smuppy Unique)
+- ✅ Nouveau composant `DoubleTapLike.tsx`
+- ✅ Animation heart burst avec 6 mini-cœurs explosant en cercle
+- ✅ Haptic feedback signature (NotificationFeedbackType.Success)
+- ✅ Détection double-tap avec timing 300ms
+- ✅ Support single-tap callback optionnel
+- ✅ Intégration FanFeed et VibesFeed
+
+#### 2. Swipe Down → Peaks (FanFeed uniquement)
+- ✅ Nouveau composant `SwipeToPeaks.tsx`
+- ✅ Indicateur animé pendant le drag
+- ✅ Changement de couleur quand seuil atteint (100px)
+- ✅ Barre de progression visuelle
+- ✅ Haptic feedback au seuil et au release
+- ✅ Navigation automatique vers Peaks screen
+
+#### 3. AI Mood Detection System
+- ✅ Nouveau store `engagementStore.ts` (Zustand + persist)
+- ✅ Tracking: temps sur posts, likes, saves, comments, shares
+- ✅ Tracking: sessions (heure, durée, posts vus)
+- ✅ 6 moods détectables: energetic, relaxed, social, creative, focused, neutral
+- ✅ Algorithme basé sur heure + patterns d'engagement
+- ✅ Préférences de catégories apprises automatiquement
+
+#### 4. Mood Indicator Widget
+- ✅ Affiché en haut du VibesFeed
+- ✅ Animation pulse subtile
+- ✅ Emoji + nom du mood en couleur
+- ✅ Barre de confiance
+
+#### 5. Glassmorphism sur VibesFeed
+- ✅ BlurView sur les overlays des vibe cards
+- ✅ Text shadow pour lisibilité
+- ✅ Bordure subtile sur avatars
+
+#### 6. Animated Filter Chips
+- ✅ Animation bounce au tap (scale 0.9 → 1)
+- ✅ Haptic feedback léger
+- ✅ Icône X visible sur chips actifs
+
+### Files created
+- `src/components/DoubleTapLike.tsx` - Composant double-tap avec animation heart burst
+- `src/components/SwipeToPeaks.tsx` - Composant swipe pour ouvrir Peaks
+- `src/store/engagementStore.ts` - Store Zustand basique pour persistence
+- `src/services/moodDetection.ts` - Moteur avancé multi-signal fusion (600+ lignes)
+- `src/services/moodRecommendation.ts` - Two-tower recommendation engine
+- `src/hooks/useMoodAI.ts` - Hook React pour intégration AI
+
+### Files modified
+- `src/screens/home/FanFeed.tsx` - Intégration DoubleTapLike + SwipeToPeaks
+- `src/screens/home/VibesFeed.tsx` - Intégration useMoodAI + Advanced MoodIndicator + Glassmorphism + AnimatedChips
+- `docs/FEATURES_SPECS.md` - Section 20 majeure mise à jour avec système avancé
+- `docs/IMPLEMENTATION_LOG.md` - Ce fichier
+- `docs/CHANGELOG_OPTIMIZATION.md` - Version 1.5.0 avec détails AI
+
+### Technical details
+
+**DoubleTapLike animation:**
+```javascript
+// Main heart: spring bounce
+Animated.spring(heartScale, { toValue: 1.2, friction: 3, tension: 100 })
+// Then scale up and fade
+Animated.parallel([
+  Animated.timing(heartScale, { toValue: 1.5, duration: 200 }),
+  Animated.timing(heartOpacity, { toValue: 0, duration: 200 }),
+])
+
+// Mini hearts: 6 directions (0°, 60°, 120°, 180°, 240°, 300°)
+// Distance: 60-90px, alternating colors
+```
+
+**Advanced Multi-Signal Mood Detection:**
+```
+Signal Weights:
+- Behavioral (scroll patterns): 0.25
+- Engagement (likes, time): 0.30
+- Temporal (time of day): 0.20
+- Content (categories): 0.25
+
+Scroll Velocity Tracking:
+- Last 50 positions tracked
+- Average velocity calculated
+- Pause count, rapid scroll count
+- Direction analysis (up/down/idle)
+
+Mood Probability Vector:
+- Each mood gets 0-1 probability
+- Primary mood = highest probability
+- Confidence = highest - second highest
+```
+
+**Two-Tower Recommendation:**
+```javascript
+// Mood to content mapping
+energetic → Fitness, Workout, Challenges (video, carousel)
+relaxed → Nature, Meditation, Yoga (image, video)
+social → Trending, Community, Comedy (video, carousel)
+
+// Uplift strategy when mood is low
+lowEnergy: +50% boost to Motivation, Comedy
+stressed: +40% boost to Nature, ASMR
+bored: +30% boost to Trending, Viral
+
+// Diversity constraints
+maxSameCreator: 3
+maxSameCategory: 5
+explorationRate: 15%
+```
+
+**useMoodAI Hook Integration:**
+```typescript
+const {
+  mood,              // Current analysis
+  handleScroll,      // Auto scroll tracking
+  trackPostView,     // Start viewing
+  trackPostExit,     // End viewing + time
+  trackLike,         // Like action
+  refreshMood,       // Force refresh
+} = useMoodAI({ moodUpdateInterval: 30000 });
+```
+
+### Manual tests
+- [ ] FanFeed: Double-tap sur image → animation cœur + like
+- [ ] FanFeed: Swipe vers le bas → indicateur apparaît
+- [ ] FanFeed: Swipe 100px+ et release → ouvre Peaks
+- [ ] VibesFeed: Double-tap sur vibe card → animation + like
+- [ ] VibesFeed: Advanced Mood indicator visible en haut avec emoji, description, confidence %
+- [ ] VibesFeed: Tap sur mood indicator → refresh mood
+- [ ] VibesFeed: Tap sur chip → animation bounce + haptic
+- [ ] VibesFeed: Glassmorphism visible sur overlays
+- [ ] VibesFeed: Scroll tracking (check console logs for mood updates)
+- [ ] VibesFeed: Post view tracking (time spent logged)
+- [ ] VibesFeed: Strategy badge visible (Active/Engaged/Exploring)
+
+### Dependencies verified
+- ✅ expo-blur (already installed)
+- ✅ expo-haptics (already installed)
+- ✅ zustand (already installed)
 
 **Status:** DONE

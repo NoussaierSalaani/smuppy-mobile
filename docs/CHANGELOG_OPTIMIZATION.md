@@ -1,5 +1,366 @@
 # Changelog - Performance & Scalability Optimization
 
+## Version 1.5.0 - 22 Janvier 2026
+
+### Smuppy Unique Gestures (LOT R)
+
+**Création de l'empreinte unique Smuppy avec des gestes distinctifs.**
+
+---
+
+#### DoubleTapLike Component (nouveau)
+
+**Fichier:** `src/components/DoubleTapLike.tsx`
+
+Geste signature Smuppy pour liker avec animation heart burst.
+
+| Feature | Description |
+|---------|-------------|
+| **Double-tap detection** | 300ms timing window |
+| **Heart burst** | 6 mini-cœurs explosant en cercle |
+| **Directions** | 0°, 60°, 120°, 180°, 240°, 300° |
+| **Couleurs** | Alternance primary + #FF8FAB |
+| **Haptic** | NotificationFeedbackType.Success |
+
+**Animation sequence:**
+```javascript
+// 1. Main heart appears and bounces
+spring(heartScale, { toValue: 1.2, friction: 3 })
+spring(heartScale, { toValue: 1 })
+
+// 2. Heart scales up and fades
+parallel([
+  timing(heartScale, { toValue: 1.5, duration: 200 }),
+  timing(heartOpacity, { toValue: 0, duration: 200 }),
+])
+
+// 3. Mini hearts explode outward
+miniHearts.forEach((heart, i) => {
+  const angle = (i * 60) * Math.PI / 180;
+  const distance = 60 + Math.random() * 30;
+  // Animate x, y, scale, opacity
+})
+```
+
+**Usage:**
+```jsx
+<DoubleTapLike
+  onDoubleTap={() => !post.isLiked && toggleLike(post.id)}
+  onSingleTap={() => openPost(post.id)}
+  showAnimation={!post.isLiked}
+>
+  <PostImage source={post.media} />
+</DoubleTapLike>
+```
+
+---
+
+#### SwipeToPeaks Component (nouveau)
+
+**Fichier:** `src/components/SwipeToPeaks.tsx`
+
+Geste unique pour accéder aux Peaks depuis FanFeed.
+
+| Feature | Description |
+|---------|-------------|
+| **Swipe threshold** | 100px vers le bas |
+| **Max drag** | 150px |
+| **Indicator** | Pill animé avec progression |
+| **Colors** | Gradient primary → vert quand prêt |
+| **Haptic** | Medium au seuil, Success au release |
+
+**États visuels:**
+```
+[Dragging < 100px]  →  "Swipe for Peaks" (gradient primary)
+[Dragging >= 100px] →  "Release for Peaks!" (gradient vert)
+[Released >= 100px] →  Navigate to Peaks screen
+```
+
+**Note:** Uniquement sur FanFeed car VibesFeed a déjà les Peaks visibles.
+
+---
+
+### Advanced AI Mood Detection System (nouveau)
+
+**Architecture multi-composants pour détection d'humeur et recommandations personnalisées.**
+
+#### Nouveaux fichiers créés
+
+| Fichier | Rôle |
+|---------|------|
+| `src/services/moodDetection.ts` | Moteur multi-signal fusion (600+ lignes) |
+| `src/services/moodRecommendation.ts` | Two-tower recommendation engine |
+| `src/hooks/useMoodAI.ts` | Hook React pour intégration |
+
+---
+
+#### Multi-Signal Mood Detection
+
+**Fichier:** `src/services/moodDetection.ts`
+
+Le système fusionne **4 types de signaux** avec pondération configurable:
+
+| Signal | Poids | Métriques |
+|--------|-------|-----------|
+| **Behavioral** | 0.25 | Scroll velocity, pauses, direction, rapid scrolls |
+| **Engagement** | 0.30 | Likes, comments, shares, time per post |
+| **Temporal** | 0.20 | Time of day, day of week, session duration |
+| **Content** | 0.25 | Category preferences, media type preferences |
+
+**Scroll Velocity Tracking:**
+```typescript
+// Track last 50 scroll positions with timestamps
+// Calculate average velocity, pause count, rapid scroll count
+// Detect: bored (fast scroll), engaged (slow with pauses), focused (regular)
+```
+
+---
+
+#### Two-Tower Recommendation Engine
+
+**Fichier:** `src/services/moodRecommendation.ts`
+
+Architecture inspirée des systèmes ML modernes:
+
+**Mood → Content Mapping:**
+| Mood | Catégories | Types |
+|------|------------|-------|
+| Energetic | Fitness, Workout, Challenges, Motivation | video, carousel |
+| Relaxed | Nature, Meditation, Yoga, ASMR | image, video |
+| Social | Trending, Viral, Community, Comedy | video, carousel |
+| Creative | Art, Design, Photography, Music | image, carousel |
+| Focused | Education, Tutorial, Productivity | video, carousel |
+
+**Emotional Uplift Strategy:**
+```typescript
+// When mood is low, boost positive content
+lowEnergy:  +50% boost to Motivation, Comedy, Uplifting
+stressed:   +40% boost to Nature, ASMR, Meditation
+lonely:     +60% boost to Community, Social, Friends
+bored:      +30% boost to Trending, Viral, Surprising
+```
+
+**Configuration:**
+```typescript
+{
+  moodWeight: 0.4,           // Mood influence
+  diversityWeight: 0.25,     // Content diversity
+  freshnessWeight: 0.2,      // Recency preference
+  explorationRate: 0.15,     // Serendipity %
+  maxSameCreator: 3,         // Limit per creator
+  maxSameCategory: 5,        // Limit per category
+}
+```
+
+---
+
+#### useMoodAI Hook
+
+**Fichier:** `src/hooks/useMoodAI.ts`
+
+Hook React pour intégration dans composants:
+
+```typescript
+const {
+  mood,                    // Current mood analysis
+  isAnalyzing,             // Loading state
+  handleScroll,            // Auto scroll tracking
+  trackPostView,           // Track post view start
+  trackPostExit,           // Track post view end
+  trackLike,               // Track like action
+  getRecommendations,      // Get AI recommendations
+  quickRerank,             // Fast reorder posts
+  refreshMood,             // Force mood refresh
+} = useMoodAI({
+  enableScrollTracking: true,
+  moodUpdateInterval: 30000,
+  onMoodChange: (mood) => console.log('Mood:', mood.primaryMood),
+});
+```
+
+---
+
+#### 6 Moods avec Display
+
+| Mood | Emoji | Couleur | Gradient | Description |
+|------|-------|---------|----------|-------------|
+| `energetic` | ⚡ | #FF6B6B | #FF6B6B → #FF8E53 | Ready to conquer the day |
+| `relaxed` | 🌿 | #4CAF50 | #4CAF50 → #8BC34A | Taking it easy |
+| `social` | 👋 | #2196F3 | #2196F3 → #03A9F4 | Feeling connected |
+| `creative` | 🎨 | #9C27B0 | #9C27B0 → #E040FB | Inspired and imaginative |
+| `focused` | 💡 | #FF9800 | #FF9800 → #FFC107 | Deep in concentration |
+| `neutral` | ✨ | #607D8B | #607D8B → #90A4AE | Open to discovery |
+
+---
+
+### Advanced Mood Indicator Widget
+
+Widget animé en haut du VibesFeed avec informations détaillées.
+
+**Apparence:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [⚡]  Your vibe        [Active]                     75%     │
+│       Energetic                                    [████░]  │
+│       Ready to conquer the day                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Animations:**
+- Pulse: scale 1 → 1.02 → 1 (2s loop)
+- Glow: opacity 0.2 → 0.6 si confidence > 60%
+- Tap to refresh mood analysis
+
+**Strategy badges:** Active, Engaged, Exploring
+
+---
+
+### Glassmorphism (VibesFeed)
+
+**Overlay des vibe cards avec effet blur.**
+
+```javascript
+import { BlurView } from 'expo-blur';
+
+<BlurView intensity={20} tint="dark" style={styles.vibeBlurOverlay}>
+  <Text style={styles.vibeTitle}>{post.title}</Text>
+  // ...
+</BlurView>
+```
+
+**Styles ajoutés:**
+- `textShadowColor: rgba(0,0,0,0.5)`
+- `borderWidth: 1` sur avatars
+- `backgroundColor: rgba(0,0,0,0.3)` comme fallback
+
+---
+
+### Animated Filter Chips
+
+**Animation bounce au tap sur les chips de filtres.**
+
+```javascript
+Animated.sequence([
+  Animated.timing(scale, { toValue: 0.9, duration: 80 }),
+  Animated.spring(scale, { toValue: 1, friction: 3, tension: 200 }),
+]).start();
+```
+
+**Ajouts visuels:**
+- Haptic feedback Light au tap
+- Icône X visible sur chips actifs
+- Scale animation instantanée
+
+---
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/components/DoubleTapLike.tsx` | Double-tap gesture with heart burst animation |
+| `src/components/SwipeToPeaks.tsx` | Swipe down gesture to open Peaks |
+| `src/store/engagementStore.ts` | Basic Zustand store for persistence |
+| `src/services/moodDetection.ts` | Advanced multi-signal mood detection engine |
+| `src/services/moodRecommendation.ts` | Two-tower recommendation architecture |
+| `src/hooks/useMoodAI.ts` | React hook for AI integration |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/screens/home/FanFeed.tsx` | +DoubleTapLike, +SwipeToPeaks |
+| `src/screens/home/VibesFeed.tsx` | +useMoodAI, +Advanced MoodIndicator, +Glassmorphism, +AnimatedChips, +Scroll tracking |
+| `docs/FEATURES_SPECS.md` | Section 20 major update with advanced AI system |
+| `docs/IMPLEMENTATION_LOG.md` | LOT R with advanced details |
+
+---
+
+## Version 1.4.2 - 21 Janvier 2026
+
+### RecordButton - S Logo with Inflate/Deflate Animation
+
+**Remplacement complet du design du bouton d'enregistrement.**
+
+| Ancien design | Nouveau design |
+|---------------|----------------|
+| 6 triangles blancs (logo Smuppy) | S logo Smuppy avec gradient |
+| Animation shutter (cercle blanc) | Animation inflate/deflate |
+| Rotation des triangles | Scale avec spring physics |
+
+**Animation:**
+```javascript
+// Inflate (on press)
+logoScale.value = withSpring(1.25, { damping: 12, stiffness: 180 });
+
+// Deflate (on release)
+logoScale.value = withSpring(1, { damping: 15, stiffness: 200 });
+```
+
+**S Logo gradient:**
+- `#0EBF8A` → `#00B3C7` (diagonal)
+
+**Fichier modifié:** `src/components/peaks/RecordButton.tsx`
+
+---
+
+### Badge Components (nouveau)
+
+**Nouveau fichier:** `src/components/Badge.tsx`
+
+| Badge | Icon | Gradient |
+|-------|------|----------|
+| VerifiedBadge | Checkmark/Shield | Vert → Cyan |
+| PremiumBadge | Star/Circle | Or → Orange |
+| CreatorBadge | Play/Hexagon | Smuppy gradient |
+
+**Usage:**
+```javascript
+import { VerifiedBadge, PremiumBadge } from '../components/Badge';
+
+<View style={styles.nameWithBadges}>
+  <Text>{user.displayName}</Text>
+  {user.isVerified && <VerifiedBadge size={18} />}
+  {user.isPremium && <PremiumBadge size={18} />}
+</View>
+```
+
+---
+
+### Fan Terminology (Branding Update)
+
+**Remplacement de la terminologie "Follow" par "Fan" dans toute l'app.**
+
+| Écran | Changement |
+|-------|------------|
+| NotificationsScreen | "Follows" → "New Fans", "Follow" → "Fan", "Following" → "Tracking" |
+| ProfileScreen (QR) | "Scan to follow on Smuppy" → "Scan to be my fan!" |
+| FansListScreen | "Unfollow" → "Unfan" |
+| UserProfileScreen | "Unfollow" → "Unfan" |
+| VibesFeed | "Follow" → "Fan" |
+| AddPostDetailsScreen | Messages mis à jour |
+
+**Fichiers modifiés:**
+- `src/screens/notifications/NotificationsScreen.tsx`
+- `src/screens/profile/ProfileScreen.tsx`
+- `src/screens/profile/FansListScreen.tsx`
+- `src/screens/profile/UserProfileScreen.tsx`
+- `src/screens/home/VibesFeed.tsx`
+- `src/screens/home/AddPostDetailsScreen.tsx`
+
+---
+
+### Profile Screen Enhancements
+
+**Améliorations visuelles du profil:**
+
+1. **Badges** - Affichés à côté du nom (verified + premium)
+2. **Glassmorphism Stats** - Effet blur sur les stats Fans/Posts
+3. **isVerified/isPremium** - Champs ajoutés au user state
+
+**Fichier modifié:** `src/screens/profile/ProfileScreen.tsx`
+
+---
+
 ## Version 1.4.1 - 21 Janvier 2026
 
 ### PeakViewScreen - UX/UI Redesign (Phase 1)

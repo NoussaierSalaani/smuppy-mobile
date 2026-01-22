@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,147 +16,179 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
+import DoubleTapLike from '../../components/DoubleTapLike';
+import SwipeToPeaks from '../../components/SwipeToPeaks';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
+import { getFeedFromFollowed, likePost, unlikePost, hasLikedPost, getSuggestedProfiles, followUser, Post, Profile } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 
-// Posts from people you follow (Mock data - will be replaced by useFeedPosts hook)
-const FAN_POSTS = [
-  {
-    id: 1,
-    type: 'image',
-    media: 'https://picsum.photos/800/1000?random=50',
-    user: {
-      id: '1',
-      name: 'Hannah Smith',
-      username: '@hannahsmith',
-      avatar: 'https://i.pravatar.cc/100?img=1',
-      isVerified: true,
-    },
-    caption: 'Morning workout done! Nothing beats starting the day with some cardio and strength training. Who else is up early grinding? #fitness #motivation',
-    likes: 1234,
-    comments: 89,
-    shares: 23,
-    saves: 156,
-    isLiked: false,
-    isSaved: false,
-    timeAgo: '2h ago',
-    location: 'Gold Gym, LA',
-  },
-  {
-    id: 2,
-    type: 'video',
-    media: 'https://picsum.photos/800/1000?random=51',
-    duration: '1:45',
-    user: {
-      id: '2',
-      name: 'Thomas Lefèvre',
-      username: '@thomaslef',
-      avatar: 'https://i.pravatar.cc/100?img=3',
-      isVerified: false,
-    },
-    caption: 'New personal record on the 5K! Been training for months and finally broke 20 minutes. Next goal: sub-19! #running #pr #goals',
-    likes: 892,
-    comments: 45,
-    shares: 12,
-    saves: 78,
-    isLiked: true,
-    isSaved: false,
-    timeAgo: '4h ago',
-    location: 'Central Park, NYC',
-  },
-  {
-    id: 3,
-    type: 'carousel',
-    media: 'https://picsum.photos/800/1000?random=52',
-    slideCount: 4,
-    user: {
-      id: '3',
-      name: 'Mariam Fiori',
-      username: '@mariamfiori',
-      avatar: 'https://i.pravatar.cc/100?img=5',
-      isVerified: true,
-    },
-    caption: 'Swipe to see my full yoga flow sequence. Perfect for morning stretching or evening relaxation. Save this for later! #yoga #wellness #flexibility',
-    likes: 2341,
-    comments: 167,
-    shares: 89,
-    saves: 432,
-    isLiked: false,
-    isSaved: true,
-    timeAgo: '6h ago',
-    location: 'Bali, Indonesia',
-  },
-  {
-    id: 4,
-    type: 'image',
-    media: 'https://picsum.photos/800/1000?random=53',
-    user: {
-      id: '4',
-      name: 'Alex Runner',
-      username: '@alexrunner',
-      avatar: 'https://i.pravatar.cc/100?img=8',
-      isVerified: false,
-    },
-    caption: 'Trail running is my therapy. Nothing clears the mind like nature and fresh air. Where do you like to run?',
-    likes: 567,
-    comments: 34,
-    shares: 8,
-    saves: 45,
-    isLiked: false,
-    isSaved: false,
-    timeAgo: '8h ago',
-    location: 'Swiss Alps',
-  },
-  {
-    id: 5,
-    type: 'video',
-    media: 'https://picsum.photos/800/1000?random=54',
-    duration: '3:20',
-    user: {
-      id: '5',
-      name: 'FitCoach Pro',
-      username: '@fitcoachpro',
-      avatar: 'https://i.pravatar.cc/100?img=12',
-      isVerified: true,
-    },
-    caption: 'Full HIIT workout - no equipment needed! 20 minutes, maximum results. Drop a comment if you completed it!',
-    likes: 4521,
-    comments: 298,
-    shares: 234,
-    saves: 1890,
-    isLiked: false,
-    isSaved: false,
-    timeAgo: '12h ago',
-    location: null,
-  },
-];
+// Suggestion interface for the UI
+interface UISuggestion {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  isVerified: boolean;
+}
 
-// Stories data
-const STORIES = [
-  { id: '0', name: 'Your Story', avatar: 'https://i.pravatar.cc/100?img=33', isOwn: true, hasStory: false },
-  { id: '1', name: 'Emma', avatar: 'https://i.pravatar.cc/100?img=9', isVerified: true, hasStory: true },
-  { id: '2', name: 'James', avatar: 'https://i.pravatar.cc/100?img=11', isVerified: false, hasStory: true },
-  { id: '3', name: 'Sofia', avatar: 'https://i.pravatar.cc/100?img=16', isVerified: true, hasStory: true },
-  { id: '4', name: 'Mike', avatar: 'https://i.pravatar.cc/100?img=18', isVerified: false, hasStory: true },
-  { id: '5', name: 'Lisa', avatar: 'https://i.pravatar.cc/100?img=23', isVerified: false, hasStory: true },
-];
+// Transform Post from database to UI format
+interface UIPost {
+  id: string;
+  type: 'image' | 'video' | 'carousel';
+  media: string;
+  slideCount?: number;
+  duration?: string;
+  user: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    isVerified: boolean;
+  };
+  caption: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  isLiked: boolean;
+  isSaved: boolean;
+  timeAgo: string;
+  location: string | null;
+}
 
-const _PAGE_SIZE = 5; // For future pagination
+const transformPostToUI = (post: Post, likedPostIds: Set<string>): UIPost => {
+  const getTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  return {
+    id: post.id,
+    type: post.media_type === 'video' ? 'video' : post.media_type === 'multiple' ? 'carousel' : 'image',
+    media: post.media_urls?.[0] || 'https://via.placeholder.com/800x1000',
+    slideCount: post.media_type === 'multiple' ? post.media_urls?.length : undefined,
+    user: {
+      id: post.author?.id || post.author_id,
+      name: post.author?.full_name || 'User',
+      username: `@${post.author?.username || 'user'}`,
+      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
+      isVerified: post.author?.is_verified || false,
+    },
+    caption: post.content || '',
+    likes: post.likes_count || 0,
+    comments: post.comments_count || 0,
+    shares: 0,
+    saves: 0,
+    isLiked: likedPostIds.has(post.id),
+    isSaved: false,
+    timeAgo: getTimeAgo(post.created_at),
+    location: post.location || null,
+  };
+};
 
 export default function FanFeed() {
   const navigation = useNavigation();
   const { handleScroll } = useTabBar();
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
-  const [posts, setPosts] = useState(FAN_POSTS);
+
+  // State for real posts from API
+  const [posts, setPosts] = useState<UIPost[]>([]);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [_selectedPost, setSelectedPost] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  // Suggestions state
+  const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
+
+  // Fetch posts from tracked users
+  const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
+    try {
+      const { data, error } = await getFeedFromFollowed(pageNum, 10);
+
+      if (error) {
+        console.error('[FanFeed] Error fetching posts:', error);
+        return;
+      }
+
+      if (data) {
+        // Check liked status for each post
+        const likedIds = new Set<string>();
+        for (const post of data) {
+          const { hasLiked } = await hasLikedPost(post.id);
+          if (hasLiked) likedIds.add(post.id);
+        }
+
+        const transformedPosts = data.map(post => transformPostToUI(post, likedIds));
+
+        if (refresh || pageNum === 0) {
+          setPosts(transformedPosts);
+          setLikedPostIds(likedIds);
+        } else {
+          setPosts(prev => [...prev, ...transformedPosts]);
+          setLikedPostIds(prev => new Set([...prev, ...likedIds]));
+        }
+
+        setHasMore(data.length >= 10);
+      }
+    } catch (err) {
+      console.error('[FanFeed] Error:', err);
+    }
+  }, []);
+
+  // Fetch suggestions
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      const { data } = await getSuggestedProfiles(8);
+      if (data) {
+        const transformed: UISuggestion[] = data.map((p: Profile) => ({
+          id: p.id,
+          name: p.full_name || p.username || 'User',
+          username: p.username || 'user',
+          avatar: p.avatar_url || 'https://via.placeholder.com/100',
+          isVerified: p.is_verified || false,
+        }));
+        setSuggestions(transformed);
+      }
+    } catch (err) {
+      console.error('[FanFeed] Error fetching suggestions:', err);
+    }
+  }, []);
+
+  // Handle track/follow user
+  const handleTrackUser = useCallback(async (userId: string) => {
+    try {
+      await followUser(userId);
+      // Remove from suggestions after following
+      setSuggestions(prev => prev.filter(s => s.id !== userId));
+    } catch (err) {
+      console.error('[FanFeed] Error following user:', err);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.all([fetchPosts(0), fetchSuggestions()]).finally(() => setIsLoading(false));
+  }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)
   const visiblePosts = useMemo(() =>
@@ -183,8 +215,9 @@ export default function FanFeed() {
     return num.toString();
   }, []);
 
-  // Toggle like
-  const toggleLike = useCallback((postId) => {
+  // Toggle like with real API
+  const toggleLike = useCallback(async (postId: string) => {
+    // Optimistic update
     setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
@@ -195,7 +228,49 @@ export default function FanFeed() {
       }
       return post;
     }));
-  }, []);
+
+    // Find the post to check current like status
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    try {
+      if (post.isLiked) {
+        // Unlike
+        const { error } = await unlikePost(postId);
+        if (error) {
+          // Revert on error
+          setPosts(prevPosts => prevPosts.map(p => {
+            if (p.id === postId) {
+              return { ...p, isLiked: true, likes: p.likes + 1 };
+            }
+            return p;
+          }));
+        } else {
+          setLikedPostIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(postId);
+            return newSet;
+          });
+        }
+      } else {
+        // Like
+        const { error } = await likePost(postId);
+        if (error) {
+          // Revert on error
+          setPosts(prevPosts => prevPosts.map(p => {
+            if (p.id === postId) {
+              return { ...p, isLiked: false, likes: p.likes - 1 };
+            }
+            return p;
+          }));
+        } else {
+          setLikedPostIds(prev => new Set([...prev, postId]));
+        }
+      }
+    } catch (err) {
+      console.error('[FanFeed] Like toggle error:', err);
+    }
+  }, [posts]);
 
   // Toggle save
   const toggleSave = useCallback((postId) => {
@@ -220,58 +295,53 @@ export default function FanFeed() {
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // TODO: Replace with useFeedPosts().refetch()
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setPosts(FAN_POSTS);
-    setHasMore(true);
+    setPage(0);
+    await fetchPosts(0, true);
     setRefreshing(false);
-  }, []);
+  }, [fetchPosts]);
 
   // Load more posts
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
-    // TODO: Replace with useFeedPosts().fetchNextPage()
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setHasMore(false);
+    const nextPage = page + 1;
+    setPage(nextPage);
+    await fetchPosts(nextPage);
     setLoadingMore(false);
-  }, [loadingMore, hasMore]);
+  }, [loadingMore, hasMore, page, fetchPosts]);
 
-  // Render story item
-  const renderStory = (story) => (
-    <TouchableOpacity
-      key={story.id}
-      style={styles.storyItem}
-      onPress={() => !story.isOwn && goToUserProfile(story.id)}
-    >
-      {story.hasStory || story.isOwn ? (
+  // Render suggestion item
+  const renderSuggestion = useCallback((suggestion: UISuggestion) => (
+    <View key={suggestion.id} style={styles.suggestionItem}>
+      <TouchableOpacity
+        style={styles.suggestionAvatarWrapper}
+        onPress={() => goToUserProfile(suggestion.id)}
+      >
         <LinearGradient
-          colors={story.hasStory ? GRADIENTS.primary : ['#ccc', '#ccc']}
-          style={styles.storyRing}
+          colors={GRADIENTS.primary}
+          style={styles.suggestionRing}
         >
-          <View style={styles.storyAvatarContainer}>
-            <AvatarImage source={story.avatar} size={58} />
+          <View style={styles.suggestionAvatarContainer}>
+            <AvatarImage source={suggestion.avatar} size={54} />
           </View>
         </LinearGradient>
-      ) : (
-        <View style={[styles.storyRing, { backgroundColor: '#eee' }]}>
-          <View style={styles.storyAvatarContainer}>
-            <AvatarImage source={story.avatar} size={58} />
+        {suggestion.isVerified && (
+          <View style={styles.verifiedBadgeSuggestion}>
+            <Ionicons name="checkmark" size={8} color="#fff" />
           </View>
-        </View>
-      )}
-
-      {story.isOwn && (
-        <View style={styles.addStoryBadge}>
-          <Ionicons name="add" size={14} color="#fff" />
-        </View>
-      )}
-
-      <Text style={styles.storyName} numberOfLines={1}>
-        {story.isOwn ? 'Your Story' : story.name}
+        )}
+      </TouchableOpacity>
+      <Text style={styles.suggestionName} numberOfLines={1}>
+        {suggestion.name.split(' ')[0]}
       </Text>
-    </TouchableOpacity>
-  );
+      <TouchableOpacity
+        style={styles.trackButton}
+        onPress={() => handleTrackUser(suggestion.id)}
+      >
+        <Text style={styles.trackButtonText}>Track</Text>
+      </TouchableOpacity>
+    </View>
+  ), [goToUserProfile, handleTrackUser]);
 
   // Render post item for FlashList
   const renderPost = useCallback(({ item: post, index }) => (
@@ -302,8 +372,16 @@ export default function FanFeed() {
         </TouchableOpacity>
       </View>
 
-      {/* Media - Using OptimizedImage with caching */}
-      <TouchableOpacity activeOpacity={0.95}>
+      {/* Media - Using OptimizedImage with caching + Double Tap to Like */}
+      <DoubleTapLike
+        onDoubleTap={() => {
+          if (!post.isLiked) {
+            toggleLike(post.id);
+          }
+        }}
+        onSingleTap={() => navigation.navigate('PostDetailFanFeed', { postId: post.id })}
+        showAnimation={!post.isLiked}
+      >
         <View style={styles.postMedia}>
           <OptimizedImage
             source={post.media}
@@ -332,7 +410,7 @@ export default function FanFeed() {
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </DoubleTapLike>
 
       {/* Actions */}
       <View style={styles.postActions}>
@@ -341,10 +419,10 @@ export default function FanFeed() {
             style={styles.postAction}
             onPress={() => toggleLike(post.id)}
           >
-            <Ionicons
-              name={post.isLiked ? "heart" : "heart-outline"}
+            <SmuppyHeartIcon
               size={26}
               color={post.isLiked ? "#FF6B6B" : COLORS.dark}
+              filled={post.isLiked}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -396,14 +474,26 @@ export default function FanFeed() {
     </View>
   ), [visiblePosts.length, goToUserProfile, toggleLike, toggleSave, openComments, formatNumber]);
 
-  // List header with stories
+  // List header with suggestions
   const ListHeader = useMemo(() => (
-    <View style={styles.storiesSection}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {STORIES.map(renderStory)}
-      </ScrollView>
-    </View>
-  ), []);
+    suggestions.length > 0 ? (
+      <View style={styles.suggestionsSection}>
+        <View style={styles.suggestionsSectionHeader}>
+          <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+            <Text style={styles.seeAllText}>See all</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.suggestionsScrollContent}
+        >
+          {suggestions.map(renderSuggestion)}
+        </ScrollView>
+      </View>
+    ) : null
+  ), [suggestions, renderSuggestion, navigation]);
 
   // List footer with loading indicator
   const ListFooter = useCallback(() => {
@@ -414,7 +504,8 @@ export default function FanFeed() {
         </View>
       );
     }
-    if (!hasMore) {
+    // Only show "All Caught Up" when there IS content and user has seen it all
+    if (!hasMore && posts.length > 0) {
       return (
         <View style={styles.endOfFeed}>
           <Ionicons name="checkmark-circle" size={50} color={COLORS.primary} />
@@ -426,7 +517,7 @@ export default function FanFeed() {
       );
     }
     return null;
-  }, [loadingMore, hasMore]);
+  }, [loadingMore, hasMore, posts.length]);
 
   const keyExtractor = useCallback((item) => String(item.id), []);
 
@@ -468,7 +559,7 @@ export default function FanFeed() {
                 <Text style={styles.commentTime}>{i}h ago</Text>
               </View>
               <TouchableOpacity>
-                <Ionicons name="heart-outline" size={16} color={COLORS.gray} />
+                <SmuppyHeartIcon size={16} color={COLORS.gray} />
               </TouchableOpacity>
             </View>
           ))}
@@ -490,30 +581,66 @@ export default function FanFeed() {
     </Modal>
   );
 
+  // Empty state component
+  const EmptyState = useCallback(() => (
+    <View style={styles.emptyState}>
+      <Ionicons name="people-outline" size={64} color={COLORS.grayMuted} />
+      <Text style={styles.emptyStateTitle}>No Posts Yet</Text>
+      <Text style={styles.emptyStateSubtitle}>
+        Track some users to see their posts here
+      </Text>
+      <TouchableOpacity
+        style={styles.emptyStateButton}
+        onPress={() => navigation.navigate('Search')}
+      >
+        <Text style={styles.emptyStateButtonText}>Find People</Text>
+      </TouchableOpacity>
+    </View>
+  ), [navigation]);
+
+  // Loading state
+  if (isLoading && posts.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading your feed...</Text>
+      </View>
+    );
+  }
+
+  // Navigate to Peaks screen
+  const openPeaks = useCallback(() => {
+    navigation.navigate('Peaks');
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
-      {/* FlashList - 10x faster than FlatList */}
-      <FlashList
-        data={visiblePosts}
-        renderItem={renderPost}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListFooter}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
-          />
-        }
-        contentContainerStyle={styles.listContent}
-      />
+      {/* Swipe down to open Peaks - Smuppy unique gesture */}
+      <SwipeToPeaks onOpenPeaks={openPeaks}>
+        {/* FlashList - 10x faster than FlatList */}
+        <FlashList<UIPost>
+          data={visiblePosts}
+          renderItem={renderPost}
+          keyExtractor={keyExtractor}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter}
+          ListEmptyComponent={EmptyState}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary]}
+            />
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      </SwipeToPeaks>
 
       {renderCommentsModal()}
     </View>
@@ -526,49 +653,84 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
 
-  // Stories
-  storiesSection: {
+  // Suggestions Section
+  suggestionsSection: {
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.grayLight,
   },
-  storyItem: {
+  suggestionsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginLeft: SPACING.base,
-    width: 72,
+    paddingHorizontal: SPACING.base,
+    marginBottom: SPACING.sm,
   },
-  storyRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    padding: 3,
-    marginBottom: 6,
+  suggestionsSectionTitle: {
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
+    color: COLORS.dark,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontFamily: 'Poppins-Medium',
+    color: COLORS.primary,
+  },
+  suggestionsScrollContent: {
+    paddingHorizontal: SPACING.sm,
+  },
+  suggestionItem: {
+    alignItems: 'center',
+    marginHorizontal: 6,
+    width: 80,
+  },
+  suggestionAvatarWrapper: {
+    position: 'relative',
+  },
+  suggestionRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    padding: 2,
+    marginBottom: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  storyAvatarContainer: {
+  suggestionAvatarContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: 31,
+    borderRadius: 28,
     padding: 2,
   },
-  addStoryBadge: {
+  verifiedBadgeSuggestion: {
     position: 'absolute',
-    bottom: 22,
+    bottom: 4,
     right: 0,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: COLORS.white,
   },
-  storyName: {
+  suggestionName: {
     fontSize: 11,
     color: COLORS.dark,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Poppins-Medium',
     textAlign: 'center',
+    marginBottom: 4,
+  },
+  trackButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  trackButtonText: {
+    fontSize: 10,
+    fontFamily: 'Poppins-SemiBold',
+    color: COLORS.white,
   },
 
   // Post
@@ -818,5 +980,53 @@ const styles = StyleSheet.create({
   loadingMore: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+
+  // Loading state
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  loadingText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: SPACING.md,
+  },
+
+  // Empty state
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+    paddingTop: 100,
+  },
+  emptyStateTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 20,
+    color: COLORS.dark,
+    marginTop: SPACING.lg,
+  },
+  emptyStateSubtitle: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+  },
+  emptyStateButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: 25,
+    marginTop: SPACING.lg,
+  },
+  emptyStateButtonText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+    color: COLORS.white,
   },
 });

@@ -602,6 +602,11 @@ export default function FanFeed() {
     </View>
   ), [navigation]);
 
+  // Navigate to Peaks screen - MUST be before any conditional returns (Rules of Hooks)
+  const openPeaks = useCallback(() => {
+    navigation.navigate('Peaks');
+  }, [navigation]);
+
   // Loading state
   if (isLoading && posts.length === 0) {
     return (
@@ -611,11 +616,6 @@ export default function FanFeed() {
       </View>
     );
   }
-
-  // Navigate to Peaks screen
-  const openPeaks = useCallback(() => {
-    navigation.navigate('Peaks');
-  }, [navigation]);
 
   return (
     <View style={styles.container}>

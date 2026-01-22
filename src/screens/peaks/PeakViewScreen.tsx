@@ -14,6 +14,7 @@ import {
   PanResponderGestureState,
   Modal,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
@@ -21,7 +22,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
+import TagFriendModal from '../../components/TagFriendModal';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import PeakReactions, { ReactionType } from '../../components/PeakReactions';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { copyPeakLink, sharePeak } from '../../utils/share';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +34,14 @@ interface PeakUser {
   id: string;
   name: string;
   avatar: string;
+}
+
+interface PeakTag {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  taggedAt: Date;
 }
 
 interface Peak {
@@ -39,11 +52,13 @@ interface Peak {
   views: number;
   likes?: number;
   repliesCount?: number;
-  sharesCount?: number;
+  tagsCount?: number;
+  tags?: PeakTag[];
   textOverlay?: string;
   createdAt: Date;
   isLiked?: boolean;
   isSaved?: boolean;
+  isOwnPeak?: boolean; // To show tag count only to creator
 }
 
 type RootStackParamList = {
@@ -70,6 +85,10 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [likedPeaks, setLikedPeaks] = useState<Set<string>>(new Set());
   const [savedPeaks, setSavedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
+  const [showReactions, setShowReactions] = useState(false);
+  const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
 
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartParticles = useRef([...Array(6)].map(() => ({
@@ -234,10 +253,42 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
   }, [currentPeak.id]);
 
-  const handleShare = useCallback((): void => {
+  const handleOpenTagModal = useCallback((): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Implement share functionality
+    setShowTagModal(true);
   }, []);
+
+  const handleTagFriend = useCallback((friend: { id: string; name: string }) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPeakTags(prev => {
+      const newMap = new Map(prev);
+      const currentTags = newMap.get(currentPeak.id) || [];
+      if (!currentTags.includes(friend.id)) {
+        newMap.set(currentPeak.id, [...currentTags, friend.id]);
+      }
+      return newMap;
+    });
+    // TODO: Send tag notification to the friend via API
+  }, [currentPeak.id]);
+
+  // Handle reactions - removed duplicate, using existing handleLongPress below
+
+  const handleReaction = useCallback((reactionType: ReactionType) => {
+    setPeakReactions(prev => {
+      const newMap = new Map(prev);
+      const currentReaction = newMap.get(currentPeak.id);
+
+      // Toggle off if same reaction
+      if (currentReaction === reactionType) {
+        newMap.delete(currentPeak.id);
+      } else {
+        newMap.set(currentPeak.id, reactionType);
+      }
+      return newMap;
+    });
+    setShowReactions(false);
+    // TODO: Send reaction to API
+  }, [currentPeak.id]);
 
   const formatCount = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -295,10 +346,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const handleLongPress = (): void => {
     setIsPaused(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Show menu after a brief delay
-    setTimeout(() => {
-      setShowMenu(true);
-    }, 200);
+    // Show reactions bar
+    setShowReactions(true);
   };
 
   const handlePressOut = (): void => {
@@ -312,17 +361,42 @@ const PeakViewScreen = (): React.JSX.Element => {
     setIsPaused(false);
   };
 
-  const handleMenuAction = (action: string): void => {
+  const handleMenuAction = async (action: string): Promise<void> => {
     closeMenu();
     switch (action) {
       case 'report':
-        // TODO: Implement report
+        Alert.alert(
+          'Report Peak',
+          'Are you sure you want to report this Peak?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Report',
+              style: 'destructive',
+              onPress: () => {
+                // TODO: Implement report API call
+                Alert.alert('Reported', 'Thank you for your report. We will review this content.');
+              },
+            },
+          ]
+        );
         break;
       case 'not_interested':
-        // TODO: Implement not interested
+        // TODO: Implement not interested - hide from feed
+        Alert.alert('Got it', "We won't show you similar content.");
         break;
       case 'copy_link':
-        // TODO: Implement copy link
+        const copied = await copyPeakLink(currentPeak.id);
+        if (copied) {
+          Alert.alert('Copied!', 'Link copied to clipboard');
+        }
+        break;
+      case 'share':
+        await sharePeak(
+          currentPeak.id,
+          currentPeak.user.name,
+          currentPeak.user.name.toLowerCase().replace(/\s/g, '')
+        );
         break;
     }
   };
@@ -383,7 +457,9 @@ const PeakViewScreen = (): React.JSX.Element => {
   const isSaved = savedPeaks.has(currentPeak.id);
   const likesCount = (currentPeak.likes || 0) + (isLiked ? 1 : 0);
   const repliesCount = currentPeak.repliesCount || 0;
-  const sharesCount = currentPeak.sharesCount || 0;
+  const existingTags = peakTags.get(currentPeak.id) || [];
+  const tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;
+  const isOwnPeak = currentPeak.isOwnPeak || false;
 
   return (
     <View style={styles.container}>
@@ -446,10 +522,10 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* Like Button */}
           <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
-              <Ionicons
-                name={isLiked ? "heart" : "heart-outline"}
+              <SmuppyHeartIcon
                 size={32}
                 color={isLiked ? COLORS.primary : COLORS.white}
+                filled={isLiked}
               />
             </View>
             <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
@@ -463,12 +539,15 @@ const PeakViewScreen = (): React.JSX.Element => {
             <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
           </TouchableOpacity>
 
-          {/* Share Button */}
-          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="paper-plane-outline" size={28} color={COLORS.white} />
+          {/* Tag Button */}
+          <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
+            <View style={[styles.actionIconContainer, styles.tagIconContainer]}>
+              <Ionicons name="pricetag-outline" size={26} color={COLORS.white} />
             </View>
-            <Text style={styles.actionCount}>{formatCount(sharesCount)}</Text>
+            {/* Only show tag count to creator */}
+            {isOwnPeak && tagsCount > 0 && (
+              <Text style={styles.actionCount}>{formatCount(tagsCount)}</Text>
+            )}
           </TouchableOpacity>
 
           {/* Save Button */}
@@ -543,7 +622,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               }
             ]}
           >
-            <Ionicons name="heart" size={100} color={COLORS.primary} />
+            <SmuppyHeartIcon size={100} color={COLORS.primary} filled />
           </Animated.View>
 
           {/* Particles */}
@@ -562,7 +641,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 }
               ]}
             >
-              <Ionicons name="heart" size={24} color={COLORS.primary} />
+              <SmuppyHeartIcon size={24} color={COLORS.primary} filled />
             </Animated.View>
           ))}
         </View>
@@ -618,14 +697,6 @@ const PeakViewScreen = (): React.JSX.Element => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => handleMenuAction('copy_link')}
-            >
-              <Ionicons name="link-outline" size={24} color={COLORS.white} />
-              <Text style={styles.menuItemText}>Copier le lien</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.menuItem, styles.menuItemDanger]}
               onPress={() => handleMenuAction('report')}
             >
@@ -642,6 +713,26 @@ const PeakViewScreen = (): React.JSX.Element => {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Tag Friend Modal */}
+      <TagFriendModal
+        visible={showTagModal}
+        onClose={() => setShowTagModal(false)}
+        onTagFriend={handleTagFriend}
+        peakId={currentPeak.id}
+        existingTags={existingTags}
+      />
+
+      {/* Smuppy Reactions Bar */}
+      <PeakReactions
+        visible={showReactions}
+        onReact={handleReaction}
+        onClose={() => {
+          setShowReactions(false);
+          setIsPaused(false);
+        }}
+        currentReaction={peakReactions.get(currentPeak.id) || null}
+      />
     </View>
   );
 };
@@ -715,6 +806,10 @@ const styles = StyleSheet.create({
   },
   actionIconActive: {
     backgroundColor: 'rgba(17, 227, 163, 0.2)',
+  },
+  tagIconContainer: {
+    borderWidth: 1,
+    borderColor: 'rgba(14, 191, 138, 0.3)',
   },
   actionCount: {
     fontSize: 12,

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { DARK_COLORS as COLORS } from '../../config/theme';
 import { useProfile } from '../../hooks';
+import { followUser, unfollowUser, isFollowing, getPostsByUser, Post } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 const HEADER_MAX_HEIGHT = 280;
@@ -48,44 +49,6 @@ const DEFAULT_PROFILE = {
   isVerified: false,
 };
 
-const MOCK_POSTS = [
-  {
-    id: '1',
-    thumbnail: 'https://images.unsplash.com/photo-1542751110-97427bbecf20?w=400',
-    title: 'Epic Win Moment',
-    duration: '0:34',
-    likes: 1234,
-    comments: 89,
-    isVideo: true,
-  },
-  {
-    id: '2',
-    thumbnail: 'https://images.unsplash.com/photo-1493711662062-fa541f7f3d24?w=400',
-    title: 'New Setup Tour',
-    duration: '2:15',
-    likes: 856,
-    comments: 42,
-    isVideo: true,
-  },
-  {
-    id: '3',
-    thumbnail: 'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400',
-    title: 'Start At Zero',
-    duration: null,
-    likes: 2341,
-    comments: 156,
-    isVideo: false,
-  },
-  {
-    id: '4',
-    thumbnail: 'https://images.unsplash.com/photo-1552820728-8b83bb6b2b0a?w=400',
-    title: 'Gaming Highlights',
-    duration: '1:20',
-    likes: 567,
-    comments: 23,
-    isVideo: true,
-  },
-];
 
 const UserProfileScreen = () => {
   const navigation = useNavigation();
@@ -115,6 +78,7 @@ const UserProfileScreen = () => {
   
   // États
   const [isFan, setIsFan] = useState(false);
+  const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockEndDate, setBlockEndDate] = useState(null);
@@ -122,6 +86,36 @@ const UserProfileScreen = () => {
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showFanRequiredModal, setShowFanRequiredModal] = useState(false);
+
+  // User's posts
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+
+  // Check if current user is following this profile
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (userId) {
+        const { following } = await isFollowing(userId);
+        setIsFan(following);
+      }
+    };
+    checkFollowStatus();
+  }, [userId]);
+
+  // Load user's posts
+  useEffect(() => {
+    const loadUserPosts = async () => {
+      if (userId) {
+        setIsLoadingPosts(true);
+        const { data, error } = await getPostsByUser(userId, 0, 20);
+        if (!error && data) {
+          setUserPosts(data);
+        }
+        setIsLoadingPosts(false);
+      }
+    };
+    loadUserPosts();
+  }, [userId]);
   
   // Animation scroll
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -159,10 +153,12 @@ const UserProfileScreen = () => {
     }
   };
   
-  const becomeFan = () => {
+  const becomeFan = async () => {
+    if (!userId || isLoadingFollow) return;
+
     const newCount = fanToggleCount + 1;
     setFanToggleCount(newCount);
-    
+
     if (newCount > 2) {
       // Bloquer pour 7 jours
       const endDate = new Date();
@@ -170,24 +166,45 @@ const UserProfileScreen = () => {
       setBlockEndDate(endDate);
       setIsBlocked(true);
       setShowBlockedModal(true);
-    } else {
+      return;
+    }
+
+    setIsLoadingFollow(true);
+    const { error } = await followUser(userId);
+    setIsLoadingFollow(false);
+
+    if (!error) {
       setIsFan(true);
+    } else {
+      console.error('[UserProfile] Follow error:', error);
     }
   };
-  
-  const confirmUnfan = () => {
+
+  const confirmUnfan = async () => {
+    if (!userId || isLoadingFollow) return;
+
     setShowUnfanModal(false);
-    setIsFan(false);
-    
+
     const newCount = fanToggleCount + 1;
     setFanToggleCount(newCount);
-    
+
     if (newCount > 2) {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 7);
       setBlockEndDate(endDate);
       setIsBlocked(true);
       setTimeout(() => setShowBlockedModal(true), 300);
+      return;
+    }
+
+    setIsLoadingFollow(true);
+    const { error } = await unfollowUser(userId);
+    setIsLoadingFollow(false);
+
+    if (!error) {
+      setIsFan(false);
+    } else {
+      console.error('[UserProfile] Unfollow error:', error);
     }
   };
   
@@ -266,39 +283,47 @@ const UserProfileScreen = () => {
     );
   }
 
-  // ✅ CORRIGÉ - Render Post Card avec bonne route
-  const renderPostCard = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.postCard}
-      activeOpacity={0.8}
-      onPress={() => navigation.navigate('PostDetailFanFeed', { postId: item.id })}
-    >
-      <View style={styles.thumbnailContainer}>
-        <OptimizedImage source={item.thumbnail} style={styles.thumbnail} />
-        {item.isVideo && item.duration && (
-          <View style={styles.durationBadge}>
-            <Text style={styles.durationText}>{item.duration}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.postInfo}>
-        <Text style={styles.postTitle} numberOfLines={1}>{item.title}</Text>
-        <View style={styles.postStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statIcon}>❤️</Text>
-            <Text style={styles.statText}>{item.likes}</Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.statItem}
-            onPress={() => handleCommentPress(item.id)}
-          >
-            <Text style={styles.statIcon}>💬</Text>
-            <Text style={styles.statText}>{item.comments}</Text>
-          </TouchableOpacity>
+  // Render Post Card with real data
+  const renderPostCard = (post: Post) => {
+    const thumbnail = post.media_urls?.[0] || 'https://via.placeholder.com/200';
+    const isVideo = post.media_type === 'video';
+
+    return (
+      <TouchableOpacity
+        key={post.id}
+        style={styles.postCard}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('PostDetailFanFeed', { postId: post.id })}
+      >
+        <View style={styles.thumbnailContainer}>
+          <OptimizedImage source={thumbnail} style={styles.thumbnail} />
+          {isVideo && (
+            <View style={styles.durationBadge}>
+              <Text style={styles.durationText}>Video</Text>
+            </View>
+          )}
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.postInfo}>
+          <Text style={styles.postTitle} numberOfLines={2}>
+            {post.content || 'No caption'}
+          </Text>
+          <View style={styles.postStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statIcon}>❤️</Text>
+              <Text style={styles.statText}>{post.likes_count || 0}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => handleCommentPress(post.id)}
+            >
+              <Text style={styles.statIcon}>💬</Text>
+              <Text style={styles.statText}>{post.comments_count || 0}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   // Render Empty State
   const renderEmptyState = () => (
@@ -455,12 +480,17 @@ const UserProfileScreen = () => {
         {/* Posts Section */}
         <View style={styles.postsSection}>
           <Text style={styles.sectionTitle}>Posts</Text>
-          
-          {MOCK_POSTS.length > 0 ? (
+
+          {isLoadingPosts ? (
+            <View style={styles.loadingPostsContainer}>
+              <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+              <Text style={styles.loadingPostsText}>Loading posts...</Text>
+            </View>
+          ) : userPosts.length > 0 ? (
             <View style={styles.postsGrid}>
-              {MOCK_POSTS.map((post) => (
+              {userPosts.map((post) => (
                 <View key={post.id} style={styles.postCardWrapper}>
-                  {renderPostCard({ item: post })}
+                  {renderPostCard(post)}
                 </View>
               ))}
             </View>
@@ -930,6 +960,17 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   
+  // Loading Posts
+  loadingPostsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingPostsText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 8,
+  },
+
   // Empty State
   emptyState: {
     alignItems: 'center',

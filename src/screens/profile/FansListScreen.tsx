@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,24 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import {
+  getFollowers,
+  getFollowing,
+  followUser,
+  unfollowUser,
+  isFollowing,
+  getCurrentProfile,
+  Profile,
+} from '../../services/database';
 
 // Types
 interface User {
@@ -30,42 +41,104 @@ interface User {
   lastUnfollowAt: number | null;
 }
 
-// Sample data - Replace with real API calls
-const SAMPLE_USERS: User[] = [
-  { id: '1', name: 'Hannah Smith', username: '@hannahsmith', avatar: 'https://i.pravatar.cc/100?img=1', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '2', name: 'Thomas Lefèvre', username: '@thomaslef', avatar: 'https://i.pravatar.cc/100?img=3', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '3', name: 'Mariam Fiori', username: '@mariamfiori', avatar: 'https://i.pravatar.cc/100?img=5', isVerified: true, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '4', name: 'Alex Runner', username: '@alexrunner', avatar: 'https://i.pravatar.cc/100?img=8', isVerified: false, isFanOfMe: false, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '5', name: 'FitCoach Pro', username: '@fitcoachpro', avatar: 'https://i.pravatar.cc/100?img=12', isVerified: true, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '6', name: 'Sarah Johnson', username: '@sarahj', avatar: 'https://i.pravatar.cc/100?img=9', isVerified: false, isFanOfMe: true, iAmFanOf: false, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '7', name: 'Mike Chen', username: '@mikechen', avatar: 'https://i.pravatar.cc/100?img=11', isVerified: true, isFanOfMe: false, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
-  { id: '8', name: 'David Kim', username: '@davidkim', avatar: 'https://i.pravatar.cc/100?img=14', isVerified: false, isFanOfMe: true, iAmFanOf: true, unfollowCount: 0, lastUnfollowAt: null },
-];
-
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Transform Profile to User
+const profileToUser = (
+  profile: Profile,
+  isFanOfMe: boolean,
+  iAmFanOf: boolean
+): User => ({
+  id: profile.id,
+  name: profile.full_name || profile.username || 'User',
+  username: `@${profile.username || 'user'}`,
+  avatar: profile.avatar_url || 'https://via.placeholder.com/100',
+  isVerified: profile.is_verified || false,
+  isFanOfMe,
+  iAmFanOf,
+  unfollowCount: 0,
+  lastUnfollowAt: null,
+});
 
 export default function FansListScreen({ navigation, route }: { navigation: any; route: any }) {
   const insets = useSafeAreaInsets();
   const initialTab = route?.params?.initialTab || 'fans';
+  const userId = route?.params?.userId; // Optional: view another user's fans
 
   // State
   const [activeTab, setActiveTab] = useState<'fans' | 'tracking'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
-  const [allUsers, setAllUsers] = useState<User[]>(SAMPLE_USERS);
+  const [fans, setFans] = useState<User[]>([]);
+  const [tracking, setTracking] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showUnfollowPopup, setShowUnfollowPopup] = useState(false);
   const [showWarningPopup, setShowWarningPopup] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Computed lists
-  const fans = useMemo(() =>
-    allUsers.filter(u => u.isFanOfMe),
-    [allUsers]
-  );
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const tracking = useMemo(() =>
-    allUsers.filter(u => u.iAmFanOf),
-    [allUsers]
-  );
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+
+      // Get current user ID
+      const { data: currentProfile } = await getCurrentProfile();
+      if (!currentProfile) {
+        console.error('[FansListScreen] No current profile');
+        setIsLoading(false);
+        return;
+      }
+
+      const targetUserId = userId || currentProfile.id;
+      setCurrentUserId(currentProfile.id);
+
+      // Load followers (fans) and following (tracking) in parallel
+      const [fansResult, trackingResult] = await Promise.all([
+        getFollowers(targetUserId, 0, 100),
+        getFollowing(targetUserId, 0, 100),
+      ]);
+
+      // Get IDs of people I follow for mutual check
+      const myFollowingIds = new Set(
+        trackingResult.data?.map((p) => p.id) || []
+      );
+
+      // Get IDs of people who follow me for mutual check
+      const myFansIds = new Set(
+        fansResult.data?.map((p) => p.id) || []
+      );
+
+      // Transform fans
+      const transformedFans: User[] = (fansResult.data || []).map((profile) =>
+        profileToUser(profile, true, myFollowingIds.has(profile.id))
+      );
+
+      // Transform tracking
+      const transformedTracking: User[] = (trackingResult.data || []).map((profile) =>
+        profileToUser(profile, myFansIds.has(profile.id), true)
+      );
+
+      setFans(transformedFans);
+      setTracking(transformedTracking);
+    } catch (error) {
+      console.error('[FansListScreen] Error loading data:', error);
+      Alert.alert('Error', 'Failed to load data. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadData();
+  }, []);
 
   // Filter by search
   const filteredList = useMemo(() => {
@@ -73,17 +146,18 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     if (!searchQuery.trim()) return list;
 
     const query = searchQuery.toLowerCase();
-    return list.filter(user =>
-      user.name.toLowerCase().includes(query) ||
-      user.username.toLowerCase().includes(query)
+    return list.filter(
+      (user) =>
+        user.name.toLowerCase().includes(query) ||
+        user.username.toLowerCase().includes(query)
     );
   }, [activeTab, fans, tracking, searchQuery]);
 
-  // Cooldown helpers
+  // Cooldown helpers (stored locally for now - could be moved to backend)
   const canRefollow = useCallback((user: User): boolean => {
     if (!user.unfollowCount || user.unfollowCount < 2) return true;
     if (!user.lastUnfollowAt) return true;
-    return (Date.now() - user.lastUnfollowAt) >= SEVEN_DAYS_MS;
+    return Date.now() - user.lastUnfollowAt >= SEVEN_DAYS_MS;
   }, []);
 
   const getDaysRemaining = useCallback((lastUnfollowAt: number | null): number => {
@@ -93,24 +167,52 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   }, []);
 
   // Actions
-  const handleFollow = useCallback((userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    if (!user) return;
+  const handleFollow = useCallback(
+    async (targetUserId: string) => {
+      const user = [...fans, ...tracking].find((u) => u.id === targetUserId);
+      if (!user) return;
 
-    if (!canRefollow(user)) {
-      const days = getDaysRemaining(user.lastUnfollowAt);
-      Alert.alert(
-        'Cannot follow yet',
-        `Wait ${days} more day${days > 1 ? 's' : ''} before following ${user.name} again.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+      if (!canRefollow(user)) {
+        const days = getDaysRemaining(user.lastUnfollowAt);
+        Alert.alert(
+          'Cannot become a fan yet',
+          `Wait ${days} more day${days > 1 ? 's' : ''} before becoming a fan of ${user.name} again.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
-    setAllUsers(prev => prev.map(u =>
-      u.id === userId ? { ...u, iAmFanOf: true } : u
-    ));
-  }, [allUsers, canRefollow, getDaysRemaining]);
+      setActionLoading(targetUserId);
+
+      try {
+        const { error } = await followUser(targetUserId);
+        if (error) {
+          Alert.alert('Error', error);
+          return;
+        }
+
+        // Update local state
+        setFans((prev) =>
+          prev.map((u) => (u.id === targetUserId ? { ...u, iAmFanOf: true } : u))
+        );
+        setTracking((prev) => {
+          // Add to tracking if not already there
+          if (!prev.find((u) => u.id === targetUserId)) {
+            return [...prev, { ...user, iAmFanOf: true }];
+          }
+          return prev.map((u) =>
+            u.id === targetUserId ? { ...u, iAmFanOf: true } : u
+          );
+        });
+      } catch (error) {
+        console.error('[FansListScreen] Follow error:', error);
+        Alert.alert('Error', 'Failed to follow. Please try again.');
+      } finally {
+        setActionLoading(null);
+      }
+    },
+    [fans, tracking, canRefollow, getDaysRemaining]
+  );
 
   const handleUnfollowPress = useCallback((user: User) => {
     setSelectedUser(user);
@@ -121,20 +223,42 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     }
   }, []);
 
-  const confirmUnfollow = useCallback(() => {
+  const confirmUnfollow = useCallback(async () => {
     if (!selectedUser) return;
 
-    setAllUsers(prev => prev.map(user =>
-      user.id === selectedUser.id
-        ? {
-            ...user,
-            iAmFanOf: false,
-            unfollowCount: (user.unfollowCount || 0) + 1,
-            lastUnfollowAt: Date.now()
-          }
-        : user
-    ));
-    closePopups();
+    setActionLoading(selectedUser.id);
+
+    try {
+      const { error } = await unfollowUser(selectedUser.id);
+      if (error) {
+        Alert.alert('Error', error);
+        return;
+      }
+
+      // Update local state
+      setFans((prev) =>
+        prev.map((user) =>
+          user.id === selectedUser.id
+            ? {
+                ...user,
+                iAmFanOf: false,
+                unfollowCount: (user.unfollowCount || 0) + 1,
+                lastUnfollowAt: Date.now(),
+              }
+            : user
+        )
+      );
+      setTracking((prev) =>
+        prev.filter((user) => user.id !== selectedUser.id)
+      );
+
+      closePopups();
+    } catch (error) {
+      console.error('[FansListScreen] Unfollow error:', error);
+      Alert.alert('Error', 'Failed to unfollow. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
   }, [selectedUser]);
 
   const closePopups = useCallback(() => {
@@ -144,69 +268,84 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   }, []);
 
   // Render badge
-  const renderBadge = useCallback((item: User) => {
-    const isMutual = item.isFanOfMe && item.iAmFanOf;
+  const renderBadge = useCallback(
+    (item: User) => {
+      const isMutual = item.isFanOfMe && item.iAmFanOf;
+      const isLoadingThis = actionLoading === item.id;
 
-    if (activeTab === 'fans') {
-      // Fans tab: show Track button if not following back
-      if (!item.iAmFanOf) {
+      if (isLoadingThis) {
         return (
-          <TouchableOpacity
-            style={styles.trackBadge}
-            onPress={() => handleFollow(item.id)}
-          >
-            <Ionicons name="add" size={14} color={COLORS.dark} />
-            <Text style={styles.trackBadgeText}>Track</Text>
-          </TouchableOpacity>
-        );
-      }
-      // Mutual - show small indicator
-      if (isMutual) {
-        return (
-          <View style={styles.mutualBadge}>
-            <Ionicons name="swap-horizontal" size={14} color={COLORS.primary} />
+          <View style={styles.loadingBadge}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
           </View>
         );
       }
-    } else {
-      // Tracking tab: show unfollow option
-      return (
-        <TouchableOpacity
-          style={styles.fanBadge}
-          onPress={() => handleUnfollowPress(item)}
-        >
-          <Ionicons name="heart" size={12} color={COLORS.primary} />
-          <Text style={styles.fanBadgeText}>Fan</Text>
-        </TouchableOpacity>
-      );
-    }
-    return null;
-  }, [activeTab, handleFollow, handleUnfollowPress]);
+
+      if (activeTab === 'fans') {
+        // Fans tab: show Track button if not following back
+        if (!item.iAmFanOf) {
+          return (
+            <TouchableOpacity
+              style={styles.trackBadge}
+              onPress={() => handleFollow(item.id)}
+            >
+              <Ionicons name="add" size={14} color={COLORS.dark} />
+              <Text style={styles.trackBadgeText}>Track</Text>
+            </TouchableOpacity>
+          );
+        }
+        // Mutual - show small indicator
+        if (isMutual) {
+          return (
+            <View style={styles.mutualBadge}>
+              <Ionicons name="swap-horizontal" size={14} color={COLORS.primary} />
+            </View>
+          );
+        }
+      } else {
+        // Tracking tab: show unfollow option
+        return (
+          <TouchableOpacity
+            style={styles.fanBadge}
+            onPress={() => handleUnfollowPress(item)}
+          >
+            <SmuppyHeartIcon size={12} color={COLORS.primary} filled />
+            <Text style={styles.fanBadgeText}>Fan</Text>
+          </TouchableOpacity>
+        );
+      }
+      return null;
+    },
+    [activeTab, handleFollow, handleUnfollowPress, actionLoading]
+  );
 
   // Render user item
-  const renderUserItem = useCallback(({ item }: { item: User }) => (
-    <TouchableOpacity
-      style={styles.userItem}
-      onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
-      activeOpacity={0.7}
-    >
-      <AvatarImage source={item.avatar} size={50} />
+  const renderUserItem = useCallback(
+    ({ item }: { item: User }) => (
+      <TouchableOpacity
+        style={styles.userItem}
+        onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+        activeOpacity={0.7}
+      >
+        <AvatarImage source={item.avatar} size={50} />
 
-      <View style={styles.userInfo}>
-        <View style={styles.nameRow}>
-          <Text style={styles.userName}>{item.name}</Text>
-          {item.isVerified && (
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark" size={10} color="#fff" />
-            </View>
-          )}
+        <View style={styles.userInfo}>
+          <View style={styles.nameRow}>
+            <Text style={styles.userName}>{item.name}</Text>
+            {item.isVerified && (
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark" size={10} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={styles.userUsername}>{item.username}</Text>
         </View>
-        <Text style={styles.userUsername}>{item.username}</Text>
-      </View>
 
-      {renderBadge(item)}
-    </TouchableOpacity>
-  ), [navigation, renderBadge]);
+        {renderBadge(item)}
+      </TouchableOpacity>
+    ),
+    [navigation, renderBadge]
+  );
 
   const keyExtractor = useCallback((item: User) => item.id, []);
 
@@ -269,10 +408,21 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       <Text style={styles.emptyDesc}>
         {activeTab === 'fans'
           ? 'Share your content to attract fans'
-          : 'Discover and follow creators you love'}
+          : 'Discover and become a fan of creators you love'}
       </Text>
     </View>
   );
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -322,6 +472,8 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       />
 
       {/* Unfollow Popup */}
@@ -346,9 +498,16 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                     <TouchableOpacity
                       style={styles.unfollowButton}
                       onPress={confirmUnfollow}
+                      disabled={actionLoading === selectedUser.id}
                     >
-                      <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
-                      <Text style={styles.unfollowButtonText}>Unfan</Text>
+                      {actionLoading === selectedUser.id ? (
+                        <ActivityIndicator size="small" color={COLORS.red} />
+                      ) : (
+                        <>
+                          <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                          <Text style={styles.unfollowButtonText}>Unfan</Text>
+                        </>
+                      )}
                     </TouchableOpacity>
                   </>
                 )}
@@ -383,9 +542,19 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                       <TouchableOpacity style={styles.cancelButton} onPress={closePopups}>
                         <Text style={styles.cancelButtonText}>Cancel</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.unfollowButton} onPress={confirmUnfollow}>
-                        <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
-                        <Text style={styles.unfollowButtonText}>Unfan</Text>
+                      <TouchableOpacity
+                        style={styles.unfollowButton}
+                        onPress={confirmUnfollow}
+                        disabled={actionLoading === selectedUser.id}
+                      >
+                        {actionLoading === selectedUser.id ? (
+                          <ActivityIndicator size="small" color={COLORS.red} />
+                        ) : (
+                          <>
+                            <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                            <Text style={styles.unfollowButtonText}>Unfan</Text>
+                          </>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </>
@@ -403,6 +572,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0A0A0F',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: COLORS.gray,
+  },
+  loadingBadge: {
+    width: 60,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Header
@@ -670,6 +854,8 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 1,
     borderColor: COLORS.red,
+    minWidth: 100,
+    justifyContent: 'center',
   },
   unfollowButtonText: {
     fontSize: 15,

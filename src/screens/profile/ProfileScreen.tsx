@@ -8,8 +8,6 @@ import {
   StatusBar,
   Modal,
   Alert,
-  ActionSheetIOS,
-  Platform,
   RefreshControl,
   ActivityIndicator,
   Linking,
@@ -27,6 +25,8 @@ import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 import { VerifiedBadge, PremiumBadge } from '../../components/Badge';
+import SmuppyActionSheet from '../../components/SmuppyActionSheet';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -264,7 +264,9 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // Modal states
   const [showQRModal, setShowQRModal] = useState(false);
-  
+  const [showImageSheet, setShowImageSheet] = useState(false);
+  const [imageSheetType, setImageSheetType] = useState<'avatar' | 'cover'>('avatar');
+
   const isOwnProfile = route?.params?.userId === undefined;
 
   const resolvedProfile = useMemo(() => {
@@ -345,69 +347,72 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [refetchProfile, refetchPosts, refetchSavedPosts]);
 
   // ==================== IMAGE PICKER ====================
-  const showImageOptions = (type) => {
-    const title = type === 'avatar' ? 'Profile Photo' : 'Cover Photo';
-    const options = ['Take Photo', 'Choose from Library', 'Cancel'];
-    
-    if ((type === 'avatar' && user.avatar) || (type === 'cover' && user.coverImage)) {
-      options.splice(2, 0, 'Remove Photo');
-    }
+  const showImageOptions = (type: 'avatar' | 'cover') => {
+    setImageSheetType(type);
+    setShowImageSheet(true);
+  };
 
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title,
-          options,
-          cancelButtonIndex: options.length - 1,
-          destructiveButtonIndex: options.indexOf('Remove Photo'),
-        },
-        (index) => handleImageOption(index, type, options)
-      );
-    } else {
-      Alert.alert(title, '', 
-        options.map((opt, idx) => ({
-          text: opt,
-          style: opt === 'Remove Photo' ? 'destructive' : opt === 'Cancel' ? 'cancel' : 'default',
-          onPress: () => handleImageOption(idx, type, options),
-        }))
-      );
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: imageSheetType === 'avatar' ? [1, 1] : [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      updateImage(imageSheetType, result.assets[0].uri);
     }
   };
 
-  const handleImageOption = async (index, type, options) => {
-    const option = options[index];
-    
-    if (option === 'Take Photo') {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Camera access is required');
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: type === 'avatar' ? [1, 1] : [16, 9],
-        quality: 0.8,
-      });
-      if (!result.canceled) {
-        updateImage(type, result.assets[0].uri);
-      }
-    } else if (option === 'Choose from Library') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Photo library access is required');
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        aspect: type === 'avatar' ? [1, 1] : [16, 9],
-        quality: 0.8,
-      });
-      if (!result.canceled) {
-        updateImage(type, result.assets[0].uri);
-      }
-    } else if (option === 'Remove Photo') {
-      updateImage(type, null);
+  const handleChooseLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Photo library access is required');
+      return;
     }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: imageSheetType === 'avatar' ? [1, 1] : [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      updateImage(imageSheetType, result.assets[0].uri);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    updateImage(imageSheetType, null);
+  };
+
+  const getImageSheetOptions = () => {
+    const hasExisting = imageSheetType === 'avatar' ? !!user.avatar : !!user.coverImage;
+    const options: Array<{ label: string; icon: string; onPress: () => Promise<void>; destructive?: boolean }> = [
+      {
+        label: 'Take Photo',
+        icon: 'camera-outline',
+        onPress: handleTakePhoto,
+      },
+      {
+        label: 'Choose from Library',
+        icon: 'images-outline',
+        onPress: handleChooseLibrary,
+      },
+    ];
+
+    if (hasExisting) {
+      options.push({
+        label: 'Remove Photo',
+        icon: 'trash-outline',
+        onPress: handleRemovePhoto,
+        destructive: true,
+      });
+    }
+
+    return options;
   };
 
   const updateImage = (type, uri) => {
@@ -654,6 +659,7 @@ const ProfileScreen = ({ navigation, route }) => {
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
             activeOpacity={0.8}
+            style={{ flex: 1 }}
           >
             {activeTab === tab.key ? (
               <LinearGradient
@@ -720,7 +726,7 @@ const ProfileScreen = ({ navigation, route }) => {
         {/* Stats overlay at bottom */}
         <View style={styles.postStatsOverlay}>
           <View style={styles.postStat}>
-            <Ionicons name="heart" size={12} color="#FFF" />
+            <SmuppyHeartIcon size={12} color="#FFF" filled />
             <Text style={styles.postStatText}>{post.likes_count || 0}</Text>
           </View>
         </View>
@@ -737,7 +743,6 @@ const ProfileScreen = ({ navigation, route }) => {
     const likes = peak.likes_count || Math.floor(Math.random() * 500) + 50;
     const views = peak.views_count || Math.floor(Math.random() * 2000) + 200;
     const replies = peak.replies_count || Math.floor(Math.random() * 30) + 5;
-    const shares = peak.shares_count || Math.floor(Math.random() * 20) + 2;
 
     return (
       <TouchableOpacity
@@ -759,7 +764,7 @@ const ProfileScreen = ({ navigation, route }) => {
         {/* Stats overlay */}
         <View style={styles.peakStatsOverlay}>
           <View style={styles.peakStat}>
-            <Ionicons name="heart" size={11} color="#FF6B6B" />
+            <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
             <Text style={styles.peakStatText}>{likes}</Text>
           </View>
           <View style={styles.peakStat}>
@@ -770,10 +775,13 @@ const ProfileScreen = ({ navigation, route }) => {
             <Ionicons name="chatbubble" size={10} color="#FFF" />
             <Text style={styles.peakStatText}>{replies}</Text>
           </View>
-          <View style={styles.peakStat}>
-            <Ionicons name="share-outline" size={11} color="#FFF" />
-            <Text style={styles.peakStatText}>{shares}</Text>
-          </View>
+          {/* Tags - only visible to the creator (own profile) */}
+          {isOwnProfile && peak.tags_count > 0 && (
+            <View style={styles.peakStat}>
+              <Ionicons name="pricetag" size={10} color={COLORS.primary} />
+              <Text style={[styles.peakStatText, { color: COLORS.primary }]}>{peak.tags_count}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -847,7 +855,7 @@ const ProfileScreen = ({ navigation, route }) => {
             <View style={styles.collectionMeta}>
               <AvatarImage source={post.author.avatar_url} size={18} />
               <Text style={styles.collectionAuthorName}>{post.author.full_name}</Text>
-              <Ionicons name="heart" size={12} color="#FF6B6B" />
+              <SmuppyHeartIcon size={12} color="#FF6B6B" filled />
               <Text style={styles.collectionLikes}>{post.likes_count || 0}</Text>
             </View>
           )}
@@ -997,6 +1005,18 @@ const ProfileScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {renderQRModal()}
+
+      {/* Image Picker Action Sheet */}
+      <SmuppyActionSheet
+        visible={showImageSheet}
+        onClose={() => setShowImageSheet(false)}
+        title={imageSheetType === 'avatar' ? 'Profile Photo' : 'Cover Photo'}
+        subtitle={imageSheetType === 'avatar'
+          ? 'Choose how you want to update your profile picture'
+          : 'Choose how you want to update your cover photo'
+        }
+        options={getImageSheetOptions()}
+      />
     </View>
   );
 };
@@ -1045,13 +1065,14 @@ const styles = StyleSheet.create({
   settingsBtn: {
     position: 'absolute',
     right: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
     zIndex: 10,
+    // Shadow pour visibilité sur la cover photo
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+    elevation: 3,
   },
 
   // ===== AVATAR ROW =====
@@ -1255,11 +1276,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pillActive: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#0EBF8A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -1317,7 +1342,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingTop: 16,
+    paddingTop: 0,
     paddingBottom: 20,
   },
 

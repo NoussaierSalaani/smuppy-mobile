@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 
 const { width, height } = Dimensions.get('window');
@@ -236,7 +237,7 @@ const PostDetailProfileScreen = () => {
               },
             ]}
           >
-            <Ionicons name="heart" size={100} color={COLORS.primaryGreen} />
+            <SmuppyHeartIcon size={100} color={COLORS.primaryGreen} filled />
           </Animated.View>
         )}
         
@@ -267,10 +268,10 @@ const PostDetailProfileScreen = () => {
             style={styles.actionBtn}
             onPress={() => setIsLiked(!isLiked)}
           >
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
+            <SmuppyHeartIcon
               size={28}
               color={isLiked ? COLORS.primaryGreen : '#FFF'}
+              filled={isLiked}
             />
           </TouchableOpacity>
           
@@ -357,12 +358,9 @@ const PostDetailProfileScreen = () => {
             <View style={styles.commentStats}>
               <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
               <Text style={styles.commentCount}>{formatNumber(item.comments)}</Text>
-              <Ionicons
-                name="heart"
-                size={18}
-                color={COLORS.primaryGreen}
-                style={{ marginLeft: 12 }}
-              />
+              <View style={{ marginLeft: 12 }}>
+                <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+              </View>
             </View>
           </TouchableOpacity>
         </View>
@@ -393,7 +391,7 @@ const PostDetailProfileScreen = () => {
         )}
       </View>
       <TouchableOpacity style={styles.commentLike}>
-        <Ionicons name="heart-outline" size={18} color={COLORS.textMuted} />
+        <SmuppyHeartIcon size={18} color={COLORS.textMuted} />
         <Text style={styles.commentLikeCount}>{formatNumber(item.likes)}</Text>
       </TouchableOpacity>
     </View>

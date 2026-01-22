@@ -14,7 +14,6 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Share,
   ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -24,8 +23,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
+import { sharePost, copyPostLink } from '../../utils/share';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -343,13 +344,24 @@ const PostDetailVibesFeedScreen = () => {
     setShareLoading(true);
     try {
       setShowMenu(false);
-      await Share.share({
-        message: `Check out this post by ${currentPost.user.name} on Smuppy!`,
-      });
+      await sharePost(
+        currentPost.id,
+        currentPost.description,
+        currentPost.user.name
+      );
     } catch (error) {
       // User cancelled or error - silent fail
     } finally {
       setShareLoading(false);
+    }
+  };
+
+  // Copy link to clipboard
+  const handleCopyLink = async () => {
+    setShowMenu(false);
+    const copied = await copyPostLink(currentPost.id);
+    if (copied) {
+      Alert.alert('Copied!', 'Post link copied to clipboard');
     }
   };
 
@@ -510,7 +522,7 @@ const PostDetailVibesFeedScreen = () => {
         <View style={styles.gridOverlay}>
           <Text style={styles.gridTitle} numberOfLines={2}>{post.title}</Text>
           <View style={styles.gridStats}>
-            <Ionicons name="heart" size={14} color="#FFF" />
+            <SmuppyHeartIcon size={14} color="#FFF" filled />
             <Text style={styles.gridLikes}>{formatNumber(post.likes)}</Text>
           </View>
         </View>
@@ -539,7 +551,7 @@ const PostDetailVibesFeedScreen = () => {
         )}
       </View>
       <TouchableOpacity style={styles.commentLike}>
-        <Ionicons name="heart-outline" size={18} color={COLORS.textMuted} />
+        <SmuppyHeartIcon size={18} color={COLORS.textMuted} />
         <Text style={styles.commentLikeCount}>{formatNumber(item.likes)}</Text>
       </TouchableOpacity>
     </View>
@@ -605,7 +617,7 @@ const PostDetailVibesFeedScreen = () => {
                     },
                   ]}
                 >
-                  <Ionicons name="heart" size={100} color={COLORS.primaryGreen} />
+                  <SmuppyHeartIcon size={100} color={COLORS.primaryGreen} filled />
                 </Animated.View>
               )}
               
@@ -648,10 +660,10 @@ const PostDetailVibesFeedScreen = () => {
                   {likeLoading ? (
                     <ActivityIndicator size="small" color={COLORS.primaryGreen} />
                   ) : (
-                    <Ionicons
-                      name={isLiked ? 'heart' : 'heart-outline'}
+                    <SmuppyHeartIcon
                       size={28}
                       color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                      filled={isLiked}
                     />
                   )}
                 </TouchableOpacity>
@@ -743,12 +755,9 @@ const PostDetailVibesFeedScreen = () => {
                   <View style={styles.commentStats}>
                     <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
                     <Text style={styles.commentCount}>{formatNumber(currentPost.comments)}</Text>
-                    <Ionicons
-                      name="heart"
-                      size={18}
-                      color={COLORS.primaryGreen}
-                      style={{ marginLeft: 12 }}
-                    />
+                    <View style={{ marginLeft: 12 }}>
+                      <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+                    </View>
                   </View>
                 </TouchableOpacity>
                 
@@ -788,7 +797,7 @@ const PostDetailVibesFeedScreen = () => {
                     <Text style={styles.condensedUserName}>{currentPost.user.name}</Text>
                   </View>
                   <View style={styles.condensedStats}>
-                    <Ionicons name="heart" size={16} color="#FFF" />
+                    <SmuppyHeartIcon size={16} color="#FFF" filled />
                     <Text style={styles.condensedLikes}>{formatNumber(currentPost.likes)}</Text>
                   </View>
                 </View>
@@ -926,10 +935,7 @@ const PostDetailVibesFeedScreen = () => {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => {
-                setShowMenu(false);
-                Alert.alert('Link Copied', 'Post link copied to clipboard!');
-              }}
+              onPress={handleCopyLink}
             >
               <Ionicons name="link-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Copy Link</Text>

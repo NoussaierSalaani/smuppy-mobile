@@ -7,9 +7,6 @@ import {
   TextInput,
   ScrollView,
   StatusBar,
-  Alert,
-  ActionSheetIOS,
-  Platform,
 } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +15,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { uploadProfileImage } from '../../services/imageUpload';
+import { supabase } from '../../config/supabase';
 import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
+import SmuppyActionSheet from '../../components/SmuppyActionSheet';
+import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
 
 const EditProfilScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -29,6 +29,20 @@ const EditProfilScreen = ({ navigation }) => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [avatarChanged, setAvatarChanged] = useState(false);
+  const [showImageSheet, setShowImageSheet] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const alert = useSmuppyAlert();
+
+  // Load user email from auth
+  useEffect(() => {
+    const loadEmail = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser?.email) {
+        setUserEmail(authUser.email);
+      }
+    };
+    loadEmail();
+  }, []);
 
   // Merge profile data from DB and local context
   const mergedProfile = {
@@ -76,37 +90,43 @@ const EditProfilScreen = ({ navigation }) => {
   };
 
   const showImagePicker = () => {
-    const options = ['Take Photo', 'Choose from Library', 'Cancel'];
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex: 2,
-        },
-        (index) => handleImageOption(index)
-      );
-    } else {
-      Alert.alert('Update Photo', '', [
-        { text: 'Take Photo', onPress: () => launchCamera() },
-        { text: 'Choose from Library', onPress: () => launchLibrary() },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+    setShowImageSheet(true);
   };
 
-  const handleImageOption = async (index) => {
-    if (index === 0) {
-      await launchCamera();
-    } else if (index === 1) {
-      await launchLibrary();
+  const getImageSheetOptions = () => {
+    const options: Array<{ label: string; icon: string; onPress: () => Promise<void>; destructive?: boolean }> = [
+      {
+        label: 'Take Photo',
+        icon: 'camera-outline',
+        onPress: launchCamera,
+      },
+      {
+        label: 'Choose from Library',
+        icon: 'images-outline',
+        onPress: launchLibrary,
+      },
+    ];
+
+    // Add remove option if avatar exists
+    if (avatar && avatar.startsWith('http')) {
+      options.push({
+        label: 'Remove Photo',
+        icon: 'trash-outline',
+        onPress: async () => {
+          updateField(setAvatar, '');
+          setAvatarChanged(true);
+        },
+        destructive: true,
+      });
     }
+
+    return options;
   };
 
   const launchCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access is required');
+      alert.warning('Permission needed', 'Camera access is required to take photos.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -124,7 +144,7 @@ const EditProfilScreen = ({ navigation }) => {
   const launchLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Photo library access is required');
+      alert.warning('Permission needed', 'Photo library access is required to choose photos.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -151,7 +171,7 @@ const EditProfilScreen = ({ navigation }) => {
       if (avatarChanged && avatar && !avatar.startsWith('http')) {
         const { url, error: uploadError } = await uploadProfileImage(avatar, profileData?.id || user.id || '');
         if (uploadError) {
-          Alert.alert('Error', 'Failed to upload photo. Please try again.');
+          alert.error('Upload Failed', 'Failed to upload photo. Please try again.');
           return;
         }
         if (url) avatarUrl = url;
@@ -185,7 +205,7 @@ const EditProfilScreen = ({ navigation }) => {
       navigation.goBack();
     } catch (error) {
       console.error('Save profile error:', error);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
+      alert.error('Save Failed', 'Failed to save profile. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -271,6 +291,18 @@ const EditProfilScreen = ({ navigation }) => {
 
         {/* Form Fields */}
         <View style={styles.formContainer}>
+          {/* Email (Read-only) */}
+          {userEmail && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={styles.readOnlyInput}>
+                <Ionicons name="mail-outline" size={18} color="#8E8E93" style={{ marginRight: 10 }} />
+                <Text style={styles.readOnlyText}>{userEmail}</Text>
+                <Ionicons name="lock-closed" size={14} color="#C7C7CC" />
+              </View>
+            </View>
+          )}
+
           {/* First Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>First name</Text>
@@ -359,6 +391,18 @@ const EditProfilScreen = ({ navigation }) => {
         onSelect={(selected) => updateField(setGender, selected)}
         selectedGender={gender}
       />
+
+      {/* Image Picker Action Sheet */}
+      <SmuppyActionSheet
+        visible={showImageSheet}
+        onClose={() => setShowImageSheet(false)}
+        title="Profile Photo"
+        subtitle="Choose how to update your photo"
+        options={getImageSheetOptions()}
+      />
+
+      {/* Alert Modal */}
+      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 };
@@ -481,6 +525,19 @@ const styles = StyleSheet.create({
   },
   selectInputPlaceholder: {
     color: '#C7C7CC',
+  },
+  readOnlyInput: {
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  readOnlyText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#6E6E73',
   },
 });
 

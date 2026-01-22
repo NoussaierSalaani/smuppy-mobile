@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
 import { COLORS, GRADIENTS, SIZES, SHADOWS } from '../config/theme';
 
 const { width } = Dimensions.get('window');
@@ -42,9 +43,9 @@ interface CardProps {
 }
 
 /**
- * Card Component
+ * Card Component - Memoized for performance in lists
  */
-export default function Card({ variant = 'post', data, size = 'tall', onPress, style }: CardProps): React.JSX.Element | null {
+const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress, style }: CardProps): React.JSX.Element | null {
   // Render Post Card
   if (variant === 'post') {
     const postData = data as PostData;
@@ -92,7 +93,7 @@ export default function Card({ variant = 'post', data, size = 'tall', onPress, s
 
             {/* Likes */}
             <View style={styles.postLikes}>
-              <Ionicons name="heart-outline" size={14} color={COLORS.graySecondary} />
+              <SmuppyHeartIcon size={14} color={COLORS.graySecondary} />
               <Text style={styles.postLikesText}>{postData.likes || 0}</Text>
             </View>
           </View>
@@ -196,7 +197,9 @@ export default function Card({ variant = 'post', data, size = 'tall', onPress, s
   }
 
   return null;
-}
+});
+
+export default Card;
 
 const styles = StyleSheet.create({
   // Post Card Styles

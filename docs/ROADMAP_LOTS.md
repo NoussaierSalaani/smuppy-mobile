@@ -45,7 +45,7 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - Local commits ahead of origin: **0**
 
 ### 1.2 Current active LOT
-✅ **LOT O — PeakViewScreen UX/UI Redesign Phase 1 (DONE)**
+✅ **LOT Q — API Connections: Follow/Fan, Tag Friends, Share (DONE)**
 
 ---
 
@@ -265,6 +265,92 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - Actions facilement accessibles à droite (pouce)
 - Haptic feedback sur toutes les interactions
 - Menu contextuel pour modération (signaler)
+
+---
+
+### ✅ LOT P — RecordButton S Logo + Badges + Fan Terminology
+**Status:** ✅ DONE
+**Date:** 2026-01-21
+
+#### Goals (completed)
+1) ✅ RecordButton: Remplacer triangles par S logo avec animation inflate/deflate
+2) ✅ Badge components: VerifiedBadge, PremiumBadge, CreatorBadge
+3) ✅ Fan terminology: Follow→Fan, Unfollow→Unfan, Following→Tracking
+4) ✅ QR modal: "Scan to be my fan!"
+5) ✅ Glassmorphism stats sur ProfileScreen
+
+#### Scope files
+- `src/components/peaks/RecordButton.tsx`
+- `src/components/Badge.tsx` (nouveau)
+- `src/screens/profile/ProfileScreen.tsx`
+- `src/screens/notifications/NotificationsScreen.tsx`
+- `src/screens/profile/FansListScreen.tsx`
+- `src/screens/profile/UserProfileScreen.tsx`
+- `src/screens/home/VibesFeed.tsx`
+- `src/screens/home/AddPostDetailsScreen.tsx`
+
+#### Key outcomes
+- RecordButton avec branding Smuppy (S logo)
+- Badges de vérification/premium visibles sur profil
+- Terminologie unique "Fan" pour différenciation
+
+---
+
+### ✅ LOT Q — API Connections: Follow/Fan, Tag Friends, Share
+**Status:** ✅ DONE
+**Date:** 2026-01-22
+
+#### Goals (completed)
+1) ✅ FansListScreen: Connexion à l'API Supabase réelle (plus de mock data)
+2) ✅ TagFriendModal: Chargement des vrais amis depuis la base de données
+3) ✅ Share utility: Création d'un utilitaire centralisé pour le partage
+4) ✅ PostDetail screens: Intégration du partage et copie de lien
+5) ✅ PeakViewScreen: Intégration du partage et copie de lien
+6) ✅ Profile save: Vérification du flow complet avec upload d'images
+7) ✅ Post creation: Vérification du flow complet dans AddPostDetailsScreen
+
+#### Scope files
+- `src/screens/profile/FansListScreen.tsx` - Refonte complète API
+- `src/components/TagFriendModal.tsx` - Connexion API réelle
+- `src/utils/share.ts` - Nouveau fichier utilitaire
+- `src/screens/peaks/PeakViewScreen.tsx` - Intégration share
+- `src/screens/home/PostDetailVibesFeedScreen.tsx` - Intégration share
+- `src/screens/home/PostDetailFanFeedScreen.tsx` - Intégration share
+- `src/screens/home/VibesFeed.tsx` - Fix interests variable
+- `src/screens/home/AddPostDetailsScreen.tsx` - Vérification complète
+
+#### API Functions utilisées
+```typescript
+// FansListScreen
+getFollowers(userId, offset, limit)
+getFollowing(userId, offset, limit)
+followUser(userId)
+unfollowUser(userId)
+isFollowing(userId)
+
+// TagFriendModal
+getFollowing(userId, offset, limit)
+getFollowers(userId, offset, limit)
+getCurrentProfile()
+```
+
+#### Share Utility (share.ts)
+```typescript
+// Fonctions exportées
+sharePost(postId, caption?, authorName?)
+sharePeak(peakId, authorName?, authorUsername?)
+shareProfile(userId, fullName?, username?)
+copyPostLink(postId)
+copyPeakLink(peakId)
+copyProfileLink(userId, username?)
+generateShareLink(content)
+```
+
+#### Key outcomes
+- Plus de données mock dans FansListScreen et TagFriendModal
+- Utilitaire de partage réutilisable pour toute l'app
+- Flow de création de post vérifié complet
+- Flow de sauvegarde de profil vérifié complet
 
 ---
 

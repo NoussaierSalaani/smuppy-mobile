@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -17,6 +16,8 @@ import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 4) / 3;
@@ -24,12 +25,14 @@ const MAX_SELECTION = 10;
 
 export default function CreatePostScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const alert = useSmuppyAlert();
   const [mediaAssets, setMediaAssets] = useState([]);
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [selectedPreview, setSelectedPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [showCameraSheet, setShowCameraSheet] = useState(false);
   
   // Post type is always 'post' for this screen (Peaks use CreatePeakScreen)
 
@@ -68,33 +71,28 @@ export default function CreatePostScreen({ navigation, route }) {
 
   // Open camera
   const openCamera = () => {
-    // Show options: Photo or Video
-    Alert.alert(
-      'Camera',
-      'What do you want to capture?',
-      [
-        {
-          text: 'Photo',
-          onPress: () => takePhoto(),
-        },
-        {
-          text: 'Video',
-          onPress: () => navigation.navigate('VideoRecorder'),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
+    setShowCameraSheet(true);
   };
+
+  const getCameraSheetOptions = () => [
+    {
+      label: 'Take Photo',
+      icon: 'camera-outline',
+      onPress: takePhoto,
+    },
+    {
+      label: 'Record Video',
+      icon: 'videocam-outline',
+      onPress: () => navigation.navigate('VideoRecorder'),
+    },
+  ];
 
   const takePhoto = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow camera access to take photos.');
+        alert.warning('Permission Needed', 'Please allow camera access to take photos.');
         return;
       }
 
@@ -116,8 +114,8 @@ export default function CreatePostScreen({ navigation, route }) {
         setSelectedPreview(newMedia);
       }
     } catch (error) {
-      Alert.alert(
-        'Camera not available',
+      alert.error(
+        'Camera Not Available',
         'Camera is not available on this device. Please select from your photo library instead.'
       );
     }
@@ -137,12 +135,12 @@ export default function CreatePostScreen({ navigation, route }) {
       }
     } else {
       if (selectedMedia.length >= MAX_SELECTION) {
-        Alert.alert('Limit reached', `You can select up to ${MAX_SELECTION} items.`);
+        alert.warning('Limit Reached', `You can select up to ${MAX_SELECTION} items.`);
         return;
       }
-      
+
       if (item.mediaType === 'video' && item.duration > 15) {
-        Alert.alert('Video too long', 'Videos must be 15 seconds or less.');
+        alert.warning('Video Too Long', 'Videos must be 15 seconds or less.');
         return;
       }
       
@@ -160,8 +158,8 @@ export default function CreatePostScreen({ navigation, route }) {
   // Handle next - MEDIA IS REQUIRED
   const handleNext = () => {
     if (selectedMedia.length === 0) {
-      Alert.alert(
-        'Select media', 
+      alert.warning(
+        'Select Media',
         'Please select at least one photo or video to create a post.'
       );
       return;
@@ -380,6 +378,18 @@ export default function CreatePostScreen({ navigation, route }) {
 
       {/* Discard Modal */}
       {renderDiscardModal()}
+
+      {/* Camera Action Sheet */}
+      <SmuppyActionSheet
+        visible={showCameraSheet}
+        onClose={() => setShowCameraSheet(false)}
+        title="Camera"
+        subtitle="What do you want to capture?"
+        options={getCameraSheetOptions()}
+      />
+
+      {/* Alert Modal */}
+      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 }

@@ -54,6 +54,7 @@ export interface Post {
   likes_count?: number;
   comments_count?: number;
   location?: string | null;
+  tags?: string[]; // Interest tags for filtering (e.g., ['Fitness', 'Yoga'])
   is_peak?: boolean;
   peak_duration?: number;
   peak_expires_at?: string;
@@ -131,14 +132,14 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
 
   // If no profile exists and autoCreate is enabled, create one
   if (!data && !error && autoCreate) {
-    console.log('[getCurrentProfile] No profile found, creating one...');
+    if (__DEV__) console.log('[getCurrentProfile] No profile found, creating one...');
     const profileData = {
       id: user.id,
       full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
       username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
       avatar_url: user.user_metadata?.avatar_url || null,
     };
-    console.log('[getCurrentProfile] Profile data:', profileData);
+    if (__DEV__) console.log('[getCurrentProfile] Profile data:', profileData);
 
     const insertResult = await supabase
       .from('profiles')
@@ -149,9 +150,9 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
     const { data: newProfile, error: createError } = insertResult as { data: Profile | null; error: { message: string } | null };
 
     if (createError) {
-      console.error('[getCurrentProfile] Failed to create profile:', createError);
+      if (__DEV__) console.error('[getCurrentProfile] Failed to create profile:', createError);
     } else {
-      console.log('[getCurrentProfile] Profile created successfully:', newProfile);
+      if (__DEV__) console.log('[getCurrentProfile] Profile created successfully');
     }
 
     return { data: newProfile, error: createError?.message || null };
@@ -195,8 +196,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  console.log('[updateProfile] User ID:', user.id);
-  console.log('[updateProfile] Updates:', updates);
+  if (__DEV__) console.log('[updateProfile] Updating profile...');
 
   // First, try to update existing profile
   const updateResult = await supabase
@@ -210,8 +210,6 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     error: { message: string } | null
   };
 
-  console.log('[updateProfile] Update result:', { data: updateData, error: updateError?.message });
-
   // If update succeeded and returned data, return it
   if (updateData && updateData.length > 0) {
     return { data: updateData[0], error: null };
@@ -219,7 +217,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
 
   // If no rows updated (profile doesn't exist), create one
   if (!updateError && (!updateData || updateData.length === 0)) {
-    console.log('[updateProfile] No profile found, creating one...');
+    if (__DEV__) console.log('[updateProfile] No profile found, creating one...');
 
     const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
     const uniqueUsername = `${username}_${Math.floor(Math.random() * 10000)}`;
@@ -240,7 +238,6 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
       error: { message: string } | null
     };
 
-    console.log('[updateProfile] Insert result:', { data: insertData, error: insertError?.message });
     return { data: insertData, error: insertError?.message || null };
   }
 
@@ -277,6 +274,47 @@ export const createProfile = async (profileData: Partial<Profile>): Promise<DbRe
   }
 
   return { data, error: error?.message || null };
+};
+
+/**
+ * Search profiles by username or full_name
+ */
+export const searchProfiles = async (
+  query: string,
+  limit = 20
+): Promise<DbResponse<Profile[]>> => {
+  if (!query || query.trim().length === 0) {
+    return { data: [], error: null };
+  }
+
+  const searchTerm = query.trim().toLowerCase();
+
+  const result = await supabase
+    .from('profiles')
+    .select('*')
+    .or(`username.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`)
+    .limit(limit);
+
+  const { data, error } = result as { data: Profile[] | null; error: { message: string } | null };
+  return { data: data || [], error: error?.message || null };
+};
+
+/**
+ * Get suggested profiles (for discovery/explore)
+ */
+export const getSuggestedProfiles = async (limit = 10): Promise<DbResponse<Profile[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Get profiles excluding current user, ordered by fan_count
+  const result = await supabase
+    .from('profiles')
+    .select('*')
+    .neq('id', user?.id || '')
+    .order('fan_count', { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  const { data, error } = result as { data: Profile[] | null; error: { message: string } | null };
+  return { data: data || [], error: error?.message || null };
 };
 
 /**
@@ -355,6 +393,204 @@ export const getPostsByUser = async (userId: string, page = 0, limit = 10): Prom
       author:profiles(id, username, full_name, avatar_url, is_verified)
     `)
     .eq('author_id', userId)
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Get posts from followed users (FanFeed)
+ * Returns posts from users that the current user follows
+ */
+export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const from = page * limit;
+  const to = from + limit - 1;
+
+  // First get the list of followed user IDs
+  const followsResult = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', user.id);
+
+  const { data: follows, error: followsError } = followsResult as {
+    data: Array<{ following_id: string }> | null;
+    error: { message: string } | null
+  };
+
+  if (followsError) {
+    return { data: null, error: followsError.message };
+  }
+
+  // If not following anyone, return empty array
+  if (!follows || follows.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const followedIds = follows.map(f => f.following_id);
+
+  // Get posts from followed users
+  const result = await supabase
+    .from('posts')
+    .select(`
+      *,
+      author:profiles(id, username, full_name, avatar_url, is_verified)
+    `)
+    .in('author_id', followedIds)
+    .in('visibility', ['public', 'fans'])
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Get discovery feed filtered by interests (VibesFeed)
+ * Logic:
+ * 1. Prioritize posts matching user interests (shown first)
+ * 2. Fill with popular/recent posts to ensure feed is never empty
+ * 3. Mix interests posts with discovery posts for variety
+ *
+ * @param selectedInterests - Currently active interest filters
+ * @param userInterests - All interests the user has selected in profile
+ * @param page - Pagination page number
+ * @param limit - Number of posts per page
+ */
+export const getDiscoveryFeed = async (
+  selectedInterests: string[] = [],
+  userInterests: string[] = [],
+  page = 0,
+  limit = 20
+): Promise<DbResponse<Post[]>> => {
+  const from = page * limit;
+  const to = from + limit - 1;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const currentUserId = user?.id;
+
+  // If specific interests are selected, filter by those
+  if (selectedInterests.length > 0) {
+    // Get posts matching selected interests
+    const interestResult = await supabase
+      .from('posts')
+      .select(`
+        *,
+        author:profiles(id, username, full_name, avatar_url, is_verified)
+      `)
+      .eq('visibility', 'public')
+      .neq('author_id', currentUserId || '')
+      .overlaps('tags', selectedInterests)
+      .order('likes_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    const interestPosts = (interestResult.data || []) as Post[];
+
+    // If we have enough interest posts, return them
+    if (interestPosts.length >= limit / 2) {
+      return { data: interestPosts, error: interestResult.error?.message || null };
+    }
+
+    // If not enough, fill with popular posts (excluding already fetched)
+    const fetchedIds = interestPosts.map(p => p.id);
+    const fillCount = limit - interestPosts.length;
+
+    const fillResult = await supabase
+      .from('posts')
+      .select(`
+        *,
+        author:profiles(id, username, full_name, avatar_url, is_verified)
+      `)
+      .eq('visibility', 'public')
+      .neq('author_id', currentUserId || '')
+      .not('id', 'in', `(${fetchedIds.length > 0 ? fetchedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
+      .order('likes_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(fillCount);
+
+    const fillPosts = (fillResult.data || []) as Post[];
+    return { data: [...interestPosts, ...fillPosts], error: null };
+  }
+
+  // No specific filter: mix user interests posts with popular posts
+  if (userInterests.length > 0 && page === 0) {
+    // First page: prioritize user interests then fill with popular
+    const interestResult = await supabase
+      .from('posts')
+      .select(`
+        *,
+        author:profiles(id, username, full_name, avatar_url, is_verified)
+      `)
+      .eq('visibility', 'public')
+      .neq('author_id', currentUserId || '')
+      .overlaps('tags', userInterests)
+      .order('likes_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(Math.ceil(limit * 0.6)); // 60% from interests
+
+    const interestPosts = (interestResult.data || []) as Post[];
+    const fetchedIds = interestPosts.map(p => p.id);
+    const remainingCount = limit - interestPosts.length;
+
+    // Fill with popular posts
+    const popularResult = await supabase
+      .from('posts')
+      .select(`
+        *,
+        author:profiles(id, username, full_name, avatar_url, is_verified)
+      `)
+      .eq('visibility', 'public')
+      .neq('author_id', currentUserId || '')
+      .not('id', 'in', `(${fetchedIds.length > 0 ? fetchedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
+      .order('likes_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(remainingCount);
+
+    const popularPosts = (popularResult.data || []) as Post[];
+    return { data: [...interestPosts, ...popularPosts], error: null };
+  }
+
+  // Default: all public posts ordered by popularity
+  const result = await supabase
+    .from('posts')
+    .select(`
+      *,
+      author:profiles(id, username, full_name, avatar_url, is_verified)
+    `)
+    .eq('visibility', 'public')
+    .neq('author_id', currentUserId || '')
+    .order('likes_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Get posts by specific tags/interests
+ */
+export const getPostsByTags = async (
+  tags: string[],
+  page = 0,
+  limit = 10
+): Promise<DbResponse<Post[]>> => {
+  const from = page * limit;
+  const to = from + limit - 1;
+
+  const result = await supabase
+    .from('posts')
+    .select(`
+      *,
+      author:profiles(id, username, full_name, avatar_url, is_verified)
+    `)
+    .eq('visibility', 'public')
+    .overlaps('tags', tags)
     .order('created_at', { ascending: false })
     .range(from, to);
 

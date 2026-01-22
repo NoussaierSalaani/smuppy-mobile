@@ -9,7 +9,6 @@ import {
   TextInput,
   ScrollView,
   Switch,
-  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +17,7 @@ import {
   EmitterSubscription,
 } from 'react-native';
 import { Video, AVPlaybackStatus, ResizeMode } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ import { DARK_COLORS as COLORS } from '../../config/theme';
 import { supabase } from '../../config/supabase';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import { createPost } from '../../services/database';
+import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -74,6 +75,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakPreview'>>();
+  const alert = useSmuppyAlert();
 
   const { videoUri, duration, replyTo, originalPeak } = route.params || {};
 
@@ -87,6 +89,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const [saveToProfile, setSaveToProfile] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Listen to keyboard
   useEffect(() => {
@@ -146,7 +149,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Error', 'You must be logged in to publish a Peak');
+        alert.error('Login Required', 'You must be logged in to publish a Peak');
         setIsPublishing(false);
         return;
       }
@@ -182,21 +185,11 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         throw new Error(typeof error === 'string' ? error : 'Failed to create Peak');
       }
 
-      Alert.alert(
-        'Peak published! 🎉',
-        replyTo ? 'Your reply has been posted' : 'Your Peak is now live',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.navigate('Tabs', { screen: 'Home' });
-            },
-          },
-        ]
-      );
+      // Show success and navigate
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Peak publish error:', error);
-      Alert.alert('Error', (error as Error).message || 'Unable to publish Peak');
+      alert.error('Publish Failed', (error as Error).message || 'Unable to publish Peak');
     } finally {
       setIsPublishing(false);
     }
@@ -433,26 +426,64 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           {!keyboardVisible && (
             <View style={[styles.publishContainer, { paddingBottom: insets.bottom + 10 }]}>
               <TouchableOpacity
-                style={[styles.publishButton, isPublishing && styles.publishButtonDisabled]}
+                style={styles.publishButtonContainer}
                 onPress={handlePublish}
                 disabled={isPublishing}
+                activeOpacity={0.9}
               >
-                {isPublishing ? (
-                  <>
-                    <ActivityIndicator size="small" color={COLORS.dark} />
-                    <Text style={styles.publishButtonText}>Publishing...</Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="rocket" size={22} color={COLORS.dark} />
-                    <Text style={styles.publishButtonText}>Publish Peak</Text>
-                  </>
-                )}
+                <LinearGradient
+                  colors={isPublishing ? ['#888', '#666'] : [COLORS.primary, '#00B5C1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.publishGradient}
+                >
+                  {isPublishing ? (
+                    <>
+                      <ActivityIndicator size="small" color={COLORS.white} />
+                      <Text style={styles.publishButtonText}>Publishing...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="rocket" size={22} color={COLORS.dark} />
+                      <Text style={styles.publishButtonText}>Publish Peak</Text>
+                    </>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <View style={styles.successOverlay}>
+          <View style={styles.successContent}>
+            <LinearGradient
+              colors={[COLORS.primary, '#00B5C1']}
+              style={styles.successIconBg}
+            >
+              <Ionicons name="checkmark" size={50} color={COLORS.white} />
+            </LinearGradient>
+            <Text style={styles.successTitle}>Peak Published! 🎉</Text>
+            <Text style={styles.successDesc}>
+              {replyTo ? 'Your reply has been posted' : 'Your Peak is now live and ready to go viral!'}
+            </Text>
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.navigate('Tabs', { screen: 'Home' });
+              }}
+            >
+              <Text style={styles.successButtonText}>View Feed</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Alert Modal */}
+      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 };
@@ -698,20 +729,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
   },
-  publishButton: {
+  publishButtonContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  publishGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
     paddingVertical: 16,
-    borderRadius: 16,
     gap: 10,
   },
-  publishButtonDisabled: {
-    opacity: 0.7,
-  },
   publishButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.dark,
+  },
+
+  // Success Modal
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  successContent: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  successIconBg: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  successTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.white,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successDesc: {
     fontSize: 16,
+    color: COLORS.gray,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  successButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 30,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  successButtonText: {
+    fontSize: 17,
     fontWeight: '700',
     color: COLORS.dark,
   },

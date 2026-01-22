@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
-import { searchProfiles, getSuggestedProfiles, Profile } from '../../services/database';
+import { searchProfiles, getSuggestedProfiles, Profile, getCurrentProfile } from '../../services/database';
 
 // ============================================
 // TYPES
@@ -48,18 +48,27 @@ const SearchScreen = (): React.JSX.Element => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [suggestedProfiles, setSuggestedProfiles] = useState<Profile[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Load suggested profiles on mount
+  // Load current user and suggested profiles on mount
   useEffect(() => {
-    const loadSuggested = async () => {
+    const loadData = async () => {
+      // Get current user to exclude from results
+      const { data: currentProfile } = await getCurrentProfile();
+      if (currentProfile) {
+        setCurrentUserId(currentProfile.id);
+      }
+
+      // Get suggested profiles (excluding current user)
       const { data } = await getSuggestedProfiles(10);
       if (data) {
-        setSuggestedProfiles(data);
+        const filtered = data.filter(p => p.id !== currentProfile?.id);
+        setSuggestedProfiles(filtered);
       }
     };
-    loadSuggested();
+    loadData();
   }, []);
 
   // Debounced search - real API call
@@ -79,9 +88,11 @@ const SearchScreen = (): React.JSX.Element => {
       console.error('[SearchScreen] Search error:', error);
     }
 
-    setSearchResults(data || []);
+    // Filter out current user from search results
+    const filtered = (data || []).filter(p => p.id !== currentUserId);
+    setSearchResults(filtered);
     setIsLoading(false);
-  }, []);
+  }, [currentUserId]);
 
   // Debounce search input
   useEffect(() => {

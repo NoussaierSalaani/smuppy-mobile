@@ -623,7 +623,7 @@ const PostDetailFanFeedScreen = () => {
               {shareLoading ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Ionicons name="share-social-outline" size={28} color="#FFF" />
+                <Ionicons name="share-social-outline" size={24} color="#FFF" />
               )}
             </TouchableOpacity>
 

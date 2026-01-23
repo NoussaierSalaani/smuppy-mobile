@@ -937,11 +937,11 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
                     <View style={styles.filterChipSelectedInner}>
                       <Ionicons
                         name={interest.icon}
-                        size={12}
+                        size={14}
                         color={interest.color}
                       />
                       <Text style={styles.filterChipText}>{interest.name}</Text>
-                      <Ionicons name="close" size={10} color={COLORS.dark} style={{ marginLeft: 2 }} />
+                      <Ionicons name="close" size={12} color={COLORS.dark} style={{ marginLeft: 2 }} />
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -953,7 +953,7 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
                 >
                   <Ionicons
                     name={interest.icon}
-                    size={12}
+                    size={14}
                     color={interest.color}
                   />
                   <Text style={styles.filterChipText}>{interest.name}</Text>
@@ -1195,41 +1195,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterChip: {
-    height: 28,
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     backgroundColor: COLORS.white,
-    borderRadius: 14,
-    marginRight: 6,
+    borderRadius: 16,
+    marginRight: 8,
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    gap: 4,
+    gap: 5,
   },
   filterChipGradientBorder: {
-    height: 28,
-    borderRadius: 14,
+    height: 32,
+    borderRadius: 16,
     padding: 1.5,
-    marginRight: 6,
+    marginRight: 8,
   },
   filterChipSelectedInner: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8.5,
-    borderRadius: 12.5,
+    paddingHorizontal: 10.5,
+    borderRadius: 14.5,
     backgroundColor: '#E6FAF8',
-    gap: 4,
+    gap: 5,
   },
   filterChipText: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 11,
+    fontSize: 12,
     color: '#0A0A0F',
   },
   addInterestButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: COLORS.white,
     borderWidth: 1.5,
     borderColor: COLORS.primary,

@@ -754,12 +754,14 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     backgroundColor: COLORS.white,
     borderRadius: 16,
-    // Shadow 3D effect
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    // Shadow 3D effet extérieur prononcé
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   postUser: {
     flexDirection: 'row',

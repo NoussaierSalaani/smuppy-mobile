@@ -1,251 +1,168 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../config/theme';
-
-// Sample conversations data
-const CONVERSATIONS = [
-  {
-    id: 1,
-    user: {
-      id: '1',
-      name: 'Hannah Smith',
-      avatar: 'https://i.pravatar.cc/100?img=1',
-      isOnline: true,
-      isVerified: true,
-    },
-    lastMessage: {
-      text: 'Hey! Are you coming to the gym today? 💪',
-      time: '2m',
-      isRead: false,
-      isFromMe: false,
-      type: 'text',
-    },
-    unreadCount: 2,
-  },
-  {
-    id: 2,
-    user: {
-      id: '2',
-      name: 'Thomas Lefèvre',
-      avatar: 'https://i.pravatar.cc/100?img=3',
-      isOnline: true,
-      isVerified: false,
-    },
-    lastMessage: {
-      text: 'Check out this workout video!',
-      time: '15m',
-      isRead: true,
-      isFromMe: false,
-      type: 'video',
-    },
-    unreadCount: 0,
-  },
-  {
-    id: 3,
-    user: {
-      id: '3',
-      name: 'Mariam Fiori',
-      avatar: 'https://i.pravatar.cc/100?img=5',
-      isOnline: false,
-      isVerified: true,
-    },
-    lastMessage: {
-      text: 'Voice message (0:32)',
-      time: '1h',
-      isRead: true,
-      isFromMe: true,
-      type: 'voice',
-    },
-    unreadCount: 0,
-  },
-  {
-    id: 4,
-    user: {
-      id: '4',
-      name: 'Alex Runner',
-      avatar: 'https://i.pravatar.cc/100?img=8',
-      isOnline: false,
-      isVerified: false,
-    },
-    lastMessage: {
-      text: 'Thanks for sharing the route! 🏃‍♂️',
-      time: '3h',
-      isRead: true,
-      isFromMe: false,
-      type: 'text',
-    },
-    unreadCount: 0,
-  },
-  {
-    id: 5,
-    user: {
-      id: '5',
-      name: 'FitCoach Pro',
-      avatar: 'https://i.pravatar.cc/100?img=12',
-      isOnline: true,
-      isVerified: true,
-    },
-    lastMessage: {
-      text: 'Sent a photo',
-      time: '5h',
-      isRead: false,
-      isFromMe: false,
-      type: 'image',
-    },
-    unreadCount: 1,
-  },
-  {
-    id: 6,
-    user: {
-      id: '6',
-      name: 'Emma Wilson',
-      avatar: 'https://i.pravatar.cc/100?img=9',
-      isOnline: false,
-      isVerified: false,
-    },
-    lastMessage: {
-      text: 'See you at the yoga class!',
-      time: '1d',
-      isRead: true,
-      isFromMe: true,
-      type: 'text',
-    },
-    unreadCount: 0,
-  },
-  {
-    id: 7,
-    user: {
-      id: '7',
-      name: 'James Chen',
-      avatar: 'https://i.pravatar.cc/100?img=11',
-      isOnline: false,
-      isVerified: false,
-    },
-    lastMessage: {
-      text: 'https://smuppy.com/workout/hiit-30min',
-      time: '2d',
-      isRead: true,
-      isFromMe: false,
-      type: 'link',
-    },
-    unreadCount: 0,
-  },
-];
+import { VerifiedBadge } from '../../components/Badge';
+import {
+  getConversations,
+  subscribeToConversations,
+  Conversation,
+} from '../../services/database';
 
 export default function MessagesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load conversations
+  const loadConversations = useCallback(async () => {
+    const { data, error } = await getConversations();
+    if (!error && data) {
+      setConversations(data);
+    }
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const unsubscribe = subscribeToConversations(() => {
+      loadConversations();
+    });
+    return unsubscribe;
+  }, [loadConversations]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadConversations();
+  }, [loadConversations]);
 
   // Navigate to user profile
-  const goToUserProfile = (userId) => {
+  const goToUserProfile = (userId: string) => {
     navigation.navigate('UserProfile', { userId });
   };
 
   // Filter conversations
-  const filteredConversations = CONVERSATIONS.filter(conv => {
-    const matchesSearch = conv.user.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' && conv.unreadCount > 0);
+  const filteredConversations = conversations.filter(conv => {
+    const otherUserName = conv.other_user?.full_name || conv.other_user?.username || '';
+    const matchesSearch = otherUserName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' && (conv.unread_count || 0) > 0);
     return matchesSearch && matchesFilter;
   });
 
-  // Get message type icon
-  const getMessageTypeIcon = (type) => {
-    switch (type) {
-      case 'image': return 'image-outline';
-      case 'video': return 'videocam-outline';
-      case 'voice': return 'mic-outline';
-      case 'link': return 'link-outline';
-      default: return null;
-    }
+  // Format time
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'now';
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return date.toLocaleDateString();
   };
 
   // Render conversation item
-  const renderConversation = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.conversationItem}
-      onPress={() => navigation.navigate('Chat', { conversation: item })}
-      activeOpacity={0.7}
-    >
-      {/* Avatar with online indicator */}
+  const renderConversation = ({ item }: { item: Conversation }) => {
+    const otherUser = item.other_user;
+    if (!otherUser) return null;
+
+    return (
       <TouchableOpacity
-        style={styles.avatarContainer}
-        onPress={() => goToUserProfile(item.user.id)}
+        style={styles.conversationItem}
+        onPress={() => navigation.navigate('Chat', {
+          conversationId: item.id,
+          otherUser: otherUser
+        })}
+        activeOpacity={0.7}
       >
-        <AvatarImage source={item.user.avatar} size={56} />
-        {item.user.isOnline && <View style={styles.onlineIndicator} />}
-      </TouchableOpacity>
+        {/* Avatar */}
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => goToUserProfile(otherUser.id)}
+        >
+          <AvatarImage source={otherUser.avatar_url} size={56} />
+        </TouchableOpacity>
 
-      {/* Content */}
-      <View style={styles.conversationContent}>
-        <View style={styles.conversationHeader}>
-          <TouchableOpacity 
-            style={styles.nameContainer}
-            onPress={() => goToUserProfile(item.user.id)}
-          >
+        {/* Content */}
+        <View style={styles.conversationContent}>
+          <View style={styles.conversationHeader}>
+            <TouchableOpacity
+              style={styles.nameContainer}
+              onPress={() => goToUserProfile(otherUser.id)}
+            >
+              <Text style={[
+                styles.userName,
+                (item.unread_count || 0) > 0 && styles.userNameUnread
+              ]}>
+                {otherUser.full_name || otherUser.username}
+              </Text>
+              {otherUser.is_verified && (
+                <VerifiedBadge size={16} style={styles.verifiedBadge} />
+              )}
+            </TouchableOpacity>
             <Text style={[
-              styles.userName,
-              item.unreadCount > 0 && styles.userNameUnread
+              styles.messageTime,
+              (item.unread_count || 0) > 0 && styles.messageTimeUnread
             ]}>
-              {item.user.name}
+              {formatTime(item.last_message_at)}
             </Text>
-            {item.user.isVerified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark" size={10} color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text style={[
-            styles.messageTime,
-            item.unreadCount > 0 && styles.messageTimeUnread
-          ]}>
-            {item.lastMessage.time}
-          </Text>
+          </View>
+
+          <View style={styles.messagePreview}>
+            <Text
+              style={[
+                styles.lastMessage,
+                (item.unread_count || 0) > 0 && styles.lastMessageUnread
+              ]}
+              numberOfLines={1}
+            >
+              {item.last_message_preview || 'Start a conversation'}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.messagePreview}>
-          {item.lastMessage.isFromMe && (
-            <Text style={styles.youLabel}>You: </Text>
-          )}
-          {getMessageTypeIcon(item.lastMessage.type) && (
-            <Ionicons 
-              name={getMessageTypeIcon(item.lastMessage.type)} 
-              size={14} 
-              color={item.unreadCount > 0 ? COLORS.dark : COLORS.gray}
-              style={styles.messageTypeIcon}
-            />
-          )}
-          <Text 
-            style={[
-              styles.lastMessage,
-              item.unreadCount > 0 && styles.lastMessageUnread
-            ]}
-            numberOfLines={1}
-          >
-            {item.lastMessage.text}
-          </Text>
-        </View>
+        {/* Unread badge */}
+        {(item.unread_count || 0) > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadCount}>{item.unread_count}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
-
-      {/* Unread badge */}
-      {item.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadCount}>{item.unreadCount}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -303,9 +220,17 @@ export default function MessagesScreen({ navigation }) {
       <FlashList
         data={filteredConversations}
         renderItem={renderConversation}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        estimatedItemSize={76}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={60} color={COLORS.grayLight} />
@@ -313,6 +238,13 @@ export default function MessagesScreen({ navigation }) {
             <Text style={styles.emptySubtitle}>
               {searchQuery ? 'No results found' : 'Start a conversation!'}
             </Text>
+            <TouchableOpacity
+              style={styles.startChatBtn}
+              onPress={() => navigation.navigate('NewMessage')}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={styles.startChatText}>New Message</Text>
+            </TouchableOpacity>
           </View>
         )}
       />
@@ -324,6 +256,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -390,22 +326,6 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: 'relative',
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: COLORS.white,
-  },
   conversationContent: {
     flex: 1,
     marginLeft: SPACING.md,
@@ -429,12 +349,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   verifiedBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginLeft: 4,
   },
   messageTime: {
@@ -448,13 +362,6 @@ const styles = StyleSheet.create({
   messagePreview: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  youLabel: {
-    fontSize: 14,
-    color: COLORS.gray,
-  },
-  messageTypeIcon: {
-    marginRight: 4,
   },
   lastMessage: {
     fontSize: 14,
@@ -494,5 +401,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.gray,
     marginTop: SPACING.sm,
+  },
+  startChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: SPACING.lg,
+  },
+  startChatText: {
+    color: '#fff',
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

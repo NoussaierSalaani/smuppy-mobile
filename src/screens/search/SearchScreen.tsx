@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
+import { VerifiedBadge } from '../../components/Badge';
 import { searchProfiles, getSuggestedProfiles, Profile, getCurrentProfile } from '../../services/database';
 
 // ============================================
@@ -156,7 +157,7 @@ const SearchScreen = (): React.JSX.Element => {
         <View style={styles.usernameRow}>
           <Text style={styles.resultUsername}>@{profile.username}</Text>
           {profile.is_verified && (
-            <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} style={{ marginLeft: 4 }} />
+            <VerifiedBadge size={16} style={{ marginLeft: 4 }} />
           )}
         </View>
         <Text style={styles.resultFullName}>{profile.full_name}</Text>

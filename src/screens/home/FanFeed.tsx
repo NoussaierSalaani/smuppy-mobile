@@ -16,6 +16,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import { VerifiedBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
@@ -341,9 +342,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
           </View>
         </LinearGradient>
         {suggestion.isVerified && (
-          <View style={styles.verifiedBadgeSuggestion}>
-            <Ionicons name="checkmark" size={8} color="#fff" />
-          </View>
+          <VerifiedBadge size={14} style={styles.verifiedBadgeSuggestion} />
         )}
       </TouchableOpacity>
       <Text style={styles.suggestionName} numberOfLines={1}>
@@ -372,9 +371,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
             <View style={styles.postUserNameRow}>
               <Text style={styles.postUserName}>{post.user.name}</Text>
               {post.user.isVerified && (
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark" size={10} color="#fff" />
-                </View>
+                <VerifiedBadge size={16} style={styles.verifiedBadge} />
               )}
               {post.user.isBot && (
                 <View style={styles.teamBadge}>
@@ -674,14 +671,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 3,
     right: -2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.white,
   },
   suggestionName: {
     fontSize: 10,
@@ -732,12 +721,6 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
   },
   verifiedBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginLeft: 4,
   },
   teamBadge: {

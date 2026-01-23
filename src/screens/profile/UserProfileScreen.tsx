@@ -24,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import { VerifiedBadge } from '../../components/Badge';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -671,7 +672,7 @@ const UserProfileScreen = () => {
         <View style={styles.nameWithBadges}>
           <Text style={styles.displayName}>{profile.displayName}</Text>
           {profile.isVerified && (
-            <Ionicons name="checkmark-circle" size={18} color="#0EBF8A" style={styles.badge} />
+            <VerifiedBadge size={18} style={styles.badge} />
           )}
           {(profile.isBot || profile.isTeam) && (
             <View style={styles.teamBadge}>

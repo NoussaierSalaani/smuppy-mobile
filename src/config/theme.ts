@@ -211,10 +211,19 @@ export const DARK_COLORS = {
     inputMinHeight: 56,
     
     // Icons
-    iconXs: 16, 
-    iconSm: 20, 
-    iconMd: 24, 
-    iconLg: 32,
+    iconXs: 12,        // Extra small - inline indicators
+    iconSm: 16,        // Small - chips, compact UI
+    iconMd: 20,        // Medium - default
+    iconLg: 24,        // Large - action buttons
+    iconXl: 28,        // Extra large - navigation on dark
+    iconXxl: 32,       // XXL - prominent displays
+
+    // Badges (verified, premium, creator)
+    badgeSm: 14,       // Small - suggestions, search results
+    badgeMd: 16,       // Medium - feed posts, messages
+    badgeLg: 18,       // Large - profile names
+    badgeXl: 20,       // Extra large - settings headers
+    badgeXxl: 46,      // XXL - profile page headers
     
     // Avatars
     avatarXs: 24, 

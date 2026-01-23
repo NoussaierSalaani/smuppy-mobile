@@ -15,6 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import { VerifiedBadge } from '../../components/Badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
@@ -333,9 +334,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           <View style={styles.nameRow}>
             <Text style={styles.userName}>{item.name}</Text>
             {item.isVerified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark" size={10} color="#fff" />
-              </View>
+              <VerifiedBadge size={16} style={styles.verifiedBadge} />
             )}
           </View>
           <Text style={styles.userUsername}>{item.username}</Text>
@@ -712,12 +711,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   verifiedBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginLeft: 6,
   },
 

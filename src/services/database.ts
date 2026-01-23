@@ -2038,3 +2038,331 @@ export const hasReportedUser = async (userId: string): Promise<{ reported: boole
   const { data } = result as { data: { id: string } | null };
   return { reported: !!data };
 };
+
+// ============================================
+// MESSAGING
+// ============================================
+
+export interface Conversation {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  last_message_preview?: string;
+  is_group: boolean;
+  group_name?: string;
+  group_avatar_url?: string;
+  participants?: ConversationParticipant[];
+  other_user?: Profile; // For direct conversations
+  unread_count?: number;
+}
+
+export interface ConversationParticipant {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  joined_at: string;
+  last_read_at?: string;
+  is_muted: boolean;
+  user?: Profile;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content?: string;
+  media_url?: string;
+  media_type?: 'image' | 'video' | 'audio';
+  reply_to_id?: string;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  sender?: Profile;
+  reply_to?: Message;
+}
+
+/**
+ * Get all conversations for current user
+ */
+export const getConversations = async (): Promise<DbResponse<Conversation[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  // Get conversations where user is a participant
+  const result = await supabase
+    .from('conversation_participants')
+    .select(`
+      conversation:conversations(
+        id,
+        created_at,
+        updated_at,
+        last_message_at,
+        last_message_preview,
+        is_group,
+        group_name,
+        group_avatar_url
+      ),
+      last_read_at
+    `)
+    .eq('user_id', user.id)
+    .order('conversation(last_message_at)', { ascending: false });
+
+  const { data, error } = result as {
+    data: Array<{
+      conversation: Conversation;
+      last_read_at: string | null;
+    }> | null;
+    error: { message: string } | null;
+  };
+
+  if (error || !data) {
+    return { data: null, error: error?.message || null };
+  }
+
+  // Get other participants for each conversation
+  const conversations = await Promise.all(
+    data.map(async (item) => {
+      const conv = item.conversation;
+
+      // Get other participant for direct conversations
+      if (!conv.is_group) {
+        const { data: participants } = await supabase
+          .from('conversation_participants')
+          .select(`
+            user:profiles(id, username, full_name, avatar_url, is_verified)
+          `)
+          .eq('conversation_id', conv.id)
+          .neq('user_id', user.id)
+          .single();
+
+        if (participants?.user) {
+          conv.other_user = participants.user as Profile;
+        }
+      }
+
+      // Calculate unread count
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', conv.id)
+        .neq('sender_id', user.id)
+        .gt('created_at', item.last_read_at || '1970-01-01');
+
+      conv.unread_count = count || 0;
+
+      return conv;
+    })
+  );
+
+  return { data: conversations, error: null };
+};
+
+/**
+ * Get or create a direct conversation with another user
+ */
+export const getOrCreateConversation = async (otherUserId: string): Promise<DbResponse<string>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const { data, error } = await supabase
+    .rpc('get_or_create_conversation', {
+      p_user_id: user.id,
+      p_other_user_id: otherUserId
+    });
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  return { data: data as string, error: null };
+};
+
+/**
+ * Get messages for a conversation
+ */
+export const getMessages = async (
+  conversationId: string,
+  page = 0,
+  limit = 50
+): Promise<DbResponse<Message[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const from = page * limit;
+  const to = from + limit - 1;
+
+  const result = await supabase
+    .from('messages')
+    .select(`
+      *,
+      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified)
+    `)
+    .eq('conversation_id', conversationId)
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  const { data, error } = result as { data: Message[] | null; error: { message: string } | null };
+
+  // Reverse to get oldest first for display
+  const messages = data ? [...data].reverse() : null;
+
+  return { data: messages, error: error?.message || null };
+};
+
+/**
+ * Send a message
+ */
+export const sendMessage = async (
+  conversationId: string,
+  content: string,
+  mediaUrl?: string,
+  mediaType?: 'image' | 'video' | 'audio',
+  replyToId?: string
+): Promise<DbResponse<Message>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content,
+      media_url: mediaUrl,
+      media_type: mediaType,
+      reply_to_id: replyToId
+    })
+    .select(`
+      *,
+      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified)
+    `)
+    .single();
+
+  const { data, error } = result as { data: Message | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Mark conversation as read
+ */
+export const markConversationAsRead = async (conversationId: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('conversation_participants')
+    .update({ last_read_at: new Date().toISOString() })
+    .match({
+      conversation_id: conversationId,
+      user_id: user.id
+    });
+
+  const { error } = result as { error: { message: string } | null };
+  return { error: error?.message || null };
+};
+
+/**
+ * Delete a message (soft delete)
+ */
+export const deleteMessage = async (messageId: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('messages')
+    .update({ is_deleted: true, content: null, media_url: null })
+    .match({
+      id: messageId,
+      sender_id: user.id
+    });
+
+  const { error } = result as { error: { message: string } | null };
+  return { error: error?.message || null };
+};
+
+/**
+ * Get total unread messages count
+ */
+export const getUnreadMessagesCount = async (): Promise<{ count: number }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { count: 0 };
+
+  const { data, error } = await supabase
+    .rpc('get_unread_messages_count', {
+      p_user_id: user.id
+    });
+
+  if (error) {
+    return { count: 0 };
+  }
+
+  return { count: data as number };
+};
+
+/**
+ * Subscribe to new messages in a conversation (real-time)
+ */
+export const subscribeToMessages = (
+  conversationId: string,
+  onMessage: (message: Message) => void
+) => {
+  const channel = supabase
+    .channel(`messages:${conversationId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`
+      },
+      async (payload) => {
+        // Fetch the full message with sender info
+        const { data } = await supabase
+          .from('messages')
+          .select(`
+            *,
+            sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified)
+          `)
+          .eq('id', payload.new.id)
+          .single();
+
+        if (data) {
+          onMessage(data as Message);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+/**
+ * Subscribe to conversation updates (real-time)
+ */
+export const subscribeToConversations = (
+  onUpdate: () => void
+) => {
+  const channel = supabase
+    .channel('conversations_updates')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'conversations'
+      },
+      () => {
+        onUpdate();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};

@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import SmuppyPeaksIcon from './icons/SmuppyPeaksIcon';
 
 const { height, width } = Dimensions.get('window');
 
@@ -25,16 +24,6 @@ const COLORS = {
   gray: '#8E8E93',
   cardBg: '#1C1C1E',
 };
-
-// Smuppy S Logo for Peak button
-const SmuppySLogo = ({ size = 28 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 60 60" fill="none">
-    <Path
-      d="M36.8445 16.3889C40.2001 16.3889 43.1112 17.5 45.5778 19.7222C48.089 21.9 49.3445 24.6778 49.3445 28.0556C49.3445 30.4556 48.6223 32.5722 47.1778 34.4056C45.7334 36.1944 43.889 37.4389 41.6445 38.1389C43.6668 38.4833 45.3556 39.2389 46.7112 40.4056C48.1112 41.5278 49.1556 42.8556 49.8445 44.3889C50.5334 45.8778 50.8778 47.4222 50.8778 49.0222C50.8778 52.4 49.5556 55.2222 46.9112 57.4889C44.3112 59.7111 41.1779 60.8222 37.5112 60.8222H17.0667V55.0889H37.5112C39.8445 55.0889 41.7334 54.4 43.1778 53.0222C44.6223 51.6444 45.3445 49.9 45.3445 47.7889C45.3445 45.6778 44.6223 43.9333 43.1778 42.5556C41.7334 41.1333 39.8445 40.4222 37.5112 40.4222H17.0667V34.6889H36.8445C39.089 34.6889 40.9001 34.0667 42.2778 32.8222C43.6556 31.5778 44.3445 30.0056 44.3445 28.1056C44.3445 26.1611 43.6556 24.5667 42.2778 23.3222C40.9001 22.0778 39.089 21.4556 36.8445 21.4556H17.0667V16.3889H36.8445Z"
-      fill={COLORS.dark}
-    />
-  </Svg>
-);
 
 interface CreateOptionsPopupProps {
   visible: boolean;
@@ -237,7 +226,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }: Cr
                 >
                   <View style={styles.optionContent}>
                     <View style={styles.peakIconContainer}>
-                      <SmuppySLogo size={32} />
+                      <SmuppyPeaksIcon size={32} color={COLORS.dark} filled />
                     </View>
                     <View style={styles.optionInfo}>
                       <View style={styles.peakTitleRow}>

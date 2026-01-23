@@ -22,6 +22,7 @@ import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
+import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, likePost, unlikePost, hasLikedPost, getSuggestedProfiles, followUser, Post, Profile } from '../../services/database';
 
 const { width } = Dimensions.get('window');
@@ -136,6 +137,15 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
+
+  // Share modal state
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [postToShare, setPostToShare] = useState<{
+    id: string;
+    media: string;
+    caption?: string;
+    user: { name: string; avatar: string };
+  } | null>(null);
 
   // Fetch posts from tracked users
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
@@ -312,6 +322,20 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
     }));
   }, []);
 
+  // Handle share post
+  const handleSharePost = useCallback((post: UIPost) => {
+    setPostToShare({
+      id: post.id,
+      media: post.media,
+      caption: post.caption,
+      user: {
+        name: post.user.name,
+        avatar: post.user.avatar,
+      },
+    });
+    setShareModalVisible(true);
+  }, []);
+
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -469,7 +493,10 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
               filled={post.isLiked}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.postAction}>
+          <TouchableOpacity
+            style={styles.postAction}
+            onPress={() => handleSharePost(post)}
+          >
             <Ionicons name="paper-plane-outline" size={20} color={COLORS.dark} />
           </TouchableOpacity>
         </View>
@@ -617,6 +644,15 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
         />
       </SwipeToPeaks>
 
+      {/* Share Post Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        post={postToShare}
+        onClose={() => {
+          setShareModalVisible(false);
+          setPostToShare(null);
+        }}
+      />
     </View>
   );
 }
@@ -703,7 +739,10 @@ const styles = StyleSheet.create({
 
   // Post
   postContainer: {
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.base,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   postHeader: {
     flexDirection: 'row',

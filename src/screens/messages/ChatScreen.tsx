@@ -18,10 +18,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AccountBadge } from '../../components/Badge';
+import VoiceRecorder from '../../components/VoiceRecorder';
+import VoiceMessage from '../../components/VoiceMessage';
+import SharedPostBubble from '../../components/SharedPostBubble';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
+  uploadVoiceMessage,
   markConversationAsRead,
   subscribeToMessages,
   getOrCreateConversation,
@@ -45,6 +49,7 @@ export default function ChatScreen({ route, navigation }) {
   const [sending, setSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [otherUserProfile] = useState<Profile | null>(otherUser || null);
+  const [isRecording, setIsRecording] = useState(false);
 
   // Get current user ID
   useEffect(() => {
@@ -117,6 +122,36 @@ export default function ChatScreen({ route, navigation }) {
     setSending(false);
   };
 
+  // Handle voice message send
+  const handleVoiceSend = async (uri: string, duration: number) => {
+    if (!conversationId) return;
+
+    setIsRecording(false);
+    setSending(true);
+
+    // Upload voice message
+    const { data: voiceUrl, error: uploadError } = await uploadVoiceMessage(uri, conversationId);
+
+    if (uploadError || !voiceUrl) {
+      Alert.alert('Error', 'Failed to upload voice message');
+      setSending(false);
+      return;
+    }
+
+    // Send message with audio URL
+    const { error } = await sendMessageToDb(
+      conversationId,
+      `Voice message (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+      voiceUrl,
+      'audio'
+    );
+
+    if (error) {
+      Alert.alert('Error', 'Failed to send voice message');
+    }
+    setSending(false);
+  };
+
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isFromMe = item.sender_id === currentUserId;
     const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
@@ -128,12 +163,32 @@ export default function ChatScreen({ route, navigation }) {
             {showAvatar && item.sender && <AvatarImage source={item.sender.avatar_url} size={28} />}
           </TouchableOpacity>
         )}
-        <View style={[styles.messageBubble, isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft]}>
+        <View style={[
+          styles.messageBubble,
+          isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
+          // Remove padding for special message types
+          (item.shared_post_id || item.media_type === 'audio') && styles.messageBubbleNoPadding
+        ]}>
           {item.is_deleted ? (
             <Text style={[styles.deletedMessage, isFromMe && { color: 'rgba(255,255,255,0.6)' }]}>Message deleted</Text>
           ) : (
             <>
-              {item.content && <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>}
+              {/* Shared Post */}
+              {item.shared_post_id && (
+                <SharedPostBubble postId={item.shared_post_id} isFromMe={isFromMe} />
+              )}
+
+              {/* Voice Message */}
+              {item.media_type === 'audio' && item.media_url && (
+                <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
+              )}
+
+              {/* Regular Text Message */}
+              {!item.shared_post_id && item.media_type !== 'audio' && item.content && (
+                <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
+              )}
+
+              {/* Image Message */}
               {item.media_url && item.media_type === 'image' && (
                 <TouchableOpacity onPress={() => setSelectedImage(item.media_url || null)}>
                   <OptimizedImage source={item.media_url} style={styles.messageImage} />
@@ -141,17 +196,19 @@ export default function ChatScreen({ route, navigation }) {
               )}
             </>
           )}
-          <View style={styles.messageFooter}>
-            <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
-            {isFromMe && <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
-          </View>
+          {/* Footer - hide for special types that have their own styling */}
+          {!item.shared_post_id && item.media_type !== 'audio' && (
+            <View style={styles.messageFooter}>
+              <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
+              {isFromMe && <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
+            </View>
+          )}
         </View>
       </View>
     );
   };
 
   const displayName = otherUserProfile?.full_name || otherUserProfile?.username || 'User';
-  const isVerified = otherUserProfile?.is_verified || false;
 
   if (loading && !conversationId) {
     return (
@@ -199,7 +256,7 @@ export default function ChatScreen({ route, navigation }) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={() => (
             <View style={styles.emptyChat}>
               <AvatarImage source={otherUserProfile?.avatar_url} size={80} />
@@ -210,22 +267,41 @@ export default function ChatScreen({ route, navigation }) {
         />
       )}
 
-      <View style={[styles.inputArea, { paddingBottom: insets.bottom + 10 }]}>
-        <View style={styles.inputContainer}>
-          <TextInput style={styles.textInput} placeholder="Message..." placeholderTextColor={COLORS.gray} value={inputText} onChangeText={setInputText} multiline maxLength={1000} />
+      {/* Voice Recording Mode */}
+      {isRecording ? (
+        <VoiceRecorder
+          onSend={handleVoiceSend}
+          onCancel={() => setIsRecording(false)}
+        />
+      ) : (
+        <View style={[styles.inputArea, { paddingBottom: insets.bottom + 10 }]}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Message..."
+              placeholderTextColor={COLORS.gray}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+            />
+          </View>
+          {inputText.trim() ? (
+            <TouchableOpacity onPress={handleSendMessage} disabled={sending}>
+              <LinearGradient colors={sending ? ['#ccc', '#ccc'] : GRADIENTS.primary} style={styles.sendButton}>
+                {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.voiceButton}
+              onPress={() => setIsRecording(true)}
+            >
+              <Ionicons name="mic" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          )}
         </View>
-        {inputText.trim() ? (
-          <TouchableOpacity onPress={handleSendMessage} disabled={sending}>
-            <LinearGradient colors={sending ? ['#ccc', '#ccc'] : GRADIENTS.primary} style={styles.sendButton}>
-              {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
-            </LinearGradient>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.voiceButton}>
-            <Ionicons name="mic" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
-        )}
-      </View>
+      )}
 
       <Modal visible={!!selectedImage} transparent animationType="fade">
         <View style={styles.imageModal}>
@@ -257,6 +333,7 @@ const styles = StyleSheet.create({
   messageBubble: { maxWidth: width * 0.75, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   messageBubbleLeft: { backgroundColor: COLORS.white, borderBottomLeftRadius: 4 },
   messageBubbleRight: { backgroundColor: COLORS.primary, borderBottomRightRadius: 4 },
+  messageBubbleNoPadding: { padding: 0, overflow: 'hidden' },
   messageText: { fontSize: 15, color: COLORS.dark, lineHeight: 20 },
   messageTextRight: { color: '#fff' },
   deletedMessage: { fontSize: 14, fontStyle: 'italic', color: COLORS.gray },

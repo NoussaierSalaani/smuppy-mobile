@@ -2086,6 +2086,8 @@ export interface Message {
   media_url?: string;
   media_type?: 'image' | 'video' | 'audio';
   reply_to_id?: string;
+  shared_post_id?: string;
+  shared_post?: Post;
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
@@ -2141,7 +2143,7 @@ export const getConversations = async (): Promise<DbResponse<Conversation[]>> =>
         const { data: participants } = await supabase
           .from('conversation_participants')
           .select(`
-            user:profiles(id, username, full_name, avatar_url, is_verified)
+            user:profiles(id, username, full_name, avatar_url, is_verified, account_type)
           `)
           .eq('conversation_id', conv.id)
           .neq('user_id', user.id)
@@ -2207,7 +2209,7 @@ export const getMessages = async (
     .from('messages')
     .select(`
       *,
-      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified)
+      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
     `)
     .eq('conversation_id', conversationId)
     .eq('is_deleted', false)
@@ -2230,7 +2232,8 @@ export const sendMessage = async (
   content: string,
   mediaUrl?: string,
   mediaType?: 'image' | 'video' | 'audio',
-  replyToId?: string
+  replyToId?: string,
+  sharedPostId?: string
 ): Promise<DbResponse<Message>> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
@@ -2243,15 +2246,92 @@ export const sendMessage = async (
       content,
       media_url: mediaUrl,
       media_type: mediaType,
-      reply_to_id: replyToId
+      reply_to_id: replyToId,
+      shared_post_id: sharedPostId
     })
     .select(`
       *,
-      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified)
+      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
     `)
     .single();
 
   const { data, error } = result as { data: Message | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Upload voice message to storage
+ */
+export const uploadVoiceMessage = async (
+  uri: string,
+  conversationId: string
+): Promise<DbResponse<string>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    // Create unique file name
+    const fileName = `${conversationId}/${user.id}_${Date.now()}.m4a`;
+
+    // Read file as blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('voice-messages')
+      .upload(fileName, blob, {
+        contentType: 'audio/m4a',
+        upsert: false
+      });
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('voice-messages')
+      .getPublicUrl(fileName);
+
+    return { data: urlData.publicUrl, error: null };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Upload failed';
+    return { data: null, error: errorMessage };
+  }
+};
+
+/**
+ * Share a post to a conversation
+ */
+export const sharePostToConversation = async (
+  postId: string,
+  userId: string
+): Promise<DbResponse<Message>> => {
+  // First get or create conversation with the user
+  const { data: convId, error: convError } = await getOrCreateConversation(userId);
+  if (convError || !convId) {
+    return { data: null, error: convError || 'Failed to create conversation' };
+  }
+
+  // Send message with shared post
+  return sendMessage(convId, '', undefined, undefined, undefined, postId);
+};
+
+/**
+ * Get post by ID (for shared post preview)
+ */
+export const getPostById = async (postId: string): Promise<DbResponse<Post>> => {
+  const result = await supabase
+    .from('posts')
+    .select(`
+      *,
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+    `)
+    .eq('id', postId)
+    .single();
+
+  const { data, error } = result as { data: Post | null; error: { message: string } | null };
   return { data, error: error?.message || null };
 };
 

@@ -25,6 +25,7 @@ import DoubleTapLike from '../../components/DoubleTapLike';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
+import SharePostModal from '../../components/SharePostModal';
 import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPost, Post, followUser, isFollowing } from '../../services/database';
 
 const { width } = Dimensions.get('window');
@@ -338,6 +339,15 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  // Share modal state
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [postToShare, setPostToShare] = useState<{
+    id: string;
+    media: string;
+    caption?: string;
+    user: { name: string; avatar: string };
+  } | null>(null);
 
   // Follow state for modal
   const [isFollowingUser, setIsFollowingUser] = useState(false);
@@ -805,7 +815,23 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
                     <SmuppyHeartIcon size={24} color={COLORS.dark} />
                     <Text style={styles.modalActionText}>{formatNumber(selectedPost.likes)}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.modalAction}>
+                  <TouchableOpacity
+                    style={styles.modalAction}
+                    onPress={() => {
+                      if (selectedPost) {
+                        setPostToShare({
+                          id: selectedPost.id,
+                          media: selectedPost.media,
+                          caption: selectedPost.title,
+                          user: {
+                            name: selectedPost.user.name,
+                            avatar: selectedPost.user.avatar,
+                          },
+                        });
+                        setShareModalVisible(true);
+                      }
+                    }}
+                  >
                     <Ionicons name="share-outline" size={24} color={COLORS.dark} />
                     <Text style={styles.modalActionText}>Share</Text>
                   </TouchableOpacity>
@@ -1001,6 +1027,16 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
       </Animated.ScrollView>
 
       {renderModal()}
+
+      {/* Share Post Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        post={postToShare}
+        onClose={() => {
+          setShareModalVisible(false);
+          setPostToShare(null);
+        }}
+      />
     </View>
   );
 }

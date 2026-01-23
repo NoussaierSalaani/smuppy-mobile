@@ -13,7 +13,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -48,6 +48,7 @@ interface UIPost {
     username: string;
     avatar: string;
     isVerified: boolean;
+    isBot?: boolean;
   };
   caption: string;
   likes: number;
@@ -60,6 +61,8 @@ interface UIPost {
   location: string | null;
 }
 
+// Transform Post from database to UI format
+// Handles both new format (media_urls, content) and legacy format (media_url, caption)
 const transformPostToUI = (post: Post, likedPostIds: Set<string>): UIPost => {
   const getTimeAgo = (dateString: string): string => {
     const now = new Date();
@@ -75,19 +78,29 @@ const transformPostToUI = (post: Post, likedPostIds: Set<string>): UIPost => {
     return date.toLocaleDateString();
   };
 
+  // Get media URL - support both array and single string formats
+  const mediaUrl = post.media_urls?.[0] || post.media_url || 'https://via.placeholder.com/800x1000';
+
+  // Get content - support both 'content' and 'caption' fields
+  const contentText = post.content || post.caption || '';
+
+  // Determine media type - normalize 'photo' to 'image'
+  const normalizedType = post.media_type === 'photo' ? 'image' : post.media_type;
+
   return {
     id: post.id,
-    type: post.media_type === 'video' ? 'video' : post.media_type === 'multiple' ? 'carousel' : 'image',
-    media: post.media_urls?.[0] || 'https://via.placeholder.com/800x1000',
-    slideCount: post.media_type === 'multiple' ? post.media_urls?.length : undefined,
+    type: normalizedType === 'video' ? 'video' : normalizedType === 'multiple' ? 'carousel' : 'image',
+    media: mediaUrl,
+    slideCount: normalizedType === 'multiple' ? (post.media_urls?.length || 1) : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || 'User',
       username: `@${post.author?.username || 'user'}`,
       avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
       isVerified: post.author?.is_verified || false,
+      isBot: post.author?.is_bot || false,
     },
-    caption: post.content || '',
+    caption: contentText,
     likes: post.likes_count || 0,
     comments: post.comments_count || 0,
     shares: 0,
@@ -99,8 +112,12 @@ const transformPostToUI = (post: Post, likedPostIds: Set<string>): UIPost => {
   };
 };
 
-export default function FanFeed() {
-  const navigation = useNavigation();
+interface FanFeedProps {
+  headerHeight?: number;
+}
+
+export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
+  const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll } = useTabBar();
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
@@ -110,7 +127,6 @@ export default function FanFeed() {
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [showComments, setShowComments] = useState(false);
   const [_selectedPost, setSelectedPost] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -130,12 +146,13 @@ export default function FanFeed() {
       }
 
       if (data) {
-        // Check liked status for each post
-        const likedIds = new Set<string>();
-        for (const post of data) {
-          const { hasLiked } = await hasLikedPost(post.id);
-          if (hasLiked) likedIds.add(post.id);
-        }
+        // Check liked status for all posts in PARALLEL (much faster!)
+        const likedResults = await Promise.all(
+          data.map(post => hasLikedPost(post.id))
+        );
+        const likedIds = new Set<string>(
+          data.filter((_, index) => likedResults[index].hasLiked).map(post => post.id)
+        );
 
         const transformedPosts = data.map(post => transformPostToUI(post, likedIds));
 
@@ -290,12 +307,6 @@ export default function FanFeed() {
     }));
   }, []);
 
-  // Open comments
-  const openComments = useCallback((post) => {
-    setSelectedPost(post);
-    setShowComments(true);
-  }, []);
-
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -315,8 +326,8 @@ export default function FanFeed() {
   }, [loadingMore, hasMore, page, fetchPosts]);
 
   // Render suggestion item
-  const renderSuggestion = useCallback((suggestion: UISuggestion) => (
-    <View key={suggestion.id} style={styles.suggestionItem}>
+  const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => (
+    <View key={`suggestion-${index}-${suggestion.id}`} style={styles.suggestionItem}>
       <TouchableOpacity
         style={styles.suggestionAvatarWrapper}
         onPress={() => goToUserProfile(suggestion.id)}
@@ -326,7 +337,7 @@ export default function FanFeed() {
           style={styles.suggestionRing}
         >
           <View style={styles.suggestionAvatarContainer}>
-            <AvatarImage source={suggestion.avatar} size={54} />
+            <AvatarImage source={suggestion.avatar} size={48} />
           </View>
         </LinearGradient>
         {suggestion.isVerified && (
@@ -365,6 +376,11 @@ export default function FanFeed() {
                   <Ionicons name="checkmark" size={10} color="#fff" />
                 </View>
               )}
+              {post.user.isBot && (
+                <View style={styles.teamBadge}>
+                  <Text style={styles.teamBadgeText}>(Team Smuppy)</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.postMeta}>
               {post.timeAgo}{post.location && ` • ${post.location}`}
@@ -383,7 +399,24 @@ export default function FanFeed() {
             toggleLike(post.id);
           }
         }}
-        onSingleTap={() => navigation.navigate('PostDetailFanFeed', { postId: post.id })}
+        onSingleTap={() => navigation.navigate('PostDetailFanFeed', {
+          postId: post.id,
+          fanFeedPosts: posts.map(p => ({
+            id: p.id,
+            type: p.type,
+            media: p.media,
+            thumbnail: p.media,
+            description: p.caption,
+            likes: p.likes,
+            comments: p.comments,
+            user: {
+              id: p.user.id,
+              name: p.user.name,
+              avatar: p.user.avatar,
+              followsMe: false,
+            },
+          }))
+        })}
         showAnimation={!post.isLiked}
       >
         <View style={styles.postMedia}>
@@ -424,25 +457,19 @@ export default function FanFeed() {
             onPress={() => toggleLike(post.id)}
           >
             <SmuppyHeartIcon
-              size={26}
+              size={22}
               color={post.isLiked ? "#FF6B6B" : COLORS.dark}
               filled={post.isLiked}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.postAction}
-            onPress={() => openComments(post)}
-          >
-            <Ionicons name="chatbubble-outline" size={24} color={COLORS.dark} />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.postAction}>
-            <Ionicons name="paper-plane-outline" size={24} color={COLORS.dark} />
+            <Ionicons name="paper-plane-outline" size={20} color={COLORS.dark} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity onPress={() => toggleSave(post.id)}>
           <Ionicons
             name={post.isSaved ? "bookmark" : "bookmark-outline"}
-            size={24}
+            size={20}
             color={post.isSaved ? COLORS.primary : COLORS.dark}
           />
         </TouchableOpacity>
@@ -464,19 +491,11 @@ export default function FanFeed() {
         </Text>
       </View>
 
-      {/* View Comments */}
-      {post.comments > 0 && (
-        <TouchableOpacity onPress={() => openComments(post)}>
-          <Text style={styles.viewComments}>
-            View all {post.comments} comments
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
     </View>
-  ), [visiblePosts.length, goToUserProfile, toggleLike, toggleSave, openComments, formatNumber]);
+  ), [visiblePosts.length, goToUserProfile, toggleLike, toggleSave, formatNumber]);
 
   // List header with suggestions
   const ListHeader = useMemo(() => (
@@ -525,65 +544,6 @@ export default function FanFeed() {
 
   const keyExtractor = useCallback((item) => String(item.id), []);
 
-  // Comments Modal
-  const renderCommentsModal = () => (
-    <Modal
-      visible={showComments}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <View style={styles.commentsContainer}>
-        <View style={styles.commentsHeader}>
-          <Text style={styles.commentsTitle}>Comments</Text>
-          <TouchableOpacity onPress={() => setShowComments(false)}>
-            <Ionicons name="close" size={28} color={COLORS.dark} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.commentsList}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={i} style={styles.commentItem}>
-              <TouchableOpacity onPress={() => {
-                setShowComments(false);
-                goToUserProfile(String(i + 30));
-              }}>
-                <AvatarImage
-                  source={`https://i.pravatar.cc/100?img=${i + 30}`}
-                  size={36}
-                />
-              </TouchableOpacity>
-              <View style={styles.commentContent}>
-                <TouchableOpacity onPress={() => {
-                  setShowComments(false);
-                  goToUserProfile(String(i + 30));
-                }}>
-                  <Text style={styles.commentUser}>User{i}</Text>
-                </TouchableOpacity>
-                <Text style={styles.commentText}>Great post! Love the energy</Text>
-                <Text style={styles.commentTime}>{i}h ago</Text>
-              </View>
-              <TouchableOpacity>
-                <SmuppyHeartIcon size={16} color={COLORS.gray} />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-
-        <View style={styles.commentInput}>
-          <AvatarImage
-            source="https://i.pravatar.cc/100?img=33"
-            size={36}
-          />
-          <View style={styles.commentInputField}>
-            <Text style={styles.commentInputPlaceholder}>Add a comment...</Text>
-          </View>
-          <TouchableOpacity>
-            <Text style={styles.commentPostBtn}>Post</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
 
   // Empty state component
   const EmptyState = useCallback(() => (
@@ -640,13 +600,16 @@ export default function FanFeed() {
               onRefresh={onRefresh}
               tintColor={COLORS.primary}
               colors={[COLORS.primary]}
+              progressViewOffset={headerHeight}
             />
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{
+            ...styles.listContent,
+            paddingTop: headerHeight > 0 ? headerHeight : 0,
+          }}
         />
       </SwipeToPeaks>
 
-      {renderCommentsModal()}
     </View>
   );
 }
@@ -657,9 +620,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
 
-  // Suggestions Section
+  // Suggestions Section - Compact spacing
   suggestionsSection: {
-    paddingVertical: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.grayLight,
   },
@@ -668,50 +632,51 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.base,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   suggestionsSectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Poppins-SemiBold',
     color: COLORS.dark,
   },
   seeAllText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Poppins-Medium',
     color: COLORS.primary,
   },
   suggestionsScrollContent: {
     paddingHorizontal: SPACING.sm,
+    gap: 4,
   },
   suggestionItem: {
     alignItems: 'center',
-    marginHorizontal: 6,
-    width: 80,
+    marginHorizontal: 4,
+    width: 70,
   },
   suggestionAvatarWrapper: {
     position: 'relative',
   },
   suggestionRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     padding: 2,
-    marginBottom: 4,
+    marginBottom: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
   suggestionAvatarContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: 28,
+    borderRadius: 25,
     padding: 2,
   },
   verifiedBadgeSuggestion: {
     position: 'absolute',
-    bottom: 4,
-    right: 0,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    bottom: 3,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -719,20 +684,20 @@ const styles = StyleSheet.create({
     borderColor: COLORS.white,
   },
   suggestionName: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.dark,
     fontFamily: 'Poppins-Medium',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   trackButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   trackButtonText: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'Poppins-SemiBold',
     color: COLORS.white,
   },
@@ -774,6 +739,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
+  },
+  teamBadge: {
+    marginLeft: 6,
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  teamBadgeText: {
+    fontSize: 9,
+    fontFamily: 'Poppins-SemiBold',
+    color: COLORS.primary,
   },
   postMeta: {
     fontFamily: 'Poppins-Regular',

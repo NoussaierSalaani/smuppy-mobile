@@ -8,10 +8,7 @@ import {
   Dimensions,
   StatusBar,
   Modal,
-  TextInput,
   Animated,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -26,6 +23,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
+import { followUser, isFollowing } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,7 +36,7 @@ const MOCK_FANFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
     description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing when you just let go and enjoy the moment.',
     likes: 1234,
-    comments: 273,
+    views: 5420,
     user: {
       id: 'user1',
       name: 'Dianne Russell',
@@ -53,7 +51,7 @@ const MOCK_FANFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
     description: 'Mountain vibes 🏔️ Nothing beats this view!',
     likes: 892,
-    comments: 156,
+    views: 3210,
     user: {
       id: 'user2',
       name: 'Alex Chen',
@@ -68,7 +66,7 @@ const MOCK_FANFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800',
     description: 'Nature at its finest 🌿 Can\'t believe I captured this moment!',
     likes: 2341,
-    comments: 89,
+    views: 8750,
     user: {
       id: 'user3',
       name: 'Sarah Kim',
@@ -83,7 +81,7 @@ const MOCK_FANFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
     description: 'New project coming soon! Stay tuned 🔥',
     likes: 567,
-    comments: 42,
+    views: 1890,
     user: {
       id: 'user4',
       name: 'Marcus Johnson',
@@ -98,7 +96,7 @@ const MOCK_FANFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
     description: 'Epic sunset from yesterday. Sometimes you just need to stop and appreciate the view.',
     likes: 3421,
-    comments: 198,
+    views: 12500,
     user: {
       id: 'user5',
       name: 'Emma Wilson',
@@ -108,41 +106,6 @@ const MOCK_FANFEED_POSTS = [
   },
 ];
 
-// Mock comments
-const MOCK_COMMENTS = [
-  {
-    id: '1',
-    user: { name: 'Tung Tran', avatar: 'https://i.pravatar.cc/150?img=11' },
-    text: '🔥🔥🔥',
-    likes: 1800,
-    replies: 12,
-    timeAgo: '2h',
-  },
-  {
-    id: '2',
-    user: { name: 'marvel_fanatic', avatar: 'https://i.pravatar.cc/150?img=12' },
-    text: "You've got to comission this man.",
-    likes: 1800,
-    replies: 12,
-    timeAgo: '3h',
-  },
-  {
-    id: '3',
-    user: { name: 'Badli', avatar: 'https://i.pravatar.cc/150?img=13' },
-    text: 'Cool! 😎',
-    likes: 1800,
-    replies: 12,
-    timeAgo: '4h',
-  },
-  {
-    id: '4',
-    user: { name: 'Dadaboyy', avatar: 'https://i.pravatar.cc/150?img=14' },
-    text: "Seems like I'm still a beginner, cause what!! This is huge.",
-    likes: 1800,
-    replies: 12,
-    timeAgo: '5h',
-  },
-];
 
 const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
@@ -166,11 +129,9 @@ const PostDetailFanFeedScreen = () => {
   const [fanStatus, setFanStatus] = useState<Record<string, boolean>>({}); // { odId: true/false }
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
-  const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
-  const [commentText, setCommentText] = useState('');
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
 
   // Loading states for anti spam-click
@@ -197,7 +158,36 @@ const PostDetailFanFeedScreen = () => {
   // Check if already fan of current post user
   const isAlreadyFan = fanStatus[currentPost.user.id] === true;
   const theyFollowMe = currentPost.user.followsMe;
-  
+
+  // Validate UUID format
+  const isValidUUID = (id: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return id && uuidRegex.test(id);
+  };
+
+  // Check follow status when post changes
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      const userId = currentPost.user?.id;
+      if (userId && isValidUUID(userId) && fanStatus[userId] === undefined) {
+        const { following } = await isFollowing(userId);
+        if (following) {
+          setFanStatus(prev => ({ ...prev, [userId]: true }));
+        }
+      }
+    };
+    checkFollowStatus();
+  }, [currentPost.user?.id]);
+
+  // Navigate to user profile (only if valid UUID)
+  const navigateToProfile = (userId: string) => {
+    if (isValidUUID(userId)) {
+      navigation.navigate('UserProfile', { userId });
+    } else {
+      console.warn('[PostDetailFanFeed] Cannot navigate - invalid userId:', userId);
+    }
+  };
+
   // Double tap to like
   const handleDoubleTap = () => {
     const now = Date.now();
@@ -299,14 +289,24 @@ const PostDetailFanFeedScreen = () => {
     }
   };
 
-  // Become fan with anti spam-click
+  // Become fan with anti spam-click - using real database
   const becomeFan = async (userId) => {
-    if (fanLoading[userId]) return;
+    // Validate UUID format to avoid mock data errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!userId || fanLoading[userId] || !uuidRegex.test(userId)) {
+      console.warn('[PostDetailFanFeed] Invalid userId:', userId);
+      return;
+    }
     setFanLoading(prev => ({ ...prev, [userId]: true }));
     try {
-      // Simulate network delay (will be replaced with real API)
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setFanStatus(prev => ({ ...prev, [userId]: true }));
+      const { error } = await followUser(userId);
+      if (!error) {
+        setFanStatus(prev => ({ ...prev, [userId]: true }));
+      } else {
+        console.error('[PostDetailFanFeed] Follow error:', error);
+      }
+    } catch (error) {
+      console.error('[PostDetailFanFeed] Follow error:', error);
     } finally {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -608,7 +608,7 @@ const PostDetailFanFeedScreen = () => {
             <View style={styles.userRow}>
               <TouchableOpacity
                 style={styles.userInfo}
-                onPress={() => navigation.navigate('UserProfile', { userId: item.user.id })}
+                onPress={() => navigateToProfile(item.user.id)}
               >
                 <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
                 <Text style={styles.userName}>{item.user.name}</Text>
@@ -657,56 +657,23 @@ const PostDetailFanFeedScreen = () => {
               </Text>
             </TouchableOpacity>
             
-            {/* Comment input */}
-            <TouchableOpacity
-              style={styles.commentInputContainer}
-              onPress={() => setShowComments(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.commentPlaceholder}>Add a comment...</Text>
-              <View style={styles.commentStats}>
-                <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-                <Text style={styles.commentCount}>{formatNumber(item.comments)}</Text>
-                <View style={{ marginLeft: 12 }}>
-                  <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
-                </View>
+            {/* Stats bar */}
+            <View style={styles.statsBar}>
+              <View style={styles.statItem}>
+                <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+                <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
               </View>
-            </TouchableOpacity>
+              <View style={styles.statItem}>
+                <Ionicons name="eye-outline" size={18} color="#FFF" />
+                <Text style={styles.statCount}>{formatNumber(item.views || 0)}</Text>
+              </View>
+            </View>
           </View>
         </View>
       </TouchableWithoutFeedback>
     );
   };
   
-  // Render comment item
-  const renderCommentItem = ({ item }) => (
-    <View style={styles.commentItem}>
-      <AvatarImage source={item.user.avatar} size={36} />
-      <View style={styles.commentContent}>
-        <Text style={styles.commentUserName}>{item.user.name}</Text>
-        <Text style={styles.commentText}>{item.text}</Text>
-        <View style={styles.commentActions}>
-          <Text style={styles.commentTime}>{item.timeAgo}</Text>
-          <TouchableOpacity>
-            <Text style={styles.commentReply}>Reply</Text>
-          </TouchableOpacity>
-        </View>
-        {item.replies > 0 && (
-          <TouchableOpacity style={styles.viewReplies}>
-            <Text style={styles.viewRepliesText}>
-              View replies ({item.replies})
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <TouchableOpacity style={styles.commentLike}>
-        <SmuppyHeartIcon size={18} color={COLORS.textMuted} />
-        <Text style={styles.commentLikeCount}>{formatNumber(item.likes)}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -727,74 +694,6 @@ const PostDetailFanFeedScreen = () => {
         scrollEventThrottle={16}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
       />
-      
-      {/* Comments Modal */}
-      <Modal
-        visible={showComments}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowComments(false)}
-      >
-        <View style={styles.commentsModalOverlay}>
-          <TouchableOpacity
-            style={styles.commentsModalBackdrop}
-            onPress={() => setShowComments(false)}
-          />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.commentsModalContent}
-          >
-            {/* Handle */}
-            <View style={styles.modalHandle} />
-            
-            {/* Header */}
-            <View style={styles.commentsHeader}>
-              <View style={styles.commentsHeaderLeft}>
-                <Ionicons name="chatbubble-outline" size={20} color="#FFF" />
-                <Text style={styles.commentsCount}>{currentPost.comments}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowComments(false)}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Comments list */}
-            <FlashList
-              data={MOCK_COMMENTS}
-              renderItem={renderCommentItem}
-              keyExtractor={(item) => item.id}
-              style={styles.commentsList}
-              showsVerticalScrollIndicator={false}
-            />
-            
-            {/* Comment input */}
-            <View style={[styles.commentInputBar, { paddingBottom: insets.bottom + 10 }]}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Add a comment..."
-                placeholderTextColor={COLORS.textMuted}
-                value={commentText}
-                onChangeText={setCommentText}
-              />
-              <TouchableOpacity style={styles.emojiBtn}>
-                <Ionicons name="happy-outline" size={24} color={COLORS.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.sendBtn,
-                  commentText.length > 0 && styles.sendBtnActive,
-                ]}
-              >
-                <Ionicons
-                  name="send"
-                  size={20}
-                  color={commentText.length > 0 ? COLORS.primaryGreen : COLORS.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
       
       {/* Menu Modal */}
       <Modal
@@ -828,7 +727,7 @@ const PostDetailFanFeedScreen = () => {
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
-                navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                navigateToProfile(currentPost.user.id);
               }}
             >
               <Ionicons name="person-outline" size={24} color="#FFF" />
@@ -1012,13 +911,10 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 200,
     alignItems: 'center',
-    gap: 20,
+    gap: 24,
   },
   actionBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1089,45 +985,25 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   
-  // Comment input container
-  commentInputContainer: {
+  // Stats bar
+  statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 20,
+    paddingVertical: 8,
   },
-  commentPlaceholder: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
-  commentStats: {
+  statItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  commentCount: {
+  statCount: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#FFF',
-    marginLeft: 6,
   },
-  
-  // Comments Modal
-  commentsModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  commentsModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  commentsModalContent: {
-    backgroundColor: COLORS.cardBg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: height * 0.7,
-  },
+
+  // Modal handle
   modalHandle: {
     width: 40,
     height: 4,
@@ -1136,118 +1012,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 8,
-  },
-  commentsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  commentsHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commentsCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  commentsList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  
-  // Comment item
-  commentItem: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-  },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 12,
-  },
-  commentContent: {
-    flex: 1,
-  },
-  commentUserName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  commentText: {
-    fontSize: 14,
-    color: '#FFF',
-    lineHeight: 20,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 8,
-  },
-  commentTime: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  commentReply: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-  viewReplies: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
-  },
-  viewRepliesText: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-  },
-  commentLike: {
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  commentLikeCount: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-  
-  // Comment input bar
-  commentInputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 12,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: COLORS.border,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#FFF',
-  },
-  emojiBtn: {
-    padding: 4,
-  },
-  sendBtn: {
-    padding: 4,
-  },
-  sendBtnActive: {
-    opacity: 1,
   },
   
   // Menu Modal

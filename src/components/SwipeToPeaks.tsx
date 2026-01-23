@@ -49,9 +49,11 @@ export default function SwipeToPeaks({
     extrapolate: 'clamp',
   });
 
+  // Progress bar width in pixels (container is 40px wide)
+  const PROGRESS_BAR_WIDTH = 40;
   const progressWidth = dragY.interpolate({
     inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: ['0%', '100%'],
+    outputRange: [0, PROGRESS_BAR_WIDTH],
     extrapolate: 'clamp',
   });
 
@@ -72,12 +74,12 @@ export default function SwipeToPeaks({
           Animated.timing(indicatorOpacity, {
             toValue: 1,
             duration: 150,
-            useNativeDriver: true,
+            useNativeDriver: false, // Must match other dragY-based animations
           }),
           Animated.spring(indicatorScale, {
             toValue: 1,
             friction: 6,
-            useNativeDriver: true,
+            useNativeDriver: false, // Must match other dragY-based animations
           }),
         ]).start();
       },
@@ -118,12 +120,12 @@ export default function SwipeToPeaks({
           Animated.timing(indicatorOpacity, {
             toValue: 0,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(indicatorScale, {
             toValue: 0.8,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       },
@@ -139,7 +141,7 @@ export default function SwipeToPeaks({
           Animated.timing(indicatorOpacity, {
             toValue: 0,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       },
@@ -179,7 +181,7 @@ export default function SwipeToPeaks({
             <Animated.View
               style={[
                 styles.progressBar,
-                { width: progressWidth as any },
+                { width: progressWidth },
                 canTrigger && styles.progressBarActive,
               ]}
             />

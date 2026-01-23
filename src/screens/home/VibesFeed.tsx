@@ -16,40 +16,88 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { COLORS, SIZES, SPACING } from '../../config/theme';
+import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
-import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPost, Post } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPost, Post, followUser, isFollowing } from '../../services/database';
 
 const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - 48) / 2;
+const GRID_PADDING = 8; // SPACING.sm
+const GRID_GAP = 10;
+const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 const PEAK_CARD_WIDTH = 100;
 const PEAK_CARD_HEIGHT = 140;
 
-// Icon mapping for interests
-const INTEREST_ICONS: Record<string, string> = {
-  'Fitness': 'fitness',
-  'Yoga': 'body',
-  'Running': 'walk',
-  'Nutrition': 'nutrition',
-  'Camping': 'bonfire',
-  'Swimming': 'water',
-  'Cycling': 'bicycle',
-  'Hiking': 'trail-sign',
-  'Gym': 'barbell',
-  'Meditation': 'leaf',
-  'Dance': 'musical-notes',
-  'Climbing': 'trending-up',
-  'Tennis': 'tennisball',
-  'Basketball': 'basketball',
-  'Football': 'football',
-  'Golf': 'golf',
+// Icon and color mapping for interests (matching EditInterestsScreen)
+const INTEREST_DATA: Record<string, { icon: string; color: string }> = {
+  // Sports
+  'Football': { icon: 'football', color: '#8B4513' },
+  'Basketball': { icon: 'basketball', color: '#FF6B35' },
+  'Tennis': { icon: 'tennisball', color: '#C5E063' },
+  'Swimming': { icon: 'water', color: '#0099CC' },
+  'Running': { icon: 'walk', color: '#FF5722' },
+  'Cycling': { icon: 'bicycle', color: '#E63946' },
+  'Golf': { icon: 'golf', color: '#228B22' },
+  'Volleyball': { icon: 'basketball-outline', color: '#FFC107' },
+  // Fitness
+  'Gym': { icon: 'barbell', color: '#1E90FF' },
+  'CrossFit': { icon: 'fitness', color: '#FF4500' },
+  'Weightlifting': { icon: 'barbell-outline', color: '#2F4F4F' },
+  'Cardio': { icon: 'heart', color: '#FF1493' },
+  'HIIT': { icon: 'flash', color: '#FF6347' },
+  'Calisthenics': { icon: 'body', color: '#20B2AA' },
+  'Pilates': { icon: 'fitness-outline', color: '#E91E63' },
+  'Stretching': { icon: 'resize', color: '#8BC34A' },
+  'Fitness': { icon: 'fitness', color: '#FF4500' },
+  // Wellness
+  'Yoga': { icon: 'body', color: '#9B59B6' },
+  'Meditation': { icon: 'leaf', color: '#27AE60' },
+  'Nutrition': { icon: 'nutrition', color: '#FF9800' },
+  'Spa & Recovery': { icon: 'sparkles', color: '#00BCD4' },
+  'Mental Health': { icon: 'happy', color: '#607D8B' },
+  'Sleep': { icon: 'moon', color: '#3F51B5' },
+  'Mindfulness': { icon: 'flower', color: '#E91E63' },
+  'Breathwork': { icon: 'cloudy', color: '#00ACC1' },
+  // Outdoor
+  'Hiking': { icon: 'trail-sign', color: '#5D4037' },
+  'Climbing': { icon: 'trending-up', color: '#795548' },
+  'Surfing': { icon: 'water', color: '#0288D1' },
+  'Skiing': { icon: 'snow', color: '#42A5F5' },
+  'Camping': { icon: 'bonfire', color: '#FF7043' },
+  'Trail Running': { icon: 'walk', color: '#4CAF50' },
+  'Mountain Biking': { icon: 'bicycle', color: '#795548' },
+  'Kayaking': { icon: 'boat', color: '#00897B' },
+  // Combat Sports
+  'Boxing': { icon: 'fitness', color: '#DC143C' },
+  'MMA': { icon: 'fitness', color: '#D32F2F' },
+  'Judo': { icon: 'body', color: '#1976D2' },
+  'Karate': { icon: 'hand-right', color: '#F57C00' },
+  'Taekwondo': { icon: 'flash', color: '#7B1FA2' },
+  'BJJ': { icon: 'body-outline', color: '#388E3C' },
+  'Kickboxing': { icon: 'fitness-outline', color: '#E64A19' },
+  'Muay Thai': { icon: 'flash-outline', color: '#FF5722' },
+  // Water Sports
+  'Scuba Diving': { icon: 'water', color: '#0277BD' },
+  'Snorkeling': { icon: 'water-outline', color: '#00ACC1' },
+  'Wakeboarding': { icon: 'boat', color: '#0288D1' },
+  'Water Polo': { icon: 'water', color: '#1976D2' },
+  'Paddle Board': { icon: 'boat', color: '#00BCD4' },
+  'Sailing': { icon: 'boat', color: '#0097A7' },
+  // Recovery
+  'Massage': { icon: 'hand-left', color: '#8BC34A' },
+  'Physiotherapy': { icon: 'bandage', color: '#3498DB' },
+  'Cryotherapy': { icon: 'snow', color: '#00BCD4' },
+  'Foam Rolling': { icon: 'resize', color: '#FF9800' },
+  'Sauna': { icon: 'flame', color: '#FF5722' },
+  'Ice Baths': { icon: 'water', color: '#2196F3' },
+  // Fallback
+  'Dance': { icon: 'musical-notes', color: '#E91E63' },
 };
 
 // Mock Peaks data (will be replaced with real API)
@@ -111,26 +159,36 @@ interface UIVibePost {
 }
 
 // Transform Post from database to UI format
+// Handles both new format (media_urls, content) and legacy format (media_url, caption)
 const transformToUIPost = (post: Post, likedPostIds: Set<string>): UIVibePost => {
   // Generate varied heights for masonry layout
   const heights = [180, 200, 220, 240, 260, 280];
   const randomHeight = heights[Math.abs(post.id.charCodeAt(0)) % heights.length];
 
+  // Get media URL - support both array and single string formats
+  const mediaUrl = post.media_urls?.[0] || post.media_url || 'https://via.placeholder.com/400x500';
+
+  // Get content - support both 'content' and 'caption' fields
+  const contentText = post.content || post.caption || '';
+
+  // Determine media type - normalize 'photo' to 'image'
+  const normalizedType = post.media_type === 'photo' ? 'image' : post.media_type;
+
   return {
     id: post.id,
-    type: post.media_type === 'video' ? 'video' : post.media_type === 'multiple' ? 'carousel' : 'image',
-    media: post.media_urls?.[0] || 'https://via.placeholder.com/400x500',
+    type: normalizedType === 'video' ? 'video' : normalizedType === 'multiple' ? 'carousel' : 'image',
+    media: mediaUrl,
     height: randomHeight,
-    slideCount: post.media_type === 'multiple' ? post.media_urls?.length : undefined,
+    slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || post.author?.username || 'User',
       avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
     },
-    title: post.content || '',
+    title: contentText,
     likes: post.likes_count || 0,
     isLiked: likedPostIds.has(post.id),
-    category: post.tags?.[0] || 'General',
+    category: post.tags?.[0] || 'Fitness',
   };
 };
 
@@ -152,10 +210,9 @@ interface MoodIndicatorProps {
 
 const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Pulse animation
+    // Pulse animation (scale is supported by native driver)
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -170,25 +227,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
         }),
       ])
     ).start();
-
-    // Glow animation for high confidence
-    if (mood && mood.confidence > 0.6) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [mood?.confidence]);
+  }, []);
 
   if (!mood) return null;
 
@@ -210,22 +249,19 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
           style={styles.moodGradient}
         >
           {/* Emoji with glow effect */}
-          <Animated.View
+          <View
             style={[
               styles.moodIconContainer,
               {
                 backgroundColor: display.color + '30',
                 shadowColor: display.color,
-                shadowOpacity: glowAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.2, 0.6],
-                }) as any,
+                shadowOpacity: 0.4,
                 shadowRadius: 8,
               },
             ]}
           >
             <Text style={styles.moodEmoji}>{display.emoji}</Text>
-          </Animated.View>
+          </View>
 
           {/* Text content */}
           <View style={styles.moodTextContainer}>
@@ -243,7 +279,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
           <View style={styles.moodConfidenceContainer}>
             <Text style={[styles.moodConfidenceText, { color: display.color }]}>{confidencePercent}%</Text>
             <View style={styles.moodConfidence}>
-              <Animated.View
+              <View
                 style={[
                   styles.moodConfidenceBar,
                   {
@@ -260,9 +296,13 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
   );
 });
 
-export default function VibesFeed() {
+interface VibesFeedProps {
+  headerHeight?: number;
+}
+
+export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll } = useTabBar();
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
@@ -299,19 +339,25 @@ export default function VibesFeed() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Load user interests from profile
-  useEffect(() => {
-    const loadUserInterests = async () => {
-      const { data: profile } = await getCurrentProfile();
-      if (profile?.interests && profile.interests.length > 0) {
-        setUserInterests(profile.interests);
-      } else {
-        // Default interests if user hasn't set any
-        setUserInterests(['Fitness', 'Yoga', 'Running', 'Nutrition', 'Swimming', 'Cycling']);
-      }
-    };
-    loadUserInterests();
-  }, []);
+  // Follow state for modal
+  const [isFollowingUser, setIsFollowingUser] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  // Load user interests from profile (reload when screen receives focus)
+  useFocusEffect(
+    useCallback(() => {
+      const loadUserInterests = async () => {
+        const { data: profile } = await getCurrentProfile();
+        if (profile?.interests && profile.interests.length > 0) {
+          setUserInterests(profile.interests);
+        } else {
+          // Default interests if user hasn't set any
+          setUserInterests(['Fitness', 'Yoga', 'Running', 'Nutrition', 'Swimming', 'Cycling']);
+        }
+      };
+      loadUserInterests();
+    }, [])
+  );
 
   // Fetch posts from API
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
@@ -325,12 +371,13 @@ export default function VibesFeed() {
       }
 
       if (data) {
-        // Check liked status for each post
-        const likedIds = new Set<string>();
-        for (const post of data) {
-          const { hasLiked } = await hasLikedPost(post.id);
-          if (hasLiked) likedIds.add(post.id);
-        }
+        // Check liked status for all posts in PARALLEL (much faster!)
+        const likedResults = await Promise.all(
+          data.map(post => hasLikedPost(post.id))
+        );
+        const likedIds = new Set<string>(
+          data.filter((_, index) => likedResults[index].hasLiked).map(post => post.id)
+        );
 
         const transformedPosts = data.map(post => transformToUIPost(post, likedIds));
 
@@ -363,6 +410,8 @@ export default function VibesFeed() {
       setPage(0);
       fetchPosts(0, true);
     }
+    // Intentionally only depend on activeInterests to avoid reload loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeInterests]);
 
   // Navigate to user profile
@@ -373,8 +422,14 @@ export default function VibesFeed() {
       trackPostExit(selectedPost.id, timeSpent);
       setModalVisible(false);
       setSelectedPost(null);
+      setIsFollowingUser(false);
+      // Wait for modal to close before navigating
+      setTimeout(() => {
+        navigation.navigate('UserProfile', { userId });
+      }, 300);
+    } else {
+      navigation.navigate('UserProfile', { userId });
     }
-    navigation.navigate('UserProfile', { userId });
   }, [navigation, modalVisible, selectedPost, trackPostExit]);
 
   // Navigate to Peak view
@@ -440,12 +495,16 @@ export default function VibesFeed() {
 
   // Transform userInterests into interest objects for filter chips
   const interests = useMemo(() => {
-    return userInterests.map((interest) => ({
-      id: interest,
-      name: interest,
-      icon: (INTEREST_ICONS[interest] || 'sparkles') as keyof typeof Ionicons.glyphMap,
-      active: activeInterests.has(interest),
-    }));
+    return userInterests.map((interest) => {
+      const data = INTEREST_DATA[interest] || { icon: 'sparkles', color: '#8E8E93' };
+      return {
+        id: interest,
+        name: interest,
+        icon: data.icon as keyof typeof Ionicons.glyphMap,
+        color: data.color,
+        active: activeInterests.has(interest),
+      };
+    });
   }, [userInterests, activeInterests]);
 
   // Like/unlike post with engagement tracking
@@ -512,7 +571,35 @@ export default function VibesFeed() {
     }
     setModalVisible(false);
     setSelectedPost(null);
+    setIsFollowingUser(false); // Reset follow state when closing
   }, [selectedPost, trackPostExit]);
+
+  // Check follow status when modal opens
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (selectedPost?.user?.id && modalVisible) {
+        const { following } = await isFollowing(selectedPost.user.id);
+        setIsFollowingUser(following);
+      }
+    };
+    checkFollowStatus();
+  }, [selectedPost?.user?.id, modalVisible]);
+
+  // Become a fan from modal
+  const becomeFan = useCallback(async () => {
+    if (followLoading || !selectedPost?.user?.id) return;
+    setFollowLoading(true);
+    try {
+      const { error } = await followUser(selectedPost.user.id);
+      if (!error) {
+        setIsFollowingUser(true);
+      }
+    } catch (err) {
+      console.error('[VibesFeed] Follow error:', err);
+    } finally {
+      setFollowLoading(false);
+    }
+  }, [followLoading, selectedPost?.user?.id]);
 
   // Format numbers
   const formatNumber = useCallback((num: number) => {
@@ -572,7 +659,7 @@ export default function VibesFeed() {
   // Render Peak card
   const renderPeakCard = (peak, index) => (
     <TouchableOpacity
-      key={peak.id}
+      key={`peak-${index}-${peak.id}`}
       style={styles.peakCard}
       onPress={() => goToPeakView(peak, index)}
       activeOpacity={0.9}
@@ -594,9 +681,9 @@ export default function VibesFeed() {
   );
 
   // Render vibe card with double-tap to like and glassmorphism
-  const renderVibeCard = (post) => (
+  const renderVibeCard = (post, index: number) => (
     <DoubleTapLike
-      key={post.id}
+      key={`vibe-${index}-${post.id}`}
       onDoubleTap={() => {
         if (!post.isLiked) {
           toggleLike(post.id);
@@ -687,19 +774,29 @@ export default function VibesFeed() {
 
               {/* Post info */}
               <View style={styles.modalInfo}>
-                <TouchableOpacity 
-                  style={styles.modalUser}
-                  onPress={() => goToUserProfile(selectedPost.user.id)}
-                >
-                  <Image source={{ uri: selectedPost.user.avatar }} style={styles.modalAvatar} />
-                  <View style={styles.modalUserInfo}>
-                    <Text style={styles.modalUserName}>{selectedPost.user.name}</Text>
-                    <Text style={styles.modalCategory}>{selectedPost.category}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.modalFollowButton}>
-                    <Text style={styles.modalFollowText}>Fan</Text>
+                <View style={styles.modalUser}>
+                  <TouchableOpacity
+                    style={styles.modalUserTouch}
+                    onPress={() => goToUserProfile(selectedPost.user.id)}
+                  >
+                    <Image source={{ uri: selectedPost.user.avatar }} style={styles.modalAvatar} />
+                    <View style={styles.modalUserInfo}>
+                      <Text style={styles.modalUserName}>{selectedPost.user.name}</Text>
+                      <Text style={styles.modalCategory}>{selectedPost.category}</Text>
+                    </View>
                   </TouchableOpacity>
-                </TouchableOpacity>
+                  {!isFollowingUser && (
+                    <TouchableOpacity
+                      style={[styles.modalFollowButton, followLoading && styles.modalFollowButtonLoading]}
+                      onPress={becomeFan}
+                      disabled={followLoading}
+                    >
+                      <Text style={styles.modalFollowText}>
+                        {followLoading ? '...' : 'Become a fan'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 <Text style={styles.modalTitle}>{selectedPost.title}</Text>
 
@@ -707,10 +804,6 @@ export default function VibesFeed() {
                   <TouchableOpacity style={styles.modalAction}>
                     <SmuppyHeartIcon size={24} color={COLORS.dark} />
                     <Text style={styles.modalActionText}>{formatNumber(selectedPost.likes)}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.modalAction}>
-                    <Ionicons name="chatbubble-outline" size={22} color={COLORS.dark} />
-                    <Text style={styles.modalActionText}>Comment</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.modalAction}>
                     <Ionicons name="share-outline" size={24} color={COLORS.dark} />
@@ -727,8 +820,34 @@ export default function VibesFeed() {
               <View style={styles.relatedSection}>
                 <Text style={styles.relatedTitle}>More like this</Text>
                 <View style={styles.relatedGrid}>
-                  {RELATED_POSTS.map((post) => (
-                    <TouchableOpacity key={post.id} style={styles.relatedCard}>
+                  {RELATED_POSTS.map((post, index) => (
+                    <TouchableOpacity
+                      key={`related-${index}-${post.id}`}
+                      style={styles.relatedCard}
+                      onPress={() => {
+                        closePostModal();
+                        // Navigate to PostDetailVibesFeedScreen with this post
+                        navigation.navigate('PostDetailVibesFeed', {
+                          postId: post.id,
+                          post: {
+                            id: post.id,
+                            type: 'image',
+                            media: post.media,
+                            thumbnail: post.media,
+                            description: '',
+                            likes: 0,
+                            views: 0,
+                            category: 'Explore',
+                            user: {
+                              id: 'explore',
+                              name: 'Explore',
+                              avatar: 'https://i.pravatar.cc/150?img=10',
+                              followsMe: false,
+                            },
+                          },
+                        });
+                      }}
+                    >
                       <Image source={{ uri: post.media }} style={[styles.relatedImage, { height: post.height }]} />
                     </TouchableOpacity>
                   ))}
@@ -748,7 +867,10 @@ export default function VibesFeed() {
     <View style={styles.container}>
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          headerHeight > 0 && { paddingTop: headerHeight + SPACING.sm }
+        ]}
         onScroll={(event) => {
           handleScroll(event);
           handleMoodScroll(event);
@@ -761,6 +883,7 @@ export default function VibesFeed() {
             onRefresh={onRefresh}
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}
+            progressViewOffset={headerHeight}
           />
         }
       >
@@ -800,31 +923,52 @@ export default function VibesFeed() {
               key={interest.id}
               style={{ transform: [{ scale: getChipAnimation(interest.id) }] }}
             >
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  interest.active && styles.filterChipActive,
-                ]}
-                onPress={() => toggleInterest(interest.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={interest.icon}
-                  size={12}
-                  color={interest.active ? '#fff' : COLORS.primary}
-                />
-                <Text style={[
-                  styles.filterChipText,
-                  interest.active && styles.filterChipTextActive,
-                ]}>
-                  {interest.name}
-                </Text>
-                {interest.active && (
-                  <Ionicons name="close" size={10} color="#fff" style={{ marginLeft: 4 }} />
-                )}
-              </TouchableOpacity>
+              {interest.active ? (
+                <TouchableOpacity
+                  onPress={() => toggleInterest(interest.id)}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={GRADIENTS.button}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.filterChipGradientBorder}
+                  >
+                    <View style={styles.filterChipSelectedInner}>
+                      <Ionicons
+                        name={interest.icon}
+                        size={12}
+                        color={interest.color}
+                      />
+                      <Text style={styles.filterChipText}>{interest.name}</Text>
+                      <Ionicons name="close" size={10} color={COLORS.dark} style={{ marginLeft: 2 }} />
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.filterChip}
+                  onPress={() => toggleInterest(interest.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={interest.icon}
+                    size={12}
+                    color={interest.color}
+                  />
+                  <Text style={styles.filterChipText}>{interest.name}</Text>
+                </TouchableOpacity>
+              )}
             </Animated.View>
           ))}
+          {/* Add interests button */}
+          <TouchableOpacity
+            style={styles.addInterestButton}
+            onPress={() => navigation.navigate('EditInterests', { returnTo: 'VibesFeed' })}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
         </ScrollView>
 
         {/* Grid */}
@@ -861,49 +1005,51 @@ export default function VibesFeed() {
   );
 }
 
+const SECTION_GAP = 10; // Consistent spacing between all sections
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
   },
   scrollContent: {
-    paddingTop: SPACING.sm,
+    paddingTop: 2,
   },
 
   // Smuppy Mood Indicator
   moodContainer: {
     marginHorizontal: SPACING.base,
-    marginBottom: SPACING.md,
+    marginBottom: SECTION_GAP,
   },
   moodGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 16,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
   moodIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   moodEmoji: {
-    fontSize: 18,
+    fontSize: 16,
   },
   moodTextContainer: {
     flex: 1,
-    marginLeft: SPACING.sm,
+    marginLeft: SPACING.xs,
   },
   moodLabel: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 10,
+    fontSize: 9,
     color: COLORS.gray,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   moodLabelRow: {
     flexDirection: 'row',
@@ -923,14 +1069,14 @@ const styles = StyleSheet.create({
   },
   moodValue: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 1,
   },
   moodDescription: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 10,
+    fontSize: 9,
     color: COLORS.gray,
-    marginTop: 1,
+    marginTop: 0,
   },
   moodConfidenceContainer: {
     alignItems: 'flex-end',
@@ -938,12 +1084,12 @@ const styles = StyleSheet.create({
   },
   moodConfidenceText: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 11,
-    marginBottom: 3,
+    fontSize: 10,
+    marginBottom: 2,
   },
   moodConfidence: {
-    width: 40,
-    height: 4,
+    width: 36,
+    height: 3,
     backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 2,
     overflow: 'hidden',
@@ -955,14 +1101,14 @@ const styles = StyleSheet.create({
 
   // PEAKS SECTION
   peaksSection: {
-    marginBottom: SPACING.md,
+    marginBottom: SECTION_GAP,
   },
   peaksSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.base,
-    marginBottom: SPACING.sm,
+    marginBottom: 6,
   },
   peaksSectionTitle: {
     fontFamily: 'WorkSans-Bold',
@@ -1041,45 +1187,65 @@ const styles = StyleSheet.create({
 
   // Filters
   filtersContainer: {
-    maxHeight: 40,
-    marginBottom: SPACING.sm,
+    maxHeight: 36,
+    marginBottom: SECTION_GAP,
   },
   filtersContent: {
     paddingHorizontal: SPACING.base,
     alignItems: 'center',
   },
   filterChip: {
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 5,
     backgroundColor: COLORS.white,
     borderRadius: 14,
     marginRight: 6,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    gap: 4,
   },
-  filterChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+  filterChipGradientBorder: {
+    height: 28,
+    borderRadius: 14,
+    padding: 1.5,
+    marginRight: 6,
+  },
+  filterChipSelectedInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8.5,
+    borderRadius: 12.5,
+    backgroundColor: '#E6FAF8',
+    gap: 4,
   },
   filterChipText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 11,
-    color: COLORS.primary,
-    marginLeft: 4,
+    color: '#0A0A0F',
   },
-  filterChipTextActive: {
-    color: '#fff',
+  addInterestButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
   },
 
   // Grid
   gridContainer: {
-    paddingHorizontal: SPACING.base,
+    paddingHorizontal: GRID_PADDING,
   },
   masonryContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: GRID_GAP,
   },
   column: {
     width: COLUMN_WIDTH,
@@ -1089,7 +1255,7 @@ const styles = StyleSheet.create({
   vibeCard: {
     borderRadius: SIZES.radiusMd,
     overflow: 'hidden',
-    marginBottom: SPACING.base,
+    marginBottom: SECTION_GAP,
     backgroundColor: COLORS.grayLight,
   },
   vibeImage: {
@@ -1257,15 +1423,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.gray,
   },
+  modalUserTouch: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   modalFollowButton: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: COLORS.primary,
     borderRadius: 20,
   },
+  modalFollowButtonLoading: {
+    opacity: 0.6,
+  },
   modalFollowText: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
+    fontSize: 13,
     color: '#fff',
   },
   modalTitle: {

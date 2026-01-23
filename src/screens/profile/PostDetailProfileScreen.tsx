@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,9 @@ import {
   Dimensions,
   StatusBar,
   Modal,
-  TextInput,
   Animated,
-  PanResponder,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -22,6 +20,9 @@ import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { followUser, unfollowUser, isFollowing } from '../../services/database';
+import { sharePost, copyPostLink } from '../../utils/share';
+import { useContentStore } from '../../store/contentStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,7 +35,7 @@ const MOCK_PROFILE_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
     description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing when you just let go and enjoy the moment.',
     likes: 1234,
-    comments: 273,
+    views: 5420,
     user: {
       id: 'user1',
       name: 'Dianne Russell',
@@ -48,7 +49,7 @@ const MOCK_PROFILE_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
     description: 'Mountain vibes 🏔️ Nothing beats this view!',
     likes: 892,
-    comments: 156,
+    views: 3210,
     user: {
       id: 'user1',
       name: 'Dianne Russell',
@@ -62,7 +63,7 @@ const MOCK_PROFILE_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800',
     description: 'Nature at its finest 🌿',
     likes: 2341,
-    comments: 89,
+    views: 8750,
     user: {
       id: 'user1',
       name: 'Dianne Russell',
@@ -71,41 +72,6 @@ const MOCK_PROFILE_POSTS = [
   },
 ];
 
-// Mock comments
-const MOCK_COMMENTS = [
-  {
-    id: '1',
-    user: { name: 'Tung Tran', avatar: 'https://i.pravatar.cc/150?img=11' },
-    text: '🔥🔥🔥',
-    likes: 1800,
-    replies: 12,
-    timeAgo: '2h',
-  },
-  {
-    id: '2',
-    user: { name: 'marvel_fanatic', avatar: 'https://i.pravatar.cc/150?img=12' },
-    text: "You've got to comission this man.",
-    likes: 1800,
-    replies: 12,
-    timeAgo: '3h',
-  },
-  {
-    id: '3',
-    user: { name: 'Badli', avatar: 'https://i.pravatar.cc/150?img=13' },
-    text: 'Cool! 😎',
-    likes: 1800,
-    replies: 12,
-    timeAgo: '4h',
-  },
-  {
-    id: '4',
-    user: { name: 'Dadaboyy', avatar: 'https://i.pravatar.cc/150?img=14' },
-    text: "Seems like I'm still a beginner, cause what!! This is huge.",
-    likes: 1800,
-    replies: 12,
-    timeAgo: '5h',
-  },
-];
 
 const PostDetailProfileScreen = () => {
   const navigation = useNavigation();
@@ -125,15 +91,16 @@ const PostDetailProfileScreen = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isFan, setIsFan] = useState(false);
   const [theyFollowMe, setTheyFollowMe] = useState(false); // Est-ce qu'ils me suivent ?
-  const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
-  const [commentText, setCommentText] = useState('');
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
-  
-  // TODO: Récupérer depuis Supabase si l'user du post me suit
-  // setTheyFollowMe(checkIfTheyFollowMe(currentPost.user.id));
-  
+  const [fanLoading, setFanLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+
+  // Content store for reports
+  const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+
   // Refs
   const videoRef = useRef(null);
   const flatListRef = useRef(null);
@@ -142,7 +109,98 @@ const PostDetailProfileScreen = () => {
   
   // Current post
   const currentPost = profilePosts[currentIndex] || MOCK_PROFILE_POSTS[0];
-  
+
+  // Check follow status on mount or post change
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (currentPost.user?.id) {
+        const { following } = await isFollowing(currentPost.user.id);
+        setIsFan(following);
+      }
+    };
+    checkFollowStatus();
+  }, [currentPost.user?.id]);
+
+  // Become fan with real database call
+  const becomeFan = async () => {
+    if (fanLoading || !currentPost.user?.id) return;
+    setFanLoading(true);
+    try {
+      const { error } = await followUser(currentPost.user.id);
+      if (!error) {
+        setIsFan(true);
+      } else {
+        console.error('[PostDetailProfile] Follow error:', error);
+      }
+    } catch (error) {
+      console.error('[PostDetailProfile] Follow error:', error);
+    } finally {
+      setFanLoading(false);
+    }
+  };
+
+  // Share post
+  const handleShare = async () => {
+    if (shareLoading) return;
+    setShareLoading(true);
+    try {
+      setShowMenu(false);
+      await sharePost(
+        currentPost.id,
+        currentPost.description,
+        currentPost.user.name
+      );
+    } catch (error) {
+      // User cancelled or error - silent fail
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  // Copy link to clipboard
+  const handleCopyLink = async () => {
+    setShowMenu(false);
+    const copied = await copyPostLink(currentPost.id);
+    if (copied) {
+      Alert.alert('Copied!', 'Post link copied to clipboard');
+    }
+  };
+
+  // Report post
+  const handleReport = () => {
+    setShowMenu(false);
+    if (hasUserReported(currentPost.id)) {
+      Alert.alert(
+        'Already reported',
+        'You have already reported this content. It is under review.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    if (isUnderReview(currentPost.id)) {
+      Alert.alert(
+        'Under review',
+        'This content is already being reviewed by our team.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setShowReportModal(true);
+  };
+
+  // Submit report
+  const submitReport = (reason: string) => {
+    setShowReportModal(false);
+    const result = storeSubmitReport(currentPost.id, reason);
+    if (result.alreadyReported) {
+      Alert.alert('Already reported', result.message, [{ text: 'OK' }]);
+    } else if (result.success) {
+      Alert.alert('Reported', result.message, [{ text: 'OK' }]);
+    } else {
+      Alert.alert('Error', 'An error occurred. Please try again.', [{ text: 'OK' }]);
+    }
+  };
+
   // Double tap to like
   const handleDoubleTap = () => {
     const now = Date.now();
@@ -314,20 +372,27 @@ const PostDetailProfileScreen = () => {
             
             {/* Bouton Fan - logique:
                 - Si déjà fan → pas de bouton (rien)
-                - Si pas fan + ils me suivent → "Track" 
+                - Si pas fan + ils me suivent → "Track"
                 - Si pas fan + ils me suivent pas → "+ Fan"
             */}
             {!isFan && (
               <TouchableOpacity
-                style={styles.fanBtn}
-                onPress={() => setIsFan(true)}
+                style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
+                onPress={becomeFan}
+                disabled={fanLoading}
               >
-                {!theyFollowMe && (
-                  <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                {fanLoading ? (
+                  <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                ) : (
+                  <>
+                    {!theyFollowMe && (
+                      <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                    )}
+                    <Text style={styles.fanBtnText}>
+                      {theyFollowMe ? 'Track' : 'Fan'}
+                    </Text>
+                  </>
                 )}
-                <Text style={styles.fanBtnText}>
-                  {theyFollowMe ? 'Track' : 'Fan'}
-                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -348,55 +413,22 @@ const PostDetailProfileScreen = () => {
             </Text>
           </TouchableOpacity>
           
-          {/* Comment input */}
-          <TouchableOpacity
-            style={styles.commentInputContainer}
-            onPress={() => setShowComments(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.commentPlaceholder}>Add a comment...</Text>
-            <View style={styles.commentStats}>
-              <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-              <Text style={styles.commentCount}>{formatNumber(item.comments)}</Text>
-              <View style={{ marginLeft: 12 }}>
-                <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
-              </View>
+          {/* Stats bar */}
+          <View style={styles.statsBar}>
+            <View style={styles.statItem}>
+              <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+              <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
             </View>
-          </TouchableOpacity>
+            <View style={styles.statItem}>
+              <Ionicons name="eye-outline" size={18} color="#FFF" />
+              <Text style={styles.statCount}>{formatNumber(item.views || 0)}</Text>
+            </View>
+          </View>
         </View>
       </View>
     </TouchableWithoutFeedback>
   );
   
-  // Render comment item
-  const renderCommentItem = ({ item }) => (
-    <View style={styles.commentItem}>
-      <AvatarImage source={item.user.avatar} size={36} />
-      <View style={styles.commentContent}>
-        <Text style={styles.commentUserName}>{item.user.name}</Text>
-        <Text style={styles.commentText}>{item.text}</Text>
-        <View style={styles.commentActions}>
-          <Text style={styles.commentTime}>{item.timeAgo}</Text>
-          <TouchableOpacity>
-            <Text style={styles.commentReply}>Reply</Text>
-          </TouchableOpacity>
-        </View>
-        {item.replies > 0 && (
-          <TouchableOpacity style={styles.viewReplies}>
-            <Text style={styles.viewRepliesText}>
-              View replies ({item.replies})
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <TouchableOpacity style={styles.commentLike}>
-        <SmuppyHeartIcon size={18} color={COLORS.textMuted} />
-        <Text style={styles.commentLikeCount}>{formatNumber(item.likes)}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -416,74 +448,6 @@ const PostDetailProfileScreen = () => {
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
       />
       
-      {/* Comments Modal */}
-      <Modal
-        visible={showComments}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowComments(false)}
-      >
-        <View style={styles.commentsModalOverlay}>
-          <TouchableOpacity
-            style={styles.commentsModalBackdrop}
-            onPress={() => setShowComments(false)}
-          />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.commentsModalContent}
-          >
-            {/* Handle */}
-            <View style={styles.modalHandle} />
-            
-            {/* Header */}
-            <View style={styles.commentsHeader}>
-              <View style={styles.commentsHeaderLeft}>
-                <Ionicons name="chatbubble-outline" size={20} color="#FFF" />
-                <Text style={styles.commentsCount}>{currentPost.comments}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowComments(false)}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Comments list */}
-            <FlashList
-              data={MOCK_COMMENTS}
-              renderItem={renderCommentItem}
-              keyExtractor={(item) => item.id}
-              style={styles.commentsList}
-              showsVerticalScrollIndicator={false}
-            />
-            
-            {/* Comment input */}
-            <View style={[styles.commentInputBar, { paddingBottom: insets.bottom + 10 }]}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Add a comment..."
-                placeholderTextColor={COLORS.textMuted}
-                value={commentText}
-                onChangeText={setCommentText}
-              />
-              <TouchableOpacity style={styles.emojiBtn}>
-                <Ionicons name="happy-outline" size={24} color={COLORS.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.sendBtn,
-                  commentText.length > 0 && styles.sendBtnActive,
-                ]}
-              >
-                <Ionicons
-                  name="send"
-                  size={20}
-                  color={commentText.length > 0 ? COLORS.primaryGreen : COLORS.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-      
       {/* Menu Modal */}
       <Modal
         visible={showMenu}
@@ -498,25 +462,87 @@ const PostDetailProfileScreen = () => {
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Share</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleCopyLink}>
               <Ionicons name="link-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Copy Link</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="flag-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Report</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.menuCancel}
               onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowReportModal(false)}
+        >
+          <View style={styles.menuContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.reportTitle}>Report this post</Text>
+            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('spam')}
+            >
+              <Text style={styles.reportOptionText}>Spam or misleading</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('inappropriate')}
+            >
+              <Text style={styles.reportOptionText}>Inappropriate content</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('harassment')}
+            >
+              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('violence')}
+            >
+              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.reportOption}
+              onPress={() => submitReport('other')}
+            >
+              <Text style={styles.reportOptionText}>Other</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuCancel}
+              onPress={() => setShowReportModal(false)}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -587,13 +613,10 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 200,
     alignItems: 'center',
-    gap: 20,
+    gap: 24,
   },
   actionBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -643,6 +666,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryGreen,
     borderColor: COLORS.primaryGreen,
   },
+  fanBtnDisabled: {
+    opacity: 0.6,
+  },
   fanBtnText: {
     fontSize: 14,
     fontWeight: '600',
@@ -663,45 +689,25 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   
-  // Comment input container
-  commentInputContainer: {
+  // Stats bar
+  statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 20,
+    paddingVertical: 8,
   },
-  commentPlaceholder: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
-  commentStats: {
+  statItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  commentCount: {
+  statCount: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#FFF',
-    marginLeft: 6,
   },
-  
-  // Comments Modal
-  commentsModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  commentsModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  commentsModalContent: {
-    backgroundColor: COLORS.cardBg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: height * 0.7,
-  },
+
+  // Modal handle
   modalHandle: {
     width: 40,
     height: 4,
@@ -711,119 +717,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  commentsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  commentsHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commentsCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  commentsList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  
-  // Comment item
-  commentItem: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-  },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 12,
-  },
-  commentContent: {
-    flex: 1,
-  },
-  commentUserName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  commentText: {
-    fontSize: 14,
-    color: '#FFF',
-    lineHeight: 20,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 8,
-  },
-  commentTime: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  commentReply: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-  viewReplies: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
-  },
-  viewRepliesText: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-  },
-  commentLike: {
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  commentLikeCount: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-  
-  // Comment input bar
-  commentInputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 12,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: COLORS.border,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#FFF',
-  },
-  emojiBtn: {
-    padding: 4,
-  },
-  sendBtn: {
-    padding: 4,
-  },
-  sendBtnActive: {
-    opacity: 1,
-  },
-  
+
   // Menu Modal
   menuOverlay: {
     flex: 1,
@@ -858,6 +752,31 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // Report modal
+  reportTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  reportSubtitle: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  reportOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  reportOptionText: {
+    fontSize: 16,
     color: '#FFF',
   },
 });

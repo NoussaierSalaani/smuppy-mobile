@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,7 @@ import {
   Dimensions,
   StatusBar,
   Modal,
-  TextInput,
   Animated,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -27,6 +24,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
+import { followUser, unfollowUser, isFollowing } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -48,7 +46,7 @@ const MOCK_VIBESFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
     description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing!',
     likes: 1234,
-    comments: 273,
+    views: 5420,
     category: 'Adventure',
     user: {
       id: 'user1',
@@ -64,7 +62,7 @@ const MOCK_VIBESFEED_POSTS = [
     thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
     description: 'Mountain vibes 🏔️',
     likes: 892,
-    comments: 156,
+    views: 3210,
     category: 'Nature',
     user: {
       id: 'user2',
@@ -154,34 +152,6 @@ const MOCK_GRID_POSTS = [
   },
 ];
 
-// Mock comments
-const MOCK_COMMENTS = [
-  {
-    id: '1',
-    user: { name: 'Tung Tran', avatar: 'https://i.pravatar.cc/150?img=11' },
-    text: '🔥🔥🔥',
-    likes: 1800,
-    replies: 12,
-    timeAgo: '2h',
-  },
-  {
-    id: '2',
-    user: { name: 'marvel_fanatic', avatar: 'https://i.pravatar.cc/150?img=12' },
-    text: "You've got to comission this man.",
-    likes: 1800,
-    replies: 12,
-    timeAgo: '3h',
-  },
-  {
-    id: '3',
-    user: { name: 'Badli', avatar: 'https://i.pravatar.cc/150?img=13' },
-    text: 'Cool! 😎',
-    likes: 1800,
-    replies: 12,
-    timeAgo: '4h',
-  },
-];
-
 const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -204,11 +174,9 @@ const PostDetailVibesFeedScreen = () => {
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [isFan, setIsFan] = useState(false);
-  const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
-  const [commentText, setCommentText] = useState('');
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [gridPosts, setGridPosts] = useState(MOCK_GRID_POSTS);
 
@@ -226,9 +194,20 @@ const PostDetailVibesFeedScreen = () => {
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   const videoRef = useRef(null);
-  
+
   // User follows me?
   const theyFollowMe = currentPost.user?.followsMe || false;
+
+  // Check follow status on mount
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (currentPost.user?.id) {
+        const { following } = await isFollowing(currentPost.user.id);
+        setIsFan(following);
+      }
+    };
+    checkFollowStatus();
+  }, [currentPost.user?.id]);
   
   // Double tap to like
   const handleDoubleTap = () => {
@@ -326,13 +305,19 @@ const PostDetailVibesFeedScreen = () => {
     }
   };
 
-  // Become fan with anti spam-click
+  // Become fan with anti spam-click - using real database
   const becomeFan = async () => {
-    if (fanLoading) return;
+    if (fanLoading || !currentPost.user?.id) return;
     setFanLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setIsFan(true);
+      const { error } = await followUser(currentPost.user.id);
+      if (!error) {
+        setIsFan(true);
+      } else {
+        console.error('[PostDetail] Follow error:', error);
+      }
+    } catch (error) {
+      console.error('[PostDetail] Follow error:', error);
     } finally {
       setFanLoading(false);
     }
@@ -506,7 +491,7 @@ const PostDetailVibesFeedScreen = () => {
     
     return (
       <TouchableOpacity
-        key={post.id}
+        key={`grid-${index}-${post.id}`}
         style={[styles.gridCard, { height: post.height }]}
         activeOpacity={0.9}
         onPress={() => handleGridPostPress(post)}
@@ -529,33 +514,6 @@ const PostDetailVibesFeedScreen = () => {
       </TouchableOpacity>
     );
   };
-  
-  // Render comment item
-  const renderCommentItem = ({ item }) => (
-    <View style={styles.commentItem}>
-      <AvatarImage source={item.user.avatar} size={36} />
-      <View style={styles.commentContent}>
-        <Text style={styles.commentUserName}>{item.user.name}</Text>
-        <Text style={styles.commentText}>{item.text}</Text>
-        <View style={styles.commentActions}>
-          <Text style={styles.commentTime}>{item.timeAgo}</Text>
-          <TouchableOpacity>
-            <Text style={styles.commentReply}>Reply</Text>
-          </TouchableOpacity>
-        </View>
-        {item.replies > 0 && (
-          <TouchableOpacity style={styles.viewReplies}>
-            <Text style={styles.viewRepliesText}>View replies ({item.replies})</Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <TouchableOpacity style={styles.commentLike}>
-        <SmuppyHeartIcon size={18} color={COLORS.textMuted} />
-        <Text style={styles.commentLikeCount}>{formatNumber(item.likes)}</Text>
-      </TouchableOpacity>
-    </View>
-  );
   
   // Split grid posts into columns for masonry layout
   const leftColumn = gridPosts.filter((_, i) => i % 2 === 0);
@@ -745,21 +703,17 @@ const PostDetailVibesFeedScreen = () => {
                   </Text>
                 </TouchableOpacity>
                 
-                {/* Comment input */}
-                <TouchableOpacity
-                  style={styles.commentInputContainer}
-                  onPress={() => setShowComments(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.commentPlaceholder}>Add a comment...</Text>
-                  <View style={styles.commentStats}>
-                    <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-                    <Text style={styles.commentCount}>{formatNumber(currentPost.comments)}</Text>
-                    <View style={{ marginLeft: 12 }}>
-                      <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
-                    </View>
+                {/* Stats bar */}
+                <View style={styles.statsBar}>
+                  <View style={styles.statItem}>
+                    <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+                    <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
                   </View>
-                </TouchableOpacity>
+                  <View style={styles.statItem}>
+                    <Ionicons name="eye-outline" size={18} color="#FFF" />
+                    <Text style={styles.statCount}>{formatNumber(currentPost.views || 0)}</Text>
+                  </View>
+                </View>
                 
                 {/* Swipe indicator */}
                 <View style={styles.swipeIndicator}>
@@ -853,65 +807,6 @@ const PostDetailVibesFeedScreen = () => {
           </View>
         )}
       </ScrollView>
-      
-      {/* Comments Modal */}
-      <Modal
-        visible={showComments}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowComments(false)}
-      >
-        <View style={styles.commentsModalOverlay}>
-          <TouchableOpacity
-            style={styles.commentsModalBackdrop}
-            onPress={() => setShowComments(false)}
-          />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.commentsModalContent}
-          >
-            <View style={styles.modalHandle} />
-            
-            <View style={styles.commentsHeader}>
-              <View style={styles.commentsHeaderLeft}>
-                <Ionicons name="chatbubble-outline" size={20} color="#FFF" />
-                <Text style={styles.commentsCount}>{currentPost.comments}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowComments(false)}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            
-            <FlashList
-              data={MOCK_COMMENTS}
-              renderItem={renderCommentItem}
-              keyExtractor={(item) => item.id}
-              style={styles.commentsList}
-              showsVerticalScrollIndicator={false}
-            />
-            
-            <View style={[styles.commentInputBar, { paddingBottom: insets.bottom + 10 }]}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Add a comment..."
-                placeholderTextColor={COLORS.textMuted}
-                value={commentText}
-                onChangeText={setCommentText}
-              />
-              <TouchableOpacity style={styles.emojiBtn}>
-                <Ionicons name="happy-outline" size={24} color={COLORS.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sendBtn}>
-                <Ionicons
-                  name="send"
-                  size={20}
-                  color={commentText.length > 0 ? COLORS.primaryGreen : COLORS.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
       
       {/* Menu Modal */}
       <Modal
@@ -1134,13 +1029,10 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 250,
     alignItems: 'center',
-    gap: 20,
+    gap: 24,
   },
   actionBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1203,28 +1095,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
-  commentInputContainer: {
+  statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 20,
+    paddingVertical: 8,
     marginBottom: 16,
   },
-  commentPlaceholder: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
-  commentStats: {
+  statItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  commentCount: {
+  statCount: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#FFF',
-    marginLeft: 6,
   },
   
   // Swipe indicator
@@ -1401,21 +1287,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   
-  // Comments Modal
-  commentsModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  commentsModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  commentsModalContent: {
-    backgroundColor: COLORS.cardBg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: height * 0.7,
-  },
+  // Modal handle
   modalHandle: {
     width: 40,
     height: 4,
@@ -1425,112 +1297,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  commentsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  commentsHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commentsCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  commentsList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  commentItem: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-  },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 12,
-  },
-  commentContent: {
-    flex: 1,
-  },
-  commentUserName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  commentText: {
-    fontSize: 14,
-    color: '#FFF',
-    lineHeight: 20,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 8,
-  },
-  commentTime: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  commentReply: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-  viewReplies: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
-  },
-  viewRepliesText: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-  },
-  commentLike: {
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  commentLikeCount: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-  commentInputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 12,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: COLORS.border,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#FFF',
-  },
-  emojiBtn: {
-    padding: 4,
-  },
-  sendBtn: {
-    padding: 4,
-  },
-  
+
   // Menu Modal
   menuOverlay: {
     flex: 1,

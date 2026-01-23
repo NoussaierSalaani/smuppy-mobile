@@ -518,12 +518,12 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Vertical Action Buttons - Right Side (TikTok Style) */}
       {carouselVisible && (
-        <View style={[styles.actionButtonsContainer, { bottom: insets.bottom + 140 }]}>
+        <View style={[styles.actionButtonsContainer, { bottom: insets.bottom + 120 }]}>
           {/* Like Button */}
           <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
               <SmuppyHeartIcon
-                size={32}
+                size={24}
                 color={isLiked ? COLORS.primary : COLORS.white}
                 filled={isLiked}
               />
@@ -534,7 +534,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* Reply with Peak Button */}
           <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="videocam-outline" size={28} color={COLORS.white} />
+              <Ionicons name="videocam-outline" size={24} color={COLORS.white} />
             </View>
             <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
           </TouchableOpacity>
@@ -542,7 +542,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* Tag Button */}
           <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
             <View style={[styles.actionIconContainer, styles.tagIconContainer]}>
-              <Ionicons name="pricetag-outline" size={26} color={COLORS.white} />
+              <Ionicons name="pricetag-outline" size={24} color={COLORS.white} />
             </View>
             {/* Only show tag count to creator */}
             {isOwnPeak && tagsCount > 0 && (
@@ -555,7 +555,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={styles.actionIconContainer}>
               <Ionicons
                 name={isSaved ? "bookmark" : "bookmark-outline"}
-                size={28}
+                size={24}
                 color={isSaved ? COLORS.primary : COLORS.white}
               />
             </View>
@@ -796,9 +796,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',

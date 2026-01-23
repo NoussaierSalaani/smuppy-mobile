@@ -322,28 +322,30 @@ const CreatePeakScreen = (): React.JSX.Element => {
 
           {/* Zone du bas - Record */}
           <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 20 }]}>
-            {/* Sélecteur de durée */}
-            {!isRecording && (
-              <View style={styles.durationSelector}>
-                {DURATION_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.durationOption,
-                      selectedDuration === option.value && styles.durationOptionActive,
-                    ]}
-                    onPress={() => setSelectedDuration(option.value)}
-                  >
-                    <Text style={[
-                      styles.durationText,
-                      selectedDuration === option.value && styles.durationTextActive,
-                    ]}>
-                      {option.icon}{option.icon ? ' ' : ''}{option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {/* Sélecteur de durée - container avec hauteur fixe */}
+            <View style={styles.durationSelectorContainer}>
+              {!isRecording && (
+                <View style={styles.durationSelector}>
+                  {DURATION_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.durationOption,
+                        selectedDuration === option.value && styles.durationOptionActive,
+                      ]}
+                      onPress={() => setSelectedDuration(option.value)}
+                    >
+                      <Text style={[
+                        styles.durationText,
+                        selectedDuration === option.value && styles.durationTextActive,
+                      ]}>
+                        {option.icon}{option.icon ? ' ' : ''}{option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
 
             {/* Bouton d'enregistrement */}
             <View style={styles.recordButtonContainer}>
@@ -356,10 +358,12 @@ const CreatePeakScreen = (): React.JSX.Element => {
               />
             </View>
 
-            {/* Instruction */}
-            {!isRecording && (
-              <Text style={styles.instructions}>Hold to record</Text>
-            )}
+            {/* Instruction - container avec hauteur fixe */}
+            <View style={styles.instructionsContainer}>
+              {!isRecording && (
+                <Text style={styles.instructions}>Hold to record</Text>
+              )}
+            </View>
           </View>
         </CameraView>
       )}
@@ -527,12 +531,16 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
+  durationSelectorContainer: {
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   durationSelector: {
     flexDirection: 'row',
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 28,
     padding: 5,
-    marginBottom: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
@@ -561,13 +569,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   recordButtonContainer: {
+    width: 100,
+    height: 100,
     marginBottom: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  instructionsContainer: {
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   instructions: {
     fontSize: 15,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.7)',
-    marginTop: 12,
     letterSpacing: 0.5,
   },
   previewContainer: {

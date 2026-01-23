@@ -13,7 +13,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,7 +29,10 @@ import { followUser, unfollowUser, isFollowing, likePost, unlikePost, hasLikedPo
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
-const CONDENSED_HEIGHT = 200;
+const CONDENSED_HEIGHT = 220;
+const GRID_GAP = 12;
+const GRID_PADDING = 16;
+const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 
 // View states
 const VIEW_STATES = {
@@ -77,78 +81,86 @@ const MOCK_VIBESFEED_POSTS = [
 const MOCK_GRID_POSTS = [
   {
     id: 'g1',
-    thumbnail: 'https://images.unsplash.com/photo-1493711662062-fa541f7f3d24?w=400',
-    title: 'Gaming Setup',
+    thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
+    title: 'Morning Workout',
     likes: 234,
-    height: 180,
+    height: 200,
     type: 'image',
-    user: { id: 'u1', name: 'GamerPro', avatar: 'https://i.pravatar.cc/150?img=1' },
+    category: 'Fitness',
+    user: { id: 'u1', name: 'FitCoach', avatar: 'https://i.pravatar.cc/150?img=1' },
   },
   {
     id: 'g2',
-    thumbnail: 'https://images.unsplash.com/photo-1542751110-97427bbecf20?w=400',
-    title: 'Epic Moment',
+    thumbnail: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400',
+    title: 'Gym Session',
     likes: 567,
-    height: 220,
+    height: 240,
     type: 'video',
     duration: '0:34',
-    user: { id: 'u2', name: 'StreamKing', avatar: 'https://i.pravatar.cc/150?img=2' },
+    category: 'Training',
+    user: { id: 'u2', name: 'GymBro', avatar: 'https://i.pravatar.cc/150?img=2' },
   },
   {
     id: 'g3',
-    thumbnail: 'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400',
-    title: 'New Tech Review',
+    thumbnail: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400',
+    title: 'Yoga Flow',
     likes: 891,
-    height: 160,
+    height: 180,
     type: 'image',
-    user: { id: 'u3', name: 'TechGuru', avatar: 'https://i.pravatar.cc/150?img=3' },
+    category: 'Yoga',
+    user: { id: 'u3', name: 'YogaMaster', avatar: 'https://i.pravatar.cc/150?img=3' },
   },
   {
     id: 'g4',
-    thumbnail: 'https://images.unsplash.com/photo-1552820728-8b83bb6b2b0a?w=400',
-    title: 'Highlights',
+    thumbnail: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400',
+    title: 'HIIT Training',
     likes: 432,
-    height: 200,
+    height: 220,
     type: 'video',
     duration: '1:20',
-    user: { id: 'u4', name: 'ProPlayer', avatar: 'https://i.pravatar.cc/150?img=4' },
+    category: 'HIIT',
+    user: { id: 'u4', name: 'HIITPro', avatar: 'https://i.pravatar.cc/150?img=4' },
   },
   {
     id: 'g5',
     thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
-    title: 'Sunset Views',
+    title: 'Trail Running',
     likes: 1203,
-    height: 240,
+    height: 260,
     type: 'image',
-    user: { id: 'u5', name: 'NatureLover', avatar: 'https://i.pravatar.cc/150?img=5' },
+    category: 'Running',
+    user: { id: 'u5', name: 'TrailRunner', avatar: 'https://i.pravatar.cc/150?img=5' },
   },
   {
     id: 'g6',
-    thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400',
-    title: 'Forest Trail',
+    thumbnail: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400',
+    title: 'Boxing Class',
     likes: 765,
-    height: 180,
+    height: 190,
     type: 'image',
-    user: { id: 'u6', name: 'Hiker', avatar: 'https://i.pravatar.cc/150?img=6' },
+    category: 'Boxing',
+    user: { id: 'u6', name: 'BoxingCoach', avatar: 'https://i.pravatar.cc/150?img=6' },
   },
   {
     id: 'g7',
-    thumbnail: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-    title: 'Portrait Shot',
+    thumbnail: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400',
+    title: 'Weight Training',
     likes: 543,
-    height: 200,
+    height: 210,
     type: 'image',
-    user: { id: 'u7', name: 'PhotoArtist', avatar: 'https://i.pravatar.cc/150?img=7' },
+    category: 'Strength',
+    user: { id: 'u7', name: 'LiftHeavy', avatar: 'https://i.pravatar.cc/150?img=7' },
   },
   {
     id: 'g8',
-    thumbnail: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=400',
-    title: 'Cute Cat',
+    thumbnail: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?w=400',
+    title: 'Pool Swim',
     likes: 2341,
-    height: 170,
+    height: 180,
     type: 'video',
-    duration: '0:15',
-    user: { id: 'u8', name: 'PetLover', avatar: 'https://i.pravatar.cc/150?img=8' },
+    duration: '0:45',
+    category: 'Swimming',
+    user: { id: 'u8', name: 'SwimChamp', avatar: 'https://i.pravatar.cc/150?img=8' },
   },
 ];
 
@@ -163,12 +175,16 @@ const PostDetailVibesFeedScreen = () => {
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // Params
-  const params = route.params as { postId?: string; post?: typeof MOCK_VIBESFEED_POSTS[0] } || {};
-  const { postId, post: initialPost } = params;
+  const params = route.params as {
+    postId?: string;
+    post?: typeof MOCK_VIBESFEED_POSTS[0];
+    startCondensed?: boolean;
+  } || {};
+  const { postId, post: initialPost, startCondensed } = params;
   const currentPost = initialPost || MOCK_VIBESFEED_POSTS[0];
 
-  // States
-  const [viewState, setViewState] = useState(VIEW_STATES.FULLSCREEN);
+  // States - start in CONDENSED if coming from grid post click
+  const [viewState, setViewState] = useState(startCondensed ? VIEW_STATES.CONDENSED : VIEW_STATES.FULLSCREEN);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -188,12 +204,21 @@ const PostDetailVibesFeedScreen = () => {
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
-  
+
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   const videoRef = useRef(null);
+
+  // Card press animation refs
+  const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
+  const getCardScale = (id: string) => {
+    if (!cardScales[id]) {
+      cardScales[id] = new Animated.Value(1);
+    }
+    return cardScales[id];
+  };
 
   // User follows me?
   const theyFollowMe = currentPost.user?.followsMe || false;
@@ -223,12 +248,12 @@ const PostDetailVibesFeedScreen = () => {
     };
     checkPostStatus();
   }, [currentPost.id]);
-  
+
   // Double tap to like
   const handleDoubleTap = () => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
-    
+
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
       if (!isLiked) {
         setIsLiked(true);
@@ -241,12 +266,12 @@ const PostDetailVibesFeedScreen = () => {
     }
     lastTap.current = now;
   };
-  
+
   // Like animation
   const triggerLikeAnimation = () => {
     setShowLikeAnimation(true);
     likeAnimationScale.setValue(0);
-    
+
     Animated.sequence([
       Animated.spring(likeAnimationScale, {
         toValue: 1,
@@ -261,7 +286,7 @@ const PostDetailVibesFeedScreen = () => {
       }),
     ]).start(() => setShowLikeAnimation(false));
   };
-  
+
   // Handle swipe down
   const handleSwipeDown = () => {
     if (viewState === VIEW_STATES.FULLSCREEN) {
@@ -272,7 +297,7 @@ const PostDetailVibesFeedScreen = () => {
       setGridPosts([...MOCK_GRID_POSTS].sort(() => Math.random() - 0.5));
     }
   };
-  
+
   // Handle swipe up
   const handleSwipeUp = () => {
     if (viewState === VIEW_STATES.GRID_ONLY) {
@@ -281,7 +306,7 @@ const PostDetailVibesFeedScreen = () => {
       setViewState(VIEW_STATES.FULLSCREEN);
     }
   };
-  
+
   // Handle scroll
   const handleScroll = (event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
@@ -304,31 +329,39 @@ const PostDetailVibesFeedScreen = () => {
     if (likeLoading) return;
 
     const postId = currentPost.id;
+
+    // Optimistic update - change UI immediately
+    const newLikedState = !isLiked;
+    setIsLiked(newLikedState);
+    if (newLikedState) {
+      triggerLikeAnimation();
+    }
+
+    // If not a valid UUID (mock data), just keep the optimistic update
     if (!postId || !isValidUUID(postId)) {
-      // For mock data, use local state only
-      setIsLiked(!isLiked);
-      if (!isLiked) {
-        triggerLikeAnimation();
-      }
       return;
     }
 
+    // Try to sync with database
     setLikeLoading(true);
     try {
-      if (isLiked) {
+      if (!newLikedState) {
         const { error } = await unlikePost(postId);
-        if (!error) {
-          setIsLiked(false);
+        if (error) {
+          // Revert on error
+          setIsLiked(true);
         }
       } else {
         const { error } = await likePost(postId);
-        if (!error) {
-          setIsLiked(true);
-          triggerLikeAnimation();
+        if (error) {
+          // Revert on error
+          setIsLiked(false);
         }
       }
     } catch (error) {
       console.error('[PostDetailVibesFeed] Like error:', error);
+      // Revert on error
+      setIsLiked(!newLikedState);
     } finally {
       setLikeLoading(false);
     }
@@ -339,27 +372,36 @@ const PostDetailVibesFeedScreen = () => {
     if (bookmarkLoading) return;
 
     const postId = currentPost.id;
+
+    // Optimistic update - change UI immediately
+    const newBookmarkState = !isBookmarked;
+    setIsBookmarked(newBookmarkState);
+
+    // If not a valid UUID (mock data), just keep the optimistic update
     if (!postId || !isValidUUID(postId)) {
-      // For mock data, use local state only
-      setIsBookmarked(!isBookmarked);
       return;
     }
 
+    // Try to sync with database
     setBookmarkLoading(true);
     try {
-      if (isBookmarked) {
+      if (!newBookmarkState) {
         const { error } = await unsavePost(postId);
-        if (!error) {
-          setIsBookmarked(false);
+        if (error) {
+          // Revert on error
+          setIsBookmarked(true);
         }
       } else {
         const { error } = await savePost(postId);
-        if (!error) {
-          setIsBookmarked(true);
+        if (error) {
+          // Revert on error
+          setIsBookmarked(false);
         }
       }
     } catch (error) {
       console.error('[PostDetailVibesFeed] Bookmark error:', error);
+      // Revert on error
+      setIsBookmarked(!newBookmarkState);
     } finally {
       setBookmarkLoading(false);
     }
@@ -545,42 +587,123 @@ const PostDetailVibesFeedScreen = () => {
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
     return num.toString();
   };
-  
-  // Navigate to post detail
+
+  // Navigate to post detail with animation
   const handleGridPostPress = (post: any) => {
-    navigation.navigate('PostDetailVibesFeed', { postId: post.id, post });
+    const scale = getCardScale(post.id);
+
+    // Press animation
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 0.96,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      navigation.navigate('PostDetailVibesFeed', { postId: post.id, post });
+    });
   };
-  
-  // Render grid post (Pinterest style)
+
+  // Render modern grid post card
   const renderGridPost = (post, index) => {
-    const isLeftColumn = index % 2 === 0;
-    
+    const scale = getCardScale(post.id);
+
+    // Convert mock post to format expected by this screen
+    const convertedPost = {
+      id: post.id,
+      type: post.type || 'image',
+      media: post.thumbnail,
+      thumbnail: post.thumbnail,
+      description: post.title || '',
+      likes: post.likes || 0,
+      views: Math.floor(Math.random() * 5000) + 1000,
+      category: post.category || 'Fitness',
+      user: {
+        id: post.user?.id || 'unknown',
+        name: post.user?.name || 'User',
+        avatar: post.user?.avatar || 'https://i.pravatar.cc/150',
+        followsMe: false,
+      },
+    };
+
     return (
-      <TouchableOpacity
+      <Animated.View
         key={`grid-${index}-${post.id}`}
-        style={[styles.gridCard, { height: post.height }]}
-        activeOpacity={0.9}
-        onPress={() => handleGridPostPress(post)}
+        style={[
+          styles.gridCardWrapper,
+          { height: post.height, transform: [{ scale }] }
+        ]}
       >
-        <OptimizedImage source={post.thumbnail} style={styles.gridThumbnail} />
-        
-        {post.type === 'video' && post.duration && (
-          <View style={styles.durationBadge}>
-            <Text style={styles.durationText}>{post.duration}</Text>
+        <TouchableOpacity
+          style={styles.gridCard}
+          activeOpacity={0.9}
+          onPressIn={() => {
+            Animated.timing(scale, {
+              toValue: 0.96,
+              duration: 100,
+              useNativeDriver: true,
+            }).start();
+          }}
+          onPressOut={() => {
+            Animated.timing(scale, {
+              toValue: 1,
+              duration: 100,
+              useNativeDriver: true,
+            }).start();
+          }}
+          onPress={() => {
+            // Navigate with converted post data - start in condensed mode
+            navigation.navigate('PostDetailVibesFeed', {
+              postId: convertedPost.id,
+              post: convertedPost,
+              startCondensed: true
+            });
+          }}
+        >
+          <OptimizedImage source={post.thumbnail} style={styles.gridThumbnail} />
+
+          {/* Gradient overlay */}
+          <LinearGradient
+            colors={['transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.gridGradient}
+          />
+
+          {/* Video duration badge */}
+          {post.type === 'video' && post.duration && (
+            <View style={styles.durationBadge}>
+              <Ionicons name="play" size={10} color="#FFF" />
+              <Text style={styles.durationText}>{post.duration}</Text>
+            </View>
+          )}
+
+          {/* Category tag */}
+          {post.category && (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{post.category}</Text>
+            </View>
+          )}
+
+          {/* Bottom info - simple without blur for better performance */}
+          <View style={styles.gridInfo}>
+            <View style={styles.gridUserRow}>
+              <AvatarImage source={post.user?.avatar} size={22} style={styles.gridAvatar} />
+              <Text style={styles.gridUserName} numberOfLines={1}>{post.user?.name}</Text>
+            </View>
+            <View style={styles.gridStatsRow}>
+              <SmuppyHeartIcon size={14} color={COLORS.heartRed} filled />
+              <Text style={styles.gridLikes}>{formatNumber(post.likes)}</Text>
+            </View>
           </View>
-        )}
-        
-        <View style={styles.gridOverlay}>
-          <Text style={styles.gridTitle} numberOfLines={2}>{post.title}</Text>
-          <View style={styles.gridStats}>
-            <SmuppyHeartIcon size={14} color="#FFF" filled />
-            <Text style={styles.gridLikes}>{formatNumber(post.likes)}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
-  
+
   // Split grid posts into columns for masonry layout
   const leftColumn = gridPosts.filter((_, i) => i % 2 === 0);
   const rightColumn = gridPosts.filter((_, i) => i % 2 === 1);
@@ -588,7 +711,7 @@ const PostDetailVibesFeedScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+
       <ScrollView
         style={styles.scrollView}
         onScroll={handleScroll}
@@ -616,9 +739,12 @@ const PostDetailVibesFeedScreen = () => {
               ) : (
                 <OptimizedImage source={currentPost.media || currentPost.thumbnail} style={styles.fullscreenMedia} />
               )}
-              
+
               {/* Gradient overlay */}
-              <View style={styles.gradientOverlay} />
+              <LinearGradient
+                colors={['transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+                style={styles.gradientOverlay}
+              />
 
               {/* Under Review Overlay */}
               {isUnderReview(currentPost.id) && (
@@ -641,59 +767,63 @@ const PostDetailVibesFeedScreen = () => {
                     },
                   ]}
                 >
-                  <SmuppyHeartIcon size={100} color={COLORS.primaryGreen} filled />
+                  <SmuppyHeartIcon size={100} color={COLORS.heartRed} filled />
                 </Animated.View>
               )}
-              
+
               {/* Header */}
               <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity
                   style={styles.headerBtn}
                   onPress={() => navigation.goBack()}
                 >
-                  <Ionicons name="close" size={28} color="#FFF" />
+                  <BlurView intensity={30} tint="dark" style={styles.headerBtnBlur}>
+                    <Ionicons name="close" size={24} color="#FFF" />
+                  </BlurView>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={styles.headerBtn}
                   onPress={() => setShowMenu(true)}
                 >
-                  <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
+                  <BlurView intensity={30} tint="dark" style={styles.headerBtnBlur}>
+                    <Ionicons name="ellipsis-vertical" size={20} color="#FFF" />
+                  </BlurView>
                 </TouchableOpacity>
               </View>
-              
-              {/* Right actions */}
+
+              {/* Right actions - icons only, no circles */}
               <View style={styles.rightActions}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+                  style={[styles.actionBtnSimple, shareLoading && styles.actionBtnDisabled]}
                   onPress={handleShare}
                   disabled={shareLoading}
                 >
                   {shareLoading ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
-                    <Ionicons name="share-social-outline" size={24} color="#FFF" />
+                    <Ionicons name="paper-plane-outline" size={28} color="#FFF" />
                   )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, likeLoading && styles.actionBtnDisabled]}
+                  style={[styles.actionBtnSimple, likeLoading && styles.actionBtnDisabled]}
                   onPress={toggleLike}
                   disabled={likeLoading}
                 >
                   {likeLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                    <ActivityIndicator size="small" color={COLORS.heartRed} />
                   ) : (
                     <SmuppyHeartIcon
                       size={28}
-                      color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                      color={isLiked ? COLORS.heartRed : '#FFF'}
                       filled={isLiked}
                     />
                   )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, bookmarkLoading && styles.actionBtnDisabled]}
+                  style={[styles.actionBtnSimple, bookmarkLoading && styles.actionBtnDisabled]}
                   onPress={toggleBookmark}
                   disabled={bookmarkLoading}
                 >
@@ -710,7 +840,7 @@ const PostDetailVibesFeedScreen = () => {
 
                 {currentPost.type === 'video' && (
                   <TouchableOpacity
-                    style={styles.actionBtn}
+                    style={styles.actionBtnSimple}
                     onPress={() => setIsAudioMuted(!isAudioMuted)}
                   >
                     <Ionicons
@@ -721,7 +851,7 @@ const PostDetailVibesFeedScreen = () => {
                   </TouchableOpacity>
                 )}
               </View>
-              
+
               {/* Bottom content */}
               <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 20 }]}>
                 {/* User info */}
@@ -730,10 +860,13 @@ const PostDetailVibesFeedScreen = () => {
                     style={styles.userInfo}
                     onPress={() => navigation.navigate('UserProfile', { userId: currentPost.user.id })}
                   >
-                    <AvatarImage source={currentPost.user.avatar} size={40} style={styles.avatar} />
-                    <Text style={styles.userName}>{currentPost.user.name}</Text>
+                    <AvatarImage source={currentPost.user.avatar} size={44} style={styles.avatar} />
+                    <View>
+                      <Text style={styles.userName}>{currentPost.user.name}</Text>
+                      <Text style={styles.userCategory}>{currentPost.category}</Text>
+                    </View>
                   </TouchableOpacity>
-                  
+
                   {!isFan && (
                     <TouchableOpacity
                       style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
@@ -744,18 +877,14 @@ const PostDetailVibesFeedScreen = () => {
                         <ActivityIndicator size="small" color={COLORS.primaryGreen} />
                       ) : (
                         <>
-                          {!theyFollowMe && (
-                            <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
-                          )}
-                          <Text style={styles.fanBtnText}>
-                            {theyFollowMe ? 'Track' : 'Fan'}
-                          </Text>
+                          <Ionicons name="add" size={18} color={COLORS.primaryGreen} />
+                          <Text style={styles.fanBtnText}>Fan</Text>
                         </>
                       )}
                     </TouchableOpacity>
                   )}
                 </View>
-                
+
                 {/* Description */}
                 <TouchableOpacity
                   onPress={() => setExpandedDescription(!expandedDescription)}
@@ -768,70 +897,87 @@ const PostDetailVibesFeedScreen = () => {
                     {currentPost.description}
                   </Text>
                 </TouchableOpacity>
-                
+
                 {/* Stats bar */}
                 <View style={styles.statsBar}>
                   <View style={styles.statItem}>
-                    <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+                    <SmuppyHeartIcon size={16} color={COLORS.heartRed} filled />
                     <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
                   </View>
+                  <View style={styles.statDot} />
                   <View style={styles.statItem}>
-                    <Ionicons name="eye-outline" size={18} color="#FFF" />
-                    <Text style={styles.statCount}>{formatNumber(currentPost.views || 0)}</Text>
+                    <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.7)" />
+                    <Text style={styles.statCount}>{formatNumber(currentPost.views || 0)} views</Text>
                   </View>
                 </View>
-                
+
                 {/* Swipe indicator */}
                 <View style={styles.swipeIndicator}>
-                  <Ionicons name="chevron-up" size={24} color="rgba(255,255,255,0.5)" />
+                  <View style={styles.swipeBar} />
                   <Text style={styles.swipeText}>Swipe up for more</Text>
                 </View>
               </View>
             </View>
           </TouchableWithoutFeedback>
         )}
-        
+
         {/* CONDENSED VIEW */}
         {viewState === VIEW_STATES.CONDENSED && (
           <View style={{ paddingTop: insets.top }}>
             {/* Condensed post at top */}
             <TouchableOpacity
               style={styles.condensedPost}
-              activeOpacity={0.9}
+              activeOpacity={0.95}
               onPress={() => setViewState(VIEW_STATES.FULLSCREEN)}
             >
               <OptimizedImage source={currentPost.thumbnail} style={styles.condensedMedia} />
-              <View style={styles.condensedOverlay}>
-                <View style={styles.condensedHeader}>
-                  <TouchableOpacity
-                    style={styles.condensedBackBtn}
-                    onPress={() => navigation.goBack()}
-                  >
-                    <Ionicons name="close" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.condensedInfo}>
-                  <View style={styles.condensedUser}>
-                    <AvatarImage source={currentPost.user.avatar} size={32} />
-                    <Text style={styles.condensedUserName}>{currentPost.user.name}</Text>
-                  </View>
-                  <View style={styles.condensedStats}>
-                    <SmuppyHeartIcon size={16} color="#FFF" filled />
-                    <Text style={styles.condensedLikes}>{formatNumber(currentPost.likes)}</Text>
-                  </View>
-                </View>
+              <LinearGradient
+                colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.6)']}
+                style={styles.condensedGradient}
+              />
+
+              <View style={styles.condensedHeader}>
+                <TouchableOpacity
+                  style={styles.condensedBackBtn}
+                  onPress={() => navigation.goBack()}
+                >
+                  <BlurView intensity={30} tint="dark" style={styles.condensedBtnBlur}>
+                    <Ionicons name="close" size={22} color="#FFF" />
+                  </BlurView>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.condensedExpandBtn}>
+                  <BlurView intensity={30} tint="dark" style={styles.condensedBtnBlur}>
+                    <Ionicons name="expand" size={18} color="#FFF" />
+                  </BlurView>
+                </TouchableOpacity>
               </View>
-              
-              {/* Expand icon */}
-              <View style={styles.expandIcon}>
-                <Ionicons name="expand" size={20} color="#FFF" />
+
+              <View style={styles.condensedInfo}>
+                <View style={styles.condensedUser}>
+                  <AvatarImage source={currentPost.user.avatar} size={36} style={styles.condensedAvatar} />
+                  <View>
+                    <Text style={styles.condensedUserName}>{currentPost.user.name}</Text>
+                    <Text style={styles.condensedCategory}>{currentPost.category}</Text>
+                  </View>
+                </View>
+                <View style={styles.condensedStats}>
+                  <SmuppyHeartIcon size={16} color={COLORS.heartRed} filled />
+                  <Text style={styles.condensedLikes}>{formatNumber(currentPost.likes)}</Text>
+                </View>
               </View>
             </TouchableOpacity>
-            
+
+            {/* Section header */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>More to explore</Text>
+              <TouchableOpacity style={styles.seeAllBtn}>
+                <Text style={styles.seeAllText}>See all</Text>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.primaryGreen} />
+              </TouchableOpacity>
+            </View>
+
             {/* Grid posts (Pinterest style) */}
             <View style={styles.gridContainer}>
-              <Text style={styles.gridTitle2}>More to explore</Text>
               <View style={styles.masonryContainer}>
                 <View style={styles.masonryColumn}>
                   {leftColumn.map((post, index) => renderGridPost(post, index * 2))}
@@ -843,7 +989,7 @@ const PostDetailVibesFeedScreen = () => {
             </View>
           </View>
         )}
-        
+
         {/* GRID ONLY VIEW */}
         {viewState === VIEW_STATES.GRID_ONLY && (
           <View style={{ paddingTop: insets.top + 10 }}>
@@ -858,7 +1004,7 @@ const PostDetailVibesFeedScreen = () => {
               <Text style={styles.gridOnlyTitle}>Explore</Text>
               <View style={{ width: 40 }} />
             </View>
-            
+
             {/* Grid posts (Pinterest style) */}
             <View style={styles.gridContainer}>
               <View style={styles.masonryContainer}>
@@ -873,7 +1019,7 @@ const PostDetailVibesFeedScreen = () => {
           </View>
         )}
       </ScrollView>
-      
+
       {/* Menu Modal */}
       <Modal
         visible={showMenu}
@@ -886,55 +1032,71 @@ const PostDetailVibesFeedScreen = () => {
           activeOpacity={1}
           onPress={() => setShowMenu(false)}
         >
-          <View style={styles.menuContent}>
-            <View style={styles.modalHandle} />
+          <BlurView intensity={20} tint="dark" style={styles.menuBlur}>
+            <View style={styles.menuContent}>
+              <View style={styles.modalHandle} />
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
-              <Ionicons name="share-social-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Share</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
+                <View style={styles.menuIconBg}>
+                  <Ionicons name="share-social-outline" size={22} color="#FFF" />
+                </View>
+                <Text style={styles.menuItemText}>Share</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleCopyLink}
-            >
-              <Ionicons name="link-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Copy Link</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleCopyLink}
+              >
+                <View style={styles.menuIconBg}>
+                  <Ionicons name="link-outline" size={22} color="#FFF" />
+                </View>
+                <Text style={styles.menuItemText}>Copy Link</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowMenu(false);
-                navigation.navigate('UserProfile', { userId: currentPost.user.id });
-              }}
-            >
-              <Ionicons name="person-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>View Profile</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                }}
+              >
+                <View style={styles.menuIconBg}>
+                  <Ionicons name="person-outline" size={22} color="#FFF" />
+                </View>
+                <Text style={styles.menuItemText}>View Profile</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
-              <Ionicons name="eye-off-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Mute user</Text>
-            </TouchableOpacity>
+              <View style={styles.menuDivider} />
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
-              <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Block user</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
+                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                  <Ionicons name="eye-off-outline" size={22} color="#FFF" />
+                </View>
+                <Text style={styles.menuItemText}>Mute user</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
+                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                  <Ionicons name="ban-outline" size={22} color={COLORS.heartRed} />
+                </View>
+                <Text style={[styles.menuItemText, { color: COLORS.heartRed }]}>Block user</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuCancel}
-              onPress={() => setShowMenu(false)}
-            >
-              <Text style={styles.menuCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                  <Ionicons name="flag-outline" size={22} color={COLORS.heartRed} />
+                </View>
+                <Text style={[styles.menuItemText, { color: COLORS.heartRed }]}>Report</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuCancel}
+                onPress={() => setShowMenu(false)}
+              >
+                <Text style={styles.menuCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </BlurView>
         </TouchableOpacity>
       </Modal>
 
@@ -950,53 +1112,60 @@ const PostDetailVibesFeedScreen = () => {
           activeOpacity={1}
           onPress={() => setShowReportModal(false)}
         >
-          <View style={styles.menuContent}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.reportTitle}>Report this post</Text>
-            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
+          <BlurView intensity={20} tint="dark" style={styles.menuBlur}>
+            <View style={styles.menuContent}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.reportTitle}>Report this post</Text>
+              <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
 
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={() => submitReport('spam')}
-            >
-              <Text style={styles.reportOptionText}>Spam or misleading</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reportOption}
+                onPress={() => submitReport('spam')}
+              >
+                <Text style={styles.reportOptionText}>Spam or misleading</Text>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={() => submitReport('inappropriate')}
-            >
-              <Text style={styles.reportOptionText}>Inappropriate content</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reportOption}
+                onPress={() => submitReport('inappropriate')}
+              >
+                <Text style={styles.reportOptionText}>Inappropriate content</Text>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={() => submitReport('harassment')}
-            >
-              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reportOption}
+                onPress={() => submitReport('harassment')}
+              >
+                <Text style={styles.reportOptionText}>Harassment or bullying</Text>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={() => submitReport('violence')}
-            >
-              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reportOption}
+                onPress={() => submitReport('violence')}
+              >
+                <Text style={styles.reportOptionText}>Violence or dangerous</Text>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={() => submitReport('other')}
-            >
-              <Text style={styles.reportOptionText}>Other</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reportOption}
+                onPress={() => submitReport('other')}
+              >
+                <Text style={styles.reportOptionText}>Other</Text>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuCancel}
-              onPress={() => setShowReportModal(false)}
-            >
-              <Text style={styles.menuCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.menuCancel}
+                onPress={() => setShowReportModal(false)}
+              >
+                <Text style={styles.menuCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </BlurView>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -1006,12 +1175,12 @@ const PostDetailVibesFeedScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.darkBg,
+    backgroundColor: '#0A0A0F',
   },
   scrollView: {
     flex: 1,
   },
-  
+
   // Fullscreen
   fullscreenContainer: {
     width: width,
@@ -1027,8 +1196,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
-    backgroundColor: 'transparent',
+    height: 300,
   },
 
   // Under review overlay
@@ -1067,7 +1235,7 @@ const styles = StyleSheet.create({
     marginLeft: -50,
     zIndex: 100,
   },
-  
+
   // Header
   header: {
     position: 'absolute',
@@ -1081,122 +1249,154 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerBtn: {
+    overflow: 'hidden',
+    borderRadius: 22,
+  },
+  headerBtnBlur: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  
+
   // Right actions
   rightActions: {
     position: 'absolute',
     right: 12,
-    bottom: 100,
+    bottom: 140,
     alignItems: 'center',
-    gap: 18,
+    gap: 12,
   },
   actionBtn: {
-    padding: 6,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  actionBtnBlur: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  actionBtnSimple: {
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionBtnDisabled: {
     opacity: 0.6,
   },
-  
+
   // Bottom content
   bottomContent: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 70,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingBottom: 20,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 12,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   userName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFF',
+  },
+  userCategory: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
   },
   fanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
     borderWidth: 1.5,
     borderColor: COLORS.primaryGreen,
     gap: 4,
-    minWidth: 70,
-    justifyContent: 'center',
   },
   fanBtnDisabled: {
     opacity: 0.6,
   },
   fanBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.primaryGreen,
   },
   description: {
     fontSize: 14,
     color: '#FFF',
-    lineHeight: 18,
-    marginBottom: 6,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
     paddingVertical: 4,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  statCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
+  statDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.4)',
   },
-  
+  statCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.8)',
+  },
+
   // Swipe indicator
   swipeIndicator: {
     alignItems: 'center',
     paddingVertical: 8,
   },
+  swipeBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginBottom: 8,
+  },
   swipeText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 4,
+    color: 'rgba(255,255,255,0.4)',
   },
-  
+
   // Condensed post
   condensedPost: {
     height: CONDENSED_HEIGHT,
     marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 16,
+    marginBottom: 20,
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1204,29 +1404,41 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  condensedOverlay: {
+  condensedGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'space-between',
-    padding: 12,
   },
   condensedHeader: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
   },
   condensedBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  condensedExpandBtn: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  condensedBtnBlur: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   condensedInfo: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1236,57 +1448,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   condensedAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   condensedUserName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#FFF',
+  },
+  condensedCategory: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 1,
   },
   condensedStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   condensedLikes: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#FFF',
   },
-  expandIcon: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
+
+  // Section header
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  
-  // Grid
-  gridContainer: {
     paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  gridTitle2: {
-    fontSize: 18,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFF',
-    marginBottom: 16,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primaryGreen,
+  },
+
+  // Grid
+  gridContainer: {
+    paddingHorizontal: GRID_PADDING,
   },
   masonryContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: GRID_GAP,
   },
   masonryColumn: {
     flex: 1,
-    gap: 12,
+    gap: GRID_GAP,
+  },
+  gridCardWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   gridCard: {
-    borderRadius: 12,
+    flex: 1,
+    borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1294,44 +1535,89 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  gridGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+  },
   durationBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   durationText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#FFF',
   },
-  gridOverlay: {
+  categoryBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(14,191,138,0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  gridInfo: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 10,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingTop: 20,
   },
-  gridTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFF',
+  gridUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  gridStats: {
+  gridAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginRight: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  gridUserName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
+    flex: 1,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  gridStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
   gridLikes: {
     fontSize: 12,
+    fontWeight: '600',
     color: '#FFF',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  
+
   // Grid only header
   gridOnlyHeader: {
     flexDirection: 'row',
@@ -1344,56 +1630,72 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   gridOnlyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFF',
   },
-  
+
   // Modal handle
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 16,
   },
 
   // Menu Modal
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+  menuBlur: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
   menuContent: {
-    backgroundColor: COLORS.cardBg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     paddingBottom: 34,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    gap: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  menuIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   menuItemText: {
     fontSize: 16,
+    fontWeight: '500',
     color: '#FFF',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 8,
+    marginHorizontal: 20,
   },
   menuCancel: {
     marginTop: 8,
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: COLORS.border,
+    marginHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
   },
   menuCancelText: {
@@ -1404,7 +1706,7 @@ const styles = StyleSheet.create({
 
   // Report modal
   reportTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFF',
     textAlign: 'center',
@@ -1412,15 +1714,18 @@ const styles = StyleSheet.create({
   },
   reportSubtitle: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   reportOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   reportOptionText: {
     fontSize: 16,

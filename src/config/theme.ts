@@ -42,6 +42,10 @@ export const COLORS = {
     errorBorder: '#FECACA',
     success: '#0EBF8A',
 
+    // Heart/Like colors
+    heartRed: '#FF6B6B',          // Red for heart/like icons
+    heartRedDark: '#E55555',      // Darker shade for pressed state
+
     // Backgrounds
     background: '#FFFFFF',
     backgroundSecondary: '#F9FAFB',

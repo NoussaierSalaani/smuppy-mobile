@@ -338,7 +338,12 @@ export default function CreatePostScreen({ navigation, route }) {
 
       {/* Gallery Header */}
       <View style={styles.galleryHeader}>
-        <TouchableOpacity style={styles.galleryTab}>
+        <TouchableOpacity
+          style={styles.galleryTab}
+          onPress={() => {
+            // Future: Open album picker
+          }}
+        >
           <Text style={styles.galleryTabText}>Recent</Text>
           <Ionicons name="chevron-down" size={18} color={COLORS.dark} />
         </TouchableOpacity>

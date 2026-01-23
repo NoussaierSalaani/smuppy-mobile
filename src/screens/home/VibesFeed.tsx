@@ -156,6 +156,7 @@ interface UIVibePost {
   title: string;
   likes: number;
   isLiked: boolean;
+  isSaved: boolean;
   category: string;
 }
 
@@ -189,6 +190,7 @@ const transformToUIPost = (post: Post, likedPostIds: Set<string>): UIVibePost =>
     title: contentText,
     likes: post.likes_count || 0,
     isLiked: likedPostIds.has(post.id),
+    isSaved: false, // TODO: Check saved status from API
     category: post.tags?.[0] || 'Fitness',
   };
 };
@@ -562,6 +564,19 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
     }
   }, [trackLike]);
 
+  // Toggle save (optimistic update)
+  const toggleSave = useCallback((postId: string) => {
+    setPosts(prevPosts => prevPosts.map(post => {
+      if (post.id === postId) {
+        return {
+          ...post,
+          isSaved: !post.isSaved,
+        };
+      }
+      return post;
+    }));
+  }, []);
+
   // Track post view start time for engagement tracking
   const postViewStartRef = useRef<number>(0);
 
@@ -734,7 +749,7 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
             <View style={styles.vibeLikes}>
               <SmuppyHeartIcon
                 size={12}
-                color={post.isLiked ? COLORS.primary : "#fff"}
+                color={post.isLiked ? COLORS.heartRed : "#fff"}
                 filled={post.isLiked}
               />
               <Text style={[styles.vibeLikesText, post.isLiked && styles.vibeLikesTextLiked]}>
@@ -811,8 +826,19 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
                 <Text style={styles.modalTitle}>{selectedPost.title}</Text>
 
                 <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.modalAction}>
-                    <SmuppyHeartIcon size={24} color={COLORS.dark} />
+                  <TouchableOpacity
+                    style={styles.modalAction}
+                    onPress={() => {
+                      if (selectedPost) {
+                        toggleLike(selectedPost.id);
+                      }
+                    }}
+                  >
+                    <SmuppyHeartIcon
+                      size={24}
+                      color={selectedPost.isLiked ? "#FF6B6B" : COLORS.dark}
+                      filled={selectedPost.isLiked}
+                    />
                     <Text style={styles.modalActionText}>{formatNumber(selectedPost.likes)}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -835,8 +861,19 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
                     <Ionicons name="share-outline" size={24} color={COLORS.dark} />
                     <Text style={styles.modalActionText}>Share</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.modalAction}>
-                    <Ionicons name="bookmark-outline" size={24} color={COLORS.dark} />
+                  <TouchableOpacity
+                    style={styles.modalAction}
+                    onPress={() => {
+                      if (selectedPost) {
+                        toggleSave(selectedPost.id);
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={selectedPost.isSaved ? "bookmark" : "bookmark-outline"}
+                      size={24}
+                      color={selectedPost.isSaved ? COLORS.primary : COLORS.dark}
+                    />
                     <Text style={styles.modalActionText}>Save</Text>
                   </TouchableOpacity>
                 </View>

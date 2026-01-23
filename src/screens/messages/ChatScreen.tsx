@@ -50,6 +50,7 @@ export default function ChatScreen({ route, navigation }) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [otherUserProfile] = useState<Profile | null>(otherUser || null);
   const [isRecording, setIsRecording] = useState(false);
+  const [chatMenuVisible, setChatMenuVisible] = useState(false);
 
   // Get current user ID
   useEffect(() => {
@@ -239,7 +240,7 @@ export default function ChatScreen({ route, navigation }) {
             <Text style={styles.headerStatus}>Online</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIcon}>
+        <TouchableOpacity style={styles.headerIcon} onPress={() => setChatMenuVisible(true)}>
           <Ionicons name="ellipsis-vertical" size={22} color={COLORS.dark} />
         </TouchableOpacity>
       </View>
@@ -311,6 +312,69 @@ export default function ChatScreen({ route, navigation }) {
           {selectedImage && <OptimizedImage source={selectedImage} style={styles.fullImage} contentFit="contain" />}
         </View>
       </Modal>
+
+      {/* Chat Menu Modal */}
+      <Modal
+        visible={chatMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChatMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setChatMenuVisible(false)}
+        >
+          <View style={styles.menuContainer}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setChatMenuVisible(false);
+                if (otherUserProfile?.id) {
+                  navigation.navigate('UserProfile', { userId: otherUserProfile.id });
+                }
+              }}
+            >
+              <Ionicons name="person-outline" size={22} color={COLORS.dark} />
+              <Text style={styles.menuItemText}>View Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setChatMenuVisible(false);
+                Alert.alert('Mute', 'Notifications for this conversation are now muted.');
+              }}
+            >
+              <Ionicons name="notifications-off-outline" size={22} color={COLORS.dark} />
+              <Text style={styles.menuItemText}>Mute Notifications</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setChatMenuVisible(false);
+                Alert.alert(
+                  'Block User',
+                  `Block ${otherUserProfile?.full_name || 'this user'}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Block', style: 'destructive', onPress: () => navigation.goBack() },
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="ban-outline" size={22} color="#FF3B30" />
+              <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>Block User</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => setChatMenuVisible(false)}
+            >
+              <Ionicons name="close-outline" size={22} color={COLORS.gray} />
+              <Text style={[styles.menuItemText, { color: COLORS.gray }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -352,4 +416,10 @@ const styles = StyleSheet.create({
   imageModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   closeImageBtn: { position: 'absolute', right: 20, zIndex: 10 },
   fullImage: { width: width, height: width },
+  // Chat Menu
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  menuContainer: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.md, paddingBottom: 34 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  menuItemLast: { borderBottomWidth: 0 },
+  menuItemText: { fontSize: 16, fontWeight: '500', color: COLORS.dark, marginLeft: SPACING.md },
 });

@@ -170,7 +170,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
     if (cameraRef.current) {
       try {
         cameraRef.current.stopRecording();
-      } catch (error) {}
+      } catch { /* Ignore stop errors */ }
     }
 
     // Use toast for "too short" messages (less invasive)
@@ -182,12 +182,12 @@ const CreatePeakScreen = (): React.JSX.Element => {
     if (cameraRef.current && isRecording) {
       try {
         cameraRef.current.stopRecording();
-      } catch (error) {}
+      } catch { /* Ignore stop errors */ }
     }
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
-      } catch (error) {}
+      } catch { /* Ignore stop errors */ }
     }
     navigation.goBack();
   };
@@ -197,7 +197,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
-      } catch (error) {}
+      } catch { /* Ignore stop errors */ }
     }
     resetCamera();
   };
@@ -207,7 +207,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
-      } catch (error) {}
+      } catch { /* Ignore stop errors */ }
     }
 
     if (recordedVideo) {

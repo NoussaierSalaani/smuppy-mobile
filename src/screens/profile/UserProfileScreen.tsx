@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
 import { useProfile } from '../../hooks';
-import { followUser, unfollowUser, isFollowing, getPostsByUser, Post } from '../../services/database';
+import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,7 @@ interface ProfileApiData {
   is_verified?: boolean;
   is_bot?: boolean;
   is_team?: boolean;
+  is_private?: boolean;
   interests?: string[];
   account_type?: 'personal' | 'pro_creator' | 'pro_local';
 }
@@ -59,6 +60,7 @@ const DEFAULT_PROFILE = {
   isVerified: false,
   isBot: false,
   isTeam: false,
+  isPrivate: false,
   interests: [] as string[],
   accountType: 'personal' as const,
 };
@@ -126,6 +128,7 @@ const UserProfileScreen = () => {
       isVerified: data.is_verified ?? DEFAULT_PROFILE.isVerified,
       isBot: data.is_bot ?? DEFAULT_PROFILE.isBot,
       isTeam: data.is_team ?? DEFAULT_PROFILE.isTeam,
+      isPrivate: data.is_private ?? DEFAULT_PROFILE.isPrivate,
       accountType: data.account_type ?? DEFAULT_PROFILE.accountType,
       interests,
     };
@@ -133,6 +136,7 @@ const UserProfileScreen = () => {
   
   // États
   const [isFan, setIsFan] = useState(false);
+  const [isRequested, setIsRequested] = useState(false); // For private account follow requests
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
@@ -142,6 +146,7 @@ const UserProfileScreen = () => {
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showFanRequiredModal, setShowFanRequiredModal] = useState(false);
+  const [showCancelRequestModal, setShowCancelRequestModal] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -164,12 +169,20 @@ const UserProfileScreen = () => {
   const posts = useMemo(() => userPosts.filter(p => !p.is_peak), [userPosts]);
   const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
 
-  // Check if current user is following this profile
+  // Check if current user is following this profile or has pending request
   useEffect(() => {
     const checkFollowStatus = async () => {
       if (userId) {
         const { following } = await isFollowing(userId);
         setIsFan(following);
+
+        // If not following and profile is private, check for pending request
+        if (!following) {
+          const { pending } = await hasPendingFollowRequest(userId);
+          setIsRequested(pending);
+        } else {
+          setIsRequested(false);
+        }
       }
     };
     checkFollowStatus();
@@ -277,12 +290,31 @@ const UserProfileScreen = () => {
       setShowBlockedModal(true);
       return;
     }
-    
+
     if (isFan) {
       setShowUnfanModal(true);
+    } else if (isRequested) {
+      // Show cancel request modal
+      setShowCancelRequestModal(true);
     } else {
       becomeFan();
     }
+  };
+
+  // Cancel follow request
+  const handleCancelRequest = async () => {
+    if (!userId || isLoadingFollow) return;
+
+    setShowCancelRequestModal(false);
+    setIsLoadingFollow(true);
+
+    const { error } = await cancelFollowRequest(userId);
+
+    if (!error) {
+      setIsRequested(false);
+    }
+
+    setIsLoadingFollow(false);
   };
   
   const becomeFan = async () => {
@@ -302,18 +334,22 @@ const UserProfileScreen = () => {
     }
 
     setIsLoadingFollow(true);
-    // Optimistic update
-    setIsFan(true);
-    setLocalFanCount(prev => (prev ?? 0) + 1);
 
-    const { error } = await followUser(userId);
+    const { error, requestCreated } = await followUser(userId);
     setIsLoadingFollow(false);
 
     if (error) {
-      // Revert on error
-      setIsFan(false);
-      setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
       console.error('[UserProfile] Follow error:', error);
+      return;
+    }
+
+    if (requestCreated) {
+      // A follow request was created for a private account
+      setIsRequested(true);
+    } else {
+      // Direct follow was successful
+      setIsFan(true);
+      setLocalFanCount(prev => (prev ?? 0) + 1);
     }
   };
 
@@ -485,6 +521,30 @@ const UserProfileScreen = () => {
     );
   }
 
+  // ==================== RENDER PRIVATE ACCOUNT STATE ====================
+  const renderPrivateAccount = () => (
+    <View style={styles.privateContainer}>
+      <View style={styles.privateLockContainer}>
+        <Ionicons name="lock-closed" size={48} color="#8E8E93" />
+      </View>
+      <Text style={styles.privateTitle}>This Account is Private</Text>
+      <Text style={styles.privateDesc}>
+        Follow this account to see their photos and videos.
+      </Text>
+      <TouchableOpacity
+        style={styles.privateFollowBtn}
+        onPress={handleFanPress}
+        disabled={isLoadingFollow}
+      >
+        {isLoadingFollow ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={styles.privateFollowBtnText}>Become a Fan</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
   // ==================== RENDER EMPTY STATE ====================
   const renderEmpty = (type: string) => (
     <View style={styles.emptyContainer}>
@@ -510,6 +570,13 @@ const UserProfileScreen = () => {
 
   // ==================== RENDER TAB CONTENT ====================
   const renderTabContent = () => {
+    // Check if profile is private and user is not a fan
+    const isPrivateAndNotFan = profile.isPrivate && !isFan && !isOwnProfile;
+
+    if (isPrivateAndNotFan) {
+      return renderPrivateAccount();
+    }
+
     if (isLoadingPosts) {
       return (
         <View style={styles.loadingContainer}>
@@ -680,6 +747,11 @@ const UserProfileScreen = () => {
             isVerified={profile.isVerified}
             accountType={profile.accountType}
           />
+          {profile.isPrivate && (
+            <View style={styles.privateBadge}>
+              <Ionicons name="lock-closed" size={12} color="#8E8E93" />
+            </View>
+          )}
           {(profile.isBot || profile.isTeam) && (
             <View style={styles.teamBadge}>
               <Text style={styles.teamBadgeText}>(Team Smuppy)</Text>
@@ -718,15 +790,23 @@ const UserProfileScreen = () => {
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={[styles.fanButton, isFan && styles.fanButtonActive]}
+          style={[
+            styles.fanButton,
+            isFan && styles.fanButtonActive,
+            isRequested && styles.fanButtonRequested
+          ]}
           onPress={handleFanPress}
           disabled={isLoadingFollow}
         >
           {isLoadingFollow ? (
-            <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : '#0EBF8A'} />
+            <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
           ) : (
-            <Text style={[styles.fanButtonText, isFan && styles.fanButtonTextActive]}>
-              {isFan ? 'Fan' : 'Become a fan'}
+            <Text style={[
+              styles.fanButtonText,
+              isFan && styles.fanButtonTextActive,
+              isRequested && styles.fanButtonTextRequested
+            ]}>
+              {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
             </Text>
           )}
         </TouchableOpacity>
@@ -819,6 +899,38 @@ const UserProfileScreen = () => {
         </View>
       </Modal>
 
+      {/* Modal Cancel Follow Request */}
+      <Modal
+        visible={showCancelRequestModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelRequestModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalEmoji}>🔔</Text>
+            <Text style={styles.modalTitle}>Cancel Follow Request?</Text>
+            <Text style={styles.modalText}>
+              {profile.displayName} won't be notified that you've cancelled your request.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setShowCancelRequestModal(false)}
+              >
+                <Text style={styles.modalBtnCancelText}>Keep</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: '#FF3B30' }]}
+                onPress={handleCancelRequest}
+              >
+                <Text style={styles.modalBtnConfirmText}>Cancel Request</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal Fan Required (pour commenter) */}
       <Modal
         visible={showFanRequiredModal}
@@ -834,13 +946,13 @@ const UserProfileScreen = () => {
               Join the community! Become a fan to interact with this creator's content.
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalBtnCancel}
                 onPress={() => setShowFanRequiredModal(false)}
               >
                 <Text style={styles.modalBtnCancelText}>Later</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalBtnConfirm}
                 onPress={() => {
                   setShowFanRequiredModal(false);
@@ -1057,6 +1169,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0EBF8A',
   },
+  privateBadge: {
+    marginLeft: 6,
+    backgroundColor: '#F3F4F6',
+    padding: 4,
+    borderRadius: 10,
+  },
   actionBtn: {
     width: 34,
     height: 34,
@@ -1116,6 +1234,10 @@ const styles = StyleSheet.create({
   fanButtonActive: {
     backgroundColor: '#0EBF8A',
   },
+  fanButtonRequested: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E5E5',
+  },
   fanButtonText: {
     fontSize: 14,
     fontWeight: '600',
@@ -1123,6 +1245,9 @@ const styles = StyleSheet.create({
   },
   fanButtonTextActive: {
     color: '#FFFFFF',
+  },
+  fanButtonTextRequested: {
+    color: '#8E8E93',
   },
   messageButton: {
     flex: 1,
@@ -1333,6 +1458,47 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     textAlign: 'center',
     lineHeight: 21,
+  },
+
+  // ===== PRIVATE ACCOUNT STATE =====
+  privateContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  privateLockContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  privateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0A0A0F',
+    marginBottom: 8,
+  },
+  privateDesc: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#8E8E93',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  privateFollowBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    backgroundColor: '#0EBF8A',
+  },
+  privateFollowBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   // ===== MODALS =====

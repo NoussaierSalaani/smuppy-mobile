@@ -8,6 +8,8 @@ import {
   Dimensions,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -146,6 +148,10 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
     caption?: string;
     user: { name: string; avatar: string };
   } | null>(null);
+
+  // Post menu state
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuPost, setMenuPost] = useState<UIPost | null>(null);
 
   // Fetch posts from tracked users
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
@@ -336,6 +342,52 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
     setShareModalVisible(true);
   }, []);
 
+  // Handle post menu
+  const handlePostMenu = useCallback((post: UIPost) => {
+    setMenuPost(post);
+    setMenuVisible(true);
+  }, []);
+
+  // Handle report post
+  const handleReportPost = useCallback(() => {
+    if (!menuPost) return;
+    setMenuVisible(false);
+    Alert.alert(
+      'Report Post',
+      'Are you sure you want to report this post?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Reported', 'Thank you for your report. We will review it.');
+          },
+        },
+      ]
+    );
+  }, [menuPost]);
+
+  // Handle mute user
+  const handleMuteUser = useCallback(() => {
+    if (!menuPost) return;
+    setMenuVisible(false);
+    Alert.alert(
+      'Mute User',
+      `Mute ${menuPost.user.name}? You won't see their posts anymore.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mute',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
+          },
+        },
+      ]
+    );
+  }, [menuPost]);
+
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -418,7 +470,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
             </Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.postMore}>
+        <TouchableOpacity style={styles.postMore} onPress={() => handlePostMenu(post)}>
           <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.dark} />
         </TouchableOpacity>
       </View>
@@ -653,6 +705,38 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
           setPostToShare(null);
         }}
       />
+
+      {/* Post Menu Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View style={styles.menuContainer}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
+              <Ionicons name="flag-outline" size={22} color={COLORS.dark} />
+              <Text style={styles.menuItemText}>Report</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
+              <Ionicons name="volume-mute-outline" size={22} color={COLORS.dark} />
+              <Text style={styles.menuItemText}>Mute User</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => setMenuVisible(false)}
+            >
+              <Ionicons name="close-outline" size={22} color={COLORS.gray} />
+              <Text style={[styles.menuItemText, { color: COLORS.gray }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1046,5 +1130,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
     color: COLORS.white,
+  },
+
+  // Post Menu Modal
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: SPACING.md,
+    paddingBottom: 34,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
+  },
+  menuItemText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: COLORS.dark,
+    marginLeft: SPACING.md,
   },
 });

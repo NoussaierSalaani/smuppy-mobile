@@ -143,7 +143,9 @@ const SettingsScreen = ({ navigation }) => {
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
+    { id: 'followRequests', icon: 'person-add-outline' as const, label: 'Follow Requests', screen: 'FollowRequests' },
     { id: 'blocked', icon: 'ban-outline' as const, label: 'Blocked Users', screen: 'BlockedUsers' },
+    { id: 'muted', icon: 'volume-mute-outline' as const, label: 'Muted Users', screen: 'MutedUsers' },
     { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a Problem', screen: 'ReportProblem' },
     { id: 'terms', icon: 'document-text-outline' as const, label: 'Terms & Policies', screen: 'TermsPolicies' },
   ];

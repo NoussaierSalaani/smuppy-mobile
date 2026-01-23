@@ -27,6 +27,7 @@ import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 import { AccountBadge, PremiumBadge } from '../../components/Badge';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import { unsavePost } from '../../services/database';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -266,6 +267,8 @@ const ProfileScreen = ({ navigation, route }) => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showImageSheet, setShowImageSheet] = useState(false);
   const [imageSheetType, setImageSheetType] = useState<'avatar' | 'cover'>('avatar');
+  const [collectionMenuVisible, setCollectionMenuVisible] = useState(false);
+  const [selectedCollectionPost, setSelectedCollectionPost] = useState<any>(null);
 
   const isOwnProfile = route?.params?.userId === undefined;
 
@@ -503,6 +506,27 @@ const ProfileScreen = ({ navigation, route }) => {
     navigation.navigate('FansList', { fansCount: user.stats.fans });
   };
 
+  // Collection menu handlers
+  const handleCollectionMenu = (post: any, e: any) => {
+    e.stopPropagation();
+    setSelectedCollectionPost(post);
+    setCollectionMenuVisible(true);
+  };
+
+  const handleRemoveFromCollection = async () => {
+    if (!selectedCollectionPost) return;
+
+    setCollectionMenuVisible(false);
+
+    const { error } = await unsavePost(selectedCollectionPost.id);
+    if (error) {
+      Alert.alert('Error', 'Failed to remove from collection');
+    } else {
+      refetchSavedPosts();
+    }
+    setSelectedCollectionPost(null);
+  };
+
   // ==================== RENDER HEADER ====================
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -714,7 +738,7 @@ const ProfileScreen = ({ navigation, route }) => {
     return (
       <TouchableOpacity
         style={styles.postCard}
-        onPress={() => navigation.navigate('PostDetail', { postId: post.id })}
+        onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
@@ -832,7 +856,7 @@ const ProfileScreen = ({ navigation, route }) => {
       <TouchableOpacity
         key={post.id}
         style={styles.collectionCard}
-        onPress={() => navigation.navigate('PostDetail', { postId: post.id })}
+        onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.collectionThumb} />
@@ -849,7 +873,7 @@ const ProfileScreen = ({ navigation, route }) => {
         <View style={styles.collectionSaveIcon}>
           <Ionicons name="bookmark" size={12} color="#FFF" />
         </View>
-        <TouchableOpacity style={styles.collectionMenu}>
+        <TouchableOpacity style={styles.collectionMenu} onPress={(e) => handleCollectionMenu(post, e)}>
           <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.collectionInfo}>
@@ -1022,6 +1046,34 @@ const ProfileScreen = ({ navigation, route }) => {
         }
         options={getImageSheetOptions()}
       />
+
+      {/* Collection Menu Modal */}
+      <Modal
+        visible={collectionMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCollectionMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.collectionMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setCollectionMenuVisible(false)}
+        >
+          <View style={styles.collectionMenuContainer}>
+            <TouchableOpacity style={styles.collectionMenuItem} onPress={handleRemoveFromCollection}>
+              <Ionicons name="bookmark-outline" size={22} color={COLORS.dark} />
+              <Text style={styles.collectionMenuText}>Remove from saved</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.collectionMenuItem, styles.collectionMenuItemLast]}
+              onPress={() => setCollectionMenuVisible(false)}
+            >
+              <Ionicons name="close" size={22} color={COLORS.grayMuted} />
+              <Text style={[styles.collectionMenuText, { color: COLORS.grayMuted }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -1636,6 +1688,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+
+  // ===== COLLECTION MENU MODAL =====
+  collectionMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  collectionMenuContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+    paddingBottom: 34,
+  },
+  collectionMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  collectionMenuItemLast: {
+    borderBottomWidth: 0,
+  },
+  collectionMenuText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#0A0A0F',
+    marginLeft: 16,
   },
 });
 

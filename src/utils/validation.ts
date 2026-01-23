@@ -13,7 +13,7 @@
  * @param {string} v - The string to sanitize
  * @returns {string} Sanitized string
  */
-export const sanitize = (v: string | undefined | null): string => v?.replace(/[<>\"'`]/g, '').trim() || '';
+export const sanitize = (v: string | undefined | null): string => v?.replace(/[<>"'`]/g, '').trim() || '';
 
 /**
  * Sanitize all string values in an object.
@@ -467,7 +467,7 @@ export const PASSWORD_RULES: PasswordRule[] = [
   { id: 'uppercase', label: 'One uppercase letter (A-Z)', test: (pwd) => /[A-Z]/.test(pwd || '') },
   { id: 'lowercase', label: 'One lowercase letter (a-z)', test: (pwd) => /[a-z]/.test(pwd || '') },
   { id: 'number', label: 'One number (0-9)', test: (pwd) => /[0-9]/.test(pwd || '') },
-  { id: 'special', label: 'One special character (!@#$%^&*)', test: (pwd) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd || '') },
+  { id: 'special', label: 'One special character (!@#$%^&*)', test: (pwd) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pwd || '') },
 ];
 
 /**

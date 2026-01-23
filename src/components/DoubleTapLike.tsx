@@ -36,7 +36,7 @@ export default function DoubleTapLike({
   showAnimation = true,
 }: DoubleTapLikeProps) {
   const lastTap = useRef<number>(0);
-  const singleTapTimeout = useRef<NodeJS.Timeout | null>(null);
+  const singleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHeart, setShowHeart] = useState(false);
 
   // Cleanup timeout on unmount

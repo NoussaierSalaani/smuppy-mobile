@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -468,10 +468,18 @@ export default function LoginScreen({ navigation }) {
 
             {/* Social Buttons */}
             <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.socialBtn}
+                activeOpacity={0.7}
+                onPress={() => Alert.alert('Coming Soon', 'Google login will be available soon!')}
+              >
                 <GoogleLogo size={28} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.socialBtn}
+                activeOpacity={0.7}
+                onPress={() => Alert.alert('Coming Soon', 'Apple login will be available soon!')}
+              >
                 <Ionicons name="logo-apple" size={30} color={COLORS.dark} />
               </TouchableOpacity>
             </View>

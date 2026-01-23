@@ -23,7 +23,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
   const [permissionGranted, setPermissionGranted] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const durationInterval = useRef<NodeJS.Timeout | null>(null);
+  const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Request permissions on mount
   useEffect(() => {

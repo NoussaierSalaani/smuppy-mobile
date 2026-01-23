@@ -592,7 +592,7 @@ const PostDetailFanFeedScreen = () => {
                 },
               ]}
             >
-              <SmuppyHeartIcon size={100} color={COLORS.primaryGreen} filled />
+              <SmuppyHeartIcon size={100} color={COLORS.heartRed} filled />
             </Animated.View>
           )}
           
@@ -637,7 +637,7 @@ const PostDetailFanFeedScreen = () => {
               ) : (
                 <SmuppyHeartIcon
                   size={28}
-                  color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                  color={isLiked ? COLORS.heartRed : '#FFF'}
                   filled={isLiked}
                 />
               )}
@@ -731,7 +731,7 @@ const PostDetailFanFeedScreen = () => {
             {/* Stats bar */}
             <View style={styles.statsBar}>
               <View style={styles.statItem}>
-                <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+                <SmuppyHeartIcon size={18} color={COLORS.heartRed} filled />
                 <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
               </View>
               <View style={styles.statItem}>

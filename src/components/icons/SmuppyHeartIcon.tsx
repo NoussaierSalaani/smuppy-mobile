@@ -15,32 +15,10 @@ interface SmuppyHeartIconProps {
  */
 const SmuppyHeartIcon: React.FC<SmuppyHeartIconProps> = ({
   size = 24,
-  color = '#1A2B3D',
+  color = '#FF6B6B',
   filled = false,
   style,
 }) => {
-  // Unified path: Heart outline with ECG integrated through the middle
-  // The ECG "cuts" through the heart creating two distinct areas
-  const heartWithECGPath =
-    // Start from left side, go up to top of left lobe
-    "M2 9.5C2 6 4.5 3 8 3c2 0 3.5 1.2 4 2.5" +
-    // Continue to center where ECG starts, then ECG wave
-    "L12 5.5" +
-    // Right lobe top
-    "C12.5 4.2 14 3 16 3c3.5 0 6 3 6 6.5" +
-    // Right side going down to ECG entry point
-    "c0 2-1 3.5-2 5" +
-    // ECG enters from right
-    "L17 12" +
-    // ECG spike pattern (the characteristic heart monitor line)
-    "l-1.5 3.5l-2-7l-2 7l-1.5-3.5" +
-    // ECG exits to left
-    "L7 12" +
-    // Continue left side down
-    "c-1-1.5-2-3-2-5" +
-    // Close left side going back up (not needed since we have start point)
-    "";
-
   if (filled) {
     return (
       <Svg
@@ -55,11 +33,11 @@ const SmuppyHeartIcon: React.FC<SmuppyHeartIconProps> = ({
           d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
           fill={color}
         />
-        {/* ECG line in white for filled version */}
+        {/* ECG line - thin line touching both edges */}
         <Path
-          d="M4.5 10.5h3l1.5 3 2.5-6 2.5 6 1.5-3h4"
+          d="M3.5 11.5L6 11.5L7.5 14L10 9L12 14L14 9L16.5 14L18 11.5L20.5 11.5"
           stroke="#FFFFFF"
-          strokeWidth="2"
+          strokeWidth="1"
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
@@ -68,8 +46,7 @@ const SmuppyHeartIcon: React.FC<SmuppyHeartIconProps> = ({
     );
   }
 
-  // Outline version matching the reference image:
-  // Heart outline that integrates ECG as part of the shape
+  // Outline version with refined ECG design
   return (
     <Svg
       width={size}
@@ -82,14 +59,14 @@ const SmuppyHeartIcon: React.FC<SmuppyHeartIconProps> = ({
       <Path
         d="M7.5 3C4.42 3 2 5.42 2 8.5c0 1.8 0.8 3.4 2 4.5"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.5"
         strokeLinecap="round"
         fill="none"
       />
       <Path
         d="M16.5 3C19.58 3 22 5.42 22 8.5c0 1.8-0.8 3.4-2 4.5"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.5"
         strokeLinecap="round"
         fill="none"
       />
@@ -97,24 +74,24 @@ const SmuppyHeartIcon: React.FC<SmuppyHeartIconProps> = ({
       <Path
         d="M7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.5"
         strokeLinecap="round"
         fill="none"
       />
-      {/* ECG line across the middle */}
+      {/* ECG line - thin line touching both edges */}
       <Path
-        d="M4 13h3l1.5 3 3.5-8 3.5 8 1.5-3h3"
+        d="M3.5 12.5L6 12.5L7.5 15L10 10L12 15L14 10L16.5 15L18 12.5L20.5 12.5"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
       {/* Bottom point of heart */}
       <Path
-        d="M4 13c1.5 2.5 5 6.5 8 8.35C15 19.5 18.5 15.5 20 13"
+        d="M3.5 12.5c1.5 3 5.5 7 8.5 8.85C15 19.5 18.5 15.5 20.5 12.5"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.5"
         strokeLinecap="round"
         fill="none"
       />

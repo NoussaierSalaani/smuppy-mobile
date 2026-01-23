@@ -56,7 +56,7 @@ const RecordButton = ({
 }: RecordButtonProps): React.JSX.Element => {
   const [recording, setRecording] = useState(false);
   const recordDurationRef = useRef(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
   // Animation: 0 = cercle plein, 1 = cercle vide

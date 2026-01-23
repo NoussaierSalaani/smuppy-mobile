@@ -250,7 +250,6 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
             data={searchResults}
             renderItem={renderSearchResult}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={70}
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>No users found</Text>
@@ -264,7 +263,6 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
               data={conversations}
               renderItem={renderConversation}
               keyExtractor={(item) => item.id}
-              estimatedItemSize={70}
               ListEmptyComponent={() => (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyText}>No recent conversations</Text>

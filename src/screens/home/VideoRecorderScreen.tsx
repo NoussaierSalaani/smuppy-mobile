@@ -37,7 +37,7 @@ export default function VideoRecorderScreen({ navigation, route }: VideoRecorder
   const [currentDuration, setCurrentDuration] = useState(0);
   const [savedSegments, setSavedSegments] = useState<string[]>([]);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isRecordingRef = useRef(false);
 
   // Progress animation (0 to 1 over 15 seconds)

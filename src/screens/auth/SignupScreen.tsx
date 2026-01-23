@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal, Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -358,12 +358,20 @@ export default function SignupScreen({ navigation }) {
             </View>
 
             {/* Social Buttons */}
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.socialBtn}
+              activeOpacity={0.7}
+              onPress={() => Alert.alert('Coming Soon', 'Google signup will be available soon!')}
+            >
               <GoogleLogo size={24} />
               <Text style={styles.socialBtnText}>Continue with Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.socialBtn}
+              activeOpacity={0.7}
+              onPress={() => Alert.alert('Coming Soon', 'Apple signup will be available soon!')}
+            >
               <Ionicons name="logo-apple" size={26} color="#0a252f" />
               <Text style={styles.socialBtnText}>Continue with Apple</Text>
             </TouchableOpacity>

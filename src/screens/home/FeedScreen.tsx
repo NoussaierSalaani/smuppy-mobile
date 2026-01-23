@@ -21,13 +21,14 @@ export default function FeedScreen() {
   const { setBottomBarHidden, showBars } = useTabBar();
   const [activeTab, setActiveTab] = useState(0);
 
+  // Track which tabs have been visited (for lazy loading)
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(new Set([0]));
+
   const topPadding = insets.top || StatusBar.currentHeight || 44;
   const totalHeaderHeight = topPadding + HEADER_HEIGHT + TABBAR_HEIGHT;
 
   useFocusEffect(
     useCallback(() => {
-      // Don't reset tab position - keep user on their current tab
-      // Only reset visibility states
       setBottomBarHidden(false);
       showBars();
     }, [setBottomBarHidden, showBars])
@@ -39,6 +40,9 @@ export default function FeedScreen() {
     } else {
       setBottomBarHidden(false);
     }
+
+    // Mark tab as visited for lazy loading
+    setVisitedTabs(prev => new Set([...prev, activeTab]));
   }, [activeTab, setBottomBarHidden]);
 
   const handleScroll = (event) => {
@@ -66,23 +70,31 @@ export default function FeedScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
-        scrollEnabled={activeTab !== 2} // Disable swipe on Xplorer
+        scrollEnabled={activeTab !== 2}
         contentOffset={{ x: 0, y: 0 }}
         style={styles.horizontalScroll}
       >
-        {/* Fan - content scrolls under header */}
+        {/* Fan - always loaded first */}
         <View style={styles.page}>
           <FanFeed headerHeight={totalHeaderHeight} />
         </View>
 
-        {/* Vibes - content scrolls under header */}
+        {/* Vibes - lazy loaded when visited */}
         <View style={styles.page}>
-          <VibesFeed headerHeight={totalHeaderHeight} />
+          {visitedTabs.has(1) ? (
+            <VibesFeed headerHeight={totalHeaderHeight} />
+          ) : (
+            <View style={styles.placeholder} />
+          )}
         </View>
 
-        {/* Xplorer - NO marginTop, full screen map behind header */}
+        {/* Xplorer - lazy loaded when visited */}
         <View style={styles.page}>
-          <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
+          {visitedTabs.has(2) ? (
+            <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
+          ) : (
+            <View style={styles.placeholder} />
+          )}
         </View>
       </ScrollView>
 
@@ -103,5 +115,9 @@ const styles = StyleSheet.create({
   page: {
     width: width,
     flex: 1,
+  },
+  placeholder: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
 });

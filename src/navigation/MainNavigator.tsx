@@ -7,12 +7,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import FeedScreen from '../screens/home/FeedScreen';
 import CreatePostScreen from '../screens/home/CreatePostScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import FollowRequestsScreen from '../screens/notifications/FollowRequestsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
 // Stack Screens
 import SearchScreen from '../screens/search/SearchScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ChatScreen from '../screens/messages/ChatScreen';
+import NewMessageScreen from '../screens/messages/NewMessageScreen';
 
 // Create Post Screens
 import AddPostDetailsScreen from '../screens/home/AddPostDetailsScreen';
@@ -38,6 +40,7 @@ import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
 import TermsPoliciesScreen from '../screens/settings/TermsPoliciesScreen';
 import FacialRecognitionScreen from '../screens/settings/FacialRecognitionScreen';
 import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
+import MutedUsersScreen from '../screens/settings/MutedUsersScreen';
 
 // PEAKS Screens
 import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
@@ -88,6 +91,7 @@ export default function MainNavigator() {
       {/* Messages */}
       <Stack.Screen name="Messages" component={MessagesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Create Post Flow */}
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ animation: 'slide_from_bottom' }} />
@@ -114,6 +118,8 @@ export default function MainNavigator() {
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="FacialRecognition" component={FacialRecognitionScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="MutedUsers" component={MutedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* PEAKS */}
       <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />

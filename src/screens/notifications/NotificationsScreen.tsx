@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { NavigationProp, useNavigation } from '@react-navigation/native';
+import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SIZES, SPACING } from '../../config/theme';
+import { getPendingFollowRequestsCount } from '../../services/database';
 
 // ============================================
 // TYPES
@@ -56,6 +57,7 @@ interface Filter {
 type RootStackParamList = {
   UserProfile: { userId: string };
   NotificationSettings: undefined;
+  FollowRequests: undefined;
   [key: string]: object | undefined;
 };
 
@@ -191,6 +193,20 @@ export default function NotificationsScreen(): React.JSX.Element {
   const [notifications, setNotifications] = useState<Notification[]>(NOTIFICATIONS);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [followRequestsCount, setFollowRequestsCount] = useState(0);
+
+  // Load follow requests count
+  const loadFollowRequestsCount = useCallback(async () => {
+    const count = await getPendingFollowRequestsCount();
+    setFollowRequestsCount(count);
+  }, []);
+
+  // Reload count when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadFollowRequestsCount();
+    }, [loadFollowRequestsCount])
+  );
 
   const filters: Filter[] = [
     { key: 'all', label: 'All' },
@@ -206,6 +222,7 @@ export default function NotificationsScreen(): React.JSX.Element {
 
   const onRefresh = (): void => {
     setRefreshing(true);
+    loadFollowRequestsCount();
     setTimeout(() => {
       setRefreshing(false);
     }, 1500);
@@ -425,6 +442,25 @@ export default function NotificationsScreen(): React.JSX.Element {
           />
         }
       >
+        {/* Follow Requests Banner */}
+        {followRequestsCount > 0 && (
+          <TouchableOpacity
+            style={styles.followRequestsBanner}
+            onPress={() => navigation.navigate('FollowRequests')}
+          >
+            <View style={styles.followRequestsIcon}>
+              <Ionicons name="person-add" size={20} color={COLORS.primaryGreen} />
+            </View>
+            <View style={styles.followRequestsContent}>
+              <Text style={styles.followRequestsTitle}>Follow Requests</Text>
+              <Text style={styles.followRequestsSubtitle}>
+                {followRequestsCount} {followRequestsCount === 1 ? 'person wants' : 'people want'} to follow you
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+          </TouchableOpacity>
+        )}
+
         <Text style={styles.sectionTitle}>Today</Text>
         {filteredNotifications
           .filter((n) => n.time.includes('m ago') || n.time.includes('h ago'))
@@ -660,5 +696,39 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
+  },
+  // Follow Requests Banner
+  followRequestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: '#F0FDF4',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: SPACING.sm,
+  },
+  followRequestsIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  followRequestsContent: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  followRequestsTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 15,
+    color: COLORS.dark,
+  },
+  followRequestsSubtitle: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    color: COLORS.gray,
+    marginTop: 1,
   },
 });

@@ -111,6 +111,23 @@ export interface Follow {
   following?: Profile;
 }
 
+export interface FollowRequest {
+  id: string;
+  requester_id: string;
+  target_id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+  updated_at: string;
+  requester?: Profile;
+  target?: Profile;
+}
+
+export type FollowResult = {
+  success: boolean;
+  type: 'followed' | 'request_created' | 'already_following' | 'already_requested' | 'error';
+  error?: string;
+};
+
 export interface Interest {
   id: string;
   name: string;
@@ -782,6 +799,14 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
  * @param page - Pagination page number
  * @param limit - Number of posts per page
  */
+// Cache for followed user IDs (refreshed every 5 minutes)
+let followedUsersCache: { ids: string[]; timestamp: number; userId: string | null } = {
+  ids: [],
+  timestamp: 0,
+  userId: null,
+};
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export const getDiscoveryFeed = async (
   selectedInterests: string[] = [],
   userInterests: string[] = [],
@@ -794,17 +819,51 @@ export const getDiscoveryFeed = async (
   const { data: { user } } = await supabase.auth.getUser();
   const currentUserId = user?.id;
 
+  // Use cached followed users if still valid
+  let followedUserIds: string[] = [];
+  const now = Date.now();
+
+  if (
+    currentUserId &&
+    followedUsersCache.userId === currentUserId &&
+    now - followedUsersCache.timestamp < CACHE_DURATION
+  ) {
+    // Use cache
+    followedUserIds = followedUsersCache.ids;
+  } else if (currentUserId) {
+    // Fetch and cache
+    const { data: followsData } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', currentUserId);
+
+    if (followsData) {
+      followedUserIds = followsData.map(f => f.following_id);
+      followedUsersCache = {
+        ids: followedUserIds,
+        timestamp: now,
+        userId: currentUserId,
+      };
+    }
+  }
+
+  // Build exclusion list (current user + followed users)
+  const excludeUserIds = [currentUserId, ...followedUserIds].filter(Boolean) as string[];
+  const excludeList = excludeUserIds.length > 0
+    ? excludeUserIds.join(',')
+    : '00000000-0000-0000-0000-000000000000';
+
   // If specific interests are selected, filter by those
   if (selectedInterests.length > 0) {
-    // Get posts matching selected interests
+    // Get posts matching selected interests (excluding followed users)
     const interestResult = await supabase
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
       `)
       .eq('visibility', 'public')
-      .neq('author_id', currentUserId || '')
+      .not('author_id', 'in', `(${excludeList})`)
       .overlaps('tags', selectedInterests)
       .order('likes_count', { ascending: false })
       .order('created_at', { ascending: false })
@@ -825,10 +884,10 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
       `)
       .eq('visibility', 'public')
-      .neq('author_id', currentUserId || '')
+      .not('author_id', 'in', `(${excludeList})`)
       .not('id', 'in', `(${fetchedIds.length > 0 ? fetchedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
       .order('likes_count', { ascending: false })
       .order('created_at', { ascending: false })
@@ -845,10 +904,10 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
       `)
       .eq('visibility', 'public')
-      .neq('author_id', currentUserId || '')
+      .not('author_id', 'in', `(${excludeList})`)
       .overlaps('tags', userInterests)
       .order('likes_count', { ascending: false })
       .order('created_at', { ascending: false })
@@ -863,10 +922,10 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
       `)
       .eq('visibility', 'public')
-      .neq('author_id', currentUserId || '')
+      .not('author_id', 'in', `(${excludeList})`)
       .not('id', 'in', `(${fetchedIds.length > 0 ? fetchedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
       .order('likes_count', { ascending: false })
       .order('created_at', { ascending: false })
@@ -876,15 +935,15 @@ export const getDiscoveryFeed = async (
     return { data: [...interestPosts, ...popularPosts], error: null };
   }
 
-  // Default: all public posts ordered by popularity
+  // Default: all public posts ordered by popularity (excluding followed users)
   const result = await supabase
     .from('posts')
     .select(`
       *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
     `)
     .eq('visibility', 'public')
-    .neq('author_id', currentUserId || '')
+    .not('author_id', 'in', `(${excludeList})`)
     .order('likes_count', { ascending: false })
     .order('created_at', { ascending: false })
     .range(from, to);
@@ -1181,21 +1240,42 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
 /**
  * Follow a user
  */
-export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow>> => {
+export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & { requestCreated?: boolean }> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('follows')
-    .insert({
-      follower_id: user.id,
-      following_id: userIdToFollow
-    })
-    .select()
-    .single();
+  // Use the RPC function that handles private accounts
+  const { data: rpcResult, error: rpcError } = await supabase
+    .rpc('create_follow_or_request', { target_user_id: userIdToFollow });
 
-  const { data, error } = result as { data: Follow | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  if (rpcError) {
+    // Fallback to direct insert for backwards compatibility
+    const result = await supabase
+      .from('follows')
+      .insert({
+        follower_id: user.id,
+        following_id: userIdToFollow
+      })
+      .select()
+      .single();
+
+    const { data, error } = result as { data: Follow | null; error: { message: string } | null };
+    return { data, error: error?.message || null };
+  }
+
+  const result = rpcResult as FollowResult;
+
+  if (!result.success) {
+    return { data: null, error: result.error || 'Failed to follow' };
+  }
+
+  // If a request was created (private account), return success with flag
+  if (result.type === 'request_created') {
+    return { data: null, error: null, requestCreated: true };
+  }
+
+  // For direct follow or already following, return success
+  return { data: null, error: null, requestCreated: false };
 };
 
 /**
@@ -1235,6 +1315,139 @@ export const isFollowing = async (userId: string): Promise<{ following: boolean 
 
   const { data } = result as { data: { follower_id: string } | null };
   return { following: !!data };
+};
+
+// ============================================
+// FOLLOW REQUESTS (for private accounts)
+// ============================================
+
+/**
+ * Check if current user has a pending follow request to a user
+ */
+export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ pending: boolean }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { pending: false };
+
+  const { data, error } = await supabase
+    .rpc('has_pending_request', { target_user_id: targetUserId });
+
+  if (error) {
+    // Fallback to direct query
+    const result = await supabase
+      .from('follow_requests')
+      .select('id')
+      .match({
+        requester_id: user.id,
+        target_id: targetUserId,
+        status: 'pending'
+      })
+      .single();
+
+    return { pending: !!result.data };
+  }
+
+  return { pending: !!data };
+};
+
+/**
+ * Cancel a pending follow request
+ */
+export const cancelFollowRequest = async (targetUserId: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase
+    .rpc('cancel_follow_request', { target_user_id: targetUserId });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const result = data as { success: boolean; error?: string };
+  return { error: result.success ? null : (result.error || 'Failed to cancel request') };
+};
+
+/**
+ * Get pending follow requests received by current user
+ */
+export const getPendingFollowRequests = async (): Promise<DbResponse<FollowRequest[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('follow_requests')
+    .select(`
+      *,
+      requester:profiles!follow_requests_requester_id_fkey(
+        id, username, full_name, avatar_url, is_verified, account_type
+      )
+    `)
+    .eq('target_id', user.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  const { data, error } = result as { data: FollowRequest[] | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Get count of pending follow requests
+ */
+export const getPendingFollowRequestsCount = async (): Promise<number> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 0;
+
+  const { data, error } = await supabase
+    .rpc('get_pending_requests_count');
+
+  if (error) {
+    // Fallback to direct count
+    const result = await supabase
+      .from('follow_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('target_id', user.id)
+      .eq('status', 'pending');
+
+    return result.count || 0;
+  }
+
+  return data || 0;
+};
+
+/**
+ * Accept a follow request
+ */
+export const acceptFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase
+    .rpc('accept_follow_request', { request_id: requestId });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const result = data as { success: boolean; error?: string };
+  return { error: result.success ? null : (result.error || 'Failed to accept request') };
+};
+
+/**
+ * Decline a follow request
+ */
+export const declineFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase
+    .rpc('decline_follow_request', { request_id: requestId });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const result = data as { success: boolean; error?: string };
+  return { error: result.success ? null : (result.error || 'Failed to decline request') };
 };
 
 /**

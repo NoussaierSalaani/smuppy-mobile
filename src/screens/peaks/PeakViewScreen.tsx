@@ -98,7 +98,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     opacity: new Animated.Value(0),
   }))).current;
   const lastTap = useRef(0);
-  const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentPeak = peaks[currentIndex] || {} as Peak;
 
@@ -385,12 +385,13 @@ const PeakViewScreen = (): React.JSX.Element => {
         // TODO: Implement not interested - hide from feed
         Alert.alert('Got it', "We won't show you similar content.");
         break;
-      case 'copy_link':
+      case 'copy_link': {
         const copied = await copyPeakLink(currentPeak.id);
         if (copied) {
           Alert.alert('Copied!', 'Link copied to clipboard');
         }
         break;
+      }
       case 'share':
         await sharePeak(
           currentPeak.id,

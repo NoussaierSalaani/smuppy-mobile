@@ -462,7 +462,7 @@ export type MainStackParamList = {
   // Details
   UserProfile: { userId: string };
   PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Post[] };
-  PostDetailVibesFeed: { postId: string; post?: Post };
+  PostDetailVibesFeed: { postId: string; post?: any };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
   FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
 

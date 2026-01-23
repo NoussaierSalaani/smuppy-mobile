@@ -620,8 +620,8 @@ const styles = StyleSheet.create({
 
   // Suggestions Section - Compact spacing
   suggestionsSection: {
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
+    paddingTop: 0,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.grayLight,
   },
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
 
   // Post
   postContainer: {
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.sm,
   },
   postHeader: {
     flexDirection: 'row',

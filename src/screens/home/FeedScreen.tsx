@@ -12,7 +12,7 @@ const { width } = Dimensions.get('window');
 const TABS = ['Fan', 'Vibes', 'Xplorer'] as const;
 
 const HEADER_HEIGHT = 50;
-const TABBAR_HEIGHT = 70;
+const TABBAR_HEIGHT = 46;
 
 export default function FeedScreen() {
   const navigation = useNavigation();
@@ -26,10 +26,8 @@ export default function FeedScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTo({ x: 0, animated: false });
-      }
-      setActiveTab(0);
+      // Don't reset tab position - keep user on their current tab
+      // Only reset visibility states
       setBottomBarHidden(false);
       showBars();
     }, [setBottomBarHidden, showBars])
@@ -72,14 +70,14 @@ export default function FeedScreen() {
         contentOffset={{ x: 0, y: 0 }}
         style={styles.horizontalScroll}
       >
-        {/* Fan - with marginTop for header */}
-        <View style={[styles.page, { marginTop: totalHeaderHeight }]}>
-          <FanFeed />
+        {/* Fan - content scrolls under header */}
+        <View style={styles.page}>
+          <FanFeed headerHeight={totalHeaderHeight} />
         </View>
 
-        {/* Vibes - with marginTop for header */}
-        <View style={[styles.page, { marginTop: totalHeaderHeight }]}>
-          <VibesFeed />
+        {/* Vibes - content scrolls under header */}
+        <View style={styles.page}>
+          <VibesFeed headerHeight={totalHeaderHeight} />
         </View>
 
         {/* Xplorer - NO marginTop, full screen map behind header */}

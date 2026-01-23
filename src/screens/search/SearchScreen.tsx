@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
-import { VerifiedBadge } from '../../components/Badge';
+import { AccountBadge } from '../../components/Badge';
 import { searchProfiles, getSuggestedProfiles, Profile, getCurrentProfile } from '../../services/database';
 
 // ============================================
@@ -156,9 +156,12 @@ const SearchScreen = (): React.JSX.Element => {
       <View style={styles.resultInfo}>
         <View style={styles.usernameRow}>
           <Text style={styles.resultUsername}>@{profile.username}</Text>
-          {profile.is_verified && (
-            <VerifiedBadge size={16} style={{ marginLeft: 4 }} />
-          )}
+          <AccountBadge
+            size={16}
+            style={{ marginLeft: 4 }}
+            isVerified={profile.is_verified}
+            accountType={profile.account_type}
+          />
         </View>
         <Text style={styles.resultFullName}>{profile.full_name}</Text>
         {profile.fan_count !== undefined && profile.fan_count > 0 && (

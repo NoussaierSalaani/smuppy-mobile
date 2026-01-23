@@ -13,7 +13,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../config/theme';
-import { VerifiedBadge } from '../../components/Badge';
+import { AccountBadge } from '../../components/Badge';
 import {
   getConversations,
   subscribeToConversations,
@@ -121,9 +121,12 @@ export default function MessagesScreen({ navigation }) {
               ]}>
                 {otherUser.full_name || otherUser.username}
               </Text>
-              {otherUser.is_verified && (
-                <VerifiedBadge size={16} style={styles.verifiedBadge} />
-              )}
+              <AccountBadge
+                size={16}
+                style={styles.verifiedBadge}
+                isVerified={otherUser.is_verified}
+                accountType={otherUser.account_type}
+              />
             </TouchableOpacity>
             <Text style={[
               styles.messageTime,

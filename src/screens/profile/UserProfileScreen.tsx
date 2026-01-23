@@ -44,6 +44,7 @@ interface ProfileApiData {
   is_bot?: boolean;
   is_team?: boolean;
   interests?: string[];
+  account_type?: 'personal' | 'pro_creator' | 'pro_local';
 }
 
 const DEFAULT_PROFILE = {
@@ -59,6 +60,7 @@ const DEFAULT_PROFILE = {
   isBot: false,
   isTeam: false,
   interests: [] as string[],
+  accountType: 'personal' as const,
 };
 
 // Cover images by interest/category
@@ -124,6 +126,7 @@ const UserProfileScreen = () => {
       isVerified: data.is_verified ?? DEFAULT_PROFILE.isVerified,
       isBot: data.is_bot ?? DEFAULT_PROFILE.isBot,
       isTeam: data.is_team ?? DEFAULT_PROFILE.isTeam,
+      accountType: data.account_type ?? DEFAULT_PROFILE.accountType,
       interests,
     };
   }, [profileData, userId]);
@@ -671,9 +674,12 @@ const UserProfileScreen = () => {
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
           <Text style={styles.displayName}>{profile.displayName}</Text>
-          {profile.isVerified && (
-            <VerifiedBadge size={18} style={styles.badge} />
-          )}
+          <AccountBadge
+            size={18}
+            style={styles.badge}
+            isVerified={profile.isVerified}
+            accountType={profile.accountType}
+          />
           {(profile.isBot || profile.isTeam) && (
             <View style={styles.teamBadge}>
               <Text style={styles.teamBadgeText}>(Team Smuppy)</Text>

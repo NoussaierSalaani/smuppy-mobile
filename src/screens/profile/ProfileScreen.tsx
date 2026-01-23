@@ -24,7 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
-import { VerifiedBadge, PremiumBadge } from '../../components/Badge';
+import { AccountBadge, PremiumBadge } from '../../components/Badge';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 
@@ -597,7 +597,12 @@ const ProfileScreen = ({ navigation, route }) => {
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
           <Text style={styles.displayName}>{user.displayName}</Text>
-          {user.isVerified && <VerifiedBadge size={18} style={styles.badge} />}
+          <AccountBadge
+            size={18}
+            style={styles.badge}
+            isVerified={user.isVerified}
+            accountType={user.accountType as 'personal' | 'pro_creator' | 'pro_local'}
+          />
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>

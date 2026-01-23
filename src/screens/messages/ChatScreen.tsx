@@ -17,7 +17,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { VerifiedBadge } from '../../components/Badge';
+import { AccountBadge } from '../../components/Badge';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import {
   getMessages,
@@ -172,7 +172,12 @@ export default function ChatScreen({ route, navigation }) {
           <View>
             <View style={styles.headerNameRow}>
               <Text style={styles.headerName}>{displayName}</Text>
-              {isVerified && <VerifiedBadge size={16} style={{ marginLeft: 4 }} />}
+              <AccountBadge
+                size={16}
+                style={{ marginLeft: 4 }}
+                isVerified={otherUserProfile?.is_verified}
+                accountType={otherUserProfile?.account_type}
+              />
             </View>
             <Text style={styles.headerStatus}>Online</Text>
           </View>

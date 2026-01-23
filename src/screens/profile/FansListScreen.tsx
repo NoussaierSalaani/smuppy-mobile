@@ -15,7 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { VerifiedBadge } from '../../components/Badge';
+import { AccountBadge } from '../../components/Badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
@@ -36,6 +36,7 @@ interface User {
   username: string;
   avatar: string;
   isVerified: boolean;
+  accountType?: 'personal' | 'pro_creator' | 'pro_local';
   isFanOfMe: boolean;
   iAmFanOf: boolean;
   unfollowCount: number;
@@ -55,6 +56,7 @@ const profileToUser = (
   username: `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || 'https://via.placeholder.com/100',
   isVerified: profile.is_verified || false,
+  accountType: profile.account_type || 'personal',
   isFanOfMe,
   iAmFanOf,
   unfollowCount: 0,
@@ -333,9 +335,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         <View style={styles.userInfo}>
           <View style={styles.nameRow}>
             <Text style={styles.userName}>{item.name}</Text>
-            {item.isVerified && (
-              <VerifiedBadge size={16} style={styles.verifiedBadge} />
-            )}
+            <AccountBadge
+              size={16}
+              style={styles.verifiedBadge}
+              isVerified={item.isVerified}
+              accountType={item.accountType}
+            />
           </View>
           <Text style={styles.userUsername}>{item.username}</Text>
         </View>

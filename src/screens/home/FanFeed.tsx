@@ -33,6 +33,7 @@ interface UISuggestion {
   username: string;
   avatar: string;
   isVerified: boolean;
+  accountType?: 'personal' | 'pro_creator' | 'pro_local';
 }
 
 // Transform Post from database to UI format
@@ -49,6 +50,7 @@ interface UIPost {
     avatar: string;
     isVerified: boolean;
     isBot?: boolean;
+    accountType?: 'personal' | 'pro_creator' | 'pro_local';
   };
   caption: string;
   likes: number;
@@ -99,6 +101,7 @@ const transformPostToUI = (post: Post, likedPostIds: Set<string>): UIPost => {
       avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
       isVerified: post.author?.is_verified || false,
       isBot: post.author?.is_bot || false,
+      accountType: post.author?.account_type || 'personal',
     },
     caption: contentText,
     likes: post.likes_count || 0,
@@ -181,6 +184,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
           username: p.username || 'user',
           avatar: p.avatar_url || 'https://via.placeholder.com/100',
           isVerified: p.is_verified || false,
+          accountType: p.account_type || 'personal',
         }));
         setSuggestions(transformed);
       }
@@ -341,9 +345,12 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
             <AvatarImage source={suggestion.avatar} size={48} />
           </View>
         </LinearGradient>
-        {suggestion.isVerified && (
-          <VerifiedBadge size={14} style={styles.verifiedBadgeSuggestion} />
-        )}
+        <AccountBadge
+          size={14}
+          style={styles.verifiedBadgeSuggestion}
+          isVerified={suggestion.isVerified}
+          accountType={suggestion.accountType}
+        />
       </TouchableOpacity>
       <Text style={styles.suggestionName} numberOfLines={1}>
         {suggestion.name.split(' ')[0]}
@@ -370,9 +377,12 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
           <View style={styles.postUserInfo}>
             <View style={styles.postUserNameRow}>
               <Text style={styles.postUserName}>{post.user.name}</Text>
-              {post.user.isVerified && (
-                <VerifiedBadge size={16} style={styles.verifiedBadge} />
-              )}
+              <AccountBadge
+                  size={16}
+                  style={styles.verifiedBadge}
+                  isVerified={post.user.isVerified}
+                  accountType={post.user.accountType}
+                />
               {post.user.isBot && (
                 <View style={styles.teamBadge}>
                   <Text style={styles.teamBadgeText}>(Team Smuppy)</Text>

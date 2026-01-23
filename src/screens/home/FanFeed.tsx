@@ -381,7 +381,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
               )}
             </View>
             <Text style={styles.postMeta}>
-              {post.timeAgo}{post.location && ` • ${post.location}`}
+              {post.timeAgo}{post.location ? ` • ${post.location}` : null}
             </Text>
           </View>
         </TouchableOpacity>

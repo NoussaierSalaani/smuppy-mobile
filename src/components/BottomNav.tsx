@@ -243,7 +243,7 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
                   activeOpacity={0.7}
                 >
                   <ProfileIcon isActive={isActive} size={26} />
-                  {isActive && <View style={styles.underline} />}
+                  {isActive ? <View style={styles.underline} /> : null}
                 </TouchableOpacity>
               );
             }
@@ -258,7 +258,7 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
                 activeOpacity={0.7}
               >
                 <IconComponent size={22} />
-                {isActive && <View style={styles.underline} />}
+                {isActive ? <View style={styles.underline} /> : null}
               </TouchableOpacity>
             );
           })}

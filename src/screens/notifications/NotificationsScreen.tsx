@@ -328,7 +328,7 @@ export default function NotificationsScreen(): React.JSX.Element {
               >
                 {(item as UserNotification).user.name}
               </Text>
-              {(item as UserNotification).user.isVerified && ' ✓'} {item.message}
+              {(item as UserNotification).user.isVerified ? ' ✓ ' : ' '}{item.message}
             </Text>
           )}
           <Text style={styles.timeText}>{item.time}</Text>

@@ -55,12 +55,12 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
       />
 
       {/* Replies indicator (Peak Chain) */}
-      {peak.repliesCount && peak.repliesCount > 0 && (
+      {peak.repliesCount && peak.repliesCount > 0 ? (
         <View style={styles.chainBadge}>
           <Ionicons name="link" size={12} color={COLORS.white} />
           <Text style={styles.chainText}>{peak.repliesCount}</Text>
         </View>
-      )}
+      ) : null}
 
       {/* Duration */}
       <View style={styles.durationBadge}>

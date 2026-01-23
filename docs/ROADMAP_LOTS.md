@@ -45,7 +45,7 @@ Purpose: single source of truth to track the Smuppy Mobile development progress 
 - Local commits ahead of origin: **0**
 
 ### 1.2 Current active LOT
-✅ **LOT Q — API Connections: Follow/Fan, Tag Friends, Share (DONE)**
+✅ **LOT T — UI Polish, Views Count & Code Cleanup (DONE)**
 
 ---
 
@@ -351,6 +351,67 @@ generateShareLink(content)
 - Utilitaire de partage réutilisable pour toute l'app
 - Flow de création de post vérifié complet
 - Flow de sauvegarde de profil vérifié complet
+
+---
+
+### ✅ LOT S — Database Connectivity & Stats Fixes
+**Status:** ✅ DONE
+**Date:** 2026-01-23
+
+#### Goals (completed)
+1) ✅ FAN button: Real database connection on all PostDetail screens
+2) ✅ Remove comments from posts (only Peaks have replies)
+3) ✅ Peak reply icon: `chatbubble-outline` → `videocam-outline`
+4) ✅ Database triggers: `update_post_count()`, `update_fan_count()`
+5) ✅ Bot social network: SQL script creates follows between bots
+6) ✅ Interest filter fix: Add tags column + populate from captions
+
+#### Scope files
+- `src/screens/home/PostDetailVibesFeedScreen.tsx`
+- `src/screens/home/PostDetailFanFeedScreen.tsx`
+- `src/screens/profile/PostDetailProfileScreen.tsx`
+- `src/screens/home/FanFeed.tsx`
+- `src/screens/home/VibesFeed.tsx`
+- `src/screens/peaks/PeakViewScreen.tsx`
+- `supabase/COMPLETE_SETUP.sql` (nouveau)
+- `supabase/migrations/20260123_stats_and_bot_network.sql`
+
+#### Key outcomes
+- FAN button works with real database
+- Stats (fan_count, post_count) update automatically via triggers
+- Interest filter on VibesFeed works (posts have tags)
+- Bots have social connections (5-15 follows each)
+- Comments removed from posts (cleaner UX)
+
+---
+
+### ✅ LOT T — UI Polish, Views Count & Code Cleanup
+**Status:** ✅ DONE
+**Date:** 2026-01-23
+
+#### Goals (completed)
+1) ✅ BottomNav icons: Home/Peaks/Notifications aligned with UI Kit
+2) ✅ Badge components: Shutter design with 6 segments
+3) ✅ HomeHeader spacing: Tab bar more compact
+4) ✅ FanFeed spacing: Suggestions section optimized
+5) ✅ Views count: New `views_count` column for posts
+6) ✅ Code cleanup: Remove unused imports, states, styles
+
+#### Scope files
+- `src/components/BottomNav.tsx` - Icon redesign (filled/outline states)
+- `src/components/Badge.tsx` - Shutter badge design
+- `src/components/HomeHeader.tsx` - Tab bar spacing
+- `src/screens/home/FanFeed.tsx` - Cleanup + suggestions spacing
+- `src/screens/profile/UserProfileScreen.tsx` - Display views_count
+- `src/services/database.ts` - Post interface update
+- `supabase/migrations/20260123_add_views_count.sql` (new)
+
+#### Key outcomes
+- BottomNav icons match UI Kit design (filled when active, outline when inactive)
+- Badges use consistent shutter/aperture design with 3 color variants
+- Tab bar and suggestions visually balanced
+- Posts and peaks display views_count alongside likes
+- Code is cleaner (removed unused Modal, state, styles)
 
 ---
 

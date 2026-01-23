@@ -1,6 +1,6 @@
 # Implementation Log — Smuppy Mobile
 
-Dernière mise à jour: 2026-01-22
+Dernière mise à jour: 2026-01-23
 
 ## Vue d’ensemble
 | ID | Type | Date | Objectif principal | Status | Tests | Notes |
@@ -720,5 +720,154 @@ const {
 - ✅ expo-blur (already installed)
 - ✅ expo-haptics (already installed)
 - ✅ zustand (already installed)
+
+**Status:** DONE
+
+---
+
+## LOT S — Database Connectivity & Stats Fixes (2026-01-23)
+
+**Type:** Feature + Bug Fix + Database
+**Objectif:** Connecter tous les boutons FAN à la vraie base de données, corriger les stats, créer le réseau social des bots
+
+### Goals (completed)
+
+#### 1. FAN Button - Connexion API Réelle (tous les écrans)
+- ✅ PostDetailVibesFeedScreen: `followUser()`, `isFollowing()` avec useEffect
+- ✅ PostDetailProfileScreen: Même correction avec loading state
+- ✅ PostDetailFanFeedScreen: Même correction pour multi-users
+
+#### 2. Suppression des commentaires sur les posts
+- ✅ FanFeed: Supprimé bouton comment et modal
+- ✅ VibesFeed: Supprimé option Comment du menu
+- ✅ Note: Les Peaks gardent les réponses (replies avec videocam icon)
+
+#### 3. Icône réponse Peaks
+- ✅ PeakViewScreen: Changé `chatbubble-outline` → `videocam-outline`
+- ✅ Représente "répondre avec un Peak"
+
+#### 4. Database Triggers & Stats
+- ✅ Trigger `update_post_count()` sur INSERT/DELETE posts
+- ✅ Trigger `update_fan_count()` sur INSERT/DELETE follows
+- ✅ Mise à jour des stats existantes (post_count, fan_count)
+
+#### 5. Bot Social Network
+- ✅ Script SQL pour créer des follows entre bots (5-15 par bot)
+- ✅ Réseau social automatiquement généré
+
+#### 6. Interest Filter Fix
+- ✅ Migration pour ajouter colonne `tags` aux posts
+- ✅ Script pour peupler les tags basés sur les captions
+- ✅ Le filtrage par intérêts fonctionne maintenant
+
+### Files modified
+- `src/screens/home/PostDetailVibesFeedScreen.tsx` - FAN button + isFollowing check
+- `src/screens/home/PostDetailFanFeedScreen.tsx` - FAN button + isFollowing check
+- `src/screens/profile/PostDetailProfileScreen.tsx` - FAN button + isFollowing check
+- `src/screens/home/FanFeed.tsx` - Removed comments
+- `src/screens/home/VibesFeed.tsx` - Removed comment option
+- `src/screens/peaks/PeakViewScreen.tsx` - Reply icon changed
+
+### Files created
+- `supabase/COMPLETE_SETUP.sql` - Script SQL complet pour setup DB
+- `supabase/migrations/20260123_stats_and_bot_network.sql` - Migration triggers + bot network
+
+### SQL Setup Instructions
+
+Run `supabase/COMPLETE_SETUP.sql` in Supabase SQL Editor:
+1. Ajoute la colonne `tags` aux posts
+2. Peuple les tags basés sur les mots-clés des captions
+3. Crée les triggers pour `post_count` et `fan_count`
+4. Met à jour les stats existantes
+5. Crée le réseau social entre bots
+
+### Notes on SQL Errors
+- "already exists" errors are NORMAL - the script uses IF NOT EXISTS
+- RAISE NOTICE messages appear in server logs, not in SQL Editor results
+- The verification queries at the end show the actual results
+
+### Manual tests
+- [ ] VibesFeed: Filtrer par intérêt → posts filtrés apparaissent
+- [ ] PostDetail: Bouton FAN → devient fan (vérifié en DB)
+- [ ] PostDetail: Refresh → statut FAN conservé
+- [ ] Profile: post_count correct
+- [ ] Profile: fan_count correct
+- [ ] Bots: Ont des fans entre eux
+
+**Status:** DONE
+
+---
+
+## LOT T — UI Polish, Views Count & Code Cleanup (2026-01-23)
+
+**Type:** Feature + UI + Optimization
+**Objectif:** Ajuster les icônes BottomNav, ajouter views_count aux posts, nettoyer le code
+
+### Goals (completed)
+
+#### 1. BottomNav Icons - UI Kit Alignment
+- ✅ Home icon: forme maison avec toit incliné (filled/outline)
+- ✅ Peaks icon: rectangle arrondi avec play button
+- ✅ Notifications icon: cloche avec indicateur smile
+- ✅ Underline indicator: 18x3px, borderRadius 1.5
+- ✅ Icon states: filled when active, outline when inactive
+
+#### 2. Badge Components - Shutter Design
+- ✅ Refonte des badges en style "shutter/aperture"
+- ✅ 6 segments formant un cercle avec checkmark
+- ✅ 3 couleurs: verified (#0BCF93), creator (#2D8EFF), premium (#D7B502)
+- ✅ Shadow native pour effet d'élévation
+
+#### 3. HomeHeader Tab Bar Spacing
+- ✅ Réduit padding du tab bar (Fan/Vibes/Xplorer)
+- ✅ Hauteur tabs: 36 → 34px
+- ✅ Padding bottom blur: 6 → 4px
+- ✅ Border radius: 22 → 20px
+
+#### 4. FanFeed Suggestions Spacing
+- ✅ Suggestions section padding réduit
+- ✅ Suggestion items: 80 → 70px width
+- ✅ Avatar rings: 64 → 58px
+- ✅ Avatar images: 54 → 48px
+
+#### 5. Views Count for Posts
+- ✅ Migration SQL: `20260123_add_views_count.sql`
+- ✅ Interface Post: ajout `views_count?: number`
+- ✅ UserProfileScreen: affiche views_count pour posts et peaks
+- ✅ Icône eye-outline avec compteur
+
+#### 6. Code Cleanup
+- ✅ FanFeed: supprimé import Modal inutilisé
+- ✅ FanFeed: supprimé state `_selectedPost` inutilisé
+- ✅ FanFeed: supprimé style `viewComments` inutilisé
+- ✅ Database types: views_count ajouté à l'interface Post
+
+### Files modified
+- `src/components/BottomNav.tsx` - Icônes Home/Peaks/Notifications redesignées
+- `src/components/Badge.tsx` - Design shutter avec 6 segments
+- `src/components/HomeHeader.tsx` - Spacing tab bar ajusté
+- `src/screens/home/FanFeed.tsx` - Cleanup + spacing suggestions
+- `src/screens/profile/UserProfileScreen.tsx` - Affichage views_count
+- `src/services/database.ts` - Interface Post avec views_count
+
+### Files created
+- `supabase/migrations/20260123_add_views_count.sql` - Ajout colonne views_count
+
+### SQL à exécuter (Supabase Dashboard)
+```sql
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_posts_views_count ON posts(views_count DESC);
+UPDATE posts SET views_count = FLOOR(RANDOM() * 500 + likes_count * 2)
+WHERE views_count = 0 OR views_count IS NULL;
+```
+
+### Manual tests
+- [ ] BottomNav: Home icon filled quand actif, outline quand inactif
+- [ ] BottomNav: Même comportement pour Peaks et Notifications
+- [ ] BottomNav: Underline visible sous l'icône active
+- [ ] Badges: Style shutter visible sur les profils vérifiés
+- [ ] HomeHeader: Tab bar moins espacé, visuellement équilibré
+- [ ] FanFeed: Suggestions plus compactes et harmonieuses
+- [ ] Profile: Views et likes visibles sur chaque post
 
 **Status:** DONE

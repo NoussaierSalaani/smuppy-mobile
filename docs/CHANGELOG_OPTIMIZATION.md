@@ -1,5 +1,82 @@
 # Changelog - Performance & Scalability Optimization
 
+## Version 1.6.0 - 23 Janvier 2026
+
+### UI Polish, Views Count & Code Cleanup (LOT T)
+
+**Ajustements visuels, ajout des vues sur les posts, et nettoyage du code.**
+
+#### BottomNav Icons - UI Kit Alignment
+- ✅ Home icon: Tilted roof house design (filled/outline states)
+- ✅ Peaks icon: Rounded rectangle with play button
+- ✅ Notifications icon: Bell with smile indicator
+- ✅ Underline: 18x3px with borderRadius 1.5
+- ✅ States: Filled when active, outline when inactive
+
+#### Badge Components - Shutter Design
+- ✅ Refactored to shutter/aperture style (6 segments + checkmark)
+- ✅ VerifiedBadge: Green (#0BCF93)
+- ✅ CreatorBadge: Blue (#2D8EFF)
+- ✅ PremiumBadge: Gold (#D7B502)
+- ✅ Native shadow for elevation effect
+
+#### Spacing Optimization
+- ✅ HomeHeader: Tab bar height 36→34px, padding reduced
+- ✅ FanFeed: Suggestion items 80→70px width
+- ✅ FanFeed: Avatar rings 64→58px, images 54→48px
+- ✅ Overall visual balance improved
+
+#### Views Count for Posts
+- ✅ New migration: `20260123_add_views_count.sql`
+- ✅ Post interface: Added `views_count?: number`
+- ✅ UserProfileScreen: Displays views with eye icon
+- ✅ Works for both posts and peaks
+
+#### Code Cleanup
+- ✅ FanFeed: Removed unused `Modal` import
+- ✅ FanFeed: Removed unused `_selectedPost` state
+- ✅ FanFeed: Removed unused `viewComments` style
+- ✅ Database types properly updated
+
+---
+
+## Version 1.5.1 - 23 Janvier 2026
+
+### Database Connectivity & Stats (LOT S)
+
+**Connexion complète à la base de données pour les fonctionnalités sociales.**
+
+#### FAN Button - Real Database Connection
+- ✅ PostDetailVibesFeedScreen: Uses `followUser()` + `isFollowing()` check on mount
+- ✅ PostDetailProfileScreen: Same with loading indicator
+- ✅ PostDetailFanFeedScreen: Same for multi-user feeds
+
+#### Comments Removed from Posts
+- ✅ Posts no longer have comments (only Peaks have replies)
+- ✅ FanFeed: Comment button and modal removed
+- ✅ VibesFeed: Comment option removed from menu
+
+#### Peak Reply Icon Updated
+- ✅ Changed from `chatbubble-outline` to `videocam-outline`
+- ✅ Better represents "reply with a Peak video"
+
+#### Database Triggers
+- ✅ `update_post_count()` trigger on posts INSERT/DELETE
+- ✅ `update_fan_count()` trigger on follows INSERT/DELETE
+- ✅ Stats now auto-update when content changes
+
+#### Interest Filter Fix
+- ✅ Added `tags` column to posts table
+- ✅ Auto-populated tags based on caption keywords
+- ✅ Interest filter on VibesFeed now works
+
+#### Bot Social Network
+- ✅ SQL script creates follow relationships between bots
+- ✅ Each bot follows 5-15 random other bots
+- ✅ Creates realistic social activity
+
+---
+
 ## Version 1.5.0 - 22 Janvier 2026
 
 ### Smuppy Unique Gestures (LOT R)

@@ -38,21 +38,31 @@ export interface Profile {
   business_address?: string;
   business_phone?: string;
   locations_mode?: string;
-  fan_count?: number;
-  post_count?: number;
+  onboarding_completed?: boolean;
   created_at?: string;
   updated_at?: string;
+  // Stats
+  fan_count?: number;
+  post_count?: number;
+  // Bot/Team flags
+  is_bot?: boolean;
+  is_team?: boolean;
 }
 
 export interface Post {
   id: string;
   author_id: string;
+  // Content - support both 'content' and 'caption' for compatibility
   content?: string;
+  caption?: string;
+  // Media - support both 'media_urls' (array) and 'media_url' (string)
   media_urls?: string[];
-  media_type?: 'image' | 'video' | 'multiple';
+  media_url?: string;
+  media_type?: 'image' | 'video' | 'multiple' | 'photo'; // 'photo' for legacy support
   visibility: 'public' | 'private' | 'fans';
   likes_count?: number;
   comments_count?: number;
+  views_count?: number;
   location?: string | null;
   tags?: string[]; // Interest tags for filtering (e.g., ['Fitness', 'Yoga'])
   is_peak?: boolean;
@@ -196,7 +206,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  if (__DEV__) console.log('[updateProfile] Updating profile...');
+  if (__DEV__) console.log('[updateProfile] Updating profile with:', JSON.stringify(updates));
 
   // First, try to update existing profile
   const updateResult = await supabase
@@ -210,8 +220,11 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     error: { message: string } | null
   };
 
+  if (__DEV__) console.log('[updateProfile] Result - data:', updateData?.length, 'error:', updateError?.message);
+
   // If update succeeded and returned data, return it
   if (updateData && updateData.length > 0) {
+    if (__DEV__) console.log('[updateProfile] Success! Returning updated profile');
     return { data: updateData[0], error: null };
   }
 
@@ -278,6 +291,7 @@ export const createProfile = async (profileData: Partial<Profile>): Promise<DbRe
 
 /**
  * Search profiles by username or full_name
+ * Results are sorted with verified accounts first
  */
 export const searchProfiles = async (
   query: string,
@@ -293,6 +307,8 @@ export const searchProfiles = async (
     .from('profiles')
     .select('*')
     .or(`username.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`)
+    .order('is_verified', { ascending: false }) // Verified accounts (bots) first
+    .order('created_at', { ascending: false })
     .limit(limit);
 
   const { data, error } = result as { data: Profile[] | null; error: { message: string } | null };
@@ -301,20 +317,44 @@ export const searchProfiles = async (
 
 /**
  * Get suggested profiles (for discovery/explore)
+ * Prioritizes verified accounts (Smuppy Team bots) to ensure visibility
  */
 export const getSuggestedProfiles = async (limit = 10): Promise<DbResponse<Profile[]>> => {
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Get profiles excluding current user, ordered by fan_count
-  const result = await supabase
+  // Get verified profiles first (Smuppy Team bots) - randomized for variety
+  // This ensures bot accounts are always suggested
+  const verifiedResult = await supabase
     .from('profiles')
     .select('*')
     .neq('id', user?.id || '')
-    .order('fan_count', { ascending: false, nullsFirst: false })
-    .limit(limit);
+    .eq('is_verified', true)
+    .limit(Math.ceil(limit * 0.7)); // 70% verified accounts
 
-  const { data, error } = result as { data: Profile[] | null; error: { message: string } | null };
-  return { data: data || [], error: error?.message || null };
+  const verifiedProfiles = (verifiedResult.data || []) as Profile[];
+
+  // Shuffle verified profiles for variety each time
+  const shuffledVerified = verifiedProfiles.sort(() => Math.random() - 0.5);
+
+  const verifiedIds = shuffledVerified.map(p => p.id);
+  const remainingLimit = limit - shuffledVerified.length;
+
+  // Fill with other non-verified profiles
+  if (remainingLimit > 0) {
+    const otherResult = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', user?.id || '')
+      .eq('is_verified', false)
+      .not('id', 'in', `(${verifiedIds.length > 0 ? verifiedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
+      .order('created_at', { ascending: false })
+      .limit(remainingLimit);
+
+    const otherProfiles = (otherResult.data || []) as Profile[];
+    return { data: [...shuffledVerified, ...otherProfiles], error: null };
+  }
+
+  return { data: shuffledVerified, error: verifiedResult.error?.message || null };
 };
 
 /**
@@ -369,7 +409,7 @@ export const getFeedPosts = async (page = 0, limit = 10): Promise<DbResponse<Pos
     .from('posts')
     .select(`
       *,
-      author:profiles(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
     `)
     .eq('visibility', 'public')
     .order('created_at', { ascending: false })
@@ -390,7 +430,7 @@ export const getPostsByUser = async (userId: string, page = 0, limit = 10): Prom
     .from('posts')
     .select(`
       *,
-      author:profiles(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
     `)
     .eq('author_id', userId)
     .order('created_at', { ascending: false })
@@ -438,7 +478,7 @@ export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbRespo
     .from('posts')
     .select(`
       *,
-      author:profiles(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
     `)
     .in('author_id', followedIds)
     .in('visibility', ['public', 'fans'])
@@ -480,7 +520,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
       `)
       .eq('visibility', 'public')
       .neq('author_id', currentUserId || '')
@@ -504,7 +544,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
       `)
       .eq('visibility', 'public')
       .neq('author_id', currentUserId || '')
@@ -524,7 +564,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
       `)
       .eq('visibility', 'public')
       .neq('author_id', currentUserId || '')
@@ -542,7 +582,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
       `)
       .eq('visibility', 'public')
       .neq('author_id', currentUserId || '')
@@ -560,7 +600,7 @@ export const getDiscoveryFeed = async (
     .from('posts')
     .select(`
       *,
-      author:profiles(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
     `)
     .eq('visibility', 'public')
     .neq('author_id', currentUserId || '')
@@ -587,7 +627,7 @@ export const getPostsByTags = async (
     .from('posts')
     .select(`
       *,
-      author:profiles(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
     `)
     .eq('visibility', 'public')
     .overlaps('tags', tags)
@@ -613,7 +653,7 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
     })
     .select(`
       *,
-      author:profiles(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
     `)
     .single();
 
@@ -775,7 +815,7 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
     .select(`
       post:posts(
         *,
-        author:profiles(id, username, full_name, avatar_url, is_verified)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
       )
     `)
     .eq('user_id', user.id)

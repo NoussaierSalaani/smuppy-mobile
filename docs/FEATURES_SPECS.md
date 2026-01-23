@@ -1,6 +1,6 @@
 # Smuppy Mobile - Features & UI Specifications
 
-> Dernière mise à jour: 21 janvier 2026
+> Dernière mise à jour: 23 janvier 2026
 
 ## Table des matières
 
@@ -259,7 +259,7 @@ peakStatsOverlay: {
 | Bouton | Icône | Fonction |
 |--------|-------|----------|
 | **Like** | `heart` / `heart-outline` | Double-tap ou tap → animation cœur |
-| **Reply** | `chatbubble-outline` | Crée un Peak en réponse |
+| **Reply** | `videocam-outline` | Crée un Peak en réponse (répondre avec une vidéo) |
 | **Share** | `paper-plane-outline` | Partage le Peak |
 | **Save** | `bookmark` / `bookmark-outline` | Sauvegarde en collection |
 
@@ -403,7 +403,8 @@ menuContainer: {
 | Vues | ❌ Caché | ✅ Visible | ✅ Visible |
 | Partages | ❌ Caché | ✅ Visible | ❌ Caché |
 | Saves | ❌ Caché | ✅ Visible | ❌ Caché |
-| Commentaires | ❌ Caché | ✅ Visible | ✅ Visible |
+
+**Note:** Les posts n'ont PAS de commentaires. Seuls les Peaks ont des réponses (replies).
 
 #### Peaks
 
@@ -1679,5 +1680,5 @@ const toggleInterest = useCallback((interestName: string) => {
 
 ---
 
-*Documentation générée le: 22 Janvier 2026*
-*Version: 1.5.1 - Advanced AI Mood System*
+*Documentation générée le: 23 Janvier 2026*
+*Version: 1.6.0 - UI Polish & Views Count*

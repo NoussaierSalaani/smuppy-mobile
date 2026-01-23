@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Modal,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
@@ -127,7 +126,6 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [_selectedPost, setSelectedPost] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -845,13 +843,6 @@ const styles = StyleSheet.create({
   },
   postCaptionUser: {
     fontFamily: 'Poppins-SemiBold',
-  },
-  viewComments: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: COLORS.gray,
-    paddingHorizontal: SPACING.base,
-    marginTop: 6,
   },
   postDivider: {
     height: 8,

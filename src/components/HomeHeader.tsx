@@ -228,29 +228,29 @@ const styles = StyleSheet.create({
 
   // ===== ANIMATED TABBAR =====
   tabBarAnimatedWrapper: {
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: 0,
+    paddingBottom: 2,
   },
   tabBarContainer: {
     marginHorizontal: TAB_BAR_MARGIN,
-    borderRadius: 25,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 4,
   },
   tabBarBlur: {
-    borderRadius: 25,
+    borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingBottom: 10,
+    paddingBottom: 4,
   },
   tabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 42,
+    height: 34,
     paddingHorizontal: TAB_BAR_INNER_PADDING,
   },
   tab: {

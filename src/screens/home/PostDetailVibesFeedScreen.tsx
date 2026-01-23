@@ -24,7 +24,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, unfollowUser, isFollowing } from '../../services/database';
+import { followUser, unfollowUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -208,6 +208,21 @@ const PostDetailVibesFeedScreen = () => {
     };
     checkFollowStatus();
   }, [currentPost.user?.id]);
+
+  // Check like/bookmark status on mount
+  useEffect(() => {
+    const checkPostStatus = async () => {
+      const postId = currentPost.id;
+      if (!postId || !isValidUUID(postId)) return;
+
+      const { hasLiked } = await hasLikedPost(postId);
+      setIsLiked(hasLiked);
+
+      const { saved } = await hasSavedPost(postId);
+      setIsBookmarked(saved);
+    };
+    checkPostStatus();
+  }, [currentPost.id]);
   
   // Double tap to like
   const handleDoubleTap = () => {
@@ -278,28 +293,73 @@ const PostDetailVibesFeedScreen = () => {
     }
   };
 
-  // Toggle like with anti spam-click
+  // Validate UUID format
+  const isValidUUID = (id: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return id && uuidRegex.test(id);
+  };
+
+  // Toggle like with anti spam-click - connected to database
   const toggleLike = async () => {
     if (likeLoading) return;
-    setLikeLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 300));
+
+    const postId = currentPost.id;
+    if (!postId || !isValidUUID(postId)) {
+      // For mock data, use local state only
       setIsLiked(!isLiked);
       if (!isLiked) {
         triggerLikeAnimation();
       }
+      return;
+    }
+
+    setLikeLoading(true);
+    try {
+      if (isLiked) {
+        const { error } = await unlikePost(postId);
+        if (!error) {
+          setIsLiked(false);
+        }
+      } else {
+        const { error } = await likePost(postId);
+        if (!error) {
+          setIsLiked(true);
+          triggerLikeAnimation();
+        }
+      }
+    } catch (error) {
+      console.error('[PostDetailVibesFeed] Like error:', error);
     } finally {
       setLikeLoading(false);
     }
   };
 
-  // Toggle bookmark with anti spam-click
+  // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = async () => {
     if (bookmarkLoading) return;
+
+    const postId = currentPost.id;
+    if (!postId || !isValidUUID(postId)) {
+      // For mock data, use local state only
+      setIsBookmarked(!isBookmarked);
+      return;
+    }
+
     setBookmarkLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setIsBookmarked(!isBookmarked);
+      if (isBookmarked) {
+        const { error } = await unsavePost(postId);
+        if (!error) {
+          setIsBookmarked(false);
+        }
+      } else {
+        const { error } = await savePost(postId);
+        if (!error) {
+          setIsBookmarked(true);
+        }
+      }
+    } catch (error) {
+      console.error('[PostDetailVibesFeed] Bookmark error:', error);
     } finally {
       setBookmarkLoading(false);
     }
@@ -424,9 +484,12 @@ const PostDetailVibesFeedScreen = () => {
           onPress: async () => {
             setMuteLoading(true);
             try {
-              await new Promise(resolve => setTimeout(resolve, 300));
-              mute(userId);
-              Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              const { error } = await mute(userId);
+              if (error) {
+                Alert.alert('Erreur', 'Impossible de masquer cet utilisateur.', [{ text: 'OK' }]);
+              } else {
+                Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              }
             } finally {
               setMuteLoading(false);
             }
@@ -461,9 +524,12 @@ const PostDetailVibesFeedScreen = () => {
           onPress: async () => {
             setBlockLoading(true);
             try {
-              await new Promise(resolve => setTimeout(resolve, 300));
-              block(userId);
-              Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              const { error } = await block(userId);
+              if (error) {
+                Alert.alert('Erreur', 'Impossible de bloquer cet utilisateur.', [{ text: 'OK' }]);
+              } else {
+                Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              }
             } finally {
               setBlockLoading(false);
             }
@@ -961,8 +1027,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 350,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    height: 200,
+    backgroundColor: 'transparent',
   },
 
   // Under review overlay
@@ -1026,13 +1092,13 @@ const styles = StyleSheet.create({
   // Right actions
   rightActions: {
     position: 'absolute',
-    right: 16,
-    bottom: 250,
+    right: 12,
+    bottom: 100,
     alignItems: 'center',
-    gap: 24,
+    gap: 18,
   },
   actionBtn: {
-    padding: 8,
+    padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1045,14 +1111,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
-    right: 0,
-    paddingHorizontal: 16,
+    right: 70,
+    paddingHorizontal: 12,
+    paddingBottom: 20,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   userInfo: {
     flexDirection: 'row',
@@ -1092,15 +1159,15 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: '#FFF',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 6,
   },
   statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
-    paddingVertical: 8,
-    marginBottom: 16,
+    gap: 16,
+    paddingVertical: 4,
+    marginBottom: 8,
   },
   statItem: {
     flexDirection: 'row',

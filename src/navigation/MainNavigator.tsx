@@ -37,6 +37,7 @@ import NotificationSettingsScreen from '../screens/settings/NotificationSettings
 import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
 import TermsPoliciesScreen from '../screens/settings/TermsPoliciesScreen';
 import FacialRecognitionScreen from '../screens/settings/FacialRecognitionScreen';
+import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
 
 // PEAKS Screens
 import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
@@ -112,6 +113,7 @@ export default function MainNavigator() {
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="FacialRecognition" component={FacialRecognitionScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* PEAKS */}
       <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />

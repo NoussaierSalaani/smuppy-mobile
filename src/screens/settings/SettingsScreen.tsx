@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, StatusBar, ActivityIndicator, Alert, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  ActivityIndicator,
+  Alert,
+  Switch,
+  ScrollView,
+  Dimensions,
+  ImageBackground,
+} from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
+import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CommonActions } from '@react-navigation/native';
@@ -9,6 +23,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { biometrics } from '../../utils/biometrics';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
+import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS } from '../../config/theme';
+
+const { width } = Dimensions.get('window');
+const COVER_HEIGHT = 160;
 
 const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -22,7 +41,9 @@ const SettingsScreen = ({ navigation }) => {
   const [biometricType, setBiometricType] = useState(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
@@ -40,51 +61,52 @@ const SettingsScreen = ({ navigation }) => {
       const email = authUser?.email || contextUser?.email || '';
       const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
 
-      // Helper to check if a name looks like an email-derived username
       const isEmailDerivedName = (name: string | undefined | null): boolean => {
         if (!name) return true;
         return name.toLowerCase() === emailPrefix ||
                name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
       };
 
-      // Find the best name, prioritizing actual names over email-derived ones
       let name = 'User';
       const candidates = [
-        contextUser?.fullName,      // From onboarding context
-        metadata.full_name,         // From Supabase auth metadata
-        profileData?.full_name,     // From DB profile
+        contextUser?.fullName,
+        metadata.full_name,
+        profileData?.full_name,
         metadata.name,
         contextUser?.displayName,
         getFullName?.(),
       ].filter(Boolean) as string[];
 
-      // First try to find a non-email-derived name
       for (const candidate of candidates) {
         if (!isEmailDerivedName(candidate)) {
           name = candidate;
           break;
         }
       }
-      // If all are email-derived, use the first available
       if (name === 'User' && candidates.length > 0) {
         name = candidates[0];
       }
-      // Last resort: email prefix
       if (name === 'User') {
         name = emailPrefix || 'User';
       }
 
       const avatar = profileData?.avatar_url || metadata.avatar_url || contextUser?.avatar || null;
+      const cover = profileData?.cover_url || null;
       const userInterests = profileData?.interests || contextUser?.interests || [];
+      const userUsername = profileData?.username || emailPrefix || '';
 
       setDisplayName(name);
+      setUsername(userUsername);
       setAvatarUrl(avatar);
+      setCoverUrl(cover);
       setInterests(userInterests);
       setIsPrivate(profileData?.is_private || false);
     } catch (error) {
       const emailPrefix = contextUser?.email?.split('@')[0] || '';
       setDisplayName(contextUser?.fullName || profileData?.full_name || contextUser?.displayName || getFullName?.() || emailPrefix || 'User');
+      setUsername(profileData?.username || emailPrefix || '');
       setAvatarUrl(profileData?.avatar_url || contextUser?.avatar || null);
+      setCoverUrl(profileData?.cover_url || null);
       setInterests(profileData?.interests || contextUser?.interests || []);
       setIsPrivate(profileData?.is_private || false);
     }
@@ -116,13 +138,14 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const MENU_ITEMS = [
-    { id: 'profile', icon: 'person-outline' as const, label: 'Profil', screen: 'EditProfil' },
+    { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfil' },
     { id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } },
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
-    ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Facial Recognition' : 'Fingerprint', screen: 'FacialRecognition' }] : []),
+    ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
-    { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a problem', screen: 'ReportProblem' },
-    { id: 'terms', icon: 'document-text-outline' as const, label: 'Terms and policies', screen: 'TermsPolicies' },
+    { id: 'blocked', icon: 'ban-outline' as const, label: 'Blocked Users', screen: 'BlockedUsers' },
+    { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a Problem', screen: 'ReportProblem' },
+    { id: 'terms', icon: 'document-text-outline' as const, label: 'Terms & Policies', screen: 'TermsPolicies' },
   ];
 
   const handleLogout = async () => {
@@ -150,10 +173,8 @@ const SettingsScreen = ({ navigation }) => {
         return;
       }
 
-      // Delete user profile first
       await supabase.from('profiles').delete().eq('id', user.id);
 
-      // Delete user auth (requires Edge Function with service role)
       const response = await fetch(`${supabase.supabaseUrl}/functions/v1/delete-account`, {
         method: 'POST',
         headers: {
@@ -167,7 +188,6 @@ const SettingsScreen = ({ navigation }) => {
         throw new Error('Failed to delete account');
       }
 
-      // Clear local storage and sign out
       await AsyncStorage.multiRemove(['@smuppy_remember_me', '@smuppy_saved_email', '@smuppy_user_profile']);
       await biometrics.disable();
       await supabase.auth.signOut({ scope: 'global' });
@@ -181,6 +201,21 @@ const SettingsScreen = ({ navigation }) => {
       setDeleting(false);
     }
   };
+
+  const renderMenuItem = (item: typeof MENU_ITEMS[0], index: number) => (
+    <TouchableOpacity
+      key={item.id}
+      style={[styles.menuItem, index === 0 && styles.menuItemFirst]}
+      onPress={() => navigation.navigate(item.screen, item.params)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.menuItemIcon}>
+        <Ionicons name={item.icon} size={20} color={COLORS.primaryGreen} />
+      </View>
+      <Text style={styles.menuItemLabel}>{item.label}</Text>
+      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
 
   const renderLogoutModal = () => (
     <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => !loggingOut && setShowLogoutModal(false)}>
@@ -226,83 +261,141 @@ const SettingsScreen = ({ navigation }) => {
     </Modal>
   );
 
+  const defaultCover = 'https://images.unsplash.com/photo-1557683316-973673bdar32?w=800';
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <View style={styles.userSection}>
-        {avatarUrl ? (
-          <AvatarImage source={avatarUrl} size={50} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={28} color="#8E8E93" />
-          </View>
-        )}
-        <Text style={styles.userName}>{displayName}</Text>
-      </View>
-
-      <View style={styles.menuContainer}>
-        {MENU_ITEMS.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.menuItem}
-            onPress={() => navigation.navigate(item.screen, item.params)}
-          >
-            <View style={styles.menuItemLeft}>
-              <Ionicons name={item.icon} size={22} color="#0A0A0F" />
-              <Text style={styles.menuItemLabel}>{item.label}</Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header with Cover Photo */}
+        <View style={styles.headerSection}>
+          {coverUrl ? (
+            <OptimizedImage source={coverUrl} style={styles.coverImage} />
+          ) : (
+            <View style={[styles.coverImage, styles.coverPlaceholder]}>
+              <LinearGradient
+                colors={[COLORS.primaryGreen, '#0A8F6A', '#064E3B']}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-          </TouchableOpacity>
-        ))}
+          )}
 
-        {/* Privacy Toggle */}
-        <View style={styles.menuItem}>
-          <View style={styles.menuItemLeft}>
-            <Ionicons name={isPrivate ? 'lock-closed-outline' : 'lock-open-outline'} size={22} color="#0A0A0F" />
-            <View>
-              <Text style={styles.menuItemLabel}>Private Account</Text>
-              <Text style={styles.menuItemSubtitle}>
-                {isPrivate ? 'Only fans can see your content' : 'Everyone can see your content'}
-              </Text>
-            </View>
-          </View>
-          <Switch
-            value={isPrivate}
-            onValueChange={togglePrivacy}
-            trackColor={{ false: '#E8E8E8', true: '#0EBF8A' }}
-            thumbColor="#FFFFFF"
-            ios_backgroundColor="#E8E8E8"
-            disabled={togglingPrivacy}
+          {/* Gradient Overlay */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.5)']}
+            style={styles.coverGradient}
           />
+
+          {/* Back Button */}
+          <TouchableOpacity
+            style={[styles.backButton, { top: insets.top + 10 }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+
+          {/* Settings Title */}
+          <Text style={[styles.headerTitle, { top: insets.top + 14 }]}>Settings</Text>
+
+          {/* Profile Info on Cover */}
+          <View style={styles.profileOnCover}>
+            <View style={styles.avatarContainer}>
+              {avatarUrl ? (
+                <AvatarImage source={avatarUrl} size={80} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons name="person" size={36} color="#9CA3AF" />
+                </View>
+              )}
+              <View style={styles.avatarBadge}>
+                <Ionicons name="checkmark" size={12} color="#FFF" />
+              </View>
+            </View>
+            <Text style={styles.displayName}>{displayName}</Text>
+            {username ? <Text style={styles.username}>@{username}</Text> : null}
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.menuItem} onPress={() => setShowLogoutModal(true)}>
-          <View style={styles.menuItemLeft}>
-            <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
-            <Text style={[styles.menuItemLabel, styles.logoutLabel]}>Logout</Text>
+        {/* Menu Sections */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.menuCard}>
+            {MENU_ITEMS.slice(0, 4).map((item, index) => renderMenuItem(item, index))}
           </View>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity style={styles.menuItem} onPress={() => setShowDeleteModal(true)}>
-          <View style={styles.menuItemLeft}>
-            <Ionicons name="trash-outline" size={22} color="#FF3B30" />
-            <Text style={[styles.menuItemLabel, styles.logoutLabel]}>Delete Account</Text>
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.menuCard}>
+            {MENU_ITEMS.slice(4, 6).map((item, index) => renderMenuItem(item, index))}
+
+            {/* Privacy Toggle */}
+            <View style={styles.menuItem}>
+              <View style={styles.menuItemIcon}>
+                <Ionicons name={isPrivate ? 'lock-closed-outline' : 'lock-open-outline'} size={20} color={COLORS.primaryGreen} />
+              </View>
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemLabel}>Private Account</Text>
+                <Text style={styles.menuItemSubtitle}>
+                  {isPrivate ? 'Only fans see your content' : 'Everyone can see'}
+                </Text>
+              </View>
+              <Switch
+                value={isPrivate}
+                onValueChange={togglePrivacy}
+                trackColor={{ false: '#E5E7EB', true: COLORS.primaryGreen }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#E5E7EB"
+                disabled={togglingPrivacy}
+              />
+            </View>
           </View>
-        </TouchableOpacity>
-      </View>
+        </View>
 
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>Smuppy</Text>
-      </View>
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Support</Text>
+          <View style={styles.menuCard}>
+            {MENU_ITEMS.slice(6).map((item, index) => renderMenuItem(item, index))}
+          </View>
+        </View>
+
+        {/* Danger Zone */}
+        <View style={styles.menuSection}>
+          <View style={styles.menuCard}>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemFirst]}
+              onPress={() => setShowLogoutModal(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, styles.dangerIcon]}>
+                <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+              </View>
+              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Logout</Text>
+              <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => setShowDeleteModal(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, styles.dangerIcon]}>
+                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+              </View>
+              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Delete Account</Text>
+              <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+      </ScrollView>
 
       {renderLogoutModal()}
       {renderDeleteModal()}
@@ -311,33 +404,262 @@ const SettingsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 18, fontFamily: 'WorkSans-SemiBold', color: '#0A0A0F' },
-  headerSpacer: { width: 40 },
-  userSection: { alignItems: 'center', paddingVertical: 24 },
-  avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
-  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, marginBottom: 12, backgroundColor: '#F2F2F2', justifyContent: 'center', alignItems: 'center' },
-  userName: { fontSize: 18, fontFamily: 'WorkSans-SemiBold', color: '#0A0A0F' },
-  menuContainer: { paddingHorizontal: 20, paddingTop: 20 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
-  menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  menuItemLabel: { fontSize: 16, fontFamily: 'Poppins-Regular', color: '#0A0A0F' },
-  menuItemSubtitle: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  logoutLabel: { color: '#FF3B30' },
-  logoContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 40 },
-  logoText: { fontSize: 24, fontFamily: 'WorkSans-Bold', color: '#E8E8E8' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 },
-  modalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 28, width: '100%', alignItems: 'center' },
-  modalIconBox: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontFamily: 'WorkSans-Bold', color: '#0A0A0F', marginBottom: 8 },
-  modalMessage: { fontSize: 14, fontFamily: 'Poppins-Regular', color: '#0A0A0F', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
-  modalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
-  cancelButton: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: '#0EBF8A', alignItems: 'center' },
-  cancelButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#0EBF8A' },
-  logoutButton: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: '#FF3B30', alignItems: 'center', justifyContent: 'center' },
-  logoutButtonText: { fontSize: 15, fontFamily: 'Poppins-SemiBold', color: '#FFF' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+
+  // Header Section
+  headerSection: {
+    height: COVER_HEIGHT + 80,
+    position: 'relative',
+  },
+  coverImage: {
+    width: '100%',
+    height: COVER_HEIGHT,
+    position: 'absolute',
+    top: 0,
+  },
+  coverPlaceholder: {
+    overflow: 'hidden',
+  },
+  coverGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: COVER_HEIGHT,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  headerTitle: {
+    position: 'absolute',
+    alignSelf: 'center',
+    fontSize: 17,
+    fontFamily: 'WorkSans-SemiBold',
+    color: '#FFF',
+    zIndex: 10,
+  },
+  profileOnCover: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#F3F4F6',
+  },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#F3F4F6',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: COLORS.primaryGreen,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+  },
+  displayName: {
+    fontSize: 18,
+    fontFamily: 'WorkSans-Bold',
+    color: '#111827',
+  },
+  username: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  // Menu Sections
+  menuSection: {
+    paddingHorizontal: 16,
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontFamily: 'WorkSans-SemiBold',
+    color: '#6B7280',
+    marginBottom: 8,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  menuCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  menuItemFirst: {
+    borderTopWidth: 0,
+  },
+  menuItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: `${COLORS.primaryGreen}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  menuItemContent: {
+    flex: 1,
+  },
+  menuItemLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Poppins-Medium',
+    color: '#111827',
+  },
+  menuItemSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Poppins-Regular',
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
+  dangerIcon: {
+    backgroundColor: '#FEE2E2',
+  },
+  dangerLabel: {
+    color: '#FF3B30',
+  },
+
+  // Footer
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  footerLogo: {
+    fontSize: 22,
+    fontFamily: 'WorkSans-Bold',
+    color: '#D1D5DB',
+  },
+  footerVersion: {
+    fontSize: 12,
+    fontFamily: 'Poppins-Regular',
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalIconBox: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'WorkSans-Bold',
+    color: '#0A0A0F',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.primaryGreen,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontFamily: 'Poppins-SemiBold',
+    color: COLORS.primaryGreen,
+  },
+  logoutButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButtonText: {
+    fontSize: 15,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#FFF',
+  },
 });
 
 export default SettingsScreen;

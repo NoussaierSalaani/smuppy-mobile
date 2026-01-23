@@ -5,3 +5,4 @@ export { default as PasswordManagerScreen } from './PasswordManagerScreen';
 export { default as NotificationSettingsScreen } from './NotificationSettingsScreen';
 export { default as ReportProblemScreen } from './ReportProblemScreen';
 export { default as TermsPoliciesScreen } from './TermsPoliciesScreen';
+export { default as BlockedUsersScreen } from './BlockedUsersScreen';

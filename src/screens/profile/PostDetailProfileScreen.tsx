@@ -20,7 +20,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
-import { followUser, unfollowUser, isFollowing } from '../../services/database';
+import { followUser, unfollowUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { useContentStore } from '../../store/contentStore';
 
@@ -97,6 +97,8 @@ const PostDetailProfileScreen = () => {
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [fanLoading, setFanLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   // Content store for reports
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
@@ -110,6 +112,12 @@ const PostDetailProfileScreen = () => {
   // Current post
   const currentPost = profilePosts[currentIndex] || MOCK_PROFILE_POSTS[0];
 
+  // Validate UUID format
+  const isValidUUID = (id: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return id && uuidRegex.test(id);
+  };
+
   // Check follow status on mount or post change
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -120,6 +128,21 @@ const PostDetailProfileScreen = () => {
     };
     checkFollowStatus();
   }, [currentPost.user?.id]);
+
+  // Check like/bookmark status on mount or post change
+  useEffect(() => {
+    const checkPostStatus = async () => {
+      const postId = currentPost.id;
+      if (!postId || !isValidUUID(postId)) return;
+
+      const { hasLiked } = await hasLikedPost(postId);
+      setIsLiked(hasLiked);
+
+      const { saved } = await hasSavedPost(postId);
+      setIsBookmarked(saved);
+    };
+    checkPostStatus();
+  }, [currentPost.id]);
 
   // Become fan with real database call
   const becomeFan = async () => {
@@ -136,6 +159,72 @@ const PostDetailProfileScreen = () => {
       console.error('[PostDetailProfile] Follow error:', error);
     } finally {
       setFanLoading(false);
+    }
+  };
+
+  // Toggle like with anti spam-click - connected to database
+  const toggleLike = async () => {
+    if (likeLoading) return;
+
+    const postId = currentPost.id;
+    if (!postId || !isValidUUID(postId)) {
+      // For mock data, use local state only
+      setIsLiked(!isLiked);
+      if (!isLiked) {
+        triggerLikeAnimation();
+      }
+      return;
+    }
+
+    setLikeLoading(true);
+    try {
+      if (isLiked) {
+        const { error } = await unlikePost(postId);
+        if (!error) {
+          setIsLiked(false);
+        }
+      } else {
+        const { error } = await likePost(postId);
+        if (!error) {
+          setIsLiked(true);
+          triggerLikeAnimation();
+        }
+      }
+    } catch (error) {
+      console.error('[PostDetailProfile] Like error:', error);
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  // Toggle bookmark with anti spam-click - connected to database
+  const toggleBookmark = async () => {
+    if (bookmarkLoading) return;
+
+    const postId = currentPost.id;
+    if (!postId || !isValidUUID(postId)) {
+      // For mock data, use local state only
+      setIsBookmarked(!isBookmarked);
+      return;
+    }
+
+    setBookmarkLoading(true);
+    try {
+      if (isBookmarked) {
+        const { error } = await unsavePost(postId);
+        if (!error) {
+          setIsBookmarked(false);
+        }
+      } else {
+        const { error } = await savePost(postId);
+        if (!error) {
+          setIsBookmarked(true);
+        }
+      }
+    } catch (error) {
+      console.error('[PostDetailProfile] Bookmark error:', error);
+    } finally {
+      setBookmarkLoading(false);
     }
   };
 
@@ -318,32 +407,50 @@ const PostDetailProfileScreen = () => {
         
         {/* Right actions */}
         <View style={styles.rightActions}>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Ionicons name="share-social-outline" size={28} color="#FFF" />
-          </TouchableOpacity>
-          
           <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => setIsLiked(!isLiked)}
+            style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+            onPress={handleShare}
+            disabled={shareLoading}
           >
-            <SmuppyHeartIcon
-              size={28}
-              color={isLiked ? COLORS.primaryGreen : '#FFF'}
-              filled={isLiked}
-            />
+            {shareLoading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Ionicons name="share-social-outline" size={28} color="#FFF" />
+            )}
           </TouchableOpacity>
-          
+
           <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => setIsBookmarked(!isBookmarked)}
+            style={[styles.actionBtn, likeLoading && styles.actionBtnDisabled]}
+            onPress={toggleLike}
+            disabled={likeLoading}
           >
-            <Ionicons
-              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-              size={28}
-              color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
-            />
+            {likeLoading ? (
+              <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+            ) : (
+              <SmuppyHeartIcon
+                size={28}
+                color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                filled={isLiked}
+              />
+            )}
           </TouchableOpacity>
-          
+
+          <TouchableOpacity
+            style={[styles.actionBtn, bookmarkLoading && styles.actionBtnDisabled]}
+            onPress={toggleBookmark}
+            disabled={bookmarkLoading}
+          >
+            {bookmarkLoading ? (
+              <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+            ) : (
+              <Ionicons
+                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={28}
+                color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+              />
+            )}
+          </TouchableOpacity>
+
           {item.type === 'video' && (
             <TouchableOpacity
               style={styles.actionBtn}
@@ -572,8 +679,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 300,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    height: 200,
+    backgroundColor: 'transparent',
   },
   
   // Like animation
@@ -610,32 +717,36 @@ const styles = StyleSheet.create({
   // Right actions
   rightActions: {
     position: 'absolute',
-    right: 16,
-    bottom: 200,
+    right: 12,
+    bottom: 100,
     alignItems: 'center',
-    gap: 24,
+    gap: 18,
   },
   actionBtn: {
-    padding: 8,
+    padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+  actionBtnDisabled: {
+    opacity: 0.6,
+  },
+
   // Bottom content
   bottomContent: {
     position: 'absolute',
     bottom: 0,
     left: 0,
-    right: 0,
-    paddingHorizontal: 16,
+    right: 70,
+    paddingHorizontal: 12,
+    paddingBottom: 20,
   },
-  
+
   // User row
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   userInfo: {
     flexDirection: 'row',
@@ -682,19 +793,19 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: '#FFF',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 6,
   },
   moreText: {
     color: COLORS.textMuted,
   },
-  
+
   // Stats bar
   statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
-    paddingVertical: 8,
+    gap: 16,
+    paddingVertical: 4,
   },
   statItem: {
     flexDirection: 'row',

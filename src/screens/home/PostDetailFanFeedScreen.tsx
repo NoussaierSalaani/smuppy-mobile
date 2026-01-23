@@ -23,7 +23,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 
@@ -179,6 +179,30 @@ const PostDetailFanFeedScreen = () => {
     checkFollowStatus();
   }, [currentPost.user?.id]);
 
+  // Check like/bookmark status when post changes
+  useEffect(() => {
+    const checkPostStatus = async () => {
+      const postId = currentPost.id;
+      if (!postId || !isValidUUID(postId)) return;
+
+      // Only check if we haven't already checked this post
+      if (likedPosts[postId] === undefined) {
+        const { hasLiked } = await hasLikedPost(postId);
+        if (hasLiked) {
+          setLikedPosts(prev => ({ ...prev, [postId]: true }));
+        }
+      }
+
+      if (bookmarkedPosts[postId] === undefined) {
+        const { saved } = await hasSavedPost(postId);
+        if (saved) {
+          setBookmarkedPosts(prev => ({ ...prev, [postId]: true }));
+        }
+      }
+    };
+    checkPostStatus();
+  }, [currentPost.id]);
+
   // Navigate to user profile (only if valid UUID)
   const navigateToProfile = (userId: string) => {
     if (isValidUUID(userId)) {
@@ -260,30 +284,71 @@ const PostDetailFanFeedScreen = () => {
     itemVisiblePercentThreshold: 50,
   }).current;
   
-  // Toggle like with anti spam-click
-  const toggleLike = async (postId) => {
+  // Toggle like with anti spam-click - connected to database
+  const toggleLike = async (postId: string) => {
     if (likeLoading[postId]) return;
-    setLikeLoading(prev => ({ ...prev, [postId]: true }));
-    try {
-      // Simulate network delay (will be replaced with real API)
-      await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!postId || !uuidRegex.test(postId)) {
+      // For mock data, use local state only
       setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
       if (!likedPosts[postId]) {
         triggerLikeAnimation();
       }
+      return;
+    }
+
+    setLikeLoading(prev => ({ ...prev, [postId]: true }));
+    try {
+      const isCurrentlyLiked = likedPosts[postId];
+      if (isCurrentlyLiked) {
+        const { error } = await unlikePost(postId);
+        if (!error) {
+          setLikedPosts(prev => ({ ...prev, [postId]: false }));
+        }
+      } else {
+        const { error } = await likePost(postId);
+        if (!error) {
+          setLikedPosts(prev => ({ ...prev, [postId]: true }));
+          triggerLikeAnimation();
+        }
+      }
+    } catch (error) {
+      console.error('[PostDetailFanFeed] Like error:', error);
     } finally {
       setLikeLoading(prev => ({ ...prev, [postId]: false }));
     }
   };
 
-  // Toggle bookmark with anti spam-click
-  const toggleBookmark = async (postId) => {
+  // Toggle bookmark with anti spam-click - connected to database
+  const toggleBookmark = async (postId: string) => {
     if (bookmarkLoading[postId]) return;
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!postId || !uuidRegex.test(postId)) {
+      // For mock data, use local state only
+      setBookmarkedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+      return;
+    }
+
     setBookmarkLoading(prev => ({ ...prev, [postId]: true }));
     try {
-      // Simulate network delay (will be replaced with real API)
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setBookmarkedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+      const isCurrentlySaved = bookmarkedPosts[postId];
+      if (isCurrentlySaved) {
+        const { error } = await unsavePost(postId);
+        if (!error) {
+          setBookmarkedPosts(prev => ({ ...prev, [postId]: false }));
+        }
+      } else {
+        const { error } = await savePost(postId);
+        if (!error) {
+          setBookmarkedPosts(prev => ({ ...prev, [postId]: true }));
+        }
+      }
+    } catch (error) {
+      console.error('[PostDetailFanFeed] Bookmark error:', error);
     } finally {
       setBookmarkLoading(prev => ({ ...prev, [postId]: false }));
     }
@@ -413,9 +478,12 @@ const PostDetailFanFeedScreen = () => {
           onPress: async () => {
             setMuteLoading(true);
             try {
-              await new Promise(resolve => setTimeout(resolve, 300));
-              mute(userId);
-              Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              const { error } = await mute(userId);
+              if (error) {
+                Alert.alert('Erreur', 'Impossible de masquer cet utilisateur.', [{ text: 'OK' }]);
+              } else {
+                Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              }
             } finally {
               setMuteLoading(false);
             }
@@ -450,9 +518,12 @@ const PostDetailFanFeedScreen = () => {
           onPress: async () => {
             setBlockLoading(true);
             try {
-              await new Promise(resolve => setTimeout(resolve, 300));
-              block(userId);
-              Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              const { error } = await block(userId);
+              if (error) {
+                Alert.alert('Erreur', 'Impossible de bloquer cet utilisateur.', [{ text: 'OK' }]);
+              } else {
+                Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
+              }
             } finally {
               setBlockLoading(false);
             }
@@ -843,8 +914,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 300,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    height: 200,
+    backgroundColor: 'transparent',
   },
 
   // Under review overlay
@@ -908,13 +979,13 @@ const styles = StyleSheet.create({
   // Right actions
   rightActions: {
     position: 'absolute',
-    right: 16,
-    bottom: 200,
+    right: 12,
+    bottom: 100,
     alignItems: 'center',
-    gap: 24,
+    gap: 18,
   },
   actionBtn: {
-    padding: 8,
+    padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -927,16 +998,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
-    right: 0,
-    paddingHorizontal: 16,
+    right: 70,
+    paddingHorizontal: 12,
+    paddingBottom: 20,
   },
-  
+
   // User row
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   userInfo: {
     flexDirection: 'row',
@@ -978,19 +1050,19 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: '#FFF',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 6,
   },
   moreText: {
     color: COLORS.textMuted,
   },
-  
+
   // Stats bar
   statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
-    paddingVertical: 8,
+    gap: 16,
+    paddingVertical: 4,
   },
   statItem: {
     flexDirection: 'row',

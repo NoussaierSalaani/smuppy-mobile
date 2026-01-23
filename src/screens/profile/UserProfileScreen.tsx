@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   Share,
   RefreshControl,
+  Alert,
 } from 'react-native';
+import { useUserSafetyStore } from '../../store/userSafetyStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -129,6 +131,7 @@ const UserProfileScreen = () => {
   const [isFan, setIsFan] = useState(false);
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
+  const [localFanCount, setLocalFanCount] = useState<number | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockEndDate, setBlockEndDate] = useState(null);
   const [showUnfanModal, setShowUnfanModal] = useState(false);
@@ -138,6 +141,16 @@ const UserProfileScreen = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
+
+  // Initialize local fan count from profile
+  useEffect(() => {
+    if (profile.fanCount !== undefined && localFanCount === null) {
+      setLocalFanCount(profile.fanCount);
+    }
+  }, [profile.fanCount, localFanCount]);
+
+  // Display fan count (local takes precedence for optimistic updates)
+  const displayFanCount = localFanCount ?? profile.fanCount;
 
   // User's posts
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -194,6 +207,66 @@ const UserProfileScreen = () => {
     }
   };
 
+  // User safety store for block
+  const { block, isBlocked: isUserBlocked } = useUserSafetyStore();
+
+  // Report user
+  const handleReportUser = () => {
+    setShowMenuModal(false);
+    Alert.alert(
+      'Report User',
+      'Why are you reporting this user?',
+      [
+        { text: 'Spam', onPress: () => submitUserReport('spam') },
+        { text: 'Harassment', onPress: () => submitUserReport('harassment') },
+        { text: 'Inappropriate', onPress: () => submitUserReport('inappropriate') },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const submitUserReport = (reason: string) => {
+    Alert.alert(
+      'Report Submitted',
+      'Thank you for your report. We will review this user.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  // Block user
+  const handleBlockUser = () => {
+    if (!userId) return;
+
+    if (isUserBlocked(userId)) {
+      setShowMenuModal(false);
+      Alert.alert('Already Blocked', 'This user is already blocked.', [{ text: 'OK' }]);
+      return;
+    }
+
+    setShowMenuModal(false);
+    Alert.alert(
+      'Block User?',
+      `You won't see ${profile.displayName}'s posts and they won't be able to interact with you.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await block(userId);
+            if (error) {
+              Alert.alert('Error', 'Failed to block user. Please try again.', [{ text: 'OK' }]);
+            } else {
+              Alert.alert('User Blocked', 'You will no longer see their content.', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Gestion du bouton Fan
   const handleFanPress = () => {
     if (isBlocked) {
@@ -225,12 +298,17 @@ const UserProfileScreen = () => {
     }
 
     setIsLoadingFollow(true);
+    // Optimistic update
+    setIsFan(true);
+    setLocalFanCount(prev => (prev ?? 0) + 1);
+
     const { error } = await followUser(userId);
     setIsLoadingFollow(false);
 
-    if (!error) {
-      setIsFan(true);
-    } else {
+    if (error) {
+      // Revert on error
+      setIsFan(false);
+      setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
       console.error('[UserProfile] Follow error:', error);
     }
   };
@@ -253,16 +331,21 @@ const UserProfileScreen = () => {
     }
 
     setIsLoadingFollow(true);
+    // Optimistic update
+    setIsFan(false);
+    setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+
     const { error } = await unfollowUser(userId);
     setIsLoadingFollow(false);
 
-    if (!error) {
-      setIsFan(false);
-    } else {
+    if (error) {
+      // Revert on error
+      setIsFan(true);
+      setLocalFanCount(prev => (prev ?? 0) + 1);
       console.error('[UserProfile] Unfollow error:', error);
     }
   };
-  
+
   const handleMessagePress = () => {
     if (isFan) {
       const conversation = {
@@ -302,7 +385,8 @@ const UserProfileScreen = () => {
 
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
-    const thumbnail = post.media_urls?.[0] || null;
+    // Support both media_urls array and legacy media_url string
+    const thumbnail = post.media_urls?.[0] || (post as any).media_url || null;
     const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
     const caption = post.content || (post as any).caption || '';
 
@@ -310,8 +394,8 @@ const UserProfileScreen = () => {
     const transformedPosts = allPosts.map(p => ({
       id: p.id,
       type: p.media_type === 'video' ? 'video' : 'image',
-      media: p.media_urls?.[0] || '',
-      thumbnail: p.media_urls?.[0] || '',
+      media: p.media_urls?.[0] || (p as any).media_url || '',
+      thumbnail: p.media_urls?.[0] || (p as any).media_url || '',
       description: p.content || (p as any).caption || '',
       likes: p.likes_count || 0,
       views: p.views_count || 0,
@@ -330,38 +414,29 @@ const UserProfileScreen = () => {
           profilePosts: transformedPosts as any,
         })}
       >
-        {/* Image */}
-        <View style={styles.postImageContainer}>
-          {thumbnail ? (
-            <OptimizedImage source={thumbnail} style={styles.postThumb} />
-          ) : (
-            <View style={[styles.postThumb, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
-              <Ionicons name="image-outline" size={28} color="#C7C7CC" />
-            </View>
-          )}
-          {isVideo && (
-            <View style={styles.postPlayIcon}>
-              <Ionicons name="play" size={14} color="#FFF" />
-            </View>
-          )}
-        </View>
-
-        {/* Content */}
-        <View style={styles.postContentContainer}>
-          {caption ? (
-            <Text style={styles.postCaption} numberOfLines={2}>
-              {caption}
-            </Text>
-          ) : null}
-          <View style={styles.postStats}>
-            <View style={styles.postStat}>
-              <SmuppyHeartIcon size={14} color="#FF6B6B" filled />
-              <Text style={styles.postStatText}>{post.likes_count || 0}</Text>
-            </View>
-            <View style={styles.postStat}>
-              <Ionicons name="eye-outline" size={14} color="#8E8E93" />
-              <Text style={styles.postStatText}>{post.views_count || 0}</Text>
-            </View>
+        {/* Full image */}
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.postThumb} />
+        ) : (
+          <View style={[styles.postThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="image-outline" size={28} color="#6E6E73" />
+          </View>
+        )}
+        {/* Video indicator */}
+        {isVideo && (
+          <View style={styles.postPlayIcon}>
+            <Ionicons name="play" size={14} color="#FFF" />
+          </View>
+        )}
+        {/* Stats overlay at bottom */}
+        <View style={styles.postStatsOverlay}>
+          <View style={styles.postStat}>
+            <SmuppyHeartIcon size={12} color="#FFF" filled />
+            <Text style={styles.postStatTextWhite}>{post.likes_count || 0}</Text>
+          </View>
+          <View style={styles.postStat}>
+            <Ionicons name="eye" size={12} color="#FFF" />
+            <Text style={styles.postStatTextWhite}>{post.views_count || 0}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -579,7 +654,7 @@ const UserProfileScreen = () => {
         <View style={styles.statsGlass}>
           <BlurView intensity={80} tint="light" style={styles.statsBlurContainer}>
             <View style={styles.statGlassItem}>
-              <Text style={styles.statGlassValue}>{profile.fanCount}</Text>
+              <Text style={styles.statGlassValue}>{displayFanCount}</Text>
               <Text style={styles.statGlassLabel}>Fans</Text>
             </View>
             <View style={styles.statGlassDivider} />
@@ -798,12 +873,12 @@ const UserProfileScreen = () => {
               <Text style={styles.menuItemText}>Share Profile</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleReportUser}>
               <Ionicons name="flag-outline" size={22} color="#0A0A0F" />
               <Text style={styles.menuItemText}>Report</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]}>
+            <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={handleBlockUser}>
               <Ionicons name="ban-outline" size={22} color="#FF3B30" />
               <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block</Text>
             </TouchableOpacity>
@@ -1122,40 +1197,31 @@ const styles = StyleSheet.create({
   },
   postCard: {
     width: (SCREEN_WIDTH - 44) / 2,
+    height: 200,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  postImageContainer: {
-    width: '100%',
-    height: 140,
     position: 'relative',
   },
   postThumb: {
     width: '100%',
     height: '100%',
   },
-  postContentContainer: {
-    padding: 10,
-  },
-  postCaption: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#0A252F',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  postStats: {
+  postStatsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  postStatTextWhite: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
   },
   postPlayIcon: {
     position: 'absolute',

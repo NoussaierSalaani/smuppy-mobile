@@ -290,6 +290,13 @@ export const createProfile = async (profileData: Partial<Profile>): Promise<DbRe
 };
 
 /**
+ * Extended Profile type with follow status
+ */
+export interface ProfileWithFollowStatus extends Profile {
+  is_following?: boolean;
+}
+
+/**
  * Search profiles by username or full_name
  * Results are sorted with verified accounts first
  */
@@ -316,45 +323,158 @@ export const searchProfiles = async (
 };
 
 /**
+ * Optimized profile search with follow status included
+ * Uses trigram index for fast fuzzy matching
+ */
+export const searchProfilesOptimized = async (
+  query: string,
+  limit = 20
+): Promise<DbResponse<ProfileWithFollowStatus[]>> => {
+  if (!query || query.trim().length === 0) {
+    return { data: [], error: null };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const searchTerm = query.trim();
+
+  // Try optimized RPC function first
+  if (user) {
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('search_profiles_optimized', {
+        p_search_term: searchTerm,
+        p_current_user_id: user.id,
+        p_limit: limit
+      });
+
+    if (!rpcError && rpcData) {
+      const profiles: ProfileWithFollowStatus[] = (rpcData as Array<Record<string, unknown>>).map(row => ({
+        id: row.id as string,
+        username: row.username as string,
+        full_name: row.full_name as string,
+        avatar_url: row.avatar_url as string | null,
+        is_verified: row.is_verified as boolean,
+        account_type: row.account_type as 'personal' | 'pro_creator' | 'pro_local',
+        fan_count: row.fan_count as number,
+        is_following: row.is_following as boolean,
+      }));
+      return { data: profiles, error: null };
+    }
+  }
+
+  // Fallback to regular search
+  const { data, error } = await searchProfiles(query, limit);
+  return { data: data as ProfileWithFollowStatus[], error };
+};
+
+/**
  * Get suggested profiles (for discovery/explore)
- * Prioritizes verified accounts (Smuppy Team bots) to ensure visibility
+ * Smart algorithm that prioritizes:
+ * 1. Mutual connections (friends of friends)
+ * 2. Common interests
+ * 3. Verified accounts
  */
 export const getSuggestedProfiles = async (limit = 10): Promise<DbResponse<Profile[]>> => {
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: [], error: 'Not authenticated' };
 
-  // Get verified profiles first (Smuppy Team bots) - randomized for variety
-  // This ensures bot accounts are always suggested
-  const verifiedResult = await supabase
+  // Get current user's profile for interests
+  const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('*')
-    .neq('id', user?.id || '')
-    .eq('is_verified', true)
-    .limit(Math.ceil(limit * 0.7)); // 70% verified accounts
+    .select('interests')
+    .eq('id', user.id)
+    .single();
 
-  const verifiedProfiles = (verifiedResult.data || []) as Profile[];
+  const userInterests = currentProfile?.interests || [];
 
-  // Shuffle verified profiles for variety each time
-  const shuffledVerified = verifiedProfiles.sort(() => Math.random() - 0.5);
+  // Get list of users the current user already follows
+  const followsResult = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', user.id);
 
-  const verifiedIds = shuffledVerified.map(p => p.id);
-  const remainingLimit = limit - shuffledVerified.length;
+  const followedIds = (followsResult.data || []).map(f => f.following_id);
+  const excludeIds = [user.id, ...followedIds];
+  const excludeIdsStr = excludeIds.length > 0 ? excludeIds.join(',') : '00000000-0000-0000-0000-000000000000';
 
-  // Fill with other non-verified profiles
-  if (remainingLimit > 0) {
+  // Get friends of friends (mutual connections)
+  // People followed by people you follow
+  let mutualProfiles: Profile[] = [];
+  if (followedIds.length > 0) {
+    const mutualResult = await supabase
+      .from('follows')
+      .select('following_id')
+      .in('follower_id', followedIds)
+      .not('following_id', 'in', `(${excludeIdsStr})`);
+
+    const mutualIds = [...new Set((mutualResult.data || []).map(f => f.following_id))];
+
+    if (mutualIds.length > 0) {
+      const mutualProfilesResult = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', mutualIds)
+        .limit(Math.ceil(limit * 0.4)); // 40% mutual connections
+
+      mutualProfiles = (mutualProfilesResult.data || []) as Profile[];
+    }
+  }
+
+  const usedIds = [...excludeIds, ...mutualProfiles.map(p => p.id)];
+  const usedIdsStr = usedIds.length > 0 ? usedIds.join(',') : '00000000-0000-0000-0000-000000000000';
+  const remainingAfterMutual = limit - mutualProfiles.length;
+
+  // Get profiles with common interests
+  let interestProfiles: Profile[] = [];
+  if (userInterests.length > 0 && remainingAfterMutual > 0) {
+    const interestResult = await supabase
+      .from('profiles')
+      .select('*')
+      .not('id', 'in', `(${usedIdsStr})`)
+      .overlaps('interests', userInterests)
+      .limit(Math.ceil(remainingAfterMutual * 0.5)); // 50% of remaining
+
+    interestProfiles = (interestResult.data || []) as Profile[];
+  }
+
+  const usedIds2 = [...usedIds, ...interestProfiles.map(p => p.id)];
+  const usedIdsStr2 = usedIds2.length > 0 ? usedIds2.join(',') : '00000000-0000-0000-0000-000000000000';
+  const remainingAfterInterests = limit - mutualProfiles.length - interestProfiles.length;
+
+  // Fill remaining with verified profiles
+  let verifiedProfiles: Profile[] = [];
+  if (remainingAfterInterests > 0) {
+    const verifiedResult = await supabase
+      .from('profiles')
+      .select('*')
+      .not('id', 'in', `(${usedIdsStr2})`)
+      .eq('is_verified', true)
+      .limit(remainingAfterInterests);
+
+    verifiedProfiles = (verifiedResult.data || []) as Profile[];
+  }
+
+  const usedIds3 = [...usedIds2, ...verifiedProfiles.map(p => p.id)];
+  const usedIdsStr3 = usedIds3.length > 0 ? usedIds3.join(',') : '00000000-0000-0000-0000-000000000000';
+  const finalRemaining = limit - mutualProfiles.length - interestProfiles.length - verifiedProfiles.length;
+
+  // Fill any remaining spots with other profiles
+  let otherProfiles: Profile[] = [];
+  if (finalRemaining > 0) {
     const otherResult = await supabase
       .from('profiles')
       .select('*')
-      .neq('id', user?.id || '')
-      .eq('is_verified', false)
-      .not('id', 'in', `(${verifiedIds.length > 0 ? verifiedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
-      .order('created_at', { ascending: false })
-      .limit(remainingLimit);
+      .not('id', 'in', `(${usedIdsStr3})`)
+      .order('fan_count', { ascending: false })
+      .limit(finalRemaining);
 
-    const otherProfiles = (otherResult.data || []) as Profile[];
-    return { data: [...shuffledVerified, ...otherProfiles], error: null };
+    otherProfiles = (otherResult.data || []) as Profile[];
   }
 
-  return { data: shuffledVerified, error: verifiedResult.error?.message || null };
+  // Combine all and shuffle for variety
+  const allSuggestions = [...mutualProfiles, ...interestProfiles, ...verifiedProfiles, ...otherProfiles];
+  const shuffled = allSuggestions.sort(() => Math.random() - 0.5);
+
+  return { data: shuffled.slice(0, limit), error: null };
 };
 
 /**
@@ -399,6 +519,14 @@ export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> =
 // ============================================
 
 /**
+ * Extended Post type with pre-computed interaction status
+ */
+export interface PostWithStatus extends Post {
+  has_liked?: boolean;
+  has_saved?: boolean;
+}
+
+/**
  * Get posts feed with pagination
  */
 export const getFeedPosts = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
@@ -417,6 +545,72 @@ export const getFeedPosts = async (page = 0, limit = 10): Promise<DbResponse<Pos
 
   const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
   return { data, error: error?.message || null };
+};
+
+/**
+ * Get optimized feed with likes/saves status included (single query!)
+ * Uses PostgreSQL function for maximum performance
+ */
+export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const offset = page * limit;
+
+  // Try optimized RPC function first
+  const { data: rpcData, error: rpcError } = await supabase
+    .rpc('get_optimized_feed', {
+      p_user_id: user.id,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+  if (!rpcError && rpcData) {
+    // Transform RPC result to Post format
+    const posts: PostWithStatus[] = (rpcData as Array<Record<string, unknown>>).map(row => ({
+      id: row.id as string,
+      author_id: row.author_id as string,
+      content: row.content as string,
+      media_urls: row.media_urls as string[],
+      tags: row.tags as string[],
+      visibility: row.visibility as 'public' | 'private' | 'fans',
+      is_peak: row.is_peak as boolean,
+      likes_count: row.likes_count as number,
+      comments_count: row.comments_count as number,
+      views_count: row.views_count as number,
+      created_at: row.created_at as string,
+      has_liked: row.has_liked as boolean,
+      has_saved: row.has_saved as boolean,
+      author: {
+        id: row.author_id as string,
+        username: row.author_username as string,
+        full_name: row.author_full_name as string,
+        avatar_url: row.author_avatar_url as string | null,
+        is_verified: row.author_is_verified as boolean,
+        account_type: row.author_account_type as string,
+      }
+    }));
+    return { data: posts, error: null };
+  }
+
+  // Fallback to regular query + batch check
+  const { data: posts, error } = await getFeedPosts(page, limit);
+  if (error || !posts) return { data: null, error };
+
+  // Batch check likes and saves
+  const postIds = posts.map(p => p.id);
+  const [likedMap, savedMap] = await Promise.all([
+    hasLikedPostsBatch(postIds),
+    hasSavedPostsBatch(postIds)
+  ]);
+
+  const postsWithStatus: PostWithStatus[] = posts.map(post => ({
+    ...post,
+    has_liked: likedMap.get(post.id) || false,
+    has_saved: savedMap.get(post.id) || false,
+  }));
+
+  return { data: postsWithStatus, error: null };
 };
 
 /**
@@ -487,6 +681,82 @@ export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbRespo
 
   const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
   return { data, error: error?.message || null };
+};
+
+/**
+ * Get optimized FanFeed with likes/saves status included (single query!)
+ * Uses PostgreSQL function for maximum performance
+ */
+export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const offset = page * limit;
+
+  // Try optimized RPC function first
+  const { data: rpcData, error: rpcError } = await supabase
+    .rpc('get_fan_feed', {
+      p_user_id: user.id,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+  if (!rpcError && rpcData && Array.isArray(rpcData)) {
+    // If empty, it might mean no follows yet
+    if (rpcData.length === 0) {
+      return { data: [], error: null };
+    }
+
+    // Transform RPC result to Post format
+    const posts: PostWithStatus[] = rpcData.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      author_id: row.author_id as string,
+      content: row.content as string,
+      media_urls: row.media_urls as string[],
+      tags: row.tags as string[],
+      visibility: row.visibility as 'public' | 'private' | 'fans',
+      is_peak: row.is_peak as boolean,
+      likes_count: row.likes_count as number,
+      comments_count: row.comments_count as number,
+      views_count: row.views_count as number,
+      created_at: row.created_at as string,
+      has_liked: row.has_liked as boolean,
+      has_saved: row.has_saved as boolean,
+      author: {
+        id: row.author_id as string,
+        username: row.author_username as string,
+        full_name: row.author_full_name as string,
+        avatar_url: row.author_avatar_url as string | null,
+        is_verified: row.author_is_verified as boolean,
+        account_type: row.author_account_type as string,
+      }
+    }));
+    return { data: posts, error: null };
+  }
+
+  // Fallback to regular query + batch check
+  const { data: posts, error } = await getFeedFromFollowed(page, limit);
+  if (error || !posts) return { data: posts as PostWithStatus[] | null, error };
+
+  // If no posts, return empty
+  if (posts.length === 0) {
+    return { data: [], error: null };
+  }
+
+  // Batch check likes and saves
+  const postIds = posts.map(p => p.id);
+  const [likedMap, savedMap] = await Promise.all([
+    hasLikedPostsBatch(postIds),
+    hasSavedPostsBatch(postIds)
+  ]);
+
+  const postsWithStatus: PostWithStatus[] = posts.map(post => ({
+    ...post,
+    has_liked: likedMap.get(post.id) || false,
+    has_saved: savedMap.get(post.id) || false,
+  }));
+
+  return { data: postsWithStatus, error: null };
 };
 
 /**
@@ -737,6 +1007,47 @@ export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean 
   return { hasLiked: !!data };
 };
 
+/**
+ * Check if current user liked multiple posts at once (batch operation - much faster!)
+ * Returns a Map of postId -> hasLiked
+ */
+export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  const resultMap = new Map<string, boolean>();
+
+  if (!user || postIds.length === 0) {
+    postIds.forEach(id => resultMap.set(id, false));
+    return resultMap;
+  }
+
+  // Try to use the optimized RPC function first
+  const { data: rpcData, error: rpcError } = await supabase
+    .rpc('check_likes_batch', {
+      p_user_id: user.id,
+      p_post_ids: postIds
+    });
+
+  if (!rpcError && rpcData) {
+    // RPC function available - use optimized result
+    (rpcData as Array<{ post_id: string; has_liked: boolean }>).forEach(row => {
+      resultMap.set(row.post_id, row.has_liked);
+    });
+    return resultMap;
+  }
+
+  // Fallback: single query to get all liked posts
+  const { data } = await supabase
+    .from('likes')
+    .select('post_id')
+    .eq('user_id', user.id)
+    .in('post_id', postIds);
+
+  const likedPostIds = new Set((data || []).map(l => l.post_id));
+  postIds.forEach(id => resultMap.set(id, likedPostIds.has(id)));
+
+  return resultMap;
+};
+
 // ============================================
 // POST SAVES (Bookmarks/Collections)
 // ============================================
@@ -798,6 +1109,32 @@ export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> 
 
   const { data } = result as { data: { id: string } | null };
   return { saved: !!data };
+};
+
+/**
+ * Check if current user saved multiple posts at once (batch operation - much faster!)
+ * Returns a Map of postId -> saved
+ */
+export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  const resultMap = new Map<string, boolean>();
+
+  if (!user || postIds.length === 0) {
+    postIds.forEach(id => resultMap.set(id, false));
+    return resultMap;
+  }
+
+  // Single query to get all saved posts
+  const { data } = await supabase
+    .from('post_saves')
+    .select('post_id')
+    .eq('user_id', user.id)
+    .in('post_id', postIds);
+
+  const savedPostIds = new Set((data || []).map(s => s.post_id));
+  postIds.forEach(id => resultMap.set(id, savedPostIds.has(id)));
+
+  return resultMap;
 };
 
 /**
@@ -1418,4 +1755,286 @@ export const deleteSpotReview = async (spotId: string): Promise<{ error: string 
 
   const { error } = result as { error: { message: string } | null };
   return { error: error?.message || null };
+};
+
+// ============================================
+// BLOCKED USERS
+// ============================================
+
+export interface BlockedUser {
+  id: string;
+  user_id: string;
+  blocked_user_id: string;
+  created_at: string;
+  blocked_user?: Profile;
+}
+
+/**
+ * Block a user
+ */
+export const blockUser = async (userIdToBlock: string): Promise<DbResponse<BlockedUser>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('blocked_users')
+    .insert({
+      user_id: user.id,
+      blocked_user_id: userIdToBlock
+    })
+    .select()
+    .single();
+
+  const { data, error } = result as { data: BlockedUser | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Unblock a user
+ */
+export const unblockUser = async (userIdToUnblock: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('blocked_users')
+    .delete()
+    .match({
+      user_id: user.id,
+      blocked_user_id: userIdToUnblock
+    });
+
+  const { error } = result as { error: { message: string } | null };
+  return { error: error?.message || null };
+};
+
+/**
+ * Check if current user has blocked a user
+ */
+export const isUserBlocked = async (userId: string): Promise<{ blocked: boolean }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { blocked: false };
+
+  const result = await supabase
+    .from('blocked_users')
+    .select('id')
+    .match({
+      user_id: user.id,
+      blocked_user_id: userId
+    })
+    .single();
+
+  const { data } = result as { data: { id: string } | null };
+  return { blocked: !!data };
+};
+
+/**
+ * Get all blocked users with their profiles
+ */
+export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('blocked_users')
+    .select(`
+      *,
+      blocked_user:profiles!blocked_users_blocked_user_id_fkey(id, username, full_name, avatar_url, is_verified)
+    `)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  const { data, error } = result as { data: BlockedUser[] | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+// ============================================
+// MUTED USERS
+// ============================================
+
+export interface MutedUser {
+  id: string;
+  user_id: string;
+  muted_user_id: string;
+  created_at: string;
+  muted_user?: Profile;
+}
+
+/**
+ * Mute a user
+ */
+export const muteUser = async (userIdToMute: string): Promise<DbResponse<MutedUser>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('muted_users')
+    .insert({
+      user_id: user.id,
+      muted_user_id: userIdToMute
+    })
+    .select()
+    .single();
+
+  const { data, error } = result as { data: MutedUser | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Unmute a user
+ */
+export const unmuteUser = async (userIdToUnmute: string): Promise<{ error: string | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('muted_users')
+    .delete()
+    .match({
+      user_id: user.id,
+      muted_user_id: userIdToUnmute
+    });
+
+  const { error } = result as { error: { message: string } | null };
+  return { error: error?.message || null };
+};
+
+/**
+ * Get all muted users with their profiles
+ */
+export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('muted_users')
+    .select(`
+      *,
+      muted_user:profiles!muted_users_muted_user_id_fkey(id, username, full_name, avatar_url, is_verified)
+    `)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  const { data, error } = result as { data: MutedUser[] | null; error: { message: string } | null };
+  return { data, error: error?.message || null };
+};
+
+// ============================================
+// REPORTS
+// ============================================
+
+export type ReportType = 'post' | 'user' | 'comment' | 'message';
+export type ReportStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed';
+
+export interface Report {
+  id: string;
+  reporter_id: string;
+  reported_content_id?: string;
+  reported_user_id?: string;
+  report_type: ReportType;
+  reason: string;
+  details?: string;
+  status: ReportStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Report a post
+ */
+export const reportPost = async (postId: string, reason: string, details?: string): Promise<DbResponse<Report>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('reports')
+    .insert({
+      reporter_id: user.id,
+      reported_content_id: postId,
+      report_type: 'post',
+      reason,
+      details
+    })
+    .select()
+    .single();
+
+  const { data, error } = result as { data: Report | null; error: { message: string } | null };
+
+  // Check for duplicate report error
+  if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+    return { data: null, error: 'already_reported' };
+  }
+
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Report a user
+ */
+export const reportUser = async (userId: string, reason: string, details?: string): Promise<DbResponse<Report>> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const result = await supabase
+    .from('reports')
+    .insert({
+      reporter_id: user.id,
+      reported_user_id: userId,
+      report_type: 'user',
+      reason,
+      details
+    })
+    .select()
+    .single();
+
+  const { data, error } = result as { data: Report | null; error: { message: string } | null };
+
+  // Check for duplicate report error
+  if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+    return { data: null, error: 'already_reported' };
+  }
+
+  return { data, error: error?.message || null };
+};
+
+/**
+ * Check if user has already reported a post
+ */
+export const hasReportedPost = async (postId: string): Promise<{ reported: boolean }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { reported: false };
+
+  const result = await supabase
+    .from('reports')
+    .select('id')
+    .match({
+      reporter_id: user.id,
+      reported_content_id: postId,
+      report_type: 'post'
+    })
+    .single();
+
+  const { data } = result as { data: { id: string } | null };
+  return { reported: !!data };
+};
+
+/**
+ * Check if user has already reported a user
+ */
+export const hasReportedUser = async (userId: string): Promise<{ reported: boolean }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { reported: false };
+
+  const result = await supabase
+    .from('reports')
+    .select('id')
+    .match({
+      reporter_id: user.id,
+      reported_user_id: userId,
+      report_type: 'user'
+    })
+    .single();
+
+  const { data } = result as { data: { id: string } | null };
+  return { reported: !!data };
 };

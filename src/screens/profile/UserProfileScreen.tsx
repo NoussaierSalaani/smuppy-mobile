@@ -624,7 +624,7 @@ const UserProfileScreen = () => {
         style={[styles.backBtn, { top: insets.top + 8 }]}
         onPress={() => navigation.goBack()}
       >
-        <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+        <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
       {/* Menu Button */}

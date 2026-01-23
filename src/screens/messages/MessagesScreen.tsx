@@ -223,7 +223,6 @@ export default function MessagesScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-        estimatedItemSize={76}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

@@ -25,18 +25,18 @@ import {
   markConversationAsRead,
   subscribeToMessages,
   getOrCreateConversation,
+  getCurrentUserId,
   Message,
   Profile,
 } from '../../services/database';
-import { useAuthStore } from '../../store/authStore';
 
 const { width } = Dimensions.get('window');
 
 export default function ChatScreen({ route, navigation }) {
   const { conversationId: initialConversationId, otherUser, userId } = route.params;
   const insets = useSafeAreaInsets();
-  const flatListRef = useRef<FlashList<Message>>(null);
-  const { user: currentUser } = useAuthStore();
+  const flatListRef = useRef(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -45,6 +45,11 @@ export default function ChatScreen({ route, navigation }) {
   const [sending, setSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [otherUserProfile] = useState<Profile | null>(otherUser || null);
+
+  // Get current user ID
+  useEffect(() => {
+    getCurrentUserId().then(setCurrentUserId);
+  }, []);
 
   // Load or create conversation
   useEffect(() => {
@@ -83,12 +88,12 @@ export default function ChatScreen({ route, navigation }) {
     if (!conversationId) return;
     const unsubscribe = subscribeToMessages(conversationId, (newMessage) => {
       setMessages(prev => [...prev, newMessage]);
-      if (newMessage.sender_id !== currentUser?.id) {
+      if (newMessage.sender_id !== currentUserId) {
         markConversationAsRead(conversationId);
       }
     });
     return unsubscribe;
-  }, [conversationId, currentUser?.id]);
+  }, [conversationId, currentUserId]);
 
   const goToUserProfile = (profileUserId: string) => {
     navigation.navigate('UserProfile', { userId: profileUserId });
@@ -113,8 +118,8 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const isFromMe = item.sender_id === currentUser?.id;
-    const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUser?.id);
+    const isFromMe = item.sender_id === currentUserId;
+    const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
 
     return (
       <View style={[styles.messageRow, isFromMe ? styles.messageRowRight : styles.messageRowLeft]}>
@@ -189,8 +194,7 @@ export default function ChatScreen({ route, navigation }) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-          estimatedItemSize={60}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={() => (
             <View style={styles.emptyChat}>
               <AvatarImage source={otherUserProfile?.avatar_url} size={80} />

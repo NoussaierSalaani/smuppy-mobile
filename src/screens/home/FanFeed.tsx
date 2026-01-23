@@ -16,7 +16,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { VerifiedBadge } from '../../components/Badge';
+import { AccountBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';

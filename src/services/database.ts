@@ -10,6 +10,17 @@ import type {
   CreateSpotData,
 } from '../types';
 
+// Export supabase for direct access when needed
+export { supabase };
+
+/**
+ * Get current authenticated user ID
+ */
+export const getCurrentUserId = async (): Promise<string | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || null;
+};
+
 // ============================================
 // TYPE DEFINITIONS
 // ============================================

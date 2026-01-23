@@ -146,6 +146,7 @@ export default function EditInterestsScreen({ navigation, route }) {
 
   const hasChanges = useMemo(() => {
     const currentInterests = profileData?.interests || user.interests || [];
+    console.log('[EditInterests] hasChanges check - selected:', selected.length, 'current:', currentInterests.length);
     if (selected.length !== currentInterests.length) return true;
     return !selected.every(item => currentInterests.includes(item));
   }, [selected, profileData?.interests, user.interests]);
@@ -163,21 +164,27 @@ export default function EditInterestsScreen({ navigation, route }) {
   const handleSave = async () => {
     if (isSaving) return;
 
+    console.log('[EditInterests] Starting save with interests:', selected);
     setIsSaving(true);
     try {
       // Save to Supabase
-      await updateDbProfile({ interests: selected });
+      console.log('[EditInterests] Calling updateDbProfile...');
+      const result = await updateDbProfile({ interests: selected });
+      console.log('[EditInterests] updateDbProfile result:', result);
 
       // Update local context
+      console.log('[EditInterests] Updating local profile...');
       await updateLocalProfile({ ...user, interests: selected });
 
       // Refresh profile data
+      console.log('[EditInterests] Refetching profile...');
       await refetch();
 
+      console.log('[EditInterests] Save successful, going back');
       navigation.goBack();
     } catch (error) {
-      console.error('Save interests error:', error);
-      Alert.alert('Error', 'Failed to save interests. Please try again.');
+      console.error('[EditInterests] Save error:', error);
+      Alert.alert('Error', `Failed to save interests: ${error.message || error}`);
     } finally {
       setIsSaving(false);
     }

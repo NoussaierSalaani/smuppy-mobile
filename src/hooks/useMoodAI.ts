@@ -6,15 +6,28 @@
  *
  * Features:
  * - Automatic scroll tracking
- * - Real-time mood updates
+ * - Real-time mood updates with ADAPTIVE refresh rates
  * - Engagement tracking helpers
  * - Recommendation fetching
+ * - Background state awareness
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NativeScrollEvent } from 'react-native';
+import { NativeScrollEvent, AppState, AppStateStatus } from 'react-native';
 import { moodDetection, MoodAnalysisResult, MoodType } from '../services/moodDetection';
 import { moodRecommendation, Post, UserProfile, RecommendationResult } from '../services/moodRecommendation';
+
+// ============================================================================
+// ADAPTIVE REFRESH CONFIGURATION
+// ============================================================================
+
+const REFRESH_INTERVALS = {
+  ACTIVE: 20000,      // 20s when actively scrolling
+  IDLE: 60000,        // 60s when inactive
+  INTERACTION: 0,     // Immediate on interaction
+} as const;
+
+const ACTIVITY_TIMEOUT = 5000; // Consider idle after 5s of no activity
 
 // ============================================================================
 // TYPES
@@ -59,18 +72,21 @@ export interface UseMoodAIReturn {
 export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const {
     enableScrollTracking = true,
-    moodUpdateInterval = 30000, // Update mood every 30 seconds
+    moodUpdateInterval = REFRESH_INTERVALS.IDLE, // Default to idle interval
     onMoodChange,
   } = options;
 
   // State
   const [mood, setMood] = useState<MoodAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
   // Refs for tracking
   const lastMoodRef = useRef<MoodType | null>(null);
   const currentPostRef = useRef<{ postId: string; startTime: number } | null>(null);
   const moodIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const onMoodChangeRef = useRef(onMoodChange);
 
   // Keep callback ref updated
@@ -79,33 +95,98 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   }, [onMoodChange]);
 
   // ============================================================================
+  // MOOD ANALYSIS HELPER
+  // ============================================================================
+
+  const analyzeMoodAndUpdate = useCallback(() => {
+    const newMood = moodDetection.analyzeMood();
+    setMood(newMood);
+
+    // Notify if mood changed
+    if (lastMoodRef.current !== newMood.primaryMood) {
+      lastMoodRef.current = newMood.primaryMood;
+      onMoodChangeRef.current?.(newMood);
+      if (__DEV__) console.log('[MoodAI] Mood changed to:', newMood.primaryMood);
+    }
+
+    return newMood;
+  }, []);
+
+  // ============================================================================
+  // ADAPTIVE REFRESH SYSTEM
+  // ============================================================================
+
+  const setRefreshInterval = useCallback((intervalMs: number) => {
+    if (moodIntervalRef.current) {
+      clearInterval(moodIntervalRef.current);
+    }
+
+    if (intervalMs > 0 && appStateRef.current === 'active') {
+      moodIntervalRef.current = setInterval(analyzeMoodAndUpdate, intervalMs);
+      if (__DEV__) console.log('[MoodAI] Refresh interval set to:', intervalMs / 1000, 's');
+    }
+  }, [analyzeMoodAndUpdate]);
+
+  const markActive = useCallback(() => {
+    // Clear existing activity timeout
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+    }
+
+    // If not already active, switch to active mode
+    if (!isActive) {
+      setIsActive(true);
+      setRefreshInterval(REFRESH_INTERVALS.ACTIVE);
+    }
+
+    // Set timeout to switch back to idle
+    activityTimeoutRef.current = setTimeout(() => {
+      setIsActive(false);
+      setRefreshInterval(REFRESH_INTERVALS.IDLE);
+      if (__DEV__) console.log('[MoodAI] Switched to idle mode');
+    }, ACTIVITY_TIMEOUT);
+  }, [isActive, setRefreshInterval]);
+
+  // ============================================================================
+  // APP STATE HANDLING (Background/Foreground)
+  // ============================================================================
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App came to foreground - resume refresh
+        if (__DEV__) console.log('[MoodAI] App foregrounded - resuming');
+        setRefreshInterval(isActive ? REFRESH_INTERVALS.ACTIVE : REFRESH_INTERVALS.IDLE);
+        analyzeMoodAndUpdate(); // Immediate refresh on foreground
+      } else if (nextAppState.match(/inactive|background/)) {
+        // App went to background - pause refresh
+        if (__DEV__) console.log('[MoodAI] App backgrounded - pausing');
+        if (moodIntervalRef.current) {
+          clearInterval(moodIntervalRef.current);
+          moodIntervalRef.current = null;
+        }
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [isActive, setRefreshInterval, analyzeMoodAndUpdate]);
+
+  // ============================================================================
   // SESSION MANAGEMENT
   // ============================================================================
 
   const startSession = useCallback(() => {
     moodDetection.startSession();
 
-    // Start periodic mood updates
-    if (moodIntervalRef.current) {
-      clearInterval(moodIntervalRef.current);
-    }
-
-    moodIntervalRef.current = setInterval(() => {
-      const newMood = moodDetection.analyzeMood();
-      setMood(newMood);
-
-      // Notify if mood changed
-      if (lastMoodRef.current !== newMood.primaryMood) {
-        lastMoodRef.current = newMood.primaryMood;
-        onMoodChangeRef.current?.(newMood);
-      }
-    }, moodUpdateInterval);
+    // Start with idle interval
+    setRefreshInterval(REFRESH_INTERVALS.IDLE);
 
     // Initial mood analysis
-    const initialMood = moodDetection.analyzeMood();
-    setMood(initialMood);
-    lastMoodRef.current = initialMood.primaryMood;
-  }, [moodUpdateInterval]);
+    const initialMood = analyzeMoodAndUpdate();
+    if (__DEV__) console.log('[MoodAI] Session started with mood:', initialMood.primaryMood);
+  }, [setRefreshInterval, analyzeMoodAndUpdate]);
 
   const endSession = useCallback(() => {
     moodDetection.endSession();
@@ -114,6 +195,13 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
       clearInterval(moodIntervalRef.current);
       moodIntervalRef.current = null;
     }
+
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+      activityTimeoutRef.current = null;
+    }
+
+    if (__DEV__) console.log('[MoodAI] Session ended');
   }, []);
 
   // Start session on mount only
@@ -127,7 +215,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   }, []);
 
   // ============================================================================
-  // SCROLL TRACKING
+  // SCROLL TRACKING (marks activity for adaptive refresh)
   // ============================================================================
 
   const handleScroll = useCallback((event: { nativeEvent: NativeScrollEvent }) => {
@@ -135,10 +223,13 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
     const { contentOffset } = event.nativeEvent;
     moodDetection.trackScroll(contentOffset.y);
-  }, [enableScrollTracking]);
+
+    // Mark user as active (switches to faster refresh rate)
+    markActive();
+  }, [enableScrollTracking, markActive]);
 
   // ============================================================================
-  // ENGAGEMENT TRACKING
+  // ENGAGEMENT TRACKING (triggers immediate mood refresh)
   // ============================================================================
 
   const trackPostView = useCallback((
@@ -156,7 +247,10 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     // Start tracking new post
     currentPostRef.current = { postId, startTime: Date.now() };
     moodDetection.trackPostView(postId, category, creatorId, contentType);
-  }, []);
+
+    // Mark active
+    markActive();
+  }, [markActive]);
 
   const trackPostExit = useCallback((postId: string, timeSpentSeconds: number) => {
     moodDetection.trackTimeOnPost(postId, timeSpentSeconds);
@@ -168,19 +262,31 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
   const trackLike = useCallback((postId: string, category: string) => {
     moodDetection.trackEngagement('like');
-  }, []);
+    // Immediate mood refresh on interaction
+    analyzeMoodAndUpdate();
+    markActive();
+  }, [analyzeMoodAndUpdate, markActive]);
 
   const trackComment = useCallback((postId: string, category: string) => {
     moodDetection.trackEngagement('comment');
-  }, []);
+    // Immediate mood refresh on interaction
+    analyzeMoodAndUpdate();
+    markActive();
+  }, [analyzeMoodAndUpdate, markActive]);
 
   const trackShare = useCallback((postId: string, category: string) => {
     moodDetection.trackEngagement('share');
-  }, []);
+    // Immediate mood refresh on interaction
+    analyzeMoodAndUpdate();
+    markActive();
+  }, [analyzeMoodAndUpdate, markActive]);
 
   const trackSave = useCallback((postId: string, category: string) => {
     moodDetection.trackEngagement('save');
-  }, []);
+    // Immediate mood refresh on interaction
+    analyzeMoodAndUpdate();
+    markActive();
+  }, [analyzeMoodAndUpdate, markActive]);
 
   // ============================================================================
   // RECOMMENDATIONS

@@ -531,10 +531,10 @@ const PeakViewScreen = (): React.JSX.Element => {
             <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
           </TouchableOpacity>
 
-          {/* Reply Button */}
+          {/* Reply with Peak Button */}
           <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="chatbubble-outline" size={28} color={COLORS.white} />
+              <Ionicons name="videocam-outline" size={28} color={COLORS.white} />
             </View>
             <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
           </TouchableOpacity>

@@ -192,12 +192,14 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
   const handleTrackUser = useCallback(async (userId: string) => {
     try {
       await followUser(userId);
-      // Remove from suggestions after following
+      // Remove from suggestions and fetch new ones to replace
       setSuggestions(prev => prev.filter(s => s.id !== userId));
+      // Refetch suggestions to get new profiles
+      fetchSuggestions();
     } catch (err) {
       console.error('[FanFeed] Error following user:', err);
     }
-  }, []);
+  }, [fetchSuggestions]);
 
   // Initial load
   useEffect(() => {

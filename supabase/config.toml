@@ -28,3 +28,12 @@ site_url = "https://smuppy.app"
 
 [storage]
 enabled = true
+
+# ============================================
+# EDGE FUNCTIONS CONFIGURATION
+# ============================================
+
+[functions.generate-bot-content]
+# AI-powered content generation for bot accounts
+# Runs automatically every 2 days at 10:00 AM UTC
+verify_jwt = false

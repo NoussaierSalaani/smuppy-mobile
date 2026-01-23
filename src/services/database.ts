@@ -587,7 +587,7 @@ export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse
         full_name: row.author_full_name as string,
         avatar_url: row.author_avatar_url as string | null,
         is_verified: row.author_is_verified as boolean,
-        account_type: row.author_account_type as string,
+        account_type: row.author_account_type as 'personal' | 'pro_creator' | 'pro_local' | undefined,
       }
     }));
     return { data: posts, error: null };
@@ -728,7 +728,7 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
         full_name: row.author_full_name as string,
         avatar_url: row.author_avatar_url as string | null,
         is_verified: row.author_is_verified as boolean,
-        account_type: row.author_account_type as string,
+        account_type: row.author_account_type as 'personal' | 'pro_creator' | 'pro_local' | undefined,
       }
     }));
     return { data: posts, error: null };

@@ -213,7 +213,7 @@ const SettingsScreen = ({ navigation }) => {
         <Ionicons name={item.icon} size={20} color={COLORS.primaryGreen} />
       </View>
       <Text style={styles.menuItemLabel}>{item.label}</Text>
-      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
     </TouchableOpacity>
   );
 

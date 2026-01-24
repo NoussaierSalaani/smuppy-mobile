@@ -33,6 +33,18 @@ GRANT SELECT ON public.conversation_participants_view TO authenticated;
 -- All SECURITY DEFINER functions need SET search_path = ''
 -- =====================================================
 
+-- Drop existing functions first to avoid parameter name conflicts
+DROP FUNCTION IF EXISTS public.update_reports_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS public.get_hidden_user_ids(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.is_following(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.is_user_muted(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.get_blocked_user_ids(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.is_user_hidden(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.can_view_user_content(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.send_push_notification(UUID, TEXT, TEXT, JSONB) CASCADE;
+DROP FUNCTION IF EXISTS public.is_user_blocked(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.update_updated_at_column() CASCADE;
+
 -- Fix update_reports_updated_at
 CREATE OR REPLACE FUNCTION public.update_reports_updated_at()
 RETURNS TRIGGER

@@ -826,7 +826,7 @@ src/
 ├── screens/
 │   ├── auth/                  # 15 screens (login, signup, forgot, verify, biometric)
 │   ├── home/                  # 11 screens (feeds, posts, video recorder)
-│   ├── live/                  # 4 screens (GoLiveIntro, GoLive, LiveStreaming, LiveEnded)
+│   ├── live/                  # 5 screens (GoLiveIntro, GoLive, LiveStreaming, LiveEnded, ViewerLiveStream)
 │   ├── messages/              # 4 screens (Messages, NewMessage, Chat)
 │   ├── notifications/         # 2 screens
 │   ├── onboarding/            # 14 screens (profile setup, interests, expertise)
@@ -952,12 +952,13 @@ supabase/
 
 ### Screens
 
-| Écran | Description |
-|-------|-------------|
-| `GoLiveIntroScreen` | Instructions et preview avant le live |
-| `GoLiveScreen` | Configuration du live (titre, description) |
-| `LiveStreamingScreen` | Écran du streamer avec chat et stats |
-| `LiveEndedScreen` | Récapitulatif après fin du live |
+| Écran | Description | Account Type |
+|-------|-------------|--------------|
+| `GoLiveIntroScreen` | Instructions et preview avant le live | pro_creator only |
+| `GoLiveScreen` | Configuration du live (titre, description) | pro_creator only |
+| `LiveStreamingScreen` | Écran du streamer avec chat et stats | pro_creator only |
+| `LiveEndedScreen` | Récapitulatif après fin du live | pro_creator only |
+| `ViewerLiveStreamScreen` | Écran viewer avec chat, réactions, gifts | all users |
 
 ### Features
 - Real-time viewer count
@@ -1190,4 +1191,4 @@ L'application est prête pour la production à grande échelle.
 ---
 
 *Documentation générée le: 24 Janvier 2026*
-*Version: 2.0.0*
+*Version: 2.1.0 - Account Type Differentiation & Viewer Features*

@@ -1680,5 +1680,309 @@ const toggleInterest = useCallback((interestName: string) => {
 
 ---
 
-*Documentation générée le: 23 Janvier 2026*
-*Version: 1.6.0 - UI Polish & Views Count*
+## 22. Account Types & Permissions
+
+### 22.1 Types de compte
+
+Smuppy supporte 3 types de comptes avec des permissions différentes:
+
+| Type | Description | Usage |
+|------|-------------|-------|
+| `personal` | Compte utilisateur standard | Consommation de contenu, interaction sociale |
+| `pro_creator` | Créateur de contenu professionnel | Streaming live, sessions privées, subscriptions |
+| `pro_local` | Business/commerce local | Profil business, location-based features |
+
+### 22.2 Matrice des permissions
+
+| Feature | personal | pro_creator | pro_local |
+|---------|:--------:|:-----------:|:---------:|
+| **Contenu** | | | |
+| Créer des posts | ✅ | ✅ | ✅ |
+| Créer des Peaks | ✅ | ✅ | ✅ |
+| Upload photos/vidéos | ✅ | ✅ | ✅ |
+| **Live Streaming** | | | |
+| Lancer un live | ❌ | ✅ | ❌ |
+| Regarder un live (viewer) | ✅ | ✅ | ✅ |
+| Envoyer des cadeaux | ✅ | ✅ | ✅ |
+| Recevoir des cadeaux | ❌ | ✅ | ❌ |
+| **Sessions Privées** | | | |
+| Gérer ses sessions | ❌ | ✅ | ❌ |
+| Réserver une session | ✅ | ✅ | ✅ |
+| **Subscriptions** | | | |
+| S'abonner à une chaîne | ✅ | ✅ | ✅ |
+| Recevoir des abonnés | ❌ | ✅ | ❌ |
+| **Social** | | | |
+| Follow/Fan | ✅ | ✅ | ✅ |
+| Messages privés | ✅ | ✅ | ✅ |
+
+### 22.3 Route Protection Pattern
+
+Les écrans réservés aux pro_creator utilisent ce pattern:
+
+```typescript
+const user = useUserStore((state) => state.user);
+
+// Alert + redirect si non autorisé
+useEffect(() => {
+  if (user?.accountType !== 'pro_creator') {
+    Alert.alert(
+      'Pro Creator Feature',
+      'This feature is only available for Pro Creator accounts.',
+      [{ text: 'OK', onPress: () => navigation.goBack() }]
+    );
+  }
+}, [user?.accountType, navigation]);
+
+// Render guard (évite le flash d'écran)
+if (user?.accountType !== 'pro_creator') {
+  return <SafeAreaView style={styles.container} />;
+}
+```
+
+### 22.4 Écrans protégés
+
+| Écran | Requis | Fichier |
+|-------|--------|---------|
+| GoLiveIntroScreen | pro_creator | `src/screens/live/GoLiveIntroScreen.tsx` |
+| GoLiveScreen | pro_creator | `src/screens/live/GoLiveScreen.tsx` |
+| PrivateSessionsManageScreen | pro_creator | `src/screens/sessions/PrivateSessionsManageScreen.tsx` |
+
+---
+
+## 23. Viewer Live Stream Screen
+
+### 23.1 Structure
+
+**Fichier:** `src/screens/live/ViewerLiveStreamScreen.tsx`
+
+Écran immersif full-screen pour regarder un live stream en tant que viewer.
+
+### 23.2 Layout
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ [×]  [Avatar] CreatorName  LIVE  Title...   [👁 127]       │
+│                                                             │
+│                                                             │
+│                    VIDEO STREAM                             │
+│                   (placeholder)                             │
+│                                                       ❤️    │
+│                                                       🔥    │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────┐    │
+│ │ Comments area (scrolling)                            │    │
+│ │ [Avatar] User_123: Great energy! 🔥                 │    │
+│ │ [Avatar] YogaLover: Can you show that again?        │    │
+│ │ [Avatar] FitFan: This is amazing!                   │    │
+│ └─────────────────────────────────────────────────────┘    │
+│                                                             │
+│ ┌─────────────────────────────────┐ [❤️] [🎁] [↗️]         │
+│ │ Say something...               │                         │
+│ └─────────────────────────────────┘                         │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 23.3 Props (Route Params)
+
+```typescript
+interface RouteParams {
+  creatorId?: string;
+  creatorName?: string;
+  creatorAvatar?: string;
+  liveTitle?: string;
+  viewerCount?: number;
+}
+```
+
+### 23.4 Features
+
+#### Top Bar
+- Bouton close (×) → Modal "Leave Live?"
+- Avatar créateur + nom
+- Badge LIVE (rouge pulsant)
+- Titre du stream (truncated)
+- Compteur de viewers (eye icon)
+
+#### Comments Section
+- FlatList scrollable
+- Commentaires avec avatar, username, texte
+- Badge "Creator" pour les messages du streamer
+- Simulation de nouveaux commentaires (demo)
+
+#### Actions Row
+- Input pour envoyer un commentaire
+- Bouton réactions (❤️) → Popup avec 6 emojis
+- Bouton gift (🎁) → Modal de cadeaux
+- Bouton share (↗️)
+
+### 23.5 Système de Réactions
+
+**Emojis disponibles:**
+```typescript
+const REACTIONS = ['❤️', '🔥', '💪', '👏', '😍', '🎉'];
+```
+
+**Animation floating:**
+- Position initiale: bas-droite de l'écran
+- Animation: translateY -200px, translateX random ±50px
+- Scale: 0.5 → 1.2 → 1
+- Opacity: 1 → 0 (fade out)
+- Durée: 2000ms
+
+### 23.6 Système de Cadeaux
+
+**Modal bottom-sheet avec 6 cadeaux:**
+
+| Gift | Emoji | Prix |
+|------|-------|------|
+| Coffee | ☕ | $2.99 |
+| Star | 🌟 | $4.99 |
+| Gift Box | 🎁 | $9.99 |
+| Diamond | 💎 | $19.99 |
+| Trophy | 🏆 | $49.99 |
+| Rocket | 🚀 | $99.99 |
+
+**Comportement:**
+1. Tap sur gift → close modal + Alert "Gift Sent!"
+2. Animation côté streamer (à implémenter avec Realtime)
+
+### 23.7 Modal "Leave Live?"
+
+```
+┌────────────────────────────────────┐
+│        Leave Live?                  │
+│                                     │
+│  Are you sure you want to leave     │
+│  {creatorName}'s live stream?       │
+│                                     │
+│  [Stay]              [Leave]        │
+└────────────────────────────────────┘
+```
+
+---
+
+## 24. Channel Subscription Modal
+
+### 24.1 Structure
+
+**Fichier:** `src/components/SubscribeChannelModal.tsx`
+
+Modal bottom-sheet pour s'abonner à la chaîne d'un pro_creator.
+
+### 24.2 Layout
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ [×]               Subscribe                                 │
+├────────────────────────────────────────────────────────────┤
+│                    [Avatar]                                 │
+│                   CreatorName                               │
+│                   @username                                 │
+├────────────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ [○] Fan                                    $4.99/month │ │
+│ │     ✓ Access to exclusive posts                        │ │
+│ │     ✓ Join live streams                                │ │
+│ │     ✓ Fan badge on comments                            │ │
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ [●] Super Fan                     POPULAR  $9.99/month │ │
+│ │     ✓ All Fan benefits                                 │ │
+│ │     ✓ Access to exclusive videos                       │ │
+│ │     ✓ Priority in live chat                            │ │
+│ │     ✓ Monthly 1-on-1 Q&A                               │ │
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ [○] VIP                                   $24.99/month │ │
+│ │     ✓ All Super Fan benefits                           │ │
+│ │     ✓ Private Discord access                           │ │
+│ │     ✓ Early access to content                          │ │
+│ │     ✓ Personal shoutouts                               │ │
+│ │     ✓ 10% off private sessions                         │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ [███████ Subscribe for $9.99/month ███████]                │
+│                                                             │
+│ Cancel anytime. Subscription auto-renews monthly.          │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 24.3 Props
+
+```typescript
+interface SubscribeChannelModalProps {
+  visible: boolean;
+  onClose: () => void;
+  creatorName: string;
+  creatorAvatar: string;
+  creatorUsername: string;
+  onSubscribe?: (tierId: string) => void;
+}
+```
+
+### 24.4 Tiers de Subscription
+
+```typescript
+const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
+  {
+    id: 'basic',
+    name: 'Fan',
+    price: 4.99,
+    period: 'month',
+    features: [
+      'Access to exclusive posts',
+      'Join live streams',
+      'Fan badge on comments',
+    ],
+  },
+  {
+    id: 'premium',
+    name: 'Super Fan',
+    price: 9.99,
+    period: 'month',
+    features: [
+      'All Fan benefits',
+      'Access to exclusive videos',
+      'Priority in live chat',
+      'Monthly 1-on-1 Q&A',
+    ],
+    popular: true,  // Badge "POPULAR"
+  },
+  {
+    id: 'vip',
+    name: 'VIP',
+    price: 24.99,
+    period: 'month',
+    features: [
+      'All Super Fan benefits',
+      'Private Discord access',
+      'Early access to content',
+      'Personal shoutouts',
+      '10% off private sessions',
+    ],
+  },
+];
+```
+
+### 24.5 États visuels
+
+| État | Apparence |
+|------|-----------|
+| Non sélectionné | Border grise, texte normal |
+| Sélectionné | Border primary, fond léger primary, indicator gradient |
+| Popular | Badge vert "POPULAR" en haut à droite |
+
+### 24.6 Flow d'abonnement
+
+1. User tap "Subscribe" sur UserProfile
+2. Modal s'ouvre avec tier "Super Fan" présélectionné
+3. User peut changer de tier
+4. Tap "Subscribe for $X/month"
+5. Alert confirmation avec prix
+6. Confirmation → `onSubscribe(tierId)` appelé
+7. Modal se ferme + Alert success
+
+---
+
+*Documentation générée le: 24 Janvier 2026*
+*Version: 1.7.0 - Account Types & Viewer Features*

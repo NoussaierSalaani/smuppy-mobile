@@ -1,6 +1,6 @@
 # Implementation Log — Smuppy Mobile
 
-Dernière mise à jour: 2026-01-23
+Dernière mise à jour: 2026-01-24
 
 ## Vue d’ensemble
 | ID | Type | Date | Objectif principal | Status | Tests | Notes |
@@ -869,5 +869,121 @@ WHERE views_count = 0 OR views_count IS NULL;
 - [ ] HomeHeader: Tab bar moins espacé, visuellement équilibré
 - [ ] FanFeed: Suggestions plus compactes et harmonieuses
 - [ ] Profile: Views et likes visibles sur chaque post
+
+**Status:** DONE
+
+---
+
+## LOT U — Account Type Differentiation & Viewer Features (2026-01-24)
+
+**Type:** Feature + Security + UI
+**Objectif:** Différencier l'expérience utilisateur selon le type de compte (personal, pro_creator, pro_local) et ajouter les fonctionnalités viewer
+
+### Goals (completed)
+
+#### 1. Route Protection (pro_creator only)
+- ✅ GoLiveIntroScreen: Protection avec Alert + goBack si non pro_creator
+- ✅ GoLiveScreen: Même protection
+- ✅ PrivateSessionsManageScreen: Même protection
+- ✅ Render vide si non pro_creator (évite le flash d'écran)
+
+#### 2. ViewerLiveStreamScreen (NEW)
+- ✅ Écran complet pour regarder un live stream en tant que viewer
+- ✅ Chat en temps réel avec commentaires animés
+- ✅ Système de réactions (❤️ 🔥 💪 👏 😍 🎉) avec animation floating
+- ✅ Modal de cadeaux (6 options: Coffee $2.99 → Rocket $99.99)
+- ✅ Compteur de viewers simulé
+- ✅ Modal de confirmation pour quitter
+- ✅ Design immersif full-screen
+
+#### 3. SubscribeChannelModal (NEW)
+- ✅ Modal pour s'abonner à la chaîne d'un pro_creator
+- ✅ 3 tiers de subscription:
+  - Fan: $4.99/mois (posts exclusifs, join live, fan badge)
+  - Super Fan: $9.99/mois (vidéos exclusives, priority chat, monthly Q&A)
+  - VIP: $24.99/mois (Discord privé, early access, shoutouts, 10% off sessions)
+- ✅ Design Smuppy avec gradient buttons
+- ✅ Sélection de tier avec indicator visuel
+
+#### 4. UserProfileScreen Updates
+- ✅ Bouton "Subscribe" ajouté pour les pro_creator
+- ✅ Navigation vers ViewerLiveStream au lieu de LiveStreaming pour les viewers
+- ✅ Intégration du SubscribeChannelModal
+
+#### 5. FanFeed Bug Fixes
+- ✅ Fix double-tracking: `trackingUserIds` state pour éviter les duplications
+- ✅ Fix empty feed after tracking: refresh automatique si feed vide
+
+#### 6. VibesFeed Interests Fix
+- ✅ Utilise `userInterests` par défaut si aucun filtre actif
+- ✅ Bouton "+" pour ajouter des intérêts via EditInterests
+- ✅ Reload des intérêts avec `useFocusEffect`
+
+#### 7. GoLiveScreen Cleanup
+- ✅ Suppression du bouton Settings inutilisé
+
+### Files created
+- `src/screens/live/ViewerLiveStreamScreen.tsx` (692 lignes)
+- `src/components/SubscribeChannelModal.tsx` (375 lignes)
+
+### Files modified
+- `src/navigation/MainNavigator.tsx` - Route ViewerLiveStream ajoutée
+- `src/screens/live/index.ts` - Export ViewerLiveStreamScreen
+- `src/screens/live/GoLiveIntroScreen.tsx` - Route protection
+- `src/screens/live/GoLiveScreen.tsx` - Route protection + cleanup
+- `src/screens/sessions/PrivateSessionsManageScreen.tsx` - Route protection
+- `src/screens/profile/UserProfileScreen.tsx` - Subscribe button + ViewerLiveStream nav
+- `src/screens/home/FanFeed.tsx` - Double-tracking fix + empty feed refresh
+- `src/screens/home/VibesFeed.tsx` - Interests filtering fix
+
+### Account Type Matrix
+
+| Feature | personal | pro_creator | pro_local |
+|---------|----------|-------------|-----------|
+| Create posts | ✅ | ✅ | ✅ |
+| Create Peaks | ✅ | ✅ | ✅ |
+| Go Live (streaming) | ❌ | ✅ | ❌ |
+| Watch Live (viewer) | ✅ | ✅ | ✅ |
+| Manage Private Sessions | ❌ | ✅ | ❌ |
+| Book Private Sessions | ✅ | ✅ | ✅ |
+| Subscribe to channels | ✅ | ✅ | ✅ |
+| Receive subscriptions | ❌ | ✅ | ❌ |
+
+### Route Protection Pattern
+
+```typescript
+// Pattern utilisé dans GoLiveIntroScreen, GoLiveScreen, PrivateSessionsManageScreen
+const user = useUserStore((state) => state.user);
+
+useEffect(() => {
+  if (user?.accountType !== 'pro_creator') {
+    Alert.alert(
+      'Pro Creator Feature',
+      'This feature is only available for Pro Creator accounts.',
+      [{ text: 'OK', onPress: () => navigation.goBack() }]
+    );
+  }
+}, [user?.accountType, navigation]);
+
+// Render guard
+if (user?.accountType !== 'pro_creator') {
+  return <SafeAreaView style={styles.container} />;
+}
+```
+
+### Manual tests
+- [ ] Personal account: GoLiveIntro → Alert + redirect back
+- [ ] Personal account: Can watch live via ViewerLiveStream
+- [ ] Personal account: Can subscribe to pro_creator channel
+- [ ] Pro Creator: Full access to GoLive and PrivateSessionsManage
+- [ ] FanFeed: Track user → no double tracking
+- [ ] FanFeed: Track user when feed empty → feed refreshes
+- [ ] VibesFeed: Shows user interests from profile as chips
+- [ ] VibesFeed: "+" button navigates to EditInterests
+- [ ] UserProfile: Subscribe button visible for pro_creator profiles
+
+### Commit
+- Hash: `f72885e`
+- Message: `feat: add viewer live stream, subscription modal, and account type protections`
 
 **Status:** DONE

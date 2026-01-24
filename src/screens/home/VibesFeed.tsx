@@ -197,15 +197,6 @@ const transformToUIPost = (post: Post, likedPostIds: Set<string>): UIVibePost =>
   };
 };
 
-// Related posts (for modal)
-const RELATED_POSTS = [
-  { id: '101', media: 'https://picsum.photos/200/250?random=101', height: 120 },
-  { id: '102', media: 'https://picsum.photos/200/200?random=102', height: 100 },
-  { id: '103', media: 'https://picsum.photos/200/280?random=103', height: 140 },
-  { id: '104', media: 'https://picsum.photos/200/220?random=104', height: 110 },
-  { id: '105', media: 'https://picsum.photos/200/260?random=105', height: 130 },
-  { id: '106', media: 'https://picsum.photos/200/240?random=106', height: 120 },
-];
 
 // Advanced Smuppy Mood Indicator Component
 interface MoodIndicatorProps {
@@ -655,9 +646,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const openPostModal = useCallback((post: UIVibePost) => {
     postViewStartRef.current = Date.now();
     trackPostView(post.id, post.category, post.user.id, post.type);
-    setSelectedPost(post);
+    // Get fresh post data from allPosts to ensure sync
+    const freshPost = allPosts.find(p => p.id === post.id) || post;
+    setSelectedPost(freshPost);
     setModalVisible(true);
-  }, [trackPostView]);
+  }, [trackPostView, allPosts]);
 
   // Close post modal with engagement tracking
   const closePostModal = useCallback(() => {
@@ -670,6 +663,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setIsFollowingUser(false); // Reset follow state when closing
   }, [selectedPost, trackPostExit]);
 
+  // Sync selectedPost with allPosts when likes/saves change
+  useEffect(() => {
+    if (selectedPost && modalVisible) {
+      const updatedPost = allPosts.find(p => p.id === selectedPost.id);
+      if (updatedPost && (updatedPost.isLiked !== selectedPost.isLiked || updatedPost.likes !== selectedPost.likes || updatedPost.isSaved !== selectedPost.isSaved)) {
+        setSelectedPost(updatedPost);
+      }
+    }
+  }, [allPosts, selectedPost?.id, modalVisible]);
+
   // Check follow status when modal opens
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -680,6 +683,27 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     };
     checkFollowStatus();
   }, [selectedPost?.user?.id, modalVisible]);
+
+  // Get related posts (same category/tags, excluding current post)
+  const relatedPosts = useMemo(() => {
+    if (!selectedPost) return [];
+
+    const currentCategory = selectedPost.category?.toLowerCase();
+    const currentTags = selectedPost.tags?.map(t => t.toLowerCase()) || [];
+
+    return allPosts
+      .filter(post => {
+        if (post.id === selectedPost.id) return false;
+
+        // Match by category
+        if (post.category?.toLowerCase() === currentCategory) return true;
+
+        // Match by any shared tag
+        const postTags = post.tags?.map(t => t.toLowerCase()) || [];
+        return postTags.some(tag => currentTags.includes(tag));
+      })
+      .slice(0, 6); // Limit to 6 related posts
+  }, [selectedPost, allPosts]);
 
   // Become a fan from modal
   const becomeFan = useCallback(async () => {
@@ -950,43 +974,32 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 </View>
               </View>
 
-              {/* Related posts */}
-              <View style={styles.relatedSection}>
-                <Text style={styles.relatedTitle}>More like this</Text>
-                <View style={styles.relatedGrid}>
-                  {RELATED_POSTS.map((post, index) => (
-                    <TouchableOpacity
-                      key={`related-${index}-${post.id}`}
-                      style={styles.relatedCard}
-                      onPress={() => {
-                        closePostModal();
-                        // Navigate to PostDetailVibesFeedScreen with this post
-                        navigation.navigate('PostDetailVibesFeed', {
-                          postId: post.id,
-                          post: {
-                            id: post.id,
-                            type: 'image',
-                            media: post.media,
-                            thumbnail: post.media,
-                            description: '',
-                            likes: 0,
-                            views: 0,
-                            category: 'Explore',
-                            user: {
-                              id: 'explore',
-                              name: 'Explore',
-                              avatar: 'https://i.pravatar.cc/150?img=10',
-                              followsMe: false,
-                            },
-                          },
-                        });
-                      }}
-                    >
-                      <Image source={{ uri: post.media }} style={[styles.relatedImage, { height: post.height }]} />
-                    </TouchableOpacity>
-                  ))}
+              {/* Related posts - Real posts from same category */}
+              {relatedPosts.length > 0 && (
+                <View style={styles.relatedSection}>
+                  <Text style={styles.relatedTitle}>More like this</Text>
+                  <View style={styles.relatedGrid}>
+                    {relatedPosts.map((post, index) => (
+                      <TouchableOpacity
+                        key={`related-${index}-${post.id}`}
+                        style={styles.relatedCard}
+                        onPress={() => {
+                          // Switch to this post in the modal
+                          postViewStartRef.current = Date.now();
+                          trackPostView(post.id, post.category, post.user.id, post.type);
+                          setSelectedPost(post);
+                        }}
+                      >
+                        <Image source={{ uri: post.media }} style={[styles.relatedImage, { height: 100 }]} />
+                        <View style={styles.relatedOverlay}>
+                          <SmuppyHeartIcon size={10} color="#fff" filled={post.isLiked} />
+                          <Text style={styles.relatedLikes}>{formatNumber(post.likes)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Safe area bottom */}
               <View style={{ height: insets.bottom + 20 }} />
@@ -1673,9 +1686,28 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusSm,
     overflow: 'hidden',
     marginBottom: SPACING.sm,
+    position: 'relative',
   },
   relatedImage: {
     width: '100%',
+    backgroundColor: COLORS.grayLight,
+  },
+  relatedOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  relatedLikes: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    color: '#fff',
   },
 
   // Pagination

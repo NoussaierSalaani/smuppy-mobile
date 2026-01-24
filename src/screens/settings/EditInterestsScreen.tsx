@@ -127,20 +127,11 @@ export default function EditInterestsScreen({ navigation, route }) {
   const [selected, setSelected] = useState<string[]>(initialInterests);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Track locked interests (from onboarding - cannot be deselected)
-  const [lockedInterests, setLockedInterests] = useState<string[]>([]);
-
-  // Sync with profile data when it loads and set locked interests
+  // Sync with profile data when it loads
   useEffect(() => {
     const interests = profileData?.interests || user.interests || [];
-    if (interests.length > 0) {
-      // Set locked interests only once (first load)
-      if (lockedInterests.length === 0) {
-        setLockedInterests(interests);
-      }
-      if (selected.length === 0) {
-        setSelected(interests);
-      }
+    if (interests.length > 0 && selected.length === 0) {
+      setSelected(interests);
     }
   }, [profileData, user.interests]);
 
@@ -152,14 +143,10 @@ export default function EditInterestsScreen({ navigation, route }) {
   }, [selected, profileData?.interests, user.interests]);
 
   const toggle = useCallback((itemName: string) => {
-    // Don't allow deselection of locked (onboarding) interests
-    if (lockedInterests.includes(itemName) && selected.includes(itemName)) {
-      return;
-    }
     setSelected(prev =>
       prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
     );
-  }, [lockedInterests, selected]);
+  }, []);
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -191,15 +178,12 @@ export default function EditInterestsScreen({ navigation, route }) {
   };
 
   const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
-    const isLocked = lockedInterests.includes(item.name) && isSelected;
-
     if (isSelected) {
       return (
         <TouchableOpacity
           key={item.name}
           onPress={() => toggle(item.name)}
-          activeOpacity={isLocked ? 1 : 0.7}
-          disabled={isLocked}
+          activeOpacity={0.7}
         >
           <LinearGradient
             colors={GRADIENTS.button}
@@ -210,9 +194,7 @@ export default function EditInterestsScreen({ navigation, route }) {
             <View style={styles.chipSelectedInner}>
               <Ionicons name={item.icon as any} size={16} color={item.color} />
               <Text style={styles.chipText}>{item.name}</Text>
-              {isLocked && (
-                <Ionicons name="lock-closed" size={12} color="#8E8E93" style={{ marginLeft: 2 }} />
-              )}
+              <Ionicons name="close" size={14} color={COLORS.gray} style={{ marginLeft: 2 }} />
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -229,7 +211,7 @@ export default function EditInterestsScreen({ navigation, route }) {
         <Text style={styles.chipText}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle, lockedInterests]);
+  }, [toggle]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -261,14 +243,9 @@ export default function EditInterestsScreen({ navigation, route }) {
         <Text style={styles.countText}>
           {selected.length} interest{selected.length !== 1 ? 's' : ''} selected
         </Text>
-        {lockedInterests.length > 0 && (
-          <View style={styles.lockedInfo}>
-            <Ionicons name="lock-closed" size={12} color="#8E8E93" />
-            <Text style={styles.lockedInfoText}>
-              {lockedInterests.length} from onboarding (cannot be removed)
-            </Text>
-          </View>
-        )}
+        <Text style={styles.hintText}>
+          Tap to add or remove interests
+        </Text>
       </View>
 
       {/* Scrollable content */}
@@ -357,15 +334,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.grayMuted,
   },
-  lockedInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  lockedInfoText: {
+  hintText: {
     fontSize: 12,
     color: '#8E8E93',
+    marginTop: 4,
   },
 
   // Scroll

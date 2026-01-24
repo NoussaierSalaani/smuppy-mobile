@@ -479,32 +479,54 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     });
   }, [navigation]);
 
-  // Filter posts INSTANTLY - by interests + safety filters (no API call!)
+  // Sort posts by interests + engagement - feed always stays full!
   const filteredPosts = useMemo(() => {
-    let result = allPosts;
-
-    // Filter by selected interests (INSTANT - local filtering)
-    if (activeInterests.size > 0) {
-      const selectedArray = Array.from(activeInterests);
-      result = result.filter(post => {
-        // Check if post has any matching tags/interests
-        if (post.tags && post.tags.length > 0) {
-          return post.tags.some(tag => selectedArray.includes(tag));
-        }
-        // Also check category
-        if (post.category && selectedArray.includes(post.category)) {
-          return true;
-        }
-        return false;
-      });
-    }
-
-    // Safety filters (hide under_review and muted/blocked users)
-    return result.filter(post => {
+    // First, apply safety filters (hide under_review and muted/blocked users)
+    let result = allPosts.filter(post => {
       if (isUnderReview(String(post.id))) return false;
       const authorId = post.user?.id;
       if (authorId && isHidden(authorId)) return false;
       return true;
+    });
+
+    // If no interests selected, sort by engagement only
+    if (activeInterests.size === 0) {
+      return result.sort((a, b) => b.likes - a.likes);
+    }
+
+    // Calculate relevance score for each post
+    const selectedArray = Array.from(activeInterests);
+
+    const getRelevanceScore = (post: UIVibePost): number => {
+      let score = 0;
+
+      // Check if post matches selected interests
+      const matchingTags = post.tags?.filter(tag => selectedArray.includes(tag)) || [];
+      const categoryMatch = post.category && selectedArray.includes(post.category);
+
+      // More matching tags = higher priority
+      score += matchingTags.length * 1000;
+
+      // Category match adds bonus
+      if (categoryMatch) score += 500;
+
+      // Add engagement score (likes normalized)
+      score += Math.min(post.likes, 500); // Cap at 500 to not overpower interest matching
+
+      return score;
+    };
+
+    // Sort by relevance score (highest first)
+    return result.sort((a, b) => {
+      const scoreA = getRelevanceScore(a);
+      const scoreB = getRelevanceScore(b);
+
+      // If same relevance tier, sort by likes
+      if (Math.floor(scoreA / 500) === Math.floor(scoreB / 500)) {
+        return b.likes - a.likes;
+      }
+
+      return scoreB - scoreA;
     });
   }, [allPosts, activeInterests, isUnderReview, isHidden]);
 

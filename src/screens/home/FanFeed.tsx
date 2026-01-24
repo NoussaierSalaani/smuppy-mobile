@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -122,9 +122,22 @@ interface FanFeedProps {
   headerHeight?: number;
 }
 
-export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
+export interface FanFeedRef {
+  scrollToTop: () => void;
+}
+
+const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
   const navigation = useNavigation<NavigationProp<any>>();
-  const { handleScroll } = useTabBar();
+  const { handleScroll, showBars } = useTabBar();
+  const listRef = useRef<any>(null);
+
+  // Expose scrollToTop method to parent
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      showBars();
+    },
+  }));
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
 
@@ -236,18 +249,33 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
     }
   }, []);
 
-  // Handle track/follow user
+  // Handle track/follow user - removes from list without scroll reset
   const handleTrackUser = useCallback(async (userId: string) => {
     try {
-      await followUser(userId);
-      // Remove from suggestions and fetch new ones to replace
+      // Remove from suggestions immediately (smooth animation)
       setSuggestions(prev => prev.filter(s => s.id !== userId));
-      // Refetch suggestions to get new profiles
-      fetchSuggestions();
+
+      await followUser(userId);
+
+      // Don't refresh the feed immediately to avoid scroll reset
+      // User can pull to refresh to see new posts from followed user
+      // Just fetch a new suggestion to replace the removed one
+      const { data } = await getSuggestedProfiles(1);
+      if (data && data.length > 0) {
+        const newSuggestion: UISuggestion = {
+          id: data[0].id,
+          name: data[0].full_name || data[0].username || 'User',
+          username: data[0].username || 'user',
+          avatar: data[0].avatar_url || 'https://via.placeholder.com/100',
+          isVerified: data[0].is_verified || false,
+          accountType: data[0].account_type || 'personal',
+        };
+        setSuggestions(prev => [...prev, newSuggestion]);
+      }
     } catch (err) {
       console.error('[FanFeed] Error following user:', err);
     }
-  }, [fetchSuggestions]);
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -445,7 +473,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
           style={styles.suggestionRing}
         >
           <View style={styles.suggestionAvatarContainer}>
-            <AvatarImage source={suggestion.avatar} size={48} />
+            <AvatarImage source={suggestion.avatar} size={72} />
           </View>
         </LinearGradient>
         <AccountBadge
@@ -511,7 +539,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
         }}
         onSingleTap={() => navigation.navigate('PostDetailFanFeed', {
           postId: post.id,
-          fanFeedPosts: posts.map(p => ({
+          fanFeedPosts: visiblePosts.map(p => ({
             id: p.id,
             type: p.type,
             media: p.media,
@@ -608,7 +636,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
     </View>
-  ), [visiblePosts.length, goToUserProfile, toggleLike, toggleSave, formatNumber]);
+  ), [visiblePosts, goToUserProfile, toggleLike, toggleSave, formatNumber, navigation, handlePostMenu, handleSharePost]);
 
   // List header with suggestions
   const ListHeader = useMemo(() => (
@@ -696,6 +724,7 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
       <SwipeToPeaks onOpenPeaks={openPeaks}>
         {/* FlashList - 10x faster than FlatList */}
         <FlashList<UIPost>
+          ref={listRef}
           data={visiblePosts}
           renderItem={renderPost}
           keyExtractor={keyExtractor}
@@ -766,7 +795,9 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
       </Modal>
     </View>
   );
-}
+});
+
+export default FanFeed;
 
 const styles = StyleSheet.create({
   container: {
@@ -777,7 +808,7 @@ const styles = StyleSheet.create({
   // Suggestions Section - Compact spacing
   suggestionsSection: {
     paddingTop: 0,
-    paddingBottom: 12,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.grayLight,
   },
@@ -786,42 +817,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.base,
-    marginBottom: SPACING.xs,
+    marginBottom: 4,
   },
   suggestionsSectionTitle: {
-    fontSize: 13,
+    fontSize: 16,
     fontFamily: 'Poppins-SemiBold',
     color: COLORS.dark,
   },
   seeAllText: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Poppins-Medium',
     color: COLORS.primary,
   },
   suggestionsScrollContent: {
     paddingHorizontal: SPACING.sm,
-    gap: 4,
+    gap: 0,
   },
   suggestionItem: {
     alignItems: 'center',
-    marginHorizontal: 4,
-    width: 70,
+    marginHorizontal: 6,
+    width: 88,
   },
   suggestionAvatarWrapper: {
     position: 'relative',
   },
   suggestionRing: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     padding: 2,
-    marginBottom: 3,
+    marginBottom: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   suggestionAvatarContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: 25,
+    borderRadius: 38,
     padding: 2,
   },
   verifiedBadgeSuggestion: {
@@ -830,28 +861,36 @@ const styles = StyleSheet.create({
     right: -2,
   },
   suggestionName: {
-    fontSize: 10,
+    fontSize: 14,
     color: COLORS.dark,
     fontFamily: 'Poppins-Medium',
     textAlign: 'center',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   trackButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   trackButtonText: {
-    fontSize: 9,
+    fontSize: 12,
     fontFamily: 'Poppins-SemiBold',
     color: COLORS.white,
+  },
+  trackedButton: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
 
   // Post
   postContainer: {
-    paddingTop: SPACING.base,
-    paddingBottom: SPACING.sm,
+    paddingTop: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.06)',
   },
@@ -860,9 +899,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: SPACING.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: 6,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.sm,
+    paddingVertical: 6,
     backgroundColor: COLORS.white,
     borderRadius: 16,
     borderWidth: 1,

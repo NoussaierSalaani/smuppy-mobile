@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -158,6 +158,7 @@ interface UIVibePost {
   isLiked: boolean;
   isSaved: boolean;
   category: string;
+  tags?: string[];
 }
 
 // Transform Post from database to UI format
@@ -192,6 +193,7 @@ const transformToUIPost = (post: Post, likedPostIds: Set<string>): UIVibePost =>
     isLiked: likedPostIds.has(post.id),
     isSaved: false, // TODO: Check saved status from API
     category: post.tags?.[0] || 'Fitness',
+    tags: post.tags || [],
   };
 };
 
@@ -303,10 +305,23 @@ interface VibesFeedProps {
   headerHeight?: number;
 }
 
-export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
+export interface VibesFeedRef {
+  scrollToTop: () => void;
+}
+
+const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }, ref) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<any>>();
-  const { handleScroll } = useTabBar();
+  const { handleScroll, showBars } = useTabBar();
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Expose scrollToTop method to parent
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      showBars();
+    },
+  }));
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
 
@@ -330,8 +345,8 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [activeInterests, setActiveInterests] = useState<Set<string>>(new Set());
 
-  // Posts state
-  const [posts, setPosts] = useState<UIVibePost[]>([]);
+  // Posts state - allPosts stores everything, posts is filtered view
+  const [allPosts, setAllPosts] = useState<UIVibePost[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -371,34 +386,31 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
     }, [])
   );
 
-  // Fetch posts from API
+  // Fetch posts from API - fetches ALL posts, filtering is done locally for speed
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
     try {
-      const selectedArray = Array.from(activeInterests);
-      const { data, error } = await getDiscoveryFeed(selectedArray, userInterests, pageNum, 20);
+      // Fetch without interest filtering - we'll filter locally
+      const { data, error } = await getDiscoveryFeed([], [], pageNum, 40);
 
       if (error) {
         console.error('[VibesFeed] Error fetching posts:', error);
-        // On error, still update state to avoid stuck loading
         if (refresh || pageNum === 0) {
-          setPosts([]);
+          setAllPosts([]);
           setHasMore(false);
         }
         return;
       }
 
-      // Handle null or undefined data
       if (!data) {
         console.warn('[VibesFeed] No data returned');
         if (refresh || pageNum === 0) {
-          setPosts([]);
+          setAllPosts([]);
           setHasMore(false);
         }
         return;
       }
 
       if (data.length > 0) {
-        // Use batch function for much faster like checking
         const postIds = data.map(post => post.id);
         const likedMap = await hasLikedPostsBatch(postIds);
 
@@ -409,49 +421,37 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
         const transformedPosts = data.map(post => transformToUIPost(post, likedIds));
 
         if (refresh || pageNum === 0) {
-          setPosts(transformedPosts);
+          setAllPosts(transformedPosts);
           setLikedPostIds(likedIds);
         } else {
-          setPosts(prev => [...prev, ...transformedPosts]);
+          setAllPosts(prev => [...prev, ...transformedPosts]);
           setLikedPostIds(prev => new Set([...prev, ...likedIds]));
         }
 
-        setHasMore(data.length >= 20);
+        setHasMore(data.length >= 40);
       } else {
-        // Empty data array
         if (refresh || pageNum === 0) {
-          setPosts([]);
+          setAllPosts([]);
           setLikedPostIds(new Set());
         }
         setHasMore(false);
       }
     } catch (err) {
       console.error('[VibesFeed] Error:', err);
-      // On exception, also clear loading state
       if (refresh) {
-        setPosts([]);
+        setAllPosts([]);
         setHasMore(false);
       }
     }
-  }, [activeInterests, userInterests]);
+  }, []);
 
-  // Initial load when interests are ready
+  // Initial load - only once when component mounts
   useEffect(() => {
-    if (userInterests.length > 0) {
-      setIsLoading(true);
-      fetchPosts(0).finally(() => setIsLoading(false));
-    }
-  }, [userInterests, fetchPosts]);
+    setIsLoading(true);
+    fetchPosts(0).finally(() => setIsLoading(false));
+  }, [fetchPosts]);
 
-  // Reload when active interests change
-  useEffect(() => {
-    if (userInterests.length > 0 && !isLoading) {
-      setPage(0);
-      fetchPosts(0, true);
-    }
-    // Intentionally only depend on activeInterests to avoid reload loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeInterests]);
+  // NO reload on activeInterests change - filtering is instant/local
 
   // Navigate to user profile
   const goToUserProfile = useCallback((userId: string) => {
@@ -479,15 +479,34 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
     });
   }, [navigation]);
 
-  // Filter posts (hide under_review - SAFETY-2 AND hide muted/blocked - SAFETY-3)
+  // Filter posts INSTANTLY - by interests + safety filters (no API call!)
   const filteredPosts = useMemo(() => {
-    return posts.filter(post => {
+    let result = allPosts;
+
+    // Filter by selected interests (INSTANT - local filtering)
+    if (activeInterests.size > 0) {
+      const selectedArray = Array.from(activeInterests);
+      result = result.filter(post => {
+        // Check if post has any matching tags/interests
+        if (post.tags && post.tags.length > 0) {
+          return post.tags.some(tag => selectedArray.includes(tag));
+        }
+        // Also check category
+        if (post.category && selectedArray.includes(post.category)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    // Safety filters (hide under_review and muted/blocked users)
+    return result.filter(post => {
       if (isUnderReview(String(post.id))) return false;
       const authorId = post.user?.id;
       if (authorId && isHidden(authorId)) return false;
       return true;
     });
-  }, [posts, isUnderReview, isHidden]);
+  }, [allPosts, activeInterests, isUnderReview, isHidden]);
 
   // Chip animation scales
   const chipAnimations = useRef<Record<string, Animated.Value>>({}).current;
@@ -548,29 +567,22 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
 
   // Like/unlike post with engagement tracking
   const toggleLike = useCallback(async (postId: string) => {
-    // Get current like status and category from state using functional update
-    let wasLiked = false;
-    let postCategory = '';
+    // Get current like status and category from state
+    const post = allPosts.find(p => p.id === postId);
+    const wasLiked = post?.isLiked || false;
+    const postCategory = post?.category || '';
 
-    // Optimistic update and capture current state
-    setPosts(prevPosts => {
-      const post = prevPosts.find(p => p.id === postId);
-      if (post) {
-        wasLiked = post.isLiked;
-        postCategory = post.category;
+    // Optimistic update
+    setAllPosts(prevPosts => prevPosts.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          isLiked: !p.isLiked,
+          likes: p.isLiked ? p.likes - 1 : p.likes + 1,
+        };
       }
-
-      return prevPosts.map(p => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            isLiked: !p.isLiked,
-            likes: p.isLiked ? p.likes - 1 : p.likes + 1,
-          };
-        }
-        return p;
-      });
-    });
+      return p;
+    }));
 
     try {
       if (wasLiked) {
@@ -589,11 +601,11 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
     } catch (err) {
       console.error('[VibesFeed] Like error:', err);
     }
-  }, [trackLike]);
+  }, [allPosts, trackLike]);
 
   // Toggle save (optimistic update)
   const toggleSave = useCallback((postId: string) => {
-    setPosts(prevPosts => prevPosts.map(post => {
+    setAllPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
@@ -956,10 +968,11 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
   return (
     <View style={styles.container}>
       <Animated.ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          headerHeight > 0 && { paddingTop: headerHeight + SPACING.sm }
+          headerHeight > 0 && { paddingTop: headerHeight + 4 }
         ]}
         onScroll={(event) => {
           handleScroll(event);
@@ -1103,9 +1116,11 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
       />
     </View>
   );
-}
+});
 
-const SECTION_GAP = 10; // Consistent spacing between all sections
+export default VibesFeed;
+
+const SECTION_GAP = 8; // Consistent spacing between all sections
 
 const styles = StyleSheet.create({
   container: {
@@ -1113,13 +1128,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   scrollContent: {
-    paddingTop: 2,
+    paddingTop: 0,
   },
 
   // Smuppy Mood Indicator
   moodContainer: {
     marginHorizontal: SPACING.base,
-    marginBottom: SECTION_GAP,
+    marginBottom: 6,
+    marginTop: 0,
   },
   moodGradient: {
     flexDirection: 'row',
@@ -1208,7 +1224,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.base,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   peaksSectionTitle: {
     fontFamily: 'WorkSans-Bold',

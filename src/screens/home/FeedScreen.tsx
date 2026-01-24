@@ -11,13 +11,20 @@ import XplorerFeed from './XplorerFeed';
 const { width } = Dimensions.get('window');
 const TABS = ['Fan', 'Vibes', 'Xplorer'] as const;
 
-const HEADER_HEIGHT = 50;
-const TABBAR_HEIGHT = 46;
+const HEADER_HEIGHT = 44;
+const TABBAR_HEIGHT = 38;
+
+// Ref type for feed components
+export interface FeedRef {
+  scrollToTop: () => void;
+}
 
 export default function FeedScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
+  const fanFeedRef = useRef<FeedRef>(null);
+  const vibesFeedRef = useRef<FeedRef>(null);
   const { setBottomBarHidden, showBars } = useTabBar();
   const [activeTab, setActiveTab] = useState(0);
 
@@ -35,11 +42,8 @@ export default function FeedScreen() {
   );
 
   useEffect(() => {
-    if (activeTab === 2) {
-      setBottomBarHidden(true);
-    } else {
-      setBottomBarHidden(false);
-    }
+    // Don't hide bottom bar for any tab - let scroll handle visibility
+    setBottomBarHidden(false);
 
     // Mark tab as visited for lazy loading
     setVisitedTabs(prev => new Set([...prev, activeTab]));
@@ -53,9 +57,24 @@ export default function FeedScreen() {
     }
   };
 
-  const handleTabChange = (tabName) => {
-    const index = TABS.indexOf(tabName);
-    if (index !== -1 && scrollRef.current) {
+  const handleTabChange = (tabName: string) => {
+    const index = TABS.indexOf(tabName as typeof TABS[number]);
+    if (index === -1) return;
+
+    // If clicking on the same tab, scroll to top
+    if (index === activeTab) {
+      if (index === 0 && fanFeedRef.current) {
+        fanFeedRef.current.scrollToTop();
+        showBars();
+      } else if (index === 1 && vibesFeedRef.current) {
+        vibesFeedRef.current.scrollToTop();
+        showBars();
+      }
+      return;
+    }
+
+    // Switch to different tab
+    if (scrollRef.current) {
       scrollRef.current.scrollTo({ x: index * width, animated: true });
       setActiveTab(index);
     }
@@ -76,13 +95,13 @@ export default function FeedScreen() {
       >
         {/* Fan - always loaded first */}
         <View style={styles.page}>
-          <FanFeed headerHeight={totalHeaderHeight} />
+          <FanFeed ref={fanFeedRef} headerHeight={totalHeaderHeight} />
         </View>
 
         {/* Vibes - lazy loaded when visited */}
         <View style={styles.page}>
           {visitedTabs.has(1) ? (
-            <VibesFeed headerHeight={totalHeaderHeight} />
+            <VibesFeed ref={vibesFeedRef} headerHeight={totalHeaderHeight} />
           ) : (
             <View style={styles.placeholder} />
           )}

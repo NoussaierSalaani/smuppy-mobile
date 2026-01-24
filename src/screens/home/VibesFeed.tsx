@@ -26,7 +26,7 @@ import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import SharePostModal from '../../components/SharePostModal';
-import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPost, Post, followUser, isFollowing } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, Post, followUser, isFollowing } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -379,16 +379,31 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
 
       if (error) {
         console.error('[VibesFeed] Error fetching posts:', error);
+        // On error, still update state to avoid stuck loading
+        if (refresh || pageNum === 0) {
+          setPosts([]);
+          setHasMore(false);
+        }
         return;
       }
 
-      if (data) {
-        // Check liked status for all posts in PARALLEL (much faster!)
-        const likedResults = await Promise.all(
-          data.map(post => hasLikedPost(post.id))
-        );
+      // Handle null or undefined data
+      if (!data) {
+        console.warn('[VibesFeed] No data returned');
+        if (refresh || pageNum === 0) {
+          setPosts([]);
+          setHasMore(false);
+        }
+        return;
+      }
+
+      if (data.length > 0) {
+        // Use batch function for much faster like checking
+        const postIds = data.map(post => post.id);
+        const likedMap = await hasLikedPostsBatch(postIds);
+
         const likedIds = new Set<string>(
-          data.filter((_, index) => likedResults[index].hasLiked).map(post => post.id)
+          postIds.filter(id => likedMap.get(id))
         );
 
         const transformedPosts = data.map(post => transformToUIPost(post, likedIds));
@@ -402,9 +417,21 @@ export default function VibesFeed({ headerHeight = 0 }: VibesFeedProps) {
         }
 
         setHasMore(data.length >= 20);
+      } else {
+        // Empty data array
+        if (refresh || pageNum === 0) {
+          setPosts([]);
+          setLikedPostIds(new Set());
+        }
+        setHasMore(false);
       }
     } catch (err) {
       console.error('[VibesFeed] Error:', err);
+      // On exception, also clear loading state
+      if (refresh) {
+        setPosts([]);
+        setHasMore(false);
+      }
     }
   }, [activeInterests, userInterests]);
 

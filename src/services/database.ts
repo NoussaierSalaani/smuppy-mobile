@@ -666,6 +666,50 @@ export const getPostsByUser = async (userId: string, page = 0, limit = 10): Prom
  * Get posts from followed users (FanFeed)
  * Returns posts from users that the current user follows
  */
+// Shared cache for followed user IDs (used by both FanFeed and VibesFeed)
+let followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
+  ids: [],
+  timestamp: 0,
+  userId: null,
+};
+const CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
+
+// Helper to get followed user IDs with caching
+const getFollowedUserIds = async (userId: string): Promise<string[]> => {
+  const now = Date.now();
+
+  // Use cache if valid
+  if (
+    followedUsersCacheShared.userId === userId &&
+    now - followedUsersCacheShared.timestamp < CACHE_DURATION_SHARED &&
+    followedUsersCacheShared.ids.length > 0
+  ) {
+    return followedUsersCacheShared.ids;
+  }
+
+  // Fetch fresh data
+  const { data: followsData } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId);
+
+  const ids = followsData?.map(f => f.following_id) || [];
+
+  // Update cache
+  followedUsersCacheShared = {
+    ids,
+    timestamp: now,
+    userId,
+  };
+
+  return ids;
+};
+
+// Clear cache when user follows/unfollows someone
+export const clearFollowCache = () => {
+  followedUsersCacheShared = { ids: [], timestamp: 0, userId: null };
+};
+
 export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
@@ -673,34 +717,20 @@ export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbRespo
   const from = page * limit;
   const to = from + limit - 1;
 
-  // First get the list of followed user IDs
-  const followsResult = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', user.id);
-
-  const { data: follows, error: followsError } = followsResult as {
-    data: Array<{ following_id: string }> | null;
-    error: { message: string } | null
-  };
-
-  if (followsError) {
-    return { data: null, error: followsError.message };
-  }
+  // Get followed user IDs (cached)
+  const followedIds = await getFollowedUserIds(user.id);
 
   // If not following anyone, return empty array
-  if (!follows || follows.length === 0) {
+  if (followedIds.length === 0) {
     return { data: [], error: null };
   }
-
-  const followedIds = follows.map(f => f.following_id);
 
   // Get posts from followed users
   const result = await supabase
     .from('posts')
     .select(`
       *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
     `)
     .in('author_id', followedIds)
     .in('visibility', ['public', 'fans'])
@@ -799,14 +829,6 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
  * @param page - Pagination page number
  * @param limit - Number of posts per page
  */
-// Cache for followed user IDs (refreshed every 5 minutes)
-let followedUsersCache: { ids: string[]; timestamp: number; userId: string | null } = {
-  ids: [],
-  timestamp: 0,
-  userId: null,
-};
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
 export const getDiscoveryFeed = async (
   selectedInterests: string[] = [],
   userInterests: string[] = [],
@@ -819,33 +841,8 @@ export const getDiscoveryFeed = async (
   const { data: { user } } = await supabase.auth.getUser();
   const currentUserId = user?.id;
 
-  // Use cached followed users if still valid
-  let followedUserIds: string[] = [];
-  const now = Date.now();
-
-  if (
-    currentUserId &&
-    followedUsersCache.userId === currentUserId &&
-    now - followedUsersCache.timestamp < CACHE_DURATION
-  ) {
-    // Use cache
-    followedUserIds = followedUsersCache.ids;
-  } else if (currentUserId) {
-    // Fetch and cache
-    const { data: followsData } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', currentUserId);
-
-    if (followsData) {
-      followedUserIds = followsData.map(f => f.following_id);
-      followedUsersCache = {
-        ids: followedUserIds,
-        timestamp: now,
-        userId: currentUserId,
-      };
-    }
-  }
+  // Get followed user IDs using shared cache
+  const followedUserIds = currentUserId ? await getFollowedUserIds(currentUserId) : [];
 
   // Build exclusion list (current user + followed users)
   const excludeUserIds = [currentUserId, ...followedUserIds].filter(Boolean) as string[];
@@ -860,7 +857,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
       `)
       .eq('visibility', 'public')
       .not('author_id', 'in', `(${excludeList})`)
@@ -884,7 +881,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
       `)
       .eq('visibility', 'public')
       .not('author_id', 'in', `(${excludeList})`)
@@ -904,7 +901,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
       `)
       .eq('visibility', 'public')
       .not('author_id', 'in', `(${excludeList})`)
@@ -922,7 +919,7 @@ export const getDiscoveryFeed = async (
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
       `)
       .eq('visibility', 'public')
       .not('author_id', 'in', `(${excludeList})`)
@@ -940,7 +937,7 @@ export const getDiscoveryFeed = async (
     .from('posts')
     .select(`
       *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
     `)
     .eq('visibility', 'public')
     .not('author_id', 'in', `(${excludeList})`)
@@ -1244,6 +1241,9 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
+  // Clear cache when following someone
+  clearFollowCache();
+
   // Use the RPC function that handles private accounts
   const { data: rpcResult, error: rpcError } = await supabase
     .rpc('create_follow_or_request', { target_user_id: userIdToFollow });
@@ -1284,6 +1284,9 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
 export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: string | null }> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
+
+  // Clear cache when unfollowing someone
+  clearFollowCache();
 
   const result = await supabase
     .from('follows')
@@ -2539,7 +2542,7 @@ export const getPostById = async (postId: string): Promise<DbResponse<Post>> => 
     .from('posts')
     .select(`
       *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
+      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type, is_bot)
     `)
     .eq('id', postId)
     .single();

@@ -25,7 +25,7 @@ import SwipeToPeaks from '../../components/SwipeToPeaks';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, likePost, unlikePost, hasLikedPost, getSuggestedProfiles, followUser, Post, Profile } from '../../services/database';
+import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Post, Profile, hasLikedPostsBatch } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 
@@ -160,16 +160,31 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
 
       if (error) {
         console.error('[FanFeed] Error fetching posts:', error);
+        // On error, still update state to avoid stuck loading
+        if (refresh || pageNum === 0) {
+          setPosts([]);
+          setHasMore(false);
+        }
         return;
       }
 
-      if (data) {
-        // Check liked status for all posts in PARALLEL (much faster!)
-        const likedResults = await Promise.all(
-          data.map(post => hasLikedPost(post.id))
-        );
+      // Handle null or undefined data
+      if (!data) {
+        console.warn('[FanFeed] No data returned');
+        if (refresh || pageNum === 0) {
+          setPosts([]);
+          setHasMore(false);
+        }
+        return;
+      }
+
+      if (data.length > 0) {
+        // Use batch function for faster like checking (single query)
+        const postIds = data.map(post => post.id);
+        const likedMap = await hasLikedPostsBatch(postIds);
+
         const likedIds = new Set<string>(
-          data.filter((_, index) => likedResults[index].hasLiked).map(post => post.id)
+          postIds.filter(id => likedMap.get(id))
         );
 
         const transformedPosts = data.map(post => transformPostToUI(post, likedIds));
@@ -183,9 +198,21 @@ export default function FanFeed({ headerHeight = 0 }: FanFeedProps) {
         }
 
         setHasMore(data.length >= 10);
+      } else {
+        // Empty data array
+        if (refresh || pageNum === 0) {
+          setPosts([]);
+          setLikedPostIds(new Set());
+        }
+        setHasMore(false);
       }
     } catch (err) {
       console.error('[FanFeed] Error:', err);
+      // On exception, also clear loading state
+      if (refresh) {
+        setPosts([]);
+        setHasMore(false);
+      }
     }
   }, []);
 

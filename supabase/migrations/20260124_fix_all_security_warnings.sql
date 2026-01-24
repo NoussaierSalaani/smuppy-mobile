@@ -160,24 +160,32 @@ BEGIN
 END;
 $$;
 
--- Fix send_push_notification
-CREATE OR REPLACE FUNCTION public.send_push_notification(
-  p_user_id UUID,
-  p_title TEXT,
-  p_body TEXT,
-  p_data JSONB DEFAULT '{}'::JSONB
-)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
+-- Fix send_push_notification (if exists)
+DO $$
 BEGIN
-  -- This function is a placeholder for push notification logic
-  -- The actual notification is sent via Edge Function
-  INSERT INTO public.notifications_logs (user_id, title, body, data, created_at)
-  VALUES (p_user_id, p_title, p_body, p_data, NOW())
-  ON CONFLICT DO NOTHING;
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'send_push_notification') THEN
+    DROP FUNCTION IF EXISTS public.send_push_notification(UUID, TEXT, TEXT, JSONB) CASCADE;
+    -- Recreate without the notifications_logs dependency
+    EXECUTE '
+      CREATE OR REPLACE FUNCTION public.send_push_notification(
+        p_user_id UUID,
+        p_title TEXT,
+        p_body TEXT,
+        p_data JSONB DEFAULT ''{}''::JSONB
+      )
+      RETURNS VOID
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      SET search_path = ''''
+      AS $func$
+      BEGIN
+        -- This function is a placeholder for push notification logic
+        -- The actual notification is sent via Edge Function
+        NULL;
+      END;
+      $func$;
+    ';
+  END IF;
 END;
 $$;
 
@@ -276,14 +284,15 @@ CREATE POLICY "Users can delete own device sessions"
   ON public.device_sessions FOR DELETE
   USING (user_id = auth.uid());
 
--- notifications_logs: Fix policies
-DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications_logs;
-DROP POLICY IF EXISTS "Users can insert notifications" ON public.notifications_logs;
-DROP POLICY IF EXISTS "Allow all for notifications_logs" ON public.notifications_logs;
-
+-- notifications_logs: Fix policies (only if table exists)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notifications_logs') THEN
+    -- Drop existing policies
+    DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications_logs;
+    DROP POLICY IF EXISTS "Users can insert notifications" ON public.notifications_logs;
+    DROP POLICY IF EXISTS "Allow all for notifications_logs" ON public.notifications_logs;
+
     ALTER TABLE public.notifications_logs ENABLE ROW LEVEL SECURITY;
 
     CREATE POLICY "Users can view own notifications"

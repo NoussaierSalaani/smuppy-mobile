@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useTabBar } from '../../context/TabBarContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const baseWidth = 390;
@@ -44,6 +45,7 @@ export default function XplorerFeed({ navigation, isActive }) {
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const hasRequestedPermission = useRef(false);
+  const { setBottomBarHidden, hideBars, showBars } = useTabBar();
 
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ export default function XplorerFeed({ navigation, isActive }) {
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [region, setRegion] = useState({
     latitude: 45.5017,
@@ -61,11 +64,23 @@ export default function XplorerFeed({ navigation, isActive }) {
   });
 
   useEffect(() => {
-    if (isActive && !hasRequestedPermission.current) {
-      hasRequestedPermission.current = true;
-      requestLocationPermission();
+    if (isActive) {
+      // Always hide bottom nav in Xplorer
+      setBottomBarHidden(true);
+
+      if (!hasRequestedPermission.current) {
+        hasRequestedPermission.current = true;
+        requestLocationPermission();
+      }
+    } else {
+      // Show bottom nav when leaving Xplorer
+      setBottomBarHidden(false);
+      showBars();
+      if (isFullscreen) {
+        setIsFullscreen(false);
+      }
     }
-  }, [isActive]);
+  }, [isActive, setBottomBarHidden, showBars]);
 
   const requestLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -101,6 +116,17 @@ export default function XplorerFeed({ navigation, isActive }) {
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       }, 500);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    const newFullscreen = !isFullscreen;
+    setIsFullscreen(newFullscreen);
+    // Hide/show top header in fullscreen mode (bottom nav always hidden in Xplorer)
+    if (newFullscreen) {
+      hideBars();
+    } else {
+      showBars();
     }
   };
 
@@ -283,8 +309,8 @@ export default function XplorerFeed({ navigation, isActive }) {
         ))}
       </MapView>
 
-      {/* SEARCH BAR + FILTER */}
-      <View style={[styles.searchContainer, { top: insets.top + hp(14) }]}>
+      {/* SEARCH BAR + FILTER - Always visible (even in fullscreen) */}
+      <View style={[styles.searchContainer, { top: insets.top + hp(1) }]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={normalize(20)} color={COLORS.grayMuted} />
           <TextInput style={styles.searchInput} placeholder="Search" placeholderTextColor={COLORS.grayMuted} value={searchQuery} onChangeText={setSearchQuery} />
@@ -297,7 +323,7 @@ export default function XplorerFeed({ navigation, isActive }) {
       {/* BOUTONS COIN INFÉRIEUR DROIT - Avec gradient */}
       <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(3) }]}>
         <GradientMapButton onPress={centerOnUser} iconName="navigate" />
-        <GradientMapButton onPress={() => {}} iconName="scan-outline" />
+        <GradientMapButton onPress={toggleFullscreen} iconName={isFullscreen ? "contract-outline" : "expand-outline"} />
       </View>
 
       {/* POPUP */}
@@ -316,15 +342,74 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: hp(1.5), fontSize: normalize(16), color: COLORS.gray },
   map: { ...StyleSheet.absoluteFillObject },
 
-  // Search Bar
-  searchContainer: { position: 'absolute', left: wp(4), right: wp(4), flexDirection: 'row', alignItems: 'center', zIndex: 10 },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: normalize(12), paddingHorizontal: wp(3), height: hp(5.5), marginRight: wp(2.5), shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  searchInput: { flex: 1, marginLeft: wp(2), fontSize: normalize(16), color: COLORS.dark },
-  filterButton: { width: hp(5.5), height: hp(5.5), borderRadius: normalize(12), backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  // Search Bar - Compact and elegant
+  searchContainer: {
+    position: 'absolute',
+    left: wp(4),
+    right: wp(4),
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: normalize(14),
+    paddingHorizontal: wp(3.5),
+    height: normalize(44),
+    marginRight: wp(2),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: wp(2.5),
+    fontSize: normalize(15),
+    fontFamily: 'Poppins-Regular',
+    color: COLORS.dark,
+    paddingVertical: 0,
+  },
+  filterButton: {
+    width: normalize(44),
+    height: normalize(44),
+    borderRadius: normalize(14),
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+  },
 
   // Map Buttons with Gradient
-  mapButtonsRight: { position: 'absolute', right: wp(4), gap: hp(1.2) },
-  gradientMapButton: { width: wp(12), height: wp(12), borderRadius: wp(6), justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  mapButtonsRight: {
+    position: 'absolute',
+    right: wp(4),
+    gap: normalize(10),
+  },
+  gradientMapButton: {
+    width: normalize(46),
+    height: normalize(46),
+    borderRadius: normalize(23),
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 
   // Marker
   markerContainer: { alignItems: 'center' },

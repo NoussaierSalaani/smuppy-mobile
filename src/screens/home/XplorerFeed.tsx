@@ -312,20 +312,37 @@ export default function XplorerFeed({ navigation, isActive }) {
       {/* SEARCH BAR + FILTER - Position adjusts based on fullscreen mode */}
       <View style={[
         styles.searchContainer,
-        { top: isFullscreen ? insets.top + 12 : insets.top + 44 + 38 + 12 }
+        { top: isFullscreen ? insets.top + 8 : insets.top + 44 + 38 + 4 }
       ]}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={normalize(18)} color={COLORS.gray} />
+          <Ionicons name="search" size={normalize(18)} color={COLORS.primary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search coaches, gyms, restaurants..."
-            placeholderTextColor={COLORS.grayMuted}
+            placeholder="Coaches, gyms, restos..."
+            placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={normalize(18)} color={COLORS.grayMuted} />
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(true)}>
-          <Ionicons name="options-outline" size={normalize(20)} color={COLORS.dark} />
+        <TouchableOpacity
+          style={[styles.filterButton, activeFilters.length > 0 && styles.filterButtonActive]}
+          onPress={() => setShowFilters(true)}
+        >
+          <Ionicons
+            name="options-outline"
+            size={normalize(20)}
+            color={activeFilters.length > 0 ? COLORS.white : COLORS.dark}
+          />
+          {activeFilters.length > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilters.length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -399,6 +416,28 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.04)',
+  },
+  filterButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: normalize(18),
+    height: normalize(18),
+    borderRadius: normalize(9),
+    backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
+  },
+  filterBadgeText: {
+    fontSize: normalize(10),
+    fontWeight: '700',
+    color: COLORS.white,
   },
 
   // Map Buttons with Gradient

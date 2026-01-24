@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
@@ -18,6 +19,15 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { COLORS } from '../../config/theme';
+import {
+  FilterProvider,
+  useFilters,
+  FilterSelector,
+  OverlayEditor,
+  DraggableOverlay,
+} from '../../filters';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const MAX_SEGMENT_DURATION = 15; // 15 seconds per segment
 
@@ -26,7 +36,7 @@ interface VideoRecorderScreenProps {
   route: any;
 }
 
-export default function VideoRecorderScreen({ navigation, route }: VideoRecorderScreenProps) {
+function VideoRecorderScreenInner({ navigation, route }: VideoRecorderScreenProps) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -39,6 +49,16 @@ export default function VideoRecorderScreen({ navigation, route }: VideoRecorder
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isRecordingRef = useRef(false);
+
+  // Filter state
+  const [showFilters, setShowFilters] = useState(true);
+  const [showOverlayEditor, setShowOverlayEditor] = useState(false);
+  const { activeFilter, activeOverlays, updateOverlay } = useFilters();
+
+  // Handle overlay position change
+  const handleOverlayPositionChange = useCallback((overlayId: string, position: any) => {
+    updateOverlay(overlayId, { position: { ...position } });
+  }, [updateOverlay]);
 
   // Progress animation (0 to 1 over 15 seconds)
   const progress = useSharedValue(0);
@@ -212,9 +232,19 @@ export default function VideoRecorderScreen({ navigation, route }: VideoRecorder
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.headerButton} onPress={toggleCameraFacing}>
-            <Ionicons name="camera-reverse-outline" size={28} color="#FFF" />
-          </TouchableOpacity>
+          <View style={styles.headerRightButtons}>
+            {/* Overlay button */}
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setShowOverlayEditor(true)}
+            >
+              <Ionicons name="layers-outline" size={24} color="#FFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.headerButton} onPress={toggleCameraFacing}>
+              <Ionicons name="camera-reverse-outline" size={28} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Progress bar */}
@@ -232,6 +262,35 @@ export default function VideoRecorderScreen({ navigation, route }: VideoRecorder
           <View style={styles.recordingIndicator}>
             <View style={styles.recordingDot} />
             <Text style={styles.recordingText}>REC</Text>
+          </View>
+        )}
+
+        {/* Active filter indicator */}
+        {activeFilter && (
+          <View style={styles.activeFilterBadge}>
+            <Ionicons name="sparkles" size={14} color="#0EBF8A" />
+            <Text style={styles.activeFilterText}>Filter Active</Text>
+          </View>
+        )}
+
+        {/* Draggable overlays */}
+        {activeOverlays.map((overlay) => (
+          <DraggableOverlay
+            key={overlay.id}
+            overlay={overlay}
+            containerWidth={SCREEN_WIDTH}
+            containerHeight={SCREEN_HEIGHT}
+            onPositionChange={(pos) => handleOverlayPositionChange(overlay.id, pos)}
+          />
+        ))}
+
+        {/* Filter Selector - shown when not recording */}
+        {showFilters && !isRecording && (
+          <View style={styles.filterSelectorContainer}>
+            <FilterSelector
+              compact
+              onOpenOverlays={() => setShowOverlayEditor(true)}
+            />
           </View>
         )}
 
@@ -265,7 +324,22 @@ export default function VideoRecorderScreen({ navigation, route }: VideoRecorder
           )}
         </View>
       </CameraView>
+
+      {/* Overlay Editor Modal */}
+      <OverlayEditor
+        visible={showOverlayEditor}
+        onClose={() => setShowOverlayEditor(false)}
+      />
     </View>
+  );
+}
+
+// Wrapper component with FilterProvider
+export default function VideoRecorderScreen(props: VideoRecorderScreenProps) {
+  return (
+    <FilterProvider>
+      <VideoRecorderScreenInner {...props} />
+    </FilterProvider>
   );
 }
 
@@ -301,6 +375,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    gap: 10,
   },
   segmentBadge: {
     flexDirection: 'row',
@@ -446,5 +524,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#0A0A0F',
+  },
+
+  // Filter styles
+  filterSelectorContainer: {
+    position: 'absolute',
+    bottom: 160,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+  activeFilterBadge: {
+    position: 'absolute',
+    top: 160,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#0EBF8A',
+  },
+  activeFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0EBF8A',
   },
 });

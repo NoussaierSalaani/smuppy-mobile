@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SmuppyPeaksIcon from './icons/SmuppyPeaksIcon';
 
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 const COLORS = {
   primary: '#0EBF8A',

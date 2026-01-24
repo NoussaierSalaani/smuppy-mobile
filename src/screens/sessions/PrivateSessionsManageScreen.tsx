@@ -1,0 +1,1089 @@
+// src/screens/sessions/PrivateSessionsManageScreen.tsx
+// Creator's screen to manage their private 1:1 sessions availability
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  SafeAreaView,
+  StatusBar,
+  Modal,
+  TextInput,
+  Switch,
+  Alert,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AvatarImage } from '../../components/OptimizedImage';
+import { COLORS, GRADIENTS } from '../../config/theme';
+
+type TabType = 'calendar' | 'requests' | 'packs';
+type SessionMode = 'unique' | 'range';
+
+interface SessionRequest {
+  id: string;
+  fan: {
+    name: string;
+    avatar: string;
+    memberSince: string; // e.g., "Jan 2024"
+  };
+  date: string;
+  time: string;
+  duration: number;
+  status: 'pending' | 'confirmed' | 'rejected';
+}
+
+interface PackOffering {
+  id: string;
+  type: 'training_program' | 'diet_plan' | 'video_access' | 'live_access' | 'custom';
+  title: string;
+  description: string;
+}
+
+interface SessionPack {
+  id: string;
+  name: string;
+  sessions: number;
+  duration: number;
+  validity: number; // validity in days from purchase date
+  price: number;
+  isActive: boolean;
+  isNew?: boolean;
+  isPopular?: boolean;
+  offerings: PackOffering[]; // What's included in the pack
+}
+
+interface AvailableSlot {
+  time: string;
+  duration: number;
+  isBooked: boolean;
+}
+
+interface ScheduledSession {
+  id: string;
+  title: string;
+  date: Date;
+  time: string;
+  duration: number;
+  price: number;
+  isBooked: boolean;
+  fanName?: string;
+}
+
+// Mock data
+const MOCK_REQUESTS: SessionRequest[] = [
+  { id: '1', fan: { name: 'Emma Wilson', avatar: 'https://i.pravatar.cc/100?img=5', memberSince: 'Jan 2024' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'confirmed' },
+  { id: '2', fan: { name: 'Alicia Smith', avatar: 'https://i.pravatar.cc/100?img=9', memberSince: 'Mar 2024' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'pending' },
+  { id: '3', fan: { name: 'Alex Rodriguez', avatar: 'https://i.pravatar.cc/100?img=12', memberSince: 'Nov 2023' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'rejected' },
+  { id: '4', fan: { name: 'David Kim', avatar: 'https://i.pravatar.cc/100?img=15', memberSince: 'Aug 2024' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'confirmed' },
+];
+
+const MOCK_PACKS: SessionPack[] = [
+  {
+    id: '1',
+    name: 'Premium Pack',
+    sessions: 8,
+    duration: 60,
+    validity: 30,
+    price: 350,
+    isActive: true,
+    isNew: true,
+    offerings: [
+      { id: 'o1', type: 'training_program', title: 'Custom Training Program', description: '8-week personalized workout plan' },
+      { id: 'o2', type: 'diet_plan', title: 'Nutrition Guide', description: 'Meal plan tailored to your goals' },
+      { id: 'o3', type: 'video_access', title: 'Video Library Access', description: 'Access to 50+ training videos' },
+    ]
+  },
+  {
+    id: '2',
+    name: 'Intensive Pack',
+    sessions: 8,
+    duration: 60,
+    validity: 30,
+    price: 350,
+    isActive: false,
+    isNew: true,
+    offerings: [
+      { id: 'o4', type: 'training_program', title: 'HIIT Program', description: 'High-intensity interval training' },
+      { id: 'o5', type: 'live_access', title: 'Weekly Live Q&A', description: 'Join exclusive live sessions' },
+    ]
+  },
+  {
+    id: '3',
+    name: 'Starter Pack',
+    sessions: 12,
+    duration: 45,
+    validity: 30,
+    price: 500,
+    isActive: false,
+    isPopular: true,
+    offerings: [
+      { id: 'o6', type: 'training_program', title: 'Beginner Program', description: 'Perfect for fitness beginners' },
+    ]
+  },
+];
+
+// Mock available slots for a date
+const MOCK_AVAILABLE_SLOTS: AvailableSlot[] = [
+  { time: '09:00', duration: 60, isBooked: false },
+  { time: '10:00', duration: 60, isBooked: true },
+  { time: '11:00', duration: 45, isBooked: false },
+  { time: '14:00', duration: 60, isBooked: false },
+  { time: '15:00', duration: 90, isBooked: false },
+  { time: '16:30', duration: 60, isBooked: true },
+  { time: '18:00', duration: 45, isBooked: false },
+];
+
+const OFFERING_TYPES = [
+  { key: 'training_program', label: 'Training Program', icon: 'barbell-outline' },
+  { key: 'diet_plan', label: 'Diet / Nutrition Plan', icon: 'nutrition-outline' },
+  { key: 'video_access', label: 'Video Library Access', icon: 'videocam-outline' },
+  { key: 'live_access', label: 'Live Sessions Access', icon: 'radio-outline' },
+  { key: 'custom', label: 'Custom Offering', icon: 'add-circle-outline' },
+] as const;
+
+const DAYS_OF_WEEK = [
+  { key: 'mon', label: 'Lun' },
+  { key: 'tue', label: 'Mar' },
+  { key: 'wed', label: 'Mer' },
+  { key: 'thu', label: 'Jeu' },
+  { key: 'fri', label: 'Ven' },
+  { key: 'sat', label: 'Sam' },
+  { key: 'sun', label: 'Dim' },
+];
+
+const DURATIONS = [30, 45, 60, 90];
+
+export default function PrivateSessionsManageScreen(): React.JSX.Element {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+
+  const [activeTab, setActiveTab] = useState<TabType>('calendar');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddPackModal, setShowAddPackModal] = useState(false);
+  const [showDateSlotsModal, setShowDateSlotsModal] = useState(false);
+  const [showAddOfferingModal, setShowAddOfferingModal] = useState(false);
+  const [sessionMode, setSessionMode] = useState<SessionMode>('unique');
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+
+  // Pack offerings state
+  const [packOfferings, setPackOfferings] = useState<PackOffering[]>([]);
+  const [newOfferingType, setNewOfferingType] = useState<PackOffering['type']>('training_program');
+  const [newOfferingTitle, setNewOfferingTitle] = useState('');
+  const [newOfferingDesc, setNewOfferingDesc] = useState('');
+
+  // Add session form states
+  const [sessionTitle, setSessionTitle] = useState('Personal Training Session');
+  const [sessionDate, setSessionDate] = useState<Date>(new Date());
+  const [sessionEndDate, setSessionEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  const [sessionTime, setSessionTime] = useState('14:30');
+  const [sessionDuration, setSessionDuration] = useState(60);
+  const [sessionPrice, setSessionPrice] = useState('20');
+  const [selectedDays, setSelectedDays] = useState<string[]>(['mer', 'ven', 'sam']);
+
+  // Add pack form states
+  const [packName, setPackName] = useState('');
+  const [packSessions, setPackSessions] = useState('8');
+  const [packDuration, setPackDuration] = useState(60);
+  const [packValidity, setPackValidity] = useState('30');
+  const [packPrice, setPackPrice] = useState('');
+
+  // Calendar data
+  const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const handleBack = () => navigation.goBack();
+
+  const toggleDay = (day: string) => {
+    if (selectedDays.includes(day)) {
+      setSelectedDays(selectedDays.filter(d => d !== day));
+    } else {
+      setSelectedDays([...selectedDays, day]);
+    }
+  };
+
+  const handleSaveSession = () => {
+    setShowAddModal(false);
+    Alert.alert('Success', 'Session availability saved!');
+  };
+
+  const handleSavePack = () => {
+    setShowAddPackModal(false);
+    Alert.alert('Success', 'Pack created successfully!');
+  };
+
+  const handleRequestAction = (id: string, action: 'accept' | 'reject') => {
+    Alert.alert(
+      action === 'accept' ? 'Accept Request' : 'Reject Request',
+      `Are you sure you want to ${action} this booking request?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: action === 'accept' ? 'Accept' : 'Reject', onPress: () => {} },
+      ]
+    );
+  };
+
+  const handleDateClick = (day: number) => {
+    // Only allow clicking on available dates
+    const isAvailable = [2, 3, 4, 5, 9, 17, 21, 22, 23, 24].includes(day);
+    if (isAvailable) {
+      setSelectedDate(day);
+      setShowDateSlotsModal(true);
+    }
+  };
+
+  const handleAddOffering = () => {
+    if (!newOfferingTitle.trim()) {
+      Alert.alert('Error', 'Please enter a title for the offering');
+      return;
+    }
+    const newOffering: PackOffering = {
+      id: `offering-${Date.now()}`,
+      type: newOfferingType,
+      title: newOfferingTitle,
+      description: newOfferingDesc,
+    };
+    setPackOfferings([...packOfferings, newOffering]);
+    setNewOfferingTitle('');
+    setNewOfferingDesc('');
+    setShowAddOfferingModal(false);
+  };
+
+  const handleRemoveOffering = (id: string) => {
+    setPackOfferings(packOfferings.filter(o => o.id !== id));
+  };
+
+  const getOfferingIcon = (type: PackOffering['type']) => {
+    const found = OFFERING_TYPES.find(t => t.key === type);
+    return found?.icon || 'add-circle-outline';
+  };
+
+  // Generate calendar days
+  const generateCalendarDays = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const days: (number | null)[] = [];
+
+    // Add empty slots for days before first of month
+    for (let i = 0; i < (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1); i++) {
+      days.push(null);
+    }
+
+    // Add days of month
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      days.push(i);
+    }
+
+    return days;
+  };
+
+  const renderCalendarTab = () => (
+    <View style={styles.tabContent}>
+      {/* View Toggle */}
+      <View style={styles.calendarHeader}>
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[styles.viewToggleBtn, calendarView === 'month' && styles.viewToggleBtnActive]}
+            onPress={() => setCalendarView('month')}
+          >
+            <Text style={[styles.viewToggleText, calendarView === 'month' && styles.viewToggleTextActive]}>Month</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewToggleBtn, calendarView === 'week' && styles.viewToggleBtnActive]}
+            onPress={() => setCalendarView('week')}
+          >
+            <Text style={[styles.viewToggleText, calendarView === 'week' && styles.viewToggleTextActive]}>Week</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.addNewBtn} onPress={() => setShowAddModal(true)}>
+          <Ionicons name="add" size={16} color={COLORS.primary} />
+          <Text style={styles.addNewText}>New</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Month Navigation */}
+      <View style={styles.monthNav}>
+        <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}>
+          <Ionicons name="chevron-back" size={24} color={COLORS.dark} />
+        </TouchableOpacity>
+        <Text style={styles.monthTitle}>
+          {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </Text>
+        <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}>
+          <Ionicons name="chevron-forward" size={24} color={COLORS.dark} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Calendar Grid */}
+      <View style={styles.calendarGrid}>
+        {/* Day headers */}
+        {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
+          <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
+        ))}
+
+        {/* Days */}
+        {generateCalendarDays().map((day, index) => {
+          const isAvailable = day && [2, 3, 4, 5, 9, 17, 21, 22, 23, 24].includes(day);
+          const isBooked = day && [9, 22].includes(day);
+          return (
+            <TouchableOpacity
+              key={index}
+              style={styles.calendarDayCell}
+              onPress={() => day && isAvailable && handleDateClick(day)}
+              disabled={!day || !isAvailable}
+            >
+              {day && (
+                <View style={[
+                  styles.calendarDay,
+                  isAvailable && styles.calendarDayAvailable,
+                  isBooked && styles.calendarDayBooked,
+                ]}>
+                  <Text style={[
+                    styles.calendarDayText,
+                    isAvailable && styles.calendarDayTextAvailable,
+                  ]}>
+                    {day}
+                  </Text>
+                  {isAvailable && !isBooked && (
+                    <View style={styles.availableDot} />
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Legend */}
+      <View style={styles.calendarLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: 'rgba(14, 191, 138, 0.15)' }]} />
+          <Text style={styles.legendText}>Available</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
+          <Text style={styles.legendText}>Booked</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderRequestsTab = () => (
+    <View style={styles.tabContent}>
+      <Text style={styles.sectionTitle}>Reservation requests</Text>
+      {MOCK_REQUESTS.map(request => (
+        <View key={request.id} style={styles.requestCard}>
+          <AvatarImage source={request.fan.avatar} size={48} />
+          <View style={styles.requestInfo}>
+            <Text style={styles.requestName}>{request.fan.name}</Text>
+            <Text style={styles.requestMemberSince}>
+              <Ionicons name="person-outline" size={11} color="#8E8E93" /> Member since {request.fan.memberSince}
+            </Text>
+            <Text style={styles.requestDetails}>
+              <Ionicons name="calendar-outline" size={11} color="#8E8E93" /> {request.date} • {request.time}
+            </Text>
+            <Text style={styles.requestDuration}>
+              <Ionicons name="time-outline" size={11} color="#8E8E93" /> {request.duration}-minute session
+            </Text>
+          </View>
+          <View style={styles.requestStatus}>
+            <Text style={[
+              styles.requestStatusText,
+              request.status === 'confirmed' && styles.statusConfirmed,
+              request.status === 'pending' && styles.statusPending,
+              request.status === 'rejected' && styles.statusRejected,
+            ]}>
+              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+            </Text>
+            {request.status === 'pending' && (
+              <View style={styles.requestActions}>
+                <TouchableOpacity
+                  style={styles.acceptBtn}
+                  onPress={() => handleRequestAction(request.id, 'accept')}
+                >
+                  <Text style={styles.acceptBtnText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rejectBtn}
+                  onPress={() => handleRequestAction(request.id, 'reject')}
+                >
+                  <Text style={styles.rejectBtnText}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
+  const renderPacksTab = () => (
+    <View style={styles.tabContent}>
+      <View style={styles.packsHeader}>
+        <Text style={styles.sectionTitle}>My Packs</Text>
+        <TouchableOpacity style={styles.createPackBtn} onPress={() => {
+          setPackOfferings([]);
+          setShowAddPackModal(true);
+        }}>
+          <Ionicons name="add" size={16} color={COLORS.primary} />
+          <Text style={styles.createPackText}>Create a pack</Text>
+        </TouchableOpacity>
+      </View>
+
+      {MOCK_PACKS.map(pack => (
+        <View key={pack.id} style={[styles.packCard, pack.isActive && styles.packCardActive]}>
+          <View style={styles.packHeader}>
+            <View style={styles.packNameRow}>
+              <Text style={styles.packName}>{pack.name}</Text>
+              {pack.isNew && <View style={styles.newBadge}><Text style={styles.newBadgeText}>New</Text></View>}
+              {pack.isPopular && <View style={styles.popularBadge}><Text style={styles.popularBadgeText}>Popular</Text></View>}
+            </View>
+            <View style={styles.packToggle}>
+              <Text style={styles.packToggleLabel}>{pack.isActive ? 'Active' : 'Inactive'}</Text>
+              <Switch
+                value={pack.isActive}
+                onValueChange={() => {}}
+                trackColor={{ false: '#E5E5E5', true: COLORS.primary }}
+                thumbColor="white"
+              />
+            </View>
+          </View>
+          <View style={styles.packDetails}>
+            <Text style={styles.packDetailText}>
+              <Ionicons name="time-outline" size={14} color="#8E8E93" /> {pack.sessions} sessions / {pack.duration}min
+            </Text>
+            <Text style={styles.packDetailText}>
+              <Ionicons name="calendar-outline" size={14} color="#8E8E93" /> Validity: {pack.validity} days from purchase
+            </Text>
+          </View>
+
+          {/* Pack Offerings */}
+          {pack.offerings && pack.offerings.length > 0 && (
+            <View style={styles.packOfferingsSection}>
+              <Text style={styles.packOfferingsTitle}>What's included:</Text>
+              {pack.offerings.map(offering => (
+                <View key={offering.id} style={styles.packOfferingItem}>
+                  <Ionicons name={getOfferingIcon(offering.type) as any} size={16} color={COLORS.primary} />
+                  <View style={styles.packOfferingInfo}>
+                    <Text style={styles.packOfferingTitle}>{offering.title}</Text>
+                    <Text style={styles.packOfferingDesc}>{offering.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <Text style={styles.packPrice}>${pack.price}/month</Text>
+          <View style={styles.packActions}>
+            <TouchableOpacity style={styles.packEditBtn}>
+              <Ionicons name="pencil-outline" size={16} color={COLORS.dark} />
+              <Text style={styles.packEditText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.packDeleteBtn}>
+              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              <Text style={styles.packDeleteText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Private Sessions</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        {(['calendar', 'requests', 'packs'] as TabType[]).map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {activeTab === 'calendar' && renderCalendarTab()}
+        {activeTab === 'requests' && renderRequestsTab()}
+        {activeTab === 'packs' && renderPacksTab()}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Add Session Modal */}
+      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add a session</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {/* Mode Toggle */}
+            <View style={styles.modeToggle}>
+              <TouchableOpacity
+                style={[styles.modeBtn, sessionMode === 'unique' && styles.modeBtnActive]}
+                onPress={() => setSessionMode('unique')}
+              >
+                <Text style={[styles.modeBtnText, sessionMode === 'unique' && styles.modeBtnTextActive]}>
+                  Unique session
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeBtn, sessionMode === 'range' && styles.modeBtnActive]}
+                onPress={() => setSessionMode('range')}
+              >
+                <Text style={[styles.modeBtnText, sessionMode === 'range' && styles.modeBtnTextActive]}>
+                  Session range
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Session Title */}
+            <Text style={styles.inputLabel}>Session Title</Text>
+            <TextInput
+              style={styles.textInput}
+              value={sessionTitle}
+              onChangeText={setSessionTitle}
+              placeholder="Enter session title"
+            />
+
+            {/* Date Selection */}
+            {sessionMode === 'unique' ? (
+              <>
+                <Text style={styles.inputLabel}>Date</Text>
+                <TouchableOpacity style={styles.dateInput}>
+                  <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                  <Text style={styles.dateInputText}>
+                    {sessionDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.dateRangeRow}>
+                <View style={styles.dateRangeField}>
+                  <Text style={styles.inputLabel}>Start Date</Text>
+                  <TouchableOpacity style={styles.dateInput}>
+                    <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                    <Text style={styles.dateInputText}>
+                      {sessionDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.dateRangeField}>
+                  <Text style={styles.inputLabel}>End Date</Text>
+                  <TouchableOpacity style={styles.dateInput}>
+                    <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                    <Text style={styles.dateInputText}>
+                      {sessionEndDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Start Time */}
+            <Text style={styles.inputLabel}>Start Time</Text>
+            <TouchableOpacity style={styles.dateInput}>
+              <Ionicons name="time-outline" size={20} color="#8E8E93" />
+              <Text style={styles.dateInputText}>{sessionTime} PM</Text>
+            </TouchableOpacity>
+
+            {/* Days of Week (for range mode) */}
+            {sessionMode === 'range' && (
+              <>
+                <Text style={styles.inputLabel}>Days of the Week</Text>
+                <View style={styles.daysRow}>
+                  {DAYS_OF_WEEK.map(day => (
+                    <TouchableOpacity
+                      key={day.key}
+                      style={[styles.dayChip, selectedDays.includes(day.key) && styles.dayChipActive]}
+                      onPress={() => toggleDay(day.key)}
+                    >
+                      <Text style={[styles.dayChipText, selectedDays.includes(day.key) && styles.dayChipTextActive]}>
+                        {day.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Duration */}
+            <Text style={styles.inputLabel}>Duration</Text>
+            <View style={styles.durationRow}>
+              {DURATIONS.map(dur => (
+                <TouchableOpacity
+                  key={dur}
+                  style={[styles.durationChip, sessionDuration === dur && styles.durationChipActive]}
+                  onPress={() => setSessionDuration(dur)}
+                >
+                  <Text style={[styles.durationChipText, sessionDuration === dur && styles.durationChipTextActive]}>
+                    {dur} min
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Price */}
+            <Text style={styles.inputLabel}>Price</Text>
+            <View style={styles.priceInput}>
+              <Ionicons name="logo-usd" size={20} color="#8E8E93" />
+              <TextInput
+                style={styles.priceInputText}
+                value={sessionPrice}
+                onChangeText={setSessionPrice}
+                keyboardType="numeric"
+                placeholder="0"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity onPress={handleSaveSession}>
+              <LinearGradient colors={GRADIENTS.primary} style={styles.saveBtn}>
+                <Text style={styles.saveBtnText}>Save</Text>
+                <Ionicons name="save-outline" size={18} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Ionicons name="close" size={16} color={COLORS.dark} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Add Pack Modal */}
+      <Modal visible={showAddPackModal} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Create a pack</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.inputLabel}>Pack Name</Text>
+            <TextInput
+              style={styles.textInput}
+              value={packName}
+              onChangeText={setPackName}
+              placeholder="e.g., Premium Pack"
+            />
+
+            <Text style={styles.inputLabel}>Number of Sessions</Text>
+            <TextInput
+              style={styles.textInput}
+              value={packSessions}
+              onChangeText={setPackSessions}
+              keyboardType="numeric"
+              placeholder="8"
+            />
+
+            <Text style={styles.inputLabel}>Session Duration</Text>
+            <View style={styles.durationRow}>
+              {DURATIONS.map(dur => (
+                <TouchableOpacity
+                  key={dur}
+                  style={[styles.durationChip, packDuration === dur && styles.durationChipActive]}
+                  onPress={() => setPackDuration(dur)}
+                >
+                  <Text style={[styles.durationChipText, packDuration === dur && styles.durationChipTextActive]}>
+                    {dur} min
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.inputLabel}>Validity (days from purchase)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={packValidity}
+              onChangeText={setPackValidity}
+              keyboardType="numeric"
+              placeholder="30"
+            />
+            <Text style={styles.validityNote}>
+              <Ionicons name="information-circle-outline" size={12} color="#8E8E93" /> Validity period starts when the user purchases the pack
+            </Text>
+
+            {/* Pack Offerings Section */}
+            <View style={styles.offeringsSection}>
+              <View style={styles.offeringsHeader}>
+                <Text style={styles.inputLabel}>What's Included</Text>
+                <TouchableOpacity style={styles.addOfferingBtn} onPress={() => setShowAddOfferingModal(true)}>
+                  <Ionicons name="add" size={18} color={COLORS.primary} />
+                  <Text style={styles.addOfferingText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {packOfferings.length === 0 ? (
+                <View style={styles.noOfferingsBox}>
+                  <Ionicons name="gift-outline" size={32} color="#CCCCCC" />
+                  <Text style={styles.noOfferingsText}>Add offerings to your pack</Text>
+                  <Text style={styles.noOfferingsSubtext}>Training programs, diet plans, video access, etc.</Text>
+                </View>
+              ) : (
+                <View style={styles.offeringsList}>
+                  {packOfferings.map(offering => (
+                    <View key={offering.id} style={styles.offeringItem}>
+                      <Ionicons name={getOfferingIcon(offering.type) as any} size={20} color={COLORS.primary} />
+                      <View style={styles.offeringItemInfo}>
+                        <Text style={styles.offeringItemTitle}>{offering.title}</Text>
+                        <Text style={styles.offeringItemDesc}>{offering.description}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleRemoveOffering(offering.id)}>
+                        <Ionicons name="close-circle" size={22} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.inputLabel}>Price per Month ($)</Text>
+            <View style={styles.priceInput}>
+              <Ionicons name="logo-usd" size={20} color="#8E8E93" />
+              <TextInput
+                style={styles.priceInputText}
+                value={packPrice}
+                onChangeText={setPackPrice}
+                keyboardType="numeric"
+                placeholder="0"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity onPress={handleSavePack}>
+              <LinearGradient colors={['#0081BE', '#00B5C1']} style={styles.saveBtn}>
+                <Text style={styles.saveBtnText}>Create Pack</Text>
+                <Ionicons name="checkmark" size={18} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddPackModal(false)}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Ionicons name="close" size={16} color={COLORS.dark} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Date Slots Modal */}
+      <Modal visible={showDateSlotsModal} animationType="slide" transparent>
+        <View style={styles.slotsModalOverlay}>
+          <View style={styles.slotsModalContent}>
+            <View style={styles.slotsModalHeader}>
+              <Text style={styles.slotsModalTitle}>
+                Available Slots - {currentMonth.toLocaleDateString('en-US', { month: 'short' })} {selectedDate}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDateSlotsModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.dark} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.slotsModalBody} showsVerticalScrollIndicator={false}>
+              {MOCK_AVAILABLE_SLOTS.map((slot, index) => (
+                <View key={index} style={[styles.slotItem, slot.isBooked && styles.slotItemBooked]}>
+                  <View style={styles.slotTimeContainer}>
+                    <Ionicons name="time-outline" size={18} color={slot.isBooked ? '#8E8E93' : COLORS.primary} />
+                    <Text style={[styles.slotTime, slot.isBooked && styles.slotTimeBooked]}>{slot.time}</Text>
+                  </View>
+                  <View style={styles.slotDurationContainer}>
+                    <Text style={styles.slotDuration}>{slot.duration} min</Text>
+                  </View>
+                  <View style={styles.slotStatusContainer}>
+                    {slot.isBooked ? (
+                      <View style={styles.bookedBadge}>
+                        <Text style={styles.bookedBadgeText}>Booked</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.availableBadge}>
+                        <Text style={styles.availableBadgeText}>Available</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.slotsModalClose} onPress={() => setShowDateSlotsModal(false)}>
+              <Text style={styles.slotsModalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Offering Modal */}
+      <Modal visible={showAddOfferingModal} animationType="fade" transparent>
+        <View style={styles.offeringModalOverlay}>
+          <View style={styles.offeringModalContent}>
+            <View style={styles.offeringModalHeader}>
+              <Text style={styles.offeringModalTitle}>Add Offering</Text>
+              <TouchableOpacity onPress={() => setShowAddOfferingModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.dark} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.offeringModalBody}>
+              <Text style={styles.inputLabel}>Type</Text>
+              <View style={styles.offeringTypesGrid}>
+                {OFFERING_TYPES.map(type => (
+                  <TouchableOpacity
+                    key={type.key}
+                    style={[styles.offeringTypeBtn, newOfferingType === type.key && styles.offeringTypeBtnActive]}
+                    onPress={() => setNewOfferingType(type.key)}
+                  >
+                    <Ionicons name={type.icon as any} size={20} color={newOfferingType === type.key ? 'white' : COLORS.dark} />
+                    <Text style={[styles.offeringTypeText, newOfferingType === type.key && styles.offeringTypeTextActive]}>
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>Title</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newOfferingTitle}
+                onChangeText={setNewOfferingTitle}
+                placeholder="e.g., Custom Training Program"
+              />
+
+              <Text style={styles.inputLabel}>Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.textAreaInput]}
+                value={newOfferingDesc}
+                onChangeText={setNewOfferingDesc}
+                placeholder="Describe what's included..."
+                multiline
+                numberOfLines={3}
+              />
+            </ScrollView>
+
+            <View style={styles.offeringModalFooter}>
+              <TouchableOpacity style={styles.addOfferingConfirmBtn} onPress={handleAddOffering}>
+                <Text style={styles.addOfferingConfirmText}>Add Offering</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.dark },
+  placeholder: { width: 40 },
+
+  tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 8 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F5F5F5', alignItems: 'center' },
+  tabActive: { backgroundColor: 'rgba(14, 191, 138, 0.15)' },
+  tabText: { fontSize: 14, fontWeight: '500', color: '#8E8E93' },
+  tabTextActive: { color: COLORS.primary, fontWeight: '600' },
+
+  content: { flex: 1 },
+  tabContent: { padding: 16 },
+
+  // Calendar
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  viewToggle: { flexDirection: 'row', backgroundColor: '#F5F5F5', borderRadius: 8, padding: 4 },
+  viewToggleBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 },
+  viewToggleBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  viewToggleText: { fontSize: 13, fontWeight: '500', color: '#8E8E93' },
+  viewToggleTextActive: { color: COLORS.dark },
+  addNewBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(14, 191, 138, 0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, gap: 4 },
+  addNewText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+
+  monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  monthTitle: { fontSize: 16, fontWeight: '600', color: COLORS.dark },
+
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarDayHeader: { width: '14.28%', textAlign: 'center', fontSize: 12, fontWeight: '500', color: '#8E8E93', marginBottom: 8 },
+  calendarDayCell: { width: '14.28%', aspectRatio: 1, padding: 2 },
+  calendarDay: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
+  calendarDayAvailable: { backgroundColor: 'rgba(14, 191, 138, 0.15)' },
+  calendarDayBooked: { backgroundColor: COLORS.primary },
+  calendarDayText: { fontSize: 14, fontWeight: '500', color: COLORS.dark },
+  calendarDayTextAvailable: { color: COLORS.primary },
+  availableDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary, marginTop: 2 },
+  calendarLegend: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendDot: { width: 16, height: 16, borderRadius: 4 },
+  legendText: { fontSize: 12, color: '#8E8E93' },
+
+  // Requests
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.dark, marginBottom: 16 },
+  requestCard: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, backgroundColor: '#F9F9F9', borderRadius: 12, marginBottom: 12, gap: 12 },
+  requestInfo: { flex: 1 },
+  requestName: { fontSize: 16, fontWeight: '600', color: COLORS.dark },
+  requestMemberSince: { fontSize: 11, color: '#8E8E93', marginTop: 4 },
+  requestDetails: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
+  requestDuration: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  requestStatus: { alignItems: 'flex-end' },
+  requestStatusText: { fontSize: 13, fontWeight: '600' },
+  statusConfirmed: { color: COLORS.primary },
+  statusPending: { color: '#FF9500' },
+  statusRejected: { color: '#FF3B30' },
+  requestActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  acceptBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  acceptBtnText: { fontSize: 13, fontWeight: '600', color: 'white' },
+  rejectBtn: { backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E5E5E5' },
+  rejectBtnText: { fontSize: 13, fontWeight: '600', color: '#FF3B30' },
+
+  // Packs
+  packsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  createPackBtn: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, gap: 4 },
+  createPackText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  packCard: { backgroundColor: '#F9F9F9', borderRadius: 16, padding: 16, marginBottom: 16 },
+  packCardActive: { backgroundColor: 'rgba(14, 191, 138, 0.08)', borderWidth: 1, borderColor: 'rgba(14, 191, 138, 0.3)' },
+  packHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  packNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  packName: { fontSize: 17, fontWeight: '700', color: COLORS.dark },
+  newBadge: { backgroundColor: '#FF9500', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  newBadgeText: { fontSize: 10, fontWeight: '700', color: 'white' },
+  popularBadge: { backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  popularBadgeText: { fontSize: 10, fontWeight: '700', color: 'white' },
+  packToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  packToggleLabel: { fontSize: 12, color: '#8E8E93' },
+  packDetails: { marginBottom: 8 },
+  packDetailText: { fontSize: 13, color: '#8E8E93', marginBottom: 4 },
+  packPrice: { fontSize: 20, fontWeight: '700', color: COLORS.dark, marginBottom: 12 },
+  packActions: { flexDirection: 'row', gap: 12 },
+  packEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: '#E5E5E5' },
+  packEditText: { fontSize: 14, fontWeight: '500', color: COLORS.dark },
+  packDeleteBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: '#FFE5E5' },
+  packDeleteText: { fontSize: 14, fontWeight: '500', color: '#FF3B30' },
+
+  // Modal
+  modalContainer: { flex: 1, backgroundColor: 'white' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: COLORS.dark },
+  modalContent: { flex: 1, padding: 20 },
+  modalFooter: { padding: 20, gap: 12 },
+
+  modeToggle: { flexDirection: 'row', backgroundColor: '#F5F5F5', borderRadius: 12, padding: 4, marginBottom: 24 },
+  modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  modeBtnActive: { backgroundColor: COLORS.primary },
+  modeBtnText: { fontSize: 14, fontWeight: '500', color: '#8E8E93' },
+  modeBtnTextActive: { color: 'white', fontWeight: '600' },
+
+  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.dark, marginBottom: 8, marginTop: 16 },
+  textInput: { borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: COLORS.dark },
+  dateInput: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  dateInputText: { fontSize: 16, color: COLORS.dark },
+  dateRangeRow: { flexDirection: 'row', gap: 12 },
+  dateRangeField: { flex: 1 },
+
+  daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  dayChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F5F5F5' },
+  dayChipActive: { backgroundColor: COLORS.primary },
+  dayChipText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
+  dayChipTextActive: { color: 'white' },
+
+  durationRow: { flexDirection: 'row', gap: 10 },
+  durationChip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F5F5F5' },
+  durationChipActive: { backgroundColor: COLORS.primary },
+  durationChipText: { fontSize: 14, fontWeight: '500', color: COLORS.dark },
+  durationChipTextActive: { color: 'white' },
+
+  priceInput: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 12, paddingHorizontal: 16, gap: 8 },
+  priceInputText: { flex: 1, fontSize: 16, color: COLORS.dark, paddingVertical: 14 },
+
+  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 8 },
+  saveBtnText: { fontSize: 16, fontWeight: '600', color: 'white' },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E5E5E5', gap: 6 },
+  cancelBtnText: { fontSize: 15, fontWeight: '500', color: COLORS.dark },
+
+  // Pack Offerings
+  packOfferingsSection: { marginTop: 12, marginBottom: 12, padding: 12, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 10 },
+  packOfferingsTitle: { fontSize: 13, fontWeight: '600', color: COLORS.dark, marginBottom: 8 },
+  packOfferingItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+  packOfferingInfo: { flex: 1 },
+  packOfferingTitle: { fontSize: 13, fontWeight: '600', color: COLORS.dark },
+  packOfferingDesc: { fontSize: 11, color: '#8E8E93', marginTop: 2 },
+
+  // Validity Note
+  validityNote: { fontSize: 12, color: '#8E8E93', marginTop: 6, fontStyle: 'italic' },
+
+  // Offerings Section in Modal
+  offeringsSection: { marginTop: 16 },
+  offeringsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  addOfferingBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(14, 191, 138, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4 },
+  addOfferingText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  noOfferingsBox: { alignItems: 'center', padding: 24, backgroundColor: '#F9F9F9', borderRadius: 12, borderWidth: 1, borderColor: '#E5E5E5', borderStyle: 'dashed' },
+  noOfferingsText: { fontSize: 14, fontWeight: '500', color: '#8E8E93', marginTop: 8 },
+  noOfferingsSubtext: { fontSize: 12, color: '#AAAAAA', marginTop: 4 },
+  offeringsList: { gap: 8 },
+  offeringItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9F9F9', padding: 12, borderRadius: 10, gap: 12 },
+  offeringItemInfo: { flex: 1 },
+  offeringItemTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
+  offeringItemDesc: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+
+  // Date Slots Modal
+  slotsModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  slotsModalContent: { backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' },
+  slotsModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  slotsModalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.dark },
+  slotsModalBody: { padding: 16 },
+  slotItem: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#F9F9F9', borderRadius: 12, marginBottom: 10 },
+  slotItemBooked: { backgroundColor: '#FAFAFA', opacity: 0.7 },
+  slotTimeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  slotTime: { fontSize: 16, fontWeight: '600', color: COLORS.dark },
+  slotTimeBooked: { color: '#8E8E93' },
+  slotDurationContainer: { flex: 1 },
+  slotDuration: { fontSize: 14, color: '#8E8E93' },
+  slotStatusContainer: { flex: 1, alignItems: 'flex-end' },
+  bookedBadge: { backgroundColor: '#FFE5E5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  bookedBadgeText: { fontSize: 12, fontWeight: '600', color: '#FF3B30' },
+  availableBadge: { backgroundColor: 'rgba(14, 191, 138, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  availableBadgeText: { fontSize: 12, fontWeight: '600', color: COLORS.primary },
+  slotsModalClose: { padding: 20, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  slotsModalCloseText: { fontSize: 16, fontWeight: '600', color: COLORS.dark },
+
+  // Add Offering Modal
+  offeringModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  offeringModalContent: { backgroundColor: 'white', borderRadius: 20, maxHeight: '80%' },
+  offeringModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  offeringModalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.dark },
+  offeringModalBody: { padding: 20 },
+  offeringTypesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  offeringTypeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, gap: 6, marginBottom: 4 },
+  offeringTypeBtnActive: { backgroundColor: COLORS.primary },
+  offeringTypeText: { fontSize: 12, fontWeight: '500', color: COLORS.dark },
+  offeringTypeTextActive: { color: 'white' },
+  textAreaInput: { height: 80, textAlignVertical: 'top', paddingTop: 12 },
+  offeringModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  addOfferingConfirmBtn: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  addOfferingConfirmText: { fontSize: 16, fontWeight: '600', color: 'white' },
+});

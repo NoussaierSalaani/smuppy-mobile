@@ -212,6 +212,112 @@ const MOCK_COLLECTIONS = [
   },
 ];
 
+// Mock data for Videos (pro_creator) - pre-recorded content with visibility scheduling
+const MOCK_VIDEOS = [
+  {
+    id: 'video-1',
+    title: 'Full Body Workout Program - Week 1',
+    thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
+    duration: '35:20',
+    visibility: 'public' as const, // 'public' | 'private' | 'hidden'
+    scheduledAt: null,
+    views: 2847,
+    createdAt: '2026-01-20',
+  },
+  {
+    id: 'video-2',
+    title: 'Advanced Techniques - Members Only',
+    thumbnail: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400',
+    duration: '42:15',
+    visibility: 'private' as const,
+    scheduledAt: null,
+    views: 543,
+    createdAt: '2026-01-18',
+  },
+  {
+    id: 'video-3',
+    title: 'Upcoming Program Preview',
+    thumbnail: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400',
+    duration: '28:45',
+    visibility: 'hidden' as const,
+    scheduledAt: new Date('2026-01-25T10:00:00').toISOString(),
+    views: 0,
+    createdAt: '2026-01-22',
+  },
+  {
+    id: 'video-4',
+    title: 'Nutrition Tips & Meal Prep',
+    thumbnail: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=400',
+    duration: '25:30',
+    visibility: 'public' as const,
+    scheduledAt: null,
+    views: 1234,
+    createdAt: '2026-01-15',
+  },
+];
+
+// Mock data for recorded Lives (pro_creator) - all Lives are for fans/members
+const MOCK_LIVES = [
+  {
+    id: 'live-1',
+    title: 'Morning Workout Session',
+    thumbnail: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400',
+    duration: '45:23',
+    viewers: 1234,
+    date: '2026-01-22',
+  },
+  {
+    id: 'live-2',
+    title: 'Q&A with fans',
+    thumbnail: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400',
+    duration: '32:15',
+    viewers: 856,
+    date: '2026-01-20',
+  },
+  {
+    id: 'live-3',
+    title: 'Behind the scenes - Match Day',
+    thumbnail: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400',
+    duration: '28:42',
+    viewers: 2341,
+    date: '2026-01-18',
+  },
+];
+
+// Mock data for scheduled sessions (pro_creator)
+const MOCK_SESSIONS = [
+  {
+    id: 'session-1',
+    clientName: 'John Doe',
+    clientAvatar: 'https://randomuser.me/api/portraits/men/45.jpg',
+    date: '2026-01-24',
+    time: '14:00',
+    duration: 30,
+    price: 49.99,
+    status: 'upcoming',
+  },
+  {
+    id: 'session-2',
+    clientName: 'Sarah Miller',
+    clientAvatar: 'https://randomuser.me/api/portraits/women/32.jpg',
+    date: '2026-01-25',
+    time: '10:00',
+    duration: 45,
+    price: 69.99,
+    status: 'upcoming',
+  },
+  {
+    id: 'session-3',
+    clientName: 'Mike Johnson',
+    clientAvatar: 'https://randomuser.me/api/portraits/men/28.jpg',
+    date: '2026-01-21',
+    time: '16:30',
+    duration: 30,
+    price: 49.99,
+    status: 'completed',
+  },
+];
+
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser } = useUser();
@@ -674,11 +780,37 @@ const ProfileScreen = ({ navigation, route }) => {
   );
 
   // ==================== RENDER TABS ====================
-  const TABS = [
-    { key: 'posts', label: 'Posts' },
-    { key: 'peaks', label: 'Peaks' },
-    { key: 'collections', label: 'Collections' },
-  ] as const;
+  // Dynamic tabs based on account type
+  const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
+
+  const TABS = useMemo(() => {
+    const baseTabs = [
+      { key: 'posts', label: 'Posts' },
+      { key: 'peaks', label: 'Peaks' },
+    ];
+
+    // Add tabs for pro_creator
+    if (isProCreator && isOwnProfile) {
+      baseTabs.push(
+        { key: 'videos', label: 'Videos' },
+        { key: 'sessions', label: 'Sessions' },
+        { key: 'lives', label: 'Lives' },
+      );
+    } else if (isProCreator && !isOwnProfile) {
+      // For viewing a pro_creator profile, show Videos and Lives
+      baseTabs.push(
+        { key: 'videos', label: 'Videos' },
+        { key: 'lives', label: 'Lives' },
+      );
+    }
+
+    // Collections only for own profile
+    if (isOwnProfile) {
+      baseTabs.push({ key: 'collections', label: 'Collections' });
+    }
+
+    return baseTabs;
+  }, [isProCreator, isOwnProfile]) as { key: string; label: string }[];
 
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
@@ -926,6 +1058,315 @@ const ProfileScreen = ({ navigation, route }) => {
     );
   };
 
+  // ==================== RENDER LIVE ITEM ====================
+  const renderLiveItem = useCallback((live) => (
+    <TouchableOpacity
+      key={live.id}
+      style={styles.liveCard}
+      onPress={() => {
+        // Navigate to recorded live playback
+        // navigation.navigate('LivePlayback', { liveId: live.id });
+      }}
+    >
+      <OptimizedImage source={live.thumbnail} style={styles.liveThumb} />
+      {/* Live icon overlay */}
+      <View style={styles.livePlayOverlay}>
+        <View style={styles.livePlayBtn}>
+          <Ionicons name="play" size={20} color="#FFF" />
+        </View>
+      </View>
+      {/* Duration badge */}
+      <View style={styles.liveDuration}>
+        <Ionicons name="time-outline" size={10} color="#FFF" />
+        <Text style={styles.liveDurationText}>{live.duration}</Text>
+      </View>
+      {/* Fans badge */}
+      <View style={styles.liveMembersBadge}>
+        <Ionicons name="people" size={10} color="#FFF" />
+        <Text style={styles.liveMembersText}>Fans</Text>
+      </View>
+      {/* Info section */}
+      <View style={styles.liveInfo}>
+        <Text style={styles.liveTitle} numberOfLines={2}>{live.title}</Text>
+        <View style={styles.liveMeta}>
+          <View style={styles.liveMetaItem}>
+            <Ionicons name="eye" size={12} color="#8E8E93" />
+            <Text style={styles.liveMetaText}>{live.viewers.toLocaleString()}</Text>
+          </View>
+          <Text style={styles.liveDate}>{new Date(live.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  ), [navigation]);
+
+  // ==================== RENDER VIDEO ITEM ====================
+  const renderVideoItem = useCallback((video: typeof MOCK_VIDEOS[0]) => {
+    const getVisibilityIcon = () => {
+      switch (video.visibility) {
+        case 'public': return 'globe-outline';
+        case 'private': return 'lock-closed-outline';
+        case 'hidden': return 'eye-off-outline';
+      }
+    };
+    const getVisibilityColor = () => {
+      switch (video.visibility) {
+        case 'public': return COLORS.primary;
+        case 'private': return '#0081BE';
+        case 'hidden': return '#8E8E93';
+      }
+    };
+    const getVisibilityLabel = () => {
+      switch (video.visibility) {
+        case 'public': return 'All Fans';
+        case 'private': return 'Members Only';
+        case 'hidden': return video.scheduledAt ? `Scheduled ${new Date(video.scheduledAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : 'Hidden';
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        key={video.id}
+        style={styles.videoCard}
+        onPress={() => navigation.navigate('PostDetailProfile', { postId: video.id })}
+        activeOpacity={0.8}
+      >
+        <OptimizedImage
+          source={video.thumbnail}
+          style={styles.videoThumbnail}
+        />
+        <View style={styles.videoDurationBadge}>
+          <Ionicons name="play" size={10} color="white" />
+          <Text style={styles.videoDurationText}>{video.duration}</Text>
+        </View>
+        <View style={styles.videoInfo}>
+          <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
+          <View style={styles.videoMeta}>
+            <View style={[styles.videoVisibilityBadge, { backgroundColor: `${getVisibilityColor()}15` }]}>
+              <Ionicons name={getVisibilityIcon()} size={12} color={getVisibilityColor()} />
+              <Text style={[styles.videoVisibilityText, { color: getVisibilityColor() }]}>
+                {getVisibilityLabel()}
+              </Text>
+            </View>
+            {video.views > 0 && (
+              <Text style={styles.videoViews}>{video.views.toLocaleString()} views</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [navigation]);
+
+  // ==================== RENDER VIDEOS ====================
+  const renderVideos = () => {
+    // Filter videos based on visibility for non-owners
+    const visibleVideos = isOwnProfile
+      ? MOCK_VIDEOS
+      : MOCK_VIDEOS.filter(v => v.visibility === 'public' || v.visibility === 'private');
+
+    if (visibleVideos.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="film-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>No videos yet</Text>
+          <Text style={styles.emptyDesc}>
+            {isOwnProfile
+              ? 'Upload pre-recorded content for your fans'
+              : 'This creator hasn\'t shared any videos yet'}
+          </Text>
+          {isOwnProfile && (
+            <TouchableOpacity style={styles.createBtn}>
+              <Text style={styles.createBtnText}>Upload Video</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFF" />
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    return (
+      <View>
+        {isOwnProfile && (
+          <TouchableOpacity style={styles.uploadVideoBtn}>
+            <LinearGradient
+              colors={['#0081BE', '#00B5C1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.uploadVideoBtnGradient}
+            >
+              <Ionicons name="cloud-upload-outline" size={20} color="#FFF" />
+              <Text style={styles.uploadVideoBtnText}>Upload New Video</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+        <View style={styles.videosGrid}>
+          {visibleVideos.map(renderVideoItem)}
+        </View>
+      </View>
+    );
+  };
+
+  // ==================== RENDER LIVES ====================
+  const renderLives = () => {
+    // For fan viewing a pro_creator's profile - show all Lives (they're all for fans)
+    if (!isOwnProfile) {
+      if (MOCK_LIVES.length === 0) {
+        return (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+            <Text style={styles.emptyTitle}>No lives yet</Text>
+            <Text style={styles.emptyDesc}>
+              This creator hasn't shared any recorded lives yet
+            </Text>
+          </View>
+        );
+      }
+      return (
+        <View style={styles.livesGrid}>
+          {MOCK_LIVES.map(renderLiveItem)}
+        </View>
+      );
+    }
+
+    // For pro_creator viewing their own profile
+    if (MOCK_LIVES.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>No lives yet</Text>
+          <Text style={styles.emptyDesc}>
+            Go live to connect with your fans in real-time
+          </Text>
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={() => navigation.navigate('GoLive')}
+          >
+            <Text style={styles.createBtnText}>Go Live</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View>
+        {/* Schedule button for creator */}
+        <TouchableOpacity
+          style={styles.scheduleLiveBtn}
+          onPress={() => navigation.navigate('GoLive')}
+        >
+          <LinearGradient
+            colors={['#0EBF8A', '#00B5C1']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.scheduleLiveBtnGradient}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+            <Text style={styles.scheduleLiveBtnText}>Go Live Now</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <View style={styles.livesGrid}>
+          {MOCK_LIVES.map(renderLiveItem)}
+        </View>
+      </View>
+    );
+  };
+
+  // ==================== RENDER SESSION ITEM ====================
+  const renderSessionItem = useCallback((session) => {
+    const isUpcoming = session.status === 'upcoming';
+    const sessionDate = new Date(session.date);
+    const dayName = sessionDate.toLocaleDateString('fr-FR', { weekday: 'short' });
+    const dayNum = sessionDate.getDate();
+    const month = sessionDate.toLocaleDateString('fr-FR', { month: 'short' });
+
+    return (
+      <View key={session.id} style={styles.sessionCard}>
+        <View style={styles.sessionDateBox}>
+          <Text style={styles.sessionDayName}>{dayName}</Text>
+          <Text style={styles.sessionDayNum}>{dayNum}</Text>
+          <Text style={styles.sessionMonth}>{month}</Text>
+        </View>
+        <View style={styles.sessionInfo}>
+          <View style={styles.sessionHeader}>
+            <AvatarImage source={session.clientAvatar} size={36} />
+            <View style={styles.sessionDetails}>
+              <Text style={styles.sessionClientName}>{session.clientName}</Text>
+              <Text style={styles.sessionTime}>
+                {session.time} • {session.duration} min
+              </Text>
+            </View>
+            <View style={[
+              styles.sessionStatusBadge,
+              isUpcoming ? styles.sessionStatusUpcoming : styles.sessionStatusCompleted
+            ]}>
+              <Text style={[
+                styles.sessionStatusText,
+                isUpcoming ? styles.sessionStatusTextUpcoming : styles.sessionStatusTextCompleted
+              ]}>
+                {isUpcoming ? 'Upcoming' : 'Completed'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.sessionFooter}>
+            <Text style={styles.sessionPrice}>${session.price}</Text>
+            {isUpcoming && (
+              <TouchableOpacity style={styles.sessionJoinBtn}>
+                <Text style={styles.sessionJoinText}>Join</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  }, []);
+
+  // ==================== RENDER SESSIONS ====================
+  const renderSessions = () => {
+    if (!isOwnProfile) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>Private</Text>
+          <Text style={styles.emptyDesc}>
+            Sessions are only visible to the creator
+          </Text>
+        </View>
+      );
+    }
+
+    const upcomingSessions = MOCK_SESSIONS.filter(s => s.status === 'upcoming');
+    const pastSessions = MOCK_SESSIONS.filter(s => s.status === 'completed');
+
+    if (MOCK_SESSIONS.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>No sessions yet</Text>
+          <Text style={styles.emptyDesc}>
+            Your 1:1 sessions with fans will appear here
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.sessionsContainer}>
+        {upcomingSessions.length > 0 && (
+          <>
+            <Text style={styles.sessionsSection}>Upcoming</Text>
+            {upcomingSessions.map(renderSessionItem)}
+          </>
+        )}
+        {pastSessions.length > 0 && (
+          <>
+            <Text style={styles.sessionsSection}>Past Sessions</Text>
+            {pastSessions.map(renderSessionItem)}
+          </>
+        )}
+      </View>
+    );
+  };
+
   // ==================== QR CODE MODAL ====================
   const renderQRModal = () => (
     <Modal
@@ -987,6 +1428,15 @@ const ProfileScreen = ({ navigation, route }) => {
     }
     if (activeTab === 'peaks') {
       return renderPeaks();
+    }
+    if (activeTab === 'videos') {
+      return renderVideos();
+    }
+    if (activeTab === 'lives') {
+      return renderLives();
+    }
+    if (activeTab === 'sessions') {
+      return renderSessions();
     }
     if (activeTab === 'collections') {
       return renderCollections();
@@ -1719,6 +2169,330 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#0A0A0F',
     marginLeft: 16,
+  },
+
+  // ===== LIVES GRID =====
+  livesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  liveCard: {
+    width: (SCREEN_WIDTH - 48) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  liveThumb: {
+    width: '100%',
+    height: 100,
+  },
+  livePlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  livePlayBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  liveDuration: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
+  },
+  liveDurationText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  liveMembersBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0EBF8A',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
+  },
+  liveMembersText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  liveInfo: {
+    padding: 10,
+  },
+  liveTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0A0A0F',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  liveMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  liveMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  liveMetaText: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+  liveDate: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+  scheduleLiveBtn: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  scheduleLiveBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  scheduleLiveBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // ===== VIDEOS GRID =====
+  videosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  videoCard: {
+    width: (SCREEN_WIDTH - 48) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: 100,
+  },
+  videoDurationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
+  },
+  videoDurationText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  videoInfo: {
+    padding: 10,
+  },
+  videoTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0A0A0F',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  videoMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  videoVisibilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  videoVisibilityText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  videoViews: {
+    fontSize: 10,
+    color: '#8E8E93',
+  },
+  uploadVideoBtn: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  uploadVideoBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  uploadVideoBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // ===== SESSIONS =====
+  sessionsContainer: {
+    paddingHorizontal: 16,
+  },
+  sessionsSection: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0A0A0F',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  sessionCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  sessionDateBox: {
+    width: 60,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  sessionDayName: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  sessionDayNum: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0A0A0F',
+    marginVertical: 2,
+  },
+  sessionMonth: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  sessionInfo: {
+    flex: 1,
+    padding: 12,
+  },
+  sessionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sessionDetails: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  sessionClientName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0A0A0F',
+  },
+  sessionTime: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  sessionStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  sessionStatusUpcoming: {
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+  },
+  sessionStatusCompleted: {
+    backgroundColor: '#F3F4F6',
+  },
+  sessionStatusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  sessionStatusTextUpcoming: {
+    color: '#0EBF8A',
+  },
+  sessionStatusTextCompleted: {
+    color: '#8E8E93',
+  },
+  sessionFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  sessionPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0A0A0F',
+  },
+  sessionJoinBtn: {
+    backgroundColor: '#0EBF8A',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  sessionJoinText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFF',
   },
 });
 

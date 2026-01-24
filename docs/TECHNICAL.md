@@ -1,6 +1,6 @@
 # SMUPPY - Documentation Technique
 
-> Dernière mise à jour: 20 janvier 2026 (align état réel auth/navigation + roadmap MVP)
+> Dernière mise à jour: 24 janvier 2026 (Live Streaming + Private Sessions + Feed System + 74 écrans)
 
 ## Table des Matières
 

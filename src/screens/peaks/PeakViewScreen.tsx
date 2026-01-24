@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -462,6 +462,19 @@ const PeakViewScreen = (): React.JSX.Element => {
   const tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;
   const isOwnPeak = currentPeak.isOwnPeak || false;
 
+  // Get unique users from peaks for the avatar carousel
+  const uniqueUsers = useMemo(() => {
+    const seen = new Set<string>();
+    return peaks.filter(peak => {
+      if (seen.has(peak.user.id)) return false;
+      seen.add(peak.user.id);
+      return true;
+    }).map(peak => peak.user);
+  }, [peaks]);
+
+  // Find which user index is currently selected
+  const currentUserIndex = uniqueUsers.findIndex(u => u.id === currentPeak.user?.id);
+
   return (
     <View style={styles.container}>
       <StatusBar hidden />
@@ -481,12 +494,89 @@ const PeakViewScreen = (): React.JSX.Element => {
         </View>
       </TouchableWithoutFeedback>
 
-      {/* Progress Bar - Always visible at top */}
-      <View style={[styles.progressBarContainer, { top: insets.top + 8 }]}>
-        <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+      {/* Top Header with Avatar Carousel */}
+      {carouselVisible && (
+        <View style={[styles.topHeader, { paddingTop: insets.top + 8 }]}>
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleGoBack}
+          >
+            <Ionicons name="chevron-back" size={26} color={COLORS.white} />
+          </TouchableOpacity>
+
+          {/* Circular Avatar Carousel */}
+          <View style={styles.avatarCarousel}>
+            {uniqueUsers.map((user, index) => {
+              const isSelected = index === currentUserIndex;
+              return (
+                <TouchableOpacity
+                  key={user.id}
+                  style={[
+                    styles.avatarItem,
+                    isSelected && styles.avatarItemSelected,
+                  ]}
+                  onPress={() => {
+                    // Find first peak of this user
+                    const peakIndex = peaks.findIndex(p => p.user.id === user.id);
+                    if (peakIndex !== -1) setCurrentIndex(peakIndex);
+                  }}
+                >
+                  {isSelected ? (
+                    <LinearGradient
+                      colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.avatarRingGradient}
+                    >
+                      <Image
+                        source={{ uri: user.avatar }}
+                        style={styles.avatarImageSelected}
+                      />
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.avatarRingInactive}>
+                      <Image
+                        source={{ uri: user.avatar }}
+                        style={styles.avatarImageInactive}
+                      />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Add Button */}
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleCreatePeak}
+          >
+            <Ionicons name="add" size={26} color={COLORS.white} />
+          </TouchableOpacity>
         </View>
-      </View>
+      )}
+
+      {/* Peak Progress Segments - Below avatars */}
+      {carouselVisible && (
+        <View style={[styles.progressSegmentsContainer, { top: insets.top + 70 }]}>
+          {peaks.filter(p => p.user.id === currentPeak.user?.id).map((_, idx) => {
+            const userPeaks = peaks.filter(p => p.user.id === currentPeak.user?.id);
+            const currentUserPeakIndex = userPeaks.findIndex(p => p.id === currentPeak.id);
+            const isCurrentSegment = idx === currentUserPeakIndex;
+            const isPastSegment = idx < currentUserPeakIndex;
+            return (
+              <View key={idx} style={styles.progressSegment}>
+                <View style={[
+                  styles.progressSegmentFill,
+                  isPastSegment && styles.progressSegmentComplete,
+                  isCurrentSegment && { width: `${progress}%` },
+                ]} />
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       <PeakCarousel
         peaks={peaks}
@@ -495,36 +585,17 @@ const PeakViewScreen = (): React.JSX.Element => {
         currentPeakDuration={currentPeak.duration || 10}
         isPaused={isPaused}
         onPeakComplete={handlePeakComplete}
-        visible={carouselVisible && !isInChain}
+        visible={false}
       />
 
-      {/* Header */}
+      {/* Vertical Action Buttons - Right Side */}
       {carouselVisible && (
-        <View style={[styles.header, { top: insets.top + 20 }]}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleGoBack}
-          >
-            <Ionicons name="chevron-back" size={28} color={COLORS.white} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleCreatePeak}
-          >
-            <Ionicons name="add" size={28} color={COLORS.white} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Vertical Action Buttons - Right Side (TikTok Style) */}
-      {carouselVisible && (
-        <View style={[styles.actionButtonsContainer, { bottom: insets.bottom + 120 }]}>
+        <View style={[styles.actionButtonsContainer, { bottom: insets.bottom + 100 }]}>
           {/* Like Button */}
           <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
               <SmuppyHeartIcon
-                size={24}
+                size={26}
                 color={isLiked ? COLORS.primary : COLORS.white}
                 filled={isLiked}
               />
@@ -532,23 +603,19 @@ const PeakViewScreen = (): React.JSX.Element => {
             <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
           </TouchableOpacity>
 
-          {/* Reply with Peak Button */}
+          {/* Comments/Reply Button */}
           <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="videocam-outline" size={24} color={COLORS.white} />
+              <Ionicons name="chatbubble-outline" size={24} color={COLORS.white} />
             </View>
             <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
           </TouchableOpacity>
 
-          {/* Tag Button */}
-          <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
-            <View style={[styles.actionIconContainer, styles.tagIconContainer]}>
-              <Ionicons name="pricetag-outline" size={24} color={COLORS.white} />
+          {/* Share Button */}
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleMenuAction('share')}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="paper-plane-outline" size={24} color={COLORS.white} />
             </View>
-            {/* Only show tag count to creator */}
-            {isOwnPeak && tagsCount > 0 && (
-              <Text style={styles.actionCount}>{formatCount(tagsCount)}</Text>
-            )}
           </TouchableOpacity>
 
           {/* Save Button */}
@@ -561,53 +628,41 @@ const PeakViewScreen = (): React.JSX.Element => {
               />
             </View>
           </TouchableOpacity>
+
+          {/* More Options */}
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowMenu(true)}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="ellipsis-horizontal" size={24} color={COLORS.white} />
+            </View>
+          </TouchableOpacity>
         </View>
       )}
 
-      {/* Bottom Info - User Info & Text */}
+      {/* Bottom Info - User Info & Progress Bar */}
       {carouselVisible && (
-        <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             style={styles.userInfo}
             onPress={() => navigation.navigate('UserProfile', { userId: currentPeak.user?.id })}
           >
-            <LinearGradient
-              colors={['#0EBF8A', '#00B5C1', '#0081BE']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarGradient}
-            >
-              <Image
-                source={{ uri: currentPeak.user?.avatar }}
-                style={styles.avatar}
-              />
-            </LinearGradient>
             <View style={styles.userTextInfo}>
               <Text style={styles.userName}>{currentPeak.user?.name}</Text>
               <Text style={styles.viewsText}>
-                <Ionicons name="eye" size={12} color={COLORS.gray} /> {formatCount(currentPeak.views || 0)} vues
+                {formatCount(currentPeak.views || 0)} vues
               </Text>
             </View>
           </TouchableOpacity>
 
           {currentPeak.textOverlay && (
-            <View style={styles.ctaContainer}>
-              <Text style={styles.ctaText}>{currentPeak.textOverlay}</Text>
-            </View>
+            <Text style={styles.captionText}>{currentPeak.textOverlay}</Text>
           )}
 
-          {repliesCount > 0 && (
-            <TouchableOpacity
-              style={styles.repliesIndicator}
-              onPress={() => setIsInChain(true)}
-            >
-              <Ionicons name="link" size={16} color={COLORS.primary} />
-              <Text style={styles.repliesText}>
-                {repliesCount} réponses
-              </Text>
-              <Text style={styles.swipeHint}>Swipe ↑</Text>
-            </TouchableOpacity>
-          )}
+          {/* Progress Bar at Bottom */}
+          <View style={styles.bottomProgressBar}>
+            <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+            </View>
+          </View>
         </View>
       )}
 
@@ -750,149 +805,178 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // Progress Bar - Top
-  progressBarContainer: {
+  // Top Header with Avatar Carousel
+  topHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    zIndex: 100,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Avatar Carousel
+  avatarCarousel: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+  },
+  avatarItem: {
+    alignItems: 'center',
+  },
+  avatarItemSelected: {
+    transform: [{ scale: 1.1 }],
+  },
+  avatarRingGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImageSelected: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: COLORS.dark,
+  },
+  avatarRingInactive: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImageInactive: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    opacity: 0.5,
+  },
+  // Progress Segments (multiple peaks per user)
+  progressSegmentsContainer: {
     position: 'absolute',
     left: 16,
     right: 16,
+    flexDirection: 'row',
+    gap: 4,
     zIndex: 200,
   },
-  progressBarBackground: {
-    height: 3,
+  progressSegment: {
+    flex: 1,
+    height: 2,
     backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1.5,
+    borderRadius: 1,
+    overflow: 'hidden',
+  },
+  progressSegmentFill: {
+    height: '100%',
+    backgroundColor: COLORS.white,
+    borderRadius: 1,
+  },
+  progressSegmentComplete: {
+    width: '100%',
+  },
+  // Progress Bar Background (reusable)
+  progressBarBackground: {
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 1,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: COLORS.primary,
-    borderRadius: 1.5,
+    borderRadius: 1,
   },
-  // Header
-  header: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    zIndex: 100,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // Vertical Action Buttons - Right Side
+  // Vertical Action Buttons - Right Side (No circles, just icons)
   actionButtonsContainer: {
     position: 'absolute',
-    right: 12,
+    right: 16,
     alignItems: 'center',
     zIndex: 100,
   },
   actionButton: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   actionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   actionIconActive: {
-    backgroundColor: 'rgba(17, 227, 163, 0.2)',
-  },
-  tagIconContainer: {
-    borderWidth: 1,
-    borderColor: 'rgba(14, 191, 138, 0.3)',
+    // No background, just icon color change
   },
   actionCount: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.white,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
   },
   // Bottom Info
   bottomInfo: {
     position: 'absolute',
     bottom: 0,
     left: 0,
-    right: 80,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    right: 70,
+    paddingHorizontal: 16,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatarGradient: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    padding: 2,
-    marginRight: 12,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 2,
-    borderColor: COLORS.dark,
+    marginBottom: 8,
   },
   userTextInfo: {
     flex: 1,
   },
   userName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.white,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   viewsText: {
-    fontSize: 13,
-    color: COLORS.gray,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
   },
-  ctaContainer: {
-    backgroundColor: 'rgba(17, 227, 163, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    marginBottom: 12,
-  },
-  ctaText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.white,
-    textAlign: 'center',
-  },
-  repliesIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  repliesText: {
+  captionText: {
     fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '500',
+    color: COLORS.white,
+    marginBottom: 12,
+    lineHeight: 20,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  swipeHint: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginLeft: 8,
+  bottomProgressBar: {
+    marginTop: 12,
+    marginBottom: 8,
   },
   // Heart Animation
   heartAnimationContainer: {

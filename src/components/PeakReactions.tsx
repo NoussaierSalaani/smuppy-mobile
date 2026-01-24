@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -17,8 +16,6 @@ import SmuppyDoubleFlexIcon from './icons/SmuppyDoubleFlexIcon';
 import SmuppyEnergyBurstIcon from './icons/SmuppyEnergyBurstIcon';
 import SmuppyCelebrationBurstIcon from './icons/SmuppyCelebrationBurstIcon';
 import SmuppyPeakFlagIcon from './icons/SmuppyPeakFlagIcon';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Reaction types with their properties - Unique fitness-themed reactions
 export type ReactionType = 'love' | 'fire' | 'strong' | 'energy' | 'bravo' | 'goal' | 'sweat';

@@ -156,10 +156,28 @@ supabase/
 - Presets: avatar (400x400), cover (1200x600), post (1080x1350)
 
 ### Feeds
-- **FanFeed**: Posts from followed users
-- **VibesFeed**: Discover content by interests
-- **XplorerFeed**: Explore new content
+- **FanFeed**: Posts from followed users with scroll-to-top on tab click
+- **VibesFeed**: Discover content by interests (smart sorting, not filtering)
+- **XplorerFeed**: Interactive map with search, filters, fullscreen mode
 - Pull-to-refresh and infinite scroll
+
+### Live Streaming
+- Go Live with intro and configuration screens
+- Real-time chat and viewer count
+- Gift system with animations
+- Live ended summary
+
+### Private Sessions (1:1 Video Calls)
+- Book sessions with creators
+- Multiple duration options (15, 30, 60 min)
+- Integrated payment flow
+- Waiting room and call screens
+- Creator session management
+
+### Peaks (Ephemeral Content)
+- Stories-like short videos
+- Create, preview, and share peaks
+- Reactions and engagement
 
 ### Performance Optimizations
 - FlashList for 10x faster lists

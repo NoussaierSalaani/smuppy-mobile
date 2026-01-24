@@ -120,7 +120,9 @@ const PostDetailFanFeedScreen = () => {
   // Params
   const params = route.params as { postId?: string; fanFeedPosts?: typeof MOCK_FANFEED_POSTS } || {};
   const { postId, fanFeedPosts = MOCK_FANFEED_POSTS } = params;
-  const initialIndex = fanFeedPosts.findIndex(p => p.id === postId) || 0;
+  // Find the correct post index - findIndex returns -1 if not found
+  const foundIndex = fanFeedPosts.findIndex(p => p.id === postId);
+  const initialIndex = foundIndex >= 0 ? foundIndex : 0;
 
   // States
   const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);

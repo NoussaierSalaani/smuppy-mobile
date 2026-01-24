@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,27 +6,44 @@ import {
   TouchableOpacity,
   StatusBar,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import {
+  FilterProvider,
+  useFilters,
+  FilterSelector,
+  OverlayEditor,
+  DraggableOverlay,
+} from '../../filters';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface DurationOption {
   value: number;
   label: string;
-  icon: string;
 }
 
 const DURATION_OPTIONS: DurationOption[] = [
-  { value: 6, label: '6s', icon: '⚡' },
-  { value: 10, label: '10s', icon: '🔥' },
-  { value: 15, label: '15s', icon: '⭐' },
-  { value: 60, label: '60s', icon: '🏆' },
+  { value: 6, label: '6s' },
+  { value: 10, label: '10s' },
+  { value: 15, label: '15s' },
+  { value: 60, label: '60s' },
 ];
 
 interface PeakUser {
@@ -50,7 +67,8 @@ type RootStackParamList = {
   [key: string]: object | undefined;
 };
 
-const CreatePeakScreen = (): React.JSX.Element => {
+// Inner component that uses filter context
+const CreatePeakScreenInner = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'CreatePeak'>>();
@@ -74,6 +92,42 @@ const CreatePeakScreen = (): React.JSX.Element => {
   // Toast state (for quick messages like "too short")
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  // Filter state
+  const [showFilters, setShowFilters] = useState(false);
+  const [showOverlayEditor, setShowOverlayEditor] = useState(false);
+  const { activeFilter, activeOverlays, updateOverlay } = useFilters();
+
+  // Animation for filter panel
+  const filterPanelProgress = useSharedValue(0);
+
+  const toggleFilters = useCallback(() => {
+    const newValue = !showFilters;
+    setShowFilters(newValue);
+    filterPanelProgress.value = withSpring(newValue ? 1 : 0, {
+      damping: 20,
+      stiffness: 300,
+    });
+  }, [showFilters, filterPanelProgress]);
+
+  const filterPanelStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          filterPanelProgress.value,
+          [0, 1],
+          [200, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+    opacity: filterPanelProgress.value,
+  }));
+
+  // Handle overlay position change
+  const handleOverlayPositionChange = useCallback((overlayId: string, position: any) => {
+    updateOverlay(overlayId, { position: { ...position } });
+  }, [updateOverlay]);
 
   const toggleCameraFacing = (): void => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -124,6 +178,12 @@ const CreatePeakScreen = (): React.JSX.Element => {
 
   // Start recording
   const handleRecordStart = async (): Promise<void> => {
+    // Hide filters when recording starts
+    if (showFilters) {
+      setShowFilters(false);
+      filterPanelProgress.value = withTiming(0, { duration: 200 });
+    }
+
     setIsRecording(true);
     setRecordedVideo(null);
 
@@ -140,7 +200,6 @@ const CreatePeakScreen = (): React.JSX.Element => {
         setIsPreviewPlaying(false);
       } catch (error) {
         setIsRecording(false);
-        // Simulator can't record video - show appropriate message
         const isSimulator = !cameraRef.current;
         showCustomAlert(
           isSimulator
@@ -173,7 +232,6 @@ const CreatePeakScreen = (): React.JSX.Element => {
       } catch { /* Ignore stop errors */ }
     }
 
-    // Use toast for "too short" messages (less invasive)
     showToastMessage(message);
   };
 
@@ -290,7 +348,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
           facing={facing}
           mode="video"
         >
-          {/* Header */}
+          {/* Header - Minimal */}
           <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
             <TouchableOpacity
               style={styles.headerButton}
@@ -303,49 +361,134 @@ const CreatePeakScreen = (): React.JSX.Element => {
               {replyTo ? 'Reply' : 'Peak'}
             </Text>
 
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={toggleCameraFacing}
-            >
-              <Ionicons name="camera-reverse-outline" size={28} color={COLORS.white} />
-            </TouchableOpacity>
+            <View style={{ width: 44 }} />
           </View>
+
+          {/* Right Side Toolbar - TikTok style */}
+          {!isRecording && (
+            <View style={[styles.sideToolbar, { top: insets.top + 80 }]}>
+              {/* Flip Camera */}
+              <TouchableOpacity
+                style={styles.toolbarButton}
+                onPress={toggleCameraFacing}
+              >
+                <Ionicons name="camera-reverse" size={26} color={COLORS.white} />
+                <Text style={styles.toolbarLabel}>Flip</Text>
+              </TouchableOpacity>
+
+              {/* Filters Toggle */}
+              <TouchableOpacity
+                style={[
+                  styles.toolbarButton,
+                  showFilters && styles.toolbarButtonActive,
+                ]}
+                onPress={toggleFilters}
+              >
+                <Ionicons
+                  name="color-wand"
+                  size={26}
+                  color={showFilters ? COLORS.primary : COLORS.white}
+                />
+                <Text style={[
+                  styles.toolbarLabel,
+                  showFilters && styles.toolbarLabelActive,
+                ]}>
+                  Filters
+                </Text>
+              </TouchableOpacity>
+
+              {/* Overlays */}
+              <TouchableOpacity
+                style={[
+                  styles.toolbarButton,
+                  activeOverlays.length > 0 && styles.toolbarButtonActive,
+                ]}
+                onPress={() => setShowOverlayEditor(true)}
+              >
+                <View>
+                  <Ionicons
+                    name="layers"
+                    size={26}
+                    color={activeOverlays.length > 0 ? COLORS.primary : COLORS.white}
+                  />
+                  {activeOverlays.length > 0 && (
+                    <View style={styles.overlayBadge}>
+                      <Text style={styles.overlayBadgeText}>{activeOverlays.length}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[
+                  styles.toolbarLabel,
+                  activeOverlays.length > 0 && styles.toolbarLabelActive,
+                ]}>
+                  Overlays
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Info réponse */}
           {replyTo && originalPeak && !isRecording && (
-            <View style={styles.replyInfo}>
+            <View style={[styles.replyInfo, { top: insets.top + 70 }]}>
               <Text style={styles.replyText}>
                 Reply to {originalPeak.user?.name}
               </Text>
             </View>
           )}
 
-          {/* Zone du bas - Record */}
-          <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 20 }]}>
-            {/* Sélecteur de durée - container avec hauteur fixe */}
-            <View style={styles.durationSelectorContainer}>
-              {!isRecording && (
-                <View style={styles.durationSelector}>
-                  {DURATION_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.durationOption,
-                        selectedDuration === option.value && styles.durationOptionActive,
-                      ]}
-                      onPress={() => setSelectedDuration(option.value)}
-                    >
-                      <Text style={[
-                        styles.durationText,
-                        selectedDuration === option.value && styles.durationTextActive,
-                      ]}>
-                        {option.icon}{option.icon ? ' ' : ''}{option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+          {/* Active filter indicator - centered top */}
+          {activeFilter && !isRecording && (
+            <View style={[styles.activeFilterBadge, { top: insets.top + 70 }]}>
+              <Ionicons name="sparkles" size={14} color={COLORS.primary} />
+              <Text style={styles.activeFilterText}>Filter Active</Text>
             </View>
+          )}
+
+          {/* Draggable overlays */}
+          {activeOverlays.map((overlay) => (
+            <DraggableOverlay
+              key={overlay.id}
+              overlay={overlay}
+              containerWidth={SCREEN_WIDTH}
+              containerHeight={SCREEN_HEIGHT}
+              onPositionChange={(pos) => handleOverlayPositionChange(overlay.id, pos)}
+            />
+          ))}
+
+          {/* Filter Panel - Animated slide up */}
+          {!isRecording && (
+            <Animated.View style={[styles.filterPanelContainer, filterPanelStyle]}>
+              <FilterSelector
+                compact
+                onOpenOverlays={() => setShowOverlayEditor(true)}
+              />
+            </Animated.View>
+          )}
+
+          {/* Zone du bas - Record */}
+          <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
+            {/* Sélecteur de durée */}
+            {!isRecording && (
+              <View style={styles.durationSelector}>
+                {DURATION_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.durationOption,
+                      selectedDuration === option.value && styles.durationOptionActive,
+                    ]}
+                    onPress={() => setSelectedDuration(option.value)}
+                  >
+                    <Text style={[
+                      styles.durationText,
+                      selectedDuration === option.value && styles.durationTextActive,
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Bouton d'enregistrement */}
             <View style={styles.recordButtonContainer}>
@@ -358,12 +501,10 @@ const CreatePeakScreen = (): React.JSX.Element => {
               />
             </View>
 
-            {/* Instruction - container avec hauteur fixe */}
-            <View style={styles.instructionsContainer}>
-              {!isRecording && (
-                <Text style={styles.instructions}>Hold to record</Text>
-              )}
-            </View>
+            {/* Instruction */}
+            {!isRecording && (
+              <Text style={styles.instructions}>Hold to record</Text>
+            )}
           </View>
         </CameraView>
       )}
@@ -446,7 +587,22 @@ const CreatePeakScreen = (): React.JSX.Element => {
           </View>
         </View>
       )}
+
+      {/* Overlay Editor Modal */}
+      <OverlayEditor
+        visible={showOverlayEditor}
+        onClose={() => setShowOverlayEditor(false)}
+      />
     </View>
+  );
+};
+
+// Wrapper component with FilterProvider
+const CreatePeakScreen = (): React.JSX.Element => {
+  return (
+    <FilterProvider>
+      <CreatePeakScreenInner />
+    </FilterProvider>
   );
 };
 
@@ -479,6 +635,8 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+
+  // Header
   header: {
     position: 'absolute',
     top: 0,
@@ -501,29 +659,106 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.15)',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: COLORS.white,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
+
+  // Side Toolbar (TikTok style)
+  sideToolbar: {
+    position: 'absolute',
+    right: 12,
+    alignItems: 'center',
+    gap: 20,
+    zIndex: 90,
+  },
+  toolbarButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  toolbarButtonActive: {
+    backgroundColor: 'rgba(0,230,118,0.15)',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  toolbarLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+  },
+  toolbarLabelActive: {
+    color: COLORS.primary,
+  },
+  overlayBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.dark,
+  },
+
+  // Reply info
   replyInfo: {
     position: 'absolute',
-    top: 120,
-    left: 20,
-    right: 20,
+    left: 16,
+    right: 80,
     backgroundColor: 'rgba(17, 227, 163, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.primary,
   },
   replyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.white,
-    textAlign: 'center',
   },
+
+  // Active filter badge
+  activeFilterBadge: {
+    position: 'absolute',
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  activeFilterText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  // Filter Panel
+  filterPanelContainer: {
+    position: 'absolute',
+    bottom: 200,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+
+  // Bottom Section
   bottomSection: {
     position: 'absolute',
     bottom: 0,
@@ -531,33 +766,24 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
-  durationSelectorContainer: {
-    height: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   durationSelector: {
     flexDirection: 'row',
     backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 28,
-    padding: 5,
+    borderRadius: 24,
+    padding: 4,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
   durationOption: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 22,
-    minWidth: 70,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 50,
     alignItems: 'center',
   },
   durationOptionActive: {
     backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
   },
   durationText: {
     fontSize: 14,
@@ -569,23 +795,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   recordButtonContainer: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  instructionsContainer: {
-    height: 40,
+    width: 90,
+    height: 90,
+    marginBottom: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   instructions: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 0.5,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 8,
   },
+
+  // Preview
   previewContainer: {
     flex: 1,
     backgroundColor: COLORS.dark,
@@ -603,13 +826,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   playButton: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: 8,
+    paddingLeft: 6,
   },
   previewHeader: {
     position: 'absolute',
@@ -624,12 +847,12 @@ const styles = StyleSheet.create({
   },
   durationBadge: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   durationBadgeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.dark,
   },
@@ -641,22 +864,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 20,
+    gap: 16,
     paddingHorizontal: 20,
   },
   retakeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 28,
-    paddingVertical: 16,
-    borderRadius: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
     gap: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
   },
   retakeButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.white,
   },
@@ -664,9 +887,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    borderRadius: 30,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 28,
     gap: 8,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -675,10 +898,12 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   confirmButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.dark,
   },
+
+  // Alert
   alertOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -688,50 +913,50 @@ const styles = StyleSheet.create({
   },
   alertContainer: {
     width: '100%',
-    maxWidth: 320,
-    borderRadius: 24,
+    maxWidth: 300,
+    borderRadius: 20,
     overflow: 'hidden',
   },
   alertGradient: {
-    padding: 30,
+    padding: 28,
     alignItems: 'center',
   },
   alertIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: 'rgba(17, 227, 163, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   alertTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.white,
-    marginBottom: 10,
+    marginBottom: 8,
     textAlign: 'center',
   },
   alertMessage: {
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.gray,
     textAlign: 'center',
-    marginBottom: 25,
-    lineHeight: 22,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   alertButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 40,
-    paddingVertical: 14,
-    borderRadius: 25,
+    paddingHorizontal: 36,
+    paddingVertical: 12,
+    borderRadius: 22,
   },
   alertButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.dark,
   },
 
-  // Toast styles
+  // Toast
   toastContainer: {
     position: 'absolute',
     left: 0,
@@ -743,13 +968,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
     gap: 8,
   },
   toastText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: COLORS.white,
   },

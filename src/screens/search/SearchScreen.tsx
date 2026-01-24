@@ -5,22 +5,47 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   Image,
   StatusBar,
   ActivityIndicator,
   Keyboard,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - 48) / 2;
+const GRID_SIZE = (width - 4) / 3;
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
 import { AccountBadge } from '../../components/Badge';
-import { searchProfiles, getSuggestedProfiles, Profile, getCurrentProfile } from '../../services/database';
+import OptimizedImage from '../../components/OptimizedImage';
+import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import {
+  searchProfiles,
+  searchPosts,
+  searchPeaks,
+  searchByHashtag,
+  getTrendingHashtags,
+  getSuggestedProfiles,
+  getPostById,
+  getProfileById,
+  getProfileByUsername,
+  Profile,
+  Post,
+  getCurrentProfile,
+} from '../../services/database';
+
+const PAGE_SIZE = 15;
+
+// Smuppy URL patterns
+const SMUPPY_URL_PATTERNS = {
+  post: /(?:smuppy\.app|localhost)\/p\/([a-f0-9-]{36})/i,
+  peak: /(?:smuppy\.app|localhost)\/peak\/([a-f0-9-]{36})/i,
+  profile: /(?:smuppy\.app|localhost)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i,
+};
 
 // ============================================
 // TYPES
@@ -28,8 +53,12 @@ import { searchProfiles, getSuggestedProfiles, Profile, getCurrentProfile } from
 
 type RootStackParamList = {
   UserProfile: { userId: string };
+  PostDetailFanFeed: { postId: string; fanFeedPosts: any[] };
+  PeakView: { peaks: any[]; initialIndex: number };
   [key: string]: object | undefined;
 };
+
+type SearchTab = 'all' | 'users' | 'posts' | 'peaks' | 'tags';
 
 // ============================================
 // DEFAULT AVATAR
@@ -47,67 +76,276 @@ const SearchScreen = (): React.JSX.Element => {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
-  const [suggestedProfiles, setSuggestedProfiles] = useState<Profile[]>([]);
+  const [activeTab, setActiveTab] = useState<SearchTab>('all');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [linkDetected, setLinkDetected] = useState(false);
 
-  // Load current user and suggested profiles on mount
+  // Results by type
+  const [userResults, setUserResults] = useState<Profile[]>([]);
+  const [postResults, setPostResults] = useState<Post[]>([]);
+  const [peakResults, setPeakResults] = useState<Post[]>([]);
+  const [hashtagResults, setHashtagResults] = useState<Post[]>([]);
+
+  // Suggested content (when no search)
+  const [suggestedProfiles, setSuggestedProfiles] = useState<Profile[]>([]);
+  const [trendingHashtags, setTrendingHashtags] = useState<{ tag: string; count: number }[]>([]);
+
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Load current user on mount
   useEffect(() => {
-    const loadData = async () => {
-      // Get current user to exclude from results
+    const loadCurrentUser = async () => {
       const { data: currentProfile } = await getCurrentProfile();
       if (currentProfile) {
         setCurrentUserId(currentProfile.id);
       }
-
-      // Get suggested profiles (excluding current user)
-      const { data } = await getSuggestedProfiles(10);
-      if (data) {
-        const filtered = data.filter(p => p.id !== currentProfile?.id);
-        setSuggestedProfiles(filtered);
-      }
     };
-    loadData();
+    loadCurrentUser();
   }, []);
 
-  // Debounced search - real API call
-  const performSearch = useCallback(async (query: string) => {
-    if (query.length < 2) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
-    }
-
+  // Detect Smuppy links and show content in results (not auto-navigate)
+  const detectAndShowLinkContent = useCallback(async (query: string): Promise<boolean> => {
     setIsLoading(true);
     setHasSearched(true);
 
-    const { data, error } = await searchProfiles(query, 20);
-
-    if (error) {
-      console.error('[SearchScreen] Search error:', error);
+    // Check for post link
+    const postMatch = query.match(SMUPPY_URL_PATTERNS.post);
+    if (postMatch) {
+      const postId = postMatch[1];
+      const { data: post } = await getPostById(postId);
+      if (post) {
+        // Show in post results
+        if (post.is_peak) {
+          setPeakResults([post]);
+          setPostResults([]);
+          setActiveTab('peaks');
+        } else {
+          setPostResults([post]);
+          setPeakResults([]);
+          setActiveTab('posts');
+        }
+        setUserResults([]);
+        setHashtagResults([]);
+        setIsLoading(false);
+        return true;
+      }
     }
 
-    // Filter out current user from search results
-    const filtered = (data || []).filter(p => p.id !== currentUserId);
-    setSearchResults(filtered);
+    // Check for peak link
+    const peakMatch = query.match(SMUPPY_URL_PATTERNS.peak);
+    if (peakMatch) {
+      const peakId = peakMatch[1];
+      const { data: peak } = await getPostById(peakId);
+      if (peak) {
+        setPeakResults([peak]);
+        setPostResults([]);
+        setUserResults([]);
+        setHashtagResults([]);
+        setActiveTab('peaks');
+        setIsLoading(false);
+        return true;
+      }
+    }
+
+    // Check for profile link
+    const profileMatch = query.match(SMUPPY_URL_PATTERNS.profile);
+    if (profileMatch) {
+      const usernameOrId = profileMatch[1];
+      // Try by ID first (UUID format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let profile = null;
+      if (uuidRegex.test(usernameOrId)) {
+        const { data } = await getProfileById(usernameOrId);
+        profile = data;
+      } else {
+        const { data } = await getProfileByUsername(usernameOrId);
+        profile = data;
+      }
+      if (profile) {
+        setUserResults([profile]);
+        setPostResults([]);
+        setPeakResults([]);
+        setHashtagResults([]);
+        setActiveTab('users');
+        setIsLoading(false);
+        return true;
+      }
+    }
+
+    setIsLoading(false);
+    return false;
+  }, []);
+
+  // Load suggested content
+  const loadSuggestedContent = useCallback(async () => {
+    setIsLoading(true);
+
+    const [profilesRes, hashtagsRes] = await Promise.all([
+      getSuggestedProfiles(PAGE_SIZE, 0),
+      getTrendingHashtags(10),
+    ]);
+
+    if (profilesRes.data) {
+      setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId));
+    }
+    if (hashtagsRes.data) {
+      setTrendingHashtags(hashtagsRes.data);
+    }
+
     setIsLoading(false);
   }, [currentUserId]);
 
-  // Debounce search input
+  useEffect(() => {
+    if (currentUserId) {
+      loadSuggestedContent();
+    }
+  }, [currentUserId, loadSuggestedContent]);
+
+  // Perform search based on active tab
+  const performSearch = useCallback(async (query: string, tabType: SearchTab, pageNum = 0, append = false) => {
+    if (query.length < 2) {
+      setUserResults([]);
+      setPostResults([]);
+      setPeakResults([]);
+      setHashtagResults([]);
+      setHasSearched(false);
+      setPage(0);
+      setHasMore(true);
+      return;
+    }
+
+    if (pageNum > 0) {
+      setLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
+    setHasSearched(true);
+
+    const offset = pageNum * PAGE_SIZE;
+
+    // For "All" tab, search everything in parallel
+    if (tabType === 'all') {
+      const [usersRes, postsRes, peaksRes, tagsRes] = await Promise.all([
+        searchProfiles(query, PAGE_SIZE, offset),
+        searchPosts(query, PAGE_SIZE, offset),
+        searchPeaks(query, PAGE_SIZE, offset),
+        searchByHashtag(query, PAGE_SIZE, offset),
+      ]);
+
+      const users = (usersRes.data || []).filter(p => p.id !== currentUserId);
+      const posts = postsRes.data || [];
+      const peaks = peaksRes.data || [];
+      const tags = tagsRes.data || [];
+
+      if (append) {
+        setUserResults(prev => [...prev, ...users]);
+        setPostResults(prev => [...prev, ...posts]);
+        setPeakResults(prev => [...prev, ...peaks]);
+        setHashtagResults(prev => [...prev, ...tags]);
+      } else {
+        setUserResults(users);
+        setPostResults(posts);
+        setPeakResults(peaks);
+        setHashtagResults(tags);
+      }
+
+      // Has more if any category has more
+      setHasMore(users.length >= PAGE_SIZE || posts.length >= PAGE_SIZE || peaks.length >= PAGE_SIZE || tags.length >= PAGE_SIZE);
+      setIsLoading(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    let newData: any[] = [];
+
+    switch (tabType) {
+      case 'users': {
+        const { data } = await searchProfiles(query, PAGE_SIZE, offset);
+        newData = (data || []).filter(p => p.id !== currentUserId);
+        if (append) {
+          setUserResults(prev => [...prev, ...newData]);
+        } else {
+          setUserResults(newData);
+        }
+        break;
+      }
+      case 'posts': {
+        const { data } = await searchPosts(query, PAGE_SIZE, offset);
+        newData = data || [];
+        if (append) {
+          setPostResults(prev => [...prev, ...newData]);
+        } else {
+          setPostResults(newData);
+        }
+        break;
+      }
+      case 'peaks': {
+        const { data } = await searchPeaks(query, PAGE_SIZE, offset);
+        newData = data || [];
+        if (append) {
+          setPeakResults(prev => [...prev, ...newData]);
+        } else {
+          setPeakResults(newData);
+        }
+        break;
+      }
+      case 'tags': {
+        const { data } = await searchByHashtag(query, PAGE_SIZE, offset);
+        newData = data || [];
+        if (append) {
+          setHashtagResults(prev => [...prev, ...newData]);
+        } else {
+          setHashtagResults(newData);
+        }
+        break;
+      }
+    }
+
+    setHasMore(newData.length >= PAGE_SIZE);
+    setIsLoading(false);
+    setLoadingMore(false);
+  }, [currentUserId]);
+
+  // Debounce search input with link detection
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
+    // Don't re-search if link was already detected
+    if (linkDetected) {
+      return;
+    }
+
+    setPage(0);
+    setHasMore(true);
+
     if (searchQuery.length > 0) {
-      searchTimeoutRef.current = setTimeout(() => {
-        performSearch(searchQuery);
+      searchTimeoutRef.current = setTimeout(async () => {
+        // First check if it's a Smuppy link
+        const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('localhost');
+        if (isLink) {
+          const handled = await detectAndShowLinkContent(searchQuery);
+          if (handled) {
+            setLinkDetected(true);
+            return;
+          }
+        }
+        // If not a link or link not found, perform regular search
+        performSearch(searchQuery, activeTab, 0, false);
       }, 300);
     } else {
-      setSearchResults([]);
+      setUserResults([]);
+      setPostResults([]);
+      setPeakResults([]);
+      setHashtagResults([]);
       setHasSearched(false);
+      setLinkDetected(false);
     }
 
     return () => {
@@ -115,10 +353,29 @@ const SearchScreen = (): React.JSX.Element => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, performSearch]);
+  }, [searchQuery, performSearch, detectAndShowLinkContent]); // Removed activeTab from deps
+
+  // Handle tab change separately (only for non-link searches)
+  useEffect(() => {
+    if (linkDetected || searchQuery.length < 2) return;
+
+    // Check if it's a link - don't re-search
+    const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('localhost');
+    if (isLink) return;
+
+    performSearch(searchQuery, activeTab, 0, false);
+  }, [activeTab]); // Only trigger on tab change
+
+  // Load more
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore || searchQuery.length < 2) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    performSearch(searchQuery, activeTab, nextPage, true);
+  }, [loadingMore, hasMore, searchQuery, activeTab, page, performSearch]);
 
   // ============================================
-  // FUNCTIONS
+  // HANDLERS
   // ============================================
 
   const handleGoBack = (): void => {
@@ -139,13 +396,54 @@ const SearchScreen = (): React.JSX.Element => {
     navigation.navigate('UserProfile', { userId });
   };
 
+  const handlePostPress = (post: Post): void => {
+    const transformedPosts = postResults.map(p => ({
+      id: p.id,
+      type: p.media_type === 'video' ? 'video' : 'image',
+      media: p.media_urls?.[0] || p.media_url || '',
+      thumbnail: p.media_urls?.[0] || p.media_url || '',
+      description: p.content || p.caption || '',
+      likes: p.likes_count || 0,
+      comments: p.comments_count || 0,
+      user: {
+        id: p.author?.id || p.author_id,
+        name: p.author?.full_name || 'User',
+        avatar: p.author?.avatar_url || DEFAULT_AVATAR,
+        followsMe: false,
+      },
+    }));
+    navigation.navigate('PostDetailFanFeed', { postId: post.id, fanFeedPosts: transformedPosts });
+  };
+
+  const handlePeakPress = (peak: Post, index: number): void => {
+    const transformedPeaks = peakResults.map(p => ({
+      id: p.id,
+      thumbnail: p.media_urls?.[0] || p.media_url || '',
+      duration: p.peak_duration || 15,
+      user: {
+        id: p.author?.id || p.author_id,
+        name: p.author?.full_name || 'User',
+        avatar: p.author?.avatar_url || DEFAULT_AVATAR,
+      },
+      views: p.views_count || 0,
+      likes: p.likes_count || 0,
+      textOverlay: p.content || p.caption || '',
+      createdAt: new Date(p.created_at),
+    }));
+    navigation.navigate('PeakView', { peaks: transformedPeaks, initialIndex: index });
+  };
+
+  const handleHashtagPress = (tag: string): void => {
+    setSearchQuery(`#${tag}`);
+    setActiveTab('tags');
+  };
+
   // ============================================
-  // RENDER PROFILE ITEM
+  // RENDER ITEMS
   // ============================================
 
-  const renderProfileItem = (profile: Profile): React.JSX.Element => (
+  const renderProfileItem = ({ item: profile }: { item: Profile }): React.JSX.Element => (
     <TouchableOpacity
-      key={profile.id}
       style={styles.resultItem}
       onPress={() => handleUserPress(profile.id)}
     >
@@ -171,6 +469,438 @@ const SearchScreen = (): React.JSX.Element => {
     </TouchableOpacity>
   );
 
+  const renderPostItem = ({ item: post }: { item: Post }): React.JSX.Element => {
+    const thumbnail = post.media_urls?.[0] || post.media_url;
+    return (
+      <TouchableOpacity
+        style={styles.gridItem}
+        onPress={() => handlePostPress(post)}
+      >
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+        ) : (
+          <View style={[styles.gridImage, styles.gridPlaceholder]}>
+            <Ionicons name="image-outline" size={24} color={COLORS.grayMuted} />
+          </View>
+        )}
+        {post.media_type === 'video' && (
+          <View style={styles.videoIndicator}>
+            <Ionicons name="play" size={12} color="#FFF" />
+          </View>
+        )}
+        <View style={styles.gridStats}>
+          <SmuppyHeartIcon size={12} color="#FFF" filled />
+          <Text style={styles.gridStatText}>{post.likes_count || 0}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderPeakItem = ({ item: peak, index }: { item: Post; index: number }): React.JSX.Element => {
+    const thumbnail = peak.media_urls?.[0] || peak.media_url;
+    return (
+      <TouchableOpacity
+        style={styles.gridItem}
+        onPress={() => handlePeakPress(peak, index)}
+      >
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+        ) : (
+          <View style={[styles.gridImage, styles.gridPlaceholder]}>
+            <Ionicons name="videocam-outline" size={24} color={COLORS.grayMuted} />
+          </View>
+        )}
+        <View style={styles.peakDuration}>
+          <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+        </View>
+        <View style={styles.gridStats}>
+          <Ionicons name="eye" size={12} color="#FFF" />
+          <Text style={styles.gridStatText}>{peak.views_count || 0}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderHashtagPost = ({ item: post }: { item: Post }): React.JSX.Element => {
+    const thumbnail = post.media_urls?.[0] || post.media_url;
+    return (
+      <TouchableOpacity
+        style={styles.gridItem}
+        onPress={() => handlePostPress(post)}
+      >
+        {thumbnail ? (
+          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+        ) : (
+          <View style={[styles.gridImage, styles.gridPlaceholder]}>
+            <Ionicons name="image-outline" size={24} color={COLORS.grayMuted} />
+          </View>
+        )}
+        <View style={styles.gridStats}>
+          <SmuppyHeartIcon size={12} color="#FFF" filled />
+          <Text style={styles.gridStatText}>{post.likes_count || 0}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // ============================================
+  // RENDER TABS
+  // ============================================
+
+  const getTabLabel = (tab: SearchTab): string => {
+    switch (tab) {
+      case 'all': return 'All';
+      case 'users': return 'Users';
+      case 'posts': return 'Posts';
+      case 'peaks': return 'Peaks';
+      case 'tags': return 'Tags';
+    }
+  };
+
+  const getTabCount = (tab: SearchTab): number => {
+    switch (tab) {
+      case 'all': return userResults.length + postResults.length + peakResults.length + hashtagResults.length;
+      case 'users': return userResults.length;
+      case 'posts': return postResults.length;
+      case 'peaks': return peakResults.length;
+      case 'tags': return hashtagResults.length;
+    }
+  };
+
+  const renderTabs = (): React.JSX.Element => (
+    <View style={styles.tabsContainer}>
+      {(['all', 'users', 'posts', 'peaks', 'tags'] as SearchTab[]).map((tab) => {
+        const count = hasSearched ? getTabCount(tab) : 0;
+        return (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => {
+              setActiveTab(tab);
+              if (searchQuery.length >= 2 && !hasSearched) {
+                performSearch(searchQuery, tab, 0, false);
+              }
+            }}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {getTabLabel(tab)}
+              {hasSearched && count > 0 && (
+                <Text style={styles.tabCount}> ({count})</Text>
+              )}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  // ============================================
+  // RENDER CONTENT
+  // ============================================
+
+  const getCurrentResults = () => {
+    switch (activeTab) {
+      case 'users': return userResults;
+      case 'posts': return postResults;
+      case 'peaks': return peakResults;
+      case 'tags': return hashtagResults;
+    }
+  };
+
+  const renderEmptyState = (): React.JSX.Element => (
+    <View style={styles.emptyState}>
+      <Ionicons name="search-outline" size={48} color={COLORS.grayMuted} />
+      <Text style={styles.emptyText}>No results found</Text>
+      <Text style={styles.emptySubtext}>Try a different search</Text>
+    </View>
+  );
+
+  const renderSuggestedContent = (): React.JSX.Element => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Trending Hashtags */}
+      {trendingHashtags.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Trending Hashtags</Text>
+          <View style={styles.hashtagsGrid}>
+            {trendingHashtags.map((item, index) => (
+              <TouchableOpacity
+                key={`tag-${index}`}
+                style={styles.hashtagChip}
+                onPress={() => handleHashtagPress(item.tag)}
+              >
+                <Text style={styles.hashtagText}>#{item.tag}</Text>
+                <Text style={styles.hashtagCount}>{item.count}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Suggested Profiles */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Suggested</Text>
+        {suggestedProfiles.map((profile) => (
+          <TouchableOpacity
+            key={profile.id}
+            style={styles.resultItem}
+            onPress={() => handleUserPress(profile.id)}
+          >
+            <Image
+              source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
+              style={styles.resultAvatar}
+            />
+            <View style={styles.resultInfo}>
+              <View style={styles.usernameRow}>
+                <Text style={styles.resultUsername}>@{profile.username}</Text>
+                <AccountBadge
+                  size={16}
+                  style={{ marginLeft: 4 }}
+                  isVerified={profile.is_verified}
+                  accountType={profile.account_type}
+                />
+              </View>
+              <Text style={styles.resultFullName}>{profile.full_name}</Text>
+              {profile.fan_count !== undefined && profile.fan_count > 0 && (
+                <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
+  // Render "All" tab with grouped sections
+  const renderAllResults = (): React.JSX.Element => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Users Section */}
+      {userResults.length > 0 && (
+        <View style={styles.allSection}>
+          <View style={styles.allSectionHeader}>
+            <Text style={styles.allSectionTitle}>Users</Text>
+            {userResults.length > 3 && (
+              <TouchableOpacity onPress={() => setActiveTab('users')}>
+                <Text style={styles.seeAllText}>See all ({userResults.length})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {userResults.slice(0, 3).map((profile) => (
+            <TouchableOpacity
+              key={profile.id}
+              style={styles.resultItem}
+              onPress={() => handleUserPress(profile.id)}
+            >
+              <Image
+                source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
+                style={styles.resultAvatar}
+              />
+              <View style={styles.resultInfo}>
+                <View style={styles.usernameRow}>
+                  <Text style={styles.resultUsername}>@{profile.username}</Text>
+                  <AccountBadge
+                    size={16}
+                    style={{ marginLeft: 4 }}
+                    isVerified={profile.is_verified}
+                    accountType={profile.account_type}
+                  />
+                </View>
+                <Text style={styles.resultFullName}>{profile.full_name}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Posts Section */}
+      {postResults.length > 0 && (
+        <View style={styles.allSection}>
+          <View style={styles.allSectionHeader}>
+            <Text style={styles.allSectionTitle}>Posts</Text>
+            {postResults.length > 6 && (
+              <TouchableOpacity onPress={() => setActiveTab('posts')}>
+                <Text style={styles.seeAllText}>See all ({postResults.length})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.allGrid}>
+            {postResults.slice(0, 6).map((post) => {
+              const thumbnail = post.media_urls?.[0] || post.media_url;
+              return (
+                <TouchableOpacity
+                  key={post.id}
+                  style={styles.allGridItem}
+                  onPress={() => handlePostPress(post)}
+                >
+                  {thumbnail ? (
+                    <OptimizedImage source={thumbnail} style={styles.allGridImage} />
+                  ) : (
+                    <View style={[styles.allGridImage, styles.gridPlaceholder]}>
+                      <Ionicons name="image-outline" size={20} color={COLORS.grayMuted} />
+                    </View>
+                  )}
+                  {post.media_type === 'video' && (
+                    <View style={styles.videoIndicator}>
+                      <Ionicons name="play" size={10} color="#FFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Peaks Section */}
+      {peakResults.length > 0 && (
+        <View style={styles.allSection}>
+          <View style={styles.allSectionHeader}>
+            <Text style={styles.allSectionTitle}>Peaks</Text>
+            {peakResults.length > 6 && (
+              <TouchableOpacity onPress={() => setActiveTab('peaks')}>
+                <Text style={styles.seeAllText}>See all ({peakResults.length})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.allGrid}>
+            {peakResults.slice(0, 6).map((peak, index) => {
+              const thumbnail = peak.media_urls?.[0] || peak.media_url;
+              return (
+                <TouchableOpacity
+                  key={peak.id}
+                  style={styles.allGridItem}
+                  onPress={() => handlePeakPress(peak, index)}
+                >
+                  {thumbnail ? (
+                    <OptimizedImage source={thumbnail} style={styles.allGridImage} />
+                  ) : (
+                    <View style={[styles.allGridImage, styles.gridPlaceholder]}>
+                      <Ionicons name="videocam-outline" size={20} color={COLORS.grayMuted} />
+                    </View>
+                  )}
+                  <View style={styles.peakDurationSmall}>
+                    <Text style={styles.peakDurationTextSmall}>{peak.peak_duration || 15}s</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Hashtag Posts Section */}
+      {hashtagResults.length > 0 && (
+        <View style={styles.allSection}>
+          <View style={styles.allSectionHeader}>
+            <Text style={styles.allSectionTitle}>Tagged Posts</Text>
+            {hashtagResults.length > 6 && (
+              <TouchableOpacity onPress={() => setActiveTab('tags')}>
+                <Text style={styles.seeAllText}>See all ({hashtagResults.length})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.allGrid}>
+            {hashtagResults.slice(0, 6).map((post) => {
+              const thumbnail = post.media_urls?.[0] || post.media_url;
+              return (
+                <TouchableOpacity
+                  key={post.id}
+                  style={styles.allGridItem}
+                  onPress={() => handlePostPress(post)}
+                >
+                  {thumbnail ? (
+                    <OptimizedImage source={thumbnail} style={styles.allGridImage} />
+                  ) : (
+                    <View style={[styles.allGridImage, styles.gridPlaceholder]}>
+                      <Ionicons name="image-outline" size={20} color={COLORS.grayMuted} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Loading more indicator */}
+      {loadingMore && (
+        <View style={styles.loadingMore}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  const renderSearchResults = (): React.JSX.Element => {
+    const results = getCurrentResults();
+
+    if (isLoading && !loadingMore) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Searching...</Text>
+        </View>
+      );
+    }
+
+    // For "All" tab, check if any results exist
+    if (activeTab === 'all') {
+      const totalResults = userResults.length + postResults.length + peakResults.length + hashtagResults.length;
+      if (totalResults === 0 && hasSearched) {
+        return renderEmptyState();
+      }
+      return renderAllResults();
+    }
+
+    if (results.length === 0 && hasSearched) {
+      return renderEmptyState();
+    }
+
+    // Users use list layout
+    if (activeTab === 'users') {
+      return (
+        <FlatList
+          data={userResults}
+          keyExtractor={(item) => item.id}
+          renderItem={renderProfileItem}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            ) : null
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+        />
+      );
+    }
+
+    // Posts, Peaks, Tags use grid layout
+    const data = activeTab === 'posts' ? postResults : activeTab === 'peaks' ? peakResults : hashtagResults;
+    const renderItem = activeTab === 'posts' ? renderPostItem : activeTab === 'peaks' ? renderPeakItem : renderHashtagPost;
+
+    return (
+      <FlatList
+        data={data}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        numColumns={3}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.gridContainer}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+          ) : null
+        }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+      />
+    );
+  };
+
   // ============================================
   // RENDER
   // ============================================
@@ -179,7 +909,7 @@ const SearchScreen = (): React.JSX.Element => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* ============ HEADER AVEC FLÈCHE RETOUR ============ */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -194,7 +924,7 @@ const SearchScreen = (): React.JSX.Element => {
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search users..."
+            placeholder={activeTab === 'tags' ? 'Search #hashtags...' : 'Search...'}
             placeholderTextColor={COLORS.grayMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -215,44 +945,13 @@ const SearchScreen = (): React.JSX.Element => {
         )}
       </View>
 
-      {/* ============ CONTENU ============ */}
+      {/* Tabs */}
+      {renderTabs()}
 
-      {/* ÉTAT 1: Suggested profiles (no search query) */}
-      {searchQuery.length === 0 && (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Suggested</Text>
-          {suggestedProfiles.length > 0 ? (
-            suggestedProfiles.map(renderProfileItem)
-          ) : (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-            </View>
-          )}
-        </ScrollView>
-      )}
-
-      {/* ÉTAT 2: Search results */}
-      {searchQuery.length > 0 && (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Searching...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <>
-              <Text style={styles.sectionTitle}>Results ({searchResults.length})</Text>
-              {searchResults.map(renderProfileItem)}
-            </>
-          ) : hasSearched ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="search-outline" size={48} color={COLORS.grayMuted} />
-              <Text style={styles.emptyText}>No results found</Text>
-              <Text style={styles.emptySubtext}>Try a different search</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-      )}
+      {/* Content */}
+      <View style={styles.content}>
+        {searchQuery.length === 0 ? renderSuggestedContent() : renderSearchResults()}
+      </View>
     </View>
   );
 };
@@ -291,11 +990,6 @@ const styles = StyleSheet.create({
     height: 44,
     gap: 8,
   },
-  searchInputFocused: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-  },
   searchInput: {
     flex: 1,
     fontSize: 16,
@@ -310,168 +1004,81 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
-  // Section Title
+  // Tabs
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.gray,
+  },
+  tabTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  tabCount: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+
+  // Content
+  content: {
+    flex: 1,
+  },
+
+  // Section
+  section: {
+    paddingTop: 16,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.dark,
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    marginBottom: 12,
   },
 
-  // Filters
-  filtersWrapper: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
-    paddingBottom: 12,
-  },
-  filtersContent: {
-    paddingHorizontal: 16,
-    gap: 8,
+  // Hashtags
+  hashtagsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    gap: 8,
+    marginBottom: 16,
   },
-  filterTab: {
-    paddingHorizontal: 16,
+  hashtagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    gap: 6,
   },
-  filterTabActive: {
-    backgroundColor: COLORS.dark,
-  },
-  filterTabText: {
+  hashtagText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.gray,
-  },
-  filterTabTextActive: {
-    color: COLORS.white,
-  },
-
-  // Pinterest Grid
-  pinterestContainer: {
-    padding: 12,
-  },
-  pinterestGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  pinterestColumn: {
-    width: COLUMN_WIDTH,
-  },
-  pinterestCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  pinterestImage: {
-    width: '100%',
-    backgroundColor: '#F0F0F0',
-  },
-  liveBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  liveBadgeText: {
-    color: COLORS.white,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  durationBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  durationText: {
-    color: COLORS.white,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  cardInfo: {
-    padding: 10,
-  },
-  cardTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.dark,
-    marginBottom: 8,
-    lineHeight: 18,
-  },
-  cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 6,
-  },
-  cardUsername: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.gray,
-  },
-  cardLikes: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginLeft: 4,
-  },
-
-  // Recent Searches
-  recentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  recentContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recentAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  recentInfo: {
-    flex: 1,
-  },
-  recentName: {
-    fontSize: 15,
-    fontWeight: '600',
     color: COLORS.dark,
   },
-  recentSubtitle: {
-    fontSize: 13,
-    color: COLORS.gray,
-    marginTop: 2,
-  },
-  recentNewPosts: {
+  hashtagCount: {
     fontSize: 12,
-    color: COLORS.primary,
-    marginTop: 2,
+    color: COLORS.gray,
   },
 
-  // Search Results
+  // Result item (users)
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -487,6 +1094,10 @@ const styles = StyleSheet.create({
   resultInfo: {
     flex: 1,
   },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   resultUsername: {
     fontSize: 15,
     fontWeight: '600',
@@ -501,6 +1112,118 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.primary,
     marginTop: 2,
+  },
+
+  // All tab sections
+  allSection: {
+    marginBottom: 20,
+  },
+  allSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  allSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.dark,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  allGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 1,
+  },
+  allGridItem: {
+    width: (width - 4) / 3,
+    height: (width - 4) / 3,
+    padding: 1,
+  },
+  allGridImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F0F0F0',
+  },
+  peakDurationSmall: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  peakDurationTextSmall: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // Grid (posts, peaks, tags)
+  gridContainer: {
+    padding: 1,
+  },
+  gridItem: {
+    width: GRID_SIZE,
+    height: GRID_SIZE,
+    padding: 1,
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F0F0F0',
+  },
+  gridPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridStats: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+  },
+  gridStatText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  videoIndicator: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  peakDuration: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  peakDurationText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFF',
   },
 
   // Empty State
@@ -530,10 +1253,8 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     marginTop: 12,
   },
-
-  // Username row with verification badge
-  usernameRow: {
-    flexDirection: 'row',
+  loadingMore: {
+    paddingVertical: 20,
     alignItems: 'center',
   },
 });

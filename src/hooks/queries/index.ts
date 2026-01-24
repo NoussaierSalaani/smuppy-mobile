@@ -52,6 +52,8 @@ export const useProfile = (userId: string | null | undefined) => {
       return data;
     },
     enabled: !!userId,
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: 'always', // Always refetch when screen opens
   });
 };
 
@@ -395,7 +397,18 @@ export const useToggleFollow = () => {
       await queryClient.cancelQueries({ queryKey: queryKeys.follows.isFollowing(userId) });
       const previousValue = queryClient.getQueryData(queryKeys.follows.isFollowing(userId));
       queryClient.setQueryData(queryKeys.follows.isFollowing(userId), !isFollowing);
-      return { previousValue, userId };
+
+      // Optimistically update profile fan_count
+      const profileData = queryClient.getQueryData(queryKeys.user.profile(userId)) as database.Profile | undefined;
+      if (profileData) {
+        const currentFanCount = profileData.fan_count || 0;
+        queryClient.setQueryData(queryKeys.user.profile(userId), {
+          ...profileData,
+          fan_count: isFollowing ? Math.max(0, currentFanCount - 1) : currentFanCount + 1,
+        });
+      }
+
+      return { previousValue, userId, previousProfileData: profileData };
     },
     onError: (_err, _variables, context) => {
       if (context?.previousValue !== undefined) {
@@ -404,10 +417,19 @@ export const useToggleFollow = () => {
           context.previousValue
         );
       }
+      // Rollback profile data on error
+      if (context?.previousProfileData) {
+        queryClient.setQueryData(
+          queryKeys.user.profile(context.userId),
+          context.previousProfileData
+        );
+      }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       // Invalidate followers/following lists
       queryClient.invalidateQueries({ queryKey: ['follows'] });
+      // Invalidate the user's profile to get fresh fan_count
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(variables.userId) });
     },
   });
 };

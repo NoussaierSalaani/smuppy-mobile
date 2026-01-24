@@ -9,9 +9,9 @@ interface BadgeProps {
 
 // Badge colors from UI Kit
 const BADGE_COLORS = {
-  verified: '#0BCF93',   // Green - Verified accounts
-  creator: '#2D8EFF',    // Blue - Pro/Creator accounts
-  premium: '#D7B502',    // Gold - Premium accounts
+  verified: '#2D8EFF',   // Blue - Verified personal accounts
+  creator: '#0BCF93',    // Green - Pro/Creator accounts
+  premium: '#D7B502',    // Gold - Premium/Pro Local accounts
 };
 
 /**

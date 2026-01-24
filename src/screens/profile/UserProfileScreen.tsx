@@ -151,12 +151,28 @@ const UserProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
 
-  // Initialize local fan count from profile
+  // Live status for pro_creator (mock data - can be connected to real data later)
+  const [creatorLiveStatus, setCreatorLiveStatus] = useState<{
+    isLive: boolean;
+    liveTitle?: string;
+    nextLiveDate?: Date;
+    nextLiveTitle?: string;
+    hasReminder?: boolean;
+  }>({
+    isLive: false, // Set to true to show "LIVE NOW" section
+    liveTitle: 'Morning Workout Session',
+    nextLiveDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+    nextLiveTitle: 'Full Body Training',
+    hasReminder: false,
+  });
+
+  // Sync local fan count with profile data from server
+  // Always update when profile.fanCount changes to get the latest value
   useEffect(() => {
-    if (profile.fanCount !== undefined && localFanCount === null) {
+    if (profile.fanCount !== undefined) {
       setLocalFanCount(profile.fanCount);
     }
-  }, [profile.fanCount, localFanCount]);
+  }, [profile.fanCount]);
 
   // Display fan count (local takes precedence for optimistic updates)
   const displayFanCount = localFanCount ?? profile.fanCount;
@@ -388,22 +404,18 @@ const UserProfileScreen = () => {
 
   const handleMessagePress = () => {
     if (isFan) {
-      const conversation = {
-        id: `conv_${profile.id}`,
-        user: {
+      // Pass userId so ChatScreen can get/create the real conversation
+      navigation.navigate('Chat', {
+        userId: profile.id,
+        otherUser: {
           id: profile.id,
-          name: profile.displayName,
           username: profile.username,
-          avatar: profile.avatar || '',
-          isVerified: profile.isVerified || false,
-          isOnline: true,
+          full_name: profile.displayName,
+          avatar_url: profile.avatar || '',
+          is_verified: profile.isVerified || false,
+          account_type: profile.accountType,
         },
-        lastMessage: '',
-        lastMessageTime: new Date().toISOString(),
-        unreadCount: 0,
-        isOnline: true,
-      };
-      navigation.navigate('Chat', { conversation });
+      });
     }
   };
 
@@ -817,7 +829,133 @@ const UserProfileScreen = () => {
             <Text style={styles.messageText}>Message</Text>
           </TouchableOpacity>
         )}
+
+        {/* Book Session button for pro_creator - Always visible */}
+        {profile.accountType === 'pro_creator' && (
+          <TouchableOpacity
+            style={styles.sessionButton}
+            onPress={() => (navigation as any).navigate('BookSession', {
+              creator: {
+                id: profile.id,
+                name: profile.displayName,
+                avatar: profile.avatar || '',
+                specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
+              }
+            })}
+          >
+            <LinearGradient
+              colors={['#0081BE', '#00B5C1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.sessionButtonGradient}
+            >
+              <Ionicons name="videocam" size={18} color="#FFFFFF" />
+              <Text style={styles.sessionButtonText}>Book 1:1</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Pro Creator Live Section */}
+      {profile.accountType === 'pro_creator' && (
+        <>
+          {/* LIVE NOW Section */}
+          {creatorLiveStatus.isLive && (
+            <View style={styles.liveNowSection}>
+              <LinearGradient
+                colors={['rgba(255, 59, 48, 0.1)', 'rgba(255, 59, 48, 0.05)']}
+                style={styles.liveNowGradient}
+              >
+                <View style={styles.liveNowHeader}>
+                  <View style={styles.liveBadge}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveBadgeText}>LIVE NOW</Text>
+                  </View>
+                  <Text style={styles.liveViewers}>127 viewers</Text>
+                </View>
+                <Text style={styles.liveTitle}>{creatorLiveStatus.liveTitle}</Text>
+                <TouchableOpacity
+                  style={styles.joinLiveButton}
+                  onPress={() => (navigation as any).navigate('LiveStreaming', {
+                    title: creatorLiveStatus.liveTitle || 'Live Session',
+                    audience: 'public',
+                    isViewer: true,
+                    creatorName: profile.displayName,
+                    creatorAvatar: profile.avatar,
+                  })}
+                >
+                  <LinearGradient
+                    colors={['#FF3B30', '#FF6B6B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.joinLiveGradient}
+                  >
+                    <Ionicons name="play" size={18} color="#FFFFFF" />
+                    <Text style={styles.joinLiveText}>Join Live Stream</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          )}
+
+          {/* Next Live Session Section */}
+          {!creatorLiveStatus.isLive && creatorLiveStatus.nextLiveDate && (
+            <View style={styles.nextLiveSection}>
+              <View style={styles.nextLiveHeader}>
+                <View style={styles.nextLiveIconContainer}>
+                  <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+                </View>
+                <View style={styles.nextLiveInfo}>
+                  <Text style={styles.nextLiveLabel}>Next Live Session</Text>
+                  <Text style={styles.nextLiveDate}>
+                    {creatorLiveStatus.nextLiveDate.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                  {creatorLiveStatus.nextLiveTitle && (
+                    <Text style={styles.nextLiveTitle}>{creatorLiveStatus.nextLiveTitle}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.reminderButton,
+                    creatorLiveStatus.hasReminder && styles.reminderButtonActive
+                  ]}
+                  onPress={() => {
+                    setCreatorLiveStatus(prev => ({
+                      ...prev,
+                      hasReminder: !prev.hasReminder,
+                    }));
+                    Alert.alert(
+                      creatorLiveStatus.hasReminder ? 'Reminder Removed' : 'Reminder Set',
+                      creatorLiveStatus.hasReminder
+                        ? "You won't be notified about this live."
+                        : "We'll notify you when this live starts.",
+                      [{ text: 'OK' }]
+                    );
+                  }}
+                >
+                  <Ionicons
+                    name={creatorLiveStatus.hasReminder ? 'notifications' : 'notifications-outline'}
+                    size={18}
+                    color={creatorLiveStatus.hasReminder ? '#FFFFFF' : COLORS.primary}
+                  />
+                  <Text style={[
+                    styles.reminderButtonText,
+                    creatorLiveStatus.hasReminder && styles.reminderButtonTextActive
+                  ]}>
+                    {creatorLiveStatus.hasReminder ? 'Reminded' : 'Set Reminder'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </>
+      )}
     </View>
   );
 
@@ -1263,6 +1401,150 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0A252F',
+  },
+  sessionButton: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  sessionButtonGradient: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  sessionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // ===== LIVE SECTIONS =====
+  liveNowSection: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  liveNowGradient: {
+    padding: 16,
+  },
+  liveNowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  liveBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  liveViewers: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(10, 37, 47, 0.6)',
+  },
+  liveTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0A252F',
+    marginBottom: 12,
+  },
+  joinLiveButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  joinLiveGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  joinLiveText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  nextLiveSection: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    backgroundColor: 'rgba(14, 191, 138, 0.08)',
+    borderRadius: 16,
+    padding: 16,
+  },
+  nextLiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  nextLiveIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  nextLiveInfo: {
+    flex: 1,
+  },
+  nextLiveLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(10, 37, 47, 0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  nextLiveDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0A252F',
+    marginTop: 2,
+  },
+  nextLiveTitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(10, 37, 47, 0.7)',
+    marginTop: 2,
+  },
+  reminderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  reminderButtonActive: {
+    backgroundColor: '#0EBF8A',
+  },
+  reminderButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0EBF8A',
+  },
+  reminderButtonTextActive: {
+    color: '#FFFFFF',
   },
 
   // ===== TABS (PILLS STYLE) =====

@@ -6,9 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
-  Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -18,13 +15,6 @@ interface DatePickerModalProps {
   onConfirm: (date: string) => void;
   initialDate?: string;
 }
-
-interface Month {
-  value: string;
-  label: string;
-}
-
-const { width } = Dimensions.get('window');
 const ITEM_HEIGHT = 50;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
@@ -88,7 +78,8 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
         scrollToDay(initial.day);
       }, 100);
     }
-  }, [visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialDate]);
 
   const scrollToYear = (year) => {
     const index = YEARS.indexOf(year);
@@ -147,7 +138,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     onClose();
   };
 
-  const renderYearItem = ({ item, index }) => {
+  const renderYearItem = ({ item }: { item: number }) => {
     const isSelected = item === selectedYear;
     return (
       <View style={styles.pickerItem}>
@@ -158,7 +149,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     );
   };
 
-  const renderMonthItem = ({ item, index }) => {
+  const renderMonthItem = ({ item }: { item: { value: string; label: string } }) => {
     const isSelected = item.value === selectedMonth;
     return (
       <View style={styles.pickerItem}>
@@ -169,7 +160,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     );
   };
 
-  const renderDayItem = ({ item, index }) => {
+  const renderDayItem = ({ item }: { item: string }) => {
     const isSelected = item === selectedDay;
     return (
       <View style={styles.pickerItem}>

@@ -1,6 +1,6 @@
 # Smuppy Mobile - Architecture & Infrastructure Documentation
 
-> Dernière mise à jour: 12 janvier 2026 (Security Update - Score 9.5/10)
+> Dernière mise à jour: 24 janvier 2026 (Live Streaming + Private Sessions + Feed Improvements)
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -27,10 +27,10 @@
 Smuppy est une application mobile React Native/Expo conçue pour scaler à **2+ millions d'utilisateurs**. Cette documentation couvre les optimisations d'architecture et d'infrastructure implémentées.
 
 ### Metrics Clés
-- **96 fichiers JavaScript**
-- **~28,000 lignes de code**
-- **50 écrans**
-- **25+ composants réutilisables**
+- **100+ fichiers TypeScript/JavaScript**
+- **~35,000 lignes de code**
+- **74 écrans**
+- **30+ composants réutilisables**
 - **Backend**: Supabase (PostgreSQL + Auth + Storage)
 
 ---
@@ -824,12 +824,17 @@ src/
 │   └── MainNavigator.js       # React Navigation setup
 │
 ├── screens/
-│   ├── auth/                  # 7 screens
-│   ├── home/                  # 8 screens
-│   ├── messages/              # 2 screens
-│   ├── onboarding/            # 7 screens
-│   ├── profile/               # 6 screens
-│   └── settings/              # 5 screens
+│   ├── auth/                  # 15 screens (login, signup, forgot, verify, biometric)
+│   ├── home/                  # 11 screens (feeds, posts, video recorder)
+│   ├── live/                  # 4 screens (GoLiveIntro, GoLive, LiveStreaming, LiveEnded)
+│   ├── messages/              # 4 screens (Messages, NewMessage, Chat)
+│   ├── notifications/         # 2 screens
+│   ├── onboarding/            # 14 screens (profile setup, interests, expertise)
+│   ├── peaks/                 # 5 screens (feed, view, create, preview)
+│   ├── profile/               # 4 screens (Profile, UserProfile, FansList)
+│   ├── search/                # 1 screen
+│   ├── sessions/              # 7 screens (Book, Payment, Booked, WaitingRoom, PrivateCall, Ended, Manage)
+│   └── settings/              # 13 screens (settings, edit, privacy, blocked users)
 │
 ├── services/
 │   ├── notifications.ts       # Push notification service
@@ -928,6 +933,123 @@ supabase/
 
 ---
 
+## Live Streaming
+
+### Architecture
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  Creator Device  │────▶│   Streaming      │────▶│   Viewers        │
+│  (Camera/Mic)    │     │   Server         │     │   (FlashList)    │
+└──────────────────┘     └──────────────────┘     └──────────────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │  Chat & Gifts    │
+                         │  (Supabase RT)   │
+                         └──────────────────┘
+```
+
+### Screens
+
+| Écran | Description |
+|-------|-------------|
+| `GoLiveIntroScreen` | Instructions et preview avant le live |
+| `GoLiveScreen` | Configuration du live (titre, description) |
+| `LiveStreamingScreen` | Écran du streamer avec chat et stats |
+| `LiveEndedScreen` | Récapitulatif après fin du live |
+
+### Features
+- Real-time viewer count
+- Live chat avec emojis
+- Gift system avec animations
+- Screen recording/capture
+- Multi-camera support (front/back switch)
+
+---
+
+## Private Sessions (1:1 Video Calls)
+
+### Architecture
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  User (Booking)  │────▶│   Supabase       │────▶│  Creator         │
+│                  │     │   (Scheduling)   │     │  (Accept/Reject) │
+└──────────────────┘     └──────────────────┘     └──────────────────┘
+         │                                                  │
+         │              ┌──────────────────┐                │
+         └─────────────▶│  Video Call      │◀───────────────┘
+                        │  (WebRTC/Twilio) │
+                        └──────────────────┘
+```
+
+### Screens
+
+| Écran | Description |
+|-------|-------------|
+| `BookSessionScreen` | Sélection créateur, date, heure, durée |
+| `SessionPaymentScreen` | Paiement de la session |
+| `SessionBookedScreen` | Confirmation de réservation |
+| `WaitingRoomScreen` | Salle d'attente avant l'appel |
+| `PrivateCallScreen` | Écran d'appel vidéo 1:1 |
+| `SessionEndedScreen` | Récapitulatif et notation |
+| `PrivateSessionsManageScreen` | Gestion des sessions (créateur) |
+
+### Features
+- Calendar integration
+- Multiple duration options (15, 30, 60 min)
+- Pricing by creator
+- Ratings & reviews
+- Session history
+- Cancellation handling
+
+---
+
+## Feed System
+
+### Three Feeds Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    FeedScreen                               │
+│  ┌───────────────┬───────────────┬───────────────┐         │
+│  │   FanFeed     │   VibesFeed   │  XplorerFeed  │         │
+│  │  (Following)  │  (Discovery)  │    (Map)      │         │
+│  └───────────────┴───────────────┴───────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### FanFeed
+- Posts des utilisateurs suivis
+- Tri chronologique
+- Scroll-to-top on tab click
+- Sticky header avec animation hide/show
+
+### VibesFeed
+- Découverte de contenu par intérêts
+- **Interest sorting** (pas filtering) - feed toujours rempli
+- Posts correspondants en haut par score de relevance
+- Score = (matching tags × 1000) + min(likes, 500)
+- Modal avec related posts (même catégorie/tags)
+- Sync des likes entre grid et modal
+
+### XplorerFeed
+- Carte interactive (react-native-maps)
+- Search bar avec autocomplete
+- Filtres par catégorie (max 3)
+- Mode fullscreen (cache header + bottom nav)
+- Clusters de markers
+- Recenter button
+
+### Common Features
+- Pull-to-refresh
+- Infinite scroll
+- Optimistic updates for likes/saves
+- FlashList for performance
+
+---
+
 ## Scalability Analysis
 
 ### Current Capacity: 2M+ Users
@@ -959,7 +1081,7 @@ supabase/
 
 ### Completed ✅
 
-- [x] FlashList migration (10 screens)
+- [x] FlashList migration (10+ screens)
 - [x] expo-image integration
 - [x] React Query caching
 - [x] Zustand stores
@@ -971,6 +1093,11 @@ supabase/
 - [x] **Media CDN** (AWS S3 + CloudFront)
 - [x] **Image Compression** (expo-image-manipulator)
 - [x] **Supabase Edge Functions** (presigned URLs)
+- [x] **Live Streaming** (4 screens)
+- [x] **Private Sessions** (7 screens - booking, payment, video call)
+- [x] **Feed System** (FanFeed, VibesFeed with interest sorting, XplorerFeed map)
+- [x] **Peaks System** (Stories-like ephemeral content)
+- [x] **TypeScript Migration** (types/index.ts with full navigation types)
 
 ### Short-term (Recommended)
 
@@ -1053,10 +1180,14 @@ L'architecture Smuppy Mobile est maintenant **optimisée pour 2+ millions d'util
 - **Push Notifications**: Expo Notifications = engagement utilisateur
 - **Media CDN**: S3 + CloudFront = images/vidéos rapides et optimisées
 - **Edge Functions**: Supabase Edge = serverless sécurisé
+- **Live Streaming**: Système complet de streaming en direct
+- **Private Sessions**: Réservation et appels vidéo 1:1
+- **Feed System**: 3 feeds optimisés (FanFeed, VibesFeed, XplorerFeed)
+- **Peaks**: Contenu éphémère type Stories
 
 L'application est prête pour la production à grande échelle.
 
 ---
 
-*Documentation générée le: 11 Janvier 2026*
-*Version: 1.2.0*
+*Documentation générée le: 24 Janvier 2026*
+*Version: 2.0.0*

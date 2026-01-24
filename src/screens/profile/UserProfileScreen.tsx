@@ -1179,7 +1179,7 @@ const UserProfileScreen = () => {
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}
         onSubscribe={(tierId) => {
-          console.log('Subscribed to tier:', tierId);
+          // TODO: Implement subscription logic with payment
         }}
       />
     </View>

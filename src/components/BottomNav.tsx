@@ -1,5 +1,5 @@
 // src/components/BottomNav.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -198,7 +198,11 @@ interface BottomNavProps {
   onCreatePress?: () => void;
 }
 
-export default function BottomNav({ state, navigation, onCreatePress }: BottomNavProps): React.JSX.Element | null {
+/**
+ * BottomNav - Main tab navigation bar
+ * Memoized for performance - renders on every screen
+ */
+const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: BottomNavProps): React.JSX.Element | null {
   const insets = useSafeAreaInsets();
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
 
@@ -459,7 +463,9 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
       )}
     </Animated.View>
   );
-}
+});
+
+export default BottomNav;
 
 const styles = StyleSheet.create({
   container: {

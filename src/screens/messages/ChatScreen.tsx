@@ -81,23 +81,13 @@ export default function ChatScreen({ route, navigation }) {
   // Load or create conversation
   useEffect(() => {
     const initConversation = async () => {
-      console.log('[ChatScreen] Init conversation - initialConversationId:', initialConversationId, 'userId:', userId);
-
       if (initialConversationId) {
-        console.log('[ChatScreen] Using initial conversation ID:', initialConversationId);
         setConversationId(initialConversationId);
       } else if (userId) {
-        console.log('[ChatScreen] Creating/getting conversation with user:', userId);
         const { data, error } = await getOrCreateConversation(userId);
-        if (error) {
-          console.error('[ChatScreen] Error creating conversation:', error);
-        }
         if (!error && data) {
-          console.log('[ChatScreen] Got conversation ID:', data);
           setConversationId(data);
         }
-      } else {
-        console.error('[ChatScreen] No conversationId or userId provided!');
       }
     };
     initConversation();
@@ -145,7 +135,6 @@ export default function ChatScreen({ route, navigation }) {
     if (!inputText.trim()) return;
 
     if (!conversationId) {
-      console.error('[ChatScreen] Cannot send - no conversation ID');
       Alert.alert('Error', 'Conversation not initialized. Please go back and try again.');
       return;
     }
@@ -156,11 +145,9 @@ export default function ChatScreen({ route, navigation }) {
     setInputText('');
     setSending(true);
 
-    console.log('[ChatScreen] Sending message to conversation:', conversationId);
     const { error } = await sendMessageToDb(conversationId, messageText);
 
     if (error) {
-      console.error('[ChatScreen] Send message error:', error);
       Alert.alert('Error', `Failed to send message: ${error}`);
       setInputText(messageText);
     }

@@ -18,6 +18,9 @@ import { useUserStore, useAppStore } from './src/stores';
 // Push Notifications
 import { initializeNotifications, registerPushToken, clearBadge } from './src/services/notifications';
 
+// UI Components
+import OfflineBanner from './src/components/OfflineBanner';
+
 /**
  * Network Monitor Component
  * Tracks online/offline status globally
@@ -162,6 +165,7 @@ export default function App() {
         <PushNotificationHandler />
         <View style={{ flex: 1 }}>
           <AppNavigator />
+          <OfflineBanner />
         </View>
       </QueryClientProvider>
     </ErrorBoundary>

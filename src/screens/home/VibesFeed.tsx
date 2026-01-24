@@ -327,8 +327,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   } = useMoodAI({
     enableScrollTracking: true,
     moodUpdateInterval: 30000, // Update mood every 30s
-    onMoodChange: (newMood) => {
-      console.log('[VibesFeed] Mood changed to:', newMood.primaryMood);
+    onMoodChange: (_newMood) => {
+      // Mood changed - could update UI based on mood
     },
   });
 

@@ -25,7 +25,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, unfollowUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;

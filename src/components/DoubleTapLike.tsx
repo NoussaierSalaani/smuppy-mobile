@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect, memo } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,12 +22,13 @@ interface DoubleTapLikeProps {
 
 /**
  * DoubleTapLike - Smuppy's unique double-tap to like gesture
+ * Memoized for performance - this component wraps every post in feeds
  * Features:
- * - Double-tap detection
- * - Haptic feedback
- * - Animated heart burst effect (Smuppy style - multiple hearts exploding)
+ * - Double-tap detection with 300ms threshold
+ * - Haptic feedback (Success notification)
+ * - Animated heart burst effect (main heart + 6 mini hearts exploding)
  */
-export default function DoubleTapLike({
+const DoubleTapLike = memo(function DoubleTapLike({
   children,
   onDoubleTap,
   onSingleTap,
@@ -233,7 +234,9 @@ export default function DoubleTapLike({
       )}
     </Pressable>
   );
-}
+});
+
+export default DoubleTapLike;
 
 const styles = StyleSheet.create({
   heartContainer: {

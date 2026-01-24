@@ -167,6 +167,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPost, setMenuPost] = useState<UIPost | null>(null);
 
+  // Memoized styles to prevent re-renders
+  const listContentStyle = useMemo(() => ({
+    ...styles.listContent,
+    paddingTop: headerHeight > 0 ? headerHeight : 0,
+  }), [headerHeight]);
+
   // Fetch posts from tracked users
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
     try {
@@ -768,10 +774,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
               progressViewOffset={headerHeight}
             />
           }
-          contentContainerStyle={{
-            ...styles.listContent,
-            paddingTop: headerHeight > 0 ? headerHeight : 0,
-          }}
+          contentContainerStyle={listContentStyle}
         />
       </SwipeToPeaks>
 

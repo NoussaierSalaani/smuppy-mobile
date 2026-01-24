@@ -11,12 +11,14 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmojiPicker from 'rn-emoji-keyboard';
 import { AccountBadge } from '../../components/Badge';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import VoiceMessage from '../../components/VoiceMessage';
@@ -30,6 +32,7 @@ import {
   subscribeToMessages,
   getOrCreateConversation,
   getCurrentUserId,
+  blockUser,
   Message,
   Profile,
 } from '../../services/database';
@@ -51,6 +54,24 @@ export default function ChatScreen({ route, navigation }) {
   const [otherUserProfile] = useState<Profile | null>(otherUser || null);
   const [isRecording, setIsRecording] = useState(false);
   const [chatMenuVisible, setChatMenuVisible] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+
+  // Handle emoji selection
+  const handleEmojiSelect = (emoji: { emoji: string }) => {
+    setInputText(prev => prev + emoji.emoji);
+  };
+
+  // Toggle emoji picker
+  const toggleEmojiPicker = () => {
+    if (showEmojiPicker) {
+      setShowEmojiPicker(false);
+      inputRef.current?.focus();
+    } else {
+      Keyboard.dismiss();
+      setShowEmojiPicker(true);
+    }
+  };
 
   // Get current user ID
   useEffect(() => {
@@ -60,13 +81,23 @@ export default function ChatScreen({ route, navigation }) {
   // Load or create conversation
   useEffect(() => {
     const initConversation = async () => {
+      console.log('[ChatScreen] Init conversation - initialConversationId:', initialConversationId, 'userId:', userId);
+
       if (initialConversationId) {
+        console.log('[ChatScreen] Using initial conversation ID:', initialConversationId);
         setConversationId(initialConversationId);
       } else if (userId) {
+        console.log('[ChatScreen] Creating/getting conversation with user:', userId);
         const { data, error } = await getOrCreateConversation(userId);
+        if (error) {
+          console.error('[ChatScreen] Error creating conversation:', error);
+        }
         if (!error && data) {
+          console.log('[ChatScreen] Got conversation ID:', data);
           setConversationId(data);
         }
+      } else {
+        console.error('[ChatScreen] No conversationId or userId provided!');
       }
     };
     initConversation();
@@ -111,13 +142,26 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !conversationId || sending) return;
+    if (!inputText.trim()) return;
+
+    if (!conversationId) {
+      console.error('[ChatScreen] Cannot send - no conversation ID');
+      Alert.alert('Error', 'Conversation not initialized. Please go back and try again.');
+      return;
+    }
+
+    if (sending) return;
+
     const messageText = inputText.trim();
     setInputText('');
     setSending(true);
+
+    console.log('[ChatScreen] Sending message to conversation:', conversationId);
     const { error } = await sendMessageToDb(conversationId, messageText);
+
     if (error) {
-      Alert.alert('Error', 'Failed to send message');
+      console.error('[ChatScreen] Send message error:', error);
+      Alert.alert('Error', `Failed to send message: ${error}`);
       setInputText(messageText);
     }
     setSending(false);
@@ -276,13 +320,27 @@ export default function ChatScreen({ route, navigation }) {
         />
       ) : (
         <View style={[styles.inputArea, { paddingBottom: insets.bottom + 10 }]}>
+          {/* Emoji Button */}
+          <TouchableOpacity
+            style={styles.emojiButton}
+            onPress={toggleEmojiPicker}
+          >
+            <Ionicons
+              name={showEmojiPicker ? "keypad" : "happy-outline"}
+              size={24}
+              color={showEmojiPicker ? COLORS.primary : COLORS.gray}
+            />
+          </TouchableOpacity>
+
           <View style={styles.inputContainer}>
             <TextInput
+              ref={inputRef}
               style={styles.textInput}
               placeholder="Message..."
               placeholderTextColor={COLORS.gray}
               value={inputText}
               onChangeText={setInputText}
+              onFocus={() => setShowEmojiPicker(false)}
               multiline
               maxLength={1000}
             />
@@ -303,6 +361,30 @@ export default function ChatScreen({ route, navigation }) {
           )}
         </View>
       )}
+
+      {/* Emoji Picker */}
+      <EmojiPicker
+        onEmojiSelected={handleEmojiSelect}
+        open={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        expandable={false}
+        theme={{
+          backdrop: 'rgba(0,0,0,0.2)',
+          knob: COLORS.primary,
+          container: '#FFFFFF',
+          header: COLORS.dark,
+          skinTonesContainer: '#F5F5F5',
+          category: {
+            icon: COLORS.gray,
+            iconActive: COLORS.primary,
+            container: '#F5F5F5',
+            containerActive: 'rgba(0,230,118,0.1)',
+          },
+        }}
+        enableSearchBar
+        enableRecentlyUsed
+        categoryPosition="top"
+      />
 
       <Modal visible={!!selectedImage} transparent animationType="fade">
         <View style={styles.imageModal}>
@@ -357,7 +439,21 @@ export default function ChatScreen({ route, navigation }) {
                   `Block ${otherUserProfile?.full_name || 'this user'}?`,
                   [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Block', style: 'destructive', onPress: () => navigation.goBack() },
+                    {
+                      text: 'Block',
+                      style: 'destructive',
+                      onPress: async () => {
+                        if (otherUserProfile?.id) {
+                          const { error } = await blockUser(otherUserProfile.id);
+                          if (error) {
+                            Alert.alert('Error', 'Failed to block user');
+                          } else {
+                            Alert.alert('Blocked', `${otherUserProfile.full_name || 'User'} has been blocked`);
+                            navigation.goBack();
+                          }
+                        }
+                      }
+                    },
                   ]
                 );
               }}
@@ -407,9 +503,10 @@ const styles = StyleSheet.create({
   messageImage: { width: 200, height: 150, borderRadius: 12 },
   inputArea: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
   inputContainer: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 120 },
-  textInput: { fontSize: 16, color: COLORS.dark, maxHeight: 100 },
+  textInput: { fontSize: 16, color: COLORS.dark, minHeight: 40, maxHeight: 100, paddingTop: Platform.OS === 'ios' ? 10 : 8 },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   voiceButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  emojiButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyChatName: { fontSize: 18, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.md },
   emptyChatText: { fontSize: 14, color: COLORS.gray, marginTop: SPACING.sm, textAlign: 'center' },

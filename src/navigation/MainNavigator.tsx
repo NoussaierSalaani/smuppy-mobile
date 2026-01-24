@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useUserStore } from '../stores';
+import { getCurrentProfile } from '../services/database';
 // TabBarProvider removed - was causing issues and not being used
 
 // Tab Screens
@@ -48,6 +50,20 @@ import PeakViewScreen from '../screens/peaks/PeakViewScreen';
 import CreatePeakScreen from '../screens/peaks/CreatePeakScreen';
 import PeakPreviewScreen from '../screens/peaks/PeakPreviewScreen';
 
+// Live Streaming Screens
+import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen } from '../screens/live';
+
+// Private Sessions Screens
+import {
+  BookSessionScreen,
+  SessionPaymentScreen,
+  SessionBookedScreen,
+  WaitingRoomScreen,
+  PrivateCallScreen,
+  SessionEndedScreen,
+  PrivateSessionsManageScreen,
+} from '../screens/sessions';
+
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
 import BottomNav from '../components/BottomNav';
@@ -66,7 +82,7 @@ function TabNavigator({ navigation }) {
         <Tab.Screen name="Home" component={FeedScreen} />
         <Tab.Screen name="Peaks" component={PeaksFeedScreen} />
         <Tab.Screen name="CreateTab" component={CreatePostScreen} />
-        <Tab.Screen name="Notifications" component={NotificationsScreen} />
+        <Tab.Screen name="Messages" component={MessagesScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
 
@@ -81,6 +97,47 @@ function TabNavigator({ navigation }) {
 }
 
 export default function MainNavigator() {
+  const setUser = useUserStore((state) => state.setUser);
+  const currentUserId = useUserStore((state) => state.user?.id);
+
+  // Sync profile from database to Zustand store on mount
+  // This ensures fresh data after login, not stale persisted data
+  useEffect(() => {
+    const syncProfile = async () => {
+      try {
+        const { data, error } = await getCurrentProfile();
+        if (data && !error) {
+          // Check if user ID changed (different account logged in)
+          if (currentUserId && currentUserId !== data.id) {
+            console.log('[MainNavigator] Different user detected, updating store');
+          }
+          // Update Zustand with fresh profile data
+          setUser({
+            id: data.id,
+            username: data.username,
+            fullName: data.full_name,
+            displayName: data.display_name || data.full_name,
+            avatar: data.avatar_url || undefined,
+            coverImage: data.cover_url || undefined,
+            bio: data.bio || undefined,
+            accountType: data.account_type as 'personal' | 'pro_creator' | 'pro_local',
+            isVerified: data.is_verified || false,
+            interests: data.interests || [],
+            expertise: data.expertise || [],
+            stats: {
+              fans: data.fan_count || 0,
+              posts: data.post_count || 0,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('[MainNavigator] Error syncing profile:', err);
+      }
+    };
+
+    syncProfile();
+  }, [setUser, currentUserId]);
+
   return (
     <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
@@ -88,8 +145,8 @@ export default function MainNavigator() {
       {/* Search */}
       <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Messages */}
-      <Stack.Screen name="Messages" component={MessagesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Notifications (accessible from HomeHeader) */}
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
@@ -125,6 +182,21 @@ export default function MainNavigator() {
       <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="CreatePeak" component={CreatePeakScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="PeakPreview" component={PeakPreviewScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Live Streaming */}
+      <Stack.Screen name="GoLiveIntro" component={GoLiveIntroScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="GoLive" component={GoLiveScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="LiveStreaming" component={LiveStreamingScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="LiveEnded" component={LiveEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+
+      {/* Private Sessions */}
+      <Stack.Screen name="PrivateSessionsManage" component={PrivateSessionsManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BookSession" component={BookSessionScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="SessionPayment" component={SessionPaymentScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="SessionBooked" component={SessionBookedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="WaitingRoom" component={WaitingRoomScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="PrivateCall" component={PrivateCallScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="SessionEnded" component={SessionEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }

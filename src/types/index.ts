@@ -457,7 +457,18 @@ export type MainStackParamList = {
   Search: undefined;
   Messages: undefined;
   NewMessage: undefined;
-  Chat: { conversation: Conversation };
+  Chat: {
+    conversationId?: string;
+    userId?: string;
+    otherUser?: {
+      id: string;
+      username?: string;
+      full_name?: string;
+      avatar_url?: string;
+      is_verified?: boolean;
+      account_type?: string;
+    };
+  };
 
   // Details
   UserProfile: { userId: string };

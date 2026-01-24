@@ -13,21 +13,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface NotificationSettings {
   all: boolean;
   likes: boolean;
-  comments: boolean;
-  tags: boolean;
+  newFans: boolean;
+  peakReplies: boolean;
   shares: boolean;
   messages: boolean;
-  peaks: boolean;
+  live: boolean;
 }
 
 const NOTIFICATION_OPTIONS = [
   { id: 'all' as keyof NotificationSettings, label: 'All' },
   { id: 'likes' as keyof NotificationSettings, label: 'Likes' },
-  { id: 'comments' as keyof NotificationSettings, label: 'Comments' },
-  { id: 'tags' as keyof NotificationSettings, label: 'Tags' },
+  { id: 'newFans' as keyof NotificationSettings, label: 'New Fans' },
+  { id: 'peakReplies' as keyof NotificationSettings, label: 'Peak Replies' },
   { id: 'shares' as keyof NotificationSettings, label: 'Shares' },
   { id: 'messages' as keyof NotificationSettings, label: 'Messages' },
-  { id: 'peaks' as keyof NotificationSettings, label: 'Peaks' },
+  { id: 'live' as keyof NotificationSettings, label: 'Live Streams' },
 ];
 
 const NotificationSettingsScreen = ({ navigation }) => {
@@ -36,11 +36,11 @@ const NotificationSettingsScreen = ({ navigation }) => {
   const [settings, setSettings] = useState({
     all: false,
     likes: true,
-    comments: true,
-    tags: true,
+    newFans: true,
+    peakReplies: true,
     shares: true,
     messages: true,
-    peaks: true,
+    live: true,
   });
 
   const toggleSetting = (key: keyof NotificationSettings) => {
@@ -50,11 +50,11 @@ const NotificationSettingsScreen = ({ navigation }) => {
       const newSettings: NotificationSettings = {
         all: newValue,
         likes: newValue,
-        comments: newValue,
-        tags: newValue,
+        newFans: newValue,
+        peakReplies: newValue,
         shares: newValue,
         messages: newValue,
-        peaks: newValue,
+        live: newValue,
       };
       setSettings(newSettings);
     } else {

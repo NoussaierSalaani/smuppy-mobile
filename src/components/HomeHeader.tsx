@@ -1,5 +1,5 @@
 // src/components/HomeHeader.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,18 @@ import {
   Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { COLORS } from '../config/theme';
+import { COLORS, GRADIENTS } from '../config/theme';
 import { SmuppyText } from './SmuppyLogo';
 import { useTabBar } from '../context/TabBarContext';
+import { useUserStore } from '../stores';
 
 const { width } = Dimensions.get('window');
-const TAB_BAR_MARGIN = 16;
 const TAB_BAR_INNER_PADDING = 16;
-const TAB_BAR_WIDTH = width - (TAB_BAR_MARGIN * 2) - (TAB_BAR_INNER_PADDING * 2);
+const TAB_BAR_WIDTH = width - (TAB_BAR_INNER_PADDING * 2);
 const TAB_COUNT = 3;
 const TAB_WIDTH = TAB_BAR_WIDTH / TAB_COUNT;
 const INDICATOR_WIDTH = TAB_WIDTH * 0.5;
@@ -49,11 +50,15 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity } = useTabBar();
 
-  const tabs: Tab[] = [
+  // Check if user is pro_creator for special styling
+  const user = useUserStore((state) => state.user);
+  const isProCreator = user?.accountType === 'pro_creator';
+
+  const tabs: Tab[] = useMemo(() => [
     { id: 'Fan', label: 'Fan' },
     { id: 'Vibes', label: 'Vibes' },
     { id: 'Xplorer', label: 'Xplorer' },
-  ];
+  ], []);
 
   const indicatorAnim = useRef(new Animated.Value(0)).current;
 
@@ -77,8 +82,8 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
     navigation.navigate('Search');
   };
 
-  const handleMessagesPress = (): void => {
-    navigation.navigate('Messages');
+  const handleNotificationsPress = (): void => {
+    navigation.navigate('Notifications');
   };
 
   const topPadding = insets.top || StatusBar.currentHeight || 44;
@@ -92,41 +97,119 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
     ],
   });
 
+  // Icon color based on account type (dark for both now)
+  const iconColor = COLORS.dark;
+
+  // ===== PRO CREATOR: Floating Glass Header compact =====
+  if (isProCreator) {
+    return (
+      <View style={styles.wrapper} pointerEvents="box-none">
+        {/* Spacer pour le safe area */}
+        <View style={{ height: topPadding, backgroundColor: 'transparent' }} />
+
+        <Animated.View
+          style={[
+            styles.floatingHeaderWrapper,
+            {
+              transform: [{ translateY: topBarTranslate }],
+              opacity: barsOpacity,
+            }
+          ]}
+        >
+          {/* Gradient border */}
+          <LinearGradient
+            colors={GRADIENTS.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientBorder}
+          >
+            {/* Glass content */}
+            <BlurView intensity={90} tint="light" style={styles.floatingHeaderContent}>
+              {/* Single row: compact layout */}
+              <View style={styles.compactRow}>
+                {/* Left: Search */}
+                <TouchableOpacity
+                  style={styles.compactIconButton}
+                  onPress={handleSearchPress}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="search-outline" size={20} color={COLORS.dark} />
+                </TouchableOpacity>
+
+                {/* Center: Pills tabs */}
+                <View style={styles.pillsContainer}>
+                  {tabs.map((tab) => {
+                    const isActiveTab = activeTab === tab.id;
+                    return (
+                      <TouchableOpacity
+                        key={tab.id}
+                        style={[styles.pillTab, isActiveTab && styles.pillTabActive]}
+                        onPress={() => handleTabPress(tab.id)}
+                        activeOpacity={0.7}
+                      >
+                        {isActiveTab ? (
+                          <LinearGradient
+                            colors={GRADIENTS.primary}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.pillGradient}
+                          >
+                            <Text style={styles.pillTextActive}>{tab.label}</Text>
+                          </LinearGradient>
+                        ) : (
+                          <Text style={styles.pillText}>{tab.label}</Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Right: Notifications */}
+                <TouchableOpacity
+                  style={styles.compactIconButton}
+                  onPress={handleNotificationsPress}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="notifications-outline" size={20} color={COLORS.dark} />
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </LinearGradient>
+        </Animated.View>
+      </View>
+    );
+  }
+
+  // ===== REGULAR USER: Header + TabBar séparés =====
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
-      {/* ===== HEADER FIXE ===== */}
-      <View style={[styles.fixedHeader, { paddingTop: topPadding }]}>
+      <BlurView intensity={80} tint="light" style={[styles.fixedHeader, { paddingTop: topPadding }]}>
         <View style={styles.fixedHeaderContent}>
-          {/* Icône gauche - Recherche */}
           <View style={styles.leftIconContainer}>
             <TouchableOpacity
               style={styles.iconButton}
               onPress={handleSearchPress}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="search-outline" size={24} color={COLORS.dark} />
+              <Ionicons name="search-outline" size={24} color={iconColor} />
             </TouchableOpacity>
           </View>
-
-          {/* Logo centré */}
           <View style={styles.logoContainer}>
             <SmuppyText width={120} variant="dark" />
           </View>
-
-          {/* Icône droite - Messages */}
           <View style={styles.rightIconContainer}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={handleMessagesPress}
+              onPress={handleNotificationsPress}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="chatbubble-outline" size={24} color={COLORS.dark} />
+              <Ionicons name="notifications-outline" size={24} color={iconColor} />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </BlurView>
 
-      {/* ===== TABBAR ANIMÉ ===== */}
+      {/* TabBar animé pour utilisateurs normaux */}
       <Animated.View
         style={[
           styles.tabBarAnimatedWrapper,
@@ -190,14 +273,14 @@ const styles = StyleSheet.create({
 
   // ===== FIXED HEADER =====
   fixedHeader: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
   },
   fixedHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    height: 50,
+    height: 44,
   },
 
   // Icône gauche
@@ -229,28 +312,23 @@ const styles = StyleSheet.create({
   // ===== ANIMATED TABBAR =====
   tabBarAnimatedWrapper: {
     paddingTop: 0,
-    paddingBottom: 2,
+    paddingBottom: 0,
+    marginTop: -2,
   },
   tabBarContainer: {
-    marginHorizontal: TAB_BAR_MARGIN,
-    borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
   },
   tabBarBlur: {
-    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingBottom: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    paddingBottom: 2,
   },
   tabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 34,
+    height: 32,
     paddingHorizontal: TAB_BAR_INNER_PADDING,
   },
   tab: {
@@ -292,5 +370,75 @@ const styles = StyleSheet.create({
     height: 2.5,
     backgroundColor: COLORS.primary,
     borderRadius: 2,
+  },
+
+  // ===== PRO CREATOR: FLOATING GLASS HEADER =====
+  floatingHeaderWrapper: {
+    marginHorizontal: 20,
+    marginTop: 2,
+  },
+  gradientBorder: {
+    borderRadius: 28, // Même que bottom nav
+    padding: 1.5,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  floatingHeaderContent: {
+    borderRadius: 26,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compactIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(10, 37, 47, 0.04)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Pills tabs
+  pillsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: 8,
+  },
+  pillTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(10, 37, 47, 0.05)',
+  },
+  pillTabActive: {
+    backgroundColor: 'transparent',
+    padding: 0,
+  },
+  pillGradient: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(10, 37, 47, 0.45)',
+  },
+  pillTextActive: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

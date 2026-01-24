@@ -33,7 +33,7 @@ interface BaseNotification {
 }
 
 interface UserNotification extends BaseNotification {
-  type: 'follow' | 'like' | 'comment' | 'mention' | 'live';
+  type: 'follow' | 'like' | 'live' | 'peak_reply';
   user: NotificationUser;
   message: string;
   isFollowing?: boolean;
@@ -96,28 +96,28 @@ const NOTIFICATIONS: Notification[] = [
   },
   {
     id: 3,
-    type: 'comment',
+    type: 'peak_reply',
     user: {
       id: '3',
       name: 'Mariam Fiori',
       avatar: 'https://i.pravatar.cc/100?img=5',
       isVerified: true,
     },
-    message: 'commented: "Amazing workout! 💪"',
+    message: 'replied to your Peak',
     time: '1h ago',
     isRead: false,
     postImage: 'https://picsum.photos/100/100?random=2',
   },
   {
     id: 4,
-    type: 'mention',
+    type: 'like',
     user: {
       id: '4',
       name: 'Alex Johnson',
       avatar: 'https://i.pravatar.cc/100?img=8',
       isVerified: false,
     },
-    message: 'mentioned you in a comment',
+    message: 'liked your Peak',
     time: '2h ago',
     isRead: true,
     postImage: 'https://picsum.photos/100/100?random=3',
@@ -155,7 +155,7 @@ const NOTIFICATIONS: Notification[] = [
     type: 'system',
     icon: 'trophy',
     title: 'Milestone reached!',
-    message: 'You reached 100 followers! Keep it up! 🎉',
+    message: 'You reached 100 fans! Keep it up!',
     time: '1d ago',
     isRead: true,
   },
@@ -212,7 +212,7 @@ export default function NotificationsScreen(): React.JSX.Element {
     { key: 'all', label: 'All' },
     { key: 'follow', label: 'New Fans' },
     { key: 'like', label: 'Likes' },
-    { key: 'comment', label: 'Comments' },
+    { key: 'peak_reply', label: 'Peak Replies' },
   ];
 
   // Navigate to user profile
@@ -263,12 +263,10 @@ export default function NotificationsScreen(): React.JSX.Element {
     switch (type) {
       case 'like':
         return { name: 'heart', color: '#FF6B6B' };
-      case 'comment':
-        return { name: 'chatbubble', color: COLORS.primary };
       case 'follow':
         return { name: 'person-add', color: COLORS.blue };
-      case 'mention':
-        return { name: 'at', color: COLORS.cyanBlue };
+      case 'peak_reply':
+        return { name: 'videocam', color: COLORS.primary };
       case 'live':
         return { name: 'radio', color: '#FF5E57' };
       default:
@@ -392,12 +390,14 @@ export default function NotificationsScreen(): React.JSX.Element {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={24} color={COLORS.dark} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        {unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-          </View>
-        )}
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => navigation.navigate('NotificationSettings')}
@@ -497,26 +497,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 4,
   },
   headerTitle: {
     fontFamily: 'WorkSans-Bold',
-    fontSize: 28,
+    fontSize: 24,
     color: COLORS.dark,
     flex: 1,
-  },
-  unreadBadge: {
-    backgroundColor: COLORS.error,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: SPACING.md,
-  },
-  unreadBadgeText: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 12,
-    color: COLORS.white,
   },
   settingsButton: {
     padding: 4,

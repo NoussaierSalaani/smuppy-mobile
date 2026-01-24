@@ -1,18 +1,23 @@
 // src/components/BottomNav.tsx
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
   Animated,
   Image,
-  ViewStyle,
+  Text,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Rect, LinearGradient, Stop, Defs } from 'react-native-svg';
+import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTabBar } from '../context/TabBarContext';
-import { COLORS } from '../config/theme';
+import { COLORS, GRADIENTS } from '../config/theme';
+import { useUserStore } from '../stores';
+import { SmuppyIcon } from './SmuppyLogo';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 // ===== CUSTOM SVG ICONS =====
@@ -88,30 +93,25 @@ const PeaksIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-// Notifications icon from UI Kit - Bell shape (exact paths from Figma)
-const NotificationsIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-    {/* Smile/ding indicator at bottom */}
+// Messages icon - Chat bubble shape
+const MessagesIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M13.357 18.176C13.713 17.628 13.237 17 12.584 17H7.416C6.763 17 6.287 17.628 6.643 18.176C7.356 19.274 8.593 20 10 20C11.407 20 12.644 19.274 13.357 18.176Z"
-      fill={COLORS.dark}
-    />
-    {/* Bell body - filled */}
-    <Path
-      d="M18.586 15H1.404C0.629 15 0 14.371 0 13.596C0 13.215 0.155 12.851 0.429 12.586L1.457 11.592C1.849 11.214 2.07 10.692 2.068 10.147L2.061 7.996C2.046 3.584 5.619 0 10.03 0C14.432 0 18 3.568 18 7.97L18 10.172C18 10.702 18.211 11.211 18.586 11.586L19.586 12.586C19.851 12.851 20 13.211 20 13.586C20 14.367 19.367 15 18.586 15Z"
+      d="M12 2C6.477 2 2 6.477 2 12C2 13.89 2.525 15.66 3.438 17.168L2.071 20.668C1.872 21.184 2.132 21.764 2.648 21.963C2.813 22.026 2.993 22.037 3.165 21.993L7.415 20.923C8.82 21.612 10.373 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2Z"
       fill={COLORS.dark}
     />
   </Svg>
 );
 
-const NotificationsIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-    {/* Bell outline with ding circle */}
+const MessagesIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M0 14.5959C0 14.2151 0.155 13.8506 0.429 13.586L1.458 12.5922C1.849 12.2139 2.07 11.6922 2.068 11.1476L2.059 7.9946C2.045 3.5832 5.618 0 10.029 0C14.431 0 18 3.5686 18 7.9707L18 11.1716C18 11.702 18.211 12.2107 18.586 12.5858L19.586 13.5858C19.851 13.851 20 14.2107 20 14.5858C20 15.3668 19.367 16 18.586 16H14C14 18.2091 12.209 20 10 20C7.791 20 6 18.2091 6 16H1.404C0.629 16 0 15.3714 0 14.5959ZM8 16C8 17.1046 8.895 18 10 18C11.105 18 12 17.1046 12 16H8ZM16 11.1716C16 12.2324 16.421 13.2499 17.172 14L2.879 14C3.642 13.246 4.071 12.2161 4.068 11.1416L4.059 7.9886C4.049 4.6841 6.725 2 10.029 2C13.327 2 16 4.6732 16 7.9707L16 11.1716Z"
-      fill={COLORS.dark}
+      d="M12 3C7.029 3 3 7.029 3 12C3 13.689 3.466 15.274 4.287 16.628L3.016 19.832C2.76 20.478 3.303 21.14 3.985 20.994L7.789 20.158C9.05 20.693 10.447 21 12 21C16.971 21 21 16.971 21 12C21 7.029 16.971 3 12 3Z"
+      stroke={COLORS.dark}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
     />
   </Svg>
 );
@@ -119,10 +119,10 @@ const NotificationsIconOutline = ({ size = 22 }: IconProps): React.JSX.Element =
 const CreateIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Defs>
-      <LinearGradient id="createGradient" x1="0" y1="0" x2="24" y2="24">
+      <SvgLinearGradient id="createGradient" x1="0" y1="0" x2="24" y2="24">
         <Stop offset="0" stopColor="#01B6C5" />
         <Stop offset="1" stopColor="#0EBF8A" />
-      </LinearGradient>
+      </SvgLinearGradient>
     </Defs>
     <Path
       d="M12 5V19M5 12H19"
@@ -131,6 +131,37 @@ const CreateIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+  </Svg>
+);
+
+// Menu icons for pro_creator popup
+const MenuLiveIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" fill="white" />
+    <Path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0 -8.49" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <Path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0 -14.14" stroke="white" strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const MenuPeaksIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="2" y="4" width="20" height="16" rx="4" stroke={COLORS.primary} strokeWidth="2" />
+    <Path d="M15 12L10 9V15L15 12Z" fill={COLORS.primary} />
+  </Svg>
+);
+
+const MenuPostIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="3" width="18" height="18" rx="4" stroke={COLORS.primary} strokeWidth="2" />
+    <Path d="M12 8V16M8 12H16" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const MenuSessionsIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M17 10.5V7C17 4.79 15.21 3 13 3H11C8.79 3 7 4.79 7 7V10.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <Path d="M12 14V17M12 17L14 15M12 17L10 15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Rect x="4" y="10" width="16" height="11" rx="3" stroke="white" strokeWidth="2" />
   </Svg>
 );
 
@@ -171,6 +202,47 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
   const insets = useSafeAreaInsets();
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
 
+  // Check if user is pro_creator for special styling
+  const user = useUserStore((state) => state.user);
+  const isProCreator = user?.accountType === 'pro_creator';
+
+  // Pro creator menu state
+  const [showProMenu, setShowProMenu] = useState(false);
+  const menuAnim = useRef(new Animated.Value(0)).current;
+
+  const openProMenu = () => {
+    setShowProMenu(true);
+    Animated.spring(menuAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+
+  const closeProMenu = () => {
+    Animated.timing(menuAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => setShowProMenu(false));
+  };
+
+  const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions') => {
+    closeProMenu();
+    // Navigate based on option
+    if (option === 'live') {
+      navigation.navigate('GoLive');
+    } else if (option === 'peaks') {
+      navigation.navigate('CreatePeak');
+    } else if (option === 'sessions') {
+      // Go to Private Sessions management screen
+      navigation.navigate('PrivateSessionsManage');
+    } else {
+      navigation.navigate('CreatePost');
+    }
+  };
+
   // Si sur Xplorer, ne pas afficher le BottomNav
   if (bottomBarHidden) {
     return null;
@@ -180,7 +252,7 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
     { name: 'Home', iconFilled: HomeIconFilled, iconOutline: HomeIconOutline },
     { name: 'Peaks', iconFilled: PeaksIconFilled, iconOutline: PeaksIconOutline },
     { name: 'CreateTab', isCreate: true },
-    { name: 'Notifications', iconFilled: NotificationsIconFilled, iconOutline: NotificationsIconOutline },
+    { name: 'Messages', iconFilled: MessagesIconFilled, iconOutline: MessagesIconOutline },
     { name: 'Profile', isProfile: true },
   ];
 
@@ -214,12 +286,37 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
         },
       ]}
     >
-      <BlurView intensity={80} tint="light" style={styles.blurContainer}>
+      {/* Green border wrapper for pro_creator */}
+      {isProCreator && (
+        <LinearGradient
+          colors={GRADIENTS.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.proBorderWrapper}
+        />
+      )}
+      <BlurView intensity={80} tint="light" style={[styles.blurContainer, isProCreator && styles.proBlurContainer]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
 
             if (tab.isCreate) {
+              // Pro creator gets Smuppy "S" icon button with menu
+              if (isProCreator) {
+                return (
+                  <TouchableOpacity
+                    key={tab.name}
+                    style={styles.tab}
+                    onPress={openProMenu}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.proSmuppyButton}>
+                      <SmuppyIcon size={46} variant="dark" />
+                    </View>
+                  </TouchableOpacity>
+                );
+              }
+              // Regular user gets the standard create button
               return (
                 <TouchableOpacity
                   key={tab.name}
@@ -264,6 +361,102 @@ export default function BottomNav({ state, navigation, onCreatePress }: BottomNa
           })}
         </View>
       </BlurView>
+
+      {/* Pro Creator Menu Popup */}
+      {showProMenu && (
+        <Modal
+          transparent
+          visible={showProMenu}
+          animationType="none"
+          onRequestClose={closeProMenu}
+        >
+          <Pressable style={styles.menuOverlay} onPress={closeProMenu}>
+            <Animated.View
+              style={[
+                styles.menuContainer,
+                {
+                  bottom: 80 + bottomPadding,
+                  opacity: menuAnim,
+                  transform: [
+                    {
+                      scale: menuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1],
+                      }),
+                    },
+                    {
+                      translateY: menuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <BlurView intensity={90} tint="light" style={styles.menuBlur}>
+                {/* Live Option */}
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('live')}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={GRADIENTS.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.menuIconBg}
+                  >
+                    <MenuLiveIcon size={20} />
+                  </LinearGradient>
+                  <Text style={styles.menuOptionText}>Live</Text>
+                </TouchableOpacity>
+
+                {/* Sessions Option */}
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('sessions')}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={['#0081BE', '#00B5C1']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.menuIconBg}
+                  >
+                    <MenuSessionsIcon size={20} />
+                  </LinearGradient>
+                  <Text style={styles.menuOptionText}>Sessions</Text>
+                </TouchableOpacity>
+
+                {/* Peaks Option */}
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('peaks')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuIconBgLight}>
+                    <MenuPeaksIcon size={20} />
+                  </View>
+                  <Text style={styles.menuOptionText}>Peaks</Text>
+                </TouchableOpacity>
+
+                {/* Post Option */}
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('post')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuIconBgLight}>
+                    <MenuPostIcon size={20} />
+                  </View>
+                  <Text style={styles.menuOptionText}>Poste</Text>
+                </TouchableOpacity>
+              </BlurView>
+            </Animated.View>
+          </Pressable>
+        </Modal>
+      )}
     </Animated.View>
   );
 }
@@ -333,5 +526,78 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
+  },
+
+  // ===== PRO CREATOR STYLES =====
+  proBorderWrapper: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: 30,
+  },
+  proBlurContainer: {
+    borderWidth: 0,
+  },
+  proSmuppyButton: {
+    shadowColor: COLORS.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  // ===== PRO CREATOR MENU =====
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  menuBlur: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    gap: 16,
+  },
+  menuOption: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  menuIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  menuIconBgLight: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14, 191, 138, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  menuOptionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.dark,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,6 @@ import {
   Alert,
   Switch,
   ScrollView,
-  Dimensions,
-  ImageBackground,
 } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -25,8 +23,8 @@ import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../config/theme';
+import { resetAllStores } from '../../stores';
 
-const { width } = Dimensions.get('window');
 const COVER_HEIGHT = 160;
 
 const SettingsScreen = ({ navigation }) => {
@@ -48,12 +46,7 @@ const SettingsScreen = ({ navigation }) => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
 
-  useEffect(() => {
-    checkBiometrics();
-    loadUserData();
-  }, [contextUser, getFullName, profileData]);
-
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getUser();
       const authUser = data?.user;
@@ -101,7 +94,7 @@ const SettingsScreen = ({ navigation }) => {
       setCoverUrl(cover);
       setInterests(userInterests);
       setIsPrivate(profileData?.is_private || false);
-    } catch (error) {
+    } catch {
       const emailPrefix = contextUser?.email?.split('@')[0] || '';
       setDisplayName(contextUser?.fullName || profileData?.full_name || contextUser?.displayName || getFullName?.() || emailPrefix || 'User');
       setUsername(profileData?.username || emailPrefix || '');
@@ -110,7 +103,12 @@ const SettingsScreen = ({ navigation }) => {
       setInterests(profileData?.interests || contextUser?.interests || []);
       setIsPrivate(profileData?.is_private || false);
     }
-  };
+  }, [contextUser, getFullName, profileData]);
+
+  useEffect(() => {
+    checkBiometrics();
+    loadUserData();
+  }, [loadUserData]);
 
   const togglePrivacy = async () => {
     if (togglingPrivacy) return;
@@ -153,7 +151,15 @@ const SettingsScreen = ({ navigation }) => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      await AsyncStorage.multiRemove(['@smuppy_remember_me', '@smuppy_saved_email', '@smuppy_user_profile']);
+      // Clear ALL user data from all storage systems
+      await AsyncStorage.multiRemove([
+        '@smuppy_remember_me',
+        '@smuppy_saved_email',
+        '@smuppy_user_profile',
+        '@smuppy_user_store', // Zustand persisted store - CRITICAL!
+      ]);
+      // Reset all Zustand stores (user, feed, auth, app)
+      resetAllStores();
       await biometrics.disable();
       await supabase.auth.signOut({ scope: 'global' });
       setShowLogoutModal(false);
@@ -190,7 +196,15 @@ const SettingsScreen = ({ navigation }) => {
         throw new Error('Failed to delete account');
       }
 
-      await AsyncStorage.multiRemove(['@smuppy_remember_me', '@smuppy_saved_email', '@smuppy_user_profile']);
+      // Clear ALL user data from all storage systems
+      await AsyncStorage.multiRemove([
+        '@smuppy_remember_me',
+        '@smuppy_saved_email',
+        '@smuppy_user_profile',
+        '@smuppy_user_store', // Zustand persisted store - CRITICAL!
+      ]);
+      // Reset all Zustand stores
+      resetAllStores();
       await biometrics.disable();
       await supabase.auth.signOut({ scope: 'global' });
 
@@ -262,8 +276,6 @@ const SettingsScreen = ({ navigation }) => {
       </View>
     </Modal>
   );
-
-  const defaultCover = 'https://images.unsplash.com/photo-1557683316-973673bdar32?w=800';
 
   return (
     <View style={styles.container}>

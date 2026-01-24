@@ -1,6 +1,6 @@
 // src/screens/sessions/PrivateSessionsManageScreen.tsx
 // Creator's screen to manage their private 1:1 sessions availability
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useUserStore } from '../../stores';
 
 type TabType = 'calendar' | 'requests' | 'packs';
 type SessionMode = 'unique' | 'range';
@@ -161,6 +162,7 @@ const DURATIONS = [30, 45, 60, 90];
 export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const user = useUserStore((state) => state.user);
 
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -169,6 +171,17 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const [showAddOfferingModal, setShowAddOfferingModal] = useState(false);
   const [sessionMode, setSessionMode] = useState<SessionMode>('unique');
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
+
+  // Protect route - only pro_creator can manage sessions
+  useEffect(() => {
+    if (user?.accountType !== 'pro_creator') {
+      Alert.alert(
+        'Pro Creator Feature',
+        'Managing private sessions is only available for Pro Creator accounts.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    }
+  }, [user?.accountType, navigation]);
 
   // Pack offerings state
   const [packOfferings, setPackOfferings] = useState<PackOffering[]>([]);

@@ -25,6 +25,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
+import SubscribeChannelModal from '../../components/SubscribeChannelModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -150,6 +151,7 @@ const UserProfileScreen = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
 
   // Live status for pro_creator (mock data - can be connected to real data later)
   const [creatorLiveStatus, setCreatorLiveStatus] = useState<{
@@ -830,29 +832,48 @@ const UserProfileScreen = () => {
           </TouchableOpacity>
         )}
 
-        {/* Book Session button for pro_creator - Always visible */}
+        {/* Pro Creator Action Buttons */}
         {profile.accountType === 'pro_creator' && (
-          <TouchableOpacity
-            style={styles.sessionButton}
-            onPress={() => (navigation as any).navigate('BookSession', {
-              creator: {
-                id: profile.id,
-                name: profile.displayName,
-                avatar: profile.avatar || '',
-                specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
-              }
-            })}
-          >
-            <LinearGradient
-              colors={['#0081BE', '#00B5C1']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.sessionButtonGradient}
+          <>
+            {/* Subscribe Button */}
+            <TouchableOpacity
+              style={styles.subscribeButton}
+              onPress={() => setShowSubscribeModal(true)}
             >
-              <Ionicons name="videocam" size={18} color="#FFFFFF" />
-              <Text style={styles.sessionButtonText}>Book 1:1</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#0EBF8A', '#01B6C5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.subscribeButtonGradient}
+              >
+                <Ionicons name="star" size={16} color="#FFFFFF" />
+                <Text style={styles.subscribeButtonText}>Subscribe</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Book 1:1 Session Button */}
+            <TouchableOpacity
+              style={styles.sessionButton}
+              onPress={() => (navigation as any).navigate('BookSession', {
+                creator: {
+                  id: profile.id,
+                  name: profile.displayName,
+                  avatar: profile.avatar || '',
+                  specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
+                }
+              })}
+            >
+              <LinearGradient
+                colors={['#0081BE', '#00B5C1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sessionButtonGradient}
+              >
+                <Ionicons name="videocam" size={16} color="#FFFFFF" />
+                <Text style={styles.sessionButtonText}>Book 1:1</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
         )}
       </View>
 
@@ -876,12 +897,12 @@ const UserProfileScreen = () => {
                 <Text style={styles.liveTitle}>{creatorLiveStatus.liveTitle}</Text>
                 <TouchableOpacity
                   style={styles.joinLiveButton}
-                  onPress={() => (navigation as any).navigate('LiveStreaming', {
-                    title: creatorLiveStatus.liveTitle || 'Live Session',
-                    audience: 'public',
-                    isViewer: true,
+                  onPress={() => (navigation as any).navigate('ViewerLiveStream', {
+                    creatorId: profile.id,
                     creatorName: profile.displayName,
                     creatorAvatar: profile.avatar,
+                    liveTitle: creatorLiveStatus.liveTitle || 'Live Session',
+                    viewerCount: 127,
                   })}
                 >
                   <LinearGradient
@@ -1149,6 +1170,18 @@ const UserProfileScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Subscribe Channel Modal */}
+      <SubscribeChannelModal
+        visible={showSubscribeModal}
+        onClose={() => setShowSubscribeModal(false)}
+        creatorName={profile.displayName}
+        creatorAvatar={profile.avatar || ''}
+        creatorUsername={profile.username}
+        onSubscribe={(tierId) => {
+          console.log('Subscribed to tier:', tierId);
+        }}
+      />
     </View>
   );
 };
@@ -1415,6 +1448,23 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sessionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  subscribeButton: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  subscribeButtonGradient: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  subscribeButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',

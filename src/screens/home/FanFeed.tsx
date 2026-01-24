@@ -152,6 +152,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
+  const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
 
   // Share modal state
   const [shareModalVisible, setShareModalVisible] = useState(false);
@@ -251,15 +252,26 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Handle track/follow user - removes from list without scroll reset
   const handleTrackUser = useCallback(async (userId: string) => {
+    // Prevent double-tap: skip if already tracking this user
+    if (trackingUserIds.has(userId)) {
+      return;
+    }
+
     try {
+      // Mark as tracking to prevent double-tap
+      setTrackingUserIds(prev => new Set([...prev, userId]));
+
       // Remove from suggestions immediately (smooth animation)
       setSuggestions(prev => prev.filter(s => s.id !== userId));
 
       await followUser(userId);
 
-      // Don't refresh the feed immediately to avoid scroll reset
-      // User can pull to refresh to see new posts from followed user
-      // Just fetch a new suggestion to replace the removed one
+      // If feed is empty, refresh to show new posts from followed user
+      if (posts.length === 0) {
+        await fetchPosts(0, true);
+      }
+
+      // Fetch a new suggestion to replace the removed one
       const { data } = await getSuggestedProfiles(1);
       if (data && data.length > 0) {
         const newSuggestion: UISuggestion = {
@@ -274,8 +286,15 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
     } catch (err) {
       console.error('[FanFeed] Error following user:', err);
+    } finally {
+      // Remove from tracking set
+      setTrackingUserIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
     }
-  }, []);
+  }, [trackingUserIds, posts.length, fetchPosts]);
 
   // Initial load
   useEffect(() => {
@@ -462,38 +481,42 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [loadingMore, hasMore, page, fetchPosts]);
 
   // Render suggestion item
-  const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => (
-    <View key={`suggestion-${index}-${suggestion.id}`} style={styles.suggestionItem}>
-      <TouchableOpacity
-        style={styles.suggestionAvatarWrapper}
-        onPress={() => goToUserProfile(suggestion.id)}
-      >
-        <LinearGradient
-          colors={GRADIENTS.primary}
-          style={styles.suggestionRing}
+  const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => {
+    const isTracking = trackingUserIds.has(suggestion.id);
+    return (
+      <View key={`suggestion-${index}-${suggestion.id}`} style={styles.suggestionItem}>
+        <TouchableOpacity
+          style={styles.suggestionAvatarWrapper}
+          onPress={() => goToUserProfile(suggestion.id)}
         >
-          <View style={styles.suggestionAvatarContainer}>
-            <AvatarImage source={suggestion.avatar} size={72} />
-          </View>
-        </LinearGradient>
-        <AccountBadge
-          size={14}
-          style={styles.verifiedBadgeSuggestion}
-          isVerified={suggestion.isVerified}
-          accountType={suggestion.accountType}
-        />
-      </TouchableOpacity>
-      <Text style={styles.suggestionName} numberOfLines={1}>
-        {suggestion.name.split(' ')[0]}
-      </Text>
-      <TouchableOpacity
-        style={styles.trackButton}
-        onPress={() => handleTrackUser(suggestion.id)}
-      >
-        <Text style={styles.trackButtonText}>Track</Text>
-      </TouchableOpacity>
-    </View>
-  ), [goToUserProfile, handleTrackUser]);
+          <LinearGradient
+            colors={GRADIENTS.primary}
+            style={styles.suggestionRing}
+          >
+            <View style={styles.suggestionAvatarContainer}>
+              <AvatarImage source={suggestion.avatar} size={72} />
+            </View>
+          </LinearGradient>
+          <AccountBadge
+            size={14}
+            style={styles.verifiedBadgeSuggestion}
+            isVerified={suggestion.isVerified}
+            accountType={suggestion.accountType}
+          />
+        </TouchableOpacity>
+        <Text style={styles.suggestionName} numberOfLines={1}>
+          {suggestion.name.split(' ')[0]}
+        </Text>
+        <TouchableOpacity
+          style={[styles.trackButton, isTracking && styles.trackButtonDisabled]}
+          onPress={() => handleTrackUser(suggestion.id)}
+          disabled={isTracking}
+        >
+          <Text style={styles.trackButtonText}>{isTracking ? '...' : 'Track'}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [goToUserProfile, handleTrackUser, trackingUserIds]);
 
   // Render post item for FlashList
   const renderPost = useCallback(({ item: post, index }) => (
@@ -872,6 +895,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
+  },
+  trackButtonDisabled: {
+    opacity: 0.6,
   },
   trackButtonText: {
     fontSize: 12,

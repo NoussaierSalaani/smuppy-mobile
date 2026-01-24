@@ -480,28 +480,33 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       return true;
     });
 
-    // If no interests selected, sort by engagement only
-    if (activeInterests.size === 0) {
+    // Use activeInterests if any selected, otherwise use userInterests from profile
+    const interestsToUse = activeInterests.size > 0
+      ? Array.from(activeInterests)
+      : userInterests;
+
+    // If no interests at all, sort by engagement only
+    if (interestsToUse.length === 0) {
       return [...result].sort((a, b) => b.likes - a.likes);
     }
 
     // Calculate relevance score for each post
-    const selectedArray = Array.from(activeInterests);
-
     const getRelevanceScore = (post: UIVibePost): number => {
       let score = 0;
 
-      // Check if post matches selected interests (case-insensitive)
+      // Check if post matches interests (case-insensitive)
       const postTags = post.tags?.map(t => t.toLowerCase()) || [];
       const postCategory = post.category?.toLowerCase() || '';
 
-      const matchingTags = selectedArray.filter(interest =>
+      const matchingTags = interestsToUse.filter(interest =>
         postTags.includes(interest.toLowerCase()) ||
         postCategory === interest.toLowerCase()
       );
 
       // More matching tags = higher priority
-      score += matchingTags.length * 1000;
+      // Active filters get higher weight than profile interests
+      const weight = activeInterests.size > 0 ? 1000 : 500;
+      score += matchingTags.length * weight;
 
       // Add engagement score (likes normalized)
       score += Math.min(post.likes, 500);
@@ -515,7 +520,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       const scoreB = getRelevanceScore(b);
       return scoreB - scoreA;
     });
-  }, [allPosts, activeInterests, isUnderReview, isHidden]);
+  }, [allPosts, activeInterests, userInterests, isUnderReview, isHidden]);
 
   // Chip animation scales
   const chipAnimations = useRef<Record<string, Animated.Value>>({}).current;

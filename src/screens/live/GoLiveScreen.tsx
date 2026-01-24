@@ -11,23 +11,37 @@ import {
   Animated,
   StatusBar,
   Image,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useUserStore } from '../../stores';
 
 const { width, height } = Dimensions.get('window');
 
 export default function GoLiveScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const user = useUserStore((state) => state.user);
 
   const [title, setTitle] = useState('');
   const [showTitleInput, setShowTitleInput] = useState(false);
   const [isCountdown, setIsCountdown] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
+
+  // Protect route - only pro_creator can access
+  useEffect(() => {
+    if (user?.accountType !== 'pro_creator') {
+      Alert.alert(
+        'Pro Creator Feature',
+        'Live streaming is only available for Pro Creator accounts.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    }
+  }, [user?.accountType, navigation]);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const countdownAnim = useRef(new Animated.Value(1)).current;
@@ -163,9 +177,8 @@ export default function GoLiveScreen(): React.JSX.Element {
           ) : null}
         </View>
 
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="settings-outline" size={22} color="white" />
-        </TouchableOpacity>
+        {/* Spacer to balance the close button on the left */}
+        <View style={styles.iconButton} />
       </View>
 
       {/* Side Controls */}

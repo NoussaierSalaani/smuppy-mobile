@@ -51,7 +51,7 @@ import CreatePeakScreen from '../screens/peaks/CreatePeakScreen';
 import PeakPreviewScreen from '../screens/peaks/PeakPreviewScreen';
 
 // Live Streaming Screens
-import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen } from '../screens/live';
+import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen, ViewerLiveStreamScreen } from '../screens/live';
 
 // Private Sessions Screens
 import {
@@ -188,6 +188,7 @@ export default function MainNavigator() {
       <Stack.Screen name="GoLive" component={GoLiveScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="LiveStreaming" component={LiveStreamingScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="LiveEnded" component={LiveEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="ViewerLiveStream" component={ViewerLiveStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
 
       {/* Private Sessions */}
       <Stack.Screen name="PrivateSessionsManage" component={PrivateSessionsManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

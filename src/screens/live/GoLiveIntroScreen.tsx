@@ -1,5 +1,5 @@
 // src/screens/live/GoLiveIntroScreen.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useUserStore } from '../../stores';
 
 interface FeatureItemProps {
   icon: string;
@@ -29,6 +31,18 @@ const FeatureItem = ({ icon, text }: FeatureItemProps) => (
 
 export default function GoLiveIntroScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
+  const user = useUserStore((state) => state.user);
+
+  // Protect route - only pro_creator can access
+  useEffect(() => {
+    if (user?.accountType !== 'pro_creator') {
+      Alert.alert(
+        'Pro Creator Feature',
+        'Live streaming is only available for Pro Creator accounts.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    }
+  }, [user?.accountType, navigation]);
 
   const handleNext = () => {
     navigation.navigate('GoLive');
@@ -37,6 +51,11 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
   const handleBack = () => {
     navigation.goBack();
   };
+
+  // Don't render if not pro_creator
+  if (user?.accountType !== 'pro_creator') {
+    return <SafeAreaView style={styles.container} />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

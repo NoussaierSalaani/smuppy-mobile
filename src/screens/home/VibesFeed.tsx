@@ -480,7 +480,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [navigation]);
 
   // Sort posts by interests + engagement - feed always stays full!
-  const filteredPosts = useMemo(() => {
+  const { sortedPosts: filteredPosts, matchingCount } = useMemo(() => {
     // First, apply safety filters (hide under_review and muted/blocked users)
     let result = allPosts.filter(post => {
       if (isUnderReview(String(post.id))) return false;
@@ -491,24 +491,30 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
     // If no interests selected, sort by engagement only
     if (activeInterests.size === 0) {
-      return result.sort((a, b) => b.likes - a.likes);
+      return {
+        sortedPosts: [...result].sort((a, b) => b.likes - a.likes),
+        matchingCount: 0
+      };
     }
 
     // Calculate relevance score for each post
     const selectedArray = Array.from(activeInterests);
+    console.log('[VibesFeed] Active interests:', selectedArray);
 
     const getRelevanceScore = (post: UIVibePost): number => {
       let score = 0;
 
-      // Check if post matches selected interests
-      const matchingTags = post.tags?.filter(tag => selectedArray.includes(tag)) || [];
-      const categoryMatch = post.category && selectedArray.includes(post.category);
+      // Check if post matches selected interests (case-insensitive)
+      const postTags = post.tags?.map(t => t.toLowerCase()) || [];
+      const postCategory = post.category?.toLowerCase() || '';
+
+      const matchingTags = selectedArray.filter(interest =>
+        postTags.includes(interest.toLowerCase()) ||
+        postCategory === interest.toLowerCase()
+      );
 
       // More matching tags = higher priority
       score += matchingTags.length * 1000;
-
-      // Category match adds bonus
-      if (categoryMatch) score += 500;
 
       // Add engagement score (likes normalized)
       score += Math.min(post.likes, 500); // Cap at 500 to not overpower interest matching
@@ -516,18 +522,22 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       return score;
     };
 
+    // Count matching posts
+    let matching = 0;
+    result.forEach(post => {
+      if (getRelevanceScore(post) >= 1000) matching++;
+    });
+
+    console.log('[VibesFeed] Matching posts:', matching, '/', result.length);
+
     // Sort by relevance score (highest first)
-    return result.sort((a, b) => {
+    const sorted = [...result].sort((a, b) => {
       const scoreA = getRelevanceScore(a);
       const scoreB = getRelevanceScore(b);
-
-      // If same relevance tier, sort by likes
-      if (Math.floor(scoreA / 500) === Math.floor(scoreB / 500)) {
-        return b.likes - a.likes;
-      }
-
       return scoreB - scoreA;
     });
+
+    return { sortedPosts: sorted, matchingCount: matching };
   }, [allPosts, activeInterests, isUnderReview, isHidden]);
 
   // Chip animation scales
@@ -1096,6 +1106,20 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           </TouchableOpacity>
         </ScrollView>
 
+        {/* Filter status indicator */}
+        {activeInterests.size > 0 && (
+          <View style={styles.filterStatus}>
+            <Text style={styles.filterStatusText}>
+              {matchingCount > 0
+                ? `${matchingCount} post${matchingCount > 1 ? 's' : ''} matching your interests`
+                : 'No exact matches - showing by popularity'}
+            </Text>
+            <TouchableOpacity onPress={() => setActiveInterests(new Set())}>
+              <Text style={styles.clearFiltersText}>Clear all</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Grid */}
         <View style={styles.gridContainer}>
           <View style={styles.masonryContainer}>
@@ -1375,6 +1399,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
+  },
+
+  // Filter status
+  filterStatus: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.base,
+    paddingVertical: 8,
+    backgroundColor: '#F0FDF9',
+    marginHorizontal: SPACING.base,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  filterStatusText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: COLORS.primary,
+    flex: 1,
+  },
+  clearFiltersText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    color: COLORS.gray,
+    textDecorationLine: 'underline',
   },
 
   // Grid

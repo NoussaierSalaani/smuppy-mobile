@@ -309,10 +309,13 @@ export interface VibesFeedRef {
   scrollToTop: () => void;
 }
 
+// Peaks section height for sticky positioning
+const PEAKS_SECTION_HEIGHT = 200;
+
 const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }, ref) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<any>>();
-  const { handleScroll, showBars } = useTabBar();
+  const { handleScroll, showBars, topBarTranslate } = useTabBar();
   const scrollRef = useRef<ScrollView>(null);
 
   // Expose scrollToTop method to parent
@@ -967,33 +970,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   return (
     <View style={styles.container}>
-      <Animated.ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          headerHeight > 0 && { paddingTop: headerHeight + 4 }
+      {/* STICKY PEAKS SECTION - Stays visible while scrolling */}
+      <Animated.View
+        style={[
+          styles.stickyPeaksContainer,
+          {
+            top: headerHeight,
+            transform: [{ translateY: topBarTranslate }],
+          },
         ]}
-        onScroll={(event) => {
-          handleScroll(event);
-          handleMoodScroll(event);
-        }}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={handleScrollEnd}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
-            progressViewOffset={headerHeight}
-          />
-        }
       >
-        {/* SMUPPY MOOD INDICATOR - AI-powered personalization */}
-        <MoodIndicator mood={mood} onRefresh={refreshMood} />
-
-        {/* PEAKS SECTION */}
         <View style={styles.peaksSection}>
           <View style={styles.peaksSectionHeader}>
             <Text style={styles.peaksSectionTitle}>Peaks</Text>
@@ -1013,6 +999,33 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             {PEAKS_DATA.map((peak, index) => renderPeakCard(peak, index))}
           </ScrollView>
         </View>
+      </Animated.View>
+
+      <Animated.ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: headerHeight + PEAKS_SECTION_HEIGHT }
+        ]}
+        onScroll={(event) => {
+          handleScroll(event);
+          handleMoodScroll(event);
+        }}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={handleScrollEnd}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            progressViewOffset={headerHeight + PEAKS_SECTION_HEIGHT}
+          />
+        }
+      >
+        {/* SMUPPY MOOD INDICATOR - AI-powered personalization */}
+        <MoodIndicator mood={mood} onRefresh={refreshMood} />
 
         {/* Filters with animated chips */}
         <ScrollView
@@ -1129,6 +1142,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 0,
+  },
+  // Sticky Peaks container
+  stickyPeaksContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 5,
+    backgroundColor: COLORS.white,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
 
   // Smuppy Mood Indicator

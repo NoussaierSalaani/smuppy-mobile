@@ -31,7 +31,9 @@ const NetworkMonitor = () => {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
-      setOnline(state.isConnected && state.isInternetReachable);
+      // isInternetReachable can be null initially, treat null as online
+      const isOnline = state.isConnected && (state.isInternetReachable !== false);
+      setOnline(isOnline);
     });
 
     return () => unsubscribe();

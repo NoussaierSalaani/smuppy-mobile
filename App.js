@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 
 // Core
@@ -157,17 +158,19 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary showReportButton>
-      <QueryClientProvider client={queryClient}>
-        <NetworkMonitor />
-        <UserContextSync />
-        <CachePersistence />
-        <PushNotificationHandler />
-        <View style={{ flex: 1 }}>
-          <AppNavigator />
-          <OfflineBanner />
-        </View>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary showReportButton>
+        <QueryClientProvider client={queryClient}>
+          <NetworkMonitor />
+          <UserContextSync />
+          <CachePersistence />
+          <PushNotificationHandler />
+          <View style={{ flex: 1 }}>
+            <AppNavigator />
+            <OfflineBanner />
+          </View>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

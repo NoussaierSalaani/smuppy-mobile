@@ -471,7 +471,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [navigation]);
 
   // Sort posts by interests + engagement - feed always stays full!
-  const { sortedPosts: filteredPosts, matchingCount } = useMemo(() => {
+  const filteredPosts = useMemo(() => {
     // First, apply safety filters (hide under_review and muted/blocked users)
     let result = allPosts.filter(post => {
       if (isUnderReview(String(post.id))) return false;
@@ -482,15 +482,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
     // If no interests selected, sort by engagement only
     if (activeInterests.size === 0) {
-      return {
-        sortedPosts: [...result].sort((a, b) => b.likes - a.likes),
-        matchingCount: 0
-      };
+      return [...result].sort((a, b) => b.likes - a.likes);
     }
 
     // Calculate relevance score for each post
     const selectedArray = Array.from(activeInterests);
-    console.log('[VibesFeed] Active interests:', selectedArray);
 
     const getRelevanceScore = (post: UIVibePost): number => {
       let score = 0;
@@ -508,27 +504,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       score += matchingTags.length * 1000;
 
       // Add engagement score (likes normalized)
-      score += Math.min(post.likes, 500); // Cap at 500 to not overpower interest matching
+      score += Math.min(post.likes, 500);
 
       return score;
     };
 
-    // Count matching posts
-    let matching = 0;
-    result.forEach(post => {
-      if (getRelevanceScore(post) >= 1000) matching++;
-    });
-
-    console.log('[VibesFeed] Matching posts:', matching, '/', result.length);
-
     // Sort by relevance score (highest first)
-    const sorted = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
       const scoreA = getRelevanceScore(a);
       const scoreB = getRelevanceScore(b);
       return scoreB - scoreA;
     });
-
-    return { sortedPosts: sorted, matchingCount: matching };
   }, [allPosts, activeInterests, isUnderReview, isHidden]);
 
   // Chip animation scales
@@ -1119,19 +1105,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Filter status indicator */}
-        {activeInterests.size > 0 && (
-          <View style={styles.filterStatus}>
-            <Text style={styles.filterStatusText}>
-              {matchingCount > 0
-                ? `${matchingCount} post${matchingCount > 1 ? 's' : ''} matching your interests`
-                : 'No exact matches - showing by popularity'}
-            </Text>
-            <TouchableOpacity onPress={() => setActiveInterests(new Set())}>
-              <Text style={styles.clearFiltersText}>Clear all</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Grid */}
         <View style={styles.gridContainer}>
@@ -1412,31 +1385,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
-  },
-
-  // Filter status
-  filterStatus: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.base,
-    paddingVertical: 8,
-    backgroundColor: '#F0FDF9',
-    marginHorizontal: SPACING.base,
-    marginBottom: 8,
-    borderRadius: 8,
-  },
-  filterStatusText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: COLORS.primary,
-    flex: 1,
-  },
-  clearFiltersText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    color: COLORS.gray,
-    textDecorationLine: 'underline',
   },
 
   // Grid

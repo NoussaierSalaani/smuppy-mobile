@@ -309,14 +309,23 @@ export default function XplorerFeed({ navigation, isActive }) {
         ))}
       </MapView>
 
-      {/* SEARCH BAR + FILTER - Always visible (even in fullscreen) */}
-      <View style={[styles.searchContainer, { top: insets.top + hp(1) }]}>
+      {/* SEARCH BAR + FILTER - Position adjusts based on fullscreen mode */}
+      <View style={[
+        styles.searchContainer,
+        { top: isFullscreen ? insets.top + 12 : insets.top + 44 + 38 + 12 }
+      ]}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={normalize(20)} color={COLORS.grayMuted} />
-          <TextInput style={styles.searchInput} placeholder="Search" placeholderTextColor={COLORS.grayMuted} value={searchQuery} onChangeText={setSearchQuery} />
+          <Ionicons name="search" size={normalize(18)} color={COLORS.gray} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search coaches, gyms, restaurants..."
+            placeholderTextColor={COLORS.grayMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
         <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(true)}>
-          <Ionicons name="options-outline" size={normalize(22)} color={COLORS.dark} />
+          <Ionicons name="options-outline" size={normalize(20)} color={COLORS.dark} />
         </TouchableOpacity>
       </View>
 

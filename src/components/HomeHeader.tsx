@@ -183,43 +183,42 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   // ===== REGULAR USER: Header + TabBar séparés =====
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
-      <BlurView intensity={80} tint="light" style={[styles.fixedHeader, { paddingTop: topPadding }]}>
-        <View style={styles.fixedHeaderContent}>
-          <View style={styles.leftIconContainer}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={handleSearchPress}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="search-outline" size={24} color={iconColor} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.logoContainer}>
-            <SmuppyText width={120} variant="dark" />
-          </View>
-          <View style={styles.rightIconContainer}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={handleNotificationsPress}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="notifications-outline" size={24} color={iconColor} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </BlurView>
-
-      {/* TabBar animé pour utilisateurs normaux */}
+      {/* Header animé - disparaît au scroll */}
       <Animated.View
         style={[
-          styles.tabBarAnimatedWrapper,
           {
             transform: [{ translateY: topBarTranslate }],
             opacity: barsOpacity,
           }
         ]}
-        pointerEvents="box-none"
       >
+        <BlurView intensity={80} tint="light" style={[styles.fixedHeader, { paddingTop: topPadding }]}>
+          <View style={styles.fixedHeaderContent}>
+            <View style={styles.leftIconContainer}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={handleSearchPress}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="search-outline" size={24} color={iconColor} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.logoContainer}>
+              <SmuppyText width={120} variant="dark" />
+            </View>
+            <View style={styles.rightIconContainer}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={handleNotificationsPress}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="notifications-outline" size={24} color={iconColor} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+
+        {/* TabBar */}
         <View style={styles.tabBarContainer}>
           <BlurView intensity={90} tint="light" style={styles.tabBarBlur}>
             <View style={styles.tabsContainer}>
@@ -309,13 +308,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // ===== ANIMATED TABBAR =====
-  tabBarAnimatedWrapper: {
-    paddingTop: 0,
-    paddingBottom: 0,
-    marginTop: -2,
-  },
+  // ===== TABBAR =====
   tabBarContainer: {
+    marginTop: -2,
     overflow: 'hidden',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.06)',

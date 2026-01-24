@@ -999,6 +999,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             {PEAKS_DATA.map((peak, index) => renderPeakCard(peak, index))}
           </ScrollView>
         </View>
+        {/* Green separator line */}
+        <View style={styles.peaksSeparator} />
       </Animated.View>
 
       <Animated.ScrollView
@@ -1151,7 +1153,22 @@ const styles = StyleSheet.create({
     zIndex: 5,
     backgroundColor: COLORS.white,
     paddingTop: 4,
-    paddingBottom: 4,
+    paddingBottom: 0,
+    // Shadow for depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  // Green separator line under Peaks
+  peaksSeparator: {
+    height: 2,
+    backgroundColor: COLORS.primary,
+    marginTop: 8,
+    marginHorizontal: SPACING.base,
+    borderRadius: 1,
+    opacity: 0.6,
   },
 
   // Smuppy Mood Indicator
@@ -1240,7 +1257,7 @@ const styles = StyleSheet.create({
 
   // PEAKS SECTION
   peaksSection: {
-    marginBottom: SECTION_GAP,
+    marginBottom: 0,
   },
   peaksSectionHeader: {
     flexDirection: 'row',

@@ -1,14 +1,20 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal, Alert } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal, Alert, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
-import { ENV } from '../../config/env';
 import ErrorModal from '../../components/ErrorModal';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
+import {
+  isAppleSignInAvailable,
+  signInWithApple,
+  useGoogleAuth,
+  handleGoogleSignIn,
+  createSocialAuthProfile,
+} from '../../services/socialAuth';
 
 // Style unifié Smuppy (même que LoginScreen)
 const FORM = {
@@ -44,6 +50,83 @@ export default function SignupScreen({ navigation }) {
   });
   const [rememberMe, setRememberMe] = useState(false);
 
+  // Social auth state
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
+
+  // Google OAuth hook
+  const [googleRequest, googleResponse, googlePromptAsync] = useGoogleAuth();
+
+  // Check Apple Sign-In availability
+  useEffect(() => {
+    isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+
+  // Handle Google OAuth response
+  useEffect(() => {
+    if (googleResponse) {
+      handleGoogleAuthResponse();
+    }
+  }, [googleResponse]);
+
+  const handleGoogleAuthResponse = async () => {
+    setSocialLoading('google');
+    const result = await handleGoogleSignIn(googleResponse);
+
+    if (result.success) {
+      if (result.isNewUser && result.user) {
+        // New user - create profile and navigate to account type selection
+        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
+        navigation.navigate('AccountType', { socialAuth: true, userId: result.user.id });
+      }
+      // Existing user - AWS auth state change will handle navigation
+    } else if (result.error && result.error !== 'cancelled') {
+      setErrorModal({
+        visible: true,
+        title: 'Google Sign-Up Failed',
+        message: result.error,
+      });
+    }
+    setSocialLoading(null);
+  };
+
+  // Handle Apple Sign-In
+  const handleAppleSignIn = useCallback(async () => {
+    setSocialLoading('apple');
+    const result = await signInWithApple();
+
+    if (result.success) {
+      if (result.isNewUser && result.user) {
+        // New user - create profile and navigate to account type selection
+        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
+        navigation.navigate('AccountType', { socialAuth: true, userId: result.user.id });
+      }
+      // Existing user - AWS auth state change will handle navigation
+    } else if (result.error && result.error !== 'cancelled') {
+      setErrorModal({
+        visible: true,
+        title: 'Apple Sign-Up Failed',
+        message: result.error,
+      });
+    }
+    setSocialLoading(null);
+  }, [navigation]);
+
+  // Handle Google Sign-In button press
+  const handleGoogleSignInPress = useCallback(async () => {
+    if (!googleRequest) {
+      setErrorModal({
+        visible: true,
+        title: 'Google Sign-Up Unavailable',
+        message: 'Google Sign-Up is not configured. Please try again later.',
+      });
+      return;
+    }
+    setSocialLoading('google');
+    await googlePromptAsync();
+    // Response will be handled by the useEffect
+  }, [googleRequest, googlePromptAsync]);
+
   const closeDeletedAccountModal = useCallback(() => {
     setDeletedAccountModal(prev => ({ ...prev, visible: false }));
   }, []);
@@ -70,115 +153,39 @@ export default function SignupScreen({ navigation }) {
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      // Single combined API call for all checks (fail-closed with 5s timeout)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-signup-eligibility`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email: normalizedEmail }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          setErrorModal({
-            visible: true,
-            title: 'Too Many Attempts',
-            message: 'Please wait a few minutes before trying again.',
-          });
-          return;
-        }
-        throw new Error('Server error');
-      }
-
-      const result = await response.json();
-
-      if (!result.eligible) {
-        // Handle different rejection reasons
-        if (result.reason === 'deleted') {
-          setDeletedAccountModal({
-            visible: true,
-            daysRemaining: result.days_remaining || 0,
-            canReactivate: true,
-            fullName: result.full_name || '',
-          });
-          return;
-        }
-
-        if (result.reason === 'exists') {
-          setErrorModal({
-            visible: true,
-            title: 'Invalid Credentials',
-            message: 'Unable to create account. Please check your information and try again.',
-          });
-          return;
-        }
-
-        if (result.reason === 'disposable') {
-          setErrorModal({
-            visible: true,
-            title: 'Invalid Email',
-            message: 'Temporary/disposable emails are not allowed.',
-          });
-          return;
-        }
-
-        if (result.reason === 'invalid_domain') {
-          setErrorModal({
-            visible: true,
-            title: 'Domain Not Found',
-            message: result.error || 'This email domain does not exist.',
-          });
-          return;
-        }
-
-        if (result.reason === 'typo' && result.suggestion) {
-          setErrorModal({
-            visible: true,
-            title: 'Check Your Email',
-            message: `Did you mean @${result.suggestion}?`,
-          });
-          return;
-        }
-
-        // Generic error for other cases
+      // Client-side validation only - AWS Cognito handles server-side validation
+      if (isDisposableEmail(normalizedEmail)) {
         setErrorModal({
           visible: true,
           title: 'Invalid Email',
-          message: result.error || 'Please check your email address.',
+          message: 'Temporary/disposable emails are not allowed.',
         });
         return;
       }
 
-      // All checks passed - navigate to next screen
+      // Check for common typos
+      const typoCheck = detectDomainTypo(normalizedEmail);
+      if (typoCheck.isTypo && typoCheck.suggestion) {
+        setErrorModal({
+          visible: true,
+          title: 'Check Your Email',
+          message: `Did you mean @${typoCheck.suggestion}?`,
+        });
+        return;
+      }
+
+      // Client-side checks passed - navigate to next screen
+      // AWS Cognito will handle duplicate email and other server-side validations
       navigation.navigate('AccountType', {
-        email: result.email || normalizedEmail,
+        email: normalizedEmail,
         password,
         rememberMe
       });
     } catch (err) {
-      // Handle timeout (AbortError) - fail-closed
-      if (err instanceof Error && err.name === 'AbortError') {
-        setErrorModal({
-          visible: true,
-          title: 'Server Busy',
-          message: 'Our servers are experiencing high traffic. Please try again in a moment.',
-        });
-        return;
-      }
-
       setErrorModal({
         visible: true,
-        title: 'Connection Error',
-        message: 'Unable to connect to the server. Please check your internet connection and try again.'
+        title: 'Error',
+        message: 'An unexpected error occurred. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -359,22 +366,34 @@ export default function SignupScreen({ navigation }) {
 
             {/* Social Buttons */}
             <TouchableOpacity
-              style={styles.socialBtn}
+              style={[styles.socialBtn, socialLoading === 'google' && styles.socialBtnLoading]}
               activeOpacity={0.7}
-              onPress={() => Alert.alert('Coming Soon', 'Google signup will be available soon!')}
+              onPress={handleGoogleSignInPress}
+              disabled={socialLoading !== null}
             >
-              <GoogleLogo size={24} />
+              {socialLoading === 'google' ? (
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              ) : (
+                <GoogleLogo size={24} />
+              )}
               <Text style={styles.socialBtnText}>Continue with Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.socialBtn}
-              activeOpacity={0.7}
-              onPress={() => Alert.alert('Coming Soon', 'Apple signup will be available soon!')}
-            >
-              <Ionicons name="logo-apple" size={26} color="#0a252f" />
-              <Text style={styles.socialBtnText}>Continue with Apple</Text>
-            </TouchableOpacity>
+            {(Platform.OS === 'ios' && appleAvailable) && (
+              <TouchableOpacity
+                style={[styles.socialBtn, socialLoading === 'apple' && styles.socialBtnLoading]}
+                activeOpacity={0.7}
+                onPress={handleAppleSignIn}
+                disabled={socialLoading !== null}
+              >
+                {socialLoading === 'apple' ? (
+                  <ActivityIndicator size="small" color="#0a252f" />
+                ) : (
+                  <Ionicons name="logo-apple" size={26} color="#0a252f" />
+                )}
+                <Text style={styles.socialBtnText}>Continue with Apple</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Login Link */}
             <View style={styles.loginRow}>
@@ -499,6 +518,7 @@ const styles = StyleSheet.create({
 
   // Social
   socialBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: FORM.buttonHeight, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: FORM.buttonRadius, backgroundColor: COLORS.white, marginBottom: 12, gap: 10 },
+  socialBtnLoading: { opacity: 0.7 },
   socialBtnText: { fontSize: 15, fontWeight: '500', color: '#0a252f' },
 
   // Login

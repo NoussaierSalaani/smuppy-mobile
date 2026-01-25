@@ -1,5 +1,5 @@
 // src/screens/live/ViewerLiveStreamScreen.tsx
-// Screen for personal users to watch a pro_creator's live stream as a viewer
+// Screen for users to watch a live stream as a viewer
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -15,14 +15,16 @@ import {
   Animated,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useAgora } from '../../hooks/useAgora';
+import { RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,19 +37,13 @@ interface Comment {
 }
 
 interface RouteParams {
+  channelName: string;
   creatorId?: string;
   creatorName?: string;
   creatorAvatar?: string;
   liveTitle?: string;
   viewerCount?: number;
 }
-
-// Mock comments for demo
-const MOCK_COMMENTS: Comment[] = [
-  { id: '1', user: 'FitFan_Mike', avatar: 'https://i.pravatar.cc/100?img=1', text: 'Great energy today!' },
-  { id: '2', user: 'YogaLover', avatar: 'https://i.pravatar.cc/100?img=2', text: 'Can you show that stretch again?' },
-  { id: '3', user: 'GymRat_23', avatar: 'https://i.pravatar.cc/100?img=3', text: 'This is amazing!' },
-];
 
 // Reaction emojis
 const REACTIONS = ['❤️', '🔥', '💪', '👏', '😍', '🎉'];
@@ -59,51 +55,59 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   const params = (route.params || {}) as RouteParams;
 
   const {
+    channelName,
     creatorName = 'Pro Creator',
     creatorAvatar = 'https://i.pravatar.cc/100?img=10',
     liveTitle = 'Live Session',
-    viewerCount: initialViewerCount = 124,
   } = params;
 
-  const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
+  // Agora hook for watching (audience)
+  const {
+    isJoined,
+    isLoading,
+    error,
+    remoteUsers,
+    leaveChannel,
+    destroy,
+  } = useAgora({
+    role: 'audience',
+    channelName,
+    autoJoin: true,
+  });
+
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [viewerCount, setViewerCount] = useState(initialViewerCount);
   const [showReactions, setShowReactions] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
 
-  const reactionAnim = useRef(new Animated.Value(0)).current;
   const floatingReactions = useRef<{ id: string; emoji: string; anim: Animated.Value }[]>([]);
   const [, forceUpdate] = useState({});
 
-  // Simulate viewer count changes
+  // Cleanup on unmount
   useEffect(() => {
-    const interval = setInterval(() => {
-      setViewerCount(prev => prev + Math.floor(Math.random() * 3) - 1);
-    }, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      destroy();
+    };
   }, []);
 
-  // Simulate incoming comments
+  // Handle stream ended
   useEffect(() => {
-    const interval = setInterval(() => {
-      const randomComments = [
-        'Love this!',
-        'Keep going!',
-        'So inspiring!',
-        'Best live ever!',
-        'Thanks for this!',
-      ];
-      const newMockComment: Comment = {
-        id: Date.now().toString(),
-        user: `User_${Math.floor(Math.random() * 1000)}`,
-        avatar: `https://i.pravatar.cc/100?img=${Math.floor(Math.random() * 70)}`,
-        text: randomComments[Math.floor(Math.random() * randomComments.length)],
-      };
-      setComments(prev => [...prev.slice(-20), newMockComment]);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
+    // If we were joined but now have no remote users, stream might have ended
+    if (isJoined && remoteUsers.length === 0) {
+      // Give it a moment - host might just be reconnecting
+      const timeout = setTimeout(() => {
+        if (remoteUsers.length === 0) {
+          Alert.alert(
+            'Stream Ended',
+            `${creatorName}'s live stream has ended.`,
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        }
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isJoined, remoteUsers.length]);
 
   const handleSendComment = () => {
     if (!newComment.trim()) return;
@@ -115,10 +119,10 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     };
     setComments(prev => [...prev, comment]);
     setNewComment('');
+    // TODO: Send comment to real-time backend
   };
 
   const handleReaction = (emoji: string) => {
-    // Create floating reaction animation
     const id = Date.now().toString();
     const anim = new Animated.Value(0);
     floatingReactions.current.push({ id, emoji, anim });
@@ -134,10 +138,13 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     });
 
     setShowReactions(false);
+    // TODO: Send reaction to real-time backend
   };
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
     setShowLeaveModal(false);
+    await leaveChannel();
+    await destroy();
     navigation.goBack();
   };
 
@@ -145,7 +152,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     <View style={styles.commentItem}>
       <AvatarImage source={item.avatar} size={28} />
       <View style={styles.commentContent}>
-        <Text style={[styles.commentUser, item.isCreator && styles.creatorName]}>
+        <Text style={[styles.commentUser, item.isCreator && styles.creatorNameHighlight]}>
           {item.user} {item.isCreator && '(Creator)'}
         </Text>
         <Text style={styles.commentText}>{item.text}</Text>
@@ -153,21 +160,57 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     </View>
   );
 
+  // Get the host's UID (first remote user is typically the host)
+  const hostUid = remoteUsers[0];
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Joining live stream...</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error && !isJoined) {
+    return (
+      <View style={styles.loadingContainer}>
+        <StatusBar barStyle="light-content" />
+        <Ionicons name="alert-circle" size={48} color="#FF3B30" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.retryText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Video Stream Background (placeholder) */}
-      <View style={styles.streamBackground}>
-        <LinearGradient
-          colors={['#1a1a2e', '#16213e', '#0f3460']}
-          style={StyleSheet.absoluteFill}
+      {/* Video Stream Background */}
+      {hostUid ? (
+        <RemoteVideoView
+          uid={hostUid}
+          channelId={channelName}
+          style={styles.streamBackground}
         />
-        <View style={styles.streamPlaceholder}>
-          <Ionicons name="videocam" size={60} color="rgba(255,255,255,0.3)" />
-          <Text style={styles.streamPlaceholderText}>Live Stream</Text>
+      ) : (
+        <View style={styles.streamBackground}>
+          <LinearGradient
+            colors={['#1a1a2e', '#16213e', '#0f3460']}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.streamPlaceholder}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.streamPlaceholderText}>Waiting for host...</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Floating Reactions */}
       {floatingReactions.current.map(({ id, emoji, anim }) => (
@@ -234,7 +277,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
         {/* Viewer Count */}
         <View style={styles.viewerCount}>
           <Ionicons name="eye" size={16} color="white" />
-          <Text style={styles.viewerCountText}>{viewerCount}</Text>
+          <Text style={styles.viewerCountText}>{remoteUsers.length > 0 ? remoteUsers.length : '...'}</Text>
         </View>
       </View>
 
@@ -250,7 +293,6 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
             renderItem={renderComment}
             keyExtractor={item => item.id}
             showsVerticalScrollIndicator={false}
-            inverted={false}
             contentContainerStyle={styles.commentsList}
           />
         </View>
@@ -393,6 +435,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 16,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   streamBackground: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -402,9 +474,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   streamPlaceholderText: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 16,
-    marginTop: 10,
+    marginTop: 16,
   },
   floatingReaction: {
     position: 'absolute',
@@ -450,6 +522,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  creatorNameHighlight: {
+    color: COLORS.primary,
   },
   liveBadge: {
     flexDirection: 'row',

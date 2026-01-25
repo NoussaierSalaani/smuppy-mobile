@@ -14,12 +14,19 @@ const extra = Constants.expoConfig?.extra
   || {};
 
 export const ENV = {
-  // Supabase
-  SUPABASE_URL: extra.supabaseUrl || '',
-  SUPABASE_ANON_KEY: extra.supabaseAnonKey || '',
+  // Legacy Supabase (deprecated - will be removed after full AWS migration)
+  // These are kept for backwards compatibility with files not yet migrated
+  SUPABASE_URL: '',
+  SUPABASE_ANON_KEY: '',
 
   // Google APIs
   GOOGLE_API_KEY: extra.googleApiKey || '',
+
+  // Google OAuth Client IDs (for Sign-In with Google)
+  // These need to be created in Google Cloud Console
+  GOOGLE_IOS_CLIENT_ID: extra.googleIosClientId || '',
+  GOOGLE_ANDROID_CLIENT_ID: extra.googleAndroidClientId || '',
+  GOOGLE_WEB_CLIENT_ID: extra.googleWebClientId || '',
 
   // Backend API
   // Note: Use HTTPS even in development for security testing
@@ -39,6 +46,9 @@ export const ENV = {
   // Sentry (Error Tracking)
   SENTRY_DSN: extra.sentryDsn || '',
 
+  // Agora (Live Streaming & Video Calls)
+  AGORA_APP_ID: extra.agoraAppId || '',
+
   // App info
   APP_ENV: extra.appEnv || (__DEV__ ? 'development' : 'production'),
   APP_VERSION: Constants.expoConfig?.version || '1.0.0',
@@ -52,9 +62,6 @@ export const ENV = {
 if (__DEV__) {
   const missingVars = [];
 
-  if (!ENV.SUPABASE_URL || !ENV.SUPABASE_ANON_KEY) {
-    missingVars.push('SUPABASE_URL, SUPABASE_ANON_KEY');
-  }
   if (!ENV.GOOGLE_API_KEY) {
     missingVars.push('GOOGLE_API_KEY');
   }

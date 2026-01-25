@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
 import { ENV } from '../../config/env';
-import { supabase } from '../../config/supabase';
 import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import * as backend from '../../services/backend';
+import {
+  isAppleSignInAvailable,
+  signInWithApple,
+  useGoogleAuth,
+  handleGoogleSignIn,
+  createSocialAuthProfile,
+} from '../../services/socialAuth';
 
 const GoogleLogo = ({ size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -40,6 +47,50 @@ export default function LoginScreen({ navigation }) {
     canReactivate: false,
     fullName: '',
   });
+
+  // Social auth state
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
+
+  // Google OAuth hook
+  const [googleRequest, googleResponse, googlePromptAsync] = useGoogleAuth();
+
+  // Check Apple Sign-In availability and biometrics
+  useEffect(() => {
+    checkBiometrics();
+    isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+
+  // Handle Google OAuth response
+  useEffect(() => {
+    if (googleResponse) {
+      handleGoogleAuthResponse();
+    }
+  }, [googleResponse]);
+
+  const handleGoogleAuthResponse = async () => {
+    setSocialLoading('google');
+    const result = await handleGoogleSignIn(googleResponse);
+
+    if (result.success) {
+      if (result.isNewUser && result.user) {
+        // New user - create profile and navigate to onboarding
+        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AccountType', params: { socialAuth: true, userId: result.user.id } }],
+        });
+      }
+      // Existing user - AWS auth state change will handle navigation
+    } else if (result.error && result.error !== 'cancelled') {
+      setErrorModal({
+        visible: true,
+        title: 'Google Sign-In Failed',
+        message: result.error,
+      });
+    }
+    setSocialLoading(null);
+  };
 
   useEffect(() => { checkBiometrics(); }, []);
 
@@ -92,45 +143,41 @@ export default function LoginScreen({ navigation }) {
     const blockStatus = await biometrics.isBlocked();
     if (blockStatus.blocked) {
       const minutes = Math.ceil(blockStatus.remainingSeconds / 60);
-      setErrorModal({ 
-        visible: true, 
-        title: 'Too Many Attempts', 
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} is temporarily blocked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} or use your password.` 
+      setErrorModal({
+        visible: true,
+        title: 'Too Many Attempts',
+        message: `${isFaceId ? 'Face ID' : 'Touch ID'} is temporarily blocked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} or use your password.`
       });
       setBiometricBlocked(true);
       return;
     }
     const result = await biometrics.loginWithBiometrics();
     if (result.success) {
-      const refreshToken = await storage.get(STORAGE_KEYS.REFRESH_TOKEN);
-      if (refreshToken) {
-        const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-        if (data?.session && !error) {
-          // Biometric login implies persistent session
-          await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
-          await storage.set(STORAGE_KEYS.ACCESS_TOKEN, data.session.access_token);
-          await storage.set(STORAGE_KEYS.REFRESH_TOKEN, data.session.refresh_token);
-          return;
-        }
+      // Check if we have a valid session via backend
+      const currentUser = await backend.getCurrentUser();
+      if (currentUser) {
+        // Biometric login implies persistent session
+        await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
+        return;
       }
-      setErrorModal({ 
-        visible: true, 
-        title: 'Session Expired', 
-        message: 'Your session has expired. Please login with your password to continue.' 
+      setErrorModal({
+        visible: true,
+        title: 'Session Expired',
+        message: 'Your session has expired. Please login with your password to continue.'
       });
     } else if (result.error === 'blocked') {
       const minutes = Math.ceil(result.remainingSeconds / 60);
-      setErrorModal({ 
-        visible: true, 
-        title: 'Too Many Attempts', 
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} is temporarily blocked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} or use your password.` 
+      setErrorModal({
+        visible: true,
+        title: 'Too Many Attempts',
+        message: `${isFaceId ? 'Face ID' : 'Touch ID'} is temporarily blocked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} or use your password.`
       });
       setBiometricBlocked(true);
     } else if (result.attemptsLeft !== undefined && result.attemptsLeft > 0) {
-      setErrorModal({ 
-        visible: true, 
-        title: 'Authentication Failed', 
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} failed. ${result.attemptsLeft} attempt${result.attemptsLeft > 1 ? 's' : ''} remaining.` 
+      setErrorModal({
+        visible: true,
+        title: 'Authentication Failed',
+        message: `${isFaceId ? 'Face ID' : 'Touch ID'} failed. ${result.attemptsLeft} attempt${result.attemptsLeft > 1 ? 's' : ''} remaining.`
       });
     }
   }, [isFaceId]);
@@ -169,46 +216,11 @@ export default function LoginScreen({ navigation }) {
         });
         return;
       }
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email: normalizedEmail, password }),
-      });
 
-      const result = await response.json().catch(() => ({}));
+      // Use backend service which routes to AWS Cognito
+      const user = await backend.signIn({ email: normalizedEmail, password });
 
-      if (!response.ok) {
-        const message = response.status === 429
-          ? 'Too many attempts. Please wait a few minutes and try again.'
-          : 'Invalid email or password. Please try again.';
-        setErrorModal({
-          visible: true,
-          title: 'Login Failed',
-          message,
-        });
-        return;
-      }
-
-      const session = result?.session;
-      if (!session?.access_token || !session?.refresh_token) {
-        setErrorModal({
-          visible: true,
-          title: 'Login Failed',
-          message: 'Invalid email or password. Please try again.',
-        });
-        return;
-      }
-
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
-
-      if (sessionError) {
+      if (!user) {
         setErrorModal({
           visible: true,
           title: 'Login Failed',
@@ -219,16 +231,6 @@ export default function LoginScreen({ navigation }) {
 
       // Save "Remember Me" preference
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
-
-      // Only persist tokens if "Remember Me" is checked
-      if (rememberMe) {
-        await storage.set(STORAGE_KEYS.ACCESS_TOKEN, session.access_token);
-        await storage.set(STORAGE_KEYS.REFRESH_TOKEN, session.refresh_token);
-      } else {
-        // Clear any previously stored tokens
-        await storage.delete(STORAGE_KEYS.ACCESS_TOKEN);
-        await storage.delete(STORAGE_KEYS.REFRESH_TOKEN);
-      }
 
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
@@ -263,39 +265,54 @@ export default function LoginScreen({ navigation }) {
     setDeletedAccountModal(prev => ({ ...prev, visible: false }));
   }, []);
 
-  const checkDeletedAccount = useCallback(async (emailToCheck: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-deleted-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ email: emailToCheck }),
-      });
-
-      if (!response.ok) return false;
-
-      const result = await response.json();
-
-      if (result.is_deleted) {
-        setDeletedAccountModal({
-          visible: true,
-          daysRemaining: result.days_remaining,
-          canReactivate: result.can_reactivate,
-          fullName: result.full_name || '',
-        });
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Check deleted account error:', error);
-      return false;
-    }
+  // Note: checkDeletedAccount is skipped for AWS - Cognito handles user state
+  const checkDeletedAccount = useCallback(async (_emailToCheck: string): Promise<boolean> => {
+    // AWS Cognito handles deleted/disabled accounts internally
+    // Cognito will return appropriate errors for disabled users
+    return false;
   }, []);
 
   const isFormValid = email.length > 0 && password.length > 0;
+
+  // Handle Apple Sign-In
+  const handleAppleSignIn = useCallback(async () => {
+    setSocialLoading('apple');
+    const result = await signInWithApple();
+
+    if (result.success) {
+      if (result.isNewUser && result.user) {
+        // New user - create profile and navigate to onboarding
+        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AccountType', params: { socialAuth: true, userId: result.user.id } }],
+        });
+      }
+      // Existing user - AWS auth state change will handle navigation
+    } else if (result.error && result.error !== 'cancelled') {
+      setErrorModal({
+        visible: true,
+        title: 'Apple Sign-In Failed',
+        message: result.error,
+      });
+    }
+    setSocialLoading(null);
+  }, [navigation]);
+
+  // Handle Google Sign-In
+  const handleGoogleSignInPress = useCallback(async () => {
+    if (!googleRequest) {
+      setErrorModal({
+        visible: true,
+        title: 'Google Sign-In Unavailable',
+        message: 'Google Sign-In is not configured. Please try again later.',
+      });
+      return;
+    }
+    setSocialLoading('google');
+    await googlePromptAsync();
+    // Response will be handled by the useEffect
+  }, [googleRequest, googlePromptAsync]);
 
   const getEmailIconColor = () => {
     if (email.length > 0 || emailFocused) return COLORS.primary;
@@ -469,19 +486,31 @@ export default function LoginScreen({ navigation }) {
             {/* Social Buttons */}
             <View style={styles.socialRow}>
               <TouchableOpacity
-                style={styles.socialBtn}
+                style={[styles.socialBtn, socialLoading === 'google' && styles.socialBtnLoading]}
                 activeOpacity={0.7}
-                onPress={() => Alert.alert('Coming Soon', 'Google login will be available soon!')}
+                onPress={handleGoogleSignInPress}
+                disabled={socialLoading !== null}
               >
-                <GoogleLogo size={28} />
+                {socialLoading === 'google' ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                  <GoogleLogo size={28} />
+                )}
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.socialBtn}
-                activeOpacity={0.7}
-                onPress={() => Alert.alert('Coming Soon', 'Apple login will be available soon!')}
-              >
-                <Ionicons name="logo-apple" size={30} color={COLORS.dark} />
-              </TouchableOpacity>
+              {(Platform.OS === 'ios' && appleAvailable) && (
+                <TouchableOpacity
+                  style={[styles.socialBtn, socialLoading === 'apple' && styles.socialBtnLoading]}
+                  activeOpacity={0.7}
+                  onPress={handleAppleSignIn}
+                  disabled={socialLoading !== null}
+                >
+                  {socialLoading === 'apple' ? (
+                    <ActivityIndicator size="small" color={COLORS.dark} />
+                  ) : (
+                    <Ionicons name="logo-apple" size={30} color={COLORS.dark} />
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Forgot Password - PAS de cooldown */}
@@ -641,6 +670,7 @@ const styles = StyleSheet.create({
   // Social
   socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 16 },
   socialBtn: { width: 64, height: 64, borderRadius: 18, borderWidth: 1.5, borderColor: COLORS.grayBorder, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center' },
+  socialBtnLoading: { opacity: 0.7 },
 
   // Forgot Password
   forgotBtn: { alignItems: 'center', marginBottom: 10 },

@@ -1,0 +1,353 @@
+/**
+ * LiquidTabs - iOS 18 "Water Drop" Animated Tabs
+ *
+ * True liquid/water drop effect with:
+ * - Pill-shaped sliding indicator
+ * - Elastic spring animation (like water)
+ * - Glossy shine effect
+ * - Scale bounce on selection
+ */
+
+import React, { useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  ViewStyle,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface Tab {
+  key: string;
+  label: string;
+  icon?: string;
+}
+
+interface LiquidTabsProps {
+  tabs: Tab[];
+  activeTab: string;
+  onTabChange: (key: string) => void;
+  style?: ViewStyle;
+  variant?: 'glass' | 'solid' | 'minimal';
+  size?: 'small' | 'medium' | 'large';
+  fullWidth?: boolean;
+}
+
+// Spring config for water-like movement
+const WATER_SPRING = {
+  damping: 15,
+  stiffness: 150,
+  mass: 0.6,
+};
+
+export const LiquidTabs: React.FC<LiquidTabsProps> = ({
+  tabs,
+  activeTab,
+  onTabChange,
+  style,
+  variant = 'glass',
+  size = 'medium',
+  fullWidth = true,
+}) => {
+  const activeIndex = tabs.findIndex((t) => t.key === activeTab);
+  const translateX = useSharedValue(0);
+  const scaleX = useSharedValue(1);
+  const scaleY = useSharedValue(1);
+
+  // Size configurations
+  const sizeConfig = {
+    small: { height: 36, fontSize: 13, padding: 3, radius: 18 },
+    medium: { height: 44, fontSize: 14, padding: 4, radius: 22 },
+    large: { height: 52, fontSize: 16, padding: 5, radius: 26 },
+  };
+  const config = sizeConfig[size];
+
+  // Calculate dimensions
+  const containerPadding = config.padding;
+  // For non-fullWidth: use smaller tabs for small size (compact header)
+  const nonFullWidthTabSize = size === 'small' ? 62 : 90;
+  const containerWidth = fullWidth ? SCREEN_WIDTH - 40 : tabs.length * nonFullWidthTabSize;
+  const tabWidth = (containerWidth - containerPadding * 2) / tabs.length;
+  const indicatorWidth = tabWidth - 4;
+
+  useEffect(() => {
+    // Animate position with water-like spring
+    translateX.value = withSpring(
+      activeIndex * tabWidth + containerPadding + 2,
+      WATER_SPRING
+    );
+
+    // Squish effect like a water drop
+    scaleX.value = withSequence(
+      withTiming(1.15, { duration: 100, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 12, stiffness: 200 })
+    );
+    scaleY.value = withSequence(
+      withTiming(0.9, { duration: 100, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 12, stiffness: 200 })
+    );
+  }, [activeIndex]);
+
+  const indicatorStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { scaleX: scaleX.value },
+        { scaleY: scaleY.value },
+      ] as const,
+      width: indicatorWidth,
+    };
+  });
+
+  const handleTabPress = (key: string, index: number) => {
+    if (key === activeTab) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onTabChange(key);
+  };
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          borderRadius: config.radius,
+          width: fullWidth ? undefined : containerWidth,
+        },
+        fullWidth && styles.fullWidth,
+        style,
+      ]}
+    >
+      {/* Glass background */}
+      {variant === 'glass' && (
+        <>
+          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.glassOverlay} />
+        </>
+      )}
+      {variant === 'solid' && <View style={styles.solidBackground} />}
+
+      {/* Inner container */}
+      <View style={[styles.innerContainer, { padding: containerPadding }]}>
+        {/* Animated Water Drop Indicator */}
+        <Animated.View style={[styles.indicator, indicatorStyle]}>
+          <LinearGradient
+            colors={['#10D99A', '#0EBF8A', '#00B5C1']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.indicatorGradient,
+              {
+                height: config.height - containerPadding * 2 - 4,
+                borderRadius: config.radius - 6,
+              },
+            ]}
+          >
+            {/* Top shine - water reflection */}
+            <View style={[styles.topShine, { borderRadius: config.radius - 6 }]} />
+            {/* Bottom reflection */}
+            <View style={styles.bottomReflection} />
+            {/* Center glow */}
+            <View style={styles.centerGlow} />
+          </LinearGradient>
+        </Animated.View>
+
+        {/* Tab Labels */}
+        {tabs.map((tab, index) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => handleTabPress(tab.key, index)}
+              activeOpacity={0.7}
+              style={[
+                styles.tab,
+                {
+                  width: tabWidth,
+                  height: config.height - containerPadding * 2,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { fontSize: config.fontSize },
+                  isActive ? styles.tabLabelActive : styles.tabLabelInactive,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Outer border glow */}
+      <View style={[styles.borderGlow, { borderRadius: config.radius }]} />
+    </View>
+  );
+};
+
+// Compact version
+export const LiquidTabsCompact: React.FC<LiquidTabsProps> = (props) => (
+  <LiquidTabs {...props} size="small" />
+);
+
+// With More button for profile
+interface LiquidTabsWithMoreProps extends LiquidTabsProps {
+  extraTabs?: Tab[];
+  onMorePress?: () => void;
+}
+
+export const LiquidTabsWithMore: React.FC<LiquidTabsWithMoreProps> = ({
+  tabs,
+  extraTabs = [],
+  activeTab,
+  onTabChange,
+  onMorePress,
+  style,
+  size = 'medium',
+}) => {
+  const activeInExtra = extraTabs.find((t) => t.key === activeTab);
+  const hasExtras = extraTabs.length > 0;
+
+  // Build display tabs
+  const displayTabs = hasExtras
+    ? [...tabs, { key: '__more__', label: '•••' }]
+    : tabs;
+
+  const handleChange = (key: string) => {
+    if (key === '__more__') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onMorePress?.();
+    } else {
+      onTabChange(key);
+    }
+  };
+
+  // If active is in extra, highlight the more button
+  const effectiveActiveTab = activeInExtra ? '__more__' : activeTab;
+
+  return (
+    <LiquidTabs
+      tabs={displayTabs}
+      activeTab={effectiveActiveTab}
+      onTabChange={handleChange}
+      style={style}
+      size={size}
+    />
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  fullWidth: {
+    marginHorizontal: 20,
+  },
+  glassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  },
+  solidBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F3F4F6',
+  },
+  innerContainer: {
+    flexDirection: 'row',
+    position: 'relative',
+  },
+
+  // Water Drop Indicator
+  indicator: {
+    position: 'absolute',
+    top: 4,
+    zIndex: 0,
+  },
+  indicatorGradient: {
+    overflow: 'hidden',
+    shadowColor: '#0EBF8A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  topShine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderBottomLeftRadius: 100,
+    borderBottomRightRadius: 100,
+  },
+  bottomReflection: {
+    position: 'absolute',
+    bottom: 3,
+    left: '20%',
+    right: '20%',
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2,
+  },
+  centerGlow: {
+    position: 'absolute',
+    top: '30%',
+    left: '10%',
+    width: 8,
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 4,
+  },
+
+  // Tabs
+  tab: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  tabLabel: {
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  tabLabelActive: {
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  tabLabelInactive: {
+    color: '#6B7280',
+  },
+
+  // Border glow
+  borderGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    pointerEvents: 'none',
+  },
+});
+
+export default LiquidTabs;

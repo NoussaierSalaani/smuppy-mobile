@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../config/theme';
 import { AccountBadge } from '../../components/Badge';
+import { LiquidTabs } from '../../components/LiquidTabs';
 import {
   getConversations,
   subscribeToConversations,
@@ -199,24 +200,19 @@ export default function MessagesScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Filters */}
-      <View style={styles.filters}>
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive]}
-          onPress={() => setActiveFilter('all')}
-        >
-          <Text style={[styles.filterText, activeFilter === 'all' && styles.filterTextActive]}>
-            All
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'unread' && styles.filterChipActive]}
-          onPress={() => setActiveFilter('unread')}
-        >
-          <Text style={[styles.filterText, activeFilter === 'unread' && styles.filterTextActive]}>
-            Unread
-          </Text>
-        </TouchableOpacity>
+      {/* Filters - Liquid Tabs */}
+      <View style={styles.filtersContainer}>
+        <LiquidTabs
+          tabs={[
+            { key: 'all', label: 'All' },
+            { key: 'unread', label: 'Unread' },
+          ]}
+          activeTab={activeFilter}
+          onTabChange={(key) => setActiveFilter(key)}
+          size="small"
+          fullWidth={false}
+          variant="glass"
+        />
       </View>
 
       {/* Conversations List */}
@@ -293,28 +289,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.dark,
   },
-  filters: {
-    flexDirection: 'row',
+  filtersContainer: {
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-  },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    marginRight: SPACING.sm,
-  },
-  filterChipActive: {
-    backgroundColor: COLORS.primary,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.gray,
-  },
-  filterTextActive: {
-    color: '#fff',
+    alignItems: 'flex-start',
   },
   listContent: {
     paddingBottom: 100,

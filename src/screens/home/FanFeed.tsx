@@ -651,11 +651,13 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       <View style={styles.postActions}>
         <View style={styles.postActionsLeft}>
           <TouchableOpacity
-            style={styles.postAction}
+            style={styles.postActionLike}
             onPress={() => toggleLike(post.id)}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
           >
             <SmuppyHeartIcon
-              size={22}
+              size={26}
               color={post.isLiked ? "#FF6B6B" : COLORS.dark}
               filled={post.isLiked}
             />
@@ -663,14 +665,18 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <TouchableOpacity
             style={styles.postAction}
             onPress={() => handleSharePost(post)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="paper-plane-outline" size={20} color={COLORS.dark} />
+            <Ionicons name="paper-plane-outline" size={22} color={COLORS.dark} />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => toggleSave(post.id)}>
+        <TouchableOpacity
+          onPress={() => toggleSave(post.id)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons
             name={post.isSaved ? "bookmark" : "bookmark-outline"}
-            size={20}
+            size={22}
             color={post.isSaved ? COLORS.primary : COLORS.dark}
           />
         </TouchableOpacity>
@@ -1080,6 +1086,11 @@ const styles = StyleSheet.create({
   },
   postAction: {
     marginRight: SPACING.base,
+    padding: 4,
+  },
+  postActionLike: {
+    marginRight: SPACING.base,
+    padding: 6,
   },
   postLikes: {
     fontFamily: 'Poppins-SemiBold',

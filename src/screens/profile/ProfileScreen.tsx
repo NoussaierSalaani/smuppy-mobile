@@ -28,6 +28,7 @@ import { AccountBadge, PremiumBadge } from '../../components/Badge';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { unsavePost } from '../../services/database';
+import { LiquidTabsWithMore } from '../../components/LiquidTabs';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -323,6 +324,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const { user: contextUser } = useUser();
   const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
   const [activeTab, setActiveTab] = useState('posts');
+  const [showMoreTabs, setShowMoreTabs] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
 
@@ -783,64 +785,107 @@ const ProfileScreen = ({ navigation, route }) => {
   // Dynamic tabs based on account type
   const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
 
-  const TABS = useMemo(() => {
-    const baseTabs = [
-      { key: 'posts', label: 'Posts' },
-      { key: 'peaks', label: 'Peaks' },
+  // Primary tabs (always visible) - max 4
+  const PRIMARY_TABS = useMemo(() => {
+    const tabs = [
+      { key: 'posts', label: 'Posts', icon: 'grid-outline' },
+      { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
     ];
 
-    // Add tabs for pro_creator
-    if (isProCreator && isOwnProfile) {
-      baseTabs.push(
-        { key: 'videos', label: 'Videos' },
-        { key: 'sessions', label: 'Sessions' },
-        { key: 'lives', label: 'Lives' },
-      );
-    } else if (isProCreator && !isOwnProfile) {
-      // For viewing a pro_creator profile, show Videos and Lives
-      baseTabs.push(
-        { key: 'videos', label: 'Videos' },
-        { key: 'lives', label: 'Lives' },
-      );
-    }
-
-    // Collections only for own profile
     if (isOwnProfile) {
-      baseTabs.push({ key: 'collections', label: 'Collections' });
+      tabs.push({ key: 'collections', label: 'Saved', icon: 'bookmark-outline' });
     }
 
-    return baseTabs;
-  }, [isProCreator, isOwnProfile]) as { key: string; label: string }[];
+    return tabs;
+  }, [isOwnProfile]) as { key: string; label: string; icon: string }[];
 
-  const renderTabs = () => (
-    <View style={styles.tabsContainer}>
-      <View style={styles.pillsContainer}>
-        {TABS.map((tab) => (
+  // Extra tabs (shown in "+" menu) - for pro_creator
+  const EXTRA_TABS = useMemo(() => {
+    if (!isProCreator) return [];
+
+    const tabs = [
+      { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
+    ];
+
+    if (isOwnProfile) {
+      tabs.push(
+        { key: 'sessions', label: 'Sessions', icon: 'calendar-outline' },
+        { key: 'lives', label: 'Lives', icon: 'radio-outline' },
+      );
+    } else {
+      tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+    }
+
+    return tabs;
+  }, [isProCreator, isOwnProfile]) as { key: string; label: string; icon: string }[];
+
+  // Combined for backward compatibility
+  const TABS = useMemo(() => [...PRIMARY_TABS, ...EXTRA_TABS], [PRIMARY_TABS, EXTRA_TABS]);
+
+  const renderTabs = () => {
+    return (
+      <View style={styles.tabsContainer}>
+        {/* Liquid Glass Tabs with More button */}
+        <LiquidTabsWithMore
+          tabs={PRIMARY_TABS}
+          extraTabs={EXTRA_TABS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onMorePress={() => setShowMoreTabs(true)}
+          size="medium"
+          style={styles.liquidProfileTabs}
+        />
+
+        {/* Extra Tabs Modal */}
+        <Modal
+          visible={showMoreTabs}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowMoreTabs(false)}
+        >
           <TouchableOpacity
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            activeOpacity={0.8}
-            style={{ flex: 1 }}
+            style={styles.moreTabsOverlay}
+            activeOpacity={1}
+            onPress={() => setShowMoreTabs(false)}
           >
-            {activeTab === tab.key ? (
-              <LinearGradient
-                colors={['#0EBF8A', '#00B5C1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.pillActive}
-              >
-                <Text style={styles.pillTextActive}>{tab.label}</Text>
-              </LinearGradient>
-            ) : (
-              <View style={styles.pill}>
-                <Text style={styles.pillText}>{tab.label}</Text>
-              </View>
-            )}
+            <View style={styles.moreTabsContainer}>
+              <Text style={styles.moreTabsTitle}>More</Text>
+              {EXTRA_TABS.map((tab) => (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[
+                    styles.moreTabsItem,
+                    activeTab === tab.key && styles.moreTabsItemActive,
+                  ]}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    setShowMoreTabs(false);
+                  }}
+                >
+                  <Ionicons
+                    name={tab.icon as any}
+                    size={22}
+                    color={activeTab === tab.key ? '#0EBF8A' : '#374151'}
+                  />
+                  <Text
+                    style={[
+                      styles.moreTabsItemText,
+                      activeTab === tab.key && styles.moreTabsItemTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                  {activeTab === tab.key && (
+                    <Ionicons name="checkmark" size={20} color="#0EBF8A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           </TouchableOpacity>
-        ))}
+        </Modal>
       </View>
-    </View>
-  );
+    );
+  };
 
   // ==================== RENDER EMPTY STATE ====================
   const renderEmpty = () => (
@@ -1766,47 +1811,63 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
 
-  // ===== TABS (PILLS STYLE) =====
+  // ===== TABS (LIQUID GLASS STYLE) =====
   tabsContainer: {
-    paddingHorizontal: 20,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
   },
-  pillsContainer: {
+  liquidProfileTabs: {
+    marginHorizontal: 20,
+  },
+
+  // ===== MORE TABS MODAL =====
+  moreTabsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moreTabsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    width: SCREEN_WIDTH - 64,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  moreTabsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  moreTabsItem: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    padding: 3,
-  },
-  pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: 'transparent',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pillActive: {
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0EBF8A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    borderRadius: 12,
+    gap: 14,
   },
-  pillText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
+  moreTabsItemActive: {
+    backgroundColor: '#F0FDF9',
   },
-  pillTextActive: {
-    fontSize: 14,
+  moreTabsItemText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  moreTabsItemTextActive: {
+    color: '#0EBF8A',
     fontWeight: '600',
-    color: '#FFFFFF',
   },
 
   // ===== EMPTY STATE =====

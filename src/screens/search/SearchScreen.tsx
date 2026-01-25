@@ -23,6 +23,7 @@ import { COLORS } from '../../config/theme';
 import { AccountBadge } from '../../components/Badge';
 import OptimizedImage from '../../components/OptimizedImage';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import { LiquidTabs } from '../../components/LiquidTabs';
 import {
   searchProfiles,
   searchPosts,
@@ -567,30 +568,34 @@ const SearchScreen = (): React.JSX.Element => {
     }
   };
 
+  // Tabs configuration for LiquidTabs
+  const searchTabs = [
+    { key: 'all', label: 'All' },
+    { key: 'users', label: 'Users' },
+    { key: 'posts', label: 'Posts' },
+    { key: 'peaks', label: 'Peaks' },
+    { key: 'tags', label: 'Tags' },
+  ];
+
+  const handleTabChange = (key: string) => {
+    const tab = key as SearchTab;
+    setActiveTab(tab);
+    if (searchQuery.length >= 2 && !hasSearched) {
+      performSearch(searchQuery, tab, 0, false);
+    }
+  };
+
   const renderTabs = (): React.JSX.Element => (
     <View style={styles.tabsContainer}>
-      {(['all', 'users', 'posts', 'peaks', 'tags'] as SearchTab[]).map((tab) => {
-        const count = hasSearched ? getTabCount(tab) : 0;
-        return (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => {
-              setActiveTab(tab);
-              if (searchQuery.length >= 2 && !hasSearched) {
-                performSearch(searchQuery, tab, 0, false);
-              }
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {getTabLabel(tab)}
-              {hasSearched && count > 0 && (
-                <Text style={styles.tabCount}> ({count})</Text>
-              )}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+      <LiquidTabs
+        tabs={searchTabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        size="small"
+        fullWidth={true}
+        variant="glass"
+        style={styles.liquidTabs}
+      />
     </View>
   );
 
@@ -1006,32 +1011,11 @@ const styles = StyleSheet.create({
 
   // Tabs
   tabsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 0,
+    paddingVertical: 8,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.gray,
-  },
-  tabTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  tabCount: {
-    fontSize: 12,
-    fontWeight: '400',
+  liquidTabs: {
+    marginHorizontal: 16,
   },
 
   // Content

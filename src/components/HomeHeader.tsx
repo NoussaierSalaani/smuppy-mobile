@@ -18,6 +18,7 @@ import { COLORS, GRADIENTS } from '../config/theme';
 import { SmuppyText } from './SmuppyLogo';
 import { useTabBar } from '../context/TabBarContext';
 import { useUserStore } from '../stores';
+import { LiquidTabs } from './LiquidTabs';
 
 const { width } = Dimensions.get('window');
 const TAB_BAR_INNER_PADDING = 16;
@@ -136,32 +137,16 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                   <Ionicons name="search-outline" size={20} color={COLORS.dark} />
                 </TouchableOpacity>
 
-                {/* Center: Pills tabs */}
-                <View style={styles.pillsContainer}>
-                  {tabs.map((tab) => {
-                    const isActiveTab = activeTab === tab.id;
-                    return (
-                      <TouchableOpacity
-                        key={tab.id}
-                        style={[styles.pillTab, isActiveTab && styles.pillTabActive]}
-                        onPress={() => handleTabPress(tab.id)}
-                        activeOpacity={0.7}
-                      >
-                        {isActiveTab ? (
-                          <LinearGradient
-                            colors={GRADIENTS.primary}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.pillGradient}
-                          >
-                            <Text style={styles.pillTextActive}>{tab.label}</Text>
-                          </LinearGradient>
-                        ) : (
-                          <Text style={styles.pillText}>{tab.label}</Text>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
+                {/* Center: Liquid Glass Tabs */}
+                <View style={styles.liquidTabsWrapper}>
+                  <LiquidTabs
+                    tabs={tabs.map(t => ({ key: t.id, label: t.label }))}
+                    activeTab={activeTab}
+                    onTabChange={(key) => handleTabPress(key as TabId)}
+                    size="small"
+                    fullWidth={false}
+                    style={styles.liquidTabsCompact}
+                  />
                 </View>
 
                 {/* Right: Notifications */}
@@ -218,43 +203,16 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
           </View>
         </BlurView>
 
-        {/* TabBar */}
+        {/* TabBar - Liquid Glass Style */}
         <View style={styles.tabBarContainer}>
-          <BlurView intensity={90} tint="light" style={styles.tabBarBlur}>
-            <View style={styles.tabsContainer}>
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <TouchableOpacity
-                    key={tab.id}
-                    style={styles.tab}
-                    onPress={() => handleTabPress(tab.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.tabText,
-                      isActive && styles.tabTextActive
-                    ]}>
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <View style={styles.lineContainer}>
-              <View style={styles.grayLine} />
-              <Animated.View
-                style={[
-                  styles.greenIndicator,
-                  {
-                    width: INDICATOR_WIDTH,
-                    transform: [{ translateX: indicatorTranslateX }],
-                  }
-                ]}
-              />
-            </View>
-          </BlurView>
+          <LiquidTabs
+            tabs={tabs.map(t => ({ key: t.id, label: t.label }))}
+            activeTab={activeTab}
+            onTabChange={(key) => handleTabPress(key as TabId)}
+            size="medium"
+            fullWidth={true}
+            variant="glass"
+          />
         </View>
       </Animated.View>
     </View>
@@ -308,63 +266,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // ===== TABBAR =====
+  // ===== TABBAR - Liquid Glass =====
   tabBarContainer: {
-    marginTop: -2,
-    overflow: 'hidden',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
-  },
-  tabBarBlur: {
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    paddingBottom: 2,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 32,
-    paddingHorizontal: TAB_BAR_INNER_PADDING,
-  },
-  tab: {
-    flex: 1,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: 'rgba(10, 37, 47, 0.4)',
-    letterSpacing: 0.2,
-  },
-  tabTextActive: {
-    color: COLORS.dark,
-    fontWeight: '600',
-  },
-
-  // ===== LIGNE =====
-  lineContainer: {
-    height: 2.5,
-    marginHorizontal: TAB_BAR_INNER_PADDING,
-    position: 'relative',
-  },
-  grayLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2.5,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderRadius: 2,
-  },
-  greenIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: 2.5,
-    backgroundColor: COLORS.primary,
-    borderRadius: 2,
+    marginTop: 4,
+    paddingBottom: 8,
   },
 
   // ===== PRO CREATOR: FLOATING GLASS HEADER =====
@@ -402,38 +307,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Pills tabs
-  pillsContainer: {
+  // Liquid Tabs wrapper
+  liquidTabsWrapper: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    marginHorizontal: 8,
+    marginHorizontal: 6,
+    maxWidth: 220, // Ensure it doesn't push icons off screen
   },
-  pillTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  liquidTabsCompact: {
+    marginHorizontal: 0,
     borderRadius: 14,
-    backgroundColor: 'rgba(10, 37, 47, 0.05)',
-  },
-  pillTabActive: {
-    backgroundColor: 'transparent',
-    padding: 0,
-  },
-  pillGradient: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  pillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(10, 37, 47, 0.45)',
-  },
-  pillTextActive: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });

@@ -140,6 +140,7 @@ const PostDetailFanFeedScreen = () => {
   const [likeLoading, setLikeLoading] = useState({});
   const [bookmarkLoading, setBookmarkLoading] = useState({});
   const [fanLoading, setFanLoading] = useState({});
+  const [fanStatusChecking, setFanStatusChecking] = useState<Record<string, boolean>>({}); // Track which users we're checking
   const [shareLoading, setShareLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
@@ -171,15 +172,19 @@ const PostDetailFanFeedScreen = () => {
   useEffect(() => {
     const checkFollowStatus = async () => {
       const userId = currentPost.user?.id;
-      if (userId && isValidUUID(userId) && fanStatus[userId] === undefined) {
-        const { following } = await isFollowing(userId);
-        if (following) {
-          setFanStatus(prev => ({ ...prev, [userId]: true }));
+      if (userId && isValidUUID(userId) && fanStatus[userId] === undefined && !fanStatusChecking[userId]) {
+        // Mark as checking to prevent flicker
+        setFanStatusChecking(prev => ({ ...prev, [userId]: true }));
+        try {
+          const { following } = await isFollowing(userId);
+          setFanStatus(prev => ({ ...prev, [userId]: following || false }));
+        } finally {
+          setFanStatusChecking(prev => ({ ...prev, [userId]: false }));
         }
       }
     };
     checkFollowStatus();
-  }, [currentPost.user?.id]);
+  }, [currentPost.user?.id, fanStatus, fanStatusChecking]);
 
   // Check like/bookmark status when post changes
   useEffect(() => {
@@ -547,6 +552,7 @@ const PostDetailFanFeedScreen = () => {
     const isLiked = likedPosts[item.id];
     const isBookmarked = bookmarkedPosts[item.id];
     const isFanOfUser = fanStatus[item.user.id];
+    const isCheckingFanStatus = fanStatusChecking[item.user.id] || (fanStatus[item.user.id] === undefined && isValidUUID(item.user.id));
     const userFollowsMe = item.user.followsMe;
     const postUnderReview = isUnderReview(item.id);
 
@@ -688,11 +694,12 @@ const PostDetailFanFeedScreen = () => {
               </TouchableOpacity>
               
               {/* Bouton Fan - logique:
+                  - Si on vérifie le statut → pas de bouton (évite le clignotement)
                   - Si déjà fan → pas de bouton (rien)
                   - Si pas fan + ils me suivent → "Track"
                   - Si pas fan + ils me suivent pas → "+ Fan"
               */}
-              {!isFanOfUser && (
+              {!isCheckingFanStatus && !isFanOfUser && (
                 <TouchableOpacity
                   style={[styles.fanBtn, fanLoading[item.user.id] && styles.fanBtnDisabled]}
                   onPress={() => becomeFan(item.user.id)}

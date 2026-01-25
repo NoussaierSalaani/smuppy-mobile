@@ -71,8 +71,8 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
 
   // Size configurations
   const sizeConfig = {
-    small: { height: 36, fontSize: 13, padding: 3, radius: 18 },
-    medium: { height: 44, fontSize: 14, padding: 4, radius: 22 },
+    small: { height: 38, fontSize: 14, padding: 3, radius: 19 },
+    medium: { height: 44, fontSize: 15, padding: 4, radius: 22 },
     large: { height: 52, fontSize: 16, padding: 5, radius: 26 },
   };
   const config = sizeConfig[size];
@@ -80,7 +80,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
   // Calculate dimensions
   const containerPadding = config.padding;
   // For non-fullWidth: use smaller tabs for small size (compact header)
-  const nonFullWidthTabSize = size === 'small' ? 62 : 90;
+  const nonFullWidthTabSize = size === 'small' ? 74 : 90;
   const containerWidth = fullWidth ? SCREEN_WIDTH - 40 : tabs.length * nonFullWidthTabSize;
   const tabWidth = (containerWidth - containerPadding * 2) / tabs.length;
   const indicatorWidth = tabWidth - 4;

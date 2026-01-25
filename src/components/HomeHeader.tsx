@@ -310,11 +310,10 @@ const styles = StyleSheet.create({
   // Liquid Tabs wrapper
   liquidTabsWrapper: {
     flex: 1,
-    marginHorizontal: 6,
-    maxWidth: 220, // Ensure it doesn't push icons off screen
+    marginHorizontal: 4,
   },
   liquidTabsCompact: {
     marginHorizontal: 0,
-    borderRadius: 14,
+    borderRadius: 16,
   },
 });

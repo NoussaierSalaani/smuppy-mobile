@@ -40,13 +40,13 @@ interface PinConfig {
 }
 
 const CERTIFICATE_PINS: Record<string, PinConfig> = {
-  // Supabase project
-  'wbgfaeytioxnkdsuvvlx.supabase.co': {
-    // Supabase uses Let's Encrypt - pin the intermediate CA
-    primary: 'jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=', // ISRG Root X1
+  // AWS API Gateway (Smuppy API)
+  'bmkd8zayee.execute-api.us-east-1.amazonaws.com': {
+    // AWS uses Amazon Trust Services
+    primary: '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=', // Amazon Root CA 1
     backup: [
-      'C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=', // ISRG Root X2
-      'lCppFqbkrlJ3EcVFAkeip0+44VaoJUymbnOaEUk7tEU=', // Let's Encrypt E1
+      'f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=', // Amazon Root CA 2
+      'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=', // Amazon Root CA 3
     ],
   },
   // CloudFront CDN
@@ -238,7 +238,7 @@ const isHostAllowed = (host: string): boolean => {
  * <dict>
  *   <key>NSPinnedDomains</key>
  *   <dict>
- *     <key>wbgfaeytioxnkdsuvvlx.supabase.co</key>
+ *     <key>bmkd8zayee.execute-api.us-east-1.amazonaws.com</key>
  *     <dict>
  *       <key>NSIncludesSubdomains</key>
  *       <true/>
@@ -246,7 +246,7 @@ const isHostAllowed = (host: string): boolean => {
  *       <array>
  *         <dict>
  *           <key>SPKI-SHA256-BASE64</key>
- *           <string>jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=</string>
+ *           <string>++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=</string>
  *         </dict>
  *       </array>
  *     </dict>
@@ -261,10 +261,10 @@ const isHostAllowed = (host: string): boolean => {
  * <?xml version="1.0" encoding="utf-8"?>
  * <network-security-config>
  *   <domain-config>
- *     <domain includeSubdomains="true">wbgfaeytioxnkdsuvvlx.supabase.co</domain>
- *     <pin-set expiration="2025-12-31">
- *       <pin digest="SHA-256">jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=</pin>
- *       <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+ *     <domain includeSubdomains="true">bmkd8zayee.execute-api.us-east-1.amazonaws.com</domain>
+ *     <pin-set expiration="2027-12-31">
+ *       <pin digest="SHA-256">++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=</pin>
+ *       <pin digest="SHA-256">f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=</pin>
  *     </pin-set>
  *   </domain-config>
  * </network-security-config>

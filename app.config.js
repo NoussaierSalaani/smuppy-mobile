@@ -21,7 +21,7 @@ bundleIdentifier: 'com.nou09.Smuppy',
 usesAppleSignIn: true,
 infoPlist: {
   ITSAppUsesNonExemptEncryption: false,
-  // Allow network requests (required for Supabase Edge Functions)
+  // Allow network requests (required for AWS API Gateway)
   NSAppTransportSecurity: {
     NSAllowsArbitraryLoads: true,
     NSAllowsLocalNetworking: true,

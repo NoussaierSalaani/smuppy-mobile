@@ -1,6 +1,6 @@
 /**
  * AWS API Service
- * Replaces Supabase API calls with AWS API Gateway
+ * AWS API Gateway client for Smuppy backend
  */
 
 import { AWS_CONFIG } from '../config/aws-config';

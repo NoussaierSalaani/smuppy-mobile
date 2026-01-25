@@ -5,7 +5,7 @@
  * Features:
  * - Mute users (hide their posts from feeds)
  * - Block users (hide their posts + prevent interactions)
- * - Persisted to Supabase database
+ * - Persisted to AWS database
  * - Local cache for fast lookups
  */
 

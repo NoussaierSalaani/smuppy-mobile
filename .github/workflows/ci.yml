@@ -59,12 +59,11 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "SUPABASE_URL=https://example.supabase.co" >> .env
-          echo "SUPABASE_ANON_KEY=placeholder" >> .env
           echo "GOOGLE_API_KEY=placeholder" >> .env
           echo "API_URL_DEV=http://localhost:3000/api" >> .env
           echo "API_URL_PROD=https://api.smuppy.com/api" >> .env
           echo "APP_ENV=dev" >> .env
+          echo "AWS_REGION=us-east-1" >> .env
 
       - name: Build iOS bundle
         run: npx expo export --platform ios

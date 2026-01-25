@@ -14,11 +14,6 @@ const extra = Constants.expoConfig?.extra
   || {};
 
 export const ENV = {
-  // Legacy Supabase (deprecated - will be removed after full AWS migration)
-  // These are kept for backwards compatibility with files not yet migrated
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: '',
-
   // Google APIs
   GOOGLE_API_KEY: extra.googleApiKey || '',
 

@@ -5,7 +5,7 @@
  * Features:
  * - Report storage with anti-spam (1 report per user per content)
  * - Content status tracking (active, under_review)
- * - Persisted to Supabase database
+ * - Persisted to AWS database
  * - Local cache for fast lookups
  */
 

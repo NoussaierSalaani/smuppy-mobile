@@ -328,7 +328,7 @@ export const useFeedStore = create<FeedState>()(
 
 export const useAuthStore = create<AuthState>()(
   immer((set) => ({
-    // Session info (not persisted - managed by Supabase)
+    // Session info (not persisted - managed by AWS Cognito)
     session: null as Session | null,
 
     // Biometric state

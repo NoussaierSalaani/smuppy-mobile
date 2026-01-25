@@ -761,17 +761,17 @@ L'app utilise deux systèmes de gestion d'état pour la compatibilité et les pe
 
 ```
 VerifyCodeScreen.tsx
-    ├── createProfile() → Supabase (profil persistant)
+    ├── createProfile() → AWS API (profil persistant)
     ├── updateUserContext() → UserContext (état React)
     └── setZustandUser() → Zustand (état optimisé)
 
 ProfileScreen.tsx
     ├── useUser() → UserContext (fallback)
-    └── useCurrentProfile() → React Query (Supabase)
+    └── useCurrentProfile() → React Query (AWS API)
 
 SettingsScreen.tsx
     ├── useUser() → UserContext (fallback)
-    └── supabase.auth.getUser() → Metadata auth
+    └── awsAuth.getCurrentUser() → Cognito auth
 ```
 
 ### Interface User complète (Zustand)

@@ -23,17 +23,21 @@ const RETRY_DELAY_BASE = 1000; // 1 second
 // Allowed hosts for SSL (prevent MITM)
 // SECURITY: Use exact matching to prevent subdomain bypass attacks
 const ALLOWED_HOSTS: string[] = [
-  ENV.SUPABASE_URL?.replace('https://', '').split('/')[0],
+  // AWS API Gateway
+  'bmkd8zayee.execute-api.us-east-1.amazonaws.com',
+  // CloudFront CDN
+  'd3gy4x1feicix3.cloudfront.net',
+  // Smuppy domains
   'api.smuppy.app',
   'api.smuppy.com',
   'smuppy.app',
   'smuppy.com',
   'www.smuppy.com',
   'app.smuppy.com',
-  'wbgfaeytioxnkdsuvvlx.supabase.co', // Supabase project
+  // External services
   'exp.host', // Expo push notifications
   'cloudflare-dns.com', // DNS validation
-].filter((host): host is string => Boolean(host));
+];
 
 /**
  * Check if host is allowed (strict exact matching)

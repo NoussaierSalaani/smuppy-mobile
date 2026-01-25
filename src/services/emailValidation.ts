@@ -33,8 +33,8 @@ export const EMAIL_ERROR_MESSAGES = {
 };
 
 /**
- * Validate email using Supabase Edge Function
- * Falls back to local validation if Edge Function fails
+ * Validate email using AWS Lambda
+ * Falls back to local validation if Lambda is unavailable
  *
  * @param {string} email - Email to validate
  * @returns {Promise<{valid: boolean, error?: string, code?: string}>}

@@ -48,8 +48,12 @@ export const isAppleSignInAvailable = async (): Promise<boolean> => {
 
 /**
  * Convert Uint8Array to hex string
+ * @throws Error if bytes is invalid
  */
 const bytesToHex = (bytes: Uint8Array): string => {
+  if (!bytes || !(bytes instanceof Uint8Array) || bytes.length === 0) {
+    throw new Error('Invalid bytes provided to bytesToHex - crypto polyfill may have failed');
+  }
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
@@ -63,6 +67,13 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
   try {
     // Generate a random nonce for security
     const randomBytes = Crypto.getRandomBytes(32);
+
+    // Validate random bytes generation (crypto polyfill must be loaded)
+    if (!randomBytes || randomBytes.length !== 32) {
+      console.error('[AppleAuth] Failed to generate random bytes - crypto polyfill may not be initialized');
+      return { success: false, error: 'Security initialization failed. Please restart the app.' };
+    }
+
     const rawNonce = bytesToHex(randomBytes);
     const hashedNonce = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,

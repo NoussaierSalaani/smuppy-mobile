@@ -4,15 +4,31 @@
  */
 
 import { Platform } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
 import { AuthSessionResult } from 'expo-auth-session';
 import { awsAuth } from './aws-auth';
 import { awsAPI } from './aws-api';
 import { ENV } from '../config/env';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
+
+// Lazy load native modules to prevent crash in Expo Go
+let AppleAuthentication: any = null;
+let Crypto: any = null;
+
+const getAppleAuth = async () => {
+  if (!AppleAuthentication) {
+    AppleAuthentication = await import('expo-apple-authentication');
+  }
+  return AppleAuthentication;
+};
+
+const getCrypto = async () => {
+  if (!Crypto) {
+    Crypto = await import('expo-crypto');
+  }
+  return Crypto;
+};
 
 // Required for web browser auth session
 WebBrowser.maybeCompleteAuthSession();
@@ -40,7 +56,8 @@ export const isAppleSignInAvailable = async (): Promise<boolean> => {
     return false;
   }
   try {
-    return await AppleAuthentication.isAvailableAsync();
+    const appleAuth = await getAppleAuth();
+    return await appleAuth.isAvailableAsync();
   } catch {
     return false;
   }
@@ -65,8 +82,11 @@ const bytesToHex = (bytes: Uint8Array): string => {
  */
 export const signInWithApple = async (): Promise<SocialAuthResult> => {
   try {
+    const crypto = await getCrypto();
+    const appleAuth = await getAppleAuth();
+
     // Generate a random nonce for security
-    const randomBytes = Crypto.getRandomBytes(32);
+    const randomBytes = crypto.getRandomBytes(32);
 
     // Validate random bytes generation (crypto polyfill must be loaded)
     if (!randomBytes || randomBytes.length !== 32) {
@@ -75,16 +95,16 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     }
 
     const rawNonce = bytesToHex(randomBytes);
-    const hashedNonce = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
+    const hashedNonce = await crypto.digestStringAsync(
+      crypto.CryptoDigestAlgorithm.SHA256,
       rawNonce
     );
 
     // Request Apple credentials
-    const credential = await AppleAuthentication.signInAsync({
+    const credential = await appleAuth.signInAsync({
       requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        appleAuth.AppleAuthenticationScope.FULL_NAME,
+        appleAuth.AppleAuthenticationScope.EMAIL,
       ],
       nonce: hashedNonce,
     });

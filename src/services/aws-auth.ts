@@ -3,25 +3,30 @@
  * Using @aws-sdk/client-cognito-identity-provider for better React Native compatibility
  */
 
-import {
-  CognitoIdentityProviderClient,
-  SignUpCommand,
-  ConfirmSignUpCommand,
-  InitiateAuthCommand,
-  ResendConfirmationCodeCommand,
-  ForgotPasswordCommand,
-  ConfirmForgotPasswordCommand,
-  GetUserCommand,
-  ChangePasswordCommand,
-  GlobalSignOutCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
+// IMPORTANT: crypto polyfill is loaded in index.js before this file
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AWS_CONFIG } from '../config/aws-config';
 
-// Initialize Cognito client
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: AWS_CONFIG.region,
-});
+// Lazy-loaded Cognito client to ensure crypto polyfill is ready
+let cognitoClient: any = null;
+let CognitoCommands: any = null;
+
+const getCognitoClient = async () => {
+  if (!cognitoClient) {
+    const { CognitoIdentityProviderClient } = await import('@aws-sdk/client-cognito-identity-provider');
+    cognitoClient = new CognitoIdentityProviderClient({
+      region: AWS_CONFIG.region,
+    });
+  }
+  return cognitoClient;
+};
+
+const getCognitoCommands = async () => {
+  if (!CognitoCommands) {
+    CognitoCommands = await import('@aws-sdk/client-cognito-identity-provider');
+  }
+  return CognitoCommands;
+};
 
 const CLIENT_ID = AWS_CONFIG.cognito.userPoolClientId;
 
@@ -122,8 +127,15 @@ class AWSAuthService {
     console.log('[AWS Auth] SignUp attempt:', { email, username, hasPassword: !!password, passwordLength: password?.length });
 
     try {
-      // Only send email as required attribute
-      // name and preferred_username may not be configured in the User Pool
+      const client = await getCognitoClient();
+      const { SignUpCommand } = await getCognitoCommands();
+
+      // Generate a unique username (Cognito requires non-email username when email alias is enabled)
+      // Use provided username or generate from email prefix + random suffix
+      const cognitoUsername = username ||
+        `${email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}_${Date.now().toString(36)}`;
+
+      // Email goes in attributes, not as username
       const userAttributes = [
         { Name: 'email', Value: email },
       ];
@@ -133,16 +145,17 @@ class AWSAuthService {
         userAttributes.push({ Name: 'name', Value: fullName });
       }
 
-      console.log('[AWS Auth] SignUp attributes:', userAttributes.map(a => a.Name));
+      console.log('[AWS Auth] SignUp username:', cognitoUsername);
+      console.log('[AWS Auth] SignUp attributes:', userAttributes.map((a: any) => a.Name));
 
       const command = new SignUpCommand({
         ClientId: CLIENT_ID,
-        Username: email,
+        Username: cognitoUsername,
         Password: password,
         UserAttributes: userAttributes,
       });
 
-      const response = await cognitoClient.send(command);
+      const response = await client.send(command);
 
       console.log('[AWS Auth] SignUp success:', response.UserSub);
 
@@ -170,13 +183,16 @@ class AWSAuthService {
     console.log('[AWS Auth] Confirming signup for:', email);
 
     try {
+      const client = await getCognitoClient();
+      const { ConfirmSignUpCommand } = await getCognitoCommands();
+
       const command = new ConfirmSignUpCommand({
         ClientId: CLIENT_ID,
         Username: email,
         ConfirmationCode: code,
       });
 
-      await cognitoClient.send(command);
+      await client.send(command);
       console.log('[AWS Auth] Confirm signup success');
       return true;
     } catch (error: any) {
@@ -192,12 +208,15 @@ class AWSAuthService {
     console.log('[AWS Auth] Resending confirmation code for:', email);
 
     try {
+      const client = await getCognitoClient();
+      const { ResendConfirmationCodeCommand } = await getCognitoCommands();
+
       const command = new ResendConfirmationCodeCommand({
         ClientId: CLIENT_ID,
         Username: email,
       });
 
-      await cognitoClient.send(command);
+      await client.send(command);
       console.log('[AWS Auth] Resend confirmation code success');
       return true;
     } catch (error: any) {
@@ -215,6 +234,9 @@ class AWSAuthService {
     console.log('[AWS Auth] SignIn attempt:', { email });
 
     try {
+      const client = await getCognitoClient();
+      const { InitiateAuthCommand } = await getCognitoCommands();
+
       const command = new InitiateAuthCommand({
         ClientId: CLIENT_ID,
         AuthFlow: 'USER_PASSWORD_AUTH',
@@ -224,7 +246,7 @@ class AWSAuthService {
         },
       });
 
-      const response = await cognitoClient.send(command);
+      const response = await client.send(command);
 
       if (!response.AuthenticationResult) {
         throw new Error('Authentication failed - no result');
@@ -271,10 +293,12 @@ class AWSAuthService {
 
     try {
       if (this.accessToken) {
+        const client = await getCognitoClient();
+        const { GlobalSignOutCommand } = await getCognitoCommands();
         const command = new GlobalSignOutCommand({
           AccessToken: this.accessToken,
         });
-        await cognitoClient.send(command).catch(() => {});
+        await client.send(command).catch(() => {});
       }
     } catch (e) {
       // Ignore signout errors
@@ -304,12 +328,15 @@ class AWSAuthService {
     console.log('[AWS Auth] Forgot password for:', email);
 
     try {
+      const client = await getCognitoClient();
+      const { ForgotPasswordCommand } = await getCognitoCommands();
+
       const command = new ForgotPasswordCommand({
         ClientId: CLIENT_ID,
         Username: email,
       });
 
-      await cognitoClient.send(command);
+      await client.send(command);
       console.log('[AWS Auth] Forgot password code sent');
       return true;
     } catch (error: any) {
@@ -325,6 +352,9 @@ class AWSAuthService {
     console.log('[AWS Auth] Confirm forgot password for:', email);
 
     try {
+      const client = await getCognitoClient();
+      const { ConfirmForgotPasswordCommand } = await getCognitoCommands();
+
       const command = new ConfirmForgotPasswordCommand({
         ClientId: CLIENT_ID,
         Username: email,
@@ -332,7 +362,7 @@ class AWSAuthService {
         Password: newPassword,
       });
 
-      await cognitoClient.send(command);
+      await client.send(command);
       console.log('[AWS Auth] Password reset success');
       return true;
     } catch (error: any) {
@@ -402,13 +432,16 @@ class AWSAuthService {
     }
 
     try {
+      const client = await getCognitoClient();
+      const { ChangePasswordCommand } = await getCognitoCommands();
+
       const command = new ChangePasswordCommand({
         AccessToken: this.accessToken,
         PreviousPassword: oldPassword,
         ProposedPassword: newPassword,
       });
 
-      await cognitoClient.send(command);
+      await client.send(command);
       console.log('[AWS Auth] Password changed successfully');
     } catch (error: any) {
       console.error('[AWS Auth] Change password error:', error.name, error.message);
@@ -516,11 +549,14 @@ class AWSAuthService {
       throw new Error('No access token');
     }
 
+    const client = await getCognitoClient();
+    const { GetUserCommand } = await getCognitoCommands();
+
     const command = new GetUserCommand({
       AccessToken: this.accessToken,
     });
 
-    const response = await cognitoClient.send(command);
+    const response = await client.send(command);
 
     const attrs: Record<string, string> = {};
     response.UserAttributes?.forEach(attr => {
@@ -543,10 +579,13 @@ class AWSAuthService {
     if (!this.accessToken) return false;
 
     try {
+      const client = await getCognitoClient();
+      const { GetUserCommand } = await getCognitoCommands();
+
       const command = new GetUserCommand({
         AccessToken: this.accessToken,
       });
-      await cognitoClient.send(command);
+      await client.send(command);
       return true;
     } catch {
       return false;
@@ -557,6 +596,9 @@ class AWSAuthService {
     if (!this.refreshToken) return false;
 
     try {
+      const client = await getCognitoClient();
+      const { InitiateAuthCommand } = await getCognitoCommands();
+
       const command = new InitiateAuthCommand({
         ClientId: CLIENT_ID,
         AuthFlow: 'REFRESH_TOKEN_AUTH',
@@ -565,7 +607,7 @@ class AWSAuthService {
         },
       });
 
-      const response = await cognitoClient.send(command);
+      const response = await client.send(command);
 
       if (response.AuthenticationResult?.AccessToken) {
         this.accessToken = response.AuthenticationResult.AccessToken;

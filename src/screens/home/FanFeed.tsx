@@ -256,6 +256,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, []);
 
+  // Keep track of followed user IDs to exclude from suggestions
+  const followedUserIds = useRef<Set<string>>(new Set());
+
   // Handle track/follow user - removes from list without scroll reset
   const handleTrackUser = useCallback(async (userId: string) => {
     // Prevent double-tap: skip if already tracking this user
@@ -267,6 +270,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       // Mark as tracking to prevent double-tap
       setTrackingUserIds(prev => new Set([...prev, userId]));
 
+      // Add to followed set to exclude from future suggestions
+      followedUserIds.current.add(userId);
+
       // Remove from suggestions immediately (smooth animation)
       setSuggestions(prev => prev.filter(s => s.id !== userId));
 
@@ -276,22 +282,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (posts.length === 0) {
         await fetchPosts(0, true);
       }
-
-      // Fetch a new suggestion to replace the removed one
-      const { data } = await getSuggestedProfiles(1);
-      if (data && data.length > 0) {
-        const newSuggestion: UISuggestion = {
-          id: data[0].id,
-          name: data[0].full_name || data[0].username || 'User',
-          username: data[0].username || 'user',
-          avatar: data[0].avatar_url || 'https://via.placeholder.com/100',
-          isVerified: data[0].is_verified || false,
-          accountType: data[0].account_type || 'personal',
-        };
-        setSuggestions(prev => [...prev, newSuggestion]);
-      }
     } catch (err) {
       console.error('[FanFeed] Error following user:', err);
+      // On error, remove from followed set
+      followedUserIds.current.delete(userId);
     } finally {
       // Remove from tracking set
       setTrackingUserIds(prev => {
@@ -301,6 +295,43 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       });
     }
   }, [trackingUserIds, posts.length, fetchPosts]);
+
+  // Refill suggestions when running low
+  useEffect(() => {
+    const refillSuggestions = async () => {
+      // Refill when we have less than 3 suggestions
+      if (suggestions.length < 3 && suggestions.length > 0) {
+        try {
+          const { data } = await getSuggestedProfiles(8);
+          if (data && data.length > 0) {
+            // Get current suggestion IDs
+            const currentIds = new Set(suggestions.map(s => s.id));
+
+            // Filter out users already in suggestions or already followed
+            const newProfiles = data.filter((p: Profile) =>
+              !currentIds.has(p.id) && !followedUserIds.current.has(p.id)
+            );
+
+            if (newProfiles.length > 0) {
+              const newSuggestions: UISuggestion[] = newProfiles.slice(0, 5).map((p: Profile) => ({
+                id: p.id,
+                name: p.full_name || p.username || 'User',
+                username: p.username || 'user',
+                avatar: p.avatar_url || 'https://via.placeholder.com/100',
+                isVerified: p.is_verified || false,
+                accountType: p.account_type || 'personal',
+              }));
+              setSuggestions(prev => [...prev, ...newSuggestions]);
+            }
+          }
+        } catch (err) {
+          console.error('[FanFeed] Error refilling suggestions:', err);
+        }
+      }
+    };
+
+    refillSuggestions();
+  }, [suggestions.length]);
 
   // Initial load
   useEffect(() => {

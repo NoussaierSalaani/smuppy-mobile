@@ -77,7 +77,7 @@ const ReportProblemScreen = ({ navigation }) => {
         created_at: new Date().toISOString(),
       });
 
-      if (error) {
+      if (error && __DEV__) {
         // If table doesn't exist, just show success (report will be logged)
         console.log('[ReportProblem] DB error (table may not exist):', error.message);
       }

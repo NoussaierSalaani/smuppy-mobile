@@ -41,7 +41,7 @@ import { supabase } from '../../config/supabase';
 import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
 
 const { width, height } = Dimensions.get('window');
 
@@ -116,7 +116,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     longitudeDelta: 0.01,
   });
   const [selectedCoords, setSelectedCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   // Following users for tagging
   const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
@@ -381,8 +381,8 @@ export default function AddPostDetailsScreen({ route, navigation }) {
           setSelectedCoords(coords);
         }
       }
-    } catch (error) {
-      console.log('Could not get current location for map');
+    } catch {
+      // Location permission denied or unavailable
     }
   };
 
@@ -438,14 +438,10 @@ export default function AddPostDetailsScreen({ route, navigation }) {
                 fileUri = asset.localUri;
               }
             }
-          } catch (assetError) {
-            console.log('Could not get asset info:', assetError);
+          } catch {
             // On simulator, the URI might work directly
           }
         }
-
-        // Log for debugging
-        console.log(`[Upload] Media ${i + 1}/${totalFiles}: ${fileUri.substring(0, 50)}...`);
 
         const result = await uploadPostMedia(
           user.id,
@@ -642,10 +638,9 @@ export default function AddPostDetailsScreen({ route, navigation }) {
         {showMapView ? (
           /* Map View */
           <View style={styles.mapContainer}>
-            <MapView
+            <LazyMapView
               ref={mapRef}
               style={styles.map}
-              provider={PROVIDER_GOOGLE}
               region={mapRegion}
               onRegionChangeComplete={setMapRegion}
               onPress={handleMapPress}
@@ -653,7 +648,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
               showsMyLocationButton
             >
               {selectedCoords && (
-                <Marker
+                <LazyMarker
                   coordinate={selectedCoords}
                   draggable
                   onDragEnd={handleMapPress}
@@ -661,9 +656,9 @@ export default function AddPostDetailsScreen({ route, navigation }) {
                   <View style={styles.mapMarker}>
                     <Ionicons name="location" size={32} color={COLORS.primary} />
                   </View>
-                </Marker>
+                </LazyMarker>
               )}
-            </MapView>
+            </LazyMapView>
 
             {/* Selected Location Info */}
             {location && (

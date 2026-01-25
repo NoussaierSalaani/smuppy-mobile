@@ -73,8 +73,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   handleReportFeedback = () => {
     // Could open a feedback modal or link to support
     addBreadcrumb('User wants to report feedback', 'user');
-    // For now, just log - you can integrate with a feedback system
-    console.log('User requested feedback');
+    // TODO: Integrate with feedback system (e.g., open support link)
   };
 
   render() {

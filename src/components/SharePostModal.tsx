@@ -61,7 +61,6 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
       if (data) {
         setConversations(data);
       } else {
-        console.log('[SharePostModal] No conversations or error:', error);
         setConversations([]);
       }
     } catch (err) {

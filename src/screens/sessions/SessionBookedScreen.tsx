@@ -30,8 +30,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
   };
 
   const handleAddToCalendar = () => {
-    // TODO: Add to device calendar
-    console.log('Add to calendar');
+    // TODO: Implement calendar integration
   };
 
   const formatDate = () => {

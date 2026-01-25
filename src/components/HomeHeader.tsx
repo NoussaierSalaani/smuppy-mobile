@@ -297,20 +297,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    width: '100%',
   },
   compactIconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(10, 37, 47, 0.04)',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0, // Don't shrink icons
   },
 
   // Liquid Tabs wrapper
   liquidTabsWrapper: {
     flex: 1,
-    marginHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 6,
+    overflow: 'hidden', // Prevent overflow
   },
   liquidTabsCompact: {
     marginHorizontal: 0,

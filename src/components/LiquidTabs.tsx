@@ -127,6 +127,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
         {
           borderRadius: config.radius,
           width: fullWidth ? undefined : containerWidth,
+          maxWidth: fullWidth ? undefined : containerWidth,
         },
         fullWidth && styles.fullWidth,
         style,

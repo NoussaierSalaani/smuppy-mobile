@@ -47,13 +47,23 @@ export const isAppleSignInAvailable = async (): Promise<boolean> => {
 };
 
 /**
+ * Convert Uint8Array to hex string
+ */
+const bytesToHex = (bytes: Uint8Array): string => {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+/**
  * Sign in with Apple
  * Creates or signs in user via AWS Cognito
  */
 export const signInWithApple = async (): Promise<SocialAuthResult> => {
   try {
     // Generate a random nonce for security
-    const rawNonce = Crypto.getRandomBytes(32).toString();
+    const randomBytes = Crypto.getRandomBytes(32);
+    const rawNonce = bytesToHex(randomBytes);
     const hashedNonce = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
       rawNonce

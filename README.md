@@ -87,8 +87,8 @@ GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
 GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 
 # Backend API
-API_URL_DEV=http://localhost:3000/api
-API_URL_PROD=https://api.smuppy.com/api
+API_URL_DEV=https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging
+API_URL_PROD=https://api.smuppy.com
 APP_ENV=dev
 
 # AWS Configuration
@@ -204,17 +204,44 @@ npm run lint       # ESLint check
 
 | Document | Description |
 |----------|-------------|
-| `AUDIT_REPORT.md` | Complete audit report |
-| `docs/TECHNICAL.md` | Technical documentation |
-| `docs/ARCHITECTURE.md` | Architecture details |
+| `AUDIT_REPORT.md` | AWS migration audit |
+| `SECURITY_AUDIT_REPORT.md` | Security audit (OWASP) |
+| `TEST_RESULTS.md` | Test results summary |
+| `aws-scaling/AWS_SCALING_GUIDE.md` | Guide complet scaling AWS |
+
+## Testing
+
+```bash
+# Security audit
+npm audit
+
+# Stress test (requires k6)
+k6 run tests/mega-stress-test.js
+
+# Penetration test
+bash tests/pentest.sh
+
+# Advanced security test
+bash tests/advanced-security-test.sh
+```
+
+## API Endpoints
+
+| Environment | URL | Security |
+|-------------|-----|----------|
+| **Production** | `https://api.smuppy.com` | TLS 1.2 only |
+| **Staging** | `https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging` | TLS 1.0+ |
 
 ## Security
 
+- **TLS 1.2 minimum** on production (api.smuppy.com)
+- **AWS WAF** with rate limiting (1000 req/5min per IP)
+- **Security Headers**: HSTS, X-Frame-Options, CSP, X-Content-Type-Options
 - API keys in environment variables (never committed)
 - Secure token storage (expo-secure-store)
 - SSL/TLS certificate pinning
-- Rate limiting on sensitive operations
 - Presigned URLs for S3 (no credentials in app)
+- AWS Cognito JWT authentication
 
 ## Contributing
 

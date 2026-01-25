@@ -1,13 +1,38 @@
-# 🚀 CONFIGURATION AWS POUR 5 MILLIONS D'UTILISATEURS SIMULTANÉS
+# 🚀 GUIDE DE SCALING AWS - SMUPPY
 
-## 📊 Résultats des Tests Actuels
+## 📊 Résultats des Tests de Charge (25/01/2026)
 
 | VUs | Requêtes/sec | Latence Moy | Latence P99 | Succès |
 |-----|--------------|-------------|-------------|--------|
 | 1,000 | 18,364 | 39ms | 90ms | 100% |
+| 2,000 | 21,157 | 60ms | 125ms | 99.93% |
 | 5,000 | 23,937 | 111ms | 207ms | 99.64% |
 
-**Observation:** Throttling détecté à 5000 VUs → limites AWS par défaut atteintes.
+---
+
+## 💰 COÛTS PAR NIVEAU D'UTILISATEURS
+
+| Utilisateurs Simultanés | Req/s | Coût/mois | Status |
+|------------------------|-------|-----------|--------|
+| 1,000 | 1,000 | ~$500 | ✅ Actuel |
+| 10,000 | 10,000 | ~$2,000 | ✅ Possible |
+| 100,000 | 100,000 | ~$20,000 | ⏳ Quota requis |
+| 1,000,000 | 1M | ~$50,000 | ⏳ Multi-région |
+| 5,000,000 | 5M | ~$132,000 | ⏳ Architecture complète |
+
+---
+
+## 🎯 CONFIGURATION ACTUELLE
+
+```
+API Gateway: bmkd8zayee
+Domaine: api.smuppy.com (TLS 1.2)
+WAF: smuppy-security-waf (actif)
+DynamoDB: PAY_PER_REQUEST
+Quota actuel: 10,000 req/s
+```
+
+**Observation:** Throttling détecté à 5000 VUs → quotas AWS à augmenter.
 
 ---
 

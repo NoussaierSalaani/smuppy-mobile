@@ -1,3 +1,7 @@
+// CRITICAL: Crypto polyfill MUST be the first import
+// Required by AWS SDK before any other imports
+import 'react-native-get-random-values';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

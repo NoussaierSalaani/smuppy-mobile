@@ -1,3 +1,6 @@
+// Polyfill for crypto.getRandomValues (required by AWS SDK)
+import 'react-native-get-random-values';
+
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';

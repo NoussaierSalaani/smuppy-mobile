@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES } from '../../config/theme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
-import { supabase } from '../../config/supabase';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import * as backend from '../../services/backend';
 
-const CODE_LENGTH = 6; // Supabase OTP is 6 digits
+const CODE_LENGTH = 6; // AWS Cognito OTP is 6 digits
 
 export default function ResetCodeScreen({ navigation, route }) {
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
@@ -45,26 +45,19 @@ export default function ResetCodeScreen({ navigation, route }) {
     Keyboard.dismiss();
 
     try {
-      // Verify OTP with Supabase
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.trim().toLowerCase(),
-        token: fullCode,
-        type: 'recovery',
-      });
-
-      if (verifyError) {
-        // SECURITY: Generic error message, don't reveal specifics
-        setError('Code invalide ou expiré. Veuillez réessayer.');
+      // For AWS Cognito, we don't verify here - we pass the code to NewPasswordScreen
+      // The code will be verified when setting the new password via confirmForgotPassword
+      // Just validate that we have 6 digits
+      if (fullCode.length === CODE_LENGTH && /^\d+$/.test(fullCode)) {
+        // Navigate to new password screen with the code
+        navigate('NewPassword', { email, code: fullCode });
+      } else {
+        setError('Please enter a valid 6-digit code.');
         triggerShake();
-        setIsVerifying(false);
-        return;
       }
-
-      // Success - navigate to new password screen
-      navigate('NewPassword', { email, session: data.session });
     } catch (err) {
       console.error('[ResetCode] Verification error:', err);
-      setError('Une erreur est survenue. Veuillez réessayer.');
+      setError('An error occurred. Please try again.');
       triggerShake();
     } finally {
       setIsVerifying(false);
@@ -102,10 +95,8 @@ export default function ResetCodeScreen({ navigation, route }) {
         return;
       }
 
-      // Resend OTP via Supabase
-      await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: 'smuppy://reset-password',
-      });
+      // Resend code via AWS Cognito
+      await backend.forgotPassword(normalizedEmail);
 
       tryAction(() => clearCode(false));
       setShowModal(true);
@@ -221,7 +212,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, fontWeight: '400', color: COLORS.dark, textAlign: 'center', lineHeight: 22 },
   emailText: { color: COLORS.primary, fontWeight: '600' },
   
-  // Code Input - 6 digits for Supabase OTP
+  // Code Input - 6 digits for AWS Cognito OTP
   label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: 12 },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   codeBox: { width: 48, height: 56, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },

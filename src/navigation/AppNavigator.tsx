@@ -4,7 +4,8 @@ import { createStackNavigator, StackCardInterpolationProps } from '@react-naviga
 import { View, Text, StyleSheet, StatusBar, Dimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
-import { supabase } from '../config/supabase';
+import * as backend from '../services/backend';
+import { awsAuth } from '../services/aws-auth';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
@@ -13,7 +14,6 @@ import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPen
 import { TabBarProvider } from '../context/TabBarContext';
 import { UserProvider } from '../context/UserContext';
 import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
-import type { Session } from '@supabase/supabase-js';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,8 +47,16 @@ const linking = {
   },
 } as LinkingOptions<RootStackParamList>;
 
+// User type for AWS Cognito
+interface AppUser {
+  id: string;
+  email: string;
+  username?: string;
+  emailVerified?: boolean;
+}
+
 export default function AppNavigator(): React.JSX.Element {
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hideSplash, setHideSplash] = useState(false);
@@ -67,8 +75,7 @@ export default function AppNavigator(): React.JSX.Element {
 
   /**
    * Handle deep link URLs for password recovery
-   * Supabase sends: smuppy://reset-password#access_token=xxx&refresh_token=xxx&type=recovery
-   * Also handles query params as fallback: smuppy://reset-password?access_token=xxx&...
+   * AWS Cognito: smuppy://reset-password?code=xxx&email=xxx
    */
   const handleDeepLink = useCallback(async (url: string | null) => {
     if (!url) return;
@@ -79,59 +86,11 @@ export default function AppNavigator(): React.JSX.Element {
     // Only handle reset-password deep links
     if (!url.includes('reset-password')) return;
 
-    let access_token: string | null = null;
-    let refresh_token: string | null = null;
-    let type: string | null = null;
+    // Mark this URL as handled
+    lastHandledUrl.current = url;
 
-    // Try fragment first (#access_token=...&refresh_token=...&type=recovery)
-    const fragmentIndex = url.indexOf('#');
-    if (fragmentIndex !== -1) {
-      const fragment = url.substring(fragmentIndex + 1);
-      const params = new URLSearchParams(fragment);
-      access_token = params.get('access_token');
-      refresh_token = params.get('refresh_token');
-      type = params.get('type');
-    }
-
-    // Fallback: try query params (?access_token=...)
-    if (!access_token) {
-      const queryIndex = url.indexOf('?');
-      if (queryIndex !== -1) {
-        const query = url.substring(queryIndex + 1);
-        const params = new URLSearchParams(query);
-        access_token = params.get('access_token');
-        refresh_token = params.get('refresh_token');
-        type = params.get('type');
-      }
-    }
-
-    // Only process recovery type with valid tokens
-    if (type === 'recovery' && access_token && refresh_token) {
-      // Mark this URL as handled
-      lastHandledUrl.current = url;
-
-      // IMPORTANT: Set pendingRecovery BEFORE setSession
-      // This ensures we show NewPasswordScreen instead of Main
-      setPendingRecovery(true);
-
-      try {
-        const { error } = await supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        });
-
-        if (error) {
-          console.error('[DeepLink] Failed to set session:', error.message);
-          setPendingRecovery(false);
-          lastHandledUrl.current = null;
-        }
-        // Success: pendingRecovery=true will force AuthNavigator with NewPassword
-      } catch (err) {
-        console.error('[DeepLink] Error setting session:', err);
-        setPendingRecovery(false);
-        lastHandledUrl.current = null;
-      }
-    }
+    // Set pending recovery to show NewPasswordScreen
+    setPendingRecovery(true);
   }, []);
 
   useEffect(() => {
@@ -159,16 +118,26 @@ export default function AppNavigator(): React.JSX.Element {
       }
 
       if (rememberMe === 'false') {
-        await supabase.auth.signOut();
+        await backend.signOut();
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
-        setSession(null);
+        setUser(null);
         setEmailVerified(false);
       } else {
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession();
-        setSession(currentSession);
-        setEmailVerified(!!currentSession?.user?.email_confirmed_at);
+        const currentUser = await backend.getCurrentUser();
+        if (currentUser) {
+          // Check if email is verified via Cognito
+          const isVerified = await awsAuth.isEmailVerified();
+          setUser({
+            id: currentUser.id,
+            email: currentUser.email,
+            username: currentUser.username,
+            emailVerified: isVerified,
+          });
+          setEmailVerified(isVerified);
+        } else {
+          setUser(null);
+          setEmailVerified(false);
+        }
       }
 
       sessionLoaded = true;
@@ -178,28 +147,30 @@ export default function AppNavigator(): React.JSX.Element {
 
     loadSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (_event === 'SIGNED_IN' && newSession) {
+    // Listen for auth state changes
+    const unsubscribe = backend.onAuthStateChange(async (authUser) => {
+      if (authUser) {
         setIsCheckingSignup(true);
 
         const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
         if (signedUp === 'true') {
           setJustSignedUp(true);
         }
-        setSession(newSession);
-        setEmailVerified(!!newSession?.user?.email_confirmed_at);
+
+        const isVerified = await awsAuth.isEmailVerified();
+        setUser({
+          id: authUser.id,
+          email: authUser.email,
+          username: authUser.username,
+          emailVerified: isVerified,
+        });
+        setEmailVerified(isVerified);
         setIsCheckingSignup(false);
 
         registerDeviceSession().catch(() => {});
-        return;
-      }
-
-      setSession(newSession);
-      setEmailVerified(!!newSession?.user?.email_confirmed_at);
-
-      if (_event === 'SIGNED_OUT') {
+      } else {
+        setUser(null);
+        setEmailVerified(false);
         lastHandledUrl.current = null;
         setPendingRecovery(false);
         setJustSignedUp(false);
@@ -219,7 +190,7 @@ export default function AppNavigator(): React.JSX.Element {
 
     return () => {
       clearTimeout(timer);
-      subscription.unsubscribe();
+      unsubscribe();
       linkingSubscription.remove();
     };
   }, [handleDeepLink, fadeAnim]);
@@ -246,7 +217,7 @@ export default function AppNavigator(): React.JSX.Element {
                   }),
                 }}
               >
-                {(!session || pendingRecovery || justSignedUp || isCheckingSignup) && (
+                {(!user || pendingRecovery || justSignedUp || isCheckingSignup) && (
                   <RootStack.Screen
                     name="Auth"
                     component={AuthNavigator}
@@ -262,7 +233,7 @@ export default function AppNavigator(): React.JSX.Element {
                   />
                 )}
 
-                {session &&
+                {user &&
                   !emailVerified &&
                   !pendingRecovery &&
                   !justSignedUp &&
@@ -270,11 +241,11 @@ export default function AppNavigator(): React.JSX.Element {
                     <RootStack.Screen
                       name="EmailVerificationPending"
                       component={EmailVerificationPendingScreen}
-                      initialParams={{ email: session?.user?.email }}
+                      initialParams={{ email: user?.email }}
                     />
                   )}
 
-                {session &&
+                {user &&
                   emailVerified &&
                   !pendingRecovery &&
                   !justSignedUp &&

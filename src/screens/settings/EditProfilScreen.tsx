@@ -15,7 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { uploadProfileImage } from '../../services/imageUpload';
-import { supabase } from '../../config/supabase';
+import { awsAuth } from '../../services/aws-auth';
 import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
@@ -36,7 +36,7 @@ const EditProfilScreen = ({ navigation }) => {
   // Load user email from auth
   useEffect(() => {
     const loadEmail = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const authUser = await awsAuth.getCurrentUser();
       if (authUser?.email) {
         setUserEmail(authUser.email);
       }
@@ -177,7 +177,7 @@ const EditProfilScreen = ({ navigation }) => {
         if (url) avatarUrl = url;
       }
 
-      // Save to Supabase
+      // Save to AWS
       await updateDbProfile({
         full_name: fullName,
         avatar_url: avatarUrl,

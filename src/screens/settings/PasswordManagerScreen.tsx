@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../config/supabase';
+import { awsAuth } from '../../services/aws-auth';
 import { validatePassword, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -31,27 +31,24 @@ const PasswordManagerScreen = ({ navigation }) => {
     if (!canSave || saving) return;
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error('User not found');
-
-      const { error: verifyError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
-      if (verifyError) {
+      // Verify current password first
+      const isValid = await awsAuth.verifyPassword(currentPassword);
+      if (!isValid) {
         setErrorModal({ visible: true, title: 'Incorrect Password', message: 'The current password you entered is incorrect. Please try again.' });
         setSaving(false);
         return;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-      if (updateError) throw updateError;
+      // Change password using Cognito
+      await awsAuth.changePassword(currentPassword, newPassword);
 
-      // Note: updateUser with new password automatically invalidates other sessions
-      // No need to signOut/signIn which causes app refresh
+      // Note: changePassword in Cognito automatically invalidates other sessions
       setSuccessModal(true);
     } catch (error: unknown) {
       let errorTitle = 'Update Failed';
       const errMsg = error instanceof Error ? error.message : '';
       let errorMessage = errMsg || 'Failed to update password. Please try again.';
-      if (errMsg.includes('same')) { errorTitle = 'Same Password'; errorMessage = 'Your new password must be different from your current password.'; }
+      if (errMsg.includes('same') || errMsg.includes('previously used')) { errorTitle = 'Same Password'; errorMessage = 'Your new password must be different from your current password.'; }
       setErrorModal({ visible: true, title: errorTitle, message: errorMessage });
     } finally {
       setSaving(false);
@@ -60,7 +57,7 @@ const PasswordManagerScreen = ({ navigation }) => {
 
   const handleForgotPassword = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await awsAuth.getCurrentUser();
       if (!user?.email) return;
 
       // Check AWS rate limit first (server-side protection)
@@ -76,7 +73,7 @@ const PasswordManagerScreen = ({ navigation }) => {
       }
 
       tryAction(async () => {
-        await supabase.auth.resetPasswordForEmail(normalizedEmail);
+        await awsAuth.forgotPassword(normalizedEmail);
       });
       setShowModal(true);
     } catch (err) {

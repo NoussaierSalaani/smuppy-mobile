@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, SIZES } from '../../config/theme';
 import { biometrics } from '../../utils/biometrics';
-import { supabase } from '../../config/supabase';
+import { awsAuth } from '../../services/aws-auth';
 import Button from '../../components/Button';
 
 export default function FacialRecognitionScreen({ navigation }) {
@@ -74,19 +74,10 @@ export default function FacialRecognitionScreen({ navigation }) {
     setPasswordError('');
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        setPasswordError('User not found');
-        setVerifying(false);
-        return;
-      }
+      // Verify password using AWS Cognito
+      const isValid = await awsAuth.verifyPassword(password);
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: password,
-      });
-
-      if (error) {
+      if (!isValid) {
         setPasswordError('Incorrect password');
         setVerifying(false);
         return;

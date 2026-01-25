@@ -10,8 +10,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
-import { ENV } from '../../config/env';
 import { useCooldown } from '../../hooks/useCooldown';
+import * as backend from '../../services/backend';
 
 export default function CheckEmailScreen({ navigation, route }) {
   const { email } = route.params || {};
@@ -35,21 +35,10 @@ export default function CheckEmailScreen({ navigation, route }) {
     setResendSuccess(false);
 
     try {
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-
-      // Always show success (anti-enumeration)
-      if (response.status !== 429) {
-        setResendSuccess(true);
-        triggerCooldown();
-      }
+      // Use backend service which routes to AWS Cognito
+      await backend.forgotPassword(email.trim().toLowerCase());
+      setResendSuccess(true);
+      triggerCooldown();
     } catch (error) {
       console.error('[CheckEmail] Resend error:', error);
       // Still trigger cooldown to prevent spam

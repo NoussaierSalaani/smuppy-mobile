@@ -96,6 +96,9 @@ export class SmuppyStack extends cdk.Stack {
         'account_type': new cognito.StringAttribute({ mutable: true }),
         'is_verified': new cognito.BooleanAttribute({ mutable: true }),
         'bio': new cognito.StringAttribute({ mutable: true, maxLen: 500 }),
+        'auth_provider': new cognito.StringAttribute({ mutable: false }),
+        'apple_user_id': new cognito.StringAttribute({ mutable: false }),
+        'google_user_id': new cognito.StringAttribute({ mutable: false }),
       },
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
@@ -400,6 +403,86 @@ export class SmuppyStack extends cdk.Stack {
     });
     dbCredentials.grantRead(checkProfilesFn);
 
+    // ========================================
+    // Social Auth Lambda Functions (Apple & Google Sign-In)
+    // ========================================
+
+    // Apple Sign-In Lambda
+    const appleAuthFn = new NodejsFunction(this, 'AppleAuthFunction', {
+      entry: path.join(__dirname, '../../lambda/api/auth/apple.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        APPLE_CLIENT_ID: 'com.smuppy.app', // Your Apple App ID
+        CLIENT_ID: userPoolClient.userPoolClientId,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: [],
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+
+    // Grant Cognito admin permissions for Apple auth
+    appleAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'cognito-idp:AdminCreateUser',
+        'cognito-idp:AdminSetUserPassword',
+        'cognito-idp:AdminGetUser',
+        'cognito-idp:AdminInitiateAuth',
+      ],
+      resources: [userPool.userPoolArn],
+    }));
+
+    // Google Sign-In Lambda
+    const googleAuthFn = new NodejsFunction(this, 'GoogleAuthFunction', {
+      entry: path.join(__dirname, '../../lambda/api/auth/google.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        GOOGLE_IOS_CLIENT_ID: process.env.GOOGLE_IOS_CLIENT_ID || '',
+        GOOGLE_ANDROID_CLIENT_ID: process.env.GOOGLE_ANDROID_CLIENT_ID || '',
+        GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_WEB_CLIENT_ID || '',
+        CLIENT_ID: userPoolClient.userPoolClientId,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: [],
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+
+    // Grant Cognito admin permissions for Google auth
+    googleAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'cognito-idp:AdminCreateUser',
+        'cognito-idp:AdminSetUserPassword',
+        'cognito-idp:AdminGetUser',
+        'cognito-idp:AdminInitiateAuth',
+      ],
+      resources: [userPool.userPoolArn],
+    }));
+
     // Admin Lambda for user migration to Cognito
     const userMigrationFn = new NodejsFunction(this, 'UserMigrationFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/migrate-users.ts'),
@@ -503,6 +586,14 @@ export class SmuppyStack extends cdk.Stack {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
+
+    // Auth endpoints (no Cognito auth - these ARE the auth endpoints)
+    const auth = api.root.addResource('auth');
+    const appleAuth = auth.addResource('apple');
+    appleAuth.addMethod('POST', new apigateway.LambdaIntegration(appleAuthFn));
+
+    const googleAuth = auth.addResource('google');
+    googleAuth.addMethod('POST', new apigateway.LambdaIntegration(googleAuthFn));
 
     // Admin endpoints (no Cognito auth, uses admin key)
     const admin = api.root.addResource('admin');

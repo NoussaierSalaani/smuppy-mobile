@@ -37,7 +37,8 @@ import {
   formatNominatimResult,
   NominatimSearchResult,
 } from '../../config/api';
-import { supabase } from '../../config/supabase';
+import { awsAuth } from '../../services/aws-auth';
+import { awsAPI } from '../../services/aws-api';
 import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
@@ -92,7 +93,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // User data from Supabase
+  // User data from AWS
   const [currentUser, setCurrentUser] = useState({
     displayName: 'User',
     avatar: null,
@@ -127,18 +128,19 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const postTimeoutRef = useRef(null);
   const locationSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load user data from Supabase
+  // Load user data from AWS
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await awsAuth.getCurrentUser();
         if (user) {
-          // Get profile from profiles table
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('id', user.id)
-            .single();
+          // Get profile from AWS API
+          let profile = null;
+          try {
+            profile = await awsAPI.getProfile(user.id);
+          } catch {
+            // Profile may not exist yet
+          }
 
           const email = user.email || '';
           const emailPrefix = email.split('@')[0]?.toLowerCase() || '';
@@ -152,9 +154,8 @@ export default function AddPostDetailsScreen({ route, navigation }) {
 
           // Find the best name, prioritizing actual names over email-derived ones
           const candidates = [
-            user.user_metadata?.full_name,
-            profile?.full_name,
-            user.user_metadata?.name,
+            user.attributes?.name,
+            profile?.fullName,
           ].filter(Boolean) as string[];
 
           let displayName = 'User';
@@ -169,7 +170,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
             displayName = candidates[0];
           }
 
-          const avatar = profile?.avatar_url || user.user_metadata?.avatar_url || null;
+          const avatar = profile?.avatarUrl || null;
 
           setCurrentUser({ displayName, avatar });
         }
@@ -205,28 +206,18 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     const fetchFollowing = async () => {
       setIsLoadingFollowing(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await awsAuth.getCurrentUser();
         if (!user) return;
 
-        // Get users that the current user is following
-        // Optimized query: only fetch needed fields, limit for performance
-        const { data: follows, error } = await supabase
-          .from('follows')
-          .select(`
-            following:profiles!follows_following_id_fkey(id, full_name, avatar_url)
-          `)
-          .eq('follower_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(100); // Reasonable limit for tagging
+        // Get users that the current user is following via AWS API
+        const followingProfiles = await awsAPI.getFollowingUsers(user.id, { limit: 100 });
 
-        if (error) {
-          throw error;
-        }
-
-        if (follows) {
-          const users = follows
-            .map((f: { following: FollowingUser }) => f.following)
-            .filter(Boolean) as FollowingUser[];
+        if (followingProfiles) {
+          const users = followingProfiles.map((p: any) => ({
+            id: p.id,
+            full_name: p.fullName || p.full_name,
+            avatar_url: p.avatarUrl || p.avatar_url,
+          })).filter(Boolean) as FollowingUser[];
           setFollowingUsers(users);
           hasLoadedFollowing.current = true;
         }
@@ -401,7 +392,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
 
     try {
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await awsAuth.getCurrentUser();
       if (!user) {
         Alert.alert('Error', 'You must be logged in to create a post');
         setIsPosting(false);

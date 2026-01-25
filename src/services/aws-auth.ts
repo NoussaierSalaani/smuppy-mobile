@@ -1,31 +1,29 @@
 /**
  * AWS Cognito Authentication Service
- * Using amazon-cognito-identity-js for React Native compatibility
+ * Using @aws-sdk/client-cognito-identity-provider for better React Native compatibility
  */
 
 import {
-  CognitoUserPool,
-  CognitoUser,
-  AuthenticationDetails,
-  CognitoUserAttribute,
-  ISignUpResult,
-  CognitoUserSession,
-} from 'amazon-cognito-identity-js';
+  CognitoIdentityProviderClient,
+  SignUpCommand,
+  ConfirmSignUpCommand,
+  InitiateAuthCommand,
+  ResendConfirmationCodeCommand,
+  ForgotPasswordCommand,
+  ConfirmForgotPasswordCommand,
+  GetUserCommand,
+  ChangePasswordCommand,
+  GlobalSignOutCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AWS_CONFIG } from '../config/aws-config';
 
-// Initialize User Pool
-const poolData = {
-  UserPoolId: AWS_CONFIG.cognito.userPoolId,
-  ClientId: AWS_CONFIG.cognito.userPoolClientId,
-};
-
-console.log('[AWS Auth] Initializing Cognito with:', {
-  userPoolId: poolData.UserPoolId,
-  clientId: poolData.ClientId,
+// Initialize Cognito client
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: AWS_CONFIG.region,
 });
 
-const userPool = new CognitoUserPool(poolData);
+const CLIENT_ID = AWS_CONFIG.cognito.userPoolClientId;
 
 // Token storage keys
 const TOKEN_KEYS = {
@@ -44,13 +42,6 @@ export interface AuthUser {
   attributes: Record<string, string>;
 }
 
-export interface AuthSession {
-  accessToken: string;
-  refreshToken: string;
-  idToken: string;
-  expiresAt: number;
-}
-
 export interface SignUpParams {
   email: string;
   password: string;
@@ -65,8 +56,10 @@ export interface SignInParams {
 }
 
 class AWSAuthService {
-  private currentUser: CognitoUser | null = null;
   private user: AuthUser | null = null;
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  private idToken: string | null = null;
   private authStateListeners: ((user: AuthUser | null) => void)[] = [];
 
   /**
@@ -75,30 +68,45 @@ class AWSAuthService {
   async initialize(): Promise<AuthUser | null> {
     try {
       console.log('[AWS Auth] Initializing...');
-      const cognitoUser = userPool.getCurrentUser();
 
-      if (!cognitoUser) {
-        console.log('[AWS Auth] No current user found');
+      // Load tokens from storage
+      const [accessToken, refreshToken, idToken, userJson] = await Promise.all([
+        AsyncStorage.getItem(TOKEN_KEYS.ACCESS_TOKEN),
+        AsyncStorage.getItem(TOKEN_KEYS.REFRESH_TOKEN),
+        AsyncStorage.getItem(TOKEN_KEYS.ID_TOKEN),
+        AsyncStorage.getItem(TOKEN_KEYS.USER),
+      ]);
+
+      if (!accessToken || !userJson) {
+        console.log('[AWS Auth] No stored session found');
         return null;
       }
 
-      this.currentUser = cognitoUser;
+      this.accessToken = accessToken;
+      this.refreshToken = refreshToken;
+      this.idToken = idToken;
 
-      return new Promise((resolve) => {
-        cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
-          if (err || !session || !session.isValid()) {
-            console.log('[AWS Auth] Session invalid or error:', err?.message);
-            resolve(null);
-            return;
+      try {
+        this.user = JSON.parse(userJson);
+        console.log('[AWS Auth] Restored session for:', this.user?.email);
+
+        // Verify token is still valid
+        const isValid = await this.verifyToken();
+        if (!isValid) {
+          console.log('[AWS Auth] Token expired, trying refresh...');
+          const refreshed = await this.refreshSession();
+          if (!refreshed) {
+            await this.clearSession();
+            return null;
           }
+        }
 
-          console.log('[AWS Auth] Valid session found');
-          this.getUserAttributes(cognitoUser).then((user) => {
-            this.user = user;
-            resolve(user);
-          }).catch(() => resolve(null));
-        });
-      });
+        return this.user;
+      } catch (e) {
+        console.error('[AWS Auth] Failed to parse stored user');
+        await this.clearSession();
+        return null;
+      }
     } catch (error) {
       console.error('[AWS Auth] Initialize error:', error);
       return null;
@@ -113,46 +121,44 @@ class AWSAuthService {
 
     console.log('[AWS Auth] SignUp attempt:', { email, username });
 
-    const attributeList: CognitoUserAttribute[] = [
-      new CognitoUserAttribute({ Name: 'email', Value: email }),
-    ];
+    try {
+      const userAttributes = [
+        { Name: 'email', Value: email },
+      ];
 
-    if (fullName) {
-      attributeList.push(new CognitoUserAttribute({ Name: 'name', Value: fullName }));
+      if (fullName) {
+        userAttributes.push({ Name: 'name', Value: fullName });
+      }
+
+      if (username) {
+        userAttributes.push({ Name: 'preferred_username', Value: username });
+      }
+
+      const command = new SignUpCommand({
+        ClientId: CLIENT_ID,
+        Username: email,
+        Password: password,
+        UserAttributes: userAttributes,
+      });
+
+      const response = await cognitoClient.send(command);
+
+      console.log('[AWS Auth] SignUp success:', response.UserSub);
+
+      return {
+        user: response.UserSub ? {
+          id: response.UserSub,
+          email,
+          username,
+          emailVerified: false,
+          attributes: {},
+        } : null,
+        confirmationRequired: !response.UserConfirmed,
+      };
+    } catch (error: any) {
+      console.error('[AWS Auth] SignUp error:', error.name, error.message);
+      throw error;
     }
-
-    if (username) {
-      attributeList.push(new CognitoUserAttribute({ Name: 'preferred_username', Value: username }));
-    }
-
-    return new Promise((resolve, reject) => {
-      userPool.signUp(
-        email,
-        password,
-        attributeList,
-        [],
-        (err: Error | undefined, result: ISignUpResult | undefined) => {
-          if (err) {
-            console.error('[AWS Auth] SignUp error:', err.name, err.message);
-            reject(err);
-            return;
-          }
-
-          console.log('[AWS Auth] SignUp success:', result?.userSub);
-
-          resolve({
-            user: result?.userSub ? {
-              id: result.userSub,
-              email,
-              username,
-              emailVerified: false,
-              attributes: {},
-            } : null,
-            confirmationRequired: !result?.userConfirmed,
-          });
-        }
-      );
-    });
   }
 
   /**
@@ -161,42 +167,41 @@ class AWSAuthService {
   async confirmSignUp(email: string, code: string): Promise<boolean> {
     console.log('[AWS Auth] Confirming signup for:', email);
 
-    const cognitoUser = new CognitoUser({
-      Username: email,
-      Pool: userPool,
-    });
-
-    return new Promise((resolve, reject) => {
-      cognitoUser.confirmRegistration(code, true, (err: Error | undefined, result: string) => {
-        if (err) {
-          console.error('[AWS Auth] Confirm signup error:', err.message);
-          reject(err);
-          return;
-        }
-        console.log('[AWS Auth] Confirm signup success:', result);
-        resolve(true);
+    try {
+      const command = new ConfirmSignUpCommand({
+        ClientId: CLIENT_ID,
+        Username: email,
+        ConfirmationCode: code,
       });
-    });
+
+      await cognitoClient.send(command);
+      console.log('[AWS Auth] Confirm signup success');
+      return true;
+    } catch (error: any) {
+      console.error('[AWS Auth] Confirm signup error:', error.name, error.message);
+      throw error;
+    }
   }
 
   /**
    * Resend confirmation code
    */
   async resendConfirmationCode(email: string): Promise<boolean> {
-    const cognitoUser = new CognitoUser({
-      Username: email,
-      Pool: userPool,
-    });
+    console.log('[AWS Auth] Resending confirmation code for:', email);
 
-    return new Promise((resolve, reject) => {
-      cognitoUser.resendConfirmationCode((err: Error | undefined) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(true);
+    try {
+      const command = new ResendConfirmationCodeCommand({
+        ClientId: CLIENT_ID,
+        Username: email,
       });
-    });
+
+      await cognitoClient.send(command);
+      console.log('[AWS Auth] Resend confirmation code success');
+      return true;
+    } catch (error: any) {
+      console.error('[AWS Auth] Resend confirmation code error:', error.name, error.message);
+      throw error;
+    }
   }
 
   /**
@@ -207,41 +212,53 @@ class AWSAuthService {
 
     console.log('[AWS Auth] SignIn attempt:', { email });
 
-    const cognitoUser = new CognitoUser({
-      Username: email,
-      Pool: userPool,
-    });
-
-    const authDetails = new AuthenticationDetails({
-      Username: email,
-      Password: password,
-    });
-
-    return new Promise((resolve, reject) => {
-      cognitoUser.authenticateUser(authDetails, {
-        onSuccess: async (session: CognitoUserSession) => {
-          console.log('[AWS Auth] SignIn success');
-          this.currentUser = cognitoUser;
-
-          try {
-            const user = await this.getUserAttributes(cognitoUser);
-            this.user = user;
-            this.notifyAuthStateChange(user);
-            resolve(user);
-          } catch (error) {
-            reject(error);
-          }
-        },
-        onFailure: (err: Error) => {
-          console.error('[AWS Auth] SignIn error:', err.name, err.message);
-          reject(err);
-        },
-        newPasswordRequired: (userAttributes: any) => {
-          console.log('[AWS Auth] New password required');
-          reject(new Error('New password required'));
+    try {
+      const command = new InitiateAuthCommand({
+        ClientId: CLIENT_ID,
+        AuthFlow: 'USER_PASSWORD_AUTH',
+        AuthParameters: {
+          USERNAME: email,
+          PASSWORD: password,
         },
       });
-    });
+
+      const response = await cognitoClient.send(command);
+
+      if (!response.AuthenticationResult) {
+        throw new Error('Authentication failed - no result');
+      }
+
+      const { AccessToken, RefreshToken, IdToken } = response.AuthenticationResult;
+
+      if (!AccessToken) {
+        throw new Error('No access token received');
+      }
+
+      // Store tokens
+      this.accessToken = AccessToken;
+      this.refreshToken = RefreshToken || null;
+      this.idToken = IdToken || null;
+
+      await Promise.all([
+        AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken),
+        RefreshToken && AsyncStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken),
+        IdToken && AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
+      ]);
+
+      // Get user attributes
+      const user = await this.fetchUserAttributes();
+      this.user = user;
+
+      await AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(user));
+
+      console.log('[AWS Auth] SignIn success:', user.email);
+      this.notifyAuthStateChange(user);
+
+      return user;
+    } catch (error: any) {
+      console.error('[AWS Auth] SignIn error:', error.name, error.message);
+      throw error;
+    }
   }
 
   /**
@@ -250,20 +267,18 @@ class AWSAuthService {
   async signOut(): Promise<void> {
     console.log('[AWS Auth] SignOut');
 
-    if (this.currentUser) {
-      this.currentUser.signOut();
+    try {
+      if (this.accessToken) {
+        const command = new GlobalSignOutCommand({
+          AccessToken: this.accessToken,
+        });
+        await cognitoClient.send(command).catch(() => {});
+      }
+    } catch (e) {
+      // Ignore signout errors
     }
 
-    this.currentUser = null;
-    this.user = null;
-
-    await Promise.all([
-      AsyncStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN),
-      AsyncStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN),
-      AsyncStorage.removeItem(TOKEN_KEYS.ID_TOKEN),
-      AsyncStorage.removeItem(TOKEN_KEYS.USER),
-    ]);
-
+    await this.clearSession();
     this.notifyAuthStateChange(null);
   }
 
@@ -275,108 +290,211 @@ class AWSAuthService {
       return this.user;
     }
 
-    const cognitoUser = userPool.getCurrentUser();
-    if (!cognitoUser) {
-      return null;
-    }
-
-    return new Promise((resolve) => {
-      cognitoUser.getSession(async (err: Error | null, session: CognitoUserSession | null) => {
-        if (err || !session || !session.isValid()) {
-          resolve(null);
-          return;
-        }
-
-        try {
-          const user = await this.getUserAttributes(cognitoUser);
-          this.user = user;
-          resolve(user);
-        } catch {
-          resolve(null);
-        }
-      });
-    });
+    // Try to restore from storage
+    await this.initialize();
+    return this.user;
   }
 
   /**
    * Request password reset
    */
   async forgotPassword(email: string): Promise<boolean> {
-    const cognitoUser = new CognitoUser({
-      Username: email,
-      Pool: userPool,
-    });
+    console.log('[AWS Auth] Forgot password for:', email);
 
-    return new Promise((resolve, reject) => {
-      cognitoUser.forgotPassword({
-        onSuccess: () => resolve(true),
-        onFailure: (err: Error) => reject(err),
+    try {
+      const command = new ForgotPasswordCommand({
+        ClientId: CLIENT_ID,
+        Username: email,
       });
-    });
+
+      await cognitoClient.send(command);
+      console.log('[AWS Auth] Forgot password code sent');
+      return true;
+    } catch (error: any) {
+      console.error('[AWS Auth] Forgot password error:', error.name, error.message);
+      throw error;
+    }
   }
 
   /**
    * Confirm password reset with code
    */
   async confirmForgotPassword(email: string, code: string, newPassword: string): Promise<boolean> {
-    const cognitoUser = new CognitoUser({
-      Username: email,
-      Pool: userPool,
-    });
+    console.log('[AWS Auth] Confirm forgot password for:', email);
 
-    return new Promise((resolve, reject) => {
-      cognitoUser.confirmPassword(code, newPassword, {
-        onSuccess: () => resolve(true),
-        onFailure: (err: Error) => reject(err),
+    try {
+      const command = new ConfirmForgotPasswordCommand({
+        ClientId: CLIENT_ID,
+        Username: email,
+        ConfirmationCode: code,
+        Password: newPassword,
       });
-    });
+
+      await cognitoClient.send(command);
+      console.log('[AWS Auth] Password reset success');
+      return true;
+    } catch (error: any) {
+      console.error('[AWS Auth] Confirm forgot password error:', error.name, error.message);
+      throw error;
+    }
   }
 
   /**
    * Get access token for API calls
    */
   async getAccessToken(): Promise<string | null> {
-    const cognitoUser = userPool.getCurrentUser();
-    if (!cognitoUser) {
-      return null;
+    if (!this.accessToken) {
+      await this.initialize();
     }
-
-    return new Promise((resolve) => {
-      cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
-        if (err || !session) {
-          resolve(null);
-          return;
-        }
-        resolve(session.getAccessToken().getJwtToken());
-      });
-    });
+    return this.accessToken;
   }
 
   /**
    * Get ID token for API calls
    */
   async getIdToken(): Promise<string | null> {
-    const cognitoUser = userPool.getCurrentUser();
-    if (!cognitoUser) {
-      return null;
+    if (!this.idToken) {
+      await this.initialize();
     }
-
-    return new Promise((resolve) => {
-      cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
-        if (err || !session) {
-          resolve(null);
-          return;
-        }
-        resolve(session.getIdToken().getJwtToken());
-      });
-    });
+    return this.idToken;
   }
 
   /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return !!this.currentUser;
+    return !!this.accessToken;
+  }
+
+  /**
+   * Check if email is verified
+   */
+  async isEmailVerified(): Promise<boolean> {
+    const user = await this.getCurrentUser();
+    return user?.emailVerified ?? false;
+  }
+
+  /**
+   * Verify current password
+   */
+  async verifyPassword(password: string): Promise<boolean> {
+    const user = await this.getCurrentUser();
+    if (!user?.email) {
+      return false;
+    }
+
+    try {
+      await this.signIn({ email: user.email, password });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Change password for authenticated user
+   */
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    if (!this.accessToken) {
+      throw new Error('No authenticated user');
+    }
+
+    try {
+      const command = new ChangePasswordCommand({
+        AccessToken: this.accessToken,
+        PreviousPassword: oldPassword,
+        ProposedPassword: newPassword,
+      });
+
+      await cognitoClient.send(command);
+      console.log('[AWS Auth] Password changed successfully');
+    } catch (error: any) {
+      console.error('[AWS Auth] Change password error:', error.name, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Request password reset email
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    await this.forgotPassword(email);
+  }
+
+  /**
+   * Sign in with Apple ID token
+   */
+  async signInWithApple(identityToken: string, nonce: string): Promise<AuthUser> {
+    console.log('[AWS Auth] Apple Sign-In');
+
+    try {
+      const { awsAPI } = await import('./aws-api');
+      const result = await awsAPI.request<{
+        user: AuthUser;
+        tokens: { accessToken: string; idToken: string; refreshToken: string };
+      }>('/auth/apple', {
+        method: 'POST',
+        body: { identityToken, nonce },
+        authenticated: false,
+      });
+
+      // Store tokens
+      this.accessToken = result.tokens.accessToken;
+      this.idToken = result.tokens.idToken;
+      this.refreshToken = result.tokens.refreshToken;
+      this.user = result.user;
+
+      await Promise.all([
+        AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
+        AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
+        AsyncStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
+        AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
+      ]);
+
+      this.notifyAuthStateChange(result.user);
+      return result.user;
+    } catch (error: any) {
+      console.error('[AWS Auth] Apple Sign-In error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sign in with Google ID token
+   */
+  async signInWithGoogle(idToken: string, accessToken?: string): Promise<AuthUser> {
+    console.log('[AWS Auth] Google Sign-In');
+
+    try {
+      const { awsAPI } = await import('./aws-api');
+      const result = await awsAPI.request<{
+        user: AuthUser;
+        tokens: { accessToken: string; idToken: string; refreshToken: string };
+      }>('/auth/google', {
+        method: 'POST',
+        body: { idToken, accessToken },
+        authenticated: false,
+      });
+
+      // Store tokens
+      this.accessToken = result.tokens.accessToken;
+      this.idToken = result.tokens.idToken;
+      this.refreshToken = result.tokens.refreshToken;
+      this.user = result.user;
+
+      await Promise.all([
+        AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
+        AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
+        AsyncStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
+        AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
+      ]);
+
+      this.notifyAuthStateChange(result.user);
+      return result.user;
+    } catch (error: any) {
+      console.error('[AWS Auth] Google Sign-In error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -391,29 +509,91 @@ class AWSAuthService {
 
   // Private methods
 
-  private async getUserAttributes(cognitoUser: CognitoUser): Promise<AuthUser> {
-    return new Promise((resolve, reject) => {
-      cognitoUser.getUserAttributes((err: Error | undefined, attributes: CognitoUserAttribute[] | undefined) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+  private async fetchUserAttributes(): Promise<AuthUser> {
+    if (!this.accessToken) {
+      throw new Error('No access token');
+    }
 
-        const attrs: Record<string, string> = {};
-        attributes?.forEach(attr => {
-          attrs[attr.getName()] = attr.getValue();
-        });
-
-        resolve({
-          id: attrs['sub'] || '',
-          email: attrs['email'] || '',
-          username: attrs['preferred_username'] || attrs['email'],
-          emailVerified: attrs['email_verified'] === 'true',
-          phoneNumber: attrs['phone_number'],
-          attributes: attrs,
-        });
-      });
+    const command = new GetUserCommand({
+      AccessToken: this.accessToken,
     });
+
+    const response = await cognitoClient.send(command);
+
+    const attrs: Record<string, string> = {};
+    response.UserAttributes?.forEach(attr => {
+      if (attr.Name && attr.Value) {
+        attrs[attr.Name] = attr.Value;
+      }
+    });
+
+    return {
+      id: attrs['sub'] || '',
+      email: attrs['email'] || '',
+      username: attrs['preferred_username'] || attrs['email'],
+      emailVerified: attrs['email_verified'] === 'true',
+      phoneNumber: attrs['phone_number'],
+      attributes: attrs,
+    };
+  }
+
+  private async verifyToken(): Promise<boolean> {
+    if (!this.accessToken) return false;
+
+    try {
+      const command = new GetUserCommand({
+        AccessToken: this.accessToken,
+      });
+      await cognitoClient.send(command);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async refreshSession(): Promise<boolean> {
+    if (!this.refreshToken) return false;
+
+    try {
+      const command = new InitiateAuthCommand({
+        ClientId: CLIENT_ID,
+        AuthFlow: 'REFRESH_TOKEN_AUTH',
+        AuthParameters: {
+          REFRESH_TOKEN: this.refreshToken,
+        },
+      });
+
+      const response = await cognitoClient.send(command);
+
+      if (response.AuthenticationResult?.AccessToken) {
+        this.accessToken = response.AuthenticationResult.AccessToken;
+        this.idToken = response.AuthenticationResult.IdToken || this.idToken;
+
+        await Promise.all([
+          AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, this.accessToken),
+          this.idToken && AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, this.idToken),
+        ]);
+
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  private async clearSession(): Promise<void> {
+    this.user = null;
+    this.accessToken = null;
+    this.refreshToken = null;
+    this.idToken = null;
+
+    await Promise.all([
+      AsyncStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN),
+      AsyncStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN),
+      AsyncStorage.removeItem(TOKEN_KEYS.ID_TOKEN),
+      AsyncStorage.removeItem(TOKEN_KEYS.USER),
+    ]);
   }
 
   private notifyAuthStateChange(user: AuthUser | null): void {

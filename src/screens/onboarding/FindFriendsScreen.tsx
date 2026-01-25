@@ -7,8 +7,7 @@ import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { supabase } from '../../config/supabase';
-import { ENV } from '../../config/env';
+import { awsAPI } from '../../services/aws-api';
 
 export default function FindFriendsScreen({ navigation, route }) {
   const params = route?.params || {};
@@ -69,29 +68,12 @@ export default function FindFriendsScreen({ navigation, route }) {
         .filter(c => c.emails?.length || c.phoneNumbers?.length)
         .map(contact => ({
           name: contact.firstName || contact.name,
-          emails: contact.emails?.map(e => e.email).filter(Boolean),
-          phones: contact.phoneNumbers?.map(p => p.number).filter(Boolean),
+          emails: contact.emails?.map(e => e.email).filter(Boolean) as string[],
+          phones: contact.phoneNumbers?.map(p => p.number).filter(Boolean) as string[],
         }));
 
-      // Get session for auth
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
-      // Send to Edge Function
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/store-contacts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': ENV.SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ contacts: formattedContacts }),
-      });
-
-      const result = await response.json();
+      // Send to AWS Lambda
+      const result = await awsAPI.storeContacts(formattedContacts);
 
       if (result.success) {
         setFriendsFound(result.friendsOnApp || 0);
@@ -101,7 +83,7 @@ export default function FindFriendsScreen({ navigation, route }) {
           navigate('Guidelines', params);
         }, 2500);
       } else {
-        throw new Error(result.error || 'Failed to sync contacts');
+        throw new Error('Failed to sync contacts');
       }
 
     } catch (error) {

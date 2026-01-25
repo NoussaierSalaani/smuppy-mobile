@@ -16,8 +16,9 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CommonActions } from '@react-navigation/native';
-import { supabase } from '../../config/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as backend from '../../services/backend';
+import { awsAPI } from '../../services/aws-api';
 import { biometrics } from '../../utils/biometrics';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
@@ -48,9 +49,7 @@ const SettingsScreen = ({ navigation }) => {
 
   const loadUserData = useCallback(async () => {
     try {
-      const { data } = await supabase.auth.getUser();
-      const authUser = data?.user;
-      const metadata = authUser?.user_metadata || {};
+      const authUser = await backend.getCurrentUser();
       const email = authUser?.email || contextUser?.email || '';
       const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
 
@@ -63,9 +62,7 @@ const SettingsScreen = ({ navigation }) => {
       let name = 'User';
       const candidates = [
         contextUser?.fullName,
-        metadata.full_name,
         profileData?.full_name,
-        metadata.name,
         contextUser?.displayName,
         getFullName?.(),
       ].filter(Boolean) as string[];
@@ -83,10 +80,10 @@ const SettingsScreen = ({ navigation }) => {
         name = emailPrefix || 'User';
       }
 
-      const avatar = profileData?.avatar_url || metadata.avatar_url || contextUser?.avatar || null;
+      const avatar = profileData?.avatar_url || contextUser?.avatar || null;
       const cover = profileData?.cover_url || null;
       const userInterests = profileData?.interests || contextUser?.interests || [];
-      const userUsername = profileData?.username || emailPrefix || '';
+      const userUsername = profileData?.username || authUser?.username || emailPrefix || '';
 
       setDisplayName(name);
       setUsername(userUsername);
@@ -161,7 +158,7 @@ const SettingsScreen = ({ navigation }) => {
       // Reset all Zustand stores (user, feed, auth, app)
       resetAllStores();
       await biometrics.disable();
-      await supabase.auth.signOut({ scope: 'global' });
+      await backend.signOut();
       setShowLogoutModal(false);
       navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Auth' }] }));
     } catch (error) {
@@ -175,26 +172,14 @@ const SettingsScreen = ({ navigation }) => {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await backend.getCurrentUser();
       if (!user) {
         Alert.alert('Error', 'User not found');
         return;
       }
 
-      await supabase.from('profiles').delete().eq('id', user.id);
-
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/delete-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({ userId: user.id }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete account');
-      }
+      // Delete account via AWS Lambda
+      await awsAPI.deleteAccount();
 
       // Clear ALL user data from all storage systems
       await AsyncStorage.multiRemove([
@@ -206,7 +191,7 @@ const SettingsScreen = ({ navigation }) => {
       // Reset all Zustand stores
       resetAllStores();
       await biometrics.disable();
-      await supabase.auth.signOut({ scope: 'global' });
+      await backend.signOut();
 
       setShowDeleteModal(false);
       navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Auth' }] }));

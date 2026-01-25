@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
-import { supabase } from '../../config/supabase';
+import * as backend from '../../services/backend';
 
 export default function NewPasswordScreen({ navigation, route }) {
   const [password, setPassword] = useState('');
@@ -21,10 +21,14 @@ export default function NewPasswordScreen({ navigation, route }) {
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
 
+  // Get email and code from route params (passed from ResetCodeScreen)
+  const email = route?.params?.email;
+  const code = route?.params?.code;
+
   const handleGoBack = useCallback(() => {
     Alert.alert(
       'Leave password reset?',
-      'If you go back, you will need to request a new reset link.',
+      'If you go back, you will need to request a new reset code.',
       [
         { text: 'Stay', style: 'cancel' },
         { text: 'Leave', style: 'destructive', onPress: goBack },
@@ -52,35 +56,48 @@ export default function NewPasswordScreen({ navigation, route }) {
   const handleSubmit = useCallback(async () => {
     if (!isValid || isLoading) return;
 
+    if (!email || !code) {
+      setErrorMessage('Missing reset code. Please go back and try again.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage('');
 
     try {
-      // Update password via Supabase Auth
-      const { error } = await supabase.auth.updateUser({ password });
-
-      if (error) {
-        setErrorMessage('Unable to update password. Please try again.');
-        return;
-      }
+      // Confirm password reset with AWS Cognito
+      await backend.confirmForgotPassword(email, code, password);
 
       // Success - show inline success UI
       setShowSuccess(true);
 
-      // Brief delay to show success, then signal recovery complete
-      // AppNavigator will handle the switch to Main
+      // Brief delay to show success, then navigate to login
       setTimeout(() => {
         if (onRecoveryComplete) {
           onRecoveryComplete();
+        } else {
+          // Navigate to login screen
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
         }
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[NewPassword] Update error:', err);
-      setErrorMessage('An error occurred. Please try again.');
+      const errorMessage = err?.message || '';
+
+      if (errorMessage.includes('ExpiredCodeException') || errorMessage.includes('expired')) {
+        setErrorMessage('Reset code has expired. Please request a new one.');
+      } else if (errorMessage.includes('CodeMismatchException') || errorMessage.includes('invalid')) {
+        setErrorMessage('Invalid reset code. Please check and try again.');
+      } else {
+        setErrorMessage('Unable to update password. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [isValid, isLoading, password, onRecoveryComplete]);
+  }, [isValid, isLoading, password, email, code, onRecoveryComplete, navigation]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);

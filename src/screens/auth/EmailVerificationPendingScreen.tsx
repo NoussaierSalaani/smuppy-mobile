@@ -11,10 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
-import { supabase } from '../../config/supabase';
-import { ENV } from '../../config/env';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import * as backend from '../../services/backend';
+import { awsAuth } from '../../services/aws-auth';
 import { RouteProp } from '@react-navigation/native';
 
 type EmailVerificationRouteParams = {
@@ -49,9 +49,10 @@ export default function EmailVerificationPendingScreen({
   useEffect(() => {
     const checkVerificationStatus = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.refreshSession();
-        if (!error && session?.user?.email_confirmed_at) {
-          // AppNavigator will switch stacks once email is verified
+        // Use backend service to check current user status
+        const user = await backend.getCurrentUser();
+        if (user) {
+          // User is authenticated, AppNavigator will handle navigation
           return;
         }
       } catch (err) {
@@ -77,31 +78,19 @@ export default function EmailVerificationPendingScreen({
     setIsResending(true);
 
     try {
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-resend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: ENV.SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email: normalizedEmail }),
-      });
-
-      if (response.status === 429) {
-        Alert.alert('Too many attempts', 'Please try again in a few moments.');
-        return;
-      }
-
-      if (!response.ok) {
-        Alert.alert('Error', 'Unable to resend verification email. Please try again.');
-        return;
-      }
-
+      // Use AWS Cognito to resend confirmation code
+      await awsAuth.resendConfirmationCode(normalizedEmail);
       setResendCooldown(60);
-      Alert.alert('Email Sent', 'A new verification email has been sent to your inbox.');
-    } catch (err) {
+      Alert.alert('Code Sent', 'A new verification code has been sent to your inbox.');
+    } catch (err: any) {
       console.error('[EmailPending] Resend error:', err);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      const errorMessage = err?.message || '';
+
+      if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
+        Alert.alert('Too many attempts', 'Please try again in a few moments.');
+      } else {
+        Alert.alert('Error', 'Unable to resend verification code. Please try again.');
+      }
     } finally {
       setIsResending(false);
     }
@@ -110,14 +99,16 @@ export default function EmailVerificationPendingScreen({
   const handleCheckStatus = useCallback(async () => {
     setIsCheckingStatus(true);
     try {
-      const { data: { session }, error } = await supabase.auth.refreshSession();
-      if (!error && session?.user?.email_confirmed_at) {
+      // Check if user is now verified via backend
+      const user = await backend.getCurrentUser();
+      if (user) {
         setIsCheckingStatus(false);
+        // User is verified, navigation will handle it
         return;
       } else {
         Alert.alert(
           'Not Verified Yet',
-          'Your email has not been verified yet. Please check your inbox and click the verification link.'
+          'Your email has not been verified yet. Please check your inbox and enter the verification code.'
         );
       }
     } catch (err) {
@@ -143,7 +134,7 @@ export default function EmailVerificationPendingScreen({
                 STORAGE_KEYS.REFRESH_TOKEN,
                 STORAGE_KEYS.USER_ID,
               ]);
-              await supabase.auth.signOut({ scope: 'global' });
+              await backend.signOut();
             } catch (err) {
               console.error('[EmailPending] Sign out error:', err);
             }

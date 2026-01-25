@@ -6,13 +6,17 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.500.0",
     "@aws-sdk/client-dynamodb": "^3.500.0",
     "@aws-sdk/client-secrets-manager": "^3.500.0",
+    "google-auth-library": "^9.6.0",
     "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
     "pg": "^8.11.3",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.131",
     "@types/ioredis": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.5",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.7",
     "esbuild": "^0.27.2"

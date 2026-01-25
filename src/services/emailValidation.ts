@@ -1,10 +1,10 @@
 /**
  * Email Validation Service
- * Provides comprehensive email validation with Edge Function support
- * Falls back to local validation if Edge Function is unavailable
+ * Provides comprehensive email validation with AWS Lambda support
+ * Falls back to local validation if Lambda is unavailable
  */
 
-import { supabase } from '../config/supabase';
+import { awsAPI } from './aws-api';
 import { validate, isDisposableEmail, detectDomainTypo } from '../utils/validation';
 
 /**
@@ -77,17 +77,9 @@ export const validateEmailAdvanced = async (email) => {
     };
   }
 
-  // Try Edge Function for advanced validation (MX records)
+  // Try AWS Lambda for advanced validation (MX records)
   try {
-    const { data, error } = await supabase.functions.invoke('validate-email', {
-      body: { email: emailLower },
-    });
-
-    if (error) {
-      console.warn('Edge Function error, falling back to local validation:', error);
-      // Edge Function not available, local validation already passed
-      return { valid: true, email: emailLower };
-    }
+    const data = await awsAPI.validateEmail(emailLower);
 
     if (data) {
       if (data.valid) {
@@ -105,7 +97,7 @@ export const validateEmailAdvanced = async (email) => {
 
   } catch (err) {
     console.warn('Email validation service error:', err);
-    // Network error or Edge Function not deployed
+    // Network error or Lambda not deployed
     // Local validation already passed, so allow signup
     return { valid: true, email: emailLower };
   }

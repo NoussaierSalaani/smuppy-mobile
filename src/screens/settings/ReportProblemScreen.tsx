@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../config/supabase';
+import { awsAuth } from '../../services/aws-auth';
+import { awsAPI } from '../../services/aws-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Anti-spam: minimum 20 chars, max 3 reports per hour
@@ -66,21 +67,13 @@ const ReportProblemScreen = ({ navigation }) => {
 
     setSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await awsAuth.getCurrentUser();
 
-      // Insert report into database
-      const { error } = await supabase.from('problem_reports').insert({
-        user_id: user?.id || null,
-        email: user?.email || 'anonymous',
+      // Submit report via AWS API
+      await awsAPI.submitProblemReport({
         message: problemText.trim(),
-        status: 'pending',
-        created_at: new Date().toISOString(),
+        email: user?.email || 'anonymous',
       });
-
-      if (error && __DEV__) {
-        // If table doesn't exist, just show success (report will be logged)
-        console.log('[ReportProblem] DB error (table may not exist):', error.message);
-      }
 
       setShowSuccessModal(true);
     } catch (err) {

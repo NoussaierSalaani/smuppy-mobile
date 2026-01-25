@@ -297,6 +297,125 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Account Management
+  // ==========================================
+
+  async deleteAccount(): Promise<void> {
+    return this.request('/account', {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================
+  // Device Sessions
+  // ==========================================
+
+  async registerDeviceSession(deviceInfo: {
+    deviceId: string;
+    deviceName: string | null;
+    deviceType: string;
+    platform: string;
+    osVersion: string | null;
+    appVersion: string | null;
+    ipAddress?: string;
+    country?: string;
+    city?: string;
+  }): Promise<{ success: boolean; isNewDevice: boolean; sessionId: string }> {
+    return this.request('/devices/sessions', {
+      method: 'POST',
+      body: deviceInfo,
+    });
+  }
+
+  async getUserDevices(): Promise<any[]> {
+    return this.request('/devices');
+  }
+
+  async revokeDeviceSession(sessionId: string): Promise<{ success: boolean }> {
+    return this.request(`/devices/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================
+  // Push Notifications
+  // ==========================================
+
+  async registerPushToken(data: {
+    token: string;
+    platform: 'ios' | 'android';
+    deviceId: string;
+  }): Promise<void> {
+    return this.request('/notifications/push-token', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async unregisterPushToken(deviceId: string): Promise<void> {
+    return this.request(`/notifications/push-token/${deviceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================
+  // Email Validation
+  // ==========================================
+
+  async validateEmail(email: string): Promise<{
+    valid: boolean;
+    email?: string;
+    code?: string;
+    error?: string;
+  }> {
+    return this.request('/auth/validate-email', {
+      method: 'POST',
+      body: { email },
+      authenticated: false,
+    });
+  }
+
+  // ==========================================
+  // Contacts
+  // ==========================================
+
+  async storeContacts(contacts: Array<{
+    name?: string;
+    emails?: string[];
+    phones?: string[];
+  }>): Promise<{ success: boolean; friendsOnApp: number }> {
+    return this.request('/contacts/sync', {
+      method: 'POST',
+      body: { contacts },
+    });
+  }
+
+  // ==========================================
+  // Problem Reports
+  // ==========================================
+
+  async submitProblemReport(data: {
+    message: string;
+    email?: string;
+  }): Promise<{ success: boolean }> {
+    return this.request('/support/report', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==========================================
+  // Following Users (for tagging)
+  // ==========================================
+
+  async getFollowingUsers(userId: string, params?: { limit?: number }): Promise<Profile[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res: any) => res.data || res);
+  }
+
+  // ==========================================
   // Media Upload
   // ==========================================
 
@@ -444,6 +563,19 @@ export interface UpdateProfileInput {
   bio?: string;
   avatarUrl?: string;
   isPrivate?: boolean;
+  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  gender?: string;
+  dateOfBirth?: string;
+  displayName?: string;
+  website?: string;
+  socialLinks?: Record<string, string>;
+  interests?: string[];
+  expertise?: string[];
+  businessName?: string;
+  businessCategory?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  locationsMode?: string;
 }
 
 // Export singleton instance

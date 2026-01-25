@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { DARK_COLORS as COLORS } from '../../config/theme';
-import { supabase } from '../../config/supabase';
+import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import { createPost } from '../../services/database';
 import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
@@ -145,9 +145,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
     try {
       // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await awsAuth.getCurrentUser();
       if (!user) {
         alert.error('Login Required', 'You must be logged in to publish a Peak');
         setIsPublishing(false);

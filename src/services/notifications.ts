@@ -6,7 +6,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { supabase } from '../config/supabase';
+import { awsAPI } from './aws-api';
 import { captureException } from '../lib/sentry';
 
 // ============================================
@@ -111,7 +111,7 @@ export const getExpoPushToken = async (): Promise<string | null> => {
  * Register push token with backend
  * @param userId User ID to associate token with
  */
-export const registerPushToken = async (userId: string): Promise<boolean> => {
+export const registerPushToken = async (_userId: string): Promise<boolean> => {
   try {
     const token = await getExpoPushToken();
     if (!token) {
@@ -121,31 +121,17 @@ export const registerPushToken = async (userId: string): Promise<boolean> => {
     const deviceId = Device.deviceName || 'unknown';
     const platform = Platform.OS as 'ios' | 'android';
 
-    // Save to Supabase
-    const { error } = await supabase
-      .from('push_tokens')
-      .upsert(
-        {
-          user_id: userId,
-          token,
-          platform,
-          device_id: deviceId,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'user_id,device_id',
-        }
-      );
-
-    if (error) {
-      console.error('Failed to register push token:', error);
-      return false;
-    }
+    // Save to AWS
+    await awsAPI.registerPushToken({
+      token,
+      platform,
+      deviceId,
+    });
 
     console.log('Push token registered successfully');
     return true;
   } catch (error) {
-    captureException(error as Error, { context: 'registerPushToken', userId });
+    captureException(error as Error, { context: 'registerPushToken' });
     return false;
   }
 };
@@ -154,19 +140,13 @@ export const registerPushToken = async (userId: string): Promise<boolean> => {
  * Unregister push token (on logout)
  * @param userId User ID
  */
-export const unregisterPushToken = async (userId: string): Promise<void> => {
+export const unregisterPushToken = async (_userId: string): Promise<void> => {
   try {
     const deviceId = Device.deviceName || 'unknown';
-
-    await supabase
-      .from('push_tokens')
-      .delete()
-      .eq('user_id', userId)
-      .eq('device_id', deviceId);
-
+    await awsAPI.unregisterPushToken(deviceId);
     console.log('Push token unregistered');
   } catch (error) {
-    captureException(error as Error, { context: 'unregisterPushToken', userId });
+    captureException(error as Error, { context: 'unregisterPushToken' });
   }
 };
 

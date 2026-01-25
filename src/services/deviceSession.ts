@@ -7,7 +7,7 @@ import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { supabase } from '../config/supabase';
+import { awsAPI } from './aws-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DEVICE_ID_KEY = '@smuppy_device_id';
@@ -135,40 +135,32 @@ export async function registerDeviceSession(): Promise<{
 
     const location = await locationPromise;
 
-    // Call the database function to register device
-    const { data, error } = await supabase.rpc('register_device_session', {
-      p_device_id: deviceInfo.device_id,
-      p_device_name: deviceInfo.device_name,
-      p_device_type: deviceInfo.device_type,
-      p_platform: deviceInfo.platform,
-      p_browser: deviceInfo.browser,
-      p_os_version: deviceInfo.os_version,
-      p_app_version: deviceInfo.app_version,
-      p_ip_address: (location as any).ip || null,
-      p_country: (location as any).country || null,
-      p_city: (location as any).city || null,
+    // Call AWS API to register device
+    const result = await awsAPI.registerDeviceSession({
+      deviceId: deviceInfo.device_id,
+      deviceName: deviceInfo.device_name,
+      deviceType: deviceInfo.device_type,
+      platform: deviceInfo.platform,
+      osVersion: deviceInfo.os_version,
+      appVersion: deviceInfo.app_version,
+      ipAddress: (location as any).ip || undefined,
+      country: (location as any).country || undefined,
+      city: (location as any).city || undefined,
     });
 
-    if (error) {
-      console.error('[DeviceSession] Registration error:', error);
-      return { success: false, isNewDevice: false, error: error.message };
-    }
-
-    const result = data as { success: boolean; is_new_device: boolean; session_id: string };
-
     // If this is a new device, send an alert
-    if (result.is_new_device) {
-      await sendNewDeviceAlert(result.session_id, deviceInfo, location as any);
+    if (result.isNewDevice) {
+      await sendNewDeviceAlert(result.sessionId, deviceInfo, location as any);
     }
 
     console.log('[DeviceSession] Registered:', {
       deviceId: deviceInfo.device_id,
-      isNew: result.is_new_device,
+      isNew: result.isNewDevice,
     });
 
     return {
       success: true,
-      isNewDevice: result.is_new_device,
+      isNewDevice: result.isNewDevice,
     };
   } catch (error) {
     console.error('[DeviceSession] Error:', error);
@@ -198,16 +190,10 @@ async function sendNewDeviceAlert(
  */
 export async function getUserDevices(): Promise<any[]> {
   try {
-    const { data, error } = await supabase.rpc('get_user_devices');
-
-    if (error) {
-      console.error('[DeviceSession] Get devices error:', error);
-      return [];
-    }
-
-    return (data as any)?.devices || [];
+    const devices = await awsAPI.getUserDevices();
+    return devices || [];
   } catch (error) {
-    console.error('[DeviceSession] Error:', error);
+    console.error('[DeviceSession] Get devices error:', error);
     return [];
   }
 }
@@ -217,18 +203,10 @@ export async function getUserDevices(): Promise<any[]> {
  */
 export async function revokeDeviceSession(sessionId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc('revoke_device_session', {
-      p_device_session_id: sessionId,
-    });
-
-    if (error) {
-      console.error('[DeviceSession] Revoke error:', error);
-      return false;
-    }
-
-    return (data as any)?.success || false;
+    const result = await awsAPI.revokeDeviceSession(sessionId);
+    return result?.success || false;
   } catch (error) {
-    console.error('[DeviceSession] Error:', error);
+    console.error('[DeviceSession] Revoke error:', error);
     return false;
   }
 }

@@ -239,7 +239,7 @@ const validateFile = async (
 // ============================================
 
 /**
- * Get presigned URL from Supabase Edge Function
+ * Get presigned URL from AWS Lambda via API Gateway
  */
 export const getPresignedUrl = async (
   fileName: string,
@@ -247,33 +247,17 @@ export const getPresignedUrl = async (
   contentType: string
 ): Promise<PresignedUrlResponse | null> => {
   try {
-    const supabaseUrl = ENV.SUPABASE_URL;
-    const supabaseKey = ENV.SUPABASE_ANON_KEY;
+    // Import AWS API service
+    const { awsAPI } = await import('./aws-api');
 
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/media-presigned-url`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          fileName,
-          folder,
-          contentType,
-        }),
-      }
-    );
+    // Use AWS API to get presigned URL
+    const result = await awsAPI.getUploadUrl(`${folder}/${fileName}`, contentType);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to get presigned URL');
-    }
-
-    const data = await response.json();
-    return data;
+    return {
+      uploadUrl: result.uploadUrl,
+      key: result.fileUrl,
+      cdnUrl: awsAPI.getCDNUrl(result.fileUrl),
+    };
   } catch (error) {
     console.error('Error getting presigned URL:', error);
     captureException(error as Error, { context: 'getPresignedUrl' });

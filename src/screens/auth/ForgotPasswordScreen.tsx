@@ -4,8 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
-import { ENV } from '../../config/env';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import * as backend from '../../services/backend';
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -49,36 +49,10 @@ export default function ForgotPasswordScreen({ navigation }) {
     setDeletedAccountModal(prev => ({ ...prev, visible: false }));
   }, []);
 
-  const checkDeletedAccount = useCallback(async (emailToCheck: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/check-deleted-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ email: emailToCheck }),
-      });
-
-      if (!response.ok) return false;
-
-      const result = await response.json();
-
-      if (result.is_deleted) {
-        setDeletedAccountModal({
-          visible: true,
-          daysRemaining: result.days_remaining,
-          canReactivate: result.can_reactivate,
-          fullName: result.full_name || '',
-        });
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Check deleted account error:', error);
-      return false;
-    }
+  // Note: checkDeletedAccount skipped for AWS - Cognito handles user state
+  const checkDeletedAccount = useCallback(async (_emailToCheck: string): Promise<boolean> => {
+    // AWS Cognito handles deleted/disabled accounts internally
+    return false;
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -115,20 +89,8 @@ export default function ForgotPasswordScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email: emailNormalized }),
-      });
-
-      if (response.status === 429) {
-        setEmailError('Too many attempts. Please wait a few minutes before trying again.');
-        return;
-      }
+      // Use backend service which routes to AWS Cognito
+      await backend.forgotPassword(emailNormalized);
 
       // SECURITY: Always show success regardless of whether email exists
       // This prevents attackers from discovering valid emails

@@ -152,7 +152,7 @@ export default function EditInterestsScreen({ navigation, route }) {
 
     setIsSaving(true);
     try {
-      // Save to Supabase
+      // Save to AWS
       const result = await updateDbProfile({ interests: selected });
 
       // Update local context

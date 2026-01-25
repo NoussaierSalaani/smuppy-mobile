@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
-import { supabase } from '../../config/supabase';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -141,9 +140,6 @@ export default function SuccessScreen({ route, navigation }) {
       if (onSignupComplete) {
         onSignupComplete();
       }
-
-      // Refresh session to trigger navigation
-      supabase.auth.refreshSession();
     }, 3000);
 
     return () => {

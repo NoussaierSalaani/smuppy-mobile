@@ -1,23 +1,21 @@
 // ============================================
 // SMUPPY - DATABASE SERVICES
-// Connexion frontend <-> Supabase
+// Connexion frontend <-> AWS Backend
 // ============================================
 
-import { supabase } from '../config/supabase';
+import { awsAuth } from './aws-auth';
+import { awsAPI, Profile as AWSProfile, Post as AWSPost } from './aws-api';
 import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
   CreateSpotData,
 } from '../types';
 
-// Export supabase for direct access when needed
-export { supabase };
-
 /**
  * Get current authenticated user ID
  */
 export const getCurrentUserId = async (): Promise<string | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   return user?.id || null;
 };
 
@@ -149,6 +147,39 @@ interface DbResponseWithCreated<T> extends DbResponse<T> {
   created?: boolean;
 }
 
+// Helper to convert AWS API Profile to local Profile format
+const convertProfile = (p: AWSProfile | null): Profile | null => {
+  if (!p) return null;
+  return {
+    id: p.id,
+    username: p.username,
+    full_name: p.fullName || '',
+    avatar_url: p.avatarUrl,
+    bio: p.bio || undefined,
+    is_verified: p.isVerified,
+    is_private: p.isPrivate,
+    account_type: p.accountType,
+    fan_count: p.followersCount,
+    post_count: p.postsCount,
+  };
+};
+
+// Helper to convert AWS API Post to local Post format
+const convertPost = (p: AWSPost): Post => {
+  return {
+    id: p.id,
+    author_id: p.authorId,
+    content: p.content,
+    media_urls: p.mediaUrls,
+    media_type: p.mediaType || undefined,
+    visibility: 'public',
+    likes_count: p.likesCount,
+    comments_count: p.commentsCount,
+    created_at: p.createdAt,
+    author: p.author ? convertProfile(p.author) || undefined : undefined,
+  };
+};
+
 // ============================================
 // PROFILES
 // ============================================
@@ -157,164 +188,106 @@ interface DbResponseWithCreated<T> extends DbResponse<T> {
  * Get current user's profile
  */
 export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<Profile>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const { data, error } = result as { data: Profile | null; error: { message: string } | null };
-
-  // If no profile exists and autoCreate is enabled, create one
-  if (!data && !error && autoCreate) {
-    if (__DEV__) console.log('[getCurrentProfile] No profile found, creating one...');
-    const profileData = {
-      id: user.id,
-      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-      username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
-      avatar_url: user.user_metadata?.avatar_url || null,
-    };
-    if (__DEV__) console.log('[getCurrentProfile] Profile data:', profileData);
-
-    const insertResult = await supabase
-      .from('profiles')
-      .insert(profileData)
-      .select()
-      .single();
-
-    const { data: newProfile, error: createError } = insertResult as { data: Profile | null; error: { message: string } | null };
-
-    if (createError) {
-      if (__DEV__) console.error('[getCurrentProfile] Failed to create profile:', createError);
-    } else {
-      if (__DEV__) console.log('[getCurrentProfile] Profile created successfully');
+  try {
+    const profile = await awsAPI.getProfile(user.id);
+    return { data: convertProfile(profile), error: null };
+  } catch (error: any) {
+    if (autoCreate && error.statusCode === 404) {
+      // Profile doesn't exist, create one
+      const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      try {
+        const newProfile = await awsAPI.updateProfile({
+          username,
+          fullName: user.attributes?.name || username,
+        });
+        return { data: convertProfile(newProfile), error: null };
+      } catch (createError: any) {
+        return { data: null, error: createError.message };
+      }
     }
-
-    return { data: newProfile, error: createError?.message || null };
+    return { data: null, error: error.message };
   }
-
-  return { data, error: error?.message || null };
 };
 
 /**
  * Get a profile by user ID
  */
 export const getProfileById = async (userId: string): Promise<DbResponse<Profile>> => {
-  const result = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-
-  const { data, error } = result as { data: Profile | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const profile = await awsAPI.getProfile(userId);
+    return { data: convertProfile(profile), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Get a profile by username
  */
 export const getProfileByUsername = async (username: string): Promise<DbResponse<Profile>> => {
-  const result = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('username', username)
-    .maybeSingle();
-
-  const { data, error } = result as { data: Profile | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const profile = await awsAPI.getProfileByUsername(username);
+    return { data: convertProfile(profile), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Update current user's profile (creates if doesn't exist)
  */
 export const updateProfile = async (updates: Partial<Profile>): Promise<DbResponse<Profile>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  if (__DEV__) console.log('[updateProfile] Updating profile with:', JSON.stringify(updates));
+  try {
+    const updateData: any = {};
 
-  // First, try to update existing profile
-  const updateResult = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', user.id)
-    .select();
+    // Basic profile fields
+    if (updates.username) updateData.username = updates.username;
+    if (updates.full_name) updateData.fullName = updates.full_name;
+    if (updates.bio) updateData.bio = updates.bio;
+    if (updates.avatar_url) updateData.avatarUrl = updates.avatar_url;
+    if (updates.is_private !== undefined) updateData.isPrivate = updates.is_private;
 
-  const { data: updateData, error: updateError } = updateResult as {
-    data: Profile[] | null;
-    error: { message: string } | null
-  };
+    // Account type
+    if (updates.account_type) updateData.accountType = updates.account_type;
 
-  if (__DEV__) console.log('[updateProfile] Result - data:', updateData?.length, 'error:', updateError?.message);
+    // Personal info
+    if (updates.gender) updateData.gender = updates.gender;
+    if (updates.date_of_birth) updateData.dateOfBirth = updates.date_of_birth;
 
-  // If update succeeded and returned data, return it
-  if (updateData && updateData.length > 0) {
-    if (__DEV__) console.log('[updateProfile] Success! Returning updated profile');
-    return { data: updateData[0], error: null };
+    // Pro creator fields
+    if (updates.display_name) updateData.displayName = updates.display_name;
+    if (updates.website) updateData.website = updates.website;
+    if (updates.social_links) updateData.socialLinks = updates.social_links;
+    if (updates.interests) updateData.interests = updates.interests;
+    if (updates.expertise) updateData.expertise = updates.expertise;
+
+    // Business fields
+    if (updates.business_name) updateData.businessName = updates.business_name;
+    if (updates.business_category) updateData.businessCategory = updates.business_category;
+    if (updates.business_address) updateData.businessAddress = updates.business_address;
+    if (updates.business_phone) updateData.businessPhone = updates.business_phone;
+    if (updates.locations_mode) updateData.locationsMode = updates.locations_mode;
+
+    console.log('[Database] updateProfile data:', JSON.stringify(updateData));
+    const profile = await awsAPI.updateProfile(updateData);
+    return { data: convertProfile(profile), error: null };
+  } catch (error: any) {
+    console.error('[Database] updateProfile error:', error);
+    return { data: null, error: error.message };
   }
-
-  // If no rows updated (profile doesn't exist), create one
-  if (!updateError && (!updateData || updateData.length === 0)) {
-    if (__DEV__) console.log('[updateProfile] No profile found, creating one...');
-
-    const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
-    const uniqueUsername = `${username}_${Math.floor(Math.random() * 10000)}`;
-
-    const insertResult = await supabase
-      .from('profiles')
-      .insert({
-        id: user.id,
-        username: uniqueUsername,
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        ...updates,
-      })
-      .select()
-      .single();
-
-    const { data: insertData, error: insertError } = insertResult as {
-      data: Profile | null;
-      error: { message: string } | null
-    };
-
-    return { data: insertData, error: insertError?.message || null };
-  }
-
-  return { data: null, error: updateError?.message || 'Unknown error' };
 };
 
 /**
  * Create profile for new user
  */
 export const createProfile = async (profileData: Partial<Profile>): Promise<DbResponse<Profile>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  // Use upsert to handle race condition where profile may already exist
-  const result = await supabase
-    .from('profiles')
-    .upsert({
-      id: user.id,
-      ...profileData
-    }, {
-      onConflict: 'id',
-      ignoreDuplicates: false, // Update if exists
-    })
-    .select()
-    .single();
-
-  const { data, error } = result as { data: Profile | null; error: { message: string } | null };
-
-  // Also update user_metadata for consistency
-  if (data && profileData.full_name) {
-    await supabase.auth.updateUser({
-      data: { full_name: profileData.full_name }
-    });
-  }
-
-  return { data, error: error?.message || null };
+  return updateProfile(profileData);
 };
 
 /**
@@ -326,7 +299,6 @@ export interface ProfileWithFollowStatus extends Profile {
 
 /**
  * Search profiles by username or full_name
- * Results are sorted with verified accounts first
  */
 export const searchProfiles = async (
   query: string,
@@ -337,18 +309,12 @@ export const searchProfiles = async (
     return { data: [], error: null };
   }
 
-  const searchTerm = query.trim().toLowerCase();
-
-  const result = await supabase
-    .from('profiles')
-    .select('*')
-    .or(`username.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`)
-    .order('is_verified', { ascending: false }) // Verified accounts (bots) first
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const { data, error } = result as { data: Profile[] | null; error: { message: string } | null };
-  return { data: data || [], error: error?.message || null };
+  try {
+    const profiles = await awsAPI.searchProfiles(query, limit);
+    return { data: profiles.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
@@ -363,24 +329,12 @@ export const searchPosts = async (
     return { data: [], error: null };
   }
 
-  const searchTerm = query.trim().toLowerCase();
-
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(
-        id, username, full_name, avatar_url, is_verified, account_type, is_bot
-      )
-    `)
-    .or(`content.ilike.%${searchTerm}%,caption.ilike.%${searchTerm}%`)
-    .eq('visibility', 'public')
-    .is('is_peak', false)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data: data || [], error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
@@ -395,24 +349,12 @@ export const searchPeaks = async (
     return { data: [], error: null };
   }
 
-  const searchTerm = query.trim().toLowerCase();
-
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(
-        id, username, full_name, avatar_url, is_verified, account_type, is_bot
-      )
-    `)
-    .or(`content.ilike.%${searchTerm}%,caption.ilike.%${searchTerm}%`)
-    .eq('visibility', 'public')
-    .eq('is_peak', true)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data: data || [], error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: AWSPost[] }>(`/peaks/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
@@ -427,269 +369,79 @@ export const searchByHashtag = async (
     return { data: [], error: null };
   }
 
-  // Remove # if present and lowercase
   const tag = hashtag.trim().replace(/^#/, '').toLowerCase();
 
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(
-        id, username, full_name, avatar_url, is_verified, account_type, is_bot
-      )
-    `)
-    .or(`content.ilike.%#${tag}%,caption.ilike.%#${tag}%`)
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data: data || [], error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/hashtag/${encodeURIComponent(tag)}?limit=${limit}&offset=${offset}`);
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
  * Get trending hashtags
  */
 export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag: string; count: number }[]>> => {
-  // Get recent posts and extract hashtags
-  const { data: posts, error } = await supabase
-    .from('posts')
-    .select('content, caption')
-    .eq('visibility', 'public')
-    .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
-    .limit(500);
-
-  if (error) {
+  try {
+    const result = await awsAPI.request<{ data: { tag: string; count: number }[] }>(`/hashtags/trending?limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
     return { data: [], error: error.message };
   }
-
-  // Extract and count hashtags
-  const hashtagCounts: Record<string, number> = {};
-  const hashtagRegex = /#(\w+)/g;
-
-  (posts || []).forEach(post => {
-    const text = (post.content || '') + ' ' + (post.caption || '');
-    let match;
-    while ((match = hashtagRegex.exec(text)) !== null) {
-      const tag = match[1].toLowerCase();
-      hashtagCounts[tag] = (hashtagCounts[tag] || 0) + 1;
-    }
-  });
-
-  // Sort by count and return top hashtags
-  const trending = Object.entries(hashtagCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([tag, count]) => ({ tag, count }));
-
-  return { data: trending, error: null };
 };
 
 /**
  * Optimized profile search with follow status included
- * Uses trigram index for fast fuzzy matching
  */
 export const searchProfilesOptimized = async (
   query: string,
   limit = 20
 ): Promise<DbResponse<ProfileWithFollowStatus[]>> => {
-  if (!query || query.trim().length === 0) {
-    return { data: [], error: null };
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const searchTerm = query.trim();
-
-  // Try optimized RPC function first
-  if (user) {
-    const { data: rpcData, error: rpcError } = await supabase
-      .rpc('search_profiles_optimized', {
-        p_search_term: searchTerm,
-        p_current_user_id: user.id,
-        p_limit: limit
-      });
-
-    if (!rpcError && rpcData) {
-      const profiles: ProfileWithFollowStatus[] = (rpcData as Array<Record<string, unknown>>).map(row => ({
-        id: row.id as string,
-        username: row.username as string,
-        full_name: row.full_name as string,
-        avatar_url: row.avatar_url as string | null,
-        is_verified: row.is_verified as boolean,
-        account_type: row.account_type as 'personal' | 'pro_creator' | 'pro_local',
-        fan_count: row.fan_count as number,
-        is_following: row.is_following as boolean,
-      }));
-      return { data: profiles, error: null };
-    }
-  }
-
-  // Fallback to regular search
-  const { data, error } = await searchProfiles(query, limit);
-  return { data: data as ProfileWithFollowStatus[], error };
+  return searchProfiles(query, limit) as Promise<DbResponse<ProfileWithFollowStatus[]>>;
 };
 
 /**
  * Get suggested profiles (for discovery/explore)
- * Smart algorithm that prioritizes:
- * 1. Mutual connections (friends of friends)
- * 2. Common interests
- * 3. Verified accounts
  */
 export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: [], error: 'Not authenticated' };
 
-  // Get current user's profile for interests
-  const { data: currentProfile } = await supabase
-    .from('profiles')
-    .select('interests')
-    .eq('id', user.id)
-    .single();
-
-  const userInterests = currentProfile?.interests || [];
-
-  // Get list of users the current user already follows
-  const followsResult = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', user.id);
-
-  const followedIds = (followsResult.data || []).map(f => f.following_id);
-  const excludeIds = [user.id, ...followedIds];
-  const excludeIdsStr = excludeIds.length > 0 ? excludeIds.join(',') : '00000000-0000-0000-0000-000000000000';
-
-  // Get friends of friends (mutual connections)
-  // People followed by people you follow
-  let mutualProfiles: Profile[] = [];
-  if (followedIds.length > 0) {
-    const mutualResult = await supabase
-      .from('follows')
-      .select('following_id')
-      .in('follower_id', followedIds)
-      .not('following_id', 'in', `(${excludeIdsStr})`);
-
-    const mutualIds = [...new Set((mutualResult.data || []).map(f => f.following_id))];
-
-    if (mutualIds.length > 0) {
-      const mutualProfilesResult = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', mutualIds)
-        .limit(Math.ceil(limit * 0.4)); // 40% mutual connections
-
-      mutualProfiles = (mutualProfilesResult.data || []) as Profile[];
-    }
+  try {
+    const result = await awsAPI.request<{ data: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
+    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
   }
-
-  const usedIds = [...excludeIds, ...mutualProfiles.map(p => p.id)];
-  const usedIdsStr = usedIds.length > 0 ? usedIds.join(',') : '00000000-0000-0000-0000-000000000000';
-  const remainingAfterMutual = limit - mutualProfiles.length;
-
-  // Get profiles with common interests
-  let interestProfiles: Profile[] = [];
-  if (userInterests.length > 0 && remainingAfterMutual > 0) {
-    const interestResult = await supabase
-      .from('profiles')
-      .select('*')
-      .not('id', 'in', `(${usedIdsStr})`)
-      .overlaps('interests', userInterests)
-      .limit(Math.ceil(remainingAfterMutual * 0.5)); // 50% of remaining
-
-    interestProfiles = (interestResult.data || []) as Profile[];
-  }
-
-  const usedIds2 = [...usedIds, ...interestProfiles.map(p => p.id)];
-  const usedIdsStr2 = usedIds2.length > 0 ? usedIds2.join(',') : '00000000-0000-0000-0000-000000000000';
-  const remainingAfterInterests = limit - mutualProfiles.length - interestProfiles.length;
-
-  // Fill remaining with verified profiles
-  let verifiedProfiles: Profile[] = [];
-  if (remainingAfterInterests > 0) {
-    const verifiedResult = await supabase
-      .from('profiles')
-      .select('*')
-      .not('id', 'in', `(${usedIdsStr2})`)
-      .eq('is_verified', true)
-      .limit(remainingAfterInterests);
-
-    verifiedProfiles = (verifiedResult.data || []) as Profile[];
-  }
-
-  const usedIds3 = [...usedIds2, ...verifiedProfiles.map(p => p.id)];
-  const usedIdsStr3 = usedIds3.length > 0 ? usedIds3.join(',') : '00000000-0000-0000-0000-000000000000';
-  const finalRemaining = limit - mutualProfiles.length - interestProfiles.length - verifiedProfiles.length;
-
-  // Fill any remaining spots with other profiles
-  let otherProfiles: Profile[] = [];
-  if (finalRemaining > 0) {
-    const otherResult = await supabase
-      .from('profiles')
-      .select('*')
-      .not('id', 'in', `(${usedIdsStr3})`)
-      .order('fan_count', { ascending: false })
-      .limit(finalRemaining);
-
-    otherProfiles = (otherResult.data || []) as Profile[];
-  }
-
-  // Combine all and shuffle for variety
-  const allSuggestions = [...mutualProfiles, ...interestProfiles, ...verifiedProfiles, ...otherProfiles];
-
-  // For pagination with offset > 0, fetch additional profiles sorted by fan_count
-  if (offset > 0) {
-    const paginatedResult = await supabase
-      .from('profiles')
-      .select('*')
-      .not('id', 'eq', user.id)
-      .not('id', 'in', `(${[...followedIds, user.id].join(',') || '00000000-0000-0000-0000-000000000000'})`)
-      .order('fan_count', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    const paginatedData = (paginatedResult.data || []) as Profile[];
-    return { data: paginatedData, error: null };
-  }
-
-  // First page: shuffle for variety
-  const shuffled = allSuggestions.sort(() => Math.random() - 0.5);
-  return { data: shuffled.slice(0, limit), error: null };
 };
 
 /**
  * Ensure profile exists - create if it doesn't
- * Call this after login/signup to guarantee profile exists
  */
 export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  // Check if profile exists
-  const existingResult = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const { data: existingProfile } = existingResult as { data: Profile | null };
-
-  if (existingProfile) {
-    return { data: existingProfile, error: null, created: false };
+  try {
+    const profile = await awsAPI.getProfile(user.id);
+    return { data: convertProfile(profile), error: null, created: false };
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      // Create new profile
+      const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      try {
+        const newProfile = await awsAPI.updateProfile({
+          username,
+          fullName: user.attributes?.name || username,
+        });
+        return { data: convertProfile(newProfile), error: null, created: true };
+      } catch (createError: any) {
+        return { data: null, error: createError.message };
+      }
+    }
+    return { data: null, error: error.message };
   }
-
-  // Create new profile with defaults from auth user
-  const insertResult = await supabase
-    .from('profiles')
-    .insert({
-      id: user.id,
-      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-      username: user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`,
-      avatar_url: user.user_metadata?.avatar_url || null,
-    })
-    .select()
-    .single();
-
-  const { data: newProfile, error } = insertResult as { data: Profile | null; error: { message: string } | null };
-  return { data: newProfile, error: error?.message || null, created: true };
 };
 
 // ============================================
@@ -708,115 +460,49 @@ export interface PostWithStatus extends Post {
  * Get posts feed with pagination
  */
 export const getFeedPosts = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const result = await awsAPI.getPosts({ limit, type: 'all' });
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
- * Get optimized feed with likes/saves status included (single query!)
- * Uses PostgreSQL function for maximum performance
+ * Get optimized feed with likes/saves status included
  */
 export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const offset = page * limit;
-
-  // Try optimized RPC function first
-  const { data: rpcData, error: rpcError } = await supabase
-    .rpc('get_optimized_feed', {
-      p_user_id: user.id,
-      p_limit: limit,
-      p_offset: offset
-    });
-
-  if (!rpcError && rpcData) {
-    // Transform RPC result to Post format
-    const posts: PostWithStatus[] = (rpcData as Array<Record<string, unknown>>).map(row => ({
-      id: row.id as string,
-      author_id: row.author_id as string,
-      content: row.content as string,
-      media_urls: row.media_urls as string[],
-      tags: row.tags as string[],
-      visibility: row.visibility as 'public' | 'private' | 'fans',
-      is_peak: row.is_peak as boolean,
-      likes_count: row.likes_count as number,
-      comments_count: row.comments_count as number,
-      views_count: row.views_count as number,
-      created_at: row.created_at as string,
-      has_liked: row.has_liked as boolean,
-      has_saved: row.has_saved as boolean,
-      author: {
-        id: row.author_id as string,
-        username: row.author_username as string,
-        full_name: row.author_full_name as string,
-        avatar_url: row.author_avatar_url as string | null,
-        is_verified: row.author_is_verified as boolean,
-        account_type: row.author_account_type as 'personal' | 'pro_creator' | 'pro_local' | undefined,
-      }
+  try {
+    const result = await awsAPI.request<{ data: any[] }>(`/feed/optimized?limit=${limit}&page=${page}`);
+    const posts: PostWithStatus[] = result.data.map((p: any) => ({
+      ...convertPost(p),
+      has_liked: p.isLiked || p.has_liked,
+      has_saved: p.isSaved || p.has_saved,
     }));
     return { data: posts, error: null };
+  } catch (error: any) {
+    // Fallback to regular feed
+    const fallback = await getFeedPosts(page, limit);
+    return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
   }
-
-  // Fallback to regular query + batch check
-  const { data: posts, error } = await getFeedPosts(page, limit);
-  if (error || !posts) return { data: null, error };
-
-  // Batch check likes and saves
-  const postIds = posts.map(p => p.id);
-  const [likedMap, savedMap] = await Promise.all([
-    hasLikedPostsBatch(postIds),
-    hasSavedPostsBatch(postIds)
-  ]);
-
-  const postsWithStatus: PostWithStatus[] = posts.map(post => ({
-    ...post,
-    has_liked: likedMap.get(post.id) || false,
-    has_saved: savedMap.get(post.id) || false,
-  }));
-
-  return { data: postsWithStatus, error: null };
 };
 
 /**
  * Get posts by user ID
  */
 export const getPostsByUser = async (userId: string, page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('author_id', userId)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const result = await awsAPI.getPosts({ userId, limit });
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
-/**
- * Get posts from followed users (FanFeed)
- * Returns posts from users that the current user follows
- */
-// Shared cache for followed user IDs (used by both FanFeed and VibesFeed)
+// Shared cache for followed user IDs
 let followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
   ids: [],
   timestamp: 0,
@@ -824,160 +510,49 @@ let followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string
 };
 const CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
 
-// Helper to get followed user IDs with caching
-const getFollowedUserIds = async (userId: string): Promise<string[]> => {
-  const now = Date.now();
-
-  // Use cache if valid
-  if (
-    followedUsersCacheShared.userId === userId &&
-    now - followedUsersCacheShared.timestamp < CACHE_DURATION_SHARED &&
-    followedUsersCacheShared.ids.length > 0
-  ) {
-    return followedUsersCacheShared.ids;
-  }
-
-  // Fetch fresh data
-  const { data: followsData } = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', userId);
-
-  const ids = followsData?.map(f => f.following_id) || [];
-
-  // Update cache
-  followedUsersCacheShared = {
-    ids,
-    timestamp: now,
-    userId,
-  };
-
-  return ids;
-};
-
 // Clear cache when user follows/unfollows someone
 export const clearFollowCache = () => {
   followedUsersCacheShared = { ids: [], timestamp: 0, userId: null };
 };
 
+/**
+ * Get posts from followed users (FanFeed)
+ */
 export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  // Get followed user IDs (cached)
-  const followedIds = await getFollowedUserIds(user.id);
-
-  // If not following anyone, return empty array
-  if (followedIds.length === 0) {
-    return { data: [], error: null };
+  try {
+    const result = await awsAPI.getPosts({ type: 'following', limit });
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
   }
-
-  // Get posts from followed users
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-    `)
-    .in('author_id', followedIds)
-    .in('visibility', ['public', 'fans'])
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
 };
 
 /**
- * Get optimized FanFeed with likes/saves status included (single query!)
- * Uses PostgreSQL function for maximum performance
+ * Get optimized FanFeed with likes/saves status included
  */
 export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const offset = page * limit;
-
-  // Try optimized RPC function first
-  const { data: rpcData, error: rpcError } = await supabase
-    .rpc('get_fan_feed', {
-      p_user_id: user.id,
-      p_limit: limit,
-      p_offset: offset
-    });
-
-  if (!rpcError && rpcData && Array.isArray(rpcData)) {
-    // If empty, it might mean no follows yet
-    if (rpcData.length === 0) {
-      return { data: [], error: null };
-    }
-
-    // Transform RPC result to Post format
-    const posts: PostWithStatus[] = rpcData.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      author_id: row.author_id as string,
-      content: row.content as string,
-      media_urls: row.media_urls as string[],
-      tags: row.tags as string[],
-      visibility: row.visibility as 'public' | 'private' | 'fans',
-      is_peak: row.is_peak as boolean,
-      likes_count: row.likes_count as number,
-      comments_count: row.comments_count as number,
-      views_count: row.views_count as number,
-      created_at: row.created_at as string,
-      has_liked: row.has_liked as boolean,
-      has_saved: row.has_saved as boolean,
-      author: {
-        id: row.author_id as string,
-        username: row.author_username as string,
-        full_name: row.author_full_name as string,
-        avatar_url: row.author_avatar_url as string | null,
-        is_verified: row.author_is_verified as boolean,
-        account_type: row.author_account_type as 'personal' | 'pro_creator' | 'pro_local' | undefined,
-      }
+  try {
+    const result = await awsAPI.request<{ data: any[] }>(`/feed/following?limit=${limit}&page=${page}`);
+    const posts: PostWithStatus[] = result.data.map((p: any) => ({
+      ...convertPost(p),
+      has_liked: p.isLiked || p.has_liked,
+      has_saved: p.isSaved || p.has_saved,
     }));
     return { data: posts, error: null };
+  } catch (error: any) {
+    const fallback = await getFeedFromFollowed(page, limit);
+    return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
   }
-
-  // Fallback to regular query + batch check
-  const { data: posts, error } = await getFeedFromFollowed(page, limit);
-  if (error || !posts) return { data: posts as PostWithStatus[] | null, error };
-
-  // If no posts, return empty
-  if (posts.length === 0) {
-    return { data: [], error: null };
-  }
-
-  // Batch check likes and saves
-  const postIds = posts.map(p => p.id);
-  const [likedMap, savedMap] = await Promise.all([
-    hasLikedPostsBatch(postIds),
-    hasSavedPostsBatch(postIds)
-  ]);
-
-  const postsWithStatus: PostWithStatus[] = posts.map(post => ({
-    ...post,
-    has_liked: likedMap.get(post.id) || false,
-    has_saved: savedMap.get(post.id) || false,
-  }));
-
-  return { data: postsWithStatus, error: null };
 };
 
 /**
  * Get discovery feed filtered by interests (VibesFeed)
- * Logic:
- * 1. Prioritize posts matching user interests (shown first)
- * 2. Fill with popular/recent posts to ensure feed is never empty
- * 3. Mix interests posts with discovery posts for variety
- *
- * @param selectedInterests - Currently active interest filters
- * @param userInterests - All interests the user has selected in profile
- * @param page - Pagination page number
- * @param limit - Number of posts per page
  */
 export const getDiscoveryFeed = async (
   selectedInterests: string[] = [],
@@ -985,110 +560,20 @@ export const getDiscoveryFeed = async (
   page = 0,
   limit = 20
 ): Promise<DbResponse<Post[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const currentUserId = user?.id;
-
-  // Get followed user IDs using shared cache
-  const followedUserIds = currentUserId ? await getFollowedUserIds(currentUserId) : [];
-
-  // Build exclusion list (current user + followed users)
-  const excludeUserIds = [currentUserId, ...followedUserIds].filter(Boolean) as string[];
-  const excludeList = excludeUserIds.length > 0
-    ? excludeUserIds.join(',')
-    : '00000000-0000-0000-0000-000000000000';
-
-  // If specific interests are selected, filter by those
-  if (selectedInterests.length > 0) {
-    // Get posts matching selected interests (excluding followed users)
-    const interestResult = await supabase
-      .from('posts')
-      .select(`
-        *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-      `)
-      .eq('visibility', 'public')
-      .not('author_id', 'in', `(${excludeList})`)
-      .overlaps('tags', selectedInterests)
-      .order('likes_count', { ascending: false })
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    const interestPosts = (interestResult.data || []) as Post[];
-
-    // If we have enough interest posts, return them
-    if (interestPosts.length >= limit / 2) {
-      return { data: interestPosts, error: interestResult.error?.message || null };
+  try {
+    const interests = selectedInterests.length > 0 ? selectedInterests : userInterests;
+    const interestsParam = interests.length > 0 ? `&interests=${encodeURIComponent(interests.join(','))}` : '';
+    const result = await awsAPI.request<{ data: any[] }>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    // Fallback to explore
+    try {
+      const result = await awsAPI.getPosts({ type: 'explore', limit });
+      return { data: result.data.map(convertPost), error: null };
+    } catch {
+      return { data: [], error: error.message };
     }
-
-    // If not enough, fill with popular posts (excluding already fetched)
-    const fetchedIds = interestPosts.map(p => p.id);
-    const fillCount = limit - interestPosts.length;
-
-    const fillResult = await supabase
-      .from('posts')
-      .select(`
-        *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-      `)
-      .eq('visibility', 'public')
-      .not('author_id', 'in', `(${excludeList})`)
-      .not('id', 'in', `(${fetchedIds.length > 0 ? fetchedIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
-      .order('likes_count', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(fillCount);
-
-    const fillPosts = (fillResult.data || []) as Post[];
-    return { data: [...interestPosts, ...fillPosts], error: null };
   }
-
-  // No specific filter: get all public posts, prioritize those with matching interests
-  if (page === 0) {
-    // First, get ALL public posts (no tag filter) to ensure content is shown
-    const allPostsResult = await supabase
-      .from('posts')
-      .select(`
-        *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-      `)
-      .eq('visibility', 'public')
-      .not('author_id', 'in', `(${excludeList})`)
-      .order('likes_count', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    const allPosts = (allPostsResult.data || []) as Post[];
-
-    // If user has interests, sort to prioritize matching posts
-    if (userInterests.length > 0 && allPosts.length > 0) {
-      const sortedPosts = allPosts.sort((a, b) => {
-        const aMatches = a.tags?.some(tag => userInterests.includes(tag)) ? 1 : 0;
-        const bMatches = b.tags?.some(tag => userInterests.includes(tag)) ? 1 : 0;
-        return bMatches - aMatches; // Posts with matching interests first
-      });
-      return { data: sortedPosts, error: null };
-    }
-
-    return { data: allPosts, error: allPostsResult.error?.message || null };
-  }
-
-  // Default: all public posts ordered by popularity (excluding followed users)
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-    `)
-    .eq('visibility', 'public')
-    .not('author_id', 'in', `(${excludeList})`)
-    .order('likes_count', { ascending: false })
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
 };
 
 /**
@@ -1099,58 +584,59 @@ export const getPostsByTags = async (
   page = 0,
   limit = 10
 ): Promise<DbResponse<Post[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('visibility', 'public')
-    .overlaps('tags', tags)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Post[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: any[] }>(`/posts/tags?tags=${encodeURIComponent(tags.join(','))}&limit=${limit}&page=${page}`);
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Create a new post
  */
 export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Post>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('posts')
-    .insert({
-      author_id: user.id,
-      ...postData
-    })
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .single();
+  try {
+    const createData: any = {
+      content: postData.content || postData.caption,
+      mediaUrls: postData.media_urls,
+      mediaType: postData.media_type,
+      visibility: postData.visibility,
+    };
 
-  const { data, error } = result as { data: Post | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+    // Handle peak-specific fields
+    if (postData.is_peak) {
+      createData.isPeak = true;
+      createData.peakDuration = postData.peak_duration;
+      createData.peakExpiresAt = postData.peak_expires_at;
+      createData.saveToProfile = postData.save_to_profile;
+      createData.location = postData.location;
+    }
+
+    if (postData.tags) {
+      createData.tags = postData.tags;
+    }
+
+    const post = await awsAPI.createPost(createData);
+    return { data: convertPost(post), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Delete a post
  */
 export const deletePost = async (postId: string): Promise<{ error: string | null }> => {
-  const result = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', postId);
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
+  try {
+    await awsAPI.deletePost(postId);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
 };
 
 // ============================================
@@ -1161,98 +647,68 @@ export const deletePost = async (postId: string): Promise<{ error: string | null
  * Like a post
  */
 export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('likes')
-    .insert({
-      user_id: user.id,
-      post_id: postId
-    })
-    .select()
-    .single();
-
-  const { data, error } = result as { data: Like | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    await awsAPI.likePost(postId);
+    return { data: { id: '', user_id: user.id, post_id: postId, created_at: new Date().toISOString() }, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Unlike a post
  */
 export const unlikePost = async (postId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('likes')
-    .delete()
-    .match({
-      user_id: user.id,
-      post_id: postId
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
+  try {
+    await awsAPI.unlikePost(postId);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
 };
 
 /**
  * Check if current user liked a post
  */
 export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { hasLiked: false };
 
-  const result = await supabase
-    .from('likes')
-    .select('id')
-    .match({
-      user_id: user.id,
-      post_id: postId
-    })
-    .single();
-
-  const { data } = result as { data: { id: string } | null };
-  return { hasLiked: !!data };
+  try {
+    const result = await awsAPI.request<{ hasLiked: boolean }>(`/posts/${postId}/liked`);
+    return { hasLiked: result.hasLiked };
+  } catch {
+    return { hasLiked: false };
+  }
 };
 
 /**
- * Check if current user liked multiple posts at once (batch operation - much faster!)
- * Returns a Map of postId -> hasLiked
+ * Check if current user liked multiple posts at once (batch operation)
  */
 export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
-  const { data: { user } } = await supabase.auth.getUser();
   const resultMap = new Map<string, boolean>();
+  const user = await awsAuth.getCurrentUser();
 
   if (!user || postIds.length === 0) {
     postIds.forEach(id => resultMap.set(id, false));
     return resultMap;
   }
 
-  // Try to use the optimized RPC function first
-  const { data: rpcData, error: rpcError } = await supabase
-    .rpc('check_likes_batch', {
-      p_user_id: user.id,
-      p_post_ids: postIds
+  try {
+    const result = await awsAPI.request<{ likes: Record<string, boolean> }>('/posts/likes/batch', {
+      method: 'POST',
+      body: { postIds },
     });
-
-  if (!rpcError && rpcData) {
-    // RPC function available - use optimized result
-    (rpcData as Array<{ post_id: string; has_liked: boolean }>).forEach(row => {
-      resultMap.set(row.post_id, row.has_liked);
-    });
-    return resultMap;
+    postIds.forEach(id => resultMap.set(id, result.likes[id] || false));
+  } catch {
+    postIds.forEach(id => resultMap.set(id, false));
   }
-
-  // Fallback: single query to get all liked posts
-  const { data } = await supabase
-    .from('likes')
-    .select('post_id')
-    .eq('user_id', user.id)
-    .in('post_id', postIds);
-
-  const likedPostIds = new Set((data || []).map(l => l.post_id));
-  postIds.forEach(id => resultMap.set(id, likedPostIds.has(id)));
 
   return resultMap;
 };
@@ -1265,83 +721,68 @@ export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string,
  * Save a post (bookmark)
  */
 export const savePost = async (postId: string): Promise<DbResponse<{ id: string }>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('post_saves')
-    .insert({
-      user_id: user.id,
-      post_id: postId
-    })
-    .select('id')
-    .single();
-
-  const { data, error } = result as { data: { id: string } | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    await awsAPI.request(`/posts/${postId}/save`, { method: 'POST' });
+    return { data: { id: postId }, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Unsave a post (remove bookmark)
  */
 export const unsavePost = async (postId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('post_saves')
-    .delete()
-    .match({
-      user_id: user.id,
-      post_id: postId
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
+  try {
+    await awsAPI.request(`/posts/${postId}/unsave`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
 };
 
 /**
  * Check if current user saved a post
  */
 export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { saved: false };
 
-  const result = await supabase
-    .from('post_saves')
-    .select('id')
-    .match({
-      user_id: user.id,
-      post_id: postId
-    })
-    .single();
-
-  const { data } = result as { data: { id: string } | null };
-  return { saved: !!data };
+  try {
+    const result = await awsAPI.request<{ saved: boolean }>(`/posts/${postId}/saved`);
+    return { saved: result.saved };
+  } catch {
+    return { saved: false };
+  }
 };
 
 /**
- * Check if current user saved multiple posts at once (batch operation - much faster!)
- * Returns a Map of postId -> saved
+ * Check if current user saved multiple posts at once (batch operation)
  */
 export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
-  const { data: { user } } = await supabase.auth.getUser();
   const resultMap = new Map<string, boolean>();
+  const user = await awsAuth.getCurrentUser();
 
   if (!user || postIds.length === 0) {
     postIds.forEach(id => resultMap.set(id, false));
     return resultMap;
   }
 
-  // Single query to get all saved posts
-  const { data } = await supabase
-    .from('post_saves')
-    .select('post_id')
-    .eq('user_id', user.id)
-    .in('post_id', postIds);
-
-  const savedPostIds = new Set((data || []).map(s => s.post_id));
-  postIds.forEach(id => resultMap.set(id, savedPostIds.has(id)));
+  try {
+    const result = await awsAPI.request<{ saves: Record<string, boolean> }>('/posts/saves/batch', {
+      method: 'POST',
+      body: { postIds },
+    });
+    postIds.forEach(id => resultMap.set(id, result.saves[id] || false));
+  } catch {
+    postIds.forEach(id => resultMap.set(id, false));
+  }
 
   return resultMap;
 };
@@ -1350,26 +791,15 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
  * Get user's saved posts (collections)
  */
 export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Post[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('post_saves')
-    .select(`
-      post:posts(
-        *,
-        author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified)
-      )
-    `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Array<{ post: Post }> | null; error: { message: string } | null };
-  return { data: data?.map(d => d.post) || null, error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: any[] }>(`/posts/saved?limit=${limit}&page=${page}`);
+    return { data: result.data.map(convertPost), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 // ============================================
@@ -1380,331 +810,105 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
  * Follow a user
  */
 export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & { requestCreated?: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  // Clear cache when following someone
   clearFollowCache();
 
-  // Helper to update counts after successful follow
-  const updateCounts = async () => {
-    // Increment fan_count for the followed user
-    const { data: targetProfile } = await supabase
-      .from('profiles')
-      .select('fan_count')
-      .eq('id', userIdToFollow)
-      .single();
-
-    if (targetProfile) {
-      await supabase
-        .from('profiles')
-        .update({ fan_count: (targetProfile.fan_count || 0) + 1 })
-        .eq('id', userIdToFollow);
-    }
-
-    // Increment following_count for current user
-    const { data: myProfile } = await supabase
-      .from('profiles')
-      .select('following_count')
-      .eq('id', user.id)
-      .single();
-
-    if (myProfile) {
-      await supabase
-        .from('profiles')
-        .update({ following_count: (myProfile.following_count || 0) + 1 })
-        .eq('id', user.id);
-    }
-  };
-
-  // Use the RPC function that handles private accounts
-  const { data: rpcResult, error: rpcError } = await supabase
-    .rpc('create_follow_or_request', { target_user_id: userIdToFollow });
-
-  if (rpcError) {
-    // Fallback to direct insert for backwards compatibility
-    const result = await supabase
-      .from('follows')
-      .insert({
+  try {
+    await awsAPI.followUser(userIdToFollow);
+    return {
+      data: {
+        id: '',
         follower_id: user.id,
-        following_id: userIdToFollow
-      })
-      .select()
-      .single();
-
-    const { data, error } = result as { data: Follow | null; error: { message: string } | null };
-
-    // Update counts after successful follow
-    if (!error) {
-      await updateCounts();
-    }
-
-    return { data, error: error?.message || null };
+        following_id: userIdToFollow,
+        created_at: new Date().toISOString(),
+      },
+      error: null,
+    };
+  } catch (error: any) {
+    return { data: null, error: error.message };
   }
-
-  const result = rpcResult as FollowResult;
-
-  if (!result.success) {
-    return { data: null, error: result.error || 'Failed to follow' };
-  }
-
-  // If a request was created (private account), return success with flag
-  if (result.type === 'request_created') {
-    return { data: null, error: null, requestCreated: true };
-  }
-
-  // For direct follow, update counts
-  if (result.type === 'followed') {
-    await updateCounts();
-  }
-
-  // For direct follow or already following, return success
-  return { data: null, error: null, requestCreated: false };
 };
 
 /**
  * Unfollow a user
  */
 export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { error: 'Not authenticated' };
 
-  // Clear cache when unfollowing someone
   clearFollowCache();
 
-  const result = await supabase
-    .from('follows')
-    .delete()
-    .match({
-      follower_id: user.id,
-      following_id: userIdToUnfollow
-    });
-
-  const { error } = result as { error: { message: string } | null };
-
-  // Update counts after successful unfollow
-  if (!error) {
-    // Decrement fan_count for the unfollowed user
-    const { data: targetProfile } = await supabase
-      .from('profiles')
-      .select('fan_count')
-      .eq('id', userIdToUnfollow)
-      .single();
-
-    if (targetProfile && (targetProfile.fan_count || 0) > 0) {
-      await supabase
-        .from('profiles')
-        .update({ fan_count: (targetProfile.fan_count || 0) - 1 })
-        .eq('id', userIdToUnfollow);
-    }
-
-    // Decrement following_count for current user
-    const { data: myProfile } = await supabase
-      .from('profiles')
-      .select('following_count')
-      .eq('id', user.id)
-      .single();
-
-    if (myProfile && (myProfile.following_count || 0) > 0) {
-      await supabase
-        .from('profiles')
-        .update({ following_count: (myProfile.following_count || 0) - 1 })
-        .eq('id', user.id);
-    }
-  }
-
-  return { error: error?.message || null };
-};
-
-/**
- * Check if current user follows a user
- */
-export const isFollowing = async (userId: string): Promise<{ following: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { following: false };
-
-  const result = await supabase
-    .from('follows')
-    .select('follower_id')
-    .match({
-      follower_id: user.id,
-      following_id: userId
-    })
-    .single();
-
-  const { data } = result as { data: { follower_id: string } | null };
-  return { following: !!data };
-};
-
-// ============================================
-// FOLLOW REQUESTS (for private accounts)
-// ============================================
-
-/**
- * Check if current user has a pending follow request to a user
- */
-export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ pending: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { pending: false };
-
-  const { data, error } = await supabase
-    .rpc('has_pending_request', { target_user_id: targetUserId });
-
-  if (error) {
-    // Fallback to direct query
-    const result = await supabase
-      .from('follow_requests')
-      .select('id')
-      .match({
-        requester_id: user.id,
-        target_id: targetUserId,
-        status: 'pending'
-      })
-      .single();
-
-    return { pending: !!result.data };
-  }
-
-  return { pending: !!data };
-};
-
-/**
- * Cancel a pending follow request
- */
-export const cancelFollowRequest = async (targetUserId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data, error } = await supabase
-    .rpc('cancel_follow_request', { target_user_id: targetUserId });
-
-  if (error) {
+  try {
+    await awsAPI.unfollowUser(userIdToUnfollow);
+    return { error: null };
+  } catch (error: any) {
     return { error: error.message };
   }
-
-  const result = data as { success: boolean; error?: string };
-  return { error: result.success ? null : (result.error || 'Failed to cancel request') };
 };
 
 /**
- * Get pending follow requests received by current user
+ * Check if current user is following another user
  */
-export const getPendingFollowRequests = async (): Promise<DbResponse<FollowRequest[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+export const isFollowing = async (targetUserId: string): Promise<{ isFollowing: boolean; following: boolean }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { isFollowing: false, following: false };
 
-  const result = await supabase
-    .from('follow_requests')
-    .select(`
-      *,
-      requester:profiles!follow_requests_requester_id_fkey(
-        id, username, full_name, avatar_url, is_verified, account_type
-      )
-    `)
-    .eq('target_id', user.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
-
-  const { data, error } = result as { data: FollowRequest[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Get count of pending follow requests
- */
-export const getPendingFollowRequestsCount = async (): Promise<number> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return 0;
-
-  const { data, error } = await supabase
-    .rpc('get_pending_requests_count');
-
-  if (error) {
-    // Fallback to direct count
-    const result = await supabase
-      .from('follow_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('target_id', user.id)
-      .eq('status', 'pending');
-
-    return result.count || 0;
+  try {
+    const result = await awsAPI.request<{ isFollowing: boolean }>(`/profiles/${targetUserId}/is-following`);
+    return { isFollowing: result.isFollowing, following: result.isFollowing };
+  } catch {
+    return { isFollowing: false, following: false };
   }
-
-  return data || 0;
-};
-
-/**
- * Accept a follow request
- */
-export const acceptFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data, error } = await supabase
-    .rpc('accept_follow_request', { request_id: requestId });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  const result = data as { success: boolean; error?: string };
-  return { error: result.success ? null : (result.error || 'Failed to accept request') };
-};
-
-/**
- * Decline a follow request
- */
-export const declineFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data, error } = await supabase
-    .rpc('decline_follow_request', { request_id: requestId });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  const result = data as { success: boolean; error?: string };
-  return { error: result.success ? null : (result.error || 'Failed to decline request') };
 };
 
 /**
  * Get followers of a user
  */
 export const getFollowers = async (userId: string, page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('follows')
-    .select(`
-      follower:profiles!follows_follower_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('following_id', userId)
-    .range(from, to);
-
-  const { data, error } = result as { data: Array<{ follower: Profile }> | null; error: { message: string } | null };
-  return { data: data?.map(d => d.follower) || null, error: error?.message || null };
+  try {
+    const result = await awsAPI.getFollowers(userId, { limit });
+    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Get users that a user is following
  */
 export const getFollowing = async (userId: string, page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
+  try {
+    const result = await awsAPI.getFollowing(userId, { limit });
+    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
 
-  const result = await supabase
-    .from('follows')
-    .select(`
-      following:profiles!follows_following_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('follower_id', userId)
-    .range(from, to);
+/**
+ * Get followers count
+ */
+export const getFollowersCount = async (userId: string): Promise<{ count: number }> => {
+  try {
+    const profile = await awsAPI.getProfile(userId);
+    return { count: profile.followersCount || 0 };
+  } catch {
+    return { count: 0 };
+  }
+};
 
-  const { data, error } = result as { data: Array<{ following: Profile }> | null; error: { message: string } | null };
-  return { data: data?.map(d => d.following) || null, error: error?.message || null };
+/**
+ * Get following count
+ */
+export const getFollowingCount = async (userId: string): Promise<{ count: number }> => {
+  try {
+    const profile = await awsAPI.getProfile(userId);
+    return { count: profile.followingCount || 0 };
+  } catch {
+    return { count: 0 };
+  }
 };
 
 // ============================================
@@ -1714,413 +918,303 @@ export const getFollowing = async (userId: string, page = 0, limit = 20): Promis
 /**
  * Get comments for a post
  */
-export const getPostComments = async (postId: string, page = 0, limit = 20): Promise<DbResponse<Comment[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('comments')
-    .select(`
-      *,
-      user:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('post_id', postId)
-    .is('parent_comment_id', null)
-    .order('created_at', { ascending: true })
-    .range(from, to);
-
-  const { data, error } = result as { data: Comment[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+export const getComments = async (postId: string, page = 0, limit = 20): Promise<DbResponse<Comment[]>> => {
+  try {
+    const result = await awsAPI.getComments(postId, { limit });
+    const comments: Comment[] = result.data.map((c: any) => ({
+      id: c.id,
+      user_id: c.authorId,
+      post_id: c.postId,
+      text: c.content,
+      parent_comment_id: c.parentId,
+      created_at: c.createdAt,
+      user: c.author ? convertProfile(c.author) || undefined : undefined,
+    }));
+    return { data: comments, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Add a comment to a post
  */
-export const addComment = async (postId: string, text: string): Promise<DbResponse<Comment>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+export const addComment = async (postId: string, text: string, parentId?: string): Promise<DbResponse<Comment>> => {
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('comments')
-    .insert({
-      user_id: user.id,
-      post_id: postId,
-      text
-    })
-    .select(`
-      *,
-      user:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .single();
+  try {
+    const result = await awsAPI.createComment(postId, text, parentId);
+    const comment: Comment = {
+      id: result.id,
+      user_id: result.authorId,
+      post_id: result.postId,
+      text: result.content,
+      parent_comment_id: parentId || null,
+      created_at: result.createdAt,
+    };
+    return { data: comment, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
 
-  const { data, error } = result as { data: Comment | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+/**
+ * Delete a comment
+ */
+export const deleteComment = async (commentId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.deleteComment(commentId);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
 };
 
 // ============================================
-// INTERESTS & EXPERTISE
+// PEAKS (Short Videos)
 // ============================================
 
 /**
- * Get all interests
+ * Get peaks feed
+ */
+export const getPeaks = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+  try {
+    const result = await awsAPI.getPeaks({ limit });
+    const posts: Post[] = result.data.map((p: any) => ({
+      id: p.id,
+      author_id: p.authorId,
+      content: p.caption,
+      media_urls: [p.videoUrl],
+      media_type: 'video',
+      visibility: 'public',
+      is_peak: true,
+      peak_duration: p.duration,
+      likes_count: p.likesCount,
+      comments_count: p.commentsCount,
+      views_count: p.viewsCount,
+      created_at: p.createdAt,
+      author: p.author ? convertProfile(p.author) || undefined : undefined,
+    }));
+    return { data: posts, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Get peaks by user ID
+ */
+export const getPeaksByUser = async (userId: string, page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+  try {
+    const result = await awsAPI.getPeaks({ userId, limit });
+    const posts: Post[] = result.data.map((p: any) => ({
+      id: p.id,
+      author_id: p.authorId,
+      content: p.caption,
+      media_urls: [p.videoUrl],
+      media_type: 'video',
+      visibility: 'public',
+      is_peak: true,
+      peak_duration: p.duration,
+      likes_count: p.likesCount,
+      comments_count: p.commentsCount,
+      views_count: p.viewsCount,
+      created_at: p.createdAt,
+      author: p.author ? convertProfile(p.author) || undefined : undefined,
+    }));
+    return { data: posts, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Get a single peak by ID
+ */
+export const getPeakById = async (peakId: string): Promise<DbResponse<Post>> => {
+  try {
+    const p = await awsAPI.getPeak(peakId);
+    const post: Post = {
+      id: p.id,
+      author_id: p.authorId,
+      content: p.caption || '',
+      media_urls: [p.videoUrl],
+      media_type: 'video',
+      visibility: 'public',
+      is_peak: true,
+      peak_duration: p.duration,
+      likes_count: p.likesCount,
+      comments_count: p.commentsCount,
+      views_count: p.viewsCount,
+      created_at: p.createdAt,
+      author: p.author ? convertProfile(p.author) || undefined : undefined,
+    };
+    return { data: post, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Get single post by ID
+ */
+export const getPostById = async (postId: string): Promise<DbResponse<Post>> => {
+  try {
+    const post = await awsAPI.getPost(postId);
+    return { data: convertPost(post), error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+/**
+ * Get notifications for current user
+ */
+export const getNotifications = async (page = 0, limit = 20): Promise<DbResponse<any[]>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.getNotifications({ limit });
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Mark notification as read
+ */
+export const markNotificationRead = async (notificationId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.markNotificationRead(notificationId);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Mark all notifications as read
+ */
+export const markAllNotificationsRead = async (): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.markAllNotificationsRead();
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Get unread notification count
+ */
+export const getUnreadNotificationCount = async (): Promise<{ count: number }> => {
+  try {
+    const result = await awsAPI.getUnreadCount();
+    return { count: result.count };
+  } catch {
+    return { count: 0 };
+  }
+};
+
+// ============================================
+// INTERESTS
+// ============================================
+
+/**
+ * Get all available interests
  */
 export const getInterests = async (): Promise<DbResponse<Interest[]>> => {
-  const result = await supabase
-    .from('interests')
-    .select('*')
-    .order('name');
-
-  const { data, error } = result as { data: Interest[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: Interest[] }>('/interests');
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
- * Get all expertise
+ * Get all available expertise
  */
 export const getExpertise = async (): Promise<DbResponse<Expertise[]>> => {
-  const result = await supabase
-    .from('expertise')
-    .select('*')
-    .order('name');
-
-  const { data, error } = result as { data: Expertise[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Save user interests
- */
-export const saveUserInterests = async (interestIds: string[]): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  // Delete existing interests
-  await supabase
-    .from('user_interests')
-    .delete()
-    .eq('user_id', user.id);
-
-  // Insert new interests
-  const result = await supabase
-    .from('user_interests')
-    .insert(
-      interestIds.map(interestId => ({
-        user_id: user.id,
-        interest_id: interestId
-      }))
-    );
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: Expertise[] }>('/expertise');
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 // ============================================
-// SPOTS (Custom locations by pro creators)
-// Types imported from ../types
+// SPOTS (Gyms/Locations)
 // ============================================
 
 export type Spot = SpotType;
 export type SpotReview = SpotReviewType;
-export type { CreateSpotData };
 
 /**
- * Get spots feed with pagination
+ * Get spots near a location
  */
-export const getSpots = async (page = 0, limit = 20): Promise<DbResponse<Spot[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('spots')
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Spot[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+export const getSpotsNearLocation = async (
+  lat: number,
+  lng: number,
+  radius = 10000,
+  limit = 50
+): Promise<DbResponse<Spot[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Spot[] }>(`/spots/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
- * Get a single spot by ID
+ * Get spot by ID
  */
 export const getSpotById = async (spotId: string): Promise<DbResponse<Spot>> => {
-  const result = await supabase
-    .from('spots')
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('id', spotId)
-    .single();
-
-  const { data, error } = result as { data: Spot | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Get spots by creator
- */
-export const getSpotsByCreator = async (creatorId: string, page = 0, limit = 20): Promise<DbResponse<Spot[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('spots')
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('creator_id', creatorId)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Spot[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Get spots by category
- */
-export const getSpotsByCategory = async (category: string, page = 0, limit = 20): Promise<DbResponse<Spot[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('spots')
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('category', category)
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Spot[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Get spots by sport type
- */
-export const getSpotsBySportType = async (sportType: string, page = 0, limit = 20): Promise<DbResponse<Spot[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('spots')
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('sport_type', sportType)
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Spot[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Find nearby spots using the database function
- */
-export const findNearbySpots = async (
-  latitude: number,
-  longitude: number,
-  radiusKm = 10,
-  limit = 20
-): Promise<DbResponse<Spot[]>> => {
-  const result = await supabase
-    .rpc('find_nearby_spots', {
-      user_lat: latitude,
-      user_lon: longitude,
-      radius_km: radiusKm,
-      limit_count: limit
-    });
-
-  const { data, error } = result as { data: Spot[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const result = await awsAPI.request<Spot>(`/spots/${spotId}`);
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
  * Create a new spot
  */
 export const createSpot = async (spotData: Partial<Spot>): Promise<DbResponse<Spot>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('spots')
-    .insert({
-      creator_id: user.id,
-      ...spotData
-    })
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .single();
-
-  const { data, error } = result as { data: Spot | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Update a spot
- */
-export const updateSpot = async (spotId: string, updates: Partial<Spot>): Promise<DbResponse<Spot>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('spots')
-    .update(updates)
-    .eq('id', spotId)
-    .eq('creator_id', user.id)
-    .select(`
-      *,
-      creator:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .single();
-
-  const { data, error } = result as { data: Spot | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Delete a spot
- */
-export const deleteSpot = async (spotId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('spots')
-    .delete()
-    .eq('id', spotId)
-    .eq('creator_id', user.id);
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
-};
-
-// ============================================
-// SPOT SAVES (Bookmarks)
-// ============================================
-
-/**
- * Save a spot
- */
-export const saveSpot = async (spotId: string): Promise<DbResponse<{ id: string }>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('spot_saves')
-    .insert({
-      user_id: user.id,
-      spot_id: spotId
-    })
-    .select('id')
-    .single();
-
-  const { data, error } = result as { data: { id: string } | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Unsave a spot
- */
-export const unsaveSpot = async (spotId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('spot_saves')
-    .delete()
-    .match({
-      user_id: user.id,
-      spot_id: spotId
+  try {
+    const result = await awsAPI.request<Spot>('/spots', {
+      method: 'POST',
+      body: spotData,
     });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
-
-/**
- * Check if current user saved a spot
- */
-export const hasSavedSpot = async (spotId: string): Promise<{ saved: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { saved: false };
-
-  const result = await supabase
-    .from('spot_saves')
-    .select('id')
-    .match({
-      user_id: user.id,
-      spot_id: spotId
-    })
-    .single();
-
-  const { data } = result as { data: { id: string } | null };
-  return { saved: !!data };
-};
-
-/**
- * Get user's saved spots
- */
-export const getSavedSpots = async (page = 0, limit = 20): Promise<DbResponse<Spot[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('spot_saves')
-    .select(`
-      spot:spots(
-        *,
-        creator:profiles(id, username, full_name, avatar_url, is_verified)
-      )
-    `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Array<{ spot: Spot }> | null; error: { message: string } | null };
-  return { data: data?.map(d => d.spot) || null, error: error?.message || null };
-};
-
-// ============================================
-// SPOT REVIEWS
-// ============================================
 
 /**
  * Get reviews for a spot
  */
 export const getSpotReviews = async (spotId: string, page = 0, limit = 20): Promise<DbResponse<SpotReview[]>> => {
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('spot_reviews')
-    .select(`
-      *,
-      user:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('spot_id', spotId)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: SpotReview[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
+  try {
+    const result = await awsAPI.request<{ data: SpotReview[] }>(`/spots/${spotId}/reviews?page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
 };
 
 /**
@@ -2130,623 +1224,51 @@ export const addSpotReview = async (
   spotId: string,
   rating: number,
   comment?: string,
-  images?: string[]
+  photos?: string[]
 ): Promise<DbResponse<SpotReview>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  const result = await supabase
-    .from('spot_reviews')
-    .insert({
-      user_id: user.id,
-      spot_id: spotId,
-      rating,
-      comment,
-      images
-    })
-    .select(`
-      *,
-      user:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .single();
-
-  const { data, error } = result as { data: SpotReview | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Update a review
- */
-export const updateSpotReview = async (
-  spotId: string,
-  updates: { rating?: number; comment?: string; images?: string[] }
-): Promise<DbResponse<SpotReview>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('spot_reviews')
-    .update(updates)
-    .match({
-      user_id: user.id,
-      spot_id: spotId
-    })
-    .select(`
-      *,
-      user:profiles(id, username, full_name, avatar_url, is_verified)
-    `)
-    .single();
-
-  const { data, error } = result as { data: SpotReview | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Delete a review
- */
-export const deleteSpotReview = async (spotId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('spot_reviews')
-    .delete()
-    .match({
-      user_id: user.id,
-      spot_id: spotId
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
-};
-
-// ============================================
-// BLOCKED USERS
-// ============================================
-
-export interface BlockedUser {
-  id: string;
-  user_id: string;
-  blocked_user_id: string;
-  created_at: string;
-  blocked_user?: Profile;
-}
-
-/**
- * Block a user
- */
-export const blockUser = async (userIdToBlock: string): Promise<DbResponse<BlockedUser>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('blocked_users')
-    .insert({
-      user_id: user.id,
-      blocked_user_id: userIdToBlock
-    })
-    .select()
-    .single();
-
-  const { data, error } = result as { data: BlockedUser | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Unblock a user
- */
-export const unblockUser = async (userIdToUnblock: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('blocked_users')
-    .delete()
-    .match({
-      user_id: user.id,
-      blocked_user_id: userIdToUnblock
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
-};
-
-/**
- * Check if current user has blocked a user
- */
-export const isUserBlocked = async (userId: string): Promise<{ blocked: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { blocked: false };
-
-  const result = await supabase
-    .from('blocked_users')
-    .select('id')
-    .match({
-      user_id: user.id,
-      blocked_user_id: userId
-    })
-    .single();
-
-  const { data } = result as { data: { id: string } | null };
-  return { blocked: !!data };
-};
-
-/**
- * Get all blocked users with their profiles
- */
-export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('blocked_users')
-    .select(`
-      *,
-      blocked_user:profiles!blocked_users_blocked_user_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  const { data, error } = result as { data: BlockedUser[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-// ============================================
-// MUTED USERS
-// ============================================
-
-export interface MutedUser {
-  id: string;
-  user_id: string;
-  muted_user_id: string;
-  created_at: string;
-  muted_user?: Profile;
-}
-
-/**
- * Mute a user
- */
-export const muteUser = async (userIdToMute: string): Promise<DbResponse<MutedUser>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('muted_users')
-    .insert({
-      user_id: user.id,
-      muted_user_id: userIdToMute
-    })
-    .select()
-    .single();
-
-  const { data, error } = result as { data: MutedUser | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-/**
- * Unmute a user
- */
-export const unmuteUser = async (userIdToUnmute: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('muted_users')
-    .delete()
-    .match({
-      user_id: user.id,
-      muted_user_id: userIdToUnmute
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
-};
-
-/**
- * Get all muted users with their profiles
- */
-export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('muted_users')
-    .select(`
-      *,
-      muted_user:profiles!muted_users_muted_user_id_fkey(id, username, full_name, avatar_url, is_verified)
-    `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  const { data, error } = result as { data: MutedUser[] | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
-};
-
-// ============================================
-// REPORTS
-// ============================================
-
-export type ReportType = 'post' | 'user' | 'comment' | 'message';
-export type ReportStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed';
-
-export interface Report {
-  id: string;
-  reporter_id: string;
-  reported_content_id?: string;
-  reported_user_id?: string;
-  report_type: ReportType;
-  reason: string;
-  details?: string;
-  status: ReportStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Report a post
- */
-export const reportPost = async (postId: string, reason: string, details?: string): Promise<DbResponse<Report>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('reports')
-    .insert({
-      reporter_id: user.id,
-      reported_content_id: postId,
-      report_type: 'post',
-      reason,
-      details
-    })
-    .select()
-    .single();
-
-  const { data, error } = result as { data: Report | null; error: { message: string } | null };
-
-  // Check for duplicate report error
-  if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
-    return { data: null, error: 'already_reported' };
-  }
-
-  return { data, error: error?.message || null };
-};
-
-/**
- * Report a user
- */
-export const reportUser = async (userId: string, reason: string, details?: string): Promise<DbResponse<Report>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('reports')
-    .insert({
-      reporter_id: user.id,
-      reported_user_id: userId,
-      report_type: 'user',
-      reason,
-      details
-    })
-    .select()
-    .single();
-
-  const { data, error } = result as { data: Report | null; error: { message: string } | null };
-
-  // Check for duplicate report error
-  if (error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
-    return { data: null, error: 'already_reported' };
-  }
-
-  return { data, error: error?.message || null };
-};
-
-/**
- * Check if user has already reported a post
- */
-export const hasReportedPost = async (postId: string): Promise<{ reported: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { reported: false };
-
-  const result = await supabase
-    .from('reports')
-    .select('id')
-    .match({
-      reporter_id: user.id,
-      reported_content_id: postId,
-      report_type: 'post'
-    })
-    .single();
-
-  const { data } = result as { data: { id: string } | null };
-  return { reported: !!data };
-};
-
-/**
- * Check if user has already reported a user
- */
-export const hasReportedUser = async (userId: string): Promise<{ reported: boolean }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { reported: false };
-
-  const result = await supabase
-    .from('reports')
-    .select('id')
-    .match({
-      reporter_id: user.id,
-      reported_user_id: userId,
-      report_type: 'user'
-    })
-    .single();
-
-  const { data } = result as { data: { id: string } | null };
-  return { reported: !!data };
-};
-
-// ============================================
-// MESSAGING
-// ============================================
-
-export interface Conversation {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  last_message_at: string;
-  last_message_preview?: string;
-  is_group: boolean;
-  group_name?: string;
-  group_avatar_url?: string;
-  participants?: ConversationParticipant[];
-  other_user?: Profile; // For direct conversations
-  unread_count?: number;
-}
-
-export interface ConversationParticipant {
-  id: string;
-  conversation_id: string;
-  user_id: string;
-  joined_at: string;
-  last_read_at?: string;
-  is_muted: boolean;
-  user?: Profile;
-}
-
-export interface Message {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content?: string;
-  media_url?: string;
-  media_type?: 'image' | 'video' | 'audio';
-  reply_to_id?: string;
-  shared_post_id?: string;
-  shared_post?: Post;
-  is_deleted: boolean;
-  created_at: string;
-  updated_at: string;
-  sender?: Profile;
-  reply_to?: Message;
-}
-
-/**
- * Get all conversations for current user
- */
-export const getConversations = async (): Promise<DbResponse<Conversation[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  // Get conversations where user is a participant
-  const result = await supabase
-    .from('conversation_participants')
-    .select(`
-      conversation:conversations(
-        id,
-        created_at,
-        updated_at,
-        last_message_at,
-        last_message_preview,
-        is_group,
-        group_name,
-        group_avatar_url
-      ),
-      last_read_at
-    `)
-    .eq('user_id', user.id)
-    .order('conversation(last_message_at)', { ascending: false });
-
-  const { data, error } = result as {
-    data: Array<{
-      conversation: Conversation;
-      last_read_at: string | null;
-    }> | null;
-    error: { message: string } | null;
-  };
-
-  if (error || !data) {
-    return { data: null, error: error?.message || null };
-  }
-
-  // Get other participants for each conversation
-  const conversations = await Promise.all(
-    data.map(async (item) => {
-      const conv = item.conversation;
-
-      // Get other participant for direct conversations
-      if (!conv.is_group) {
-        const { data: participants } = await supabase
-          .from('conversation_participants')
-          .select(`
-            user:profiles(id, username, full_name, avatar_url, is_verified, account_type)
-          `)
-          .eq('conversation_id', conv.id)
-          .neq('user_id', user.id)
-          .single();
-
-        if (participants?.user) {
-          conv.other_user = participants.user as Profile;
-        }
-      }
-
-      // Calculate unread count
-      const { count } = await supabase
-        .from('messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('conversation_id', conv.id)
-        .neq('sender_id', user.id)
-        .gt('created_at', item.last_read_at || '1970-01-01');
-
-      conv.unread_count = count || 0;
-
-      return conv;
-    })
-  );
-
-  return { data: conversations, error: null };
-};
-
-/**
- * Get or create a direct conversation with another user
- */
-export const getOrCreateConversation = async (otherUserId: string): Promise<DbResponse<string>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.error('[getOrCreateConversation] Not authenticated');
-    return { data: null, error: 'Not authenticated' };
-  }
-
-  if (!otherUserId) {
-    console.error('[getOrCreateConversation] No other user ID provided');
-    return { data: null, error: 'No user ID provided' };
-  }
-
-  console.log('[getOrCreateConversation] Creating conversation between', user.id, 'and', otherUserId);
-
-  // Try the RPC function first
-  const { data, error } = await supabase
-    .rpc('get_or_create_conversation', {
-      p_user_id: user.id,
-      p_other_user_id: otherUserId
-    });
-
-  if (error) {
-    console.error('[getOrCreateConversation] RPC error:', error.message, error.code, error.details);
-
-    // If RPC fails (e.g., function doesn't exist), try manual fallback
-    console.log('[getOrCreateConversation] Trying manual fallback...');
-    return getOrCreateConversationManual(user.id, otherUserId);
-  }
-
-  if (!data) {
-    console.error('[getOrCreateConversation] No conversation ID returned');
-    return { data: null, error: 'Failed to create conversation' };
-  }
-
-  console.log('[getOrCreateConversation] Success, conversation ID:', data);
-  return { data: data as string, error: null };
-};
-
-/**
- * Manual fallback for creating conversations if RPC doesn't exist
- */
-const getOrCreateConversationManual = async (currentUserId: string, otherUserId: string): Promise<DbResponse<string>> => {
   try {
-    // First, check if conversation already exists
-    const { data: existingParticipation, error: checkError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', currentUserId);
+    const result = await awsAPI.request<SpotReview>(`/spots/${spotId}/reviews`, {
+      method: 'POST',
+      body: { rating, comment, photos },
+    });
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
 
-    if (checkError) {
-      console.error('[getOrCreateConversationManual] Check error:', checkError.message);
-      return { data: null, error: checkError.message };
-    }
+// ============================================
+// MESSAGES
+// ============================================
 
-    // For each conversation the current user is in, check if other user is also there
-    if (existingParticipation && existingParticipation.length > 0) {
-      const conversationIds = existingParticipation.map(p => p.conversation_id);
+/**
+ * Get conversations for current user
+ */
+export const getConversations = async (limit = 20): Promise<DbResponse<any[]>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
 
-      const { data: sharedConversation, error: sharedError } = await supabase
-        .from('conversation_participants')
-        .select('conversation_id, conversations!inner(is_group)')
-        .eq('user_id', otherUserId)
-        .in('conversation_id', conversationIds)
-        .eq('conversations.is_group', false)
-        .limit(1)
-        .maybeSingle();
-
-      if (!sharedError && sharedConversation) {
-        console.log('[getOrCreateConversationManual] Found existing conversation:', sharedConversation.conversation_id);
-        return { data: sharedConversation.conversation_id, error: null };
-      }
-    }
-
-    // No existing conversation, create new one
-    console.log('[getOrCreateConversationManual] Creating new conversation...');
-
-    const { data: newConversation, error: createError } = await supabase
-      .from('conversations')
-      .insert({ is_group: false })
-      .select('id')
-      .single();
-
-    if (createError || !newConversation) {
-      console.error('[getOrCreateConversationManual] Create error:', createError?.message);
-      return { data: null, error: createError?.message || 'Failed to create conversation' };
-    }
-
-    // Add both participants
-    const { error: participantsError } = await supabase
-      .from('conversation_participants')
-      .insert([
-        { conversation_id: newConversation.id, user_id: currentUserId },
-        { conversation_id: newConversation.id, user_id: otherUserId }
-      ]);
-
-    if (participantsError) {
-      console.error('[getOrCreateConversationManual] Participants error:', participantsError.message);
-      // Clean up the conversation we created
-      await supabase.from('conversations').delete().eq('id', newConversation.id);
-      return { data: null, error: participantsError.message };
-    }
-
-    console.log('[getOrCreateConversationManual] Created conversation:', newConversation.id);
-    return { data: newConversation.id, error: null };
-  } catch (err) {
-    console.error('[getOrCreateConversationManual] Exception:', err);
-    return { data: null, error: 'An unexpected error occurred' };
+  try {
+    const result = await awsAPI.request<{ data: any[] }>(`/messages/conversations?limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
   }
 };
 
 /**
- * Get messages for a conversation
+ * Get messages in a conversation
  */
-export const getMessages = async (
-  conversationId: string,
-  page = 0,
-  limit = 50
-): Promise<DbResponse<Message[]>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
-  const from = page * limit;
-  const to = from + limit - 1;
-
-  const result = await supabase
-    .from('messages')
-    .select(`
-      *,
-      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-    `)
-    .eq('conversation_id', conversationId)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  const { data, error } = result as { data: Message[] | null; error: { message: string } | null };
-
-  // Reverse to get oldest first for display
-  const messages = data ? [...data].reverse() : null;
-
-  return { data: messages, error: error?.message || null };
+export const getMessages = async (conversationId: string, page = 0, limit = 50): Promise<DbResponse<Message[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Message[] }>(`/messages/conversations/${conversationId}?page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
 };
 
 /**
@@ -2756,239 +1278,573 @@ export const sendMessage = async (
   conversationId: string,
   content: string,
   mediaUrl?: string,
-  mediaType?: 'image' | 'video' | 'audio',
-  replyToId?: string,
-  sharedPostId?: string
+  mediaType?: 'image' | 'video' | 'voice' | 'audio'
 ): Promise<DbResponse<Message>> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.error('[sendMessage] Not authenticated');
-    return { data: null, error: 'Not authenticated' };
-  }
-
-  console.log('[sendMessage] Sending message:', { conversationId, content: content.substring(0, 50), userId: user.id });
-
-  const result = await supabase
-    .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content,
-      media_url: mediaUrl,
-      media_type: mediaType,
-      reply_to_id: replyToId,
-      shared_post_id: sharedPostId
-    })
-    .select(`
-      *,
-      sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-    `)
-    .single();
-
-  const { data, error } = result as { data: Message | null; error: { message: string; code?: string; details?: string; hint?: string } | null };
-
-  if (error) {
-    console.error('[sendMessage] Error:', JSON.stringify(error, null, 2));
-  }
-
-  return { data, error: error?.message || null };
-};
-
-/**
- * Upload voice message to storage
- */
-export const uploadVoiceMessage = async (
-  uri: string,
-  conversationId: string
-): Promise<DbResponse<string>> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    // Create unique file name
-    const fileName = `${conversationId}/${user.id}_${Date.now()}.m4a`;
+    const result = await awsAPI.request<Message>('/messages', {
+      method: 'POST',
+      body: { conversationId, content, mediaUrl, mediaType },
+    });
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
 
-    // Read file as blob
-    const response = await fetch(uri);
-    const blob = await response.blob();
+// ============================================
+// REPORTS
+// ============================================
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('voice-messages')
-      .upload(fileName, blob, {
-        contentType: 'audio/m4a',
-        upsert: false
-      });
+/**
+ * Report a post
+ */
+export const reportPost = async (postId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
 
-    if (error) {
-      return { data: null, error: error.message };
+  try {
+    const result = await awsAPI.request<{ id: string }>('/reports/post', {
+      method: 'POST',
+      body: { postId, reason, details },
+    });
+    return { data: result, error: null };
+  } catch (error: any) {
+    if (error.message?.includes('already')) {
+      return { data: null, error: 'already_reported' };
     }
+    return { data: null, error: error.message };
+  }
+};
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('voice-messages')
-      .getPublicUrl(fileName);
+/**
+ * Report a user
+ */
+export const reportUser = async (userId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
 
-    return { data: urlData.publicUrl, error: null };
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Upload failed';
-    return { data: null, error: errorMessage };
+  try {
+    const result = await awsAPI.request<{ id: string }>('/reports/user', {
+      method: 'POST',
+      body: { userId, reason, details },
+    });
+    return { data: result, error: null };
+  } catch (error: any) {
+    if (error.message?.includes('already')) {
+      return { data: null, error: 'already_reported' };
+    }
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Block a user
+ */
+export const blockUser = async (userId: string): Promise<{ data: BlockedUser | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<BlockedUser>(`/profiles/${userId}/block`, { method: 'POST' });
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Unblock a user
+ */
+export const unblockUser = async (userId: string): Promise<{ data: { success: boolean } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    await awsAPI.request(`/profiles/${userId}/unblock`, { method: 'POST' });
+    return { data: { success: true }, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Get blocked users
+ */
+export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ data: BlockedUser[] }>('/profiles/blocked');
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+// ============================================
+// ADDITIONAL TYPES
+// ============================================
+
+export interface BlockedUser {
+  id: string;
+  blocked_user_id: string;
+  blocked_at: string;
+  blocked_user: Profile;
+}
+
+export interface MutedUser {
+  id: string;
+  muted_user_id: string;
+  muted_at: string;
+  muted_user: Profile;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  media_url?: string;
+  media_type?: 'image' | 'video' | 'voice' | 'audio';
+  shared_post_id?: string;
+  is_deleted?: boolean;
+  created_at: string;
+  read_at?: string;
+  sender?: Profile;
+}
+
+export interface Conversation {
+  id: string;
+  participant_ids: string[];
+  last_message?: Message;
+  last_message_at?: string;
+  last_message_preview?: string;
+  updated_at: string;
+  unread_count: number;
+  participants?: Profile[];
+  other_user?: Profile;
+}
+
+// ============================================
+// MUTE FUNCTIONS
+// ============================================
+
+/**
+ * Mute a user
+ */
+export const muteUser = async (userId: string): Promise<{ data: MutedUser | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<MutedUser>(`/profiles/${userId}/mute`, { method: 'POST' });
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Unmute a user
+ */
+export const unmuteUser = async (userId: string): Promise<{ data: { success: boolean } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    await awsAPI.request(`/profiles/${userId}/unmute`, { method: 'POST' });
+    return { data: { success: true }, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Get muted users
+ */
+export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ data: MutedUser[] }>('/profiles/muted');
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+// ============================================
+// FOLLOW REQUESTS
+// ============================================
+
+/**
+ * Get pending follow requests
+ */
+export const getPendingFollowRequests = async (): Promise<DbResponse<FollowRequest[]>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ data: FollowRequest[] }>('/follows/requests/pending');
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+/**
+ * Accept a follow request
+ */
+export const acceptFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/follows/requests/${requestId}/accept`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Decline a follow request
+ */
+export const declineFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/follows/requests/${requestId}/decline`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Get pending follow requests count
+ */
+export const getPendingFollowRequestsCount = async (): Promise<number> => {
+  try {
+    const result = await awsAPI.request<{ count: number }>('/follows/requests/count');
+    return result.count;
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Check if there's a pending follow request to a user
+ */
+export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ pending: boolean; hasPending: boolean }> => {
+  try {
+    const result = await awsAPI.request<{ hasPending: boolean }>(`/follows/requests/pending/${targetUserId}`);
+    return { pending: result.hasPending, hasPending: result.hasPending };
+  } catch {
+    return { pending: false, hasPending: false };
+  }
+};
+
+/**
+ * Cancel a follow request
+ */
+export const cancelFollowRequest = async (targetUserId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/follows/requests/${targetUserId}/cancel`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+// ============================================
+// REPORT CHECKS
+// ============================================
+
+/**
+ * Check if current user has reported a post
+ */
+export const hasReportedPost = async (postId: string): Promise<{ reported: boolean; hasReported: boolean }> => {
+  try {
+    const result = await awsAPI.request<{ hasReported: boolean }>(`/posts/${postId}/reported`);
+    return { reported: result.hasReported, hasReported: result.hasReported };
+  } catch {
+    return { reported: false, hasReported: false };
+  }
+};
+
+/**
+ * Check if current user has reported a user
+ */
+export const hasReportedUser = async (userId: string): Promise<{ reported: boolean; hasReported: boolean }> => {
+  try {
+    const result = await awsAPI.request<{ hasReported: boolean }>(`/profiles/${userId}/reported`);
+    return { reported: result.hasReported, hasReported: result.hasReported };
+  } catch {
+    return { reported: false, hasReported: false };
+  }
+};
+
+// ============================================
+// INTERESTS
+// ============================================
+
+/**
+ * Save user interests
+ */
+export const saveUserInterests = async (interests: string[]): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.updateProfile({ interests } as any);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+// ============================================
+// COMMENTS (additional)
+// ============================================
+
+/**
+ * Get post comments (alias for getComments)
+ */
+export const getPostComments = getComments;
+
+// ============================================
+// SPOTS (additional functions)
+// ============================================
+
+/**
+ * Get all spots
+ */
+export const getSpots = async (page = 0, limit = 50): Promise<DbResponse<Spot[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Spot[] }>(`/spots?page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+/**
+ * Get spots by creator
+ */
+export const getSpotsByCreator = async (creatorId: string, page = 0, limit = 50): Promise<DbResponse<Spot[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Spot[] }>(`/spots?creatorId=${creatorId}&page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+/**
+ * Get spots by category
+ */
+export const getSpotsByCategory = async (category: string, page = 0, limit = 50): Promise<DbResponse<Spot[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Spot[] }>(`/spots?category=${encodeURIComponent(category)}&page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+/**
+ * Get spots by sport type
+ */
+export const getSpotsBySportType = async (sportType: string, page = 0, limit = 50): Promise<DbResponse<Spot[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Spot[] }>(`/spots?sportType=${encodeURIComponent(sportType)}&page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+/**
+ * Find nearby spots
+ */
+export const findNearbySpots = getSpotsNearLocation;
+
+/**
+ * Update a spot
+ */
+export const updateSpot = async (spotId: string, updates: Partial<Spot>): Promise<DbResponse<Spot>> => {
+  try {
+    const result = await awsAPI.request<Spot>(`/spots/${spotId}`, {
+      method: 'PATCH',
+      body: updates,
+    });
+    return { data: result, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Delete a spot
+ */
+export const deleteSpot = async (spotId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/spots/${spotId}`, { method: 'DELETE' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Check if user has saved a spot
+ */
+export const hasSavedSpot = async (spotId: string): Promise<{ saved: boolean }> => {
+  try {
+    const result = await awsAPI.request<{ saved: boolean }>(`/spots/${spotId}/saved`);
+    return { saved: result.saved };
+  } catch {
+    return { saved: false };
+  }
+};
+
+/**
+ * Get saved spots
+ */
+export const getSavedSpots = async (page = 0, limit = 50): Promise<DbResponse<Spot[]>> => {
+  try {
+    const result = await awsAPI.request<{ data: Spot[] }>(`/spots/saved?page=${page}&limit=${limit}`);
+    return { data: result.data, error: null };
+  } catch (error: any) {
+    return { data: [], error: error.message };
+  }
+};
+
+/**
+ * Save a spot
+ */
+export const saveSpot = async (spotId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/spots/${spotId}/save`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Unsave a spot
+ */
+export const unsaveSpot = async (spotId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/spots/${spotId}/unsave`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+/**
+ * Delete a spot review
+ */
+export const deleteSpotReview = async (reviewId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request(`/spots/reviews/${reviewId}`, { method: 'DELETE' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
+
+// ============================================
+// MESSAGES (additional functions)
+// ============================================
+
+/**
+ * Get or create a conversation with a user
+ * Returns the conversation ID as a string
+ */
+export const getOrCreateConversation = async (otherUserId: string): Promise<DbResponse<string>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<Conversation>('/messages/conversations', {
+      method: 'POST',
+      body: { participantId: otherUserId },
+    });
+    return { data: result.id, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
   }
 };
 
 /**
  * Share a post to a conversation
  */
-export const sharePostToConversation = async (
-  postId: string,
-  userId: string
-): Promise<DbResponse<Message>> => {
-  // First get or create conversation with the user
-  const { data: convId, error: convError } = await getOrCreateConversation(userId);
-  if (convError || !convId) {
-    return { data: null, error: convError || 'Failed to create conversation' };
+export const sharePostToConversation = async (postId: string, conversationId: string): Promise<{ error: string | null }> => {
+  try {
+    await awsAPI.request('/messages/share', {
+      method: 'POST',
+      body: { postId, conversationId },
+    });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
   }
-
-  // Send message with shared post
-  return sendMessage(convId, '', undefined, undefined, undefined, postId);
-};
-
-/**
- * Get post by ID (for shared post preview)
- */
-export const getPostById = async (postId: string): Promise<DbResponse<Post>> => {
-  const result = await supabase
-    .from('posts')
-    .select(`
-      *,
-      author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, is_verified, account_type)
-    `)
-    .eq('id', postId)
-    .single();
-
-  const { data, error } = result as { data: Post | null; error: { message: string } | null };
-  return { data, error: error?.message || null };
 };
 
 /**
  * Mark conversation as read
  */
 export const markConversationAsRead = async (conversationId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('conversation_participants')
-    .update({ last_read_at: new Date().toISOString() })
-    .match({
-      conversation_id: conversationId,
-      user_id: user.id
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
-};
-
-/**
- * Delete a message (soft delete)
- */
-export const deleteMessage = async (messageId: string): Promise<{ error: string | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const result = await supabase
-    .from('messages')
-    .update({ is_deleted: true, content: null, media_url: null })
-    .match({
-      id: messageId,
-      sender_id: user.id
-    });
-
-  const { error } = result as { error: { message: string } | null };
-  return { error: error?.message || null };
-};
-
-/**
- * Get total unread messages count
- */
-export const getUnreadMessagesCount = async (): Promise<{ count: number }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { count: 0 };
-
-  const { data, error } = await supabase
-    .rpc('get_unread_messages_count', {
-      p_user_id: user.id
-    });
-
-  if (error) {
-    return { count: 0 };
+  try {
+    await awsAPI.request(`/messages/conversations/${conversationId}/read`, { method: 'POST' });
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
   }
-
-  return { count: data as number };
 };
 
 /**
- * Subscribe to new messages in a conversation (real-time)
+ * Upload a voice message
+ */
+export const uploadVoiceMessage = async (audioUri: string, conversationId: string): Promise<DbResponse<string>> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    // Upload the voice file to S3 and get the URL
+    const result = await awsAPI.request<{ url: string }>('/media/upload-voice', {
+      method: 'POST',
+      body: { audioUri, conversationId },
+    });
+    return { data: result.url, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Subscribe to messages (real-time - returns unsubscribe function)
+ * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
  */
 export const subscribeToMessages = (
   conversationId: string,
-  onMessage: (message: Message) => void
-) => {
-  const channel = supabase
-    .channel(`messages:${conversationId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${conversationId}`
-      },
-      async (payload) => {
-        // Fetch the full message with sender info
-        const { data } = await supabase
-          .from('messages')
-          .select(`
-            *,
-            sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, is_verified)
-          `)
-          .eq('id', payload.new.id)
-          .single();
-
-        if (data) {
-          onMessage(data as Message);
-        }
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  callback: (message: Message) => void
+): (() => void) => {
+  // Real-time subscriptions would need WebSocket implementation
+  // For now, return a no-op unsubscribe function
+  console.log('[Database] subscribeToMessages called - WebSocket not implemented');
+  return () => {};
 };
 
 /**
- * Subscribe to conversation updates (real-time)
+ * Subscribe to conversations (real-time - returns unsubscribe function)
+ * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
  */
 export const subscribeToConversations = (
-  onUpdate: () => void
-) => {
-  const channel = supabase
-    .channel('conversations_updates')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'conversations'
-      },
-      () => {
-        onUpdate();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  callback: (conversations: Conversation[]) => void
+): (() => void) => {
+  // Real-time subscriptions would need WebSocket implementation
+  console.log('[Database] subscribeToConversations called - WebSocket not implemented');
+  return () => {}
 };

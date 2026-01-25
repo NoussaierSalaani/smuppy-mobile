@@ -7,8 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
-import { ENV } from '../../config/env';
-import { supabase } from '../../config/supabase';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { createProfile } from '../../services/database';
 import { uploadProfileImage } from '../../services/imageUpload';
@@ -18,6 +16,8 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import * as backend from '../../services/backend';
+import { awsAuth } from '../../services/aws-auth';
 
 const CODE_LENGTH = 6;
 
@@ -105,7 +105,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     }
   }, []);
 
-  // Create account and send OTP
+  // Create account and send OTP using AWS Cognito
   const createAccountAndSendOTP = useCallback(async () => {
     if (accountCreated || isCreatingRef.current) return;
 
@@ -114,58 +114,53 @@ export default function VerifyCodeScreen({ navigation, route }) {
     setError('');
 
     try {
-      const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/auth-signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ENV.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email, password }),
+      // Use backend service which routes to AWS Cognito
+      const result = await backend.signUp({
+        email,
+        password,
+        username: username || email.split('@')[0],
+        fullName: name,
       });
 
-      if (!response.ok) {
-        const responseText = await response.text();
-
-        if (response.status === 429) {
-          setError('Too many attempts. Please wait a few minutes.');
-          return;
-        }
-
-        // Try to parse as JSON
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch {
-          errorData = null;
-        }
-
-        // Check for 409 errors (deleted account)
-        if (response.status === 409 && errorData?.error === 'account_deleted') {
-          setError(`This email belongs to a deleted account. Please wait ${errorData.days_remaining} days or use a different email.`);
-          return;
-        }
-
-        // Check for 400 errors (invalid credentials)
-        if (response.status === 400 && errorData?.error === 'Invalid credentials') {
-          setError('Unable to create account. Please try a different email or login if you already have an account.');
-          return;
-        }
-
-        // Other errors - show generic message
+      if (result.confirmationRequired) {
+        // Account created, confirmation code sent
+        setAccountCreated(true);
+      } else if (result.user) {
+        // Account created and confirmed (auto-confirm enabled in Cognito)
+        setAccountCreated(true);
+      } else {
         setError('Unable to create account. Please try again.');
-        return;
       }
-
-      setAccountCreated(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[VerifyCode] Create account error:', err);
-      setError('Connection error. Please check your internet and try again.');
+      console.error('[VerifyCode] Error name:', err?.name);
+      console.error('[VerifyCode] Error message:', err?.message);
+      console.error('[VerifyCode] Error code:', err?.code);
+      console.error('[VerifyCode] Full error:', JSON.stringify(err, null, 2));
+
+      // Handle Cognito-specific errors
+      const errorMessage = err?.message || '';
+      const errorName = err?.name || '';
+
+      if (errorMessage.includes('UsernameExistsException') || errorName === 'UsernameExistsException' || errorMessage.includes('already exists')) {
+        setError('An account with this email already exists. Please login instead.');
+      } else if (errorMessage.includes('InvalidParameterException') || errorName === 'InvalidParameterException') {
+        setError('Invalid email or password format. Please check and try again.');
+      } else if (errorMessage.includes('InvalidPasswordException') || errorName === 'InvalidPasswordException') {
+        setError('Password must be at least 8 characters with uppercase, lowercase, and numbers.');
+      } else if (errorMessage.includes('TooManyRequestsException') || errorMessage.includes('rate')) {
+        setError('Too many attempts. Please wait a few minutes.');
+      } else if (errorMessage.includes('NetworkError') || errorMessage.includes('Network request failed')) {
+        setError('Network error. Please check your internet connection.');
+      } else {
+        // Show the actual error for debugging
+        setError(`Error: ${errorMessage || errorName || 'Unknown error. Please try again.'}`);
+      }
     } finally {
       isCreatingRef.current = false;
       setIsCreatingAccount(false);
     }
-  }, [email, password, accountCreated]);
+  }, [email, password, username, name, accountCreated]);
 
   // Create account on mount
   useEffect(() => {
@@ -179,58 +174,20 @@ export default function VerifyCodeScreen({ navigation, route }) {
     }
   }, [email, password, accountCreated, createAccountAndSendOTP]);
 
-  // Verify code and create profile
+  // Verify code and create profile using AWS Cognito
   const verifyCode = useCallback(async (fullCode) => {
     setIsVerifying(true);
     setError('');
     Keyboard.dismiss();
 
     try {
-      // IMPORTANT: Set flag BEFORE verifyOtp because verifyOtp triggers onAuthStateChange
-      // This ensures AppNavigator sees the flag when session is created
+      // IMPORTANT: Set flag BEFORE confirmation
       await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
 
-      // Step 1: Verify OTP - try 'email' type first (for generateLink), then 'signup'
-      let data, verifyError;
+      // Step 1: Confirm signup with AWS Cognito
+      const confirmed = await awsAuth.confirmSignUp(email, fullCode);
 
-      // Try with type 'email' first (works with generateLink)
-      const result1 = await supabase.auth.verifyOtp({
-        email,
-        token: fullCode,
-        type: 'email',
-      });
-
-      if (result1.error) {
-        // Fallback to 'signup' type
-        const result2 = await supabase.auth.verifyOtp({
-          email,
-          token: fullCode,
-          type: 'signup',
-        });
-        data = result2.data;
-        verifyError = result2.error;
-      } else {
-        data = result1.data;
-        verifyError = result1.error;
-      }
-
-      if (verifyError) {
-        // Clear flag since verification failed
-        await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
-        if (verifyError.message.includes('expired')) {
-          setError('Code expired. Please request a new one.');
-        } else if (verifyError.message.includes('invalid')) {
-          setError('Invalid verification code. Please try again.');
-        } else {
-          setError(verifyError.message || 'Verification failed. Please try again.');
-        }
-        triggerShake();
-        clearCode(true);
-        return;
-      }
-
-      if (!data?.user) {
-        // Clear flag since verification failed
+      if (!confirmed) {
         await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Verification failed. Please try again.');
         triggerShake();
@@ -238,16 +195,26 @@ export default function VerifyCodeScreen({ navigation, route }) {
         return;
       }
 
-      // Step 2: Upload profile image if exists
+      // Step 2: Sign in after confirmation to get session
+      const user = await backend.signIn({ email, password });
+
+      if (!user) {
+        await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
+        setError('Account verified but login failed. Please try logging in manually.');
+        triggerShake();
+        return;
+      }
+
+      // Step 3: Upload profile image if exists
       let avatarUrl: string | null = null;
-      if (profileImage && data.user?.id) {
-        const { url, error: uploadError } = await uploadProfileImage(profileImage, data.user.id);
+      if (profileImage && user.id) {
+        const { url, error: uploadError } = await uploadProfileImage(profileImage, user.id);
         if (!uploadError && url) {
           avatarUrl = url;
         }
       }
 
-      // Step 3: Create profile with all onboarding data
+      // Step 4: Create profile with all onboarding data
       const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       const profileData: Record<string, unknown> = {
         full_name: name || generatedUsername,
@@ -287,9 +254,9 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
       await createProfile(profileData);
 
-      // Step 4: Populate UserContext with onboarding data
+      // Step 5: Populate UserContext with onboarding data
       const userData = {
-        id: data.user?.id,
+        id: user.id,
         fullName: name || generatedUsername,
         displayName: displayName || name || generatedUsername,
         email,
@@ -311,36 +278,37 @@ export default function VerifyCodeScreen({ navigation, route }) {
       };
       await updateUserContext(userData);
 
-      // Step 4b: Sync to Zustand store for unified state management
+      // Step 5b: Sync to Zustand store for unified state management
       setZustandUser(userData);
 
-      // Step 5: Handle session persistence based on rememberMe
+      // Step 6: Handle session persistence based on rememberMe
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
-      if (rememberMe && data.session) {
-        await storage.set(STORAGE_KEYS.ACCESS_TOKEN, data.session.access_token);
-        await storage.set(STORAGE_KEYS.REFRESH_TOKEN, data.session.refresh_token);
-      } else {
-        // Clear any previously stored tokens
-        await storage.delete(STORAGE_KEYS.ACCESS_TOKEN);
-        await storage.delete(STORAGE_KEYS.REFRESH_TOKEN);
-      }
 
-      // Step 6: Navigate to Success
+      // Step 7: Navigate to Success
       navigation.reset({
         index: 0,
         routes: [{ name: 'Success', params: { name } }],
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('[VerifyCode] Verification error:', err);
-      // Clear flag since verification failed
       await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
-      setError('Connection error. Please check your internet and try again.');
+
+      const errorMessage = err?.message || '';
+
+      if (errorMessage.includes('expired') || errorMessage.includes('ExpiredCodeException')) {
+        setError('Code expired. Please request a new one.');
+      } else if (errorMessage.includes('invalid') || errorMessage.includes('CodeMismatchException')) {
+        setError('Invalid verification code. Please try again.');
+      } else {
+        setError('Verification failed. Please check your code and try again.');
+      }
       triggerShake();
+      clearCode(true);
     } finally {
       setIsVerifying(false);
     }
-  }, [email, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext, setZustandUser]);
+  }, [email, password, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext, setZustandUser]);
 
   // Handle code input
   const handleChange = useCallback((text, index) => {
@@ -374,7 +342,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
     setFocusedIndex(-1);
   }, []);
 
-  // Resend OTP
+  // Resend OTP using AWS Cognito
   const handleResend = useCallback(async () => {
     Keyboard.dismiss();
 
@@ -390,19 +358,19 @@ export default function VerifyCodeScreen({ navigation, route }) {
         return;
       }
 
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email,
-      });
+      // Use AWS Cognito to resend confirmation code
+      await awsAuth.resendConfirmationCode(email);
+      tryAction(() => clearCode(false));
+      setShowModal(true);
+    } catch (err: any) {
+      console.error('[VerifyCode] Resend error:', err);
+      const errorMessage = err?.message || '';
 
-      if (resendError) {
-        setError(resendError.message || 'Failed to resend code. Please try again.');
+      if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
+        setError('Too many attempts. Please wait a few minutes.');
       } else {
-        tryAction(() => clearCode(false));
-        setShowModal(true);
+        setError('Failed to resend code. Please try again.');
       }
-    } catch (err) {
-      setError('Connection error. Please try again.');
     }
   }, [canAction, tryAction, clearCode, setShowModal, email]);
 

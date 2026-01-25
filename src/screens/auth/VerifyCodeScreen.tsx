@@ -71,7 +71,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
   // All account types now have 4 steps
   const { currentStep, totalSteps } = useMemo(() => {
     return { currentStep: 4, totalSteps: 4 };
-  }, [accountType]);
+  }, []);
 
   // Animation shake
   const triggerShake = useCallback(() => {

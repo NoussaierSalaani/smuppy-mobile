@@ -43,7 +43,8 @@ Not allowed:
 - Detailed validation allowed at signup only.
 - Always clear tokens on logout.
 - Never store tokens manually in AsyncStorage.
-- Supabase RLS on all sensitive tables.
+- AWS Cognito for authentication.
+- API Gateway + WAF for rate limiting.
 
 ## 5) Output Format
 Every response must include:

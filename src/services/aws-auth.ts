@@ -119,20 +119,21 @@ class AWSAuthService {
   async signUp(params: SignUpParams): Promise<{ user: AuthUser | null; confirmationRequired: boolean }> {
     const { email, password, username, fullName } = params;
 
-    console.log('[AWS Auth] SignUp attempt:', { email, username });
+    console.log('[AWS Auth] SignUp attempt:', { email, username, hasPassword: !!password, passwordLength: password?.length });
 
     try {
+      // Only send email as required attribute
+      // name and preferred_username may not be configured in the User Pool
       const userAttributes = [
         { Name: 'email', Value: email },
       ];
 
+      // Only add name if provided (optional attribute)
       if (fullName) {
         userAttributes.push({ Name: 'name', Value: fullName });
       }
 
-      if (username) {
-        userAttributes.push({ Name: 'preferred_username', Value: username });
-      }
+      console.log('[AWS Auth] SignUp attributes:', userAttributes.map(a => a.Name));
 
       const command = new SignUpCommand({
         ClientId: CLIENT_ID,
@@ -157,6 +158,7 @@ class AWSAuthService {
       };
     } catch (error: any) {
       console.error('[AWS Auth] SignUp error:', error.name, error.message);
+      console.error('[AWS Auth] SignUp error details:', error.$metadata, error.code);
       throw error;
     }
   }

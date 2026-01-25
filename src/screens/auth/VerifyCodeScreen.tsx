@@ -135,8 +135,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
       console.error('[VerifyCode] Create account error:', err);
       console.error('[VerifyCode] Error name:', err?.name);
       console.error('[VerifyCode] Error message:', err?.message);
-      console.error('[VerifyCode] Error code:', err?.code);
-      console.error('[VerifyCode] Full error:', JSON.stringify(err, null, 2));
+      console.error('[VerifyCode] Params:', { email: !!email, password: !!password, passwordLength: password?.length, name: !!name });
 
       // Handle Cognito-specific errors
       const errorMessage = err?.message || '';
@@ -144,17 +143,24 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
       if (errorMessage.includes('UsernameExistsException') || errorName === 'UsernameExistsException' || errorMessage.includes('already exists')) {
         setError('An account with this email already exists. Please login instead.');
-      } else if (errorMessage.includes('InvalidParameterException') || errorName === 'InvalidParameterException') {
-        setError('Invalid email or password format. Please check and try again.');
-      } else if (errorMessage.includes('InvalidPasswordException') || errorName === 'InvalidPasswordException') {
-        setError('Password must be at least 8 characters with uppercase, lowercase, and numbers.');
+      } else if (errorName === 'InvalidPasswordException' || errorMessage.includes('InvalidPasswordException') || errorMessage.includes('Password did not conform')) {
+        setError('Password must be at least 8 characters with uppercase, lowercase, numbers, and a special character.');
+      } else if (errorName === 'InvalidParameterException' || errorMessage.includes('InvalidParameterException')) {
+        // Show the actual Cognito error for better debugging
+        if (errorMessage.includes('password')) {
+          setError('Password must be at least 8 characters with uppercase, lowercase, numbers, and a special character.');
+        } else if (errorMessage.includes('email')) {
+          setError('Please enter a valid email address.');
+        } else {
+          setError(errorMessage || 'Invalid input. Please check your information.');
+        }
       } else if (errorMessage.includes('TooManyRequestsException') || errorMessage.includes('rate')) {
         setError('Too many attempts. Please wait a few minutes.');
       } else if (errorMessage.includes('NetworkError') || errorMessage.includes('Network request failed')) {
         setError('Network error. Please check your internet connection.');
       } else {
         // Show the actual error for debugging
-        setError(`Error: ${errorMessage || errorName || 'Unknown error. Please try again.'}`);
+        setError(errorMessage || errorName || 'Unknown error. Please try again.');
       }
     } finally {
       isCreatingRef.current = false;

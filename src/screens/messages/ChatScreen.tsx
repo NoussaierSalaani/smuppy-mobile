@@ -78,16 +78,30 @@ export default function ChatScreen({ route, navigation }) {
     getCurrentUserId().then(setCurrentUserId);
   }, []);
 
+  // Track initialization error
+  const [initError, setInitError] = useState<string | null>(null);
+
   // Load or create conversation
   useEffect(() => {
     const initConversation = async () => {
+      setInitError(null);
       if (initialConversationId) {
         setConversationId(initialConversationId);
       } else if (userId) {
         const { data, error } = await getOrCreateConversation(userId);
-        if (!error && data) {
+        if (error) {
+          console.error('[ChatScreen] Failed to create conversation:', error);
+          setInitError(error);
+          setLoading(false);
+        } else if (data) {
           setConversationId(data);
+        } else {
+          setInitError('Failed to initialize conversation');
+          setLoading(false);
         }
+      } else {
+        setInitError('No conversation or user specified');
+        setLoading(false);
       }
     };
     initConversation();
@@ -246,6 +260,46 @@ export default function ChatScreen({ route, navigation }) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  // Show error state if initialization failed
+  if (initError && !conversationId) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          </TouchableOpacity>
+          <Text style={styles.headerName}>Error</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.centered}>
+          <Ionicons name="alert-circle-outline" size={64} color={COLORS.gray} />
+          <Text style={styles.errorTitle}>Unable to start conversation</Text>
+          <Text style={styles.errorMessage}>{initError}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              setLoading(true);
+              setInitError(null);
+              // Re-trigger the effect by clearing and setting userId
+              if (userId) {
+                getOrCreateConversation(userId).then(({ data, error }) => {
+                  if (error) {
+                    setInitError(error);
+                    setLoading(false);
+                  } else if (data) {
+                    setConversationId(data);
+                  }
+                });
+              }
+            }}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -464,7 +518,11 @@ export default function ChatScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
+  errorTitle: { fontSize: 18, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.md, textAlign: 'center' },
+  errorMessage: { fontSize: 14, color: COLORS.gray, marginTop: SPACING.sm, textAlign: 'center' },
+  retryButton: { marginTop: SPACING.lg, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
+  retryButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   backButton: { padding: 4 },
   userInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.sm },

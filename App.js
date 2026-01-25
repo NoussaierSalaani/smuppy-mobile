@@ -19,6 +19,9 @@ import { useUserStore, useAppStore } from './src/stores';
 // Push Notifications
 import { initializeNotifications, registerPushToken, clearBadge } from './src/services/notifications';
 
+// Backend Services
+import { initializeBackend, isUsingAWS } from './src/services/backend';
+
 // UI Components
 import OfflineBanner from './src/components/OfflineBanner';
 
@@ -139,6 +142,12 @@ export default function App() {
 
         await rateLimiter.init();
         await initializeNotifications();
+
+        // Initialize backend (loads AWS/Supabase preference)
+        await initializeBackend();
+        if (__DEV__) {
+          console.log(`[Backend] Using ${isUsingAWS() ? 'AWS' : 'Supabase'} backend`);
+        }
       } catch (error) {
         console.error('Error initializing app:', error);
       } finally {

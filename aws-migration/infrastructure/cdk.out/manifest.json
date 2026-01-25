@@ -1,0 +1,1800 @@
+{
+  "version": "48.0.0",
+  "artifacts": {
+    "SmuppyStack-staging.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "SmuppyStack-staging.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "SmuppyStack-staging": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://471112656108/us-east-1",
+      "properties": {
+        "templateFile": "SmuppyStack-staging.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "Component": "Core",
+          "Environment": "staging",
+          "ManagedBy": "CDK",
+          "Project": "Smuppy"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::471112656108:role/cdk-hnb659fds-deploy-role-471112656108-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::471112656108:role/cdk-hnb659fds-cfn-exec-role-471112656108-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-471112656108-us-east-1/80ba67c300026bc12276240194fd6e6db156191353f4b6ea07cf0de228a30f06.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "SmuppyStack-staging.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::471112656108:role/cdk-hnb659fds-lookup-role-471112656108-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "SmuppyStack-staging.assets"
+      ],
+      "metadata": {
+        "/SmuppyStack-staging": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "Component",
+                "Value": "Core"
+              },
+              {
+                "Key": "Environment",
+                "Value": "staging"
+              },
+              {
+                "Key": "ManagedBy",
+                "Value": "CDK"
+              },
+              {
+                "Key": "Project",
+                "Value": "Smuppy"
+              }
+            ]
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCC8507FB3"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet1Subnet9EB0C3AC"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet1RouteTableF94DAA55"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet1RouteTableAssociationE967412A"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet1DefaultRouteC1A2282E"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet1/EIP": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet1EIP387FD4F5"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet1/NATGateway": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet1NATGateway165598A0"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet2Subnet669010A6"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet2RouteTable0576E3F9"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet2RouteTableAssociation71B60D65"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet2DefaultRoute571BB26B"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet3/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet3SubnetF2765776"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet3/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet3RouteTableDD80D8EF"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet3/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet3RouteTableAssociation280A46C0"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PublicSubnet3/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPublicSubnet3DefaultRoute55B0D31F"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet1SubnetF3794B16"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet1RouteTable18CD344C"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet1RouteTableAssociation17F7923B"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet1DefaultRoute2654E080"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet2Subnet89020D78"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet2RouteTableF256A16E"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet2RouteTableAssociationA112B25A"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet2DefaultRoute263D8447"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet3/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet3Subnet315EB7E7"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet3/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet3RouteTable323B23FF"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet3/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet3RouteTableAssociation73AA0862"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/PrivateSubnet3/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCPrivateSubnet3DefaultRouteD61991EC"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet1SubnetC965E000"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet1RouteTableB4DC6E5F"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet1RouteTableAssociationBE7F27CF"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet2SubnetD76398DB"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet2RouteTable0A635D33"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet2RouteTableAssociationBE553008"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet3/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet3Subnet16F39602"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet3/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet3RouteTableFBBA5170"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IsolatedSubnet3/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIsolatedSubnet3RouteTableAssociationB902D683"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/IGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCIGWAFDBB158"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/VPCGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCVPCGWAE10E2C2"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/FlowLog/IAMRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCFlowLogIAMRoleEDF7E34F"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/FlowLog/IAMRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCFlowLogIAMRoleDefaultPolicyCEF335E0"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/FlowLog/LogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCFlowLogLogGroup8444842C"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyVPC/FlowLog/FlowLog": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyVPCFlowLog9549D885"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyUserPool/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyUserPoolB59D12A3"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyUserPoolClient/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyUserPoolClientA58AA0F4"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyIdentityPool": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyIdentityPool"
+          }
+        ],
+        "/SmuppyStack-staging/DBSecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DBSecurityGroupE3B245A3"
+          }
+        ],
+        "/SmuppyStack-staging/DBSecurityGroup/from SmuppyStackstagingLambdaSecurityGroup9D425EA4:5432": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DBSecurityGroupfromSmuppyStackstagingLambdaSecurityGroup9D425EA45432449B6333"
+          }
+        ],
+        "/SmuppyStack-staging/LambdaSecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaSecurityGroup0BD9FC99"
+          }
+        ],
+        "/SmuppyStack-staging/DBCredentials/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DBCredentialsCBF39AE9"
+          }
+        ],
+        "/SmuppyStack-staging/DBCredentials/Attachment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DBCredentialsAttachment5F5381AF"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyDatabase": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "Performance Insights is enabled on cluster 'SmuppyDatabase' at cluster level, but disabled for instance 'writer'. However, Performance Insights for this instance will also be automatically enabled if enabled at cluster level. [ack: @aws-cdk/aws-rds:instancePerformanceInsightsOverridden]",
+            "trace": [
+              "Annotations.addMessage (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:2066)",
+              "Annotations.addWarningV2 (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:984)",
+              "validatePerformanceInsightsSettings (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/aws-rds/lib/cluster.js:5:21179)",
+              "WrappedClass.validateClusterInstances (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/aws-rds/lib/cluster.js:1:16648)",
+              "WrappedClass._createInstances (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/aws-rds/lib/cluster.js:1:16421)",
+              "new DatabaseCluster2 (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/aws-rds/lib/cluster.js:5:10953)",
+              "new DatabaseCluster2 (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/node_modules/aws-cdk-lib/core/lib/prop-injectable.js:1:681)",
+              "new SmuppyStack (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/lib/smuppy-stack.ts:172:23)",
+              "Object.<anonymous> (/Users/noussaier/smuppy-mobile/aws-migration/infrastructure/bin/app.ts:21:19)",
+              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
+              "Module.m._compile (/Users/noussaier/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/index.ts:1618:23)",
+              "Module._extensions..js (node:internal/modules/cjs/loader:1892:10)",
+              "Object.require.extensions.<computed> [as .ts] (/Users/noussaier/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/index.ts:1621:12)",
+              "Module.load (node:internal/modules/cjs/loader:1480:32)",
+              "Module._load (node:internal/modules/cjs/loader:1299:12)",
+              "TracingChannel.traceSync (node:diagnostics_channel:328:14)",
+              "wrapModuleLoad (node:internal/modules/cjs/loader:245:24)",
+              "Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)",
+              "phase4 (/Users/noussaier/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/bin.ts:649:14)",
+              "bootstrap (/Users/noussaier/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/bin.ts:95:10)",
+              "main (/Users/noussaier/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/bin.ts:55:10)",
+              "Object.<anonymous> (/Users/noussaier/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/bin.ts:800:3)",
+              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
+              "Object.Module._extensions..js (node:internal/modules/cjs/loader:1892:10)",
+              "Module.load (node:internal/modules/cjs/loader:1480:32)",
+              "Module._load (node:internal/modules/cjs/loader:1299:12)",
+              "TracingChannel.traceSync (node:diagnostics_channel:328:14)",
+              "wrapModuleLoad (node:internal/modules/cjs/loader:245:24)",
+              "Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)",
+              "node:internal/main/run_main_module:33:47"
+            ]
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyDatabase/Subnets/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyDatabaseSubnets9036C03F"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyDatabase/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyDatabase28802365"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyDatabase/writer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyDatabasewriterD3ECC528"
+          }
+        ],
+        "/SmuppyStack-staging/RedisSecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RedisSecurityGroupB05951F6"
+          }
+        ],
+        "/SmuppyStack-staging/RedisSecurityGroup/from SmuppyStackstagingLambdaSecurityGroup9D425EA4:6379": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RedisSecurityGroupfromSmuppyStackstagingLambdaSecurityGroup9D425EA463799CF24625"
+          }
+        ],
+        "/SmuppyStack-staging/RedisSubnetGroup": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RedisSubnetGroup"
+          }
+        ],
+        "/SmuppyStack-staging/RedisCluster": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RedisCluster"
+          }
+        ],
+        "/SmuppyStack-staging/SharedLayer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SharedLayer27DFABF0"
+          }
+        ],
+        "/SmuppyStack-staging/PostsListFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsListFunctionServiceRole4F93E01C"
+          }
+        ],
+        "/SmuppyStack-staging/PostsListFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsListFunctionServiceRoleDefaultPolicyA7390DF5"
+          }
+        ],
+        "/SmuppyStack-staging/PostsListFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsListFunctionC67E5479"
+          }
+        ],
+        "/SmuppyStack-staging/PostsListFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsListFunctionLogRetentionD412ED12"
+          }
+        ],
+        "/SmuppyStack-staging/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+          }
+        ],
+        "/SmuppyStack-staging/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB"
+          }
+        ],
+        "/SmuppyStack-staging/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A"
+          }
+        ],
+        "/SmuppyStack-staging/PostsGetFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsGetFunctionServiceRoleDE50ED3A"
+          }
+        ],
+        "/SmuppyStack-staging/PostsGetFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsGetFunctionServiceRoleDefaultPolicyF80102F4"
+          }
+        ],
+        "/SmuppyStack-staging/PostsGetFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsGetFunction93CD6BC5"
+          }
+        ],
+        "/SmuppyStack-staging/PostsGetFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsGetFunctionLogRetention765E20EE"
+          }
+        ],
+        "/SmuppyStack-staging/PostsCreateFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsCreateFunctionServiceRoleC1D765CD"
+          }
+        ],
+        "/SmuppyStack-staging/PostsCreateFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsCreateFunctionServiceRoleDefaultPolicyAFAA5D81"
+          }
+        ],
+        "/SmuppyStack-staging/PostsCreateFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsCreateFunction05741974"
+          }
+        ],
+        "/SmuppyStack-staging/PostsCreateFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostsCreateFunctionLogRetention5CA9E1C1"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesGetFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesGetFunctionServiceRole50E65A25"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesGetFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesGetFunctionServiceRoleDefaultPolicyC8F125A0"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesGetFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesGetFunctionA4D69A50"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesGetFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesGetFunctionLogRetentionD5258E0A"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesSearchFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesSearchFunctionServiceRoleFBCC6BA8"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesSearchFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesSearchFunctionServiceRoleDefaultPolicyF41417B5"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesSearchFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesSearchFunction955B6C6F"
+          }
+        ],
+        "/SmuppyStack-staging/ProfilesSearchFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfilesSearchFunctionLogRetention82B26D76"
+          }
+        ],
+        "/SmuppyStack-staging/FeedGetFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FeedGetFunctionServiceRole38503FC8"
+          }
+        ],
+        "/SmuppyStack-staging/FeedGetFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FeedGetFunctionServiceRoleDefaultPolicyCC5222C6"
+          }
+        ],
+        "/SmuppyStack-staging/FeedGetFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FeedGetFunction14FA861F"
+          }
+        ],
+        "/SmuppyStack-staging/FeedGetFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FeedGetFunctionLogRetentionFEE7C23E"
+          }
+        ],
+        "/SmuppyStack-staging/FollowsCreateFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FollowsCreateFunctionServiceRole855CF958"
+          }
+        ],
+        "/SmuppyStack-staging/FollowsCreateFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FollowsCreateFunctionServiceRoleDefaultPolicy02AA2150"
+          }
+        ],
+        "/SmuppyStack-staging/FollowsCreateFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FollowsCreateFunctionF0669F53"
+          }
+        ],
+        "/SmuppyStack-staging/FollowsCreateFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FollowsCreateFunctionLogRetention82559B64"
+          }
+        ],
+        "/SmuppyStack-staging/AdminMigrationFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminMigrationFunctionServiceRole4166D8B7"
+          }
+        ],
+        "/SmuppyStack-staging/AdminMigrationFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminMigrationFunctionServiceRoleDefaultPolicy816302B0"
+          }
+        ],
+        "/SmuppyStack-staging/AdminMigrationFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminMigrationFunction4134AACE"
+          }
+        ],
+        "/SmuppyStack-staging/AdminMigrationFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminMigrationFunctionLogRetentionC5BE6C6F"
+          }
+        ],
+        "/SmuppyStack-staging/DataMigrationFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DataMigrationFunctionServiceRoleBBAA6FF1"
+          }
+        ],
+        "/SmuppyStack-staging/DataMigrationFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DataMigrationFunctionServiceRoleDefaultPolicyCAB4E443"
+          }
+        ],
+        "/SmuppyStack-staging/DataMigrationFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DataMigrationFunction313678B9"
+          }
+        ],
+        "/SmuppyStack-staging/DataMigrationFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DataMigrationFunctionLogRetention0546C6AC"
+          }
+        ],
+        "/SmuppyStack-staging/CheckProfilesFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckProfilesFunctionServiceRole70139678"
+          }
+        ],
+        "/SmuppyStack-staging/CheckProfilesFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckProfilesFunctionServiceRoleDefaultPolicy0DBF2BF5"
+          }
+        ],
+        "/SmuppyStack-staging/CheckProfilesFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckProfilesFunctionA1E9B56C"
+          }
+        ],
+        "/SmuppyStack-staging/UserMigrationFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserMigrationFunctionServiceRoleF15206BE"
+          }
+        ],
+        "/SmuppyStack-staging/UserMigrationFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserMigrationFunctionServiceRoleDefaultPolicy647E497D"
+          }
+        ],
+        "/SmuppyStack-staging/UserMigrationFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserMigrationFunctionF93EDED4"
+          }
+        ],
+        "/SmuppyStack-staging/UserMigrationFunction/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserMigrationFunctionLogRetention75D5B383"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPI522869CB"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPICloudWatchRoleE30D8814"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIAccountE52E07A8"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIDeployment7DF64D7327ddf6e8b4b4c56bb4a46ccb5c3c2bef"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/DeploymentStage.staging/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIDeploymentStagestaging91880277"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIEndpoint9FD58B1C"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIOPTIONS4AE4D695"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIposts4690FF05"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsOPTIONS1181E345"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/GET/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.GET..posts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsGETApiPermissionSmuppyStackstagingSmuppyAPIE17EB69AGETposts5C95BD79"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/GET/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.GET..posts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsGETApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69AGETpostsA8795A09"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsGETFDF6C5A3"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/POST/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.POST..posts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsPOSTApiPermissionSmuppyStackstagingSmuppyAPIE17EB69APOSTpostsD85CB55F"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/POST/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.POST..posts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsPOSTApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69APOSTpostsA34930FC"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/posts/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIpostsPOST1DC3C060"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesE145C226"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesOPTIONSD2F4AC68"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/GET/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.GET..profiles": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesGETApiPermissionSmuppyStackstagingSmuppyAPIE17EB69AGETprofiles9A774564"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/GET/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.GET..profiles": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesGETApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69AGETprofilesA2708D5B"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesGET9FCB80EB"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/{id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesid8D522476"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/{id}/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesidOPTIONS54425DFE"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/{id}/GET/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.GET..profiles.{id}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesidGETApiPermissionSmuppyStackstagingSmuppyAPIE17EB69AGETprofilesid3909AE59"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/{id}/GET/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.GET..profiles.{id}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesidGETApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69AGETprofilesidBBCFA831"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/profiles/{id}/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIprofilesidGET89AF02F7"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/feed/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfeedE675CAE0"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/feed/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfeedOPTIONSA163E5DD"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/feed/GET/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.GET..feed": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfeedGETApiPermissionSmuppyStackstagingSmuppyAPIE17EB69AGETfeed9A4CE69E"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/feed/GET/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.GET..feed": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfeedGETApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69AGETfeedE680EA75"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/feed/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfeedGETB4635D29"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/follows/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfollowsAB82C934"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/follows/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfollowsOPTIONS0C1A893E"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/follows/POST/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.POST..follows": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfollowsPOSTApiPermissionSmuppyStackstagingSmuppyAPIE17EB69APOSTfollows44577AA2"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/follows/POST/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.POST..follows": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfollowsPOSTApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69APOSTfollows26A5DA94"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/follows/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIfollowsPOST926367CE"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadmin0963F1F7"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminOPTIONS6D67A925"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigrateA11F622E"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigrateOPTIONSF0690528"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate/POST/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.POST..admin.migrate": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratePOSTApiPermissionSmuppyStackstagingSmuppyAPIE17EB69APOSTadminmigrateCBDA0E4D"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate/POST/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.POST..admin.migrate": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratePOSTApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69APOSTadminmigrate8419CE06"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratePOST32163964"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate-data/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratedataA2C83E9F"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate-data/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratedataOPTIONS705FC23D"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate-data/POST/ApiPermission.SmuppyStackstagingSmuppyAPIE17EB69A.POST..admin.migrate-data": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratedataPOSTApiPermissionSmuppyStackstagingSmuppyAPIE17EB69APOSTadminmigratedata23EC9F7A"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate-data/POST/ApiPermission.Test.SmuppyStackstagingSmuppyAPIE17EB69A.POST..admin.migrate-data": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratedataPOSTApiPermissionTestSmuppyStackstagingSmuppyAPIE17EB69APOSTadminmigratedata67ACE88D"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyAPI/Default/admin/migrate-data/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyAPIadminmigratedataPOST3CEC2E0F"
+          }
+        ],
+        "/SmuppyStack-staging/CognitoAuthorizer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CognitoAuthorizerF3215DBC"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyGraphQL/ApiLogsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyGraphQLApiLogsRole31540BD0"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyGraphQL/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyGraphQL690F381D"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyGraphQL/Schema": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyGraphQLSchema64646B74"
+          }
+        ],
+        "/SmuppyStack-staging/SmuppyGraphQL/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SmuppyGraphQLLogRetention0B912E58"
+          }
+        ],
+        "/SmuppyStack-staging/UserPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolId"
+          }
+        ],
+        "/SmuppyStack-staging/UserPoolClientId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolClientId"
+          }
+        ],
+        "/SmuppyStack-staging/IdentityPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "IdentityPoolId"
+          }
+        ],
+        "/SmuppyStack-staging/ApiEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiEndpoint"
+          }
+        ],
+        "/SmuppyStack-staging/GraphQLEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GraphQLEndpoint"
+          }
+        ],
+        "/SmuppyStack-staging/DatabaseEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DatabaseEndpoint"
+          }
+        ],
+        "/SmuppyStack-staging/RedisEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RedisEndpoint"
+          }
+        ],
+        "/SmuppyStack-staging/DeploymentInfo": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DeploymentInfo"
+          }
+        ],
+        "/SmuppyStack-staging/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/SmuppyStack-staging/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/SmuppyStack-staging/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "SmuppyStack-staging"
+    },
+    "SmuppyGlobal-staging.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "SmuppyGlobal-staging.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "SmuppyGlobal-staging": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://471112656108/us-east-1",
+      "properties": {
+        "templateFile": "SmuppyGlobal-staging.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "Component": "Global",
+          "Environment": "staging",
+          "ManagedBy": "CDK",
+          "Project": "Smuppy"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::471112656108:role/cdk-hnb659fds-deploy-role-471112656108-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::471112656108:role/cdk-hnb659fds-cfn-exec-role-471112656108-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-471112656108-us-east-1/10c1fb3614c70782c8272bd83e635b8e7aa741793635fe621049b7d27785f139.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "SmuppyGlobal-staging.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::471112656108:role/cdk-hnb659fds-lookup-role-471112656108-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "SmuppyStack-staging",
+        "SmuppyGlobal-staging.assets"
+      ],
+      "metadata": {
+        "/SmuppyGlobal-staging": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "Component",
+                "Value": "Global"
+              },
+              {
+                "Key": "Environment",
+                "Value": "staging"
+              },
+              {
+                "Key": "ManagedBy",
+                "Value": "CDK"
+              },
+              {
+                "Key": "Project",
+                "Value": "Smuppy"
+              }
+            ]
+          }
+        ],
+        "/SmuppyGlobal-staging/MediaBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MediaBucketBCBB02BA"
+          }
+        ],
+        "/SmuppyGlobal-staging/MediaBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MediaBucketPolicy68C27F6B"
+          }
+        ],
+        "/SmuppyGlobal-staging/MediaBucket/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MediaBucketAutoDeleteObjectsCustomResourceBC0A7C44"
+          }
+        ],
+        "/SmuppyGlobal-staging/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/SmuppyGlobal-staging/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/SmuppyGlobal-staging/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/SmuppyGlobal-staging/GlobalWAF": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GlobalWAF"
+          }
+        ],
+        "/SmuppyGlobal-staging/OAI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OAIE1EFC67F"
+          }
+        ],
+        "/SmuppyGlobal-staging/APICachePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "APICachePolicy78B398E1"
+          }
+        ],
+        "/SmuppyGlobal-staging/MediaCachePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MediaCachePolicy367B1FB9"
+          }
+        ],
+        "/SmuppyGlobal-staging/CDN/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDN2330F4C0"
+          }
+        ],
+        "/SmuppyGlobal-staging/FeedTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "FeedTable1849209D"
+            }
+          }
+        ],
+        "/SmuppyGlobal-staging/FeedTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FeedTable1849209D"
+          }
+        ],
+        "/SmuppyGlobal-staging/LikesTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "LikesTable9511B0A4"
+            }
+          }
+        ],
+        "/SmuppyGlobal-staging/LikesTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LikesTable9511B0A4"
+          }
+        ],
+        "/SmuppyGlobal-staging/AnalyticsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AnalyticsTable3F84C304"
+            }
+          }
+        ],
+        "/SmuppyGlobal-staging/AnalyticsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AnalyticsTable3F84C304"
+          }
+        ],
+        "/SmuppyGlobal-staging/SessionsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "SessionsTable7C302024"
+            }
+          }
+        ],
+        "/SmuppyGlobal-staging/SessionsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SessionsTable7C302024"
+          }
+        ],
+        "/SmuppyGlobal-staging/NotificationsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "NotificationsTable76DCFC6C"
+            }
+          }
+        ],
+        "/SmuppyGlobal-staging/NotificationsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "NotificationsTable76DCFC6C"
+          }
+        ],
+        "/SmuppyGlobal-staging/CDNDomain": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDNDomain"
+          }
+        ],
+        "/SmuppyGlobal-staging/CDNDistributionId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDNDistributionId"
+          }
+        ],
+        "/SmuppyGlobal-staging/MediaBucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MediaBucketName"
+          }
+        ],
+        "/SmuppyGlobal-staging/FeedTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FeedTableName"
+          }
+        ],
+        "/SmuppyGlobal-staging/LikesTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LikesTableName"
+          }
+        ],
+        "/SmuppyGlobal-staging/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/SmuppyGlobal-staging/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/SmuppyGlobal-staging/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "SmuppyGlobal-staging"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    },
+    "aws-cdk-lib/feature-flag-report": {
+      "type": "cdk:feature-flag-report",
+      "properties": {
+        "module": "aws-cdk-lib",
+        "flags": {
+          "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": {
+            "recommendedValue": true,
+            "explanation": "Pass signingProfileName to CfnSigningProfile"
+          },
+          "@aws-cdk/core:newStyleStackSynthesis": {
+            "recommendedValue": true,
+            "explanation": "Switch to new stack synthesis method which enables CI/CD",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:stackRelativeExports": {
+            "recommendedValue": true,
+            "explanation": "Name exports based on the construct paths relative to the stack, rather than the global construct path",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-ecs-patterns:secGroupsDisablesImplicitOpenListener": {
+            "recommendedValue": true,
+            "explanation": "Disable implicit openListener when custom security groups are provided"
+          },
+          "@aws-cdk/aws-rds:lowercaseDbIdentifier": {
+            "recommendedValue": true,
+            "explanation": "Force lowercasing of RDS Cluster names in CDK",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": {
+            "recommendedValue": true,
+            "explanation": "Allow adding/removing multiple UsagePlanKeys independently",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-lambda:recognizeVersionProps": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to opt in to the updated logical id calculation for Lambda Version created using the  `fn.currentVersion`.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-lambda:recognizeLayerVersion": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to opt in to the updated logical id calculation for Lambda Version created using the `fn.currentVersion`."
+          },
+          "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to have cloudfront distributions use the security policy TLSv1.2_2021 by default.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:checkSecretUsage": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Enable this flag to make it impossible to accidentally use SecretValues in unsafe locations"
+          },
+          "@aws-cdk/core:target-partitions": {
+            "userValue": [
+              "aws",
+              "aws-cn"
+            ],
+            "recommendedValue": [
+              "aws",
+              "aws-cn"
+            ],
+            "explanation": "What regions to include in lookup tables of environment agnostic stacks"
+          },
+          "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "ECS extensions will automatically add an `awslogs` driver if no logging is specified"
+          },
+          "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to have Launch Templates generated by the `InstanceRequireImdsv2Aspect` use unique names."
+          },
+          "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "ARN format used by ECS. In the new ARN format, the cluster name is part of the resource ID."
+          },
+          "@aws-cdk/aws-iam:minimizePolicies": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Minimize IAM policies by combining Statements"
+          },
+          "@aws-cdk/core:validateSnapshotRemovalPolicy": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Error on snapshot removal policies on resources that do not support it."
+          },
+          "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Generate key aliases that include the stack name"
+          },
+          "@aws-cdk/aws-s3:createDefaultLoggingPolicy": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to create an S3 bucket policy by default in cases where an AWS service would automatically create the Policy if one does not exist."
+          },
+          "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Restrict KMS key policy for encrypted Queues a bit more"
+          },
+          "@aws-cdk/aws-apigateway:disableCloudWatchRole": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Make default CloudWatch Role behavior safe for multiple API Gateways in one environment"
+          },
+          "@aws-cdk/core:enablePartitionLiterals": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Make ARNs concrete if AWS partition is known"
+          },
+          "@aws-cdk/aws-events:eventsTargetQueueSameAccount": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Event Rules may only push to encrypted SQS queues in the same account"
+          },
+          "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": {
+            "userValue": true,
+            "recommendedValue": true,
+            "explanation": "Avoid setting the \"ECS\" deployment controller when adding a circuit breaker"
+          },
+          "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature to create default policy names for imported roles that depend on the stack the role is in."
+          },
+          "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": {
+            "recommendedValue": true,
+            "explanation": "Use S3 Bucket Policy instead of ACLs for Server Access Logging"
+          },
+          "@aws-cdk/aws-route53-patters:useCertificate": {
+            "recommendedValue": true,
+            "explanation": "Use the official `Certificate` resource instead of `DnsValidatedCertificate`"
+          },
+          "@aws-cdk/customresources:installLatestAwsSdkDefault": {
+            "recommendedValue": false,
+            "explanation": "Whether to install the latest SDK by default in AwsCustomResource"
+          },
+          "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": {
+            "recommendedValue": true,
+            "explanation": "Use unique resource name for Database Proxy"
+          },
+          "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": {
+            "recommendedValue": true,
+            "explanation": "Remove CloudWatch alarms from deployment group"
+          },
+          "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": {
+            "recommendedValue": true,
+            "explanation": "Include authorizer configuration in the calculation of the API deployment logical ID."
+          },
+          "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": {
+            "recommendedValue": true,
+            "explanation": "Define user data for a launch template by default when a machine image is provided."
+          },
+          "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": {
+            "recommendedValue": true,
+            "explanation": "SecretTargetAttachments uses the ResourcePolicy of the attached Secret."
+          },
+          "@aws-cdk/aws-redshift:columnId": {
+            "recommendedValue": true,
+            "explanation": "Whether to use an ID to track Redshift column changes"
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": {
+            "recommendedValue": true,
+            "explanation": "Enable AmazonEMRServicePolicy_v2 managed policies"
+          },
+          "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": {
+            "recommendedValue": true,
+            "explanation": "Restrict access to the VPC default security group"
+          },
+          "@aws-cdk/aws-apigateway:requestValidatorUniqueId": {
+            "recommendedValue": true,
+            "explanation": "Generate a unique id for each RequestValidator added to a method"
+          },
+          "@aws-cdk/aws-kms:aliasNameRef": {
+            "recommendedValue": true,
+            "explanation": "KMS Alias name and keyArn will have implicit reference to KMS Key"
+          },
+          "@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal": {
+            "recommendedValue": true,
+            "explanation": "Enable grant methods on Aliases imported by name to use kms:ResourceAliases condition"
+          },
+          "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": {
+            "recommendedValue": true,
+            "explanation": "Generate a launch template when creating an AutoScalingGroup"
+          },
+          "@aws-cdk/core:includePrefixInUniqueNameGeneration": {
+            "recommendedValue": true,
+            "explanation": "Include the stack prefix in the stack name generation process"
+          },
+          "@aws-cdk/aws-efs:denyAnonymousAccess": {
+            "recommendedValue": true,
+            "explanation": "EFS denies anonymous clients accesses"
+          },
+          "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": {
+            "recommendedValue": true,
+            "explanation": "Enables support for Multi-AZ with Standby deployment for opensearch domains"
+          },
+          "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": {
+            "recommendedValue": true,
+            "explanation": "Enables aws-lambda-nodejs.Function to use the latest available NodeJs runtime as the default"
+          },
+          "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": {
+            "recommendedValue": true,
+            "explanation": "When enabled, mount targets will have a stable logicalId that is linked to the associated subnet."
+          },
+          "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": {
+            "recommendedValue": true,
+            "explanation": "When enabled, a scope of InstanceParameterGroup for AuroraClusterInstance with each parameters will change."
+          },
+          "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": {
+            "recommendedValue": true,
+            "explanation": "When enabled, will always use the arn for identifiers for CfnSourceApiAssociation in the GraphqlApi construct rather than id."
+          },
+          "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": {
+            "recommendedValue": true,
+            "explanation": "When enabled, creating an RDS database cluster from a snapshot will only render credentials for snapshot credentials."
+          },
+          "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the CodeCommit source action is using the default branch name 'main'."
+          },
+          "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the logical ID of a Lambda permission for a Lambda action includes an alarm ID."
+          },
+          "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": {
+            "recommendedValue": true,
+            "explanation": "Enables Pipeline to set the default value for crossAccountKeys to false."
+          },
+          "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": {
+            "recommendedValue": true,
+            "explanation": "Enables Pipeline to set the default pipeline type to V2."
+          },
+          "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": {
+            "recommendedValue": true,
+            "explanation": "When enabled, IAM Policy created from KMS key grant will reduce the resource scope to this key only."
+          },
+          "@aws-cdk/pipelines:reduceAssetRoleTrustScope": {
+            "recommendedValue": true,
+            "explanation": "Remove the root account principal from PipelineAssetsFileRole trust policy",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-eks:nodegroupNameAttribute": {
+            "recommendedValue": true,
+            "explanation": "When enabled, nodegroupName attribute of the provisioned EKS NodeGroup will not have the cluster name prefix."
+          },
+          "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the default volume type of the EBS volume will be GP3"
+          },
+          "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": {
+            "recommendedValue": true,
+            "explanation": "When enabled, remove default deployment alarm settings"
+          },
+          "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": {
+            "recommendedValue": false,
+            "explanation": "When enabled, the custom resource used for `AwsCustomResource` will configure the `logApiResponseData` property as true by default"
+          },
+          "@aws-cdk/aws-s3:keepNotificationInImportedBucket": {
+            "recommendedValue": false,
+            "explanation": "When enabled, Adding notifications to a bucket in the current stack will not remove notification from imported stack."
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:useNewS3UriParametersForBedrockInvokeModelTask": {
+            "recommendedValue": true,
+            "explanation": "When enabled, use new props for S3 URI field in task definition of state machine for bedrock invoke model.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:explicitStackTags": {
+            "recommendedValue": true,
+            "explanation": "When enabled, stack tags need to be assigned explicitly on a Stack."
+          },
+          "@aws-cdk/aws-ecs:reduceEc2FargateCloudWatchPermissions": {
+            "recommendedValue": true,
+            "explanation": "When enabled, we will only grant the necessary permissions when users specify cloudwatch log group through logConfiguration"
+          },
+          "@aws-cdk/aws-dynamodb:resourcePolicyPerReplica": {
+            "recommendedValue": true,
+            "explanation": "When enabled will allow you to specify a resource policy per replica, and not copy the source table policy to all replicas"
+          },
+          "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": {
+            "recommendedValue": true,
+            "explanation": "When enabled, initOptions.timeout and resourceSignalTimeout values will be summed together."
+          },
+          "@aws-cdk/aws-appsync:appSyncGraphQLAPIScopeLambdaPermission": {
+            "recommendedValue": true,
+            "explanation": "When enabled, a Lambda authorizer Permission created when using GraphqlApi will be properly scoped with a SourceArn."
+          },
+          "@aws-cdk/aws-rds:setCorrectValueForDatabaseInstanceReadReplicaInstanceResourceId": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the value of property `instanceResourceId` in construct `DatabaseInstanceReadReplica` will be set to the correct value which is `DbiResourceId` instead of currently `DbInstanceArn`"
+          },
+          "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CFN templates added with `cfn-include` will error if the template contains Resource Update or Create policies with CFN Intrinsics that include non-primitive values."
+          },
+          "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": {
+            "recommendedValue": true,
+            "explanation": "When enabled, both `@aws-sdk` and `@smithy` packages will be excluded from the Lambda Node.js 18.x runtime to prevent version mismatches in bundled applications."
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:fixRunEcsTaskPolicy": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the resource of IAM Run Ecs policy generated by SFN EcsRunTask will reference the definition, instead of constructing ARN."
+          },
+          "@aws-cdk/aws-ec2:bastionHostUseAmazonLinux2023ByDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the BastionHost construct will use the latest Amazon Linux 2023 AMI, instead of Amazon Linux 2."
+          },
+          "@aws-cdk/core:aspectStabilization": {
+            "recommendedValue": true,
+            "explanation": "When enabled, a stabilization loop will be run when invoking Aspects during synthesis.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-route53-targets:userPoolDomainNameMethodWithoutCustomResource": {
+            "recommendedValue": true,
+            "explanation": "When enabled, use a new method for DNS Name of user pool domain target without creating a custom resource."
+          },
+          "@aws-cdk/aws-elasticloadbalancingV2:albDualstackWithoutPublicIpv4SecurityGroupRulesDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the default security group ingress rules will allow IPv6 ingress from anywhere"
+          },
+          "@aws-cdk/aws-iam:oidcRejectUnauthorizedConnections": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the default behaviour of OIDC provider will reject unauthorized connections"
+          },
+          "@aws-cdk/core:enableAdditionalMetadataCollection": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CDK will expand the scope of usage data collected to better inform CDK development and improve communication for security concerns and emerging issues."
+          },
+          "@aws-cdk/aws-lambda:createNewPoliciesWithAddToRolePolicy": {
+            "recommendedValue": false,
+            "explanation": "[Deprecated] When enabled, Lambda will create new inline policies with AddToRolePolicy instead of adding to the Default Policy Statement"
+          },
+          "@aws-cdk/aws-s3:setUniqueReplicationRoleName": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CDK will automatically generate a unique role name that is used for s3 object replication."
+          },
+          "@aws-cdk/pipelines:reduceStageRoleTrustScope": {
+            "recommendedValue": true,
+            "explanation": "Remove the root account principal from Stage addActions trust policy",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-events:requireEventBusPolicySid": {
+            "recommendedValue": true,
+            "explanation": "When enabled, grantPutEventsTo() will use resource policies with Statement IDs for service principals."
+          },
+          "@aws-cdk/core:aspectPrioritiesMutating": {
+            "recommendedValue": true,
+            "explanation": "When set to true, Aspects added by the construct library on your behalf will be given a priority of MUTATING."
+          },
+          "@aws-cdk/aws-dynamodb:retainTableReplica": {
+            "recommendedValue": true,
+            "explanation": "When enabled, table replica will be default to the removal policy of source table unless specified otherwise."
+          },
+          "@aws-cdk/cognito:logUserPoolClientSecretValue": {
+            "recommendedValue": false,
+            "explanation": "When disabled, the value of the user pool client secret will not be logged in the custom resource lambda function logs."
+          },
+          "@aws-cdk/pipelines:reduceCrossAccountActionRoleTrustScope": {
+            "recommendedValue": true,
+            "explanation": "When enabled, scopes down the trust policy for the cross-account action role",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-stepfunctions:useDistributedMapResultWriterV2": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the resultWriterV2 property of DistributedMap will be used insted of resultWriter"
+          },
+          "@aws-cdk/s3-notifications:addS3TrustKeyPolicyForSnsSubscriptions": {
+            "recommendedValue": true,
+            "explanation": "Add an S3 trust policy to a KMS key resource policy for SNS subscriptions."
+          },
+          "@aws-cdk/aws-ec2:requirePrivateSubnetsForEgressOnlyInternetGateway": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the EgressOnlyGateway resource is only created if private subnets are defined in the dual-stack VPC."
+          },
+          "@aws-cdk/aws-ec2-alpha:useResourceIdForVpcV2Migration": {
+            "recommendedValue": false,
+            "explanation": "When enabled, use resource IDs for VPC V2 migration"
+          },
+          "@aws-cdk/aws-s3:publicAccessBlockedByDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, setting any combination of options for BlockPublicAccess will automatically set true for any options not defined."
+          },
+          "@aws-cdk/aws-lambda:useCdkManagedLogGroup": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CDK creates and manages loggroup for the lambda function"
+          },
+          "@aws-cdk/aws-elasticloadbalancingv2:networkLoadBalancerWithSecurityGroupByDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, Network Load Balancer will be created with a security group by default."
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:httpInvokeDynamicJsonPathEndpoint": {
+            "recommendedValue": true,
+            "explanation": "When enabled, allows using a dynamic apiEndpoint with JSONPath format in HttpInvoke tasks.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId": {
+            "recommendedValue": true,
+            "explanation": "When enabled, ECS patterns will generate unique target group IDs to prevent conflicts during load balancer replacement"
+          },
+          "@aws-cdk/aws-route53-patterns:useDistribution": {
+            "recommendedValue": true,
+            "explanation": "Use the `Distribution` resource instead of `CloudFrontWebDistribution`"
+          }
+        }
+      }
+    }
+  },
+  "minimumCliVersion": "2.1033.0"
+}

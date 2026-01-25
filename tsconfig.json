@@ -59,6 +59,7 @@
     "node_modules",
     "babel.config.js",
     "metro.config.js",
-    "supabase/functions/**/*"
+    "supabase/functions/**/*",
+    "aws-migration/**/*"
   ]
 }

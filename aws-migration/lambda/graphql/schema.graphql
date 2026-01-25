@@ -1,0 +1,232 @@
+# ============================================
+# Smuppy GraphQL Schema for AppSync
+# Handles Realtime subscriptions (Chat, Notifications)
+# ============================================
+
+# ============================================
+# Types
+# ============================================
+
+type User {
+  id: ID!
+  username: String!
+  fullName: String
+  avatarUrl: String
+  isVerified: Boolean!
+  accountType: AccountType!
+  createdAt: AWSDateTime!
+}
+
+enum AccountType {
+  PERSONAL
+  PRO_CREATOR
+  PRO_LOCAL
+}
+
+type Message {
+  id: ID!
+  conversationId: ID!
+  senderId: ID!
+  sender: User
+  content: String!
+  mediaUrl: String
+  mediaType: MediaType
+  readAt: AWSDateTime
+  createdAt: AWSDateTime!
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+type Conversation {
+  id: ID!
+  participants: [User!]!
+  lastMessage: Message
+  unreadCount: Int!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type Notification {
+  id: ID!
+  userId: ID!
+  type: NotificationType!
+  title: String!
+  body: String!
+  data: AWSJSON
+  read: Boolean!
+  createdAt: AWSDateTime!
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  NEW_LIKE
+  NEW_COMMENT
+  NEW_MESSAGE
+  MENTION
+  SYSTEM
+}
+
+type Post {
+  id: ID!
+  authorId: ID!
+  author: User
+  content: String
+  mediaUrls: [String!]
+  mediaType: MediaType
+  likesCount: Int!
+  commentsCount: Int!
+  createdAt: AWSDateTime!
+}
+
+type Comment {
+  id: ID!
+  postId: ID!
+  authorId: ID!
+  author: User
+  content: String!
+  likesCount: Int!
+  createdAt: AWSDateTime!
+}
+
+type Peak {
+  id: ID!
+  authorId: ID!
+  author: User
+  videoUrl: String!
+  thumbnailUrl: String
+  caption: String
+  viewsCount: Int!
+  likesCount: Int!
+  createdAt: AWSDateTime!
+}
+
+# ============================================
+# Inputs
+# ============================================
+
+input SendMessageInput {
+  conversationId: ID!
+  content: String!
+  mediaUrl: String
+  mediaType: MediaType
+}
+
+input CreateConversationInput {
+  participantIds: [ID!]!
+  initialMessage: String
+}
+
+input MarkAsReadInput {
+  conversationId: ID!
+  messageId: ID!
+}
+
+# ============================================
+# Queries
+# ============================================
+
+type Query {
+  # Conversations
+  getConversation(id: ID!): Conversation
+  listConversations(limit: Int, nextToken: String): ConversationConnection!
+
+  # Messages
+  listMessages(conversationId: ID!, limit: Int, nextToken: String): MessageConnection!
+
+  # Notifications
+  listNotifications(limit: Int, nextToken: String): NotificationConnection!
+  getUnreadCount: Int!
+}
+
+type ConversationConnection {
+  items: [Conversation!]!
+  nextToken: String
+}
+
+type MessageConnection {
+  items: [Message!]!
+  nextToken: String
+}
+
+type NotificationConnection {
+  items: [Notification!]!
+  nextToken: String
+}
+
+# ============================================
+# Mutations
+# ============================================
+
+type Mutation {
+  # Messages
+  sendMessage(input: SendMessageInput!): Message!
+  markAsRead(input: MarkAsReadInput!): MessageReadReceipt!
+
+  # Conversations
+  createConversation(input: CreateConversationInput!): Conversation!
+  deleteConversation(id: ID!): Boolean!
+
+  # Notifications
+  createNotification(
+    userId: ID!
+    type: NotificationType!
+    title: String!
+    body: String!
+    data: AWSJSON
+  ): Notification!
+  markNotificationRead(id: ID!): Boolean!
+  markAllNotificationsRead: Boolean!
+
+  # Typing indicator
+  setTyping(conversationId: ID!, isTyping: Boolean!): TypingIndicator!
+}
+
+# ============================================
+# Subscriptions (Realtime)
+# ============================================
+
+type Subscription {
+  # Real-time message updates
+  onNewMessage(conversationId: ID!): Message
+    @aws_subscribe(mutations: ["sendMessage"])
+
+  # Real-time notification updates
+  onNotification(userId: ID!): Notification
+    @aws_subscribe(mutations: ["createNotification"])
+
+  # Typing indicator
+  onTyping(conversationId: ID!): TypingIndicator
+    @aws_subscribe(mutations: ["setTyping"])
+
+  # Message read receipts
+  onMessageRead(conversationId: ID!): MessageReadReceipt
+    @aws_subscribe(mutations: ["markAsRead"])
+}
+
+type TypingIndicator {
+  conversationId: ID!
+  userId: ID!
+  isTyping: Boolean!
+  timestamp: AWSDateTime!
+}
+
+type MessageReadReceipt {
+  conversationId: ID!
+  messageId: ID!
+  userId: ID!
+  readAt: AWSDateTime!
+}
+
+# ============================================
+# Schema
+# ============================================
+
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}

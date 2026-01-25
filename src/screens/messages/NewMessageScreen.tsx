@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +54,11 @@ export default function NewMessageScreen({ navigation }) {
 
     if (error || !conversationId) {
       setNavigating(null);
+      Alert.alert(
+        'Unable to start conversation',
+        error || 'Please try again later.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 

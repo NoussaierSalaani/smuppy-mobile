@@ -2608,8 +2608,19 @@ export const getConversations = async (): Promise<DbResponse<Conversation[]>> =>
  */
 export const getOrCreateConversation = async (otherUserId: string): Promise<DbResponse<string>> => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+  if (!user) {
+    console.error('[getOrCreateConversation] Not authenticated');
+    return { data: null, error: 'Not authenticated' };
+  }
 
+  if (!otherUserId) {
+    console.error('[getOrCreateConversation] No other user ID provided');
+    return { data: null, error: 'No user ID provided' };
+  }
+
+  console.log('[getOrCreateConversation] Creating conversation between', user.id, 'and', otherUserId);
+
+  // Try the RPC function first
   const { data, error } = await supabase
     .rpc('get_or_create_conversation', {
       p_user_id: user.id,
@@ -2617,10 +2628,92 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
     });
 
   if (error) {
-    return { data: null, error: error.message };
+    console.error('[getOrCreateConversation] RPC error:', error.message, error.code, error.details);
+
+    // If RPC fails (e.g., function doesn't exist), try manual fallback
+    console.log('[getOrCreateConversation] Trying manual fallback...');
+    return getOrCreateConversationManual(user.id, otherUserId);
   }
 
+  if (!data) {
+    console.error('[getOrCreateConversation] No conversation ID returned');
+    return { data: null, error: 'Failed to create conversation' };
+  }
+
+  console.log('[getOrCreateConversation] Success, conversation ID:', data);
   return { data: data as string, error: null };
+};
+
+/**
+ * Manual fallback for creating conversations if RPC doesn't exist
+ */
+const getOrCreateConversationManual = async (currentUserId: string, otherUserId: string): Promise<DbResponse<string>> => {
+  try {
+    // First, check if conversation already exists
+    const { data: existingParticipation, error: checkError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', currentUserId);
+
+    if (checkError) {
+      console.error('[getOrCreateConversationManual] Check error:', checkError.message);
+      return { data: null, error: checkError.message };
+    }
+
+    // For each conversation the current user is in, check if other user is also there
+    if (existingParticipation && existingParticipation.length > 0) {
+      const conversationIds = existingParticipation.map(p => p.conversation_id);
+
+      const { data: sharedConversation, error: sharedError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, conversations!inner(is_group)')
+        .eq('user_id', otherUserId)
+        .in('conversation_id', conversationIds)
+        .eq('conversations.is_group', false)
+        .limit(1)
+        .maybeSingle();
+
+      if (!sharedError && sharedConversation) {
+        console.log('[getOrCreateConversationManual] Found existing conversation:', sharedConversation.conversation_id);
+        return { data: sharedConversation.conversation_id, error: null };
+      }
+    }
+
+    // No existing conversation, create new one
+    console.log('[getOrCreateConversationManual] Creating new conversation...');
+
+    const { data: newConversation, error: createError } = await supabase
+      .from('conversations')
+      .insert({ is_group: false })
+      .select('id')
+      .single();
+
+    if (createError || !newConversation) {
+      console.error('[getOrCreateConversationManual] Create error:', createError?.message);
+      return { data: null, error: createError?.message || 'Failed to create conversation' };
+    }
+
+    // Add both participants
+    const { error: participantsError } = await supabase
+      .from('conversation_participants')
+      .insert([
+        { conversation_id: newConversation.id, user_id: currentUserId },
+        { conversation_id: newConversation.id, user_id: otherUserId }
+      ]);
+
+    if (participantsError) {
+      console.error('[getOrCreateConversationManual] Participants error:', participantsError.message);
+      // Clean up the conversation we created
+      await supabase.from('conversations').delete().eq('id', newConversation.id);
+      return { data: null, error: participantsError.message };
+    }
+
+    console.log('[getOrCreateConversationManual] Created conversation:', newConversation.id);
+    return { data: newConversation.id, error: null };
+  } catch (err) {
+    console.error('[getOrCreateConversationManual] Exception:', err);
+    return { data: null, error: 'An unexpected error occurred' };
+  }
 };
 
 /**

@@ -14,16 +14,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Feature flag for AWS migration
 // Set to true to use AWS, false to use Supabase
 const USE_AWS_KEY = '@smuppy/use_aws_backend';
-let USE_AWS = false; // ⚠️ AWS Backend DISABLED - using Supabase for production
+let USE_AWS = true; // ⚡ AWS Backend ENABLED
 
 // Initialize backend preference
 export async function initializeBackend(): Promise<void> {
-  // Use Supabase for production until AWS is fully configured
-  USE_AWS = false;
-  console.log('[Backend] Using Supabase backend');
+  USE_AWS = true;
+  console.log('🚀 Backend initialized: AWS ENABLED');
 
   try {
-    await AsyncStorage.setItem(USE_AWS_KEY, 'false');
+    await AsyncStorage.setItem(USE_AWS_KEY, 'true');
   } catch (error) {
     console.error('Error saving backend preference:', error);
   }

@@ -1,6 +1,6 @@
 # Smuppy Mobile - Quick Reference Guide
 
-> Dernière mise à jour: 12 janvier 2026
+> Dernière mise à jour: 24 janvier 2026
 
 ## État Actuel de l'Infrastructure
 
@@ -8,6 +8,7 @@
 
 | Composant | Technologie | Status |
 |-----------|-------------|--------|
+| **Backend** | **AWS (Aurora + Lambda + Cognito)** | ✅ **Migré** |
 | Lists | @shopify/flash-list | ✅ 10x faster |
 | Images | expo-image | ✅ Cached |
 | API Cache | React Query | ✅ 5min stale |
@@ -18,6 +19,59 @@
 | Offline | NetInfo | ✅ Supported |
 | **Push** | **Expo Notifications** | ✅ **Active** |
 | **Media** | **S3 + CloudFront** | ✅ **CDN** |
+| **UI Design** | **iOS 18 Liquid Glass** | ✅ **Implemented** |
+
+---
+
+## 🆕 iOS 18 Liquid Glass Design System
+
+### LiquidTabs Component
+```typescript
+import { LiquidTabs, LiquidTabsWithMore } from '../components/LiquidTabs';
+
+// Basic usage
+<LiquidTabs
+  tabs={[
+    { key: 'fan', label: 'Fan' },
+    { key: 'vibes', label: 'Vibes' },
+    { key: 'xplorer', label: 'Xplorer' },
+  ]}
+  activeTab={activeTab}
+  onTabChange={(key) => setActiveTab(key)}
+  size="medium"      // 'small' | 'medium' | 'large'
+  fullWidth={true}   // true = full width, false = compact
+  variant="glass"    // 'glass' | 'solid' | 'minimal'
+/>
+
+// With extra tabs (shows +more button)
+<LiquidTabsWithMore
+  tabs={primaryTabs}
+  extraTabs={extraTabs}
+  activeTab={activeTab}
+  onTabChange={handleTabChange}
+  onMorePress={() => setShowModal(true)}
+/>
+```
+
+### GlassButton Component
+```typescript
+import { GlassButton } from '../components/GlassButton';
+
+<GlassButton
+  label="Action"
+  icon="add"
+  onPress={handlePress}
+  variant="primary"  // 'default' | 'primary' | 'secondary' | 'pill'
+  size="medium"      // 'small' | 'medium' | 'large'
+  active={isActive}
+/>
+```
+
+### Design Features
+- Frosted glass effect (BlurView)
+- Water drop animation (spring physics)
+- Haptic feedback on interaction
+- Gradient indicator with glow effect
 
 ---
 
@@ -149,14 +203,49 @@ captureMessage('Payment completed', 'info', { amount: 99.99 });
 ### Environment Variables (.env)
 
 ```env
+# Supabase (legacy - being migrated)
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_ANON_KEY=xxx
+
+# AWS (new backend)
+AWS_REGION=us-east-1
+AWS_API_GATEWAY_URL=https://xxx.execute-api.us-east-1.amazonaws.com/prod
+AWS_COGNITO_USER_POOL_ID=us-east-1_xxx
+AWS_COGNITO_CLIENT_ID=xxx
+
+# Other
 GOOGLE_API_KEY=xxx
-API_URL_DEV=http://localhost:3000/api
-API_URL_PROD=https://api.smuppy.com/api
 APP_ENV=dev
 SENTRY_DSN=https://xxx@sentry.io/xxx
 ```
+
+---
+
+## 🆕 AWS Backend Architecture
+
+### Services migrated to AWS
+| Service | AWS Technology | Status |
+|---------|---------------|--------|
+| Database | Aurora PostgreSQL | ✅ Migrated |
+| Auth | Cognito | ✅ Active |
+| API | API Gateway + Lambda | ✅ Active |
+| Storage | S3 + CloudFront | ✅ Active |
+
+### Backend Toggle
+```typescript
+// src/services/backend.ts
+export const USE_AWS = true;  // Toggle between AWS and Supabase
+
+// Usage is transparent - same API:
+import { getFeedPosts, likePost } from '../services/database';
+```
+
+### API Endpoints (API Gateway)
+- `GET /posts` - Feed posts
+- `GET /profiles/{id}` - User profile
+- `POST /posts/{id}/like` - Like post
+- `POST /follows` - Follow user
+- `GET /messages` - Conversations
 
 ### Sentry Setup
 
@@ -180,15 +269,24 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 src/
 ├── components/
 │   ├── OptimizedImage.js    ← Use these!
-│   └── OptimizedList.js     ← Use these!
+│   ├── OptimizedList.js     ← Use these!
+│   ├── LiquidTabs.tsx       ← iOS 18 Liquid Glass tabs
+│   ├── GlassButton.tsx      ← iOS 18 Glass button
+│   └── HomeHeader.tsx       ← Main header with tabs
 ├── hooks/
 │   ├── queries/index.js     ← React Query hooks
 │   ├── useMediaUpload.ts    ← S3 upload hook
 │   ├── useNotifications.ts  ← Push notifications hook
 │   └── index.ts             ← All exports
 ├── services/
+│   ├── backend.ts           ← AWS/Supabase toggle
+│   ├── aws-api.ts           ← AWS API Gateway client
+│   ├── aws-auth.ts          ← AWS Cognito auth
+│   ├── database.ts          ← Unified database API
 │   ├── notifications.ts     ← Push notification service
 │   └── mediaUpload.ts       ← S3 upload service
+├── config/
+│   └── aws-config.ts        ← AWS configuration
 ├── stores/
 │   └── index.js             ← Zustand stores
 ├── lib/
@@ -199,9 +297,10 @@ src/
     ├── apiClient.js         ← SSL pinning
     └── rateLimiter.js       ← Rate limits
 
-supabase/
-└── functions/
-    └── media-presigned-url/ ← Edge Function
+aws-migration/
+├── lambda/                  ← Lambda functions
+├── infrastructure/          ← CloudFormation/CDK
+└── scripts/                 ← Migration scripts
 ```
 
 ---
@@ -302,4 +401,35 @@ queryClient.invalidateQueries(['feed']);
 
 ---
 
-*Quick Reference v1.2.1 - 12 Janvier 2026*
+## TestFlight Deployment
+
+### Build & Submit
+```bash
+# Build for iOS
+eas build --platform ios --profile production
+
+# Submit to TestFlight
+eas submit --platform ios --latest
+```
+
+### App Store Connect
+- **App ID:** 6757627406
+- **Bundle ID:** com.nou09.Smuppy
+- **TestFlight:** https://appstoreconnect.apple.com/apps/6757627406/testflight/ios
+
+### EAS Configuration (eas.json)
+```json
+{
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6757627406"
+      }
+    }
+  }
+}
+```
+
+---
+
+*Quick Reference v2.0.0 - 24 Janvier 2026*

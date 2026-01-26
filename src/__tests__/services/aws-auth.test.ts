@@ -57,19 +57,20 @@ describe('Password Validation', () => {
 });
 
 describe('Username Generation', () => {
+  // Generate username from email - no prefix, just alphanumeric chars
+  // Example: john@gmail.com -> johngmailcom
   const generateUsername = (email: string): string => {
-    const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return `u_${emailHash}`;
+    return email.toLowerCase().replace(/[^a-z0-9]/g, '');
   };
 
   it('should generate consistent usernames from email', () => {
-    expect(generateUsername('test@example.com')).toBe('u_testexamplecom');
-    expect(generateUsername('User.Name@Domain.CO.UK')).toBe('u_usernamedomaincouk');
+    expect(generateUsername('test@example.com')).toBe('testexamplecom');
+    expect(generateUsername('User.Name@Domain.CO.UK')).toBe('usernamedomaincouk');
   });
 
   it('should remove special characters', () => {
-    expect(generateUsername('user+tag@example.com')).toBe('u_usertagexamplecom');
-    expect(generateUsername('user.name@example.com')).toBe('u_usernameexamplecom');
+    expect(generateUsername('user+tag@example.com')).toBe('usertagexamplecom');
+    expect(generateUsername('user.name@example.com')).toBe('usernameexamplecom');
   });
 
   it('should be case insensitive', () => {

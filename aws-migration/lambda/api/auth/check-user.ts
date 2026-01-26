@@ -65,11 +65,10 @@ const cleanupRateLimitMap = () => {
 
 // Generate unique username from email
 // SECURITY: Uses full email hash to prevent collisions
-// Example: john@gmail.com -> u_johngmailcom (no special chars)
+// Example: john@gmail.com -> johngmailcom (no special chars)
 // This MUST match client-side logic in aws-auth.ts and signup.ts
 const generateUsername = (email: string): string => {
-  const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return `u_${emailHash}`;
+  return email.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
 // Check if user exists by email attribute (catches legacy accounts with different username formats)
@@ -89,6 +88,9 @@ const checkUserByEmail = async (email: string): Promise<{
 
     if (response.Users && response.Users.length > 0) {
       const user = response.Users[0];
+      // Only block CONFIRMED accounts (completed signup with email verification)
+      // FORCE_CHANGE_PASSWORD = admin-created, allow re-signup
+      // UNCONFIRMED = incomplete signup, allow re-signup
       const isConfirmed = user.UserStatus === 'CONFIRMED';
       return { exists: true, confirmed: isConfirmed, username: user.Username };
     }

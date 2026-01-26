@@ -211,8 +211,9 @@ class AWSAuthService {
       const { SignUpCommand } = await getCognitoCommands();
 
       // Generate a deterministic username from email (Cognito requires non-email username when email alias is enabled)
+      // Example: john@gmail.com -> johngmailcom (no special chars, no prefix)
       const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const cognitoUsername = username || `u_${emailHash}`;
+      const cognitoUsername = username || emailHash;
 
       const userAttributes = [
         { Name: 'email', Value: email },
@@ -254,13 +255,13 @@ class AWSAuthService {
   /**
    * Confirm sign up with verification code
    * Uses server-side API for better error handling and consistency
+   * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async confirmSignUp(email: string, code: string): Promise<boolean> {
     console.log('[AWS Auth] Confirming signup for:', email);
 
-    // Generate deterministic username (same as signup)
-    const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cognitoUsername = `u_${emailHash}`;
+    // Use email directly - Cognito supports email as username with alias
+    const normalizedEmail = email.toLowerCase().trim();
 
     try {
       // Try server-side API first
@@ -281,9 +282,10 @@ class AWSAuthService {
         const client = await getCognitoClient();
         const { ConfirmSignUpCommand } = await getCognitoCommands();
 
+        // Use email directly - Cognito will find user by email alias
         const command = new ConfirmSignUpCommand({
           ClientId: CLIENT_ID,
-          Username: cognitoUsername,
+          Username: normalizedEmail,
           ConfirmationCode: code,
         });
 
@@ -300,13 +302,13 @@ class AWSAuthService {
   /**
    * Resend confirmation code
    * Uses server-side API for rate limiting and better error handling
+   * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async resendConfirmationCode(email: string): Promise<boolean> {
     console.log('[AWS Auth] Resending confirmation code for:', email);
 
-    // Generate deterministic username (same as signup)
-    const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cognitoUsername = `u_${emailHash}`;
+    // Use email directly - Cognito supports email as username with alias
+    const normalizedEmail = email.toLowerCase().trim();
 
     try {
       // Try server-side API first (has rate limiting)
@@ -333,9 +335,10 @@ class AWSAuthService {
         const client = await getCognitoClient();
         const { ResendConfirmationCodeCommand } = await getCognitoCommands();
 
+        // Use email directly - Cognito will find user by email alias
         const command = new ResendConfirmationCodeCommand({
           ClientId: CLIENT_ID,
-          Username: cognitoUsername,
+          Username: normalizedEmail,
         });
 
         await client.send(command);
@@ -469,13 +472,13 @@ class AWSAuthService {
   /**
    * Request password reset
    * Uses server-side API for rate limiting and consistent error handling
+   * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async forgotPassword(email: string): Promise<boolean> {
     console.log('[AWS Auth] Forgot password for:', email);
 
-    // Generate deterministic username
-    const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cognitoUsername = `u_${emailHash}`;
+    // Use email directly - Cognito supports email as username with alias
+    const normalizedEmail = email.toLowerCase().trim();
 
     try {
       // Try server-side API first (has rate limiting)
@@ -502,9 +505,10 @@ class AWSAuthService {
         const client = await getCognitoClient();
         const { ForgotPasswordCommand } = await getCognitoCommands();
 
+        // Use email directly - Cognito will find user by email alias
         const command = new ForgotPasswordCommand({
           ClientId: CLIENT_ID,
-          Username: cognitoUsername,
+          Username: normalizedEmail,
         });
 
         await client.send(command);
@@ -519,13 +523,13 @@ class AWSAuthService {
 
   /**
    * Confirm password reset with code
+   * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async confirmForgotPassword(email: string, code: string, newPassword: string): Promise<boolean> {
     console.log('[AWS Auth] Confirm forgot password for:', email);
 
-    // Generate deterministic username
-    const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cognitoUsername = `u_${emailHash}`;
+    // Use email directly - Cognito supports email as username with alias
+    const normalizedEmail = email.toLowerCase().trim();
 
     try {
       // Try server-side API first
@@ -546,9 +550,10 @@ class AWSAuthService {
         const client = await getCognitoClient();
         const { ConfirmForgotPasswordCommand } = await getCognitoCommands();
 
+        // Use email directly - Cognito will find user by email alias
         const command = new ConfirmForgotPasswordCommand({
           ClientId: CLIENT_ID,
-          Username: cognitoUsername,
+          Username: normalizedEmail,
           ConfirmationCode: code,
           Password: newPassword,
         });

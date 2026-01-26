@@ -705,6 +705,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
+        USER_POOL_ID: userPool.userPoolId,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -712,6 +713,8 @@ export class LambdaStack extends cdk.NestedStack {
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
+    // Grant ListUsers permission to lookup user by email
+    userPool.grant(this.confirmSignupFn, 'cognito-idp:ListUsers');
 
     this.resendCodeFn = new NodejsFunction(this, 'ResendCodeFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/resend-code.ts'),
@@ -725,6 +728,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
+        USER_POOL_ID: userPool.userPoolId,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -732,6 +736,8 @@ export class LambdaStack extends cdk.NestedStack {
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
+    // Grant ListUsers permission to lookup user by email
+    userPool.grant(this.resendCodeFn, 'cognito-idp:ListUsers');
 
     this.forgotPasswordFn = new NodejsFunction(this, 'ForgotPasswordFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/forgot-password.ts'),
@@ -745,6 +751,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
+        USER_POOL_ID: userPool.userPoolId,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -752,6 +759,8 @@ export class LambdaStack extends cdk.NestedStack {
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
+    // Grant ListUsers permission to lookup user by email
+    userPool.grant(this.forgotPasswordFn, 'cognito-idp:ListUsers');
 
     this.confirmForgotPasswordFn = new NodejsFunction(this, 'ConfirmForgotPasswordFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/confirm-forgot-password.ts'),
@@ -765,6 +774,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
+        USER_POOL_ID: userPool.userPoolId,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -772,6 +782,8 @@ export class LambdaStack extends cdk.NestedStack {
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
+    // Grant ListUsers permission to lookup user by email
+    userPool.grant(this.confirmForgotPasswordFn, 'cognito-idp:ListUsers');
 
     this.checkUserFn = new NodejsFunction(this, 'CheckUserFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/check-user.ts'),

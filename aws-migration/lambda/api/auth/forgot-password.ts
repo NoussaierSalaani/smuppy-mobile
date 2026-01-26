@@ -9,6 +9,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   CognitoIdentityProviderClient,
   ForgotPasswordCommand,
+  ListUsersCommand,
   UserNotFoundException,
   LimitExceededException,
   InvalidParameterException,
@@ -21,8 +22,10 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
 if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
+if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
 
 const CLIENT_ID = process.env.CLIENT_ID;
+const USER_POOL_ID = process.env.USER_POOL_ID;
 
 /**
  * Rate Limiting
@@ -43,11 +46,31 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_REQUESTS_PER_WINDOW = 3; // Max 3 requests per 5 minutes
 
-// Generate username from email - MUST match signup.ts and aws-auth.ts
-// SECURITY: Uses full email hash to prevent collisions
+// Generate username from email - fallback if lookup fails
+// Example: john@gmail.com -> johngmailcom (no special chars)
 const generateUsername = (email: string): string => {
-  const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return `u_${emailHash}`;
+  return email.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+// Look up actual username by email (handles any username format)
+const getUsernameByEmail = async (email: string): Promise<string | null> => {
+  try {
+    const response = await cognitoClient.send(
+      new ListUsersCommand({
+        UserPoolId: USER_POOL_ID,
+        Filter: `email = "${email.toLowerCase()}"`,
+        Limit: 1,
+      })
+    );
+
+    if (response.Users && response.Users.length > 0) {
+      return response.Users[0].Username || null;
+    }
+    return null;
+  } catch (error) {
+    log.error('Error looking up user by email', error);
+    return null;
+  }
 };
 
 const checkRateLimit = (email: string): { allowed: boolean; retryAfter?: number } => {
@@ -127,10 +150,20 @@ export const handler = async (
       };
     }
 
-    const cognitoUsername = username || generateUsername(email);
+    log.setRequestId(getRequestId(event));
+
+    // Look up actual username by email (handles any username format)
+    // Falls back to generated username if lookup fails
+    let cognitoUsername = username;
+    if (!cognitoUsername) {
+      cognitoUsername = await getUsernameByEmail(email);
+      if (!cognitoUsername) {
+        // Fallback to generated username
+        cognitoUsername = generateUsername(email);
+      }
+    }
 
     // SECURITY: Log only masked identifier to prevent PII in logs
-    log.setRequestId(getRequestId(event));
     log.info('Initiating reset for user', { username: cognitoUsername.substring(0, 2) + '***' });
 
     await cognitoClient.send(

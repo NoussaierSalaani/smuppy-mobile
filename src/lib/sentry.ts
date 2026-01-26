@@ -14,7 +14,7 @@ let Sentry: any = null;
 if (!isExpoGo) {
   try {
     Sentry = require('@sentry/react-native');
-  } catch (e) {
+  } catch (_e) {
     console.log('Sentry not available in this environment');
   }
 }
@@ -69,7 +69,7 @@ export const initSentry = () => {
     ],
 
     // Before sending an error
-    beforeSend(event, hint) {
+    beforeSend(event, _hint) {
       // Filter out development errors
       if (ENV.APP_ENV === 'development') {
         console.log('Sentry event (dev):', event);
@@ -198,7 +198,7 @@ try {
   if (Sentry && typeof Sentry.ReactNavigationInstrumentation === 'function') {
     sentryNavigationIntegration = new Sentry.ReactNavigationInstrumentation();
   }
-} catch (e) {
+} catch (_e) {
   console.warn('[Sentry] ReactNavigationInstrumentation not available');
 }
 export { sentryNavigationIntegration };

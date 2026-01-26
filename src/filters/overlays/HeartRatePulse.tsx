@@ -12,7 +12,6 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-  interpolate,
 } from 'react-native-reanimated';
 import { Canvas, Path, Skia, Group } from '@shopify/react-native-skia';
 import { HeartRatePulseParams } from '../types';

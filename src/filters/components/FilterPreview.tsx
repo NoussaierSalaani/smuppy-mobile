@@ -9,16 +9,11 @@ import {
   Canvas,
   Image,
   useImage,
-  Skia,
-  useCanvasRef,
   Group,
   Fill,
 } from '@shopify/react-native-skia';
 import Animated, {
   useSharedValue,
-  useDerivedValue,
-  useAnimatedReaction,
-  runOnJS,
   useFrameCallback,
 } from 'react-native-reanimated';
 import { useFilters } from '../FilterContext';
@@ -72,14 +67,6 @@ export function FilterPreview({
       );
     }
 
-    // Create uniforms array for shader
-    const uniforms = [
-      activeFilter.intensity,
-      width,
-      height,
-      time.value,
-    ];
-
     return (
       <Group>
         {image && (
@@ -130,7 +117,7 @@ export function FilterOverlay({
   width = SCREEN_WIDTH,
   height = SCREEN_HEIGHT,
 }: FilterOverlayProps) {
-  const { activeFilter, activeOverlays } = useFilters();
+  const { activeFilter } = useFilters();
   const time = useSharedValue(0);
 
   // Frame callback for animations

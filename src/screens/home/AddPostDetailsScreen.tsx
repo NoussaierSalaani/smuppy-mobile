@@ -35,7 +35,6 @@ import {
 import {
   searchNominatim,
   formatNominatimResult,
-  NominatimSearchResult,
 } from '../../config/api';
 import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
@@ -44,7 +43,7 @@ import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
 import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // ============================================
 // CONSTANTS
@@ -57,7 +56,6 @@ const VISIBILITY_OPTIONS = [
 ] as const;
 
 const MAX_DESCRIPTION_LENGTH = 2200;
-const POST_DELAY_MS = 1000;
 
 // Location prediction type (adapted for Nominatim)
 interface LocationPrediction {
@@ -108,7 +106,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const [locationSearch, setLocationSearch] = useState('');
   const [locationPredictions, setLocationPredictions] = useState<LocationPrediction[]>([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
-  const [currentLocationName, setCurrentLocationName] = useState<string | null>(null);
+  const [, setCurrentLocationName] = useState<string | null>(null);
   const [showMapView, setShowMapView] = useState(false);
   const [mapRegion, setMapRegion] = useState({
     latitude: 48.8566, // Default to Paris
@@ -508,7 +506,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     setShowVisibilityModal(false);
   }, []);
 
-  const handleSelectLocation = useCallback((loc) => {
+  const _handleSelectLocation = useCallback((loc) => {
     setLocation(loc);
     setShowLocationModal(false);
   }, []);

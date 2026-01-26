@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useFilters, FILTER_DEFINITIONS } from '../FilterContext';
-import { FilterCategory, OverlayType } from '../types';
+import { FilterCategory } from '../types';
 
 export interface FilterControlsReturn {
   // Filter state

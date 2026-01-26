@@ -72,7 +72,6 @@ export interface UseMoodAIReturn {
 export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const {
     enableScrollTracking = true,
-    moodUpdateInterval = REFRESH_INTERVALS.IDLE, // Default to idle interval
     onMoodChange,
   } = options;
 
@@ -260,28 +259,28 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     }
   }, []);
 
-  const trackLike = useCallback((postId: string, category: string) => {
+  const trackLike = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('like');
     // Immediate mood refresh on interaction
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
 
-  const trackComment = useCallback((postId: string, category: string) => {
+  const trackComment = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('comment');
     // Immediate mood refresh on interaction
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
 
-  const trackShare = useCallback((postId: string, category: string) => {
+  const trackShare = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('share');
     // Immediate mood refresh on interaction
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
 
-  const trackSave = useCallback((postId: string, category: string) => {
+  const trackSave = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('save');
     // Immediate mood refresh on interaction
     analyzeMoodAndUpdate();

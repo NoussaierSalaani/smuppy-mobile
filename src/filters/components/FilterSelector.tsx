@@ -23,10 +23,10 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useFilters, FILTER_DEFINITIONS } from '../FilterContext';
-import { FilterCategory, FilterDefinition } from '../types';
+import { useFilters } from '../FilterContext';
+import { FilterDefinition } from '../types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+Dimensions.get('window');
 const FILTER_ITEM_SIZE = 72;
 
 // Smuppy brand colors

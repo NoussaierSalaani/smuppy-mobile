@@ -318,7 +318,7 @@ export const useMediaUpload = (
     async (
       uri: string,
       type: 'image' | 'video',
-      folder: UploadOptions['folder'] = 'posts'
+      _folder: UploadOptions['folder'] = 'posts'
     ): Promise<UploadResult | null> => {
       if (!user?.id) {
         setState((prev) => ({ ...prev, error: 'User not logged in' }));

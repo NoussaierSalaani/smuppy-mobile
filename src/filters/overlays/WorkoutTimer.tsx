@@ -12,8 +12,6 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
-  interpolate,
-  useDerivedValue,
 } from 'react-native-reanimated';
 import { Canvas, Circle, Path, Skia, Group } from '@shopify/react-native-skia';
 import { WorkoutTimerParams } from '../types';
@@ -27,7 +25,6 @@ interface WorkoutTimerProps {
 export function WorkoutTimer({
   params,
   size = 100,
-  onComplete,
 }: WorkoutTimerProps) {
   const { totalSeconds, currentSeconds, isRunning, mode, color } = params;
 

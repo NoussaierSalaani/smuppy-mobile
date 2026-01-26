@@ -6,8 +6,8 @@
 import React, { forwardRef, useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { CameraView, CameraType, CameraMode } from 'expo-camera';
-import { Canvas, Group, Fill, Skia, useImage, Image } from '@shopify/react-native-skia';
-import Animated, { useFrameCallback, useSharedValue } from 'react-native-reanimated';
+import { Canvas, Group, useImage, Image } from '@shopify/react-native-skia';
+import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { useFilters } from '../FilterContext';
 import { shaderManager } from '../core/ShaderManager';
 
@@ -29,7 +29,7 @@ interface CameraFilterViewProps {
  */
 export const CameraFilterView = forwardRef<CameraView, CameraFilterViewProps>(
   ({ facing, mode = 'video', style, children, onCameraReady }, ref) => {
-    const { activeFilter, activeOverlays } = useFilters();
+    const { activeFilter } = useFilters();
 
     // Animation time for shader effects
     const time = useSharedValue(0);

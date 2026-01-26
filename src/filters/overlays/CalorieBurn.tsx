@@ -14,7 +14,6 @@ import Animated, {
   withTiming,
   Easing,
   interpolate,
-  runOnJS,
 } from 'react-native-reanimated';
 import { CalorieBurnParams } from '../types';
 

@@ -12,7 +12,6 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  interpolateColor,
 } from 'react-native-reanimated';
 import { Canvas, RoundedRect, LinearGradient, vec } from '@shopify/react-native-skia';
 import { DayChallengeParams } from '../types';

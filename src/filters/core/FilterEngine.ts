@@ -3,11 +3,10 @@
  * Core engine for processing camera frames with filters
  */
 
-import { Skia, SkImage, SkCanvas, SkPaint, SkShader, BlendMode, TileMode } from '@shopify/react-native-skia';
+import { Skia, SkImage, SkCanvas, SkPaint, SkShader, TileMode } from '@shopify/react-native-skia';
 import { shaderManager } from './ShaderManager';
 import {
   ActiveFilter,
-  FilterState,
   ShaderUniforms,
   PoseLandmarks,
 } from '../types';

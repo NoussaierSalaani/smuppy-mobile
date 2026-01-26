@@ -11,7 +11,6 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import { RepCounterParams } from '../types';
 

@@ -34,7 +34,7 @@ import { DayChallenge } from '../overlays/DayChallenge';
 import { CalorieBurn } from '../overlays/CalorieBurn';
 import { HeartRatePulse } from '../overlays/HeartRatePulse';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Smuppy brand colors
 const COLORS = {

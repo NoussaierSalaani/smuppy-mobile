@@ -6,7 +6,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { awsAPI, Conversation, Message } from '../services/aws-api';
 import { useWebSocket } from './useWebSocket';
-import { WebSocketMessage } from '../services/websocket';
 
 interface UseConversationsReturn {
   conversations: Conversation[];

@@ -23,7 +23,6 @@ import {
   OverlayType,
   OverlayPosition,
   PoseLandmarks,
-  BodySegmentation,
   FILTER_IDS,
 } from './types';
 

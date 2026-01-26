@@ -6,6 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('follow-requests-accept');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -146,7 +149,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       client.release();
     }
   } catch (error: any) {
-    console.error('Error accepting follow request:', error);
+    log.error('Error accepting follow request', error);
     return {
       statusCode: 500,
       headers,

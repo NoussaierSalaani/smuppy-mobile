@@ -14,6 +14,9 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('media-upload-url');
 
 const s3Client = new S3Client({});
 
@@ -188,7 +191,7 @@ export async function handler(
     const publicUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
 
     // Log upload request (masked user ID for security)
-    console.log(`[UploadURL] Generated for user ${userId.substring(0, 8)}***, type: ${uploadType}, mediaType: ${mediaType}`);
+    log.info('Upload URL generated', { userId: userId.substring(0, 8) + '***', uploadType, mediaType });
 
     return {
       statusCode: 200,
@@ -202,7 +205,7 @@ export async function handler(
       }),
     };
   } catch (error: any) {
-    console.error('[UploadURL] Error:', error.message);
+    log.error('Error generating upload URL', error);
     return {
       statusCode: 500,
       headers,

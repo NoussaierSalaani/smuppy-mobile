@@ -6,6 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('peaks-like');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -141,7 +144,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       client.release();
     }
   } catch (error: any) {
-    console.error('Error liking peak:', error);
+    log.error('Error liking peak', error);
     return {
       statusCode: 500,
       headers,

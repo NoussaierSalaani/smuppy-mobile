@@ -4,6 +4,9 @@
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('security-middleware');
 
 // ============================================
 // ATTACK DETECTION PATTERNS
@@ -358,12 +361,12 @@ export function logSecurityEvent(
     ...details,
   };
 
-  // Use console.warn for medium/high, console.error for critical
+  // Use appropriate log level based on severity
   if (severity === 'critical') {
-    console.error(JSON.stringify(event));
+    log.error('Security event', null, event);
   } else if (severity === 'high' || severity === 'medium') {
-    console.warn(JSON.stringify(event));
+    log.warn('Security event', event);
   } else {
-    console.log(JSON.stringify(event));
+    log.info('Security event', event);
   }
 }

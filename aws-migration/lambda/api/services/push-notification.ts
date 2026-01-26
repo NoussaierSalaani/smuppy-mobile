@@ -9,6 +9,9 @@ import {
 } from '@aws-sdk/client-sns';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import * as admin from 'firebase-admin';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('push-notification');
 
 const snsClient = new SNSClient({});
 const secretsClient = new SecretsManagerClient({});
@@ -32,10 +35,10 @@ async function initializeFirebase(): Promise<void> {
         credential: admin.credential.cert(serviceAccount),
       });
       firebaseInitialized = true;
-      console.log('[Push] Firebase Admin SDK initialized');
+      log.info('Firebase Admin SDK initialized');
     }
   } catch (error) {
-    console.error('[Push] Failed to initialize Firebase:', error);
+    log.error('Failed to initialize Firebase', error);
   }
 }
 
@@ -85,10 +88,10 @@ async function sendToiOS(
     });
 
     await snsClient.send(command);
-    console.log('[Push] iOS notification sent successfully');
+    log.info('iOS notification sent successfully');
     return true;
   } catch (error: any) {
-    console.error('[Push] Failed to send iOS notification:', error);
+    log.error('Failed to send iOS notification', error);
     return false;
   }
 }
@@ -104,7 +107,7 @@ async function sendToAndroid(
     await initializeFirebase();
 
     if (!firebaseInitialized) {
-      console.error('[Push] Firebase not initialized');
+      log.error('Firebase not initialized', null);
       return false;
     }
 
@@ -125,10 +128,10 @@ async function sendToAndroid(
     };
 
     const response = await admin.messaging().send(message);
-    console.log('[Push] Android notification sent:', response);
+    log.info('Android notification sent', { response });
     return true;
   } catch (error: any) {
-    console.error('[Push] Failed to send Android notification:', error);
+    log.error('Failed to send Android notification', error);
     return false;
   }
 }
@@ -146,7 +149,7 @@ export async function sendPushNotification(
     return sendToAndroid(target.token, payload);
   }
 
-  console.warn('[Push] Unsupported platform or missing endpoint:', target.platform);
+  log.warn('Unsupported platform or missing endpoint', { platform: target.platform });
   return false;
 }
 
@@ -196,7 +199,7 @@ export async function sendPushNotificationBatch(
         success += response.successCount;
         failed += response.failureCount;
       } catch (error) {
-        console.error('[Push] Batch Android send failed:', error);
+        log.error('Batch Android send failed', error);
         failed += androidTargets.length;
       }
     } else {
@@ -224,7 +227,7 @@ export async function sendPushToUser(
   );
 
   if (result.rows.length === 0) {
-    console.log('[Push] No push tokens found for user:', userId);
+    log.info('No push tokens found for user', { userId });
     return { success: 0, failed: 0 };
   }
 

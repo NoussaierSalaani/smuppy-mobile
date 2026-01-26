@@ -6,6 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('peaks-get');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -104,7 +107,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     db.query(
       'UPDATE peaks SET views_count = views_count + 1 WHERE id = $1',
       [peakId]
-    ).catch(err => console.error('Error incrementing view count:', err));
+    ).catch(err => log.error('Error incrementing view count', err));
 
     return {
       statusCode: 200,
@@ -133,7 +136,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    console.error('Error getting peak:', error);
+    log.error('Error getting peak', error);
     return {
       statusCode: 500,
       headers,

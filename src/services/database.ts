@@ -154,11 +154,25 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     id: p.id,
     username: p.username,
     full_name: p.fullName || '',
+    display_name: p.displayName || undefined,
     avatar_url: p.avatarUrl,
+    cover_url: p.coverUrl || undefined,
     bio: p.bio || undefined,
+    website: p.website || undefined,
     is_verified: p.isVerified,
     is_private: p.isPrivate,
     account_type: p.accountType,
+    gender: p.gender,
+    date_of_birth: p.dateOfBirth,
+    interests: p.interests,
+    expertise: p.expertise,
+    social_links: p.socialLinks,
+    onboarding_completed: p.onboardingCompleted,
+    business_name: p.businessName,
+    business_category: p.businessCategory,
+    business_address: p.businessAddress,
+    business_phone: p.businessPhone,
+    locations_mode: p.locationsMode,
     fan_count: p.followersCount,
     post_count: p.postsCount,
   };
@@ -409,10 +423,18 @@ export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbRe
   if (!user) return { data: [], error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
-    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+    // Try suggested endpoint first with pagination
+    const result = await awsAPI.request<any>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
+    const profiles = result.profiles || result.data || [];
+    return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+  } catch {
+    // Fallback: use search for popular profiles
+    try {
+      const profiles = await awsAPI.searchProfiles('', limit);
+      return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+    } catch {
+      return { data: [], error: null };
+    }
   }
 };
 
@@ -563,8 +585,9 @@ export const getDiscoveryFeed = async (
   try {
     const interests = selectedInterests.length > 0 ? selectedInterests : userInterests;
     const interestsParam = interests.length > 0 ? `&interests=${encodeURIComponent(interests.join(','))}` : '';
-    const result = await awsAPI.request<{ data: any[] }>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
-    return { data: result.data.map(convertPost), error: null };
+    const result = await awsAPI.request<any>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
+    const posts = result.posts || result.data || [];
+    return { data: posts.map(convertPost), error: null };
   } catch (error: any) {
     // Fallback to explore
     try {

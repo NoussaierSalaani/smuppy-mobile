@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard
+  ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard,
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,51 +16,30 @@ import { useUserStore } from '../../stores';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
-import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 import { awsAuth } from '../../services/aws-auth';
 
 const CODE_LENGTH = 6;
 
-export default function VerifyCodeScreen({ navigation, route }) {
-  const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
+export default function VerifyCodeScreen({ navigation, route }: any) {
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  const inputs = useRef<TextInput[]>([]);
+  const inputs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const isCreatingRef = useRef(false);
-  const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Extract all onboarding data from params
+  // Extract params
   const {
-    email,
-    password,
-    name,
-    gender,
-    dateOfBirth,
-    accountType,
-    interests,
-    profileImage,
-    // Pro Creator params
-    displayName,
-    username,
-    bio,
-    website,
-    socialLinks,
-    expertise,
-    // Pro Business params
-    businessCategory,
-    businessCategoryCustom,
-    locationsMode,
-    businessName,
-    businessAddress,
-    businessPhone,
-    // Session persistence
+    email, password, name, gender, dateOfBirth, accountType, interests, profileImage,
+    displayName, username, bio, website, socialLinks, expertise,
+    businessCategory, businessCategoryCustom, locationsMode, businessName, businessAddress, businessPhone,
     rememberMe = false,
+    accountCreated: accountAlreadyCreated = false,
   } = route?.params || {};
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
@@ -67,13 +47,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
   const { updateProfile: updateUserContext } = useUser();
   const setZustandUser = useUserStore((state) => state.setUser);
 
-  // Determine step based on account type - VerifyCode is the last step
-  // All account types now have 4 steps
-  const { currentStep, totalSteps } = useMemo(() => {
-    return { currentStep: 4, totalSteps: 4 };
-  }, []);
-
-  // Animation shake
+  // Shake animation
   const triggerShake = useCallback(() => {
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
@@ -84,28 +58,16 @@ export default function VerifyCodeScreen({ navigation, route }) {
     ]).start();
   }, [shakeAnim]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (focusTimeoutRef.current) {
-        clearTimeout(focusTimeoutRef.current);
-      }
-    };
-  }, []);
-
   // Clear code
   const clearCode = useCallback((shouldFocus = false) => {
-    setCode(Array(CODE_LENGTH).fill(''));
+    setCode(['', '', '', '', '', '']);
     setError('');
     if (shouldFocus) {
-      if (focusTimeoutRef.current) {
-        clearTimeout(focusTimeoutRef.current);
-      }
-      focusTimeoutRef.current = setTimeout(() => inputs.current[0]?.focus(), 100);
+      setTimeout(() => inputs.current[0]?.focus(), 100);
     }
   }, []);
 
-  // Create account and send OTP using AWS Cognito
+  // Create account and send OTP
   const createAccountAndSendOTP = useCallback(async () => {
     if (accountCreated || isCreatingRef.current) return;
 
@@ -114,7 +76,6 @@ export default function VerifyCodeScreen({ navigation, route }) {
     setError('');
 
     try {
-      // Use backend service which routes to AWS Cognito
       const result = await backend.signUp({
         email,
         password,
@@ -122,45 +83,25 @@ export default function VerifyCodeScreen({ navigation, route }) {
         fullName: name,
       });
 
-      if (result.confirmationRequired) {
-        // Account created, confirmation code sent
-        setAccountCreated(true);
-      } else if (result.user) {
-        // Account created and confirmed (auto-confirm enabled in Cognito)
+      if (result.confirmationRequired || result.user) {
         setAccountCreated(true);
       } else {
         setError('Unable to create account. Please try again.');
       }
     } catch (err: any) {
-      console.error('[VerifyCode] Create account error:', err);
-      console.error('[VerifyCode] Error name:', err?.name);
-      console.error('[VerifyCode] Error message:', err?.message);
-      console.error('[VerifyCode] Params:', { email: !!email, password: !!password, passwordLength: password?.length, name: !!name });
-
-      // Handle Cognito-specific errors
       const errorMessage = err?.message || '';
       const errorName = err?.name || '';
 
-      if (errorMessage.includes('UsernameExistsException') || errorName === 'UsernameExistsException' || errorMessage.includes('already exists')) {
-        setError('An account with this email already exists. Please login instead.');
-      } else if (errorName === 'InvalidPasswordException' || errorMessage.includes('InvalidPasswordException') || errorMessage.includes('Password did not conform')) {
-        setError('Password must be at least 8 characters with uppercase, lowercase, numbers, and a special character.');
-      } else if (errorName === 'InvalidParameterException' || errorMessage.includes('InvalidParameterException')) {
-        // Show the actual Cognito error for better debugging
-        if (errorMessage.includes('password')) {
-          setError('Password must be at least 8 characters with uppercase, lowercase, numbers, and a special character.');
-        } else if (errorMessage.includes('email')) {
-          setError('Please enter a valid email address.');
-        } else {
-          setError(errorMessage || 'Invalid input. Please check your information.');
-        }
-      } else if (errorMessage.includes('TooManyRequestsException') || errorMessage.includes('rate')) {
+      if (errorMessage.includes('UsernameExists') || errorMessage.includes('AliasExists') || errorMessage.includes('already')) {
+        setError('Unable to create account. Please try again or login.');
+      } else if (errorName.includes('InvalidPassword') || errorMessage.includes('Password')) {
+        setError('Password must be at least 8 characters with uppercase, lowercase, numbers, and special character.');
+      } else if (errorMessage.includes('TooManyRequests') || errorMessage.includes('rate')) {
         setError('Too many attempts. Please wait a few minutes.');
-      } else if (errorMessage.includes('NetworkError') || errorMessage.includes('Network request failed')) {
-        setError('Network error. Please check your internet connection.');
+      } else if (errorMessage.includes('Network')) {
+        setError('Network error. Please check your connection.');
       } else {
-        // Show the actual error for debugging
-        setError(errorMessage || errorName || 'Unknown error. Please try again.');
+        setError('Unable to create account. Please try again.');
       }
     } finally {
       isCreatingRef.current = false;
@@ -171,28 +112,29 @@ export default function VerifyCodeScreen({ navigation, route }) {
   // Create account on mount
   useEffect(() => {
     if (!email || !password) {
-      console.error('[VerifyCode] Missing credentials:', { email: !!email, password: !!password });
-      setError('Missing email or password. Please go back and try again.');
+      setError('Missing credentials. Please go back and try again.');
+      return;
+    }
+    if (accountAlreadyCreated) {
+      setAccountCreated(true);
       return;
     }
     if (!accountCreated) {
       createAccountAndSendOTP();
     }
-  }, [email, password, accountCreated, createAccountAndSendOTP]);
+  }, []);
 
-  // Verify code and create profile using AWS Cognito
-  const verifyCode = useCallback(async (fullCode) => {
+  // Verify code
+  const verifyCode = useCallback(async (fullCode: string) => {
     setIsVerifying(true);
     setError('');
     Keyboard.dismiss();
 
     try {
-      // IMPORTANT: Set flag BEFORE confirmation
       await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
 
-      // Step 1: Confirm signup with AWS Cognito
+      // Confirm signup
       const confirmed = await awsAuth.confirmSignUp(email, fullCode);
-
       if (!confirmed) {
         await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Verification failed. Please try again.');
@@ -201,26 +143,23 @@ export default function VerifyCodeScreen({ navigation, route }) {
         return;
       }
 
-      // Step 2: Sign in after confirmation to get session
+      // Sign in
       const user = await backend.signIn({ email, password });
-
       if (!user) {
         await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
-        setError('Account verified but login failed. Please try logging in manually.');
+        setError('Account verified but login failed. Please try logging in.');
         triggerShake();
         return;
       }
 
-      // Step 3: Upload profile image if exists
+      // Upload profile image
       let avatarUrl: string | null = null;
       if (profileImage && user.id) {
-        const { url, error: uploadError } = await uploadProfileImage(profileImage, user.id);
-        if (!uploadError && url) {
-          avatarUrl = url;
-        }
+        const { url } = await uploadProfileImage(profileImage, user.id);
+        if (url) avatarUrl = url;
       }
 
-      // Step 4: Create profile with all onboarding data
+      // Create profile
       const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       const profileData: Record<string, unknown> = {
         full_name: name || generatedUsername,
@@ -228,30 +167,15 @@ export default function VerifyCodeScreen({ navigation, route }) {
         account_type: accountType || 'personal',
       };
 
-      // Add avatar URL if uploaded
       if (avatarUrl) profileData.avatar_url = avatarUrl;
-
-      // Add personal info
       if (gender) profileData.gender = gender;
       if (dateOfBirth) profileData.date_of_birth = dateOfBirth;
-
-      // Add pro creator/business specific data
       if (displayName) profileData.display_name = displayName;
       if (bio) profileData.bio = bio;
       if (website) profileData.website = website;
-      if (socialLinks && Object.keys(socialLinks).length > 0) {
-        profileData.social_links = socialLinks;
-      }
-
-      // Add interests/expertise as arrays
-      if (interests && interests.length > 0) {
-        profileData.interests = interests;
-      }
-      if (expertise && expertise.length > 0) {
-        profileData.expertise = expertise;
-      }
-
-      // Add business info
+      if (socialLinks && Object.keys(socialLinks).length > 0) profileData.social_links = socialLinks;
+      if (interests?.length > 0) profileData.interests = interests;
+      if (expertise?.length > 0) profileData.expertise = expertise;
       if (businessName) profileData.business_name = businessName;
       if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;
@@ -260,7 +184,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
 
       await createProfile(profileData);
 
-      // Step 5: Populate UserContext with onboarding data
+      // Update contexts
       const userData = {
         id: user.id,
         fullName: name || generatedUsername,
@@ -283,31 +207,27 @@ export default function VerifyCodeScreen({ navigation, route }) {
         locationsMode: locationsMode || '',
       };
       await updateUserContext(userData);
-
-      // Step 5b: Sync to Zustand store for unified state management
       setZustandUser(userData);
 
-      // Step 6: Handle session persistence based on rememberMe
+      // Persist session
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
-      // Step 7: Navigate to Success
+      // Navigate to success
       navigation.reset({
         index: 0,
         routes: [{ name: 'Success', params: { name } }],
       });
 
     } catch (err: any) {
-      console.error('[VerifyCode] Verification error:', err);
       await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
+      const msg = err?.message || '';
 
-      const errorMessage = err?.message || '';
-
-      if (errorMessage.includes('expired') || errorMessage.includes('ExpiredCodeException')) {
+      if (msg.includes('expired') || msg.includes('ExpiredCode')) {
         setError('Code expired. Please request a new one.');
-      } else if (errorMessage.includes('invalid') || errorMessage.includes('CodeMismatchException')) {
-        setError('Invalid verification code. Please try again.');
+      } else if (msg.includes('invalid') || msg.includes('CodeMismatch')) {
+        setError('Invalid code. Please try again.');
       } else {
-        setError('Verification failed. Please check your code and try again.');
+        setError('Verification failed. Please try again.');
       }
       triggerShake();
       clearCode(true);
@@ -317,7 +237,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
   }, [email, password, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext, setZustandUser]);
 
   // Handle code input
-  const handleChange = useCallback((text, index) => {
+  const handleChange = useCallback((text: string, index: number) => {
     if (error) setError('');
     if (text && !/^\d+$/.test(text)) return;
 
@@ -329,26 +249,18 @@ export default function VerifyCodeScreen({ navigation, route }) {
       inputs.current[index + 1]?.focus();
     }
 
-    if (text && index === CODE_LENGTH - 1 && newCode.join('').length === CODE_LENGTH) {
+    if (text && index === CODE_LENGTH - 1 && newCode.every(c => c)) {
       verifyCode(newCode.join(''));
     }
   }, [code, error, verifyCode]);
 
-  const handleKeyPress = useCallback((e, index) => {
+  const handleKeyPress = useCallback((e: any, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
       inputs.current[index - 1]?.focus();
     }
   }, [code]);
 
-  const handleFocus = useCallback((index) => {
-    setFocusedIndex(index);
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    setFocusedIndex(-1);
-  }, []);
-
-  // Resend OTP using AWS Cognito
+  // Resend code
   const handleResend = useCallback(async () => {
     Keyboard.dismiss();
 
@@ -358,21 +270,12 @@ export default function VerifyCodeScreen({ navigation, route }) {
     }
 
     try {
-      const awsCheck = await checkAWSRateLimit(email, 'auth-resend');
-      if (!awsCheck.allowed) {
-        setError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
-        return;
-      }
-
-      // Use AWS Cognito to resend confirmation code
       await awsAuth.resendConfirmationCode(email);
       tryAction(() => clearCode(false));
       setShowModal(true);
     } catch (err: any) {
-      console.error('[VerifyCode] Resend error:', err);
-      const errorMessage = err?.message || '';
-
-      if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
+      const msg = err?.message || '';
+      if (msg.includes('LimitExceeded') || msg.includes('rate')) {
         setError('Too many attempts. Please wait a few minutes.');
       } else {
         setError('Failed to resend code. Please try again.');
@@ -380,11 +283,23 @@ export default function VerifyCodeScreen({ navigation, route }) {
     }
   }, [canAction, tryAction, clearCode, setShowModal, email]);
 
+  // Loading state
+  if (isCreatingAccount) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <OnboardingHeader onBack={goBack} disabled currentStep={4} totalSteps={4} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Setting up your account...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - last step for all flows */}
-        <OnboardingHeader onBack={goBack} disabled={disabled || isVerifying} currentStep={currentStep} totalSteps={totalSteps} />
+        <OnboardingHeader onBack={goBack} disabled={disabled || isVerifying} currentStep={4} totalSteps={4} />
 
         <ScrollView
           contentContainerStyle={styles.content}
@@ -395,12 +310,8 @@ export default function VerifyCodeScreen({ navigation, route }) {
           <View style={styles.header}>
             <Text style={styles.title}>Verify your email</Text>
             <Text style={styles.subtitle}>
-              {isCreatingAccount ? 'Sending verification code...' : (
-                <>
-                  A verification code has been sent to{' '}
-                  <Text style={styles.emailText}>{email}</Text>
-                </>
-              )}
+              A verification code has been sent to{' '}
+              <Text style={styles.emailText}>{email}</Text>
             </Text>
           </View>
 
@@ -409,8 +320,9 @@ export default function VerifyCodeScreen({ navigation, route }) {
             <>
               <Text style={styles.label}>Enter code</Text>
               <Animated.View style={[styles.codeRow, { transform: [{ translateX: shakeAnim }] }]}>
-                {Array.from({ length: CODE_LENGTH }, (_, i) => {
-                  const isFilled = code[i] !== '';
+                {code.map((digit, i) => {
+                  const isFilled = digit !== '';
+                  const isFocused = focusedIndex === i;
                   const hasError = !!error;
 
                   if (hasError) {
@@ -421,18 +333,17 @@ export default function VerifyCodeScreen({ navigation, route }) {
                         style={[styles.codeBox, styles.codeBoxError]}
                         maxLength={1}
                         keyboardType="number-pad"
-                        value={code[i]}
+                        value={digit}
                         onChangeText={(text) => handleChange(text, i)}
                         onKeyPress={(e) => handleKeyPress(e, i)}
-                        onFocus={() => handleFocus(i)}
-                        onBlur={handleBlur}
+                        onFocus={() => setFocusedIndex(i)}
+                        onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
                         editable={!isVerifying}
                       />
                     );
                   }
 
-                  const isFocused = focusedIndex === i;
                   return (
                     <LinearGradient
                       key={i}
@@ -446,11 +357,11 @@ export default function VerifyCodeScreen({ navigation, route }) {
                         style={[styles.codeBoxInner, isFilled && styles.codeBoxInnerFilled]}
                         maxLength={1}
                         keyboardType="number-pad"
-                        value={code[i]}
+                        value={digit}
                         onChangeText={(text) => handleChange(text, i)}
                         onKeyPress={(e) => handleKeyPress(e, i)}
-                        onFocus={() => handleFocus(i)}
-                        onBlur={handleBlur}
+                        onFocus={() => setFocusedIndex(i)}
+                        onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
                         editable={!isVerifying}
                       />
@@ -459,7 +370,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
                 })}
               </Animated.View>
 
-              {/* Error Message */}
+              {/* Error */}
               {error ? (
                 <View style={styles.errorBox}>
                   <View style={styles.errorIcon}>
@@ -469,7 +380,7 @@ export default function VerifyCodeScreen({ navigation, route }) {
                 </View>
               ) : null}
 
-              {/* Resend Link */}
+              {/* Resend */}
               <View style={styles.resendRow}>
                 <Text style={styles.resendText}>Didn't receive a code? </Text>
                 <TouchableOpacity onPress={handleResend} disabled={isVerifying}>
@@ -478,18 +389,19 @@ export default function VerifyCodeScreen({ navigation, route }) {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Verifying indicator */}
+              {isVerifying && (
+                <View style={styles.verifyingBox}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={styles.verifyingText}>Verifying...</Text>
+                </View>
+              )}
             </>
           )}
 
-          {/* Creating account message */}
-          {isCreatingAccount && (
-            <View style={styles.loadingBox}>
-              <Text style={styles.loadingText}>Setting up your account...</Text>
-            </View>
-          )}
-
-          {/* Error when account creation fails */}
-          {!accountCreated && !isCreatingAccount && error ? (
+          {/* Error before account created */}
+          {!accountCreated && error ? (
             <View style={styles.errorBox}>
               <View style={styles.errorIcon}>
                 <Ionicons name="alert-circle" size={20} color={COLORS.white} />
@@ -500,18 +412,13 @@ export default function VerifyCodeScreen({ navigation, route }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Footer */}
-      <View style={styles.footer} pointerEvents="none">
-      </View>
-
-      {/* Cooldown Modal */}
       <CooldownModal
         visible={showModal}
         onClose={() => setShowModal(false)}
         seconds={remainingTime || 30}
         title={canAction ? 'Code Sent!' : 'Please wait'}
         message={canAction
-          ? 'A new verification code has been sent to your email. You can request another one in'
+          ? 'A new verification code has been sent to your email.'
           : 'You can request a new code in'
         }
       />
@@ -523,6 +430,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
+
+  // Loading
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  loadingText: { fontSize: 16, color: COLORS.primary, fontWeight: '500' },
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },
@@ -539,10 +450,6 @@ const styles = StyleSheet.create({
   codeBoxInnerFilled: { backgroundColor: '#E8FBF5' },
   codeBoxError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEECEC' },
 
-  // Loading
-  loadingBox: { alignItems: 'center', paddingVertical: SPACING.xl },
-  loadingText: { fontSize: 16, color: COLORS.primary, fontWeight: '500' },
-
   // Error
   errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: SPACING.lg, borderWidth: 1, borderColor: '#FECACA', gap: 10 },
   errorIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.error, justifyContent: 'center', alignItems: 'center' },
@@ -554,6 +461,7 @@ const styles = StyleSheet.create({
   resendLink: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
   resendDisabled: { color: COLORS.gray },
 
-  // Footer
-  footer: { position: 'absolute', bottom: SPACING['3xl'], left: 0, right: 0, alignItems: 'center' },
+  // Verifying
+  verifyingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: SPACING.lg },
+  verifyingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
 });

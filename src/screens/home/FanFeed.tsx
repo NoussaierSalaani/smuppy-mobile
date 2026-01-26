@@ -152,6 +152,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
+  const suggestionsOffsetRef = useRef(0);
+  const loadingSuggestionsRef = useRef(false);
+  const hasMoreSuggestionsRef = useRef(true);
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
 
   // Share modal state
@@ -236,11 +239,24 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, []);
 
-  // Fetch suggestions
-  const fetchSuggestions = useCallback(async () => {
+  // Fetch suggestions with pagination - uses refs to avoid re-render loops
+  const fetchSuggestions = useCallback(async (append = false) => {
+    if (loadingSuggestionsRef.current || !hasMoreSuggestionsRef.current) return;
+
     try {
-      const { data } = await getSuggestedProfiles(8);
-      if (data) {
+      loadingSuggestionsRef.current = true;
+      const offset = append ? suggestionsOffsetRef.current : 0;
+      const { data, error } = await getSuggestedProfiles(10, offset);
+
+      // Stop retrying on error
+      if (error) {
+        console.error('[FanFeed] Error fetching suggestions:', error);
+        hasMoreSuggestionsRef.current = false;
+        loadingSuggestionsRef.current = false;
+        return;
+      }
+
+      if (data && data.length > 0) {
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
           id: p.id,
           name: p.full_name || p.username || 'User',
@@ -249,10 +265,30 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           isVerified: p.is_verified || false,
           accountType: p.account_type || 'personal',
         }));
-        setSuggestions(transformed);
+
+        if (append) {
+          // Filter out duplicates and already followed users
+          setSuggestions(prev => {
+            const existingIds = new Set(prev.map(s => s.id));
+            const newSuggestions = transformed.filter(s =>
+              !existingIds.has(s.id) && !followedUserIds.current.has(s.id)
+            );
+            return [...prev, ...newSuggestions];
+          });
+        } else {
+          setSuggestions(transformed);
+        }
+
+        suggestionsOffsetRef.current = offset + data.length;
+        hasMoreSuggestionsRef.current = data.length >= 10;
+      } else {
+        hasMoreSuggestionsRef.current = false;
       }
     } catch (err) {
       console.error('[FanFeed] Error fetching suggestions:', err);
+      hasMoreSuggestionsRef.current = false;
+    } finally {
+      loadingSuggestionsRef.current = false;
     }
   }, []);
 
@@ -296,47 +332,18 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, [trackingUserIds, posts.length, fetchPosts]);
 
-  // Refill suggestions when running low
+  // Refill suggestions when running low - load more from database
   useEffect(() => {
-    const refillSuggestions = async () => {
-      // Refill when we have less than 3 suggestions
-      if (suggestions.length < 3 && suggestions.length > 0) {
-        try {
-          const { data } = await getSuggestedProfiles(8);
-          if (data && data.length > 0) {
-            // Get current suggestion IDs
-            const currentIds = new Set(suggestions.map(s => s.id));
-
-            // Filter out users already in suggestions or already followed
-            const newProfiles = data.filter((p: Profile) =>
-              !currentIds.has(p.id) && !followedUserIds.current.has(p.id)
-            );
-
-            if (newProfiles.length > 0) {
-              const newSuggestions: UISuggestion[] = newProfiles.slice(0, 5).map((p: Profile) => ({
-                id: p.id,
-                name: p.full_name || p.username || 'User',
-                username: p.username || 'user',
-                avatar: p.avatar_url || 'https://via.placeholder.com/100',
-                isVerified: p.is_verified || false,
-                accountType: p.account_type || 'personal',
-              }));
-              setSuggestions(prev => [...prev, ...newSuggestions]);
-            }
-          }
-        } catch (err) {
-          console.error('[FanFeed] Error refilling suggestions:', err);
-        }
-      }
-    };
-
-    refillSuggestions();
-  }, [suggestions.length]);
+    // Refill when we have less than 3 suggestions
+    if (suggestions.length < 3 && suggestions.length >= 0) {
+      fetchSuggestions(true);
+    }
+  }, [suggestions.length, fetchSuggestions]);
 
   // Initial load
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([fetchPosts(0), fetchSuggestions()]).finally(() => setIsLoading(false));
+    Promise.all([fetchPosts(0), fetchSuggestions(false)]).finally(() => setIsLoading(false));
   }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)

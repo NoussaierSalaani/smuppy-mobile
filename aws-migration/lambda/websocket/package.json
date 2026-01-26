@@ -1,0 +1,24 @@
+{
+  "name": "smuppy-websocket-lambdas",
+  "version": "1.0.0",
+  "description": "Smuppy WebSocket Lambda functions for real-time messaging",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.975.0",
+    "@aws-sdk/client-secrets-manager": "^3.975.0",
+    "aws-jwt-verify": "^5.0.0",
+    "pg": "^8.14.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
+    "@types/node": "^20.19.0",
+    "@types/pg": "^8.11.11",
+    "typescript": "~5.9.2"
+  }
+}

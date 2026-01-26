@@ -1,254 +1,103 @@
 # Smuppy
 
-A React Native (Expo) social fitness app that connects users through sports, wellness, and healthy lifestyle content.
+Application mobile sociale fitness en React Native (Expo) connectant les utilisateurs autour du sport, du bien-etre et d'un mode de vie sain.
 
-## Tech Stack
+## Etat Actuel
 
-| Category | Technology | Version |
-|----------|------------|---------|
-| **Framework** | React Native + Expo | SDK 54 |
-| **Backend** | AWS (Cognito + API Gateway + Lambda + DynamoDB) | - |
-| **State** | Zustand + React Query | v5 |
-| **Media Storage** | AWS S3 + CloudFront | CDN |
-| **Notifications** | Expo Notifications | Push |
-| **Lists** | @shopify/flash-list | 10x faster |
-| **Images** | expo-image | Cached |
-| **Monitoring** | Sentry | Error tracking |
+| Aspect | Score | Status |
+|--------|-------|--------|
+| Frontend | 8/10 | Complet |
+| Backend | 5/10 | ~30 endpoints manquants |
+| Securite | 5/10 | Corrections requises |
+| **Global** | **6.2/10** | **En developpement** |
 
-## Architecture
+> **Documentation complete:** [docs/SMUPPY_MASTER_DOC.md](docs/SMUPPY_MASTER_DOC.md)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        SMUPPY MOBILE                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   React Native App (Expo SDK 54)                               │
-│   ├── Zustand (Client State)                                   │
-│   ├── React Query (Server State + Cache)                       │
-│   └── FlashList + expo-image (Performance)                     │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                       AWS BACKEND                               │
-│                                                                 │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │
-│   │  Cognito    │  │ API Gateway │  │   Expo Push         │   │
-│   │  - Auth     │  │  + Lambda   │  │   - Notifications   │   │
-│   │  - Users    │  │  - REST API │  │   - Tokens          │   │
-│   │  - MFA      │  │             │  │                     │   │
-│   └─────────────┘  └─────────────┘  └─────────────────────┘   │
-│                                                                 │
-│   ┌─────────────┐  ┌─────────────┐                            │
-│   │  DynamoDB   │  │ S3 + CDN   │                             │
-│   │  - Data     │  │ CloudFront │                             │
-│   │  - Feeds    │  │ - Media    │                             │
-│   └─────────────┘  └─────────────┘                            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Stack Technique
 
-## Getting Started
+| Categorie | Technologie |
+|-----------|-------------|
+| Framework | React Native + Expo SDK 54 |
+| Backend | AWS (Cognito + API Gateway + Lambda) |
+| Database | PostgreSQL (Aurora Serverless v2) |
+| Cache | Redis (ElastiCache) |
+| Storage | S3 + CloudFront CDN |
+| State | Zustand + React Query v5 |
 
-### Prerequisites
-
-- Node.js 20+
-- npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (Mac) or Android Emulator
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd smuppy-mobile
-
-# Install dependencies
+# Installation
 npm install
 
-# Set up environment variables
+# Configuration
 cp .env.example .env
-# Edit .env with your keys (see Environment Variables below)
+# Editer .env avec vos cles
 
-# Start the development server
+# Demarrer
 npm start
 ```
 
-### Environment Variables
-
-Create a `.env` file:
-
-```env
-# Google APIs
-GOOGLE_API_KEY=your-google-api-key
-
-# Google OAuth Client IDs
-GOOGLE_IOS_CLIENT_ID=your-ios-client-id.apps.googleusercontent.com
-GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
-GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
-
-# Backend API
-API_URL_DEV=https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging
-API_URL_PROD=https://api.smuppy.com
-APP_ENV=dev
-
-# AWS Configuration
-AWS_REGION=us-east-1
-S3_BUCKET_NAME=smuppy-media
-CLOUDFRONT_URL=https://your-cloudfront-id.cloudfront.net
-
-# Agora (Live Streaming)
-AGORA_APP_ID=your-agora-app-id
-
-# Monitoring (Optional)
-SENTRY_DSN=https://xxx@sentry.io/xxx
-```
-
-## Project Structure
+## Structure
 
 ```
 src/
-├── components/          # Reusable UI components
-│   ├── OptimizedImage.js    # expo-image wrapper
-│   ├── OptimizedList.js     # FlashList wrapper
-│   └── ...
-├── config/              # App configuration
-│   ├── theme.js         # Colors, spacing, typography
-│   ├── env.ts           # Environment variables
-│   └── aws-config.ts    # AWS configuration
-├── context/             # React Context providers
-├── hooks/               # Custom React hooks
-│   ├── queries/         # React Query hooks
-│   ├── useMediaUpload.ts    # S3 upload hook
-│   ├── useNotifications.ts  # Push notifications hook
-│   └── index.ts         # Centralized exports
-├── navigation/          # React Navigation setup
-├── screens/             # Screen components
-├── services/            # External services
-│   ├── aws-auth.ts      # AWS Cognito authentication
-│   ├── aws-api.ts       # AWS API Gateway client
-│   ├── notifications.ts # Push notification service
-│   └── socialAuth.ts    # Apple/Google Sign-In
-├── stores/              # Zustand stores
-└── utils/               # Utilities
-    ├── validation.ts    # Form validation
-    ├── secureStorage.ts # Secure token storage
-    └── rateLimiter.ts   # API rate limiting
+├── components/     # UI components
+├── screens/        # 50+ ecrans
+├── services/       # AWS services (auth, api)
+├── stores/         # Zustand stores
+└── hooks/          # Custom hooks
+
+aws-migration/
+├── infrastructure/ # CDK Stack
+└── lambda/api/     # Lambda handlers
 ```
 
-## Key Features
+## Fonctionnalites
 
-### Authentication
-- Email/password via AWS Cognito
-- Apple Sign-In & Google Sign-In
-- Biometric login (Face ID / Touch ID)
-- Password reset with email verification
-- Session management with secure storage
+### Fonctionnel
+- Authentication complete (email, Apple, Google, biometric)
+- Creation/affichage de posts
+- Profils (view, edit, search)
+- Follow/Unfollow
+- Upload media (S3)
 
-### Push Notifications
-- Expo Push Notifications
-- Token storage in AWS
-- Local and remote notifications
-- Badge management
+### En cours
+- Like/Unlike posts (endpoint manquant)
+- Commentaires (endpoints manquants)
+- Peaks/Stories (0% backend)
+- Notifications (0% backend)
+- Messages/Chat (0% backend)
 
-### Media Upload (S3 + CloudFront)
-- Direct upload to S3 via presigned URLs
-- CloudFront CDN for fast delivery
-- Automatic image compression
-- Presets: avatar (400x400), cover (1200x600), post (1080x1350)
-
-### Feeds
-- **FanFeed**: Posts from followed users
-- **VibesFeed**: Discover content by interests
-- **XplorerFeed**: Interactive map with search
-- Pull-to-refresh and infinite scroll
-
-### Live Streaming
-- Go Live with intro and configuration screens
-- Real-time chat and viewer count
-- Gift system with animations
-
-### Private Sessions (1:1 Video Calls)
-- Book sessions with creators
-- Multiple duration options (15, 30, 60 min)
-- Integrated payment flow (Stripe)
-- Agora SDK for video calls
-
-### Performance Optimizations
-- FlashList for 10x faster lists
-- expo-image with memory + disk cache
-- React Query caching (5min stale, 30min cache)
-- Optimistic updates for likes/follows
-
-## Scripts
+## Deploiement
 
 ```bash
-npm start          # Start Expo dev server
-npm run ios        # Run on iOS simulator
-npm run android    # Run on Android emulator
-npm run typecheck  # TypeScript type check
-npm run lint       # ESLint check
+# Deployer AWS
+cd aws-migration/infrastructure
+npx cdk deploy SmuppyStack-staging --require-approval never
 ```
 
-## AWS Infrastructure
+## Endpoints
 
-| Service | Purpose |
-|---------|---------|
-| **Cognito** | User authentication & authorization |
-| **API Gateway** | REST API endpoints |
-| **Lambda** | Serverless backend functions |
-| **DynamoDB** | NoSQL database for feeds, posts |
-| **S3** | Media storage |
-| **CloudFront** | CDN for media delivery |
+| Env | URL |
+|-----|-----|
+| Staging | https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging |
+| Production | https://api.smuppy.com |
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| `AUDIT_REPORT.md` | AWS migration audit |
-| `SECURITY_AUDIT_REPORT.md` | Security audit (OWASP) |
-| `TEST_RESULTS.md` | Test results summary |
-| `aws-scaling/AWS_SCALING_GUIDE.md` | Guide complet scaling AWS |
+| [SMUPPY_MASTER_DOC.md](docs/SMUPPY_MASTER_DOC.md) | Documentation complete, audit, roadmap |
+| [FEATURES_SPECS.md](docs/FEATURES_SPECS.md) | Specifications UI/UX detaillees |
 
-## Testing
+## Prochaines Etapes
 
-```bash
-# Security audit
-npm audit
-
-# Stress test (requires k6)
-k6 run tests/mega-stress-test.js
-
-# Penetration test
-bash tests/pentest.sh
-
-# Advanced security test
-bash tests/advanced-security-test.sh
-```
-
-## API Endpoints
-
-| Environment | URL | Security |
-|-------------|-----|----------|
-| **Production** | `https://api.smuppy.com` | TLS 1.2 only |
-| **Staging** | `https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging` | TLS 1.0+ |
-
-## Security
-
-- **TLS 1.2 minimum** on production (api.smuppy.com)
-- **AWS WAF** with rate limiting (1000 req/5min per IP)
-- **Security Headers**: HSTS, X-Frame-Options, CSP, X-Content-Type-Options
-- API keys in environment variables (never committed)
-- Secure token storage (expo-secure-store)
-- SSL/TLS certificate pinning
-- Presigned URLs for S3 (no credentials in app)
-- AWS Cognito JWT authentication
-
-## Contributing
-
-1. Create a feature branch from `main`
-2. Make your changes
-3. Run linting and type check
-4. Submit a pull request
+1. **Semaine 1:** Corriger failles securite (CORS, secrets)
+2. **Semaine 2:** Endpoints posts/comments
+3. **Semaine 3:** Peaks/Stories
+4. **Semaine 4:** Notifications
+5. **Semaine 5-6:** Messages/Chat
 
 ## License
 

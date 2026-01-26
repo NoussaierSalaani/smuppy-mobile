@@ -60,6 +60,14 @@ export async function confirmForgotPassword(email: string, code: string, newPass
   await awsAuth.confirmForgotPassword(email, code, newPassword);
 }
 
+export async function confirmSignUp(email: string, code: string): Promise<boolean> {
+  return awsAuth.confirmSignUp(email, code);
+}
+
+export async function resendConfirmationCode(email: string): Promise<boolean> {
+  return awsAuth.resendConfirmationCode(email);
+}
+
 export function onAuthStateChange(callback: (user: User | null) => void): () => void {
   return awsAuth.onAuthStateChange((authUser) => {
     callback(authUser ? { id: authUser.id, email: authUser.email, username: authUser.username } : null);

@@ -312,7 +312,7 @@ export default function XplorerFeed({ navigation, isActive }) {
       {/* SEARCH BAR + FILTER - Position adjusts based on fullscreen mode */}
       <View style={[
         styles.searchContainer,
-        { top: isFullscreen ? insets.top + 8 : insets.top + 44 + 38 + 4 }
+        { top: isFullscreen ? insets.top + 8 : insets.top + 12 }
       ]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={normalize(18)} color={COLORS.primary} />

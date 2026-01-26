@@ -117,59 +117,19 @@ async function getLocationFromIP(): Promise<{ ip?: string; country?: string; cit
 /**
  * Register device session on login
  * Called after successful authentication
+ * NOTE: Disabled until /devices endpoint is deployed
  */
 export async function registerDeviceSession(): Promise<{
   success: boolean;
   isNewDevice: boolean;
   error?: string;
 }> {
-  try {
-    // Get device info
-    const deviceInfo = await getDeviceInfo();
-
-    // Get location info (non-blocking, with timeout)
-    const locationPromise = Promise.race([
-      getLocationFromIP(),
-      new Promise<{}>((resolve) => setTimeout(() => resolve({}), 3000)),
-    ]);
-
-    const location = await locationPromise;
-
-    // Call AWS API to register device
-    const result = await awsAPI.registerDeviceSession({
-      deviceId: deviceInfo.device_id,
-      deviceName: deviceInfo.device_name,
-      deviceType: deviceInfo.device_type,
-      platform: deviceInfo.platform,
-      osVersion: deviceInfo.os_version,
-      appVersion: deviceInfo.app_version,
-      ipAddress: (location as any).ip || undefined,
-      country: (location as any).country || undefined,
-      city: (location as any).city || undefined,
-    });
-
-    // If this is a new device, send an alert
-    if (result.isNewDevice) {
-      await sendNewDeviceAlert(result.sessionId, deviceInfo, location as any);
-    }
-
-    console.log('[DeviceSession] Registered:', {
-      deviceId: deviceInfo.device_id,
-      isNew: result.isNewDevice,
-    });
-
-    return {
-      success: true,
-      isNewDevice: result.isNewDevice,
-    };
-  } catch (error) {
-    console.error('[DeviceSession] Error:', error);
-    return {
-      success: false,
-      isNewDevice: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+  // TODO: Enable when /devices Lambda endpoint is deployed
+  // For now, return success to avoid blocking login flow
+  return {
+    success: true,
+    isNewDevice: false,
+  };
 }
 
 /**

@@ -100,7 +100,15 @@ class AWSAPIService {
     if (params?.userId) queryParams.set('userId', params.userId);
 
     const query = queryParams.toString();
-    return this.request(`/posts${query ? `?${query}` : ''}`);
+    const response = await this.request<any>(`/posts${query ? `?${query}` : ''}`);
+
+    // Map API response (posts) to expected format (data)
+    return {
+      data: response.posts || response.data || [],
+      nextCursor: response.nextCursor || null,
+      hasMore: response.hasMore || false,
+      total: response.total || 0,
+    };
   }
 
   async getPost(id: string): Promise<Post> {
@@ -375,6 +383,22 @@ class AWSAPIService {
     });
   }
 
+  /**
+   * Check if user already exists in Cognito
+   */
+  async checkUserExists(email: string): Promise<{
+    success: boolean;
+    exists: boolean;
+    confirmed: boolean;
+    message?: string;
+  }> {
+    return this.request('/auth/check-user', {
+      method: 'POST',
+      body: { email },
+      authenticated: false,
+    });
+  }
+
   // ==========================================
   // Contacts
   // ==========================================
@@ -450,6 +474,157 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Auth API (Server-side Cognito operations)
+  // ==========================================
+
+  /**
+   * Smart signup - handles unconfirmed users by deleting and recreating
+   * This endpoint uses Admin SDK to properly handle the case where a user
+   * started signup but never confirmed their email.
+   */
+  async smartSignup(data: {
+    email: string;
+    password: string;
+    username?: string;
+    fullName?: string;
+  }): Promise<{
+    success: boolean;
+    userSub?: string;
+    confirmationRequired: boolean;
+    message?: string;
+  }> {
+    return this.request('/auth/signup', {
+      method: 'POST',
+      body: data,
+      authenticated: false,
+    });
+  }
+
+  /**
+   * Confirm signup with verification code
+   */
+  async confirmSignup(data: {
+    email: string;
+    code: string;
+  }): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request('/auth/confirm-signup', {
+      method: 'POST',
+      body: data,
+      authenticated: false,
+    });
+  }
+
+  /**
+   * Resend confirmation code
+   */
+  async resendConfirmationCode(email: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request('/auth/resend-code', {
+      method: 'POST',
+      body: { email },
+      authenticated: false,
+    });
+  }
+
+  /**
+   * Initiate forgot password flow
+   */
+  async forgotPassword(email: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+      authenticated: false,
+    });
+  }
+
+  /**
+   * Complete forgot password with code and new password
+   */
+  async confirmForgotPassword(data: {
+    email: string;
+    code: string;
+    newPassword: string;
+  }): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request('/auth/confirm-forgot-password', {
+      method: 'POST',
+      body: data,
+      authenticated: false,
+    });
+  }
+
+  // ==========================================
+  // Conversations & Messages API
+  // ==========================================
+
+  async getConversations(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Conversation>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    const query = queryParams.toString();
+    return this.request(`/conversations${query ? `?${query}` : ''}`);
+  }
+
+  async getConversation(id: string): Promise<Conversation> {
+    return this.request(`/conversations/${id}`);
+  }
+
+  async createConversation(participantId: string): Promise<Conversation> {
+    return this.request('/conversations', {
+      method: 'POST',
+      body: { participantId },
+    });
+  }
+
+  async getOrCreateConversation(participantId: string): Promise<Conversation> {
+    return this.request('/conversations/get-or-create', {
+      method: 'POST',
+      body: { participantId },
+    });
+  }
+
+  async getMessages(conversationId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Message>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    const query = queryParams.toString();
+    return this.request(`/conversations/${conversationId}/messages${query ? `?${query}` : ''}`);
+  }
+
+  async sendMessage(conversationId: string, data: {
+    content: string;
+    messageType?: 'text' | 'image' | 'video' | 'audio';
+    mediaUrl?: string;
+  }): Promise<Message> {
+    return this.request(`/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    return this.request(`/messages/${messageId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async markConversationRead(conversationId: string): Promise<void> {
+    return this.request(`/conversations/${conversationId}/read`, {
+      method: 'POST',
+    });
+  }
+
+  // ==========================================
   // Utility Methods
   // ==========================================
 
@@ -494,8 +669,11 @@ export interface Profile {
   id: string;
   username: string;
   fullName: string | null;
+  displayName?: string | null;
   avatarUrl: string | null;
+  coverUrl?: string | null;
   bio: string | null;
+  website?: string | null;
   isVerified: boolean;
   isPrivate: boolean;
   accountType: 'personal' | 'pro_creator' | 'pro_local';
@@ -504,6 +682,19 @@ export interface Profile {
   postsCount: number;
   isFollowing?: boolean;
   isFollowedBy?: boolean;
+  // Profile extras
+  gender?: string;
+  dateOfBirth?: string;
+  interests?: string[];
+  expertise?: string[];
+  socialLinks?: Record<string, string>;
+  onboardingCompleted?: boolean;
+  // Business fields
+  businessName?: string;
+  businessCategory?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  locationsMode?: string;
 }
 
 export interface Peak {
@@ -576,6 +767,29 @@ export interface UpdateProfileInput {
   businessAddress?: string;
   businessPhone?: string;
   locationsMode?: string;
+}
+
+export interface Conversation {
+  id: string;
+  participantIds: string[];
+  participants: Profile[];
+  lastMessage: Message | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  messageType: 'text' | 'image' | 'video' | 'audio';
+  mediaUrl: string | null;
+  readAt: string | null;
+  createdAt: string;
+  sender?: Profile;
 }
 
 // Export singleton instance

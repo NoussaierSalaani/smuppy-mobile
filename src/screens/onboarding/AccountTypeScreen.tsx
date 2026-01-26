@@ -18,7 +18,8 @@ export default function AccountTypeScreen({ navigation, route }) {
   const [proType, setProType] = useState<ProType>(null);
   const proSubAnim = useRef(new Animated.Value(0)).current;
 
-  const { email, password } = route?.params || {};
+  // Extract all params from previous screen (SignupScreen)
+  const { email, password, rememberMe, accountCreated } = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const handleSelectMain = useCallback((type: AccountType) => {
@@ -40,7 +41,8 @@ export default function AccountTypeScreen({ navigation, route }) {
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
 
-    const baseParams = { email, password };
+    // Pass all params through the navigation flow
+    const baseParams = { email, password, rememberMe, accountCreated };
 
     if (selected === 'personal') {
       navigate('TellUsAboutYou', { ...baseParams, accountType: 'personal' });
@@ -49,7 +51,7 @@ export default function AccountTypeScreen({ navigation, route }) {
     } else if (proType === 'business') {
       navigate('BusinessCategory', { ...baseParams, accountType: 'pro_local' });
     }
-  }, [isFormValid, selected, proType, email, password, navigate]);
+  }, [isFormValid, selected, proType, email, password, rememberMe, accountCreated, navigate]);
 
   const proSubTranslateY = proSubAnim.interpolate({
     inputRange: [0, 1],

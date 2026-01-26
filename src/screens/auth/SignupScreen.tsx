@@ -15,6 +15,7 @@ import {
   handleGoogleSignIn,
   createSocialAuthProfile,
 } from '../../services/socialAuth';
+import * as backend from '../../services/backend';
 
 // Style unifié Smuppy (même que LoginScreen)
 const FORM = {
@@ -174,12 +175,53 @@ export default function SignupScreen({ navigation }) {
         return;
       }
 
-      // Client-side checks passed - navigate to next screen
-      // AWS Cognito will handle duplicate email and other server-side validations
+      // Server-side email validation (format, domain, MX records)
+      const { awsAPI } = await import('../../services/aws-api');
+
+      try {
+        const validation = await awsAPI.validateEmail(normalizedEmail);
+        if (!validation.valid) {
+          setLoading(false);
+          setErrorModal({
+            visible: true,
+            title: 'Invalid Email',
+            message: validation.error || 'Please enter a valid email address.',
+          });
+          return;
+        }
+      } catch (validationErr: any) {
+        setLoading(false);
+        setErrorModal({
+          visible: true,
+          title: 'Email Verification Failed',
+          message: validationErr?.message || 'Unable to verify email address. Please check and try again.',
+        });
+        return;
+      }
+
+      // Check if user already exists (confirmed account)
+      try {
+        const userCheck = await awsAPI.checkUserExists(normalizedEmail);
+        if (userCheck.exists && userCheck.confirmed) {
+          setLoading(false);
+          setErrorModal({
+            visible: true,
+            title: 'Unable to Continue',
+            message: 'Unable to create account with this email. Please try again or log in.',
+          });
+          return;
+        }
+      } catch {
+        // If check fails, let user continue (will fail later if needed)
+      }
+
+      // Email validated and user doesn't exist - continue to onboarding
+      // Account creation and verification code will be sent in VerifyCodeScreen
       navigation.navigate('AccountType', {
         email: normalizedEmail,
         password,
-        rememberMe
+        rememberMe,
+        accountCreated: false, // Account will be created in VerifyCodeScreen
       });
     } catch (err) {
       setErrorModal({

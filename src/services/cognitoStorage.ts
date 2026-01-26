@@ -1,5 +1,5 @@
 /**
- * Custom Storage Adapter for amazon-cognito-identity-js
+ * Custom Storage Adapter for AWS Cognito tokens
  * Required for React Native - Cognito needs explicit storage implementation
  *
  * IMPORTANT: Uses in-memory cache + AsyncStorage for proper session persistence

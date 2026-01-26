@@ -16,6 +16,7 @@ export interface AWSConfig {
   api: {
     restEndpoint: string;
     graphqlEndpoint: string;
+    websocketEndpoint: string;
   };
   storage: {
     bucket: string;
@@ -38,6 +39,7 @@ export const AWS_CONFIG_STAGING: AWSConfig = {
   api: {
     restEndpoint: 'https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging',
     graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
+    websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
   },
   storage: {
     bucket: 'smuppy-media-staging-471112656108',
@@ -60,6 +62,7 @@ export const AWS_CONFIG_PRODUCTION: AWSConfig = {
   api: {
     restEndpoint: '',
     graphqlEndpoint: '',
+    websocketEndpoint: '',
   },
   storage: {
     bucket: '',
@@ -71,10 +74,44 @@ export const AWS_CONFIG_PRODUCTION: AWSConfig = {
   },
 };
 
+// Environment detection
+// For React Native: uses __DEV__ global or EXPO_PUBLIC_ENV / APP_ENV
+// For web builds: uses import.meta.env.VITE_APP_ENV or process.env.REACT_APP_ENV
+const getEnvironment = (): 'staging' | 'production' => {
+  // Check for explicit environment variable (highest priority)
+  // React Native with Expo
+  if (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_ENV === 'production') {
+    return 'production';
+  }
+  // React Native bare / env injection
+  if (typeof process !== 'undefined' && process.env?.APP_ENV === 'production') {
+    return 'production';
+  }
+  // Vite web builds
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_APP_ENV === 'production') {
+    return 'production';
+  }
+  // Create React App web builds
+  if (typeof process !== 'undefined' && process.env?.REACT_APP_ENV === 'production') {
+    return 'production';
+  }
+  // Default to staging (safe fallback)
+  return 'staging';
+};
+
 // Get current environment config
-// NOTE: Using staging config for all environments until production is deployed
 export const getAWSConfig = (): AWSConfig => {
-  // Always use staging config - production AWS not yet deployed
+  const env = getEnvironment();
+
+  if (env === 'production') {
+    // Check if production config is properly set up
+    if (!AWS_CONFIG_PRODUCTION.cognito.userPoolId) {
+      console.warn('[AWS Config] Production config not yet populated. Falling back to staging.');
+      return AWS_CONFIG_STAGING;
+    }
+    return AWS_CONFIG_PRODUCTION;
+  }
+
   return AWS_CONFIG_STAGING;
 };
 

@@ -60,6 +60,11 @@ export default [
         require: 'readonly',
         __DEV__: 'readonly',
         global: 'readonly',
+        // WebSocket and timers
+        WebSocket: 'readonly',
+        NodeJS: 'readonly',
+        // Canvas/Image APIs
+        ImageData: 'readonly',
       },
     },
     settings: {

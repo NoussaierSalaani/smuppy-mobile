@@ -23,7 +23,7 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
 type VerificationStatus = 'not_started' | 'requires_input' | 'processing' | 'verified' | 'payment_required';
 
@@ -106,7 +106,7 @@ export default function IdentityVerificationScreen() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<VerificationStatus>('not_started');
-  const [paymentReady, setPaymentReady] = useState(false);
+  const [_paymentReady, setPaymentReady] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {

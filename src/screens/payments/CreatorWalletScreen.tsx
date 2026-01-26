@@ -23,7 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
 // Tier colors for visual distinction
 const TIER_COLORS = {

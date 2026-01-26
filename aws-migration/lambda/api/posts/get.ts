@@ -15,6 +15,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   try {
     const postId = event.pathParameters?.id;
+    const currentUserId = event.requestContext.authorizer?.claims?.sub;
 
     if (!postId) {
       return {
@@ -24,12 +25,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // SECURITY: Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(postId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid post ID format' }),
+      };
+    }
+
     // Use reader pool for read operations
     const db = await getReaderPool();
 
+    // SECURITY: Include author's privacy setting in query
     const result = await db.query(
       `SELECT
         p.*,
+        pr.is_private as author_is_private,
+        pr.cognito_sub as author_cognito_sub,
         json_build_object(
           'id', pr.id,
           'username', pr.username,
@@ -53,6 +67,35 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const post = result.rows[0];
+
+    // SECURITY: Check visibility for private profiles
+    if (post.author_is_private) {
+      // If author is private, check if current user can view
+      const isAuthor = currentUserId && currentUserId === post.author_cognito_sub;
+
+      if (!isAuthor) {
+        // Check if current user follows the author
+        let isFollowing = false;
+        if (currentUserId) {
+          const followCheck = await db.query(
+            `SELECT 1 FROM follows f
+             JOIN profiles p ON f.follower_id = p.id
+             WHERE p.cognito_sub = $1 AND f.following_id = $2 AND f.status = 'accepted'
+             LIMIT 1`,
+            [currentUserId, post.author_id]
+          );
+          isFollowing = followCheck.rows.length > 0;
+        }
+
+        if (!isFollowing) {
+          return {
+            statusCode: 403,
+            headers,
+            body: JSON.stringify({ message: 'This post is from a private account' }),
+          };
+        }
+      }
+    }
 
     return {
       statusCode: 200,

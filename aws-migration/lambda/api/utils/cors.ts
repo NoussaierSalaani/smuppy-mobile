@@ -44,16 +44,11 @@ export function getAllowedOrigin(requestOrigin?: string): string {
     return requestOrigin;
   }
 
-  // For mobile apps (no Origin header), or unknown origins:
-  // - Production: return primary domain (browsers will reject if mismatch)
-  // - Dev/Staging: allow for easier development
-  if (isProduction) {
-    return 'https://smuppy.com';
-  }
-
-  // In dev, if no origin or unknown origin, be permissive for mobile app testing
-  // Note: Actual browser security is enforced; this just sets the header
-  return requestOrigin || 'https://smuppy.com';
+  // SECURITY: For mobile apps (no Origin header), or unknown origins:
+  // Always return primary domain - never return arbitrary origins
+  // This prevents CORS attacks even in non-production environments
+  // Mobile apps don't send Origin headers, so this works for them too
+  return 'https://smuppy.com';
 }
 
 /**

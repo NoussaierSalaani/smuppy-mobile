@@ -1,5 +1,5 @@
 // src/screens/live/LiveStreamingScreen.tsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ import { useAgora } from '../../hooks/useAgora';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
 
-const { width, height } = Dimensions.get('window');
+const { width: _width, height: _height } = Dimensions.get('window');
 
 interface Comment {
   id: string;
@@ -41,8 +41,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   const {
-    title = 'Live Session',
-    audience = 'public',
+    title: _title = 'Live Session',
+    audience: _audience = 'public',
     hostId = 'host_123', // Should come from auth
     hostName = 'Apte Fitness',
     hostAvatar = 'https://i.pravatar.cc/100?img=33',
@@ -53,14 +53,14 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
   // Agora hook for broadcasting
   const {
-    isInitialized,
+    isInitialized: _isInitialized,
     isJoined,
     isLoading,
     error,
     remoteUsers,
     isMuted,
     isVideoOff,
-    initialize,
+    initialize: _initialize,
     joinChannel,
     leaveChannel,
     toggleMute,

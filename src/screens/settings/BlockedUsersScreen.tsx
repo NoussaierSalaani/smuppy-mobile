@@ -30,6 +30,7 @@ const BlockedUsersScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadBlockedUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadBlockedUsers = async () => {

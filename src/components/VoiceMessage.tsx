@@ -31,6 +31,7 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
         sound.unloadAsync();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
 
   const loadSound = async () => {

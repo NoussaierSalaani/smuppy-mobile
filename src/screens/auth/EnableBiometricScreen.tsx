@@ -12,6 +12,7 @@ export default function EnableBiometricScreen({ navigation }) {
 
   useEffect(() => {
     checkBiometrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkBiometrics = async () => {

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert,
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
+import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
 import { useUser } from '../../context/UserContext';
 
@@ -133,6 +133,7 @@ export default function EditInterestsScreen({ navigation, route }) {
     if (interests.length > 0 && selected.length === 0) {
       setSelected(interests);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileData, user.interests]);
 
   const hasChanges = useMemo(() => {
@@ -153,7 +154,7 @@ export default function EditInterestsScreen({ navigation, route }) {
     setIsSaving(true);
     try {
       // Save to AWS
-      const result = await updateDbProfile({ interests: selected });
+      await updateDbProfile({ interests: selected });
 
       // Update local context
       await updateLocalProfile({ ...user, interests: selected });

@@ -4,9 +4,12 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('websocket-default');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  console.log('Default handler received:', JSON.stringify(event.body));
+  log.info('Default handler received', { body: event.body });
 
   return {
     statusCode: 400,

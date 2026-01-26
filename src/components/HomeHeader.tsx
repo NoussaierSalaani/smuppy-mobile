@@ -2,11 +2,9 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Dimensions,
   Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -20,12 +18,7 @@ import { useTabBar } from '../context/TabBarContext';
 import { useUserStore } from '../stores';
 import { LiquidTabs } from './LiquidTabs';
 
-const { width } = Dimensions.get('window');
-const TAB_BAR_INNER_PADDING = 16;
-const TAB_BAR_WIDTH = width - (TAB_BAR_INNER_PADDING * 2);
-const TAB_COUNT = 3;
-const TAB_WIDTH = TAB_BAR_WIDTH / TAB_COUNT;
-const INDICATOR_WIDTH = TAB_WIDTH * 0.5;
+// Constants for tab bar calculations (kept for reference, LiquidTabs handles rendering now)
 
 type TabId = 'Fan' | 'Vibes' | 'Xplorer';
 
@@ -88,15 +81,6 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   };
 
   const topPadding = insets.top || StatusBar.currentHeight || 44;
-
-  const indicatorTranslateX = indicatorAnim.interpolate({
-    inputRange: [0, 1, 2],
-    outputRange: [
-      (TAB_WIDTH * 0) + (TAB_WIDTH - INDICATOR_WIDTH) / 2,
-      (TAB_WIDTH * 1) + (TAB_WIDTH - INDICATOR_WIDTH) / 2,
-      (TAB_WIDTH * 2) + (TAB_WIDTH - INDICATOR_WIDTH) / 2,
-    ],
-  });
 
   // Icon color based on account type (dark for both now)
   const iconColor = COLORS.dark;

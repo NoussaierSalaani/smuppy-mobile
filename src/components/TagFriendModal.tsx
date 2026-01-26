@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -65,7 +65,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
   visible,
   onClose,
   onTagFriend,
-  peakId,
+  peakId: _peakId,
   existingTags = [],
 }) => {
   const insets = useSafeAreaInsets();

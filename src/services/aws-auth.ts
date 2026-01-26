@@ -139,7 +139,7 @@ class AWSAuthService {
         }
 
         return this.user;
-      } catch (e) {
+      } catch {
         console.error('[AWS Auth] Failed to parse stored user');
         await this.clearSession();
         return null;
@@ -445,7 +445,7 @@ class AWSAuthService {
         });
         await client.send(command).catch(() => {});
       }
-    } catch (e) {
+    } catch {
       // Ignore signout errors
     }
 

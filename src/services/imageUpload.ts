@@ -3,7 +3,7 @@
 // Upload images to AWS S3
 // ============================================
 
-import { uploadAvatar, uploadImage as uploadToS3, getCloudFrontUrl } from './mediaUpload';
+import { uploadAvatar, uploadImage as uploadToS3 } from './mediaUpload';
 
 /**
  * Result type for image upload operations

@@ -9,7 +9,9 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('admin-migrate-data');
 let cachedAdminKey: string | null = null;
 
 const secretsClient = new SecretsManagerClient({});
@@ -198,7 +200,7 @@ export const handler = async (
     const adminKey = await getAdminKey();
 
     if (!providedKey || providedKey !== adminKey) {
-      console.warn('Unauthorized admin access attempt');
+      log.warn('Unauthorized admin access attempt');
       return {
         statusCode: 401,
         headers,
@@ -264,7 +266,7 @@ export const handler = async (
       };
     }
 
-    console.log(`Starting data migration: ${postCount} posts, ${followCount} follows`);
+    log.info('Starting data migration', { postCount, followCount });
     const db = await getPool();
 
     // Clear profile cache for fresh lookups
@@ -285,7 +287,7 @@ export const handler = async (
       result.follows = await migrateFollows(db, data.follows);
     }
 
-    console.log('Data migration completed:', result);
+    log.info('Data migration completed', { result });
 
     return {
       statusCode: 200,
@@ -311,7 +313,7 @@ export const handler = async (
       }),
     };
   } catch (error: any) {
-    console.error('Migration error:', error);
+    log.error('Migration error', error);
     return {
       statusCode: 500,
       headers,

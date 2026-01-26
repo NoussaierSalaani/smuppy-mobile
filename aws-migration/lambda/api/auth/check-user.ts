@@ -12,7 +12,9 @@ import {
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('auth-check-user');
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
@@ -61,7 +63,8 @@ export const handler = async (
 
     const cognitoUsername = generateUsername(email);
 
-    console.log('[CheckUser] Checking user:', cognitoUsername);
+    log.setRequestId(getRequestId(event));
+    log.info('Checking user', { username: cognitoUsername });
 
     try {
       const user = await cognitoClient.send(
@@ -74,7 +77,7 @@ export const handler = async (
       // User exists - check if confirmed
       const isConfirmed = user.UserStatus === 'CONFIRMED';
 
-      console.log('[CheckUser] User found, confirmed:', isConfirmed);
+      log.info('User found', { confirmed: isConfirmed });
 
       if (isConfirmed) {
         // User exists and is confirmed - generic message (anti-enumeration)
@@ -105,7 +108,7 @@ export const handler = async (
     } catch (error) {
       if (error instanceof UserNotFoundException) {
         // User doesn't exist - can proceed with signup
-        console.log('[CheckUser] User not found, can proceed');
+        log.info('User not found, can proceed');
         return {
           statusCode: 200,
           headers,
@@ -121,7 +124,7 @@ export const handler = async (
     }
 
   } catch (error: any) {
-    console.error('[CheckUser] Error:', error.name, error.message);
+    log.error('CheckUser error', error, { errorName: error.name });
 
     // Generic error - allow signup to continue (will fail later if needed)
     return {

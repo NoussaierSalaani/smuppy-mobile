@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import {
-  View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,

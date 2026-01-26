@@ -8,7 +8,6 @@ import { awsAPI, Profile as AWSProfile, Post as AWSPost } from './aws-api';
 import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
-  CreateSpotData,
 } from '../types';
 
 /**
@@ -317,7 +316,7 @@ export interface ProfileWithFollowStatus extends Profile {
 export const searchProfiles = async (
   query: string,
   limit = 20,
-  offset = 0
+  _offset = 0
 ): Promise<DbResponse<Profile[]>> => {
   if (!query || query.trim().length === 0) {
     return { data: [], error: null };
@@ -481,7 +480,7 @@ export interface PostWithStatus extends Post {
 /**
  * Get posts feed with pagination
  */
-export const getFeedPosts = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPosts({ limit, type: 'all' });
     return { data: result.data.map(convertPost), error: null };
@@ -505,7 +504,7 @@ export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse
       has_saved: p.isSaved || p.has_saved,
     }));
     return { data: posts, error: null };
-  } catch (error: any) {
+  } catch {
     // Fallback to regular feed
     const fallback = await getFeedPosts(page, limit);
     return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
@@ -515,7 +514,7 @@ export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse
 /**
  * Get posts by user ID
  */
-export const getPostsByUser = async (userId: string, page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getPostsByUser = async (userId: string, _page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPosts({ userId, limit });
     return { data: result.data.map(convertPost), error: null };
@@ -525,22 +524,24 @@ export const getPostsByUser = async (userId: string, page = 0, limit = 10): Prom
 };
 
 // Shared cache for followed user IDs
-let followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
   ids: [],
   timestamp: 0,
   userId: null,
 };
-const CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
 
 // Clear cache when user follows/unfollows someone
 export const clearFollowCache = () => {
-  followedUsersCacheShared = { ids: [], timestamp: 0, userId: null };
+  _followedUsersCacheShared = { ids: [], timestamp: 0, userId: null };
 };
 
 /**
  * Get posts from followed users (FanFeed)
  */
-export const getFeedFromFollowed = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getFeedFromFollowed = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
@@ -567,7 +568,7 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
       has_saved: p.isSaved || p.has_saved,
     }));
     return { data: posts, error: null };
-  } catch (error: any) {
+  } catch {
     const fallback = await getFeedFromFollowed(page, limit);
     return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
   }
@@ -889,7 +890,7 @@ export const isFollowing = async (targetUserId: string): Promise<{ isFollowing: 
 /**
  * Get followers of a user
  */
-export const getFollowers = async (userId: string, page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
+export const getFollowers = async (userId: string, _page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
   try {
     const result = await awsAPI.getFollowers(userId, { limit });
     return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
@@ -901,7 +902,7 @@ export const getFollowers = async (userId: string, page = 0, limit = 20): Promis
 /**
  * Get users that a user is following
  */
-export const getFollowing = async (userId: string, page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
+export const getFollowing = async (userId: string, _page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
   try {
     const result = await awsAPI.getFollowing(userId, { limit });
     return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
@@ -941,7 +942,7 @@ export const getFollowingCount = async (userId: string): Promise<{ count: number
 /**
  * Get comments for a post
  */
-export const getComments = async (postId: string, page = 0, limit = 20): Promise<DbResponse<Comment[]>> => {
+export const getComments = async (postId: string, _page = 0, limit = 20): Promise<DbResponse<Comment[]>> => {
   try {
     const result = await awsAPI.getComments(postId, { limit });
     const comments: Comment[] = result.data.map((c: any) => ({
@@ -1001,7 +1002,7 @@ export const deleteComment = async (commentId: string): Promise<{ error: string 
 /**
  * Get peaks feed
  */
-export const getPeaks = async (page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPeaks({ limit });
     const posts: Post[] = result.data.map((p: any) => ({
@@ -1028,7 +1029,7 @@ export const getPeaks = async (page = 0, limit = 10): Promise<DbResponse<Post[]>
 /**
  * Get peaks by user ID
  */
-export const getPeaksByUser = async (userId: string, page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getPeaksByUser = async (userId: string, _page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPeaks({ userId, limit });
     const posts: Post[] = result.data.map((p: any) => ({
@@ -1098,7 +1099,7 @@ export const getPostById = async (postId: string): Promise<DbResponse<Post>> => 
 /**
  * Get notifications for current user
  */
-export const getNotifications = async (page = 0, limit = 20): Promise<DbResponse<any[]>> => {
+export const getNotifications = async (_page = 0, limit = 20): Promise<DbResponse<any[]>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
@@ -1851,8 +1852,8 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
  * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
  */
 export const subscribeToMessages = (
-  conversationId: string,
-  callback: (message: Message) => void
+  _conversationId: string,
+  _callback: (message: Message) => void
 ): (() => void) => {
   // Real-time subscriptions would need WebSocket implementation
   // For now, return a no-op unsubscribe function
@@ -1865,7 +1866,7 @@ export const subscribeToMessages = (
  * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
  */
 export const subscribeToConversations = (
-  callback: (conversations: Conversation[]) => void
+  _callback: (conversations: Conversation[]) => void
 ): (() => void) => {
   // Real-time subscriptions would need WebSocket implementation
   console.log('[Database] subscribeToConversations called - WebSocket not implemented');

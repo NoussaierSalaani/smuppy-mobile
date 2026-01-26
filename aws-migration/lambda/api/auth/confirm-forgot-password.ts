@@ -14,7 +14,9 @@ import {
   LimitExceededException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('auth-confirm-forgot-password');
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
@@ -73,7 +75,8 @@ export const handler = async (
 
     const cognitoUsername = username || generateUsername(email);
 
-    console.log('[ConfirmForgotPassword] Resetting password for:', cognitoUsername);
+    log.setRequestId(getRequestId(event));
+    log.info('Resetting password for user', { username: cognitoUsername });
 
     await cognitoClient.send(
       new ConfirmForgotPasswordCommand({
@@ -84,7 +87,7 @@ export const handler = async (
       })
     );
 
-    console.log('[ConfirmForgotPassword] Password reset successfully');
+    log.info('Password reset successfully');
 
     return {
       statusCode: 200,
@@ -96,7 +99,7 @@ export const handler = async (
     };
 
   } catch (error: any) {
-    console.error('[ConfirmForgotPassword] Error:', error.name, error.message);
+    log.error('ConfirmForgotPassword error', error, { errorName: error.name });
 
     if (error instanceof CodeMismatchException) {
       return {

@@ -30,6 +30,7 @@ const MutedUsersScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadMutedUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMutedUsers = async () => {

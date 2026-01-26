@@ -8,7 +8,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('admin-run-migration');
 let cachedAdminKey: string | null = null;
 
 const secretsClient = new SecretsManagerClient({});
@@ -417,7 +419,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const adminKey = await getAdminKey();
 
     if (!authHeader || authHeader !== adminKey) {
-      console.warn('Unauthorized admin access attempt');
+      log.warn('Unauthorized admin access attempt');
       return {
         statusCode: 401,
         headers,
@@ -425,7 +427,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    console.log('Running database migration...');
+    log.info('Running database migration...');
     const db = await getPool();
 
     // Split and execute statements
@@ -441,7 +443,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    console.log('Migration completed');
+    log.info('Migration completed');
 
     // Verify tables created
     const tablesResult = await db.query(`
@@ -461,7 +463,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    console.error('Migration error:', error);
+    log.error('Migration error', error);
     return {
       statusCode: 500,
       headers,

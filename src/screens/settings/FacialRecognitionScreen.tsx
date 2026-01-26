@@ -93,7 +93,7 @@ export default function FacialRecognitionScreen({ navigation }) {
         title: 'Disabled',
         message: `${isFaceId ? 'Face ID' : 'Touch ID'} has been disabled. You can enable it again anytime.`,
       });
-    } catch (e) {
+    } catch {
       setPasswordError('An error occurred. Please try again.');
     } finally {
       setVerifying(false);

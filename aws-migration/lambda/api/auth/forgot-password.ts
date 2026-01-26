@@ -14,7 +14,9 @@ import {
   InvalidParameterException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('auth-forgot-password');
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
@@ -127,7 +129,8 @@ export const handler = async (
     const cognitoUsername = username || generateUsername(email);
 
     // SECURITY: Log only masked identifier to prevent PII in logs
-    console.log('[ForgotPassword] Initiating reset for user:', cognitoUsername.substring(0, 2) + '***');
+    log.setRequestId(getRequestId(event));
+    log.info('Initiating reset for user', { username: cognitoUsername.substring(0, 2) + '***' });
 
     await cognitoClient.send(
       new ForgotPasswordCommand({
@@ -136,7 +139,7 @@ export const handler = async (
       })
     );
 
-    console.log('[ForgotPassword] Reset code sent successfully');
+    log.info('Reset code sent successfully');
 
     return {
       statusCode: 200,
@@ -148,7 +151,7 @@ export const handler = async (
     };
 
   } catch (error: any) {
-    console.error('[ForgotPassword] Error:', error.name, error.message);
+    log.error('ForgotPassword error', error, { errorName: error.name });
 
     // Always return success message to prevent email enumeration
     if (error instanceof UserNotFoundException) {

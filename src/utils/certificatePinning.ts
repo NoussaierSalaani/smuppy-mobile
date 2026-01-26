@@ -151,16 +151,6 @@ export const isHostPinned = (host: string): boolean => {
 // =============================================
 
 /**
- * Pin validation status for monitoring
- */
-interface PinValidationResult {
-  valid: boolean;
-  host: string;
-  pinType?: 'primary' | 'backup' | 'none';
-  error?: string;
-}
-
-/**
  * Secure fetch with certificate pinning
  *
  * Note: True native certificate pinning requires native modules.

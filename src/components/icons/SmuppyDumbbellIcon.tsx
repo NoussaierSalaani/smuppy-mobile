@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Rect, Line, G } from 'react-native-svg';
+import Svg, { Path, Rect, G } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
 interface SmuppyDumbbellIconProps {

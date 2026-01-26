@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,6 @@ import {
   sharePostToConversation,
   Conversation,
   Profile,
-  Post,
 } from '../services/database';
 
 interface SharePostModalProps {
@@ -57,7 +56,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
   const loadConversations = async () => {
     setLoading(true);
     try {
-      const { data, error } = await getConversations();
+      const { data } = await getConversations();
       if (data) {
         setConversations(data);
       } else {

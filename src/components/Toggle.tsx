@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated, ViewStyle } from 'react-native';
+import { StyleSheet, TouchableOpacity, Animated, ViewStyle } from 'react-native';
 import { COLORS, BORDERS } from '../config/theme';
 
 type ToggleSize = 'sm' | 'md' | 'lg';

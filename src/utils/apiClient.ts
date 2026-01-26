@@ -13,7 +13,7 @@ import { storage, STORAGE_KEYS } from './secureStorage';
 import { ENV } from '../config/env';
 import { captureException, addBreadcrumb } from '../lib/sentry';
 import NetInfo from '@react-native-community/netinfo';
-import { isHostPinned, getPinnedHosts } from './certificatePinning';
+import { isHostPinned } from './certificatePinning';
 
 // Configuration
 const API_TIMEOUT = 15000; // 15 seconds

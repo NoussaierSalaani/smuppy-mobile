@@ -107,18 +107,6 @@ export default function NewPasswordScreen({ navigation, route }) {
     setShowConfirm(prev => !prev);
   }, []);
 
-  // Style helpers
-  const getPasswordIconColor = () => {
-    if (password.length > 0 || isFocusedPassword) return COLORS.primary;
-    return COLORS.grayMuted;
-  };
-
-  const getConfirmIconColor = () => {
-    if (confirmPassword.length > 0 && !passwordsMatch) return COLORS.error;
-    if (confirmPassword.length > 0 || isFocusedConfirm) return COLORS.primary;
-    return COLORS.grayMuted;
-  };
-
   const getStrengthBarWidth = () => {
     switch (strengthLevel.level) {
       case 'weak': return '25%';

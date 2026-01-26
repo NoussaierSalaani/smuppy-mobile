@@ -121,6 +121,7 @@ const PeakReactions: React.FC<PeakReactionsProps> = ({
         useNativeDriver: true,
       }).start();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const handlePressIn = (index: number) => {

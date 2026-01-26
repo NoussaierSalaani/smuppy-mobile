@@ -10,10 +10,7 @@ import {
   ClientRoleType,
   RtcConnection,
   IRtcEngineEventHandler,
-  VideoSourceType,
-  RenderModeType,
 } from 'react-native-agora';
-import { Platform } from 'react-native';
 import { ENV } from '../config/env';
 
 // Agora App ID - MUST be configured in .env
@@ -108,26 +105,26 @@ class AgoraService {
     }
 
     this.eventHandler = {
-      onJoinChannelSuccess: (connection: RtcConnection, elapsed: number) => {
+      onJoinChannelSuccess: (connection: RtcConnection, _elapsed: number) => {
         console.log('[Agora] Joined channel:', connection.channelId);
         this.currentChannel = connection.channelId || null;
         this.currentUid = connection.localUid || null;
         this.callbacks.onJoinSuccess?.(connection.channelId || '', connection.localUid || 0);
       },
 
-      onLeaveChannel: (connection: RtcConnection, stats: any) => {
+      onLeaveChannel: (_connection: RtcConnection, _stats: any) => {
         console.log('[Agora] Left channel');
         this.currentChannel = null;
         this.currentUid = null;
         this.callbacks.onLeaveChannel?.();
       },
 
-      onUserJoined: (connection: RtcConnection, remoteUid: number, elapsed: number) => {
+      onUserJoined: (_connection: RtcConnection, remoteUid: number, _elapsed: number) => {
         console.log('[Agora] User joined:', remoteUid);
         this.callbacks.onUserJoined?.(remoteUid);
       },
 
-      onUserOffline: (connection: RtcConnection, remoteUid: number, reason: number) => {
+      onUserOffline: (_connection: RtcConnection, remoteUid: number, _reason: number) => {
         console.log('[Agora] User left:', remoteUid);
         this.callbacks.onUserLeft?.(remoteUid);
       },
@@ -138,27 +135,27 @@ class AgoraService {
       },
 
       onRemoteVideoStateChanged: (
-        connection: RtcConnection,
+        _connection: RtcConnection,
         remoteUid: number,
         state: number,
-        reason: number,
-        elapsed: number
+        _reason: number,
+        _elapsed: number
       ) => {
         this.callbacks.onRemoteVideoStateChanged?.(remoteUid, state);
       },
 
-      onUserMuteVideo: (connection: RtcConnection, remoteUid: number, muted: boolean) => {
+      onUserMuteVideo: (_connection: RtcConnection, remoteUid: number, muted: boolean) => {
         this.callbacks.onUserMuteVideo?.(remoteUid, muted);
       },
 
-      onUserMuteAudio: (connection: RtcConnection, remoteUid: number, muted: boolean) => {
+      onUserMuteAudio: (_connection: RtcConnection, remoteUid: number, muted: boolean) => {
         this.callbacks.onUserMuteAudio?.(remoteUid, muted);
       },
 
       onConnectionStateChanged: (
-        connection: RtcConnection,
+        _connection: RtcConnection,
         state: number,
-        reason: number
+        _reason: number
       ) => {
         this.callbacks.onConnectionStateChanged?.(state);
       },

@@ -6,6 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { getPool } from '../shared/db';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('websocket-connect');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const connectionId = event.requestContext.connectionId;
@@ -15,7 +18,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const token = event.queryStringParameters?.token;
 
     if (!token) {
-      console.log('No token provided');
+      log.info('No token provided');
       return {
         statusCode: 401,
         body: JSON.stringify({ message: 'Unauthorized - No token provided' }),
@@ -25,7 +28,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Verify JWT token
     // SECURITY: CLIENT_ID is required to prevent token from other apps
     if (!process.env.CLIENT_ID) {
-      console.error('CLIENT_ID not configured');
+      log.error('CLIENT_ID not configured');
       return {
         statusCode: 500,
         body: JSON.stringify({ message: 'Server configuration error' }),
@@ -42,7 +45,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       payload = await verifier.verify(token);
     } catch (err) {
-      console.error('Token verification failed:', err);
+      log.error('Token verification failed', err);
       return {
         statusCode: 401,
         body: JSON.stringify({ message: 'Unauthorized - Invalid token' }),
@@ -76,14 +79,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [connectionId, profileId]
     );
 
-    console.log(`WebSocket connected: ${connectionId} for user ${profileId}`);
+    log.info('WebSocket connected', { connectionId, profileId });
 
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Connected' }),
     };
   } catch (error: any) {
-    console.error('Error in WebSocket connect:', error);
+    log.error('Error in WebSocket connect', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Internal server error' }),

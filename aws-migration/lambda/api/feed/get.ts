@@ -8,6 +8,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
+
+const log = createLogger('feed-get');
 
 let redis: Redis | null = null;
 
@@ -65,7 +68,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       } catch {
         // Redis failure shouldn't break the feed - fallback to DB
-        console.warn('[Feed] Redis cache error, falling back to DB');
+        log.warn('Redis cache error, falling back to DB');
       }
     }
 
@@ -141,7 +144,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         await redisClient.setex(cacheKey, 60, JSON.stringify(response)); // 60 seconds TTL
       } catch {
         // Redis write failure is non-critical
-        console.warn('[Feed] Redis cache write error');
+        log.warn('Redis cache write error');
       }
     }
 
@@ -151,7 +154,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.error('Error getting feed:', error);
+    log.error('Error getting feed', error);
     return {
       statusCode: 500,
       headers,

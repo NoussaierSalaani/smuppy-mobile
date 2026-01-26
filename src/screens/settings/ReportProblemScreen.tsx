@@ -22,7 +22,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const MIN_CHARS = 20;
 const MAX_REPORTS_PER_HOUR = 3;
 const REPORT_COOLDOWN_KEY = '@smuppy_report_timestamps';
-const SUPPORT_EMAIL = 'support@smuppy.com';
 
 const ReportProblemScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();

@@ -22,6 +22,7 @@ const WelcomeScreen = ({ navigation }) => {
       ]),
       Animated.timing(buttonsAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

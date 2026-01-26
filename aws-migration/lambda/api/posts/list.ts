@@ -7,6 +7,9 @@ import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getReaderPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
+
+const log = createLogger('posts-list');
 
 // Redis connection (reused across Lambda invocations)
 let redis: Redis | null = null;
@@ -142,7 +145,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return response(200, { ...responseData, cached: false, latency: Date.now() - startTime });
   } catch (error: any) {
-    console.error('Error fetching posts:', error);
+    log.error('Error fetching posts', error);
     return response(500, { error: 'Internal server error', message: ENVIRONMENT === 'staging' ? error.message : undefined });
   }
 };

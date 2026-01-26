@@ -5,6 +5,9 @@
 
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getSecureHeaders } from './cors';
+import { createLogger } from './logger';
+
+const log = createLogger('security');
 
 const secretsClient = new SecretsManagerClient({});
 
@@ -118,12 +121,7 @@ export function logSecurityEvent(
   eventType: 'auth_failure' | 'rate_limit' | 'invalid_input' | 'suspicious_activity',
   details: Record<string, unknown>
 ): void {
-  console.warn(JSON.stringify({
-    type: 'SECURITY_EVENT',
-    eventType,
-    timestamp: new Date().toISOString(),
-    ...details,
-  }));
+  log.logSecurity(eventType, details);
 }
 
 /**

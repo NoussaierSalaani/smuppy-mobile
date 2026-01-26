@@ -7,7 +7,6 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle, Text } from 'react-native';
 import {
   RtcSurfaceView,
-  ChannelProfileType,
   VideoSourceType,
   RenderModeType,
 } from 'react-native-agora';
@@ -80,7 +79,7 @@ export function LocalVideoView({
  */
 export function RemoteVideoView({
   uid,
-  channelId,
+  channelId: _channelId,
   style,
   zOrderMediaOverlay = false,
   renderMode = RenderModeType.RenderModeHidden,

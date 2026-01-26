@@ -122,6 +122,7 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
     if (!accountCreated) {
       createAccountAndSendOTP();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Verify code

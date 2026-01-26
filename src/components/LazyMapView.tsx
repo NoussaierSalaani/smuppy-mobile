@@ -25,7 +25,7 @@ interface LazyMapViewProps {
 // Lazy-loaded MapView component
 const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
   const [MapViewComponent, setMapViewComponent] = useState<any>(null);
-  const [MarkerComponent, setMarkerComponent] = useState<any>(null);
+  const [, setMarkerComponent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

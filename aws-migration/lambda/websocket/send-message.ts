@@ -6,6 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
 import { getPool } from '../shared/db';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('websocket-send-message');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const connectionId = event.requestContext.connectionId;
@@ -139,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             [conn.connection_id]
           );
         }
-        console.error(`Failed to send to ${conn.connection_id}:`, err);
+        log.error('Failed to send to connection', err, { connectionId: conn.connection_id });
       }
     });
 
@@ -154,7 +157,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    console.error('Error in WebSocket sendMessage:', error);
+    log.error('Error in WebSocket sendMessage', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Internal server error' }),

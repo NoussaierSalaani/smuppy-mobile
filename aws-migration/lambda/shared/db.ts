@@ -11,6 +11,9 @@
 
 import { Pool, PoolConfig } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('db');
 
 interface DbCredentials {
   host: string;
@@ -77,7 +80,7 @@ async function getDbCredentials(): Promise<DbCredentials> {
   // If pools exist and credentials changed, recreate them
   // This handles credential rotation gracefully
   if (writerPool || readerPool) {
-    console.log('[DB] Credentials refreshed, pools will use new credentials on next connection');
+    log.info('Credentials refreshed, pools will use new credentials on next connection');
   }
 
   return credentials;
@@ -114,7 +117,7 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
 
   // Handle pool errors gracefully
   pool.on('error', (err) => {
-    console.error('Unexpected database pool error:', err);
+    log.error('Unexpected database pool error', err);
     // Don't nullify the pool reference here - let the next query attempt to reconnect
   });
 
@@ -160,7 +163,7 @@ export async function getReaderPool(): Promise<Pool> {
     const readerHost = process.env.DB_READER_HOST;
     if (!readerHost) {
       // Fall back to writer pool if no reader endpoint is configured
-      console.warn('DB_READER_HOST not configured, falling back to writer pool');
+      log.warn('DB_READER_HOST not configured, falling back to writer pool');
       return getPool();
     }
     readerPool = await createPool(readerHost, { maxConnections: 10 }); // More connections for reads
@@ -242,7 +245,7 @@ export async function healthCheck(): Promise<{ writer: boolean; reader: boolean 
     await pool.query('SELECT 1');
     results.writer = true;
   } catch (err) {
-    console.error('Writer health check failed:', err);
+    log.error('Writer health check failed', err);
   }
 
   try {
@@ -250,7 +253,7 @@ export async function healthCheck(): Promise<{ writer: boolean; reader: boolean 
     await pool.query('SELECT 1');
     results.reader = true;
   } catch (err) {
-    console.error('Reader health check failed:', err);
+    log.error('Reader health check failed', err);
   }
 
   return results;

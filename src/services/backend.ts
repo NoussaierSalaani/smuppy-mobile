@@ -3,8 +3,8 @@
  * All backend calls go through AWS (Cognito + API Gateway + Lambda)
  */
 
-import { awsAuth, AuthUser, SignUpParams, SignInParams } from './aws-auth';
-import { awsAPI, Post, Profile, Peak, Comment, Notification, CreatePostInput, CreatePeakInput, UpdateProfileInput, APIError } from './aws-api';
+import { awsAuth, SignUpParams, SignInParams } from './aws-auth';
+import { awsAPI, Post, Profile, Peak, Comment, Notification, CreatePostInput, UpdateProfileInput, APIError } from './aws-api';
 
 // Initialize backend
 export async function initializeBackend(): Promise<void> {

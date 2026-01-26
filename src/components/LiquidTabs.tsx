@@ -25,7 +25,6 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-  interpolate,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -101,6 +100,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
       withTiming(0.9, { duration: 100, easing: Easing.out(Easing.quad) }),
       withSpring(1, { damping: 12, stiffness: 200 })
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
 
   const indicatorStyle = useAnimatedStyle(() => {
@@ -114,7 +114,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
     };
   });
 
-  const handleTabPress = (key: string, index: number) => {
+  const handleTabPress = (key: string, _index: number) => {
     if (key === activeTab) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onTabChange(key);

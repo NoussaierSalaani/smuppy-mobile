@@ -10,6 +10,9 @@
 
 import Redis from 'ioredis';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('redis');
 
 // Cached Redis instance (reused across Lambda invocations)
 let redis: Redis | null = null;
@@ -26,7 +29,7 @@ const secretsClient = new SecretsManagerClient({});
 async function getRedisAuthToken(): Promise<string | null> {
   const secretArn = process.env.REDIS_AUTH_SECRET_ARN;
   if (!secretArn) {
-    console.warn('[Redis] REDIS_AUTH_SECRET_ARN not configured, connecting without auth');
+    log.warn('REDIS_AUTH_SECRET_ARN not configured, connecting without auth');
     return null;
   }
 
@@ -45,7 +48,7 @@ async function getRedisAuthToken(): Promise<string | null> {
     const response = await secretsClient.send(command);
 
     if (!response.SecretString) {
-      console.error('[Redis] Failed to retrieve auth token from Secrets Manager');
+      log.error('Failed to retrieve auth token from Secrets Manager');
       return null;
     }
 
@@ -60,7 +63,7 @@ async function getRedisAuthToken(): Promise<string | null> {
 
     return token;
   } catch (error) {
-    console.error('[Redis] Error fetching auth token:', error);
+    log.error('Error fetching auth token', error);
     return null;
   }
 }
@@ -119,18 +122,18 @@ export async function getRedis(): Promise<Redis | null> {
 
   // Handle connection errors
   redis.on('error', (err) => {
-    console.error('[Redis] Connection error:', err.message);
+    log.error('Connection error', err);
   });
 
   redis.on('close', () => {
-    console.log('[Redis] Connection closed');
+    log.info('Connection closed');
   });
 
   // Connect
   try {
     await redis.connect();
   } catch (error) {
-    console.error('[Redis] Failed to connect:', error);
+    log.error('Failed to connect', error);
     redis = null;
     return null;
   }

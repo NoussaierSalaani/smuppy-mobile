@@ -7,15 +7,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Dimensions,
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AvatarImage } from './OptimizedImage';
 import { COLORS, GRADIENTS } from '../config/theme';
-
-const { width } = Dimensions.get('window');
 
 interface SubscriptionTier {
   id: string;

@@ -10,8 +10,9 @@
  * Outputs a probability vector for 6 mood states with confidence score.
  */
 
-import { AppState, AppStateStatus } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+// Imports for future use when app state / network monitoring is enabled
+// import { AppState, AppStateStatus } from 'react-native';
+// import NetInfo from '@react-native-community/netinfo';
 
 // ============================================================================
 // TYPES
@@ -649,7 +650,7 @@ class MoodDetectionEngine {
   /**
    * Calculate engagement signal strength
    */
-  private calculateEngagementStrength(engagement: EngagementSignals): number {
+  private calculateEngagementStrength(_engagement: EngagementSignals): number {
     const totalActions = this.postsLiked + this.postsCommented + this.postsShared + this.postsSaved;
     if (totalActions < 2) return 0.3;
     if (totalActions < 5) return 0.6;

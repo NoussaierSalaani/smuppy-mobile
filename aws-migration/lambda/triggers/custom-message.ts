@@ -10,6 +10,9 @@
  */
 
 import { CustomMessageTriggerEvent, CustomMessageTriggerHandler } from 'aws-lambda';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('trigger-custom-message');
 
 // Smuppy brand colors
 const SMUPPY_GREEN = '#0EBF8A';
@@ -135,7 +138,7 @@ export const handler: CustomMessageTriggerHandler = async (
   const maskedEmail = userEmail.includes('@')
     ? userEmail.substring(0, 2) + '***@' + userEmail.split('@')[1]
     : userEmail;
-  console.log('[CustomMessage] Trigger:', triggerSource, 'User:', maskedEmail);
+  log.info('Trigger invoked', { triggerSource, maskedEmail });
 
   switch (triggerSource) {
     case 'CustomMessage_SignUp':
@@ -205,7 +208,7 @@ export const handler: CustomMessageTriggerHandler = async (
       break;
 
     default:
-      console.log('[CustomMessage] Unknown trigger source:', triggerSource);
+      log.info('Unknown trigger source', { triggerSource });
       // Use default message for unknown triggers
       response.emailSubject = 'Smuppy - Verification Code';
       response.emailMessage = generateEmailTemplate(

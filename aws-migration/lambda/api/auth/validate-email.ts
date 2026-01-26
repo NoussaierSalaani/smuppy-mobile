@@ -7,6 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import * as dns from 'dns';
 import { promisify } from 'util';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
+
+const log = createLogger('auth-validate-email');
 
 const resolveMx = promisify(dns.resolveMx);
 
@@ -270,7 +273,7 @@ export const handler = async (
     };
 
   } catch (error: any) {
-    console.error('[ValidateEmail] Error:', error);
+    log.error('ValidateEmail error', error);
 
     return {
       statusCode: 500,

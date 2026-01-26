@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -33,7 +33,7 @@ export default function SwipeToPeaks({
   const dragY = useRef(new Animated.Value(0)).current;
   const indicatorOpacity = useRef(new Animated.Value(0)).current;
   const indicatorScale = useRef(new Animated.Value(0.8)).current;
-  const [isDragging, setIsDragging] = useState(false);
+  const [, setIsDragging] = useState(false);
   const [canTrigger, setCanTrigger] = useState(false);
 
   // Interpolations

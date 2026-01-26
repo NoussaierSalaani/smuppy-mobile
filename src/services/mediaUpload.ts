@@ -272,8 +272,8 @@ export const getPresignedUrl = async (
  */
 export const generatePresignedUrlClientSide = (
   key: string,
-  contentType: string,
-  expiresIn: number = 3600
+  _contentType: string,
+  _expiresIn: number = 3600
 ): string => {
   // This is a simplified version - in production, use AWS SDK or server-side
   const bucket = S3_CONFIG.bucket;

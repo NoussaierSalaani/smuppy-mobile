@@ -77,11 +77,10 @@ const getTimeCategory = (hour: number): 'morning' | 'afternoon' | 'evening' | 'n
 // Helper: Analyze mood based on engagement patterns
 const calculateMood = (
   engagements: PostEngagement[],
-  sessions: SessionData[],
+  _sessions: SessionData[],
   currentHour: number
 ): MoodAnalysis => {
   const recentEngagements = engagements.slice(-50); // Last 50 interactions
-  const recentSessions = sessions.slice(-10); // Last 10 sessions
 
   // Calculate average time spent
   const avgTimeSpent = recentEngagements.length > 0
@@ -210,7 +209,7 @@ export const useEngagementStore = create<EngagementState>()(
         }
       },
 
-      startViewingPost: (postId: string, category: string) => {
+      startViewingPost: (postId: string, _category: string) => {
         set({
           activePostId: postId,
           activePostStartTime: Date.now(),

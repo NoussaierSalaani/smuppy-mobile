@@ -9,6 +9,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/security';
+import { createLogger, getRequestId } from '../utils/logger';
+
+const log = createLogger('profiles-update');
 
 // Validation rules for profile fields
 const VALIDATION_RULES: Record<string, { maxLength: number; pattern?: RegExp; required?: boolean }> = {
@@ -299,7 +302,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    console.error('Error updating profile:', error);
+    log.error('Error updating profile', error);
     return {
       statusCode: 500,
       headers,

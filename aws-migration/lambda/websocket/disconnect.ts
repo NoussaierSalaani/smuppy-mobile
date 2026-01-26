@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../shared/db';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('websocket-disconnect');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const connectionId = event.requestContext.connectionId;
@@ -18,14 +21,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [connectionId]
     );
 
-    console.log(`WebSocket disconnected: ${connectionId}`);
+    log.info('WebSocket disconnected', { connectionId });
 
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Disconnected' }),
     };
   } catch (error: any) {
-    console.error('Error in WebSocket disconnect:', error);
+    log.error('Error in WebSocket disconnect', error);
     // Still return success - connection is gone anyway
     return {
       statusCode: 200,

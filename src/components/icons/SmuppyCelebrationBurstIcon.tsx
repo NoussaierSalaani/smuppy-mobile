@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, Polygon, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
 interface SmuppyCelebrationBurstIconProps {

@@ -82,7 +82,7 @@ class ContentStore {
     }
 
     // Submit to database
-    const { data, error } = await dbReportPost(postId, reason, details);
+    const { error } = await dbReportPost(postId, reason, details);
 
     if (error === 'already_reported') {
       this.reportedPosts.add(postId);
@@ -132,7 +132,7 @@ class ContentStore {
     }
 
     // Submit to database
-    const { data, error } = await dbReportUser(userId, reason, details);
+    const { error } = await dbReportUser(userId, reason, details);
 
     if (error === 'already_reported') {
       this.reportedUsers.add(userId);

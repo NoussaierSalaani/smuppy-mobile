@@ -14,7 +14,9 @@ import {
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('admin-migrate-users');
 let cachedAdminKey: string | null = null;
 
 const secretsClient = new SecretsManagerClient({});
@@ -141,7 +143,7 @@ async function migrateUser(db: Pool, user: UserToMigrate): Promise<MigrationResu
   } catch (error: any) {
     // SECURITY: Log only masked email to prevent PII in logs
     const maskedEmail = user.email.substring(0, 2) + '***@' + user.email.split('@')[1];
-    console.error(`Failed to migrate user ${maskedEmail}:`, error);
+    log.error('Failed to migrate user', error, { maskedEmail });
     return {
       email: user.email,
       success: false,
@@ -162,7 +164,7 @@ export const handler = async (
     const adminKey = await getAdminKey();
 
     if (!providedKey || providedKey !== adminKey) {
-      console.warn('Unauthorized admin access attempt');
+      log.warn('Unauthorized admin access attempt');
       return {
         statusCode: 401,
         headers,
@@ -205,7 +207,7 @@ export const handler = async (
       };
     }
 
-    console.log(`Starting migration of ${users.length} users`);
+    log.info('Starting migration', { userCount: users.length });
     const db = await getPool();
 
     // Migrate users
@@ -218,7 +220,7 @@ export const handler = async (
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    console.log(`Migration completed: ${successful} successful, ${failed} failed`);
+    log.info('Migration completed', { successful, failed });
 
     return {
       statusCode: 200,
@@ -234,7 +236,7 @@ export const handler = async (
       }),
     };
   } catch (error: any) {
-    console.error('Migration error:', error);
+    log.error('Migration error', error);
     return {
       statusCode: 500,
       headers,

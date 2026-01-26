@@ -7,6 +7,9 @@
 
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createHeaders } from './cors';
+import { createLogger } from './logger';
+
+const log = createLogger('error-handler');
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'staging';
 
@@ -85,15 +88,11 @@ export function logError(
   const errorStack = error instanceof Error ? error.stack : undefined;
 
   // Log for CloudWatch - never include sensitive data
-  console.error(JSON.stringify({
-    level: 'ERROR',
-    context,
-    message: errorMessage,
-    stack: errorStack,
-    timestamp: new Date().toISOString(),
+  log.error(errorMessage, error, {
+    logContext: context,
     environment: ENVIRONMENT,
     ...additionalInfo,
-  }));
+  });
 }
 
 /**

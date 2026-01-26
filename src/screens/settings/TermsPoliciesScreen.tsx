@@ -65,7 +65,7 @@ const TermsPoliciesScreen = ({ navigation }) => {
       } else {
         Alert.alert('Error', `Unable to open ${title}. Please try again later.`);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to open link. Please check your internet connection.');
     }
   };

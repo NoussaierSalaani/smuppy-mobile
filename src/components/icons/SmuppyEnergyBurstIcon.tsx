@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, G, Polygon } from 'react-native-svg';
+import Svg, { Path, Circle, Polygon } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
 interface SmuppyEnergyBurstIconProps {

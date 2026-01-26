@@ -19,7 +19,9 @@ import {
   UsernameExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('auth-signup');
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
@@ -73,7 +75,7 @@ const checkUserStatus = async (username: string): Promise<{
 
 // Delete an unconfirmed user
 const deleteUnconfirmedUser = async (username: string): Promise<void> => {
-  console.log('[Signup] Deleting unconfirmed user:', username);
+  log.info('Deleting unconfirmed user', { username });
 
   await cognitoClient.send(
     new AdminDeleteUserCommand({
@@ -82,7 +84,7 @@ const deleteUnconfirmedUser = async (username: string): Promise<void> => {
     })
   );
 
-  console.log('[Signup] Unconfirmed user deleted');
+  log.info('Unconfirmed user deleted');
 };
 
 // Create a new user
@@ -92,7 +94,7 @@ const createUser = async (
   password: string,
   fullName?: string
 ): Promise<{ userSub: string }> => {
-  console.log('[Signup] Creating user:', username);
+  log.info('Creating user', { username });
 
   const userAttributes = [
     { Name: 'email', Value: email },
@@ -111,7 +113,7 @@ const createUser = async (
     })
   );
 
-  console.log('[Signup] User created:', response.UserSub);
+  log.info('User created', { userSub: response.UserSub });
 
   return { userSub: response.UserSub! };
 };
@@ -151,7 +153,8 @@ export const handler = async (
     const cognitoUsername = username || generateUsername(email);
 
     // SECURITY: Log only masked identifier to prevent PII in logs
-    console.log('[Signup] Processing signup for user:', cognitoUsername.substring(0, 2) + '***');
+    log.setRequestId(getRequestId(event));
+    log.info('Processing signup for user', { username: cognitoUsername.substring(0, 2) + '***' });
 
     // Check if user already exists
     const userStatus = await checkUserStatus(cognitoUsername);
@@ -160,7 +163,7 @@ export const handler = async (
       if (userStatus.confirmed) {
         // User exists and is confirmed - cannot sign up again
         // Return generic error to prevent email enumeration
-        console.log('[Signup] User exists and is confirmed');
+        log.info('User exists and is confirmed');
         return {
           statusCode: 409,
           headers,
@@ -171,7 +174,7 @@ export const handler = async (
         };
       } else {
         // User exists but is UNCONFIRMED - delete and recreate with new password
-        console.log('[Signup] User exists but is unconfirmed - will delete and recreate');
+        log.info('User exists but is unconfirmed - will delete and recreate');
         await deleteUnconfirmedUser(cognitoUsername);
         // Small delay to ensure deletion is processed
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -193,7 +196,7 @@ export const handler = async (
     };
 
   } catch (error: any) {
-    console.error('[Signup] Error:', error);
+    log.error('Signup error', error);
 
     // Handle specific Cognito errors
     if (error instanceof UsernameExistsException) {

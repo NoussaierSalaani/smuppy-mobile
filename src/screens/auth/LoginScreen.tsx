@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, GRADIENTS, FORM } from '../../config/theme';
-import { ENV } from '../../config/env';
 import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -59,6 +58,7 @@ export default function LoginScreen({ navigation }) {
   useEffect(() => {
     checkBiometrics();
     isAppleSignInAvailable().then(setAppleAvailable);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle Google OAuth response
@@ -66,6 +66,7 @@ export default function LoginScreen({ navigation }) {
     if (googleResponse) {
       handleGoogleAuthResponse();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
   const handleGoogleAuthResponse = async () => {
@@ -92,6 +93,7 @@ export default function LoginScreen({ navigation }) {
     setSocialLoading(null);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { checkBiometrics(); }, []);
 
   const checkBiometrics = useCallback(async () => {
@@ -234,7 +236,7 @@ export default function LoginScreen({ navigation }) {
 
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
-    } catch (error) {
+    } catch (_error) {
       setErrorModal({
         visible: true,
         title: 'Login Failed',
@@ -243,6 +245,7 @@ export default function LoginScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email, password, rememberMe, loading]);
 
   const togglePassword = useCallback(() => {
@@ -313,16 +316,6 @@ export default function LoginScreen({ navigation }) {
     await googlePromptAsync();
     // Response will be handled by the useEffect
   }, [googleRequest, googlePromptAsync]);
-
-  const getEmailIconColor = () => {
-    if (email.length > 0 || emailFocused) return COLORS.primary;
-    return COLORS.grayMuted;
-  };
-
-  const getPasswordIconColor = () => {
-    if (password.length > 0 || passwordFocused) return COLORS.primary;
-    return COLORS.grayMuted;
-  };
 
   const renderBiometricSection = () => {
     if (!biometricSupported) return null;

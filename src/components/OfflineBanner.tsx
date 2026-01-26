@@ -5,7 +5,6 @@ import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../stores';
-import { COLORS } from '../config/theme';
 
 interface OfflineBannerProps {
   onRetry?: () => void;

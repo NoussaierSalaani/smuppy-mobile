@@ -13,7 +13,9 @@ import {
 } from '@aws-sdk/client-sns';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('notifications-push-token');
 const snsClient = new SNSClient({});
 
 // Platform Application ARNs (set via environment variables)
@@ -29,7 +31,7 @@ async function createOrUpdateEndpoint(
   userId: string
 ): Promise<string | null> {
   if (!platformArn) {
-    console.log('Platform ARN not configured, skipping SNS endpoint creation');
+    log.info('Platform ARN not configured, skipping SNS endpoint creation');
     return null;
   }
 
@@ -80,12 +82,12 @@ async function createOrUpdateEndpoint(
           );
           return existingArn;
         } catch (updateError) {
-          console.error('Error updating existing endpoint:', updateError);
+          log.error('Error updating existing endpoint', updateError);
         }
       }
     }
 
-    console.error('Error creating SNS endpoint:', error);
+    log.error('Error creating SNS endpoint', error);
     return null;
   }
 }
@@ -132,7 +134,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             })
           );
         } catch (error) {
-          console.error('Error deleting SNS endpoint:', error);
+          log.error('Error deleting SNS endpoint', error);
         }
       }
 
@@ -227,7 +229,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    console.error('Error registering push token:', error);
+    log.error('Error registering push token', error);
     return {
       statusCode: 500,
       headers,

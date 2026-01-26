@@ -14,7 +14,9 @@ import {
   AliasExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('auth-confirm-signup');
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
@@ -61,7 +63,8 @@ export const handler = async (
     // Generate the Cognito username (or use provided)
     const cognitoUsername = username || generateUsername(email);
 
-    console.log('[ConfirmSignup] Confirming user:', cognitoUsername, 'with code:', code.substring(0, 2) + '****');
+    log.setRequestId(getRequestId(event));
+    log.info('Confirming user', { username: cognitoUsername, code: code.substring(0, 2) + '****' });
 
     await cognitoClient.send(
       new ConfirmSignUpCommand({
@@ -71,7 +74,7 @@ export const handler = async (
       })
     );
 
-    console.log('[ConfirmSignup] User confirmed successfully:', cognitoUsername);
+    log.info('User confirmed successfully', { username: cognitoUsername });
 
     return {
       statusCode: 200,
@@ -83,7 +86,7 @@ export const handler = async (
     };
 
   } catch (error: any) {
-    console.error('[ConfirmSignup] Error:', error.name, error.message);
+    log.error('ConfirmSignup error', error, { errorName: error.name });
 
     // Handle specific Cognito errors with user-friendly messages
     if (error instanceof CodeMismatchException) {

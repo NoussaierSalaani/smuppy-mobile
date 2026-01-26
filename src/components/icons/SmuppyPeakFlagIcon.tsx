@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, Polygon, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
 interface SmuppyPeakFlagIconProps {

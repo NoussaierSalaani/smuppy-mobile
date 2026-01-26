@@ -112,6 +112,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email, isLoading]);
 
   const handleContinue = useCallback(() => {
@@ -120,12 +121,6 @@ export default function ForgotPasswordScreen({ navigation }) {
   }, [navigation, email]);
 
   const isFormValid = email.trim().length > 0;
-
-  const getIconColor = useCallback(() => {
-    if (hasSubmitted && emailError) return COLORS.error;
-    if (email.length > 0 || isFocused) return COLORS.primary;
-    return COLORS.grayMuted;
-  }, [hasSubmitted, emailError, email, isFocused]);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>

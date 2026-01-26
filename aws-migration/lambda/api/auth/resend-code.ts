@@ -14,7 +14,9 @@ import {
   InvalidParameterException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
+const log = createLogger('auth-resend-code');
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Validate required environment variables at module load
@@ -130,7 +132,8 @@ export const handler = async (
     const cognitoUsername = username || generateUsername(email);
 
     // SECURITY: Log only masked identifier to prevent PII in logs
-    console.log('[ResendCode] Resending code for user:', cognitoUsername.substring(0, 2) + '***');
+    log.setRequestId(getRequestId(event));
+    log.info('Resending code for user', { username: cognitoUsername.substring(0, 2) + '***' });
 
     await cognitoClient.send(
       new ResendConfirmationCodeCommand({
@@ -139,7 +142,7 @@ export const handler = async (
       })
     );
 
-    console.log('[ResendCode] Code resent successfully');
+    log.info('Code resent successfully');
 
     return {
       statusCode: 200,
@@ -151,7 +154,7 @@ export const handler = async (
     };
 
   } catch (error: any) {
-    console.error('[ResendCode] Error:', error.name, error.message);
+    log.error('ResendCode error', error, { errorName: error.name });
 
     // Handle specific Cognito errors
     if (error instanceof UserNotFoundException) {
@@ -192,7 +195,7 @@ export const handler = async (
     }
 
     // For any other error, return success to prevent enumeration
-    console.error('[ResendCode] Unexpected error, returning generic success');
+    log.error('Unexpected error, returning generic success', error);
     return {
       statusCode: 200,
       headers,

@@ -10,6 +10,9 @@
  */
 
 import { PreSignUpTriggerEvent, PreSignUpTriggerHandler } from 'aws-lambda';
+import { createLogger } from '../api/utils/logger';
+
+const log = createLogger('trigger-pre-signup');
 
 // List of common disposable email domains to block
 // SECURITY: Prevents abuse from temporary email services
@@ -74,14 +77,14 @@ function validateEmail(email: string): { valid: boolean; reason?: string } {
 
   // Check disposable email domains
   if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
-    console.log(`[PreSignup] Blocked disposable email domain: ${domain}`);
+    log.info('Blocked disposable email domain', { domain });
     return { valid: false, reason: 'Disposable email addresses are not allowed' };
   }
 
   // Check blocked TLDs
   for (const tld of BLOCKED_TLDS) {
     if (domain.endsWith(tld)) {
-      console.log(`[PreSignup] Blocked TLD: ${tld} from ${domain}`);
+      log.info('Blocked TLD', { tld, domain });
       return { valid: false, reason: 'This email domain is not supported' };
     }
   }
@@ -102,7 +105,7 @@ function isSocialSignIn(event: PreSignUpTriggerEvent): boolean {
 }
 
 export const handler: PreSignUpTriggerHandler = async (event) => {
-  console.log('[PreSignup] Trigger invoked:', {
+  log.info('Trigger invoked', {
     triggerSource: event.triggerSource,
     username: event.userName?.substring(0, 3) + '***', // Masked for security
     hasEmail: !!event.request.userAttributes?.email,
@@ -115,7 +118,7 @@ export const handler: PreSignUpTriggerHandler = async (event) => {
     if (email) {
       const validation = validateEmail(email);
       if (!validation.valid) {
-        console.error(`[PreSignup] Email validation failed: ${validation.reason}`);
+        log.error('Email validation failed', null, { reason: validation.reason });
         throw new Error(validation.reason || 'Email validation failed');
       }
     }
@@ -123,7 +126,7 @@ export const handler: PreSignUpTriggerHandler = async (event) => {
     // Auto-confirm and verify social sign-in users (Apple/Google)
     // These users have already verified their identity with the provider
     if (isSocialSignIn(event)) {
-      console.log('[PreSignup] Social sign-in detected, auto-confirming user');
+      log.info('Social sign-in detected, auto-confirming user');
       event.response.autoConfirmUser = true;
       event.response.autoVerifyEmail = !!email;
     }
@@ -131,12 +134,12 @@ export const handler: PreSignUpTriggerHandler = async (event) => {
     // Log successful validation (masked email for security)
     if (email) {
       const maskedEmail = email.substring(0, 2) + '***@' + email.split('@')[1];
-      console.log(`[PreSignup] Validation passed for: ${maskedEmail}`);
+      log.info('Validation passed', { maskedEmail });
     }
 
     return event;
   } catch (error: any) {
-    console.error('[PreSignup] Error:', error.message);
+    log.error('PreSignup error', error);
     throw error;
   }
 };

@@ -73,7 +73,8 @@ function hashCode(str: string): string {
 /**
  * Get current device information
  */
-async function getDeviceInfo(): Promise<DeviceInfo> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _getDeviceInfo(): Promise<DeviceInfo> {
   const deviceId = await getOrCreateDeviceId();
 
   return {
@@ -91,7 +92,8 @@ async function getDeviceInfo(): Promise<DeviceInfo> {
  * Fetch approximate location from IP
  * Uses a free IP geolocation API
  */
-async function getLocationFromIP(): Promise<{ ip?: string; country?: string; city?: string }> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _getLocationFromIP(): Promise<{ ip?: string; country?: string; city?: string }> {
   try {
     const response = await fetch('https://ipapi.co/json/', {
       method: 'GET',
@@ -136,7 +138,8 @@ export async function registerDeviceSession(): Promise<{
  * Send alert for new device login
  * TODO: Deploy send-new-device-alert Edge Function to enable this feature
  */
-async function sendNewDeviceAlert(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _sendNewDeviceAlert(
   _sessionId: string,
   _deviceInfo: DeviceInfo,
   _location: { ip?: string; country?: string; city?: string }

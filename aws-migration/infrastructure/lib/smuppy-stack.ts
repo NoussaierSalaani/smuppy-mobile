@@ -106,8 +106,8 @@ export class SmuppyStack extends cdk.Stack {
       lifecycleRules: [
         {
           id: 'DeleteOldLogs',
-          expiration: cdk.Duration.days(isProduction ? 365 : 90),
-          transitions: [
+          expiration: cdk.Duration.days(isProduction ? 365 : 120),
+          transitions: isProduction ? [
             {
               storageClass: s3.StorageClass.INFREQUENT_ACCESS,
               transitionAfter: cdk.Duration.days(30),
@@ -115,6 +115,11 @@ export class SmuppyStack extends cdk.Stack {
             {
               storageClass: s3.StorageClass.GLACIER,
               transitionAfter: cdk.Duration.days(90),
+            },
+          ] : [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
             },
           ],
         },
@@ -594,9 +599,8 @@ export class SmuppyStack extends cdk.Stack {
         'auto_explain.log_analyze': 'true',
         'auto_explain.log_buffers': 'true',
 
-        // Memory optimization for queries (Aurora manages shared_buffers)
-        'work_mem': isProduction ? '64MB' : '32MB',
-        'maintenance_work_mem': isProduction ? '512MB' : '256MB',
+        // Memory optimization - Aurora manages these automatically based on instance size
+        // work_mem and maintenance_work_mem are set by Aurora
 
         // Logging for debugging and monitoring
         'log_statement': 'ddl',
@@ -607,7 +611,6 @@ export class SmuppyStack extends cdk.Stack {
 
         // Query planner optimization for Aurora SSD storage
         'random_page_cost': '1.1', // SSD-optimized (Aurora uses SSDs)
-        'effective_io_concurrency': '200', // High for SSDs
         'default_statistics_target': '100', // Better query plans
 
         // Autovacuum tuning for high-write social network workloads
@@ -1509,10 +1512,10 @@ export class SmuppyStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 7: Block requests from anonymous proxies and TOR
+        // Rule 8: Block requests from anonymous proxies and TOR
         {
           name: 'AWSManagedRulesAnonymousIpList',
-          priority: 7,
+          priority: 8,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -1526,10 +1529,10 @@ export class SmuppyStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 8: Block IPs with bad reputation
+        // Rule 9: Block IPs with bad reputation
         {
           name: 'AWSManagedRulesAmazonIpReputationList',
-          priority: 8,
+          priority: 9,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {

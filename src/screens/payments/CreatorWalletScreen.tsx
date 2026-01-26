@@ -90,7 +90,7 @@ export default function CreatorWalletScreen() {
         method: 'POST',
         body: { action: 'get-dashboard' },
       }) as { success?: boolean; dashboard?: typeof dashboard };
-      if (response.success) {
+      if (response.success && response.dashboard) {
         setDashboard(response.dashboard);
       }
     } catch (error) {
@@ -104,7 +104,7 @@ export default function CreatorWalletScreen() {
         method: 'POST',
         body: { action: 'get-transactions', limit: 20 },
       }) as { success?: boolean; transactions?: typeof transactions };
-      if (response.success) {
+      if (response.success && response.transactions) {
         setTransactions(response.transactions);
       }
     } catch (error) {

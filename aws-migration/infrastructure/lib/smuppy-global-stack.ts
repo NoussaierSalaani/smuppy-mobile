@@ -66,11 +66,23 @@ export class SmuppyGlobalStack extends cdk.Stack {
           ],
         },
       ],
-      // CORS for direct uploads
+      // SECURITY: Restrictive CORS for direct uploads
       cors: [{
-        allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
-        allowedOrigins: ['*'], // Will be restricted in production
-        allowedHeaders: ['*'],
+        allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
+        allowedOrigins: isProduction
+          ? ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com']
+          : ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com', 'http://localhost:8081', 'http://localhost:19006'],
+        allowedHeaders: [
+          'Content-Type',
+          'Content-Length',
+          'Content-MD5',
+          'Authorization',
+          'X-Amz-Date',
+          'X-Amz-Content-Sha256',
+          'X-Amz-Security-Token',
+          'X-Amz-User-Agent',
+        ],
+        exposedHeaders: ['ETag', 'x-amz-meta-*'],
         maxAge: 3600,
       }],
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
@@ -274,6 +286,55 @@ export class SmuppyGlobalStack extends cdk.Stack {
     // Origin request policy for API - Use ALL_VIEWER for Authorization forwarding
     const apiOriginRequestPolicy = cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER;
 
+    // SECURITY: Custom response headers policy with restrictive CORS
+    const secureResponseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecureResponseHeadersPolicy', {
+      responseHeadersPolicyName: `smuppy-secure-headers-${environment}`,
+      comment: 'Secure response headers with restrictive CORS',
+      corsBehavior: {
+        accessControlAllowCredentials: true,
+        accessControlAllowHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Amz-Date'],
+        accessControlAllowMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'POST', 'DELETE'],
+        accessControlAllowOrigins: isProduction
+          ? ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com']
+          : ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com', 'http://localhost:8081', 'http://localhost:19006'],
+        accessControlExposeHeaders: ['ETag', 'X-Request-Id'],
+        accessControlMaxAge: cdk.Duration.hours(1),
+        originOverride: true,
+      },
+      securityHeadersBehavior: {
+        contentSecurityPolicy: {
+          contentSecurityPolicy: "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        frameOptions: {
+          frameOption: cloudfront.HeadersFrameOption.DENY,
+          override: true,
+        },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        strictTransportSecurity: {
+          accessControlMaxAge: cdk.Duration.days(730), // 2 years
+          includeSubdomains: true,
+          preload: true,
+          override: true,
+        },
+        xssProtection: {
+          protection: true,
+          modeBlock: true,
+          override: true,
+        },
+      },
+      customHeadersBehavior: {
+        customHeaders: [
+          { header: 'Permissions-Policy', value: 'geolocation=(), microphone=(), camera=()', override: true },
+          { header: 'X-Permitted-Cross-Domain-Policies', value: 'none', override: true },
+        ],
+      },
+    });
+
     // Extract domain from API endpoint
     const apiDomain = apiEndpoint.replace('https://', '').replace(/\/.*$/, '');
     const graphqlDomain = graphqlEndpoint.replace('https://', '').replace(/\/.*$/, '');
@@ -293,8 +354,8 @@ export class SmuppyGlobalStack extends cdk.Stack {
         cachePolicy: mediaCachePolicy,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         compress: true,
-        // Security headers
-        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT_AND_SECURITY_HEADERS,
+        // SECURITY: Custom headers policy with restrictive CORS
+        responseHeadersPolicy: secureResponseHeadersPolicy,
       },
 
       additionalBehaviors: {

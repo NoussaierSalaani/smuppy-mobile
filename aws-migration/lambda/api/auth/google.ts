@@ -13,10 +13,17 @@ import {
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { OAuth2Client } from 'google-auth-library';
+import { randomBytes } from 'crypto';
+import { createHeaders } from '../utils/cors';
 
 const cognitoClient = new CognitoIdentityProviderClient({});
-const USER_POOL_ID = process.env.USER_POOL_ID!;
-const CLIENT_ID = process.env.CLIENT_ID!;
+
+// Validate required environment variables at module load
+if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
+if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
+
+const USER_POOL_ID = process.env.USER_POOL_ID;
+const CLIENT_ID = process.env.CLIENT_ID;
 
 // Google OAuth client IDs
 const GOOGLE_CLIENT_IDS = [
@@ -60,12 +67,13 @@ const verifyGoogleToken = async (idToken: string): Promise<GoogleTokenPayload> =
   };
 };
 
-// Generate a secure random password for Cognito user
+// Generate a cryptographically secure random password for Cognito user
 const generateSecurePassword = (): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  const bytes = randomBytes(32);
   let password = '';
   for (let i = 0; i < 32; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
+    password += chars.charAt(bytes[i] % chars.length);
   }
   return password;
 };
@@ -160,11 +168,7 @@ const authenticateUser = async (username: string): Promise<{
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  };
+  const headers = createHeaders(event);
 
   try {
     if (!event.body) {
@@ -175,7 +179,7 @@ export const handler = async (
       };
     }
 
-    const { idToken, accessToken } = JSON.parse(event.body);
+    const { idToken } = JSON.parse(event.body);
 
     if (!idToken) {
       return {

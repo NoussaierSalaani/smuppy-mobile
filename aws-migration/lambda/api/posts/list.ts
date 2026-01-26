@@ -71,7 +71,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         if (cached) {
           return response(200, { ...JSON.parse(cached), cached: true, latency: Date.now() - startTime });
         }
-      } catch (e) { /* Cache miss, continue */ }
+      } catch { /* Cache miss, continue */ }
     }
 
     // Use reader pool for read-heavy list operations (distributed across read replicas)
@@ -137,7 +137,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const responseData = { posts: formattedPosts, nextCursor: hasMore ? posts[posts.length - 1].createdAt.getTime().toString() : null, hasMore, total: formattedPosts.length };
 
     if (type !== 'following' && redisClient) {
-      try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch (e) { /* Ignore */ }
+      try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch { /* Ignore */ }
     }
 
     return response(200, { ...responseData, cached: false, latency: Date.now() - startTime });

@@ -1,0 +1,92 @@
+/**
+ * Delete Message Lambda Handler
+ * Deletes a message (only by sender)
+ */
+
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
+
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const headers = createHeaders(event);
+
+  try {
+    const userId = event.requestContext.authorizer?.claims?.sub;
+    if (!userId) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    const messageId = event.pathParameters?.id;
+    if (!messageId) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Message ID is required' }),
+      };
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(messageId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid message ID format' }),
+      };
+    }
+
+    const db = await getPool();
+
+    // Get user's profile ID
+    const userResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'User profile not found' }),
+      };
+    }
+
+    const profileId = userResult.rows[0].id;
+
+    // Delete message only if user is the sender
+    const result = await db.query(
+      `DELETE FROM messages
+       WHERE id = $1 AND sender_id = $2
+       RETURNING id`,
+      [messageId, profileId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'Message not found or not authorized to delete' }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        message: 'Message deleted successfully',
+      }),
+    };
+  } catch (error: any) {
+    console.error('Error deleting message:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ message: 'Internal server error' }),
+    };
+  }
+}

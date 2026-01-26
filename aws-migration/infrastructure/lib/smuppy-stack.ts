@@ -840,6 +840,8 @@ export class SmuppyStack extends cdk.Stack {
       NODE_OPTIONS: '--enable-source-maps',
       // SNS Platform Application ARNs for Push Notifications
       IOS_PLATFORM_APPLICATION_ARN: `arn:aws:sns:${this.region}:${this.account}:app/${isProduction ? 'APNS' : 'APNS_SANDBOX'}/smuppy-ios-${environment}`,
+      // Android uses GCM platform type in SNS (Firebase Cloud Messaging)
+      ANDROID_PLATFORM_APPLICATION_ARN: `arn:aws:sns:${this.region}:${this.account}:app/GCM/smuppy-android-${environment}`,
       FCM_SECRET_ARN: `smuppy/${environment}/fcm-credentials`,
     };
 

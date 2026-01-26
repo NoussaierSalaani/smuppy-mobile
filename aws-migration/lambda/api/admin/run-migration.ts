@@ -1,39 +1,31 @@
 /**
  * Run Database Migration Lambda
  * Executes the schema SQL on Aurora
+ * SECURITY: Admin key stored in AWS Secrets Manager
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { Pool } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
-let pool: Pool | null = null;
+let cachedAdminKey: string | null = null;
 
 const secretsClient = new SecretsManagerClient({});
 
-async function getDbCredentials(): Promise<{ host: string; port: number; database: string; username: string; password: string }> {
-  const command = new GetSecretValueCommand({
-    SecretId: process.env.DB_SECRET_ARN,
-  });
-  const response = await secretsClient.send(command);
-  return JSON.parse(response.SecretString || '{}');
-}
+// SECURITY: Get admin key from Secrets Manager (not env variable)
+async function getAdminKey(): Promise<string> {
+  if (cachedAdminKey) return cachedAdminKey;
 
-async function getPool(): Promise<Pool> {
-  if (!pool) {
-    const credentials = await getDbCredentials();
-    pool = new Pool({
-      host: credentials.host,
-      port: credentials.port,
-      database: credentials.dbname || 'smuppy',
-      user: credentials.username,
-      password: credentials.password,
-      ssl: { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 30000,
-    });
+  const secretArn = process.env.ADMIN_KEY_SECRET_ARN;
+  if (!secretArn) {
+    throw new Error('ADMIN_KEY_SECRET_ARN not configured');
   }
-  return pool;
+
+  const command = new GetSecretValueCommand({ SecretId: secretArn });
+  const response = await secretsClient.send(command);
+  cachedAdminKey = response.SecretString || '';
+  return cachedAdminKey;
 }
 
 // Schema SQL
@@ -272,6 +264,125 @@ CREATE TABLE IF NOT EXISTS conversations (
     UNIQUE(participant_1_id, participant_2_id)
 );
 
+-- FOLLOW REQUESTS TABLE (for private accounts)
+CREATE TABLE IF NOT EXISTS follow_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    requester_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    target_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(requester_id, target_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_follow_requests_target ON follow_requests(target_id);
+CREATE INDEX IF NOT EXISTS idx_follow_requests_status ON follow_requests(status);
+
+-- PEAKS TABLE (short videos like TikTok/Reels)
+CREATE TABLE IF NOT EXISTS peaks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    video_url TEXT NOT NULL,
+    thumbnail_url TEXT,
+    caption TEXT,
+    duration INTEGER,
+    likes_count INTEGER DEFAULT 0,
+    comments_count INTEGER DEFAULT 0,
+    views_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_peaks_author_id ON peaks(author_id);
+CREATE INDEX IF NOT EXISTS idx_peaks_created_at ON peaks(created_at DESC);
+
+-- PEAK LIKES TABLE
+CREATE TABLE IF NOT EXISTS peak_likes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    peak_id UUID NOT NULL REFERENCES peaks(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, peak_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_peak_likes_peak_id ON peak_likes(peak_id);
+
+-- PEAK COMMENTS TABLE
+CREATE TABLE IF NOT EXISTS peak_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    peak_id UUID NOT NULL REFERENCES peaks(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_peak_comments_peak_id ON peak_comments(peak_id);
+
+-- WEBSOCKET CONNECTIONS TABLE (for real-time messaging)
+CREATE TABLE IF NOT EXISTS websocket_connections (
+    connection_id VARCHAR(255) PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    connected_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ws_connections_user_id ON websocket_connections(user_id);
+
+-- Add followers_count column to profiles if missing
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS followers_count INTEGER DEFAULT 0;
+
+-- Push Notifications Enhancement (Migration 007)
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS device_id VARCHAR(255);
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS sns_endpoint_arn TEXT;
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE;
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ;
+
+-- Migration 008: Add FK for messages.conversation_id
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_messages_conversation_id'
+    ) THEN
+        ALTER TABLE messages
+        ADD CONSTRAINT fk_messages_conversation_id
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- ========================================
+-- UPDATED_AT TRIGGER FUNCTION
+-- Automatically updates updated_at column on row modifications
+-- ========================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for all tables with updated_at column
+DO $$
+DECLARE
+    tbl_name TEXT;
+    trigger_name TEXT;
+BEGIN
+    FOR tbl_name IN
+        SELECT table_name FROM information_schema.columns
+        WHERE column_name = 'updated_at'
+        AND table_schema = 'public'
+    LOOP
+        trigger_name := 'update_' || tbl_name || '_updated_at';
+        EXECUTE format('
+            DROP TRIGGER IF EXISTS %I ON %I;
+            CREATE TRIGGER %I
+            BEFORE UPDATE ON %I
+            FOR EACH ROW
+            EXECUTE FUNCTION update_updated_at_column();
+        ', trigger_name, tbl_name, trigger_name, tbl_name);
+    END LOOP;
+END $$;
+
 -- Seed interests
 INSERT INTO interests (name, icon, category) VALUES
     ('Fitness', 'fitness-outline', 'Sports'),
@@ -298,15 +409,15 @@ ON CONFLICT (name) DO NOTHING;
 `;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
+  const headers = createHeaders(event);
 
   try {
-    // Simple auth check - require a secret key
+    // SECURITY: Verify admin key from Secrets Manager
     const authHeader = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
-    if (authHeader !== process.env.ADMIN_KEY) {
+    const adminKey = await getAdminKey();
+
+    if (!authHeader || authHeader !== adminKey) {
+      console.warn('Unauthorized admin access attempt');
       return {
         statusCode: 401,
         headers,

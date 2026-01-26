@@ -320,6 +320,17 @@ CREATE TABLE IF NOT EXISTS conversations (
 -- Indexes for conversations
 CREATE INDEX IF NOT EXISTS idx_conversations_participants ON conversations(participant_1_id, participant_2_id);
 
+-- Add FK constraint for messages.conversation_id (after conversations table exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_messages_conversation_id'
+    ) THEN
+        ALTER TABLE messages ADD CONSTRAINT fk_messages_conversation_id
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
 -- =====================================================
 -- SEED DATA: Default Interests
 -- =====================================================

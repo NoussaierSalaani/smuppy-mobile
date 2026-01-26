@@ -3,36 +3,11 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { Pool } from 'pg';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-
-let pool: Pool | null = null;
-const secretsClient = new SecretsManagerClient({});
-
-async function getDbCredentials(): Promise<any> {
-  const command = new GetSecretValueCommand({ SecretId: process.env.DB_SECRET_ARN });
-  const response = await secretsClient.send(command);
-  return JSON.parse(response.SecretString || '{}');
-}
-
-async function getPool(): Promise<Pool> {
-  if (!pool) {
-    const credentials = await getDbCredentials();
-    pool = new Pool({
-      host: credentials.host,
-      port: credentials.port,
-      database: credentials.dbname || 'smuppy',
-      user: credentials.username,
-      password: credentials.password,
-      ssl: { rejectUnauthorized: false },
-      max: 5,
-    });
-  }
-  return pool;
-}
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
+  const headers = createHeaders(event);
 
   try {
     const db = await getPool();

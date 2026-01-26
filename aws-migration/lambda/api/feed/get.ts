@@ -19,6 +19,8 @@ async function getRedis(): Promise<Redis | null> {
     redis = new Redis({
       host: process.env.REDIS_ENDPOINT,
       port: parseInt(process.env.REDIS_PORT || '6379'),
+      // TLS required - ElastiCache has transit encryption enabled
+      tls: {},
       maxRetriesPerRequest: 3,
       connectTimeout: 5000,
       commandTimeout: 3000,
@@ -61,7 +63,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             body: cachedFeed,
           };
         }
-      } catch (_redisError) {
+      } catch {
         // Redis failure shouldn't break the feed - fallback to DB
         console.warn('[Feed] Redis cache error, falling back to DB');
       }
@@ -137,7 +139,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (redisClient) {
       try {
         await redisClient.setex(cacheKey, 60, JSON.stringify(response)); // 60 seconds TTL
-      } catch (_redisError) {
+      } catch {
         // Redis write failure is non-critical
         console.warn('[Feed] Redis cache write error');
       }

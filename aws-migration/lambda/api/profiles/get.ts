@@ -26,6 +26,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // SECURITY: Validate UUID format for profileId
+    if (profileId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(profileId)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Invalid profile ID format' }),
+        };
+      }
+    }
+
     // Use reader pool for read operations
     const db = await getReaderPool();
 

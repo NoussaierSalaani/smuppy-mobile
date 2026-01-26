@@ -14,8 +14,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const query = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
+    const rawQuery = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+
+    // SECURITY: Escape ILIKE special characters to prevent pattern matching bypass
+    const query = rawQuery.replace(/[%_\\]/g, '\\$&');
 
     // Use reader pool for read-heavy search operations
     const db = await getReaderPool();

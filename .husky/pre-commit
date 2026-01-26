@@ -27,10 +27,14 @@ if [ -n "$STAGED_FILES" ]; then
     exit 1
   fi
 
-  # Check for AWS Secret keys
-  if echo "$STAGED_FILES" | xargs grep -lE '[A-Za-z0-9/+=]{40}' 2>/dev/null | xargs grep -lE 'aws_secret|secret_access_key|AWS_SECRET' 2>/dev/null; then
-    echo "❌ ERROR: AWS Secret Key pattern detected!"
-    exit 1
+  # Check for AWS Secret keys (pattern + keyword combo)
+  # Using --no-run-if-empty to prevent false positives when no files match first grep
+  LONG_STRINGS=$(echo "$STAGED_FILES" | xargs grep -lE '[A-Za-z0-9/+=]{40}' 2>/dev/null || true)
+  if [ -n "$LONG_STRINGS" ]; then
+    if echo "$LONG_STRINGS" | xargs grep -lE 'aws_secret|secret_access_key|AWS_SECRET' 2>/dev/null; then
+      echo "❌ ERROR: AWS Secret Key pattern detected!"
+      exit 1
+    fi
   fi
 
   # Check for private keys

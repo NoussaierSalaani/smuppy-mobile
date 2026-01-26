@@ -43,10 +43,11 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 3; // Max 3 requests per minute
 
-// Generate username from email - MUST match client-side logic
-// Client uses: email.split('@')[0] (the part before @)
+// Generate username from email - MUST match signup.ts and aws-auth.ts
+// SECURITY: Uses full email hash to prevent collisions
 const generateUsername = (email: string): string => {
-  return email.toLowerCase().split('@')[0];
+  const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return `u_${emailHash}`;
 };
 
 // Simple rate limiting check

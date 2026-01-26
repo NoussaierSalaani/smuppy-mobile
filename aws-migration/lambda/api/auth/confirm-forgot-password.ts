@@ -24,10 +24,12 @@ if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is r
 
 const CLIENT_ID = process.env.CLIENT_ID;
 
-// Generate username from email - MUST match client-side logic
-// Client uses: email.split('@')[0] (the part before @)
+// Generate username from email - MUST match signup.ts and aws-auth.ts
+// SECURITY: Uses full email hash to prevent collisions
+// Example: john@gmail.com -> u_johngmailcom (no special chars)
 const generateUsername = (email: string): string => {
-  return email.toLowerCase().split('@')[0];
+  const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return `u_${emailHash}`;
 };
 
 export const handler = async (

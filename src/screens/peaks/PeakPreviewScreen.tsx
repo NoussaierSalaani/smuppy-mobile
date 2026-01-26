@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
   EmitterSubscription,
 } from 'react-native';
-import { Video, AVPlaybackStatus, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
@@ -108,9 +108,10 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
   // Cleanup
   useEffect(() => {
+    const ref = videoRef.current;
     return () => {
-      if (videoRef.current) {
-        videoRef.current.stopAsync();
+      if (ref) {
+        ref.stopAsync();
       }
     };
   }, []);

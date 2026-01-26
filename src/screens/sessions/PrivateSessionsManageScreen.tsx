@@ -64,7 +64,7 @@ interface AvailableSlot {
   isBooked: boolean;
 }
 
-interface ScheduledSession {
+interface _ScheduledSession {
   id: string;
   title: string;
   date: Date;
@@ -161,7 +161,7 @@ const DURATIONS = [30, 45, 60, 90];
 
 export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
 
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
@@ -191,9 +191,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
   // Add session form states
   const [sessionTitle, setSessionTitle] = useState('Personal Training Session');
-  const [sessionDate, setSessionDate] = useState<Date>(new Date());
-  const [sessionEndDate, setSessionEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-  const [sessionTime, setSessionTime] = useState('14:30');
+  const [sessionDate, _setSessionDate] = useState<Date>(new Date());
+  const [sessionEndDate, _setSessionEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  const [sessionTime, _setSessionTime] = useState('14:30');
   const [sessionDuration, setSessionDuration] = useState(60);
   const [sessionPrice, setSessionPrice] = useState('20');
   const [selectedDays, setSelectedDays] = useState<string[]>(['mer', 'ven', 'sam']);

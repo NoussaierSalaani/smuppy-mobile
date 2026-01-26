@@ -24,7 +24,6 @@ import {
   getFollowing,
   followUser,
   unfollowUser,
-  isFollowing,
   getCurrentProfile,
   Profile,
 } from '../../services/database';
@@ -79,11 +78,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   const [showWarningPopup, setShowWarningPopup] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [_currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Load data on mount
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -141,6 +141,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filter by search
@@ -262,6 +263,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     } finally {
       setActionLoading(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUser]);
 
   const closePopups = useCallback(() => {

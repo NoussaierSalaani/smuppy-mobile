@@ -18,13 +18,13 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { COLORS } from '../../config/theme';
 import { usePrivateCall } from '../../hooks/useAgora';
 import { LocalVideoView, RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
 
-const { width, height } = Dimensions.get('window');
+const { width: _width, height: _height } = Dimensions.get('window');
 
-interface RouteParams {
+interface _RouteParams {
   creator: {
     id: string;
     name: string;
@@ -79,6 +79,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
     return () => {
       destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle connection state changes
@@ -89,6 +90,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
       // Other user disconnected
       handleCallEnded('The other person left the call');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isJoined, remoteUsers.length]);
 
   // Timer for call duration
@@ -121,6 +123,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
       pulse.start();
       return () => pulse.stop();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callState]);
 
   const startCall = async () => {
@@ -149,7 +152,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
     navigation.goBack();
   };
 
-  const handleCallEnded = (message: string) => {
+  const handleCallEnded = (_message: string) => {
     setCallState('ended');
     navigation.replace('SessionEnded', { duration, creator });
   };

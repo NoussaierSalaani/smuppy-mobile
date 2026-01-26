@@ -80,6 +80,7 @@ export default function XplorerFeed({ navigation, isActive }) {
         setIsFullscreen(false);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, setBottomBarHidden, showBars]);
 
   const requestLocationPermission = async () => {

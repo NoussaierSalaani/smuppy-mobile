@@ -18,7 +18,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { COLORS } from '../../config/theme';
+// COLORS import removed - not used
 import {
   FilterProvider,
   useFilters,
@@ -36,7 +36,7 @@ interface VideoRecorderScreenProps {
   route: any;
 }
 
-function VideoRecorderScreenInner({ navigation, route }: VideoRecorderScreenProps) {
+function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderScreenProps) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -51,7 +51,7 @@ function VideoRecorderScreenInner({ navigation, route }: VideoRecorderScreenProp
   const isRecordingRef = useRef(false);
 
   // Filter state
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, _setShowFilters] = useState(true);
   const [showOverlayEditor, setShowOverlayEditor] = useState(false);
   const { activeFilter, activeOverlays, updateOverlay } = useFilters();
 
@@ -154,7 +154,7 @@ function VideoRecorderScreenInner({ navigation, route }: VideoRecorderScreenProp
     if (cameraRef.current) {
       try {
         cameraRef.current.stopRecording();
-      } catch (error) {
+      } catch (_error) {
         // Recording might have already stopped
       }
     }

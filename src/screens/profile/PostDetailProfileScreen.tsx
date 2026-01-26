@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { COLORS } from '../../config/theme';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { useContentStore } from '../../store/contentStore';
@@ -90,7 +90,7 @@ const PostDetailProfileScreen = () => {
   const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [isFan, setIsFan] = useState(false);
-  const [theyFollowMe, setTheyFollowMe] = useState(false); // Est-ce qu'ils me suivent ?
+  const [theyFollowMe, _setTheyFollowMe] = useState(false); // Est-ce qu'ils me suivent ?
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
@@ -239,7 +239,7 @@ const PostDetailProfileScreen = () => {
         currentPost.description,
         currentPost.user.name
       );
-    } catch (error) {
+    } catch (_error) {
       // User cancelled or error - silent fail
     } finally {
       setShareLoading(false);

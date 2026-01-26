@@ -23,7 +23,7 @@ const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 4) / 3;
 const MAX_SELECTION = 10;
 
-export default function CreatePostScreen({ navigation, route }) {
+export default function CreatePostScreen({ navigation, route: _route }) {
   const insets = useSafeAreaInsets();
   const alert = useSmuppyAlert();
   const [mediaAssets, setMediaAssets] = useState([]);
@@ -64,7 +64,7 @@ export default function CreatePostScreen({ navigation, route }) {
         setSelectedPreview(assets[0]);
       }
       setLoading(false);
-    } catch (error) {
+    } catch (_error) {
       setLoading(false);
     }
   };
@@ -113,7 +113,7 @@ export default function CreatePostScreen({ navigation, route }) {
         setSelectedMedia([newMedia]);
         setSelectedPreview(newMedia);
       }
-    } catch (error) {
+    } catch (_error) {
       alert.error(
         'Camera Not Available',
         'Camera is not available on this device. Please select from your photo library instead.'

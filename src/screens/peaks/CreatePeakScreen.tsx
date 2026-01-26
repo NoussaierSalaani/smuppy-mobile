@@ -198,7 +198,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         }
         setIsRecording(false);
         setIsPreviewPlaying(false);
-      } catch (error) {
+      } catch (_error) {
         setIsRecording(false);
         const isSimulator = !cameraRef.current;
         showCustomAlert(
@@ -215,7 +215,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     if (cameraRef.current && isRecording) {
       try {
         cameraRef.current.stopRecording();
-      } catch (error) {
+      } catch (_error) {
         // Stop recording error handled silently
       }
     }

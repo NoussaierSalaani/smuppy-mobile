@@ -143,7 +143,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // State for real posts from API
   const [posts, setPosts] = useState<UIPost[]>([]);
-  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);

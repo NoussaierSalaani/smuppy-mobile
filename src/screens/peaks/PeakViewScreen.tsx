@@ -238,6 +238,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       }
       return newSet;
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeak.id]);
 
   const toggleSave = useCallback((): void => {
@@ -253,7 +254,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
   }, [currentPeak.id]);
 
-  const handleOpenTagModal = useCallback((): void => {
+  const _handleOpenTagModal = useCallback((): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowTagModal(true);
   }, []);
@@ -459,8 +460,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const likesCount = (currentPeak.likes || 0) + (isLiked ? 1 : 0);
   const repliesCount = currentPeak.repliesCount || 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
-  const tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;
-  const isOwnPeak = currentPeak.isOwnPeak || false;
+  const _tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;
+  const _isOwnPeak = currentPeak.isOwnPeak || false;
 
   // Get unique users from peaks for the avatar carousel
   const uniqueUsers = useMemo(() => {

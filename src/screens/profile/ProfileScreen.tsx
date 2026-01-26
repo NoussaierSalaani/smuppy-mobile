@@ -14,14 +14,14 @@ import {
   ScrollView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { FlashList } from '@shopify/flash-list';
+// FlashList import removed - not used
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { COLORS } from '../../config/theme';
 import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 import { AccountBadge, PremiumBadge } from '../../components/Badge';
@@ -33,7 +33,7 @@ import { LiquidTabsWithMore } from '../../components/LiquidTabs';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
-const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
+const _GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 
 // Type for profile data from various sources
 interface ProfileDataSource {
@@ -535,7 +535,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // ==================== BIO ====================
   // Render bio with clickable links (URLs, emails, phone numbers)
-  const renderBioWithLinks = (text: string) => {
+  const _renderBioWithLinks = (text: string) => {
     if (!text) return null;
 
     // Regex patterns
@@ -547,10 +547,10 @@ const ProfileScreen = ({ navigation, route }) => {
     const combinedRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+|\+?[\d\s\-().]{10,})/g;
 
     const parts = text.split(combinedRegex);
-    const matches = text.match(combinedRegex) || [];
+    const _matches = text.match(combinedRegex) || [];
 
     const elements: React.ReactNode[] = [];
-    let matchIndex = 0;
+    let _matchIndex = 0;
 
     parts.forEach((part, index) => {
       if (part) {
@@ -604,7 +604,7 @@ const ProfileScreen = ({ navigation, route }) => {
     try {
       await Clipboard.setStringAsync(getProfileUrl());
       Alert.alert('Copied!', 'Profile link copied to clipboard');
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to copy link');
     }
   };
@@ -820,7 +820,7 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [isProCreator, isOwnProfile]) as { key: string; label: string; icon: string }[];
 
   // Combined for backward compatibility
-  const TABS = useMemo(() => [...PRIMARY_TABS, ...EXTRA_TABS], [PRIMARY_TABS, EXTRA_TABS]);
+  const _TABS = useMemo(() => [...PRIMARY_TABS, ...EXTRA_TABS], [PRIMARY_TABS, EXTRA_TABS]);
 
   const renderTabs = () => {
     return (
@@ -940,7 +940,7 @@ const ProfileScreen = ({ navigation, route }) => {
     );
   }, [navigation]);
 
-  const keyExtractor = useCallback((item) => item.id, []);
+  const _keyExtractor = useCallback((item) => item.id, []);
 
   // ==================== RENDER PEAK ITEM ====================
   const renderPeakItem = useCallback((peak) => {
@@ -991,6 +991,7 @@ const ProfileScreen = ({ navigation, route }) => {
         </View>
       </TouchableOpacity>
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
 
   // ==================== RENDER PEAKS ====================
@@ -1142,7 +1143,7 @@ const ProfileScreen = ({ navigation, route }) => {
         </View>
       </View>
     </TouchableOpacity>
-  ), [navigation]);
+  ), []);
 
   // ==================== RENDER VIDEO ITEM ====================
   const renderVideoItem = useCallback((video: typeof MOCK_VIDEOS[0]) => {

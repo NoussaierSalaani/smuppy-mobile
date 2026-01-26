@@ -48,6 +48,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
     );
     pulse.start();
     return () => pulse.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Dots animation
@@ -61,6 +62,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
     );
     dots.start();
     return () => dots.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCancel = () => {
@@ -73,6 +75,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
       navigation.replace('PrivateCall', { creator });
     }, 5000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ringScale = pulseAnim.interpolate({

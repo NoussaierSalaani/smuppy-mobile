@@ -222,7 +222,7 @@ export default function SignupScreen({ navigation }) {
         rememberMe,
         accountCreated: false, // Account will be created in VerifyCodeScreen
       });
-    } catch (err) {
+    } catch {
       setErrorModal({
         visible: true,
         title: 'Error',

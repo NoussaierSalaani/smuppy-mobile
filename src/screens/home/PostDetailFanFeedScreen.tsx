@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { COLORS } from '../../config/theme';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
@@ -159,8 +159,8 @@ const PostDetailFanFeedScreen = () => {
   const currentPost = fanFeedPosts[currentIndex] || MOCK_FANFEED_POSTS[0];
   
   // Check if already fan of current post user
-  const isAlreadyFan = fanStatus[currentPost.user.id] === true;
-  const theyFollowMe = currentPost.user.followsMe;
+  const _isAlreadyFan = fanStatus[currentPost.user.id] === true;
+  const _theyFollowMe = currentPost.user.followsMe;
 
   // Validate UUID format
   const isValidUUID = (id: string) => {
@@ -208,6 +208,7 @@ const PostDetailFanFeedScreen = () => {
       }
     };
     checkPostStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPost.id]);
 
   // Navigate to user profile (only if valid UUID)
@@ -395,7 +396,7 @@ const PostDetailFanFeedScreen = () => {
         currentPost.description,
         currentPost.user.name
       );
-    } catch (error) {
+    } catch (_error) {
       // User cancelled or error - silent fail
     } finally {
       setShareLoading(false);

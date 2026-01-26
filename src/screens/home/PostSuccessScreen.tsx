@@ -62,6 +62,7 @@ export default function PostSuccessScreen({ route, navigation }) {
     }, 3000);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const progressWidth = progressAnim.interpolate({

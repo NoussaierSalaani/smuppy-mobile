@@ -260,7 +260,7 @@ const UserProfileScreen = () => {
     );
   };
 
-  const submitUserReport = (reason: string) => {
+  const submitUserReport = (_reason: string) => {
     Alert.alert(
       'Report Submitted',
       'Thank you for your report. We will review this user.',
@@ -422,7 +422,7 @@ const UserProfileScreen = () => {
   };
 
   // ✅ CORRIGÉ - Gestion des commentaires avec bonne route
-  const handleCommentPress = (postId: string) => {
+  const _handleCommentPress = (postId: string) => {
     if (!isFan && !isOwnProfile) {
       setShowFanRequiredModal(true);
     } else {
@@ -442,7 +442,7 @@ const UserProfileScreen = () => {
     // Support both media_urls array and legacy media_url string
     const thumbnail = post.media_urls?.[0] || (post as any).media_url || null;
     const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
-    const caption = post.content || (post as any).caption || '';
+    const _caption = post.content || (post as any).caption || '';
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
     const transformedPosts = allPosts.map(p => ({
@@ -1178,7 +1178,7 @@ const UserProfileScreen = () => {
         creatorName={profile.displayName}
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}
-        onSubscribe={(tierId) => {
+        onSubscribe={(_tierId) => {
           // TODO: Implement subscription logic with payment
         }}
       />

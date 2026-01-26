@@ -184,15 +184,18 @@ export default function AddPostDetailsScreen({ route, navigation }) {
 
   // Cleanup on unmount - important for memory management at scale
   useEffect(() => {
+    const postTimeout = postTimeoutRef.current;
+    const locationTimeout = locationSearchTimeout.current;
+    const locationCache = locationCacheRef.current;
     return () => {
-      if (postTimeoutRef.current) {
-        clearTimeout(postTimeoutRef.current);
+      if (postTimeout) {
+        clearTimeout(postTimeout);
       }
-      if (locationSearchTimeout.current) {
-        clearTimeout(locationSearchTimeout.current);
+      if (locationTimeout) {
+        clearTimeout(locationTimeout);
       }
       // Clear location cache on unmount
-      locationCacheRef.current.clear();
+      locationCache.clear();
     };
   }, []);
 

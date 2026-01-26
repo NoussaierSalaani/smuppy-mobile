@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { COLORS } from '../../config/theme';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore } from '../../store/contentStore';
 import { useUserSafetyStore } from '../../store/userSafetyStore';
@@ -28,11 +28,11 @@ import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2;
+const _CARD_WIDTH = (width - 48) / 2;
 const CONDENSED_HEIGHT = 220;
 const GRID_GAP = 12;
 const GRID_PADDING = 16;
-const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
+const _COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 
 // View states
 const VIEW_STATES = {
@@ -180,7 +180,7 @@ const PostDetailVibesFeedScreen = () => {
     post?: typeof MOCK_VIBESFEED_POSTS[0];
     startCondensed?: boolean;
   } || {};
-  const { postId, post: initialPost, startCondensed } = params;
+  const { postId: _postId, post: initialPost, startCondensed } = params;
   const currentPost = initialPost || MOCK_VIBESFEED_POSTS[0];
 
   // States - start in CONDENSED if coming from grid post click
@@ -206,7 +206,7 @@ const PostDetailVibesFeedScreen = () => {
   const [blockLoading, setBlockLoading] = useState(false);
 
   // Animation values
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const _scrollY = useRef(new Animated.Value(0)).current;
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   const videoRef = useRef(null);
@@ -221,7 +221,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // User follows me?
-  const theyFollowMe = currentPost.user?.followsMe || false;
+  const _theyFollowMe = currentPost.user?.followsMe || false;
 
   // Check follow status on mount
   useEffect(() => {
@@ -436,7 +436,7 @@ const PostDetailVibesFeedScreen = () => {
         currentPost.description,
         currentPost.user.name
       );
-    } catch (error) {
+    } catch (_error) {
       // User cancelled or error - silent fail
     } finally {
       setShareLoading(false);
@@ -589,7 +589,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // Navigate to post detail with animation
-  const handleGridPostPress = (post: any) => {
+  const _handleGridPostPress = (post: any) => {
     const scale = getCardScale(post.id);
 
     // Press animation

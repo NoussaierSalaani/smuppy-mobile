@@ -223,6 +223,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
         }),
       ])
     ).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!mood) return null;
@@ -338,8 +339,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Posts state - allPosts stores everything, posts is filtered view
   const [allPosts, setAllPosts] = useState<UIVibePost[]>([]);
-  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
 
   const [selectedPost, setSelectedPost] = useState<UIVibePost | null>(null);
@@ -662,6 +663,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setSelectedPost(updatedPost);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPosts, selectedPost?.id, modalVisible]);
 
   // Check follow status when modal opens

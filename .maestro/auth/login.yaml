@@ -1,0 +1,47 @@
+# Login Flow E2E Test
+# Tests the complete login flow
+
+appId: com.smuppy.app
+
+---
+
+# Launch the app fresh
+- launchApp:
+    clearState: true
+
+# Wait for the app to load
+- waitForAnimationToEnd
+
+# Check if we're on the welcome/login screen
+- assertVisible: "Welcome to Smuppy"
+
+# Tap on "Sign In" button
+- tapOn: "Sign In"
+
+# Wait for login screen
+- waitForAnimationToEnd
+
+# Enter email
+- tapOn:
+    text: "Email"
+- inputText: ${TEST_EMAIL}
+
+# Enter password
+- tapOn:
+    text: "Password"
+- inputText: ${TEST_PASSWORD}
+
+# Hide keyboard
+- hideKeyboard
+
+# Tap login button
+- tapOn: "Log In"
+
+# Wait for authentication
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 10000
+
+# Verify we're on the home screen
+- assertVisible:
+    text: "Feed"

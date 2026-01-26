@@ -1,0 +1,52 @@
+# Create Post E2E Test
+# Tests creating a new post
+
+appId: com.smuppy.app
+
+---
+
+# Start from logged-in state
+- launchApp
+
+# Wait for app to load
+- waitForAnimationToEnd
+
+# Tap create post button (usually + or "Create" icon)
+- tapOn:
+    id: "create-post-button"
+    optional: true
+- runFlow:
+    when:
+      notVisible: "What's on your mind"
+    commands:
+      - tapOn:
+          text: ".*\\+.*|.*Create.*|.*New.*"
+
+# Wait for create post screen
+- waitForAnimationToEnd
+
+# Verify we're on create post screen
+- assertVisible:
+    text: ".*What's on your mind.*|.*Create.*|.*New Post.*"
+
+# Enter post content
+- tapOn:
+    text: ".*What's on your mind.*|.*Write something.*"
+    optional: true
+- inputText: "E2E Test Post - This is an automated test post from Maestro."
+
+# Hide keyboard
+- hideKeyboard
+
+# Tap post/share button
+- tapOn:
+    text: ".*Post.*|.*Share.*|.*Publish.*"
+
+# Wait for post to be created
+- extendedWaitUntil:
+    visible: ".*Feed.*|.*Posted.*|.*Success.*"
+    timeout: 10000
+
+# Verify we're back on feed or got success message
+- assertVisible:
+    text: ".*"

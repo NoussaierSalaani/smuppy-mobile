@@ -1,0 +1,21 @@
+# Maestro E2E Test Configuration
+# https://maestro.mobile.dev/
+
+# Global configuration
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - auth/login.yaml
+    - auth/signup.yaml
+    - feed/view-feed.yaml
+    - feed/create-post.yaml
+    - profile/view-profile.yaml
+    - profile/edit-profile.yaml
+
+# Environment variables
+env:
+  TEST_EMAIL: "e2e-test@smuppy.com"
+  TEST_PASSWORD: "TestPassword123!"
+
+# Output settings
+outputExtension: .json

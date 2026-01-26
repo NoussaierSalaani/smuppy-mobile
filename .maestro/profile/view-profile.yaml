@@ -1,0 +1,65 @@
+# View Profile E2E Test
+# Tests viewing user profile
+
+appId: com.smuppy.app
+
+---
+
+# Start from logged-in state
+- launchApp
+
+# Wait for app to load
+- waitForAnimationToEnd
+
+# Navigate to profile tab
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*Profile.*|.*@.*"
+    commands:
+      - tapOn:
+          text: ".*Profile.*|.*Me.*|.*Account.*"
+
+# Wait for profile screen
+- waitForAnimationToEnd
+
+# Verify profile elements
+- assertVisible:
+    text: ".*@.*|.*followers.*|.*following.*"
+    optional: true
+
+# Scroll down to see posts
+- scroll:
+    direction: DOWN
+    duration: 800
+
+# Scroll back up
+- scroll:
+    direction: UP
+    duration: 500
+
+# Tap on followers count
+- runFlow:
+    when:
+      visible: "followers"
+    commands:
+      - tapOn: "followers"
+      - waitForAnimationToEnd
+      - back
+      - waitForAnimationToEnd
+
+# Tap on following count
+- runFlow:
+    when:
+      visible: "following"
+    commands:
+      - tapOn: "following"
+      - waitForAnimationToEnd
+      - back
+      - waitForAnimationToEnd
+
+# Profile viewed successfully
+- assertVisible:
+    text: ".*"

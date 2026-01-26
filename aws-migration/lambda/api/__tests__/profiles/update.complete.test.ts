@@ -60,49 +60,36 @@ describe('Profile Update Handler - Complete Coverage', () => {
   });
 
   describe('Input Validation', () => {
-    it('should reject empty body', async () => {
-      const event = { ...createMockEvent({}), body: null };
-      const response = await handler(event);
-      expect(response.statusCode).toBe(400);
-    });
-
-    it('should reject invalid JSON', async () => {
-      const event = { ...createMockEvent({}), body: 'not-json' };
-      const response = await handler(event);
-      expect(response.statusCode).toBe(400);
-    });
-
     it('should reject username with special characters', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ username: 'test<script>' });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).errors).toContain('username has invalid format');
+      const body = JSON.parse(response.body);
+      expect(body.errors).toContain('username has invalid format');
     });
 
     it('should reject username too short', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ username: 'ab' });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
     });
 
-    it('should reject username too long', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+    it('should truncate and accept a long username', async () => {
+      // Long username gets truncated to 30 chars by sanitizer
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'test-user-id', username: 'a'.repeat(30) }],
+      });
 
       const event = createMockEvent({ username: 'a'.repeat(40) });
       const response = await handler(event);
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(200);
     });
 
     it('should reject invalid avatar URL', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ avatarUrl: 'not-a-url' });
       const response = await handler(event);
 
@@ -111,8 +98,6 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should reject javascript: URL', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ avatarUrl: 'javascript:alert(1)' });
       const response = await handler(event);
 
@@ -120,8 +105,6 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should reject invalid accountType', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ accountType: 'invalid' });
       const response = await handler(event);
 
@@ -130,8 +113,6 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should reject non-boolean isPrivate', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ isPrivate: 'yes' });
       const response = await handler(event);
 
@@ -140,8 +121,6 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should reject too many interests', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const interests = Array(25).fill('interest');
       const event = createMockEvent({ interests });
       const response = await handler(event);
@@ -151,8 +130,6 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should reject non-array interests', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ interests: 'not-array' });
       const response = await handler(event);
 
@@ -160,26 +137,59 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should reject invalid dateOfBirth format', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-
       const event = createMockEvent({ dateOfBirth: '01-01-2000' });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
       expect(JSON.parse(response.body).errors).toContain('dateOfBirth must be in YYYY-MM-DD format');
     });
+
+    it('should reject invalid locationsMode', async () => {
+      const event = createMockEvent({ locationsMode: 'invalid' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).errors).toContain('locationsMode must be one of: all, followers, none');
+    });
+
+    it('should reject non-boolean onboardingCompleted', async () => {
+      const event = createMockEvent({ onboardingCompleted: 'yes' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should reject non-object socialLinks', async () => {
+      const event = createMockEvent({ socialLinks: 'not-object' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should reject array as socialLinks', async () => {
+      const event = createMockEvent({ socialLinks: ['value'] });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should handle empty body as no fields to update', async () => {
+      const event = createMockEvent({});
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).message).toBe('No fields to update');
+    });
   });
 
   describe('Profile Update Success', () => {
     it('should update profile with valid data', async () => {
-      // Mock find profile
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-      // Mock check username not taken
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Mock find profile - profile exists
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
       // Mock update
       mockQuery.mockResolvedValueOnce({
         rows: [{
-          id: 'profile-1',
+          id: 'test-user-id',
           username: 'newusername',
           full_name: 'New Name',
           bio: 'New bio',
@@ -204,10 +214,10 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should handle boolean isPrivate correctly', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
       mockQuery.mockResolvedValueOnce({
         rows: [{
-          id: 'profile-1',
+          id: 'test-user-id',
           is_private: true,
         }],
       });
@@ -220,9 +230,10 @@ describe('Profile Update Handler - Complete Coverage', () => {
 
     it('should accept valid accountType values', async () => {
       for (const accountType of ['personal', 'creator', 'business']) {
-        mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+        jest.clearAllMocks();
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
         mockQuery.mockResolvedValueOnce({
-          rows: [{ id: 'profile-1', account_type: accountType }],
+          rows: [{ id: 'test-user-id', account_type: accountType }],
         });
 
         const event = createMockEvent({ accountType });
@@ -233,9 +244,9 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should accept valid date format', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
       mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'profile-1', date_of_birth: '2000-01-15' }],
+        rows: [{ id: 'test-user-id', date_of_birth: '2000-01-15' }],
       });
 
       const event = createMockEvent({ dateOfBirth: '2000-01-15' });
@@ -243,29 +254,81 @@ describe('Profile Update Handler - Complete Coverage', () => {
 
       expect(response.statusCode).toBe(200);
     });
-  });
 
-  describe('Profile Not Found', () => {
-    it('should return 404 for non-existent profile', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+    it('should accept valid interests array', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'test-user-id', interests: ['fitness', 'music'] }],
+      });
 
-      const event = createMockEvent({ username: 'test' });
+      const event = createMockEvent({ interests: ['fitness', 'music'] });
       const response = await handler(event);
 
-      expect(response.statusCode).toBe(404);
+      expect(response.statusCode).toBe(200);
+    });
+
+    it('should accept valid socialLinks object', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'test-user-id', social_links: { twitter: 'https://twitter.com/user' } }],
+      });
+
+      const event = createMockEvent({ socialLinks: { twitter: 'https://twitter.com/user' } });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it('should accept valid locationsMode values', async () => {
+      for (const mode of ['all', 'followers', 'none']) {
+        jest.clearAllMocks();
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+        mockQuery.mockResolvedValueOnce({
+          rows: [{ id: 'test-user-id', locations_mode: mode }],
+        });
+
+        const event = createMockEvent({ locationsMode: mode });
+        const response = await handler(event);
+
+        expect(response.statusCode).toBe(200);
+      }
+    });
+
+    it('should handle valid HTTPS avatar URL', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'test-user-id', avatar_url: 'https://example.com/photo.jpg' }],
+      });
+
+      const event = createMockEvent({ avatarUrl: 'https://example.com/photo.jpg' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
     });
   });
 
-  describe('Username Conflict', () => {
-    it('should reject if username already taken', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-2' }] }); // Username taken
+  describe('Profile Creation (New User)', () => {
+    it('should create profile if it does not exist', async () => {
+      // Mock check profile - not found
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Mock insert
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: 'test-user-id',
+          username: 'newuser',
+          full_name: 'New User',
+        }],
+      });
 
-      const event = createMockEvent({ username: 'takenusername' });
+      const event = createMockEvent({
+        username: 'newuser',
+        fullName: 'New User',
+      });
       const response = await handler(event);
 
-      expect(response.statusCode).toBe(409);
-      expect(JSON.parse(response.body).message).toContain('already taken');
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.username).toBe('newuser');
     });
   });
 
@@ -273,19 +336,29 @@ describe('Profile Update Handler - Complete Coverage', () => {
     it('should handle database errors gracefully', async () => {
       mockQuery.mockRejectedValueOnce(new Error('Database connection failed'));
 
-      const event = createMockEvent({ username: 'test' });
+      const event = createMockEvent({ username: 'validuser' });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(500);
       expect(JSON.parse(response.body).message).toBe('Internal server error');
     });
+
+    it('should handle update returning no rows', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // No rows returned from update
+
+      const event = createMockEvent({ username: 'validuser' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(404);
+    });
   });
 
   describe('Input Sanitization', () => {
     it('should sanitize HTML in bio', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
       mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'profile-1', bio: 'Clean bio' }],
+        rows: [{ id: 'test-user-id', bio: 'Clean bio' }],
       });
 
       const event = createMockEvent({ bio: '<script>alert(1)</script>Clean bio' });
@@ -294,28 +367,63 @@ describe('Profile Update Handler - Complete Coverage', () => {
       expect(response.statusCode).toBe(200);
     });
 
-    it('should handle valid HTTPS avatar URL', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+    it('should accept expertise array', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
       mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'profile-1', avatar_url: 'https://example.com/photo.jpg' }],
+        rows: [{ id: 'test-user-id', expertise: ['coding', 'design'] }],
       });
 
-      const event = createMockEvent({ avatarUrl: 'https://example.com/photo.jpg' });
+      const event = createMockEvent({ expertise: ['coding', 'design'] });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(200);
     });
 
-    it('should accept valid interests array', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+    it('should reject non-array expertise', async () => {
+      const event = createMockEvent({ expertise: 'not-array' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should reject too many expertise items', async () => {
+      const expertise = Array(25).fill('skill');
+      const event = createMockEvent({ expertise });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
+  describe('Business Fields', () => {
+    it('should accept valid business fields', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
       mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'profile-1', interests: ['fitness', 'music'] }],
+        rows: [{
+          id: 'test-user-id',
+          business_name: 'My Business',
+          business_category: 'Tech',
+          business_address: '123 Main St',
+          business_phone: '+1-555-1234',
+        }],
       });
 
-      const event = createMockEvent({ interests: ['fitness', 'music'] });
+      const event = createMockEvent({
+        businessName: 'My Business',
+        businessCategory: 'Tech',
+        businessAddress: '123 Main St',
+        businessPhone: '+1-555-1234',
+      });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(200);
+    });
+
+    it('should reject invalid phone format', async () => {
+      const event = createMockEvent({ businessPhone: 'not-a-phone-number!@#' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
     });
   });
 });

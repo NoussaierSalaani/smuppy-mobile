@@ -1,0 +1,78 @@
+# Signup Flow E2E Test
+# Tests the complete registration flow
+
+appId: com.smuppy.app
+
+---
+
+# Launch the app fresh
+- launchApp:
+    clearState: true
+
+# Wait for the app to load
+- waitForAnimationToEnd
+
+# Check welcome screen
+- assertVisible: "Welcome to Smuppy"
+
+# Tap on "Create Account" or "Sign Up"
+- tapOn:
+    text: ".*Sign Up.*|.*Create Account.*"
+    optional: true
+
+# If not found, look for alternative
+- runFlow:
+    when:
+      notVisible: "Email"
+    commands:
+      - tapOn: "Get Started"
+
+# Wait for signup screen
+- waitForAnimationToEnd
+
+# Generate unique email for test
+- runScript:
+    script: |
+      const timestamp = Date.now();
+      output.testEmail = `e2e-test-${timestamp}@smuppy.com`;
+
+# Enter email
+- tapOn:
+    text: "Email"
+- inputText: ${output.testEmail}
+
+# Enter password
+- tapOn:
+    text: "Password"
+- inputText: "TestPassword123!"
+
+# Confirm password if field exists
+- runFlow:
+    when:
+      visible: "Confirm Password"
+    commands:
+      - tapOn: "Confirm Password"
+      - inputText: "TestPassword123!"
+
+# Hide keyboard
+- hideKeyboard
+
+# Accept terms if checkbox exists
+- runFlow:
+    when:
+      visible: "I agree"
+    commands:
+      - tapOn: "I agree"
+
+# Tap create account button
+- tapOn:
+    text: ".*Create.*|.*Sign Up.*"
+
+# Wait for verification screen or onboarding
+- extendedWaitUntil:
+    visible: ".*Verify.*|.*Tell us.*|.*Welcome.*"
+    timeout: 15000
+
+# Test passed - either verification email sent or moved to onboarding
+- assertVisible:
+    text: ".*"

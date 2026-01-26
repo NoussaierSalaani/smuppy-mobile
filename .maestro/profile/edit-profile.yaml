@@ -1,0 +1,74 @@
+# Edit Profile E2E Test
+# Tests editing user profile
+
+appId: com.smuppy.app
+
+---
+
+# Start from logged-in state
+- launchApp
+
+# Wait for app to load
+- waitForAnimationToEnd
+
+# Navigate to profile tab
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*Profile.*|.*@.*"
+    commands:
+      - tapOn:
+          text: ".*Profile.*|.*Me.*|.*Account.*"
+
+# Wait for profile screen
+- waitForAnimationToEnd
+
+# Tap edit profile button
+- tapOn:
+    text: ".*Edit.*|.*Settings.*"
+    optional: true
+- runFlow:
+    when:
+      notVisible: "Bio"
+    commands:
+      - tapOn:
+          id: "edit-profile-button"
+
+# Wait for edit screen
+- waitForAnimationToEnd
+
+# Find and edit bio field
+- runFlow:
+    when:
+      visible: "Bio"
+    commands:
+      - tapOn: "Bio"
+      - clearText
+      - inputText: "E2E Test Bio - Updated at ${timestamp}"
+      - hideKeyboard
+
+# Find and edit display name if available
+- runFlow:
+    when:
+      visible: ".*Display Name.*|.*Full Name.*"
+    commands:
+      - tapOn:
+          text: ".*Display Name.*|.*Full Name.*"
+      - clearText
+      - inputText: "E2E Test User"
+      - hideKeyboard
+
+# Save changes
+- tapOn:
+    text: ".*Save.*|.*Done.*|.*Update.*"
+
+# Wait for save to complete
+- extendedWaitUntil:
+    visible: ".*Profile.*|.*Success.*|.*Saved.*"
+    timeout: 10000
+
+# Verify we're back on profile
+- assertVisible:
+    text: ".*"

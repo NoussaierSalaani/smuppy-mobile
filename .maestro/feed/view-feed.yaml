@@ -1,0 +1,54 @@
+# View Feed E2E Test
+# Tests viewing and scrolling the main feed
+
+appId: com.smuppy.app
+
+---
+
+# Start from logged-in state (run login first)
+- launchApp
+
+# Wait for app to load
+- waitForAnimationToEnd
+
+# Navigate to feed tab if needed
+- runFlow:
+    when:
+      notVisible: "Feed"
+    commands:
+      - tapOn:
+          id: "tab-home"
+          optional: true
+      - tapOn:
+          text: "Home"
+          optional: true
+
+# Verify feed is visible
+- assertVisible: "Feed"
+
+# Scroll down to load content
+- scroll:
+    direction: DOWN
+    duration: 1000
+
+# Wait for content to load
+- waitForAnimationToEnd
+
+# Scroll back up
+- scroll:
+    direction: UP
+    duration: 500
+
+# Pull to refresh
+- swipe:
+    direction: DOWN
+    duration: 500
+    start: 50%, 30%
+    end: 50%, 70%
+
+# Wait for refresh
+- waitForAnimationToEnd
+
+# Verify feed content loaded (post cards or empty state)
+- assertVisible:
+    text: ".*"

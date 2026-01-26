@@ -571,6 +571,35 @@ curl -H "Authorization: Bearer TOKEN" \
 - **ElastiCache**: t3.micro for staging
 - **NAT Gateway**: 1 for staging, 3 for production
 
+## Capacity Analysis
+
+See [CAPACITY_ANALYSIS.md](CAPACITY_ANALYSIS.md) for detailed infrastructure capacity.
+
+### Summary
+
+| Metric | Current | Optimized |
+|--------|---------|-----------|
+| Concurrent Users | 50,000 | 500,000+ |
+| Requests/Second | 3,300 | 50,000+ |
+| DAU Support | 500,000 | 2,000,000+ |
+
+### Key Limits
+
+| Component | Production Limit |
+|-----------|-----------------|
+| API Gateway | 100,000 req/s |
+| Lambda Concurrency | 1,000 default (can request 10,000+) |
+| Aurora ACU | 0.5-128 auto-scaling |
+| WAF Rate Limit | 10,000 req/5min per IP |
+
+### Estimated Costs
+
+| DAU | Monthly Cost |
+|-----|-------------|
+| 100,000 | ~$650 |
+| 500,000 | ~$2,450 |
+| 1,000,000 | ~$5,000 |
+
 ## Audit Status
 
 ### Security Audit (20 Critical Issues)
@@ -579,7 +608,7 @@ curl -H "Authorization: Bearer TOKEN" \
 |---|-------|--------|
 | 1 | Math.random() for security | ✅ Fixed (crypto.randomBytes) |
 | 2 | Apple nonce optional | ✅ Fixed (mandatory) |
-| 3 | No unit tests | ⚠️ Partial (test framework ready) |
+| 3 | No unit tests | ✅ Fixed (137 tests, 80%+ coverage) |
 | 4 | TypeScript strict OFF | ✅ Fixed (strict: true) |
 | 5 | No connection pooling | ✅ Fixed (RDS Proxy) |
 | 6 | Secrets in code | ✅ Fixed (Secrets Manager) |
@@ -598,13 +627,35 @@ curl -H "Authorization: Bearer TOKEN" \
 | 19 | Incomplete migrations | ✅ Fixed |
 | 20 | .env in git | ✅ Fixed (.env.example only) |
 
-**Score: 18/20 critical issues resolved**
+**Score: 19/20 critical issues resolved**
+
+### Test Coverage
+
+```
+--------------|---------|----------|---------|---------|
+File          | % Stmts | % Branch | % Funcs | % Lines |
+--------------|---------|----------|---------|---------|
+All files     |   91.88 |       80 |   92.68 |   93.51 |
+--------------|---------|----------|---------|---------|
+
+Tests: 137 passed
+Test Suites: 7 passed
+```
+
+### E2E Tests (Maestro)
+
+Located in `.maestro/`:
+- `auth/login.yaml` - Login flow
+- `auth/signup.yaml` - Registration flow
+- `feed/view-feed.yaml` - Feed viewing
+- `feed/create-post.yaml` - Post creation
+- `profile/view-profile.yaml` - Profile viewing
+- `profile/edit-profile.yaml` - Profile editing
 
 ### Remaining Tasks (Non-Critical)
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Complete unit test coverage | Medium | ⏳ In Progress |
 | TypeScript strict migration (506 errors) | Low | ⏳ Progressive |
 | ClamAV Lambda Layer integration | Medium | ⏳ Placeholder ready |
 | S3 Cross-Region Replication | Low | ⏳ Manual setup |
@@ -621,7 +672,20 @@ curl -H "Authorization: Bearer TOKEN" \
 ---
 
 *Last Updated: January 26, 2026*
-*Infrastructure Score: 10/10*
-*Security Score: 10/10*
-*Audit Score: 18/20 critical issues resolved*
-*Total CDK Resources: ~470*
+
+### Scores
+
+| Category | Score |
+|----------|-------|
+| Infrastructure | 10/10 |
+| Security | 9.5/10 |
+| Test Coverage | 80%+ (137 tests) |
+| Audit | 19/20 critical issues resolved |
+| CDK Resources | ~470 |
+
+### Related Documentation
+
+- [CAPACITY_ANALYSIS.md](CAPACITY_ANALYSIS.md) - Infrastructure capacity analysis
+- [../README.md](../README.md) - Main project README
+- [../.github/SECURITY.md](../.github/SECURITY.md) - Security policy
+- [../.maestro/README.md](../.maestro/README.md) - E2E test guide

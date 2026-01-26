@@ -16,8 +16,10 @@ import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
 import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
+import { createLogger, getRequestId } from '../utils/logger';
 
 const cognitoClient = new CognitoIdentityProviderClient({});
+const log = createLogger('auth/apple');
 
 // Validate required environment variables at module load
 if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
@@ -187,9 +189,14 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  const requestId = getRequestId(event);
+  log.setRequestId(requestId);
+
+  const startTime = Date.now();
 
   try {
     if (!event.body) {
+      log.warn('Missing request body');
       return {
         statusCode: 400,
         headers,
@@ -200,6 +207,7 @@ export const handler = async (
     const { identityToken, nonce } = JSON.parse(event.body);
 
     if (!identityToken) {
+      log.warn('Missing identity token');
       return {
         statusCode: 400,
         headers,
@@ -208,10 +216,12 @@ export const handler = async (
     }
 
     // Verify Apple token
+    log.info('Verifying Apple token');
     const applePayload = await verifyAppleToken(identityToken);
 
     // Verify nonce - MANDATORY for replay attack prevention
     if (!nonce) {
+      log.warn('Missing nonce');
       return {
         statusCode: 400,
         headers,
@@ -219,7 +229,9 @@ export const handler = async (
       };
     }
     if (applePayload.nonce !== nonce) {
-      console.warn('[Apple Auth] Nonce mismatch - possible replay attack');
+      log.logSecurity('Nonce mismatch - possible replay attack', {
+        expectedNonce: nonce ? '[PRESENT]' : '[MISSING]',
+      });
       return {
         statusCode: 401,
         headers,
@@ -232,10 +244,12 @@ export const handler = async (
       applePayload.sub,
       applePayload.email
     );
-    console.log('[Apple Auth] User:', userId, 'isNew:', isNewUser);
+    log.info('User authenticated', { userId, isNewUser });
 
     // Get Cognito tokens
     const tokens = await authenticateUser(userId);
+
+    log.logResponse(200, Date.now() - startTime, { isNewUser });
 
     return {
       statusCode: 200,
@@ -254,11 +268,10 @@ export const handler = async (
         isNewUser,
       }),
     };
-  } catch (error: any) {
-    console.error('[Apple Auth] Error:', error);
-
+  } catch (error: unknown) {
     // SECURITY: Log full error server-side, return generic message to client
-    console.error('[AppleAuth] Authentication error:', error.message);
+    log.error('Authentication failed', error);
+    log.logResponse(401, Date.now() - startTime);
 
     return {
       statusCode: 401,

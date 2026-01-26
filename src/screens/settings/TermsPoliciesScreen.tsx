@@ -54,7 +54,11 @@ const POLICY_LINKS = [
   },
 ];
 
-const TermsPoliciesScreen = ({ navigation }) => {
+interface TermsPoliciesScreenProps {
+  navigation: { goBack: () => void };
+}
+
+const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
   const insets = useSafeAreaInsets();
 
   const openLink = async (url: string, title: string) => {

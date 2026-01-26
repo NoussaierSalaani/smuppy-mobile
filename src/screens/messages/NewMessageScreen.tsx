@@ -20,7 +20,15 @@ import {
   Profile,
 } from '../../services/database';
 
-export default function NewMessageScreen({ navigation }) {
+interface NewMessageScreenProps {
+  navigation: {
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+export default function NewMessageScreen({ navigation }: NewMessageScreenProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);

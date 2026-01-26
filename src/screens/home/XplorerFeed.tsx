@@ -11,9 +11,9 @@ import { useTabBar } from '../../context/TabBarContext';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const baseWidth = 390;
 
-const wp = (percentage) => (percentage * SCREEN_WIDTH) / 100;
-const hp = (percentage) => (percentage * SCREEN_HEIGHT) / 100;
-const normalize = (size) => Math.round(size * (SCREEN_WIDTH / baseWidth));
+const wp = (percentage: number) => (percentage * SCREEN_WIDTH) / 100;
+const hp = (percentage: number) => (percentage * SCREEN_HEIGHT) / 100;
+const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / baseWidth));
 
 const PIN_COLORS = {
   coach: '#0EBF8A',
@@ -41,17 +41,22 @@ const FILTER_OPTIONS = [
 
 const MAX_ACTIVE_FILTERS = 3;
 
-export default function XplorerFeed({ navigation, isActive }) {
+interface XplorerFeedProps {
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void };
+  isActive: boolean;
+}
+
+export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) {
   const insets = useSafeAreaInsets();
-  const mapRef = useRef(null);
+  const mapRef = useRef<MapView>(null);
   const hasRequestedPermission = useRef(false);
   const { setBottomBarHidden, hideBars, showBars } = useTabBar();
 
-  const [location, setLocation] = useState(null);
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeFilters, setActiveFilters] = useState(['coach', 'gym', 'restaurant']);
+  const [activeFilters, setActiveFilters] = useState<string[]>(['coach', 'gym', 'restaurant']);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedMarker, setSelectedMarker] = useState(null);
+  const [selectedMarker, setSelectedMarker] = useState<typeof MOCK_MARKERS[0] | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -101,7 +106,7 @@ export default function XplorerFeed({ navigation, isActive }) {
     setLoading(false);
   };
 
-  const toggleFilter = (filterKey) => {
+  const toggleFilter = (filterKey: string) => {
     setActiveFilters(prev => {
       if (prev.includes(filterKey)) return prev.filter(f => f !== filterKey);
       if (prev.length >= MAX_ACTIVE_FILTERS) return [...prev.slice(1), filterKey];
@@ -131,18 +136,20 @@ export default function XplorerFeed({ navigation, isActive }) {
     }
   };
 
-  const handleMarkerPress = (marker) => setSelectedMarker(marker);
+  type MockMarker = typeof MOCK_MARKERS[0];
+
+  const handleMarkerPress = (marker: MockMarker) => setSelectedMarker(marker);
   const closePopup = () => setSelectedMarker(null);
 
-  const goToProfile = (marker) => {
+  const goToProfile = (marker: MockMarker) => {
     closePopup();
     navigation.navigate('UserProfile', { userId: marker.id });
   };
 
   const filteredMarkers = MOCK_MARKERS.filter(m => activeFilters.includes(m.type));
 
-  const renderCustomMarker = (marker) => {
-    const pinColor = PIN_COLORS[marker.type] || PIN_COLORS.coach;
+  const renderCustomMarker = (marker: MockMarker) => {
+    const pinColor = PIN_COLORS[marker.type as keyof typeof PIN_COLORS] || PIN_COLORS.coach;
     return (
       <View style={styles.markerContainer}>
         <View style={styles.markerShadow} />
@@ -154,60 +161,66 @@ export default function XplorerFeed({ navigation, isActive }) {
     );
   };
 
-  const renderUserPopup = () => (
-    <View style={[styles.popupContainer, { bottom: insets.bottom + hp(3) }]}>
-      <TouchableOpacity style={styles.popupClose} onPress={closePopup}>
-        <Ionicons name="close" size={normalize(20)} color={COLORS.gray} />
-      </TouchableOpacity>
-      <View style={styles.popupContent}>
-        <Image source={{ uri: selectedMarker.avatar }} style={styles.popupAvatar} />
-        <View style={styles.popupInfo}>
-          <Text style={styles.popupName}>{selectedMarker.name}</Text>
-          <View style={styles.popupStats}>
-            <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
-            <Text style={styles.popupStatDot}>•</Text>
-            <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
-          </View>
-          <Text style={styles.popupBio} numberOfLines={2}>{selectedMarker.bio}</Text>
-        </View>
-      </View>
-      <TouchableOpacity style={styles.popupButton} onPress={() => goToProfile(selectedMarker)}>
-        <Text style={styles.popupButtonText}>See Profile</Text>
-        <Ionicons name="arrow-forward" size={normalize(18)} color={COLORS.white} />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderBusinessPopup = () => (
-    <View style={[styles.businessPopupContainer, { bottom: insets.bottom + hp(3) }]}>
-      <TouchableOpacity style={styles.businessPopupClose} onPress={closePopup}>
-        <Ionicons name="close" size={normalize(22)} color={COLORS.white} />
-      </TouchableOpacity>
-      <Image source={{ uri: selectedMarker.coverImage }} style={styles.businessCover} />
-      <View style={styles.businessContent}>
-        <Text style={styles.businessName}>{selectedMarker.name}</Text>
-        <View style={styles.businessRow}>
-          <Ionicons name="location-outline" size={normalize(16)} color={COLORS.gray} />
-          <Text style={styles.businessText}>{selectedMarker.address}</Text>
-        </View>
-        <View style={styles.businessRow}>
-          <Ionicons name="time-outline" size={normalize(16)} color={COLORS.gray} />
-          <Text style={styles.businessText}>{selectedMarker.hours}</Text>
-        </View>
-        <View style={styles.expertiseTags}>
-          {selectedMarker.expertise?.map((tag, index) => (
-            <View key={index} style={styles.expertiseTag}>
-              <Text style={styles.expertiseTagText}>{tag}</Text>
+  const renderUserPopup = () => {
+    if (!selectedMarker) return null;
+    return (
+      <View style={[styles.popupContainer, { bottom: insets.bottom + hp(3) }]}>
+        <TouchableOpacity style={styles.popupClose} onPress={closePopup}>
+          <Ionicons name="close" size={normalize(20)} color={COLORS.gray} />
+        </TouchableOpacity>
+        <View style={styles.popupContent}>
+          <Image source={{ uri: selectedMarker.avatar }} style={styles.popupAvatar} />
+          <View style={styles.popupInfo}>
+            <Text style={styles.popupName}>{selectedMarker.name}</Text>
+            <View style={styles.popupStats}>
+              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
+              <Text style={styles.popupStatDot}>•</Text>
+              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
             </View>
-          ))}
+            <Text style={styles.popupBio} numberOfLines={2}>{selectedMarker.bio}</Text>
+          </View>
         </View>
         <TouchableOpacity style={styles.popupButton} onPress={() => goToProfile(selectedMarker)}>
           <Text style={styles.popupButtonText}>See Profile</Text>
           <Ionicons name="arrow-forward" size={normalize(18)} color={COLORS.white} />
         </TouchableOpacity>
       </View>
-    </View>
-  );
+    );
+  };
+
+  const renderBusinessPopup = () => {
+    if (!selectedMarker) return null;
+    return (
+      <View style={[styles.businessPopupContainer, { bottom: insets.bottom + hp(3) }]}>
+        <TouchableOpacity style={styles.businessPopupClose} onPress={closePopup}>
+          <Ionicons name="close" size={normalize(22)} color={COLORS.white} />
+        </TouchableOpacity>
+        <Image source={{ uri: selectedMarker.coverImage }} style={styles.businessCover} />
+        <View style={styles.businessContent}>
+          <Text style={styles.businessName}>{selectedMarker.name}</Text>
+          <View style={styles.businessRow}>
+            <Ionicons name="location-outline" size={normalize(16)} color={COLORS.gray} />
+            <Text style={styles.businessText}>{selectedMarker.address}</Text>
+          </View>
+          <View style={styles.businessRow}>
+            <Ionicons name="time-outline" size={normalize(16)} color={COLORS.gray} />
+            <Text style={styles.businessText}>{selectedMarker.hours}</Text>
+          </View>
+          <View style={styles.expertiseTags}>
+            {selectedMarker.expertise?.map((tag, index) => (
+              <View key={index} style={styles.expertiseTag}>
+                <Text style={styles.expertiseTagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.popupButton} onPress={() => goToProfile(selectedMarker)}>
+            <Text style={styles.popupButtonText}>See Profile</Text>
+            <Ionicons name="arrow-forward" size={normalize(18)} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   const renderPopup = () => {
     if (!selectedMarker) return null;
@@ -267,7 +280,7 @@ export default function XplorerFeed({ navigation, isActive }) {
   );
 
   // Gradient Button Component
-  const GradientMapButton = ({ onPress, iconName }) => (
+  const GradientMapButton = ({ onPress, iconName }: { onPress: () => void; iconName: keyof typeof Ionicons.glyphMap }) => (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
       <LinearGradient
         colors={GRADIENTS.primary}

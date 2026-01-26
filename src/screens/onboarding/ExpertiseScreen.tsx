@@ -353,7 +353,18 @@ const ALL_EXPERTISE = [
 const INITIAL_CATEGORIES = 4;
 const EXPAND_BY = 4;
 
-export default function ExpertiseScreen({ navigation, route }) {
+interface ExpertiseScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: Record<string, unknown> };
+}
+
+export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_CATEGORIES);
 

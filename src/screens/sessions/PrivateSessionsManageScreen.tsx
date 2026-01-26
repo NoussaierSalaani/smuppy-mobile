@@ -354,12 +354,12 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               {day && (
                 <View style={[
                   styles.calendarDay,
-                  isAvailable && styles.calendarDayAvailable,
-                  isBooked && styles.calendarDayBooked,
+                  isAvailable ? styles.calendarDayAvailable : undefined,
+                  isBooked ? styles.calendarDayBooked : undefined,
                 ]}>
                   <Text style={[
                     styles.calendarDayText,
-                    isAvailable && styles.calendarDayTextAvailable,
+                    isAvailable ? styles.calendarDayTextAvailable : undefined,
                   ]}>
                     {day}
                   </Text>

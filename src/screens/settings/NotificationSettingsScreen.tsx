@@ -30,7 +30,11 @@ const NOTIFICATION_OPTIONS = [
   { id: 'live' as keyof NotificationSettings, label: 'Live Streams' },
 ];
 
-const NotificationSettingsScreen = ({ navigation }) => {
+interface NotificationSettingsScreenProps {
+  navigation: { goBack: () => void };
+}
+
+const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenProps) => {
   const insets = useSafeAreaInsets();
   
   const [settings, setSettings] = useState({
@@ -67,7 +71,7 @@ const NotificationSettingsScreen = ({ navigation }) => {
     }
   };
 
-  const renderToggle = (item) => (
+  const renderToggle = (item: { id: keyof NotificationSettings; label: string }) => (
     <View key={item.id} style={styles.toggleItem}>
       <Text style={styles.toggleLabel}>{item.label}</Text>
       <Switch

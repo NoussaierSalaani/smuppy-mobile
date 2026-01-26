@@ -45,7 +45,7 @@ export const useCurrentProfile = () => {
  */
 export const useProfile = (userId: string | null | undefined) => {
   return useQuery({
-    queryKey: queryKeys.user.profile(userId),
+    queryKey: queryKeys.user.profile(userId || ''),
     queryFn: async () => {
       const { data, error } = await database.getProfileById(userId!);
       if (error) throw new Error(error);
@@ -116,7 +116,7 @@ export const useFeedPosts = () => {
  */
 export const useUserPosts = (userId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.posts.byUser(userId, 0),
+    queryKey: queryKeys.posts.byUser(userId || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getPostsByUser(userId!, pageParam, 10);
       if (error) throw new Error(error);
@@ -146,7 +146,9 @@ export const useCreatePost = () => {
     },
     onSuccess: (newPost) => {
       // Optimistically add to feed
-      prependToFeed(newPost);
+      if (newPost) {
+        prependToFeed(newPost);
+      }
       // Invalidate feed to refetch
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
     },
@@ -185,7 +187,7 @@ export const useDeletePost = () => {
  */
 export const useHasLiked = (postId: string | null | undefined) => {
   return useQuery({
-    queryKey: queryKeys.likes.hasLiked(postId),
+    queryKey: queryKeys.likes.hasLiked(postId || ''),
     queryFn: async () => {
       const { hasLiked } = await database.hasLikedPost(postId!);
       return hasLiked;
@@ -249,7 +251,7 @@ export const useToggleLike = () => {
  */
 export const useHasSavedPost = (postId: string | null | undefined) => {
   return useQuery({
-    queryKey: queryKeys.collections.hasSaved(postId),
+    queryKey: queryKeys.collections.hasSaved(postId || ''),
     queryFn: async () => {
       const { saved } = await database.hasSavedPost(postId!);
       return saved;
@@ -325,7 +327,7 @@ export const useToggleSavePost = () => {
  */
 export const useIsFollowing = (userId: string | null | undefined) => {
   return useQuery({
-    queryKey: queryKeys.follows.isFollowing(userId),
+    queryKey: queryKeys.follows.isFollowing(userId || ''),
     queryFn: async () => {
       const { following } = await database.isFollowing(userId!);
       return following;
@@ -340,7 +342,7 @@ export const useIsFollowing = (userId: string | null | undefined) => {
  */
 export const useFollowers = (userId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.follows.followers(userId, 0),
+    queryKey: queryKeys.follows.followers(userId || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getFollowers(userId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -360,7 +362,7 @@ export const useFollowers = (userId: string | null | undefined) => {
  */
 export const useFollowing = (userId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.follows.following(userId, 0),
+    queryKey: queryKeys.follows.following(userId || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getFollowing(userId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -443,7 +445,7 @@ export const useToggleFollow = () => {
  */
 export const usePostComments = (postId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.comments.byPost(postId, 0),
+    queryKey: queryKeys.comments.byPost(postId || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getPostComments(postId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -535,7 +537,7 @@ export const useSaveInterests = () => {
 export const usePrefetchProfile = () => {
   const queryClient = useQueryClient();
 
-  return (userId) => {
+  return (userId: string) => {
     queryClient.prefetchQuery({
       queryKey: queryKeys.user.profile(userId),
       queryFn: async () => {
@@ -591,7 +593,7 @@ export const useSpots = () => {
  */
 export const useSpot = (spotId: string | null | undefined) => {
   return useQuery({
-    queryKey: queryKeys.spots.single(spotId),
+    queryKey: queryKeys.spots.single(spotId || ''),
     queryFn: async () => {
       const { data, error } = await database.getSpotById(spotId!);
       if (error) throw new Error(error);
@@ -606,7 +608,7 @@ export const useSpot = (spotId: string | null | undefined) => {
  */
 export const useSpotsByCreator = (creatorId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.byCreator(creatorId, 0),
+    queryKey: queryKeys.spots.byCreator(creatorId || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotsByCreator(creatorId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -626,7 +628,7 @@ export const useSpotsByCreator = (creatorId: string | null | undefined) => {
  */
 export const useSpotsByCategory = (category: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.byCategory(category, 0),
+    queryKey: queryKeys.spots.byCategory(category || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotsByCategory(category!, pageParam, 20);
       if (error) throw new Error(error);
@@ -646,7 +648,7 @@ export const useSpotsByCategory = (category: string | null | undefined) => {
  */
 export const useSpotsBySportType = (sportType: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.bySportType(sportType, 0),
+    queryKey: queryKeys.spots.bySportType(sportType || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotsBySportType(sportType!, pageParam, 20);
       if (error) throw new Error(error);
@@ -670,7 +672,7 @@ export const useNearbySpots = (
   radiusKm = 10
 ) => {
   return useQuery({
-    queryKey: queryKeys.spots.nearby(latitude, longitude, radiusKm),
+    queryKey: queryKeys.spots.nearby(latitude || 0, longitude || 0, radiusKm),
     queryFn: async () => {
       const { data, error } = await database.findNearbySpots(latitude!, longitude!, radiusKm);
       if (error) throw new Error(error);
@@ -747,7 +749,7 @@ export const useDeleteSpot = () => {
  */
 export const useHasSavedSpot = (spotId: string | null | undefined) => {
   return useQuery({
-    queryKey: queryKeys.spots.hasSaved(spotId),
+    queryKey: queryKeys.spots.hasSaved(spotId || ''),
     queryFn: async () => {
       const { saved } = await database.hasSavedSpot(spotId!);
       return saved;
@@ -823,7 +825,7 @@ export const useToggleSaveSpot = () => {
  */
 export const useSpotReviews = (spotId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.reviews(spotId, 0),
+    queryKey: queryKeys.spots.reviews(spotId || '', 0),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotReviews(spotId!, pageParam, 20);
       if (error) throw new Error(error);

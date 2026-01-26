@@ -77,7 +77,25 @@ interface ProfileDataSource {
 }
 
 // Initial empty user (filled from auth/context)
-const INITIAL_USER = {
+const INITIAL_USER: {
+  id: string | null;
+  displayName: string;
+  username: string;
+  avatar: string | null;
+  coverImage: string | null;
+  bio: string;
+  location: string;
+  accountType: string;
+  interests: string[];
+  expertise: string[];
+  website: string;
+  socialLinks: Record<string, string>;
+  businessName: string;
+  businessCategory: string;
+  isVerified: boolean;
+  isPremium: boolean;
+  stats: { fans: number; posts: number };
+} = {
   id: null,
   displayName: '',
   username: '',
@@ -319,7 +337,15 @@ const MOCK_SESSIONS = [
   },
 ];
 
-const ProfileScreen = ({ navigation, route }) => {
+interface ProfileScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+  };
+  route: { params?: { userId?: string } };
+}
+
+const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser } = useUser();
   const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
@@ -381,9 +407,9 @@ const ProfileScreen = ({ navigation, route }) => {
   const isOwnProfile = route?.params?.userId === undefined;
 
   const resolvedProfile = useMemo(() => {
-    const base: ProfileDataSource = profileData || {};
+    const base = (profileData || {}) as ProfileDataSource;
     // Always use contextUser as fallback, don't require contextMatchesProfile
-    const fallback: ProfileDataSource = contextUser || {};
+    const fallback = (contextUser || {}) as ProfileDataSource;
 
     // Helper to check if a name looks like an email-derived username
     const isEmailDerivedName = (name: string | undefined | null): boolean => {
@@ -526,7 +552,7 @@ const ProfileScreen = ({ navigation, route }) => {
     return options;
   };
 
-  const updateImage = (type, uri) => {
+  const updateImage = (type: 'avatar' | 'cover', uri: string | null) => {
     setUser(prev => ({
       ...prev,
       [type === 'avatar' ? 'avatar' : 'coverImage']: uri,
@@ -908,7 +934,7 @@ const ProfileScreen = ({ navigation, route }) => {
   );
 
   // ==================== RENDER POST ITEM (Simple grid style) ====================
-  const renderPostItem = useCallback(({ item: post }) => {
+  const renderPostItem = useCallback(({ item: post }: { item: { id: string; media_urls?: string[]; media_type?: string; likes_count?: number } }) => {
     const thumbnail = post.media_urls?.[0] || null;
     const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
 
@@ -940,10 +966,10 @@ const ProfileScreen = ({ navigation, route }) => {
     );
   }, [navigation]);
 
-  const _keyExtractor = useCallback((item) => item.id, []);
+  const _keyExtractor = useCallback((item: { id: string }) => item.id, []);
 
   // ==================== RENDER PEAK ITEM ====================
-  const renderPeakItem = useCallback((peak) => {
+  const renderPeakItem = useCallback((peak: { id: string; media_urls?: string[]; likes_count?: number; views_count?: number; replies_count?: number; peak_duration?: number; tags_count?: number }) => {
     const thumbnail = peak.media_urls?.[0] || null;
     // Mock stats for demo
     const likes = peak.likes_count || Math.floor(Math.random() * 500) + 50;
@@ -982,7 +1008,7 @@ const ProfileScreen = ({ navigation, route }) => {
             <Text style={styles.peakStatText}>{replies}</Text>
           </View>
           {/* Tags - only visible to the creator (own profile) */}
-          {isOwnProfile && peak.tags_count > 0 && (
+          {isOwnProfile && (peak.tags_count ?? 0) > 0 && (
             <View style={styles.peakStat}>
               <Ionicons name="pricetag" size={10} color={COLORS.primary} />
               <Text style={[styles.peakStatText, { color: COLORS.primary }]}>{peak.tags_count}</Text>
@@ -1026,7 +1052,7 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   // ==================== RENDER COLLECTION ITEM (Detailed card style) ====================
-  const renderCollectionItem = useCallback((post) => {
+  const renderCollectionItem = useCallback((post: { id: string; media_urls?: string[]; media_type?: string; content?: string; created_at?: string; likes_count?: number; author?: { id?: string; username?: string; full_name?: string; avatar_url?: string }; user?: { id?: string; username?: string; full_name?: string; avatar_url?: string } }) => {
     const thumbnail = post.media_urls?.[0] || null;
     const isVideo = post.media_type === 'video';
 
@@ -1099,13 +1125,13 @@ const ProfileScreen = ({ navigation, route }) => {
 
     return (
       <View style={styles.collectionsGrid}>
-        {collections.map(renderCollectionItem)}
+        {collections.map((post) => renderCollectionItem(post as typeof post & { author?: { id?: string; username?: string; full_name?: string; avatar_url?: string } }))}
       </View>
     );
   };
 
   // ==================== RENDER LIVE ITEM ====================
-  const renderLiveItem = useCallback((live) => (
+  const renderLiveItem = useCallback((live: { id: string; thumbnail: string; title: string; viewers: number; date: string; duration?: string }) => (
     <TouchableOpacity
       key={live.id}
       style={styles.liveCard}
@@ -1318,7 +1344,7 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   // ==================== RENDER SESSION ITEM ====================
-  const renderSessionItem = useCallback((session) => {
+  const renderSessionItem = useCallback((session: { id: string; status: string; date: string; client?: { name?: string; avatar?: string }; clientName?: string; clientAvatar?: string; type?: string; time?: string; duration?: number; price?: number }) => {
     const isUpcoming = session.status === 'upcoming';
     const sessionDate = new Date(session.date);
     const dayName = sessionDate.toLocaleDateString('fr-FR', { weekday: 'short' });

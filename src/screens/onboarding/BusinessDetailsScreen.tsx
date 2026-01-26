@@ -17,7 +17,13 @@ const { width, height } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
 
 // Single confetti piece
-const Confetti = ({ delay, startX, color }) => {
+interface ConfettiProps {
+  delay: number;
+  startX: number;
+  color: string;
+}
+
+const Confetti = ({ delay, startX, color }: ConfettiProps) => {
   const translateY = useRef(new Animated.Value(-50)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
@@ -73,7 +79,13 @@ const Confetti = ({ delay, startX, color }) => {
 };
 
 // Sparkle animation
-const Sparkle = ({ delay, x, y }) => {
+interface SparkleProps {
+  delay: number;
+  x: number;
+  y: number;
+}
+
+const Sparkle = ({ delay, x, y }: SparkleProps) => {
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -101,7 +113,11 @@ const Sparkle = ({ delay, x, y }) => {
   );
 };
 
-export default function SuccessScreen({ navigation }) {
+interface SuccessScreenProps {
+  navigation: { reset: (state: { index: number; routes: Array<{ name: string }> }) => void };
+}
+
+export default function SuccessScreen({ navigation }: SuccessScreenProps) {
   const checkScale = useRef(new Animated.Value(0)).current;
   const checkOpacity = useRef(new Animated.Value(0)).current;
   const ringScale = useRef(new Animated.Value(0.8)).current;

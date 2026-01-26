@@ -16,7 +16,11 @@ import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { BlockedUser } from '../../services/database';
 import { COLORS } from '../../config/theme';
 
-const BlockedUsersScreen = ({ navigation }) => {
+interface BlockedUsersScreenProps {
+  navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
+}
+
+const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
   const insets = useSafeAreaInsets();
   const {
     getBlockedUsers,

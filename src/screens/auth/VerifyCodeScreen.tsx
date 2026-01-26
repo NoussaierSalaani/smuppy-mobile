@@ -21,7 +21,43 @@ import { awsAuth } from '../../services/aws-auth';
 
 const CODE_LENGTH = 6;
 
-export default function VerifyCodeScreen({ navigation, route }: any) {
+interface VerifyCodeScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+    canGoBack: () => boolean;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route?: {
+    params?: {
+      email?: string;
+      password?: string;
+      name?: string;
+      gender?: string;
+      dateOfBirth?: string;
+      accountType?: 'personal' | 'pro_creator' | 'pro_local';
+      interests?: string[];
+      profileImage?: string;
+      displayName?: string;
+      username?: string;
+      bio?: string;
+      website?: string;
+      socialLinks?: Record<string, string>;
+      expertise?: string[];
+      businessCategory?: string;
+      businessCategoryCustom?: string;
+      locationsMode?: string;
+      businessName?: string;
+      businessAddress?: string;
+      businessPhone?: string;
+      rememberMe?: boolean;
+      accountCreated?: boolean;
+    };
+  };
+}
+
+export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -77,10 +113,10 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
 
     try {
       const result = await backend.signUp({
-        email,
-        password,
-        username: username || email.split('@')[0],
-        fullName: name,
+        email: email || '',
+        password: password || '',
+        username: username || (email ? email.split('@')[0] : ''),
+        fullName: name || '',
       });
 
       if (result.confirmationRequired || result.user) {
@@ -135,7 +171,7 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
       await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
 
       // Confirm signup
-      const confirmed = await awsAuth.confirmSignUp(email, fullCode);
+      const confirmed = await awsAuth.confirmSignUp(email || '', fullCode);
       if (!confirmed) {
         await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Verification failed. Please try again.');
@@ -145,7 +181,7 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
       }
 
       // Sign in
-      const user = await backend.signIn({ email, password });
+      const user = await backend.signIn({ email: email || '', password: password || '' });
       if (!user) {
         await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Account verified but login failed. Please try logging in.');
@@ -175,8 +211,8 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
       if (bio) profileData.bio = bio;
       if (website) profileData.website = website;
       if (socialLinks && Object.keys(socialLinks).length > 0) profileData.social_links = socialLinks;
-      if (interests?.length > 0) profileData.interests = interests;
-      if (expertise?.length > 0) profileData.expertise = expertise;
+      if (interests && interests.length > 0) profileData.interests = interests;
+      if (expertise && expertise.length > 0) profileData.expertise = expertise;
       if (businessName) profileData.business_name = businessName;
       if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;
@@ -190,19 +226,19 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
         id: user.id,
         fullName: name || generatedUsername,
         displayName: displayName || name || generatedUsername,
-        email,
+        email: email || '',
         dateOfBirth: dateOfBirth || '',
         gender: gender || '',
-        avatar: avatarUrl,
+        avatar: avatarUrl || undefined,
         bio: bio || '',
         username: username || generatedUsername,
-        accountType: accountType || 'personal',
+        accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_local',
         interests: interests || [],
         expertise: expertise || [],
         website: website || '',
         socialLinks: socialLinks || {},
         businessName: businessName || '',
-        businessCategory: businessCategory === 'Other' ? businessCategoryCustom : (businessCategory || ''),
+        businessCategory: businessCategory === 'Other' ? (businessCategoryCustom || '') : (businessCategory || ''),
         businessAddress: businessAddress || '',
         businessPhone: businessPhone || '',
         locationsMode: locationsMode || '',
@@ -271,7 +307,7 @@ export default function VerifyCodeScreen({ navigation, route }: any) {
     }
 
     try {
-      await awsAuth.resendConfirmationCode(email);
+      await awsAuth.resendConfirmationCode(email || '');
       tryAction(() => clearCode(false));
       setShowModal(true);
     } catch (err: any) {

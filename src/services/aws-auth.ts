@@ -751,7 +751,7 @@ class AWSAuthService {
     const response = await client.send(command);
 
     const attrs: Record<string, string> = {};
-    response.UserAttributes?.forEach(attr => {
+    response.UserAttributes?.forEach((attr: { Name?: string; Value?: string }) => {
       if (attr.Name && attr.Value) {
         attrs[attr.Name] = attr.Value;
       }
@@ -806,7 +806,7 @@ class AWSAuthService {
         this.idToken = response.AuthenticationResult.IdToken || this.idToken;
 
         await Promise.all([
-          secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, this.accessToken),
+          this.accessToken && secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, this.accessToken),
           this.idToken && secureStore.setItem(TOKEN_KEYS.ID_TOKEN, this.idToken),
         ]);
 

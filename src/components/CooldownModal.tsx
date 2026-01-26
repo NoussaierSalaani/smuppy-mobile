@@ -31,16 +31,24 @@ import {
 // COOLDOWN MODAL COMPONENT
 // ============================================
 
-export default function CooldownModal({ 
-  visible, 
-  onClose, 
+interface CooldownModalProps {
+  visible: boolean;
+  onClose: () => void;
+  seconds?: number;
+  title?: string;
+  message?: string;
+}
+
+export default function CooldownModal({
+  visible,
+  onClose,
   seconds = 30,
   title = "Please wait",
   message = "You can request a new code in"
-}) {
+}: CooldownModalProps) {
   const [countdown, setCountdown] = useState(seconds);
   const progressAnim = useRef(new Animated.Value(1)).current;
-  const intervalRef = useRef(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -59,7 +67,9 @@ export default function CooldownModal({
       intervalRef.current = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            clearInterval(intervalRef.current);
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+            }
             onClose();
             return 0;
           }
@@ -82,7 +92,7 @@ export default function CooldownModal({
     outputRange: ['0%', '100%'],
   });
 
-  const formatTime = useCallback((secs) => {
+  const formatTime = useCallback((secs: number) => {
     const mins = Math.floor(secs / 60);
     const remainingSecs = secs % 60;
     return mins > 0 
@@ -179,10 +189,10 @@ export default function CooldownModal({
  * @returns {Object} - { canAction, startCooldown, remainingTime, showModal, setShowModal, tryAction }
  */
 export function useCooldown(cooldownSeconds = 30) {
-  const [lastActionTime, setLastActionTime] = useState(null);
+  const [lastActionTime, setLastActionTime] = useState<number | null>(null);
   const [remainingTime, setRemainingTime] = useState(0);
   const [showModal, setShowModal] = useState(false);
-  const intervalRef = useRef(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (lastActionTime) {
@@ -190,7 +200,7 @@ export function useCooldown(cooldownSeconds = 30) {
         const elapsed = Math.floor((Date.now() - lastActionTime) / 1000);
         const remaining = Math.max(0, cooldownSeconds - elapsed);
         setRemainingTime(remaining);
-        
+
         if (remaining === 0) {
           setLastActionTime(null);
           if (intervalRef.current) {
@@ -214,7 +224,7 @@ export function useCooldown(cooldownSeconds = 30) {
     setRemainingTime(cooldownSeconds);
   }, [cooldownSeconds]);
 
-  const tryAction = useCallback((action) => {
+  const tryAction = useCallback((action: () => void) => {
     if (canAction) {
       action();
       startCooldown();

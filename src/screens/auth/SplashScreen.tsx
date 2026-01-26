@@ -5,7 +5,17 @@ import { SmuppyIcon, SmuppyText } from '../../components/SmuppyLogo';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen = ({ navigation }) => {
+interface SplashScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+    canGoBack: () => boolean;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+}
+
+const SplashScreen = ({ navigation }: SplashScreenProps) => {
   useEffect(() => {
     const timer = setTimeout(() => navigation.replace('Welcome'), 1500);
     return () => clearTimeout(timer);

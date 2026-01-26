@@ -11,6 +11,9 @@ import {
   Animated,
   Alert,
   ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  ViewToken,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -27,8 +30,29 @@ import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, 
 
 const { width, height } = Dimensions.get('window');
 
+// Post type for this screen
+interface FanFeedPost {
+  id: string;
+  type: 'video' | 'image';
+  media: string;
+  thumbnail: string;
+  description: string;
+  likes: number;
+  views?: number;
+  comments?: number;
+  user: {
+    id: string;
+    name: string;
+    avatar: string;
+    followsMe: boolean;
+  };
+}
+
+// Loading state record type
+type LoadingRecord = Record<string, boolean>;
+
 // Mock data - posts du FanFeed (plusieurs créateurs)
-const MOCK_FANFEED_POSTS = [
+const MOCK_FANFEED_POSTS: FanFeedPost[] = [
   {
     id: '1',
     type: 'video',
@@ -49,7 +73,7 @@ const MOCK_FANFEED_POSTS = [
     type: 'image',
     media: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
     thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    description: 'Mountain vibes 🏔️ Nothing beats this view!',
+    description: 'Mountain vibes. Nothing beats this view!',
     likes: 892,
     views: 3210,
     user: {
@@ -64,7 +88,7 @@ const MOCK_FANFEED_POSTS = [
     type: 'video',
     media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800',
-    description: 'Nature at its finest 🌿 Can\'t believe I captured this moment!',
+    description: 'Nature at its finest. Can\'t believe I captured this moment!',
     likes: 2341,
     views: 8750,
     user: {
@@ -79,7 +103,7 @@ const MOCK_FANFEED_POSTS = [
     type: 'image',
     media: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
     thumbnail: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
-    description: 'New project coming soon! Stay tuned 🔥',
+    description: 'New project coming soon! Stay tuned',
     likes: 567,
     views: 1890,
     user: {
@@ -106,7 +130,6 @@ const MOCK_FANFEED_POSTS = [
   },
 ];
 
-
 const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -118,7 +141,7 @@ const PostDetailFanFeedScreen = () => {
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // Params
-  const params = route.params as { postId?: string; fanFeedPosts?: typeof MOCK_FANFEED_POSTS } || {};
+  const params = (route.params as { postId?: string; fanFeedPosts?: FanFeedPost[] }) || {};
   const { postId, fanFeedPosts = MOCK_FANFEED_POSTS } = params;
   // Find the correct post index - findIndex returns -1 if not found
   const foundIndex = fanFeedPosts.findIndex(p => p.id === postId);
@@ -137,9 +160,9 @@ const PostDetailFanFeedScreen = () => {
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
 
   // Loading states for anti spam-click
-  const [likeLoading, setLikeLoading] = useState({});
-  const [bookmarkLoading, setBookmarkLoading] = useState({});
-  const [fanLoading, setFanLoading] = useState({});
+  const [likeLoading, setLikeLoading] = useState<LoadingRecord>({});
+  const [bookmarkLoading, setBookmarkLoading] = useState<LoadingRecord>({});
+  const [fanLoading, setFanLoading] = useState<LoadingRecord>({});
   const [fanStatusChecking, setFanStatusChecking] = useState<Record<string, boolean>>({}); // Track which users we're checking
   const [shareLoading, setShareLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
@@ -150,8 +173,8 @@ const PostDetailFanFeedScreen = () => {
   const minIndex = initialIndex >= 0 ? initialIndex : 0;
   
   // Refs
-  const videoRef = useRef(null);
-  const flatListRef = useRef(null);
+  const videoRef = useRef<any>(null);
+  const flatListRef = useRef<any>(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   
@@ -261,10 +284,10 @@ const PostDetailFanFeedScreen = () => {
   };
   
   // Handle scroll - bloque le scroll vers le haut au-delà du post initial
-  const handleScroll = (event) => {
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const newIndex = Math.round(offsetY / height);
-    
+
     // Empêcher de remonter plus haut que le post initial
     if (newIndex < minIndex) {
       flatListRef.current?.scrollToIndex({
@@ -273,14 +296,14 @@ const PostDetailFanFeedScreen = () => {
       });
     }
   };
-  
+
   // Handle swipe to next/prev post
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0) {
       const newIndex = viewableItems[0].index;
-      
+
       // Ne pas aller plus haut que minIndex
-      if (newIndex >= minIndex) {
+      if (newIndex !== null && newIndex !== undefined && newIndex >= minIndex) {
         setCurrentIndex(newIndex);
         setIsPaused(false);
         setExpandedDescription(false);
@@ -363,7 +386,7 @@ const PostDetailFanFeedScreen = () => {
   };
 
   // Become fan with anti spam-click - using real database
-  const becomeFan = async (userId) => {
+  const becomeFan = async (userId: string) => {
     // Validate UUID format to avoid mock data errors
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!userId || fanLoading[userId] || !uuidRegex.test(userId)) {
@@ -542,14 +565,14 @@ const PostDetailFanFeedScreen = () => {
   };
   
   // Format numbers
-  const formatNumber = (num) => {
+  const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
     return num.toString();
   };
-  
+
   // Render post item
-  const renderPostItem = ({ item, index }) => {
+  const renderPostItem = ({ item, index }: { item: FanFeedPost; index: number }) => {
     const isLiked = likedPosts[item.id];
     const isBookmarked = bookmarkedPosts[item.id];
     const isFanOfUser = fanStatus[item.user.id];
@@ -760,9 +783,9 @@ const PostDetailFanFeedScreen = () => {
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       {/* Posts FlashList (vertical scroll) */}
-      <FlashList
+      <FlashList<FanFeedPost>
         ref={flatListRef}
-        data={fanFeedPosts.length > 0 ? fanFeedPosts : MOCK_FANFEED_POSTS}
+        data={fanFeedPosts.length > 0 ? fanFeedPosts : (MOCK_FANFEED_POSTS as FanFeedPost[])}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
         pagingEnabled

@@ -245,7 +245,18 @@ const ALL_INTERESTS = [
 const INITIAL_CATEGORIES = 4;
 const EXPAND_BY = 4;
 
-export default function InterestsScreen({ navigation, route }) {
+interface InterestsScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: Record<string, unknown> };
+}
+
+export default function InterestsScreen({ navigation, route }: InterestsScreenProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_CATEGORIES);
 

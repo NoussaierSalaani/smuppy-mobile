@@ -5,7 +5,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 
-export default function PasswordSuccessScreen({ navigation, route }) {
+interface PasswordSuccessScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+    canGoBack: () => boolean;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route?: {
+    params?: {
+      onRecoveryComplete?: () => void;
+    };
+  };
+}
+
+export default function PasswordSuccessScreen({ navigation, route }: PasswordSuccessScreenProps) {
   const onRecoveryComplete = route?.params?.onRecoveryComplete;
 
   useEffect(() => {

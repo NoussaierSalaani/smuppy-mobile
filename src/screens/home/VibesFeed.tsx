@@ -749,8 +749,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Get columns for masonry
   const getColumns = useCallback(() => {
-    const leftColumn = [];
-    const rightColumn = [];
+    const leftColumn: UIVibePost[] = [];
+    const rightColumn: UIVibePost[] = [];
     let leftHeight = 0;
     let rightHeight = 0;
 
@@ -770,7 +770,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const { leftColumn, rightColumn } = useMemo(() => getColumns(), [getColumns]);
 
   // Render Peak card
-  const renderPeakCard = (peak, index) => (
+  type PeakData = typeof PEAKS_DATA[0];
+  const renderPeakCard = (peak: PeakData, index: number) => (
     <TouchableOpacity
       key={`peak-${index}-${peak.id}`}
       style={styles.peakCard}
@@ -794,7 +795,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   );
 
   // Render vibe card with double-tap to like and glassmorphism
-  const renderVibeCard = (post, index: number) => (
+  const renderVibeCard = (post: UIVibePost, index: number) => (
     <DoubleTapLike
       key={`vibe-${index}-${post.id}`}
       onDoubleTap={() => {

@@ -16,7 +16,11 @@ import { useUserSafetyStore } from '../../store/userSafetyStore';
 import { MutedUser } from '../../services/database';
 import { COLORS } from '../../config/theme';
 
-const MutedUsersScreen = ({ navigation }) => {
+interface MutedUsersScreenProps {
+  navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
+}
+
+const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
   const insets = useSafeAreaInsets();
   const {
     getMutedUsers,

@@ -609,6 +609,7 @@ const SearchScreen = (): React.JSX.Element => {
       case 'posts': return postResults;
       case 'peaks': return peakResults;
       case 'tags': return hashtagResults;
+      default: return [];
     }
   };
 

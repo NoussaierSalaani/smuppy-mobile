@@ -365,7 +365,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [navigation]);
 
   // Format numbers
-  const formatNumber = useCallback((num) => {
+  const formatNumber = useCallback((num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
@@ -433,7 +433,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, []);
 
   // Toggle save
-  const toggleSave = useCallback((postId) => {
+  const toggleSave = useCallback((postId: string) => {
     setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
@@ -563,7 +563,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [goToUserProfile, handleTrackUser, trackingUserIds]);
 
   // Render post item for FlashList
-  const renderPost = useCallback(({ item: post, index }) => (
+  const renderPost = useCallback(({ item: post, index }: { item: UIPost; index: number }) => (
     <View style={styles.postContainer}>
       {/* Header */}
       <View style={styles.postHeader}>
@@ -756,7 +756,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     return null;
   }, [loadingMore, hasMore, posts.length]);
 
-  const keyExtractor = useCallback((item) => String(item.id), []);
+  const keyExtractor = useCallback((item: UIPost) => String(item.id), []);
 
 
   // Empty state component

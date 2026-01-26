@@ -13,7 +13,20 @@ import { COLORS, GRADIENTS } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
 
-export default function PostSuccessScreen({ route, navigation }) {
+interface MediaItem {
+  uri: string;
+}
+
+interface PostSuccessScreenProps {
+  route: { params: { media: MediaItem[]; postType: string } };
+  navigation: {
+    goBack: () => void;
+    navigate: (screen: string) => void;
+    reset: (state: { index: number; routes: Array<{ name: string }> }) => void;
+  };
+}
+
+export default function PostSuccessScreen({ route, navigation }: PostSuccessScreenProps) {
   const { media, postType } = route.params;
   
   const scaleAnim = useRef(new Animated.Value(0)).current;

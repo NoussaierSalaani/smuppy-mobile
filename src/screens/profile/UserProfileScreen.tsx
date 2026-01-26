@@ -142,7 +142,7 @@ const UserProfileScreen = () => {
   const [fanToggleCount, setFanToggleCount] = useState(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [blockEndDate, setBlockEndDate] = useState(null);
+  const [blockEndDate, setBlockEndDate] = useState<Date | null>(null);
   const [showUnfanModal, setShowUnfanModal] = useState(false);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
@@ -433,7 +433,7 @@ const UserProfileScreen = () => {
   // Formater la date de déblocage
   const formatBlockDate = () => {
     if (!blockEndDate) return '';
-    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
     return blockEndDate.toLocaleDateString('en-US', options);
   };
 

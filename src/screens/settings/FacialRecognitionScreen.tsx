@@ -7,9 +7,15 @@ import { biometrics } from '../../utils/biometrics';
 import { awsAuth } from '../../services/aws-auth';
 import Button from '../../components/Button';
 
-export default function FacialRecognitionScreen({ navigation }) {
+type BiometricType = 'face' | 'fingerprint' | null;
+
+interface FacialRecognitionScreenProps {
+  navigation: { goBack: () => void };
+}
+
+export default function FacialRecognitionScreen({ navigation }: FacialRecognitionScreenProps) {
   const [enabled, setEnabled] = useState(false);
-  const [biometricType, setBiometricType] = useState(null);
+  const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
@@ -30,7 +36,7 @@ export default function FacialRecognitionScreen({ navigation }) {
     setBiometricType(type);
   };
 
-  const handleToggle = async (value) => {
+  const handleToggle = async (value: boolean) => {
     if (loading) return;
     if (value) {
       // Activer : utilise Face ID natif
@@ -49,7 +55,7 @@ export default function FacialRecognitionScreen({ navigation }) {
         setErrorModal({
           visible: true,
           title: 'Too Many Attempts',
-          message: `Please wait ${Math.ceil(result.remainingSeconds / 60)} minutes before trying again.`,
+          message: `Please wait ${Math.ceil((result.remainingSeconds ?? 60) / 60)} minutes before trying again.`,
         });
       } else {
         setErrorModal({

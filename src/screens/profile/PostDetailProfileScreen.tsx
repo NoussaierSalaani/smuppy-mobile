@@ -26,6 +26,21 @@ import { useContentStore } from '../../store/contentStore';
 
 const { width, height } = Dimensions.get('window');
 
+interface PostItem {
+  id: string;
+  type: string;
+  media: string;
+  thumbnail: string;
+  description: string;
+  likes: number;
+  views: number;
+  user: {
+    id: string;
+    name: string;
+    avatar: string;
+  };
+}
+
 // Mock data - posts du profil
 const MOCK_PROFILE_POSTS = [
   {
@@ -331,8 +346,8 @@ const PostDetailProfileScreen = () => {
   };
   
   // Handle swipe to next/prev post
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
       setCurrentIndex(viewableItems[0].index);
       setIsPaused(false);
     }
@@ -343,14 +358,14 @@ const PostDetailProfileScreen = () => {
   }).current;
   
   // Format numbers
-  const formatNumber = (num) => {
+  const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
     return num.toString();
   };
   
   // Render post item
-  const renderPostItem = ({ item, index }) => (
+  const renderPostItem = ({ item, index }: { item: PostItem; index: number }) => (
     <TouchableWithoutFeedback onPress={handleDoubleTap}>
       <View style={[styles.postContainer, { height: height }]}>
         {/* Media */}

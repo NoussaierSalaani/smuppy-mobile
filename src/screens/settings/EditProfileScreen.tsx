@@ -21,7 +21,11 @@ import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
 
-const EditProfileScreen = ({ navigation }) => {
+interface EditProfileScreenProps {
+  navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
+}
+
+const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const insets = useSafeAreaInsets();
   const { user, updateProfile: updateLocalProfile } = useUser();
   const { data: profileData, refetch } = useCurrentProfile();
@@ -84,7 +88,7 @@ const EditProfileScreen = ({ navigation }) => {
     setGender(merged.gender);
   }, [user, profileData]);
 
-  const updateField = (setter, value) => {
+  const updateField = (setter: (value: string) => void, value: string) => {
     setter(value);
     setHasChanges(true);
   };

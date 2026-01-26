@@ -21,7 +21,14 @@ import {
   Conversation,
 } from '../../services/database';
 
-export default function MessagesScreen({ navigation }) {
+interface MessagesScreenProps {
+  navigation: {
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -133,7 +140,7 @@ export default function MessagesScreen({ navigation }) {
               styles.messageTime,
               (item.unread_count || 0) > 0 && styles.messageTimeUnread
             ]}>
-              {formatTime(item.last_message_at)}
+              {formatTime(item.last_message_at || new Date().toISOString())}
             </Text>
           </View>
 

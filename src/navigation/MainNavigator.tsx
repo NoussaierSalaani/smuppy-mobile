@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ComponentType } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserStore } from '../stores';
 import { getCurrentProfile } from '../services/database';
+import type { MainStackParamList } from '../types';
+
+// Type helper to cast screen components for React Navigation compatibility
+ 
+const asScreen = <T,>(component: T): ComponentType<any> => component as ComponentType<any>;
 // TabBarProvider removed - was causing issues and not being used
 
 // Tab Screens
@@ -73,7 +78,11 @@ const Stack = createNativeStackNavigator();
 
 const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
 
-function TabNavigator({ navigation }) {
+interface TabNavigatorProps {
+  navigation: NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
+}
+
+function TabNavigator({ navigation }: TabNavigatorProps) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
 
   return (
@@ -81,7 +90,7 @@ function TabNavigator({ navigation }) {
       <Tab.Navigator id="MainTabs" tabBar={(props) => <BottomNav {...props} onCreatePress={() => setShowCreatePopup(true)} />} screenOptions={{ headerShown: false }}>
         <Tab.Screen name="Home" component={FeedScreen} />
         <Tab.Screen name="Peaks" component={PeaksFeedScreen} />
-        <Tab.Screen name="CreateTab" component={CreatePostScreen} />
+        <Tab.Screen name="CreateTab" component={asScreen(CreatePostScreen)} />
         <Tab.Screen name="Messages" component={MessagesScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
@@ -147,14 +156,14 @@ export default function MainNavigator() {
 
       {/* Notifications (accessible from HomeHeader) */}
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="Chat" component={asScreen(ChatScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Create Post Flow */}
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="CreatePost" component={asScreen(CreatePostScreen)} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="VideoRecorder" component={VideoRecorderScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="AddPostDetails" component={AddPostDetailsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PostSuccess" component={PostSuccessScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="AddPostDetails" component={asScreen(AddPostDetailsScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PostSuccess" component={asScreen(PostSuccessScreen)} options={{ animation: 'fade' }} />
 
       {/* Profile Stack */}
       <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

@@ -3,11 +3,21 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../config/theme';
-import { biometrics } from '../../utils/biometrics';
+import { biometrics, BiometricType } from '../../utils/biometrics';
 import Button from '../../components/Button';
 
-export default function EnableBiometricScreen({ navigation }) {
-  const [biometricType, setBiometricType] = useState(null);
+interface EnableBiometricScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+    canGoBack: () => boolean;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+}
+
+export default function EnableBiometricScreen({ navigation }: EnableBiometricScreenProps) {
+  const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

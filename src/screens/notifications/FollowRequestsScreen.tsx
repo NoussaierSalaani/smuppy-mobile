@@ -21,7 +21,11 @@ import {
 } from '../../services/database';
 import { COLORS } from '../../config/theme';
 
-const FollowRequestsScreen = ({ navigation }) => {
+interface FollowRequestsScreenProps {
+  navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
+}
+
+const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   const insets = useSafeAreaInsets();
   const [requests, setRequests] = useState<FollowRequest[]>([]);
   const [loading, setLoading] = useState(true);

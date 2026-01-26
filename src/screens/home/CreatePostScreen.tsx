@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,17 +18,45 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
 import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 4) / 3;
 const MAX_SELECTION = 10;
 
-export default function CreatePostScreen({ navigation, route: _route }) {
+// Media item type
+interface MediaItem {
+  id: string;
+  uri: string;
+  mediaType: 'photo' | 'video';
+  duration?: number;
+}
+
+// Route params type
+type RootStackParamList = {
+  CreatePost: undefined;
+  AddPostDetails: {
+    media: MediaItem[];
+    postType: string;
+  };
+  VideoRecorder: undefined;
+};
+
+type CreatePostScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'CreatePost'>;
+type CreatePostScreenRouteProp = RouteProp<RootStackParamList, 'CreatePost'>;
+
+interface CreatePostScreenProps {
+  navigation: CreatePostScreenNavigationProp;
+  route: CreatePostScreenRouteProp;
+}
+
+export default function CreatePostScreen({ navigation, route: _route }: CreatePostScreenProps) {
   const insets = useSafeAreaInsets();
   const alert = useSmuppyAlert();
-  const [mediaAssets, setMediaAssets] = useState([]);
-  const [selectedMedia, setSelectedMedia] = useState([]);
-  const [selectedPreview, setSelectedPreview] = useState(null);
+  const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
+  const [selectedPreview, setSelectedPreview] = useState<MediaItem | MediaLibrary.Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
@@ -122,9 +150,16 @@ export default function CreatePostScreen({ navigation, route: _route }) {
   };
 
   // Toggle media selection
-  const toggleMediaSelection = (item) => {
+  const toggleMediaSelection = (item: MediaItem | MediaLibrary.Asset) => {
+    const mediaItem: MediaItem = {
+      id: item.id,
+      uri: item.uri,
+      mediaType: item.mediaType === 'video' ? 'video' : 'photo',
+      duration: 'duration' in item ? item.duration : undefined,
+    };
+
     const isSelected = selectedMedia.find(m => m.id === item.id);
-    
+
     if (isSelected) {
       const newSelection = selectedMedia.filter(m => m.id !== item.id);
       setSelectedMedia(newSelection);
@@ -139,18 +174,18 @@ export default function CreatePostScreen({ navigation, route: _route }) {
         return;
       }
 
-      if (item.mediaType === 'video' && item.duration > 15) {
+      if (item.mediaType === 'video' && 'duration' in item && (item.duration ?? 0) > 15) {
         alert.warning('Video Too Long', 'Videos must be 15 seconds or less.');
         return;
       }
-      
-      setSelectedMedia([...selectedMedia, item]);
+
+      setSelectedMedia([...selectedMedia, mediaItem]);
       setSelectedPreview(item);
     }
   };
 
   // Get selection index
-  const getSelectionIndex = (item) => {
+  const getSelectionIndex = (item: MediaItem | MediaLibrary.Asset) => {
     const index = selectedMedia.findIndex(m => m.id === item.id);
     return index >= 0 ? index + 1 : null;
   };
@@ -220,7 +255,7 @@ export default function CreatePostScreen({ navigation, route: _route }) {
   );
 
   // Render media item
-  const renderMediaItem = ({ item }) => {
+  const renderMediaItem: ListRenderItem<MediaLibrary.Asset> = ({ item }) => {
     const selectionIndex = getSelectionIndex(item);
     const isSelected = selectionIndex !== null;
     const isPreview = selectedPreview?.id === item.id;
@@ -231,14 +266,20 @@ export default function CreatePostScreen({ navigation, route: _route }) {
         onPress={() => {
           setSelectedPreview(item);
           if (selectedMedia.length === 0) {
-            setSelectedMedia([item]);
+            const mediaItem: MediaItem = {
+              id: item.id,
+              uri: item.uri,
+              mediaType: item.mediaType === 'video' ? 'video' : 'photo',
+              duration: item.duration,
+            };
+            setSelectedMedia([mediaItem]);
           }
         }}
         onLongPress={() => toggleMediaSelection(item)}
         activeOpacity={0.8}
       >
         <OptimizedImage source={item.uri} style={styles.mediaThumbnail} />
-        
+
         {item.mediaType === 'video' && (
           <View style={styles.videoDuration}>
             <Ionicons name="play" size={10} color="#fff" />
@@ -363,7 +404,7 @@ export default function CreatePostScreen({ navigation, route: _route }) {
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
-        <FlashList
+        <FlashList<MediaLibrary.Asset>
           data={mediaAssets}
           renderItem={renderMediaItem}
           keyExtractor={(item) => item.id}

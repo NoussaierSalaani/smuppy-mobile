@@ -8,7 +8,18 @@ import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
-export default function GuidelinesScreen({ navigation, route }) {
+interface GuidelinesScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: { accountType?: string } & Record<string, unknown> };
+}
+
+export default function GuidelinesScreen({ navigation, route }: GuidelinesScreenProps) {
   const params = route?.params || {};
   const { accountType } = params;
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);

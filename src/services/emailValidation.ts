@@ -39,7 +39,7 @@ export const EMAIL_ERROR_MESSAGES = {
  * @param {string} email - Email to validate
  * @returns {Promise<{valid: boolean, error?: string, code?: string}>}
  */
-export const validateEmailAdvanced = async (email) => {
+export const validateEmailAdvanced = async (email: string) => {
   if (!email || !email.trim()) {
     return {
       valid: false,
@@ -87,7 +87,7 @@ export const validateEmailAdvanced = async (email) => {
       }
       return {
         valid: false,
-        error: EMAIL_ERROR_MESSAGES[data.code] || data.error,
+        error: (data.code ? (EMAIL_ERROR_MESSAGES as Record<string, string>)[data.code] : undefined) || data.error,
         code: data.code,
       };
     }
@@ -110,7 +110,7 @@ export const validateEmailAdvanced = async (email) => {
  * @param {string} email - Email to check
  * @returns {Promise<boolean>} - True if domain appears valid
  */
-export const checkDomainMx = async (email) => {
+export const checkDomainMx = async (email: string) => {
   try {
     const domain = email.toLowerCase().split('@')[1];
     if (!domain) return false;
@@ -149,7 +149,7 @@ export const checkDomainMx = async (email) => {
  * @param {string} email - Email to validate
  * @returns {Promise<{valid: boolean, error?: string, code?: string}>}
  */
-export const validateEmailFull = async (email) => {
+export const validateEmailFull = async (email: string) => {
   // First do advanced validation (Edge Function or local)
   const result = await validateEmailAdvanced(email);
 

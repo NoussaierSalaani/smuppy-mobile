@@ -10,7 +10,14 @@ import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
 
-const Confetti = ({ delay, startX, color, size }) => {
+interface ConfettiProps {
+  delay: number;
+  startX: number;
+  color: string;
+  size: number;
+}
+
+const Confetti = ({ delay, startX, color, size }: ConfettiProps) => {
   const translateY = useRef(new Animated.Value(-50)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
@@ -48,7 +55,15 @@ const Confetti = ({ delay, startX, color, size }) => {
   );
 };
 
-const FireworkParticle = ({ delay, centerX, centerY, angle, color }) => {
+interface FireworkParticleProps {
+  delay: number;
+  centerX: number;
+  centerY: number;
+  angle: number;
+  color: string;
+}
+
+const FireworkParticle = ({ delay, centerX, centerY, angle, color }: FireworkParticleProps) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0)).current;
@@ -91,7 +106,14 @@ const FireworkParticle = ({ delay, centerX, centerY, angle, color }) => {
   );
 };
 
-const Firework = ({ x, y, delay, color }) => (
+interface FireworkProps {
+  x: number;
+  y: number;
+  delay: number;
+  color: string;
+}
+
+const Firework = ({ x, y, delay, color }: FireworkProps) => (
   <>
     {Array.from({ length: 12 }, (_, i) => (
       <FireworkParticle key={i} delay={delay} centerX={x} centerY={y} angle={(i / 12) * Math.PI * 2} color={color} />
@@ -99,7 +121,12 @@ const Firework = ({ x, y, delay, color }) => (
   </>
 );
 
-export default function SuccessScreen({ route, navigation }) {
+interface SuccessScreenProps {
+  route: { params?: { name?: string; onSignupComplete?: () => void } };
+  navigation: { reset: (state: { index: number; routes: Array<{ name: string }> }) => void };
+}
+
+export default function SuccessScreen({ route, navigation }: SuccessScreenProps) {
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslate = useRef(new Animated.Value(20)).current;

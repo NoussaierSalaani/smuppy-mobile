@@ -5,7 +5,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 
-export default function BiometricSuccessScreen({ navigation }) {
+interface BiometricSuccessScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+    canGoBack: () => boolean;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+}
+
+export default function BiometricSuccessScreen({ navigation }: BiometricSuccessScreenProps) {
   const handleContinue = () => {
     navigation.replace('TellUsAboutYou');
   };

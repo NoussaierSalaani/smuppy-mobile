@@ -23,7 +23,11 @@ const MIN_CHARS = 20;
 const MAX_REPORTS_PER_HOUR = 3;
 const REPORT_COOLDOWN_KEY = '@smuppy_report_timestamps';
 
-const ReportProblemScreen = ({ navigation }) => {
+interface ReportProblemScreenProps {
+  navigation: { goBack: () => void };
+}
+
+const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
   const insets = useSafeAreaInsets();
   const [problemText, setProblemText] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);

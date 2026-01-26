@@ -96,7 +96,18 @@ const PROFESSION_PAGES: ProfessionPage[] = [
 // Toutes les professions à plat pour la recherche
 const ALL_PROFESSIONS: ProfessionItem[] = PROFESSION_PAGES.flatMap(page => page.items) as ProfessionItem[];
 
-export default function ProfessionScreen({ navigation, route }) {
+interface ProfessionScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: Record<string, unknown> };
+}
+
+export default function ProfessionScreen({ navigation, route }: ProfessionScreenProps) {
   const [searchText, setSearchText] = useState('');
   const [selectedProfession, setSelectedProfession] = useState<ProfessionItem | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -119,7 +130,7 @@ export default function ProfessionScreen({ navigation, route }) {
     Keyboard.dismiss();
   }, []);
 
-  const handleSearchChange = useCallback((text) => {
+  const handleSearchChange = useCallback((text: string) => {
     setSearchText(text);
     const match = ALL_PROFESSIONS.find(p => p.name.toLowerCase() === text.toLowerCase().trim());
     setSelectedProfession(match || null);
@@ -148,7 +159,7 @@ export default function ProfessionScreen({ navigation, route }) {
     }
   }, [selectedProfession, searchText, navigate, params]);
 
-  const handleScroll = useCallback((e) => {
+  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number } } }) => {
     setCurrentPage(Math.round(e.nativeEvent.contentOffset.x / width));
   }, []);
 

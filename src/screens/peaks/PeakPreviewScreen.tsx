@@ -165,9 +165,10 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       expiryDate.setHours(expiryDate.getHours() + feedDuration);
 
       // Create peak in database
+      const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
       const peakData = {
         content: textOverlay || '',
-        media_urls: [uploadResult.cdnUrl || uploadResult.url],
+        media_urls: [mediaUrl].filter(Boolean) as string[],
         media_type: 'video' as const,
         visibility: 'public' as const,
         location: location || null,

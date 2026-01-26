@@ -20,7 +20,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,11 +76,55 @@ interface FollowingUser {
   avatar_url: string | null;
 }
 
+// Tagged person type for state
+interface TaggedPerson {
+  id: string;
+  name?: string;
+  full_name?: string;
+  avatar?: string | null;
+  avatar_url?: string | null;
+}
+
+// Media item type
+interface MediaItem {
+  id: string;
+  uri: string;
+  mediaType: 'photo' | 'video';
+  duration?: number;
+}
+
+// Route params type
+type AddPostDetailsRouteParams = {
+  media: MediaItem[];
+  postType: string;
+};
+
+type RootStackParamList = {
+  AddPostDetails: AddPostDetailsRouteParams;
+  PostSuccess: {
+    media: MediaItem[];
+    postType: string;
+    description: string;
+    visibility: string;
+    location: string;
+    taggedPeople: TaggedPerson[];
+    postId?: string;
+  };
+};
+
+type AddPostDetailsScreenRouteProp = RouteProp<RootStackParamList, 'AddPostDetails'>;
+type AddPostDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddPostDetails'>;
+
+interface AddPostDetailsScreenProps {
+  route: AddPostDetailsScreenRouteProp;
+  navigation: AddPostDetailsScreenNavigationProp;
+}
+
 // ============================================
 // COMPONENT
 // ============================================
 
-export default function AddPostDetailsScreen({ route, navigation }) {
+export default function AddPostDetailsScreen({ route, navigation }: AddPostDetailsScreenProps) {
   const { media, postType } = route.params;
   const insets = useSafeAreaInsets();
 
@@ -86,13 +132,16 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private' | 'fans'>('public');
   const [location, setLocation] = useState('');
-  const [taggedPeople, setTaggedPeople] = useState([]);
+  const [taggedPeople, setTaggedPeople] = useState<TaggedPerson[]>([]);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   // User data from AWS
-  const [currentUser, setCurrentUser] = useState({
+  const [currentUser, setCurrentUser] = useState<{
+    displayName: string;
+    avatar: string | null;
+  }>({
     displayName: 'User',
     avatar: null,
   });
@@ -123,7 +172,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
 
   // Refs for cleanup
-  const postTimeoutRef = useRef(null);
+  const postTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const locationSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load user data from AWS
@@ -379,7 +428,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   };
 
   // Current visibility option
-  const currentVisibility = VISIBILITY_OPTIONS.find(v => v.id === visibility);
+  const currentVisibility = VISIBILITY_OPTIONS.find(v => v.id === visibility) || VISIBILITY_OPTIONS[0];
 
   // ============================================
   // HANDLERS
@@ -506,12 +555,12 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     setShowVisibilityModal(false);
   }, []);
 
-  const _handleSelectLocation = useCallback((loc) => {
+  const _handleSelectLocation = useCallback((loc: string) => {
     setLocation(loc);
     setShowLocationModal(false);
   }, []);
 
-  const handleToggleTag = useCallback((user) => {
+  const handleToggleTag = useCallback((user: TaggedPerson) => {
     setTaggedPeople(prev => {
       const isTagged = prev.find(p => p.id === user.id);
       if (isTagged) {
@@ -521,7 +570,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
     });
   }, []);
 
-  const handleRemoveTag = useCallback((userId) => {
+  const handleRemoveTag = useCallback((userId: string) => {
     setTaggedPeople(prev => prev.filter(p => p.id !== userId));
   }, []);
 
@@ -529,7 +578,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
   // RENDER FUNCTIONS
   // ============================================
 
-  const renderMediaPreview = useCallback(({ item, index }) => (
+  const renderMediaPreview: ListRenderItem<MediaItem> = useCallback(({ item, index }) => (
     <TouchableOpacity
       style={[
         styles.mediaPreviewItem,
@@ -904,7 +953,7 @@ export default function AddPostDetailsScreen({ route, navigation }) {
 
         {/* Media Thumbnails (if multiple) */}
         {media.length > 1 && (
-          <FlashList
+          <FlashList<MediaItem>
             data={media}
             renderItem={renderMediaPreview}
             keyExtractor={(item) => item.id}

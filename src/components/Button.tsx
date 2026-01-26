@@ -119,6 +119,13 @@ export default function Button({
         borderWidth: 0,
         borderColor: 'transparent',
       },
+      text: {
+        gradient: null,
+        backgroundColor: 'transparent',
+        textColor: disabled ? COLORS.grayMuted : COLORS.primary,
+        borderWidth: 0,
+        borderColor: 'transparent',
+      },
     };
     return variants[variant] || variants.primary;
   };
@@ -203,7 +210,7 @@ export default function Button({
           height: currentSize.height,
           paddingHorizontal: currentSize.paddingHorizontal,
           borderRadius: currentSize.borderRadius,
-          backgroundColor: variantStyles.backgroundColor,
+          backgroundColor: 'backgroundColor' in variantStyles ? variantStyles.backgroundColor : 'transparent',
           borderWidth: variantStyles.borderWidth,
           borderColor: variantStyles.borderColor,
         },

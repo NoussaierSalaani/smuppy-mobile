@@ -13,7 +13,18 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 type AccountType = 'personal' | 'pro' | null;
 type ProType = 'creator' | 'business' | null;
 
-export default function AccountTypeScreen({ navigation, route }) {
+interface AccountTypeScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: { email?: string; password?: string; rememberMe?: boolean; accountCreated?: boolean } };
+}
+
+export default function AccountTypeScreen({ navigation, route }: AccountTypeScreenProps) {
   const [selected, setSelected] = useState<AccountType>(null);
   const [proType, setProType] = useState<ProType>(null);
   const proSubAnim = useRef(new Animated.Value(0)).current;

@@ -112,7 +112,12 @@ const ALL_INTERESTS = [
   },
 ];
 
-export default function EditInterestsScreen({ navigation, route }) {
+interface EditInterestsScreenProps {
+  navigation: { goBack: () => void };
+  route: { params?: { currentInterests?: string[] } };
+}
+
+export default function EditInterestsScreen({ navigation, route }: EditInterestsScreenProps) {
   const insets = useSafeAreaInsets();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const { data: profileData, refetch } = useCurrentProfile();

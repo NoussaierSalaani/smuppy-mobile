@@ -355,8 +355,9 @@ export const detectDomainTypo = (email: string | undefined | null): DomainTypoRe
   if (!domain) return { isTypo: false };
 
   // Direct typo match
-  if (DOMAIN_TYPOS[domain]) {
-    return { isTypo: true, suggestion: DOMAIN_TYPOS[domain] as string };
+  const typoMatch = (DOMAIN_TYPOS as Record<string, string | null>)[domain];
+  if (typoMatch) {
+    return { isTypo: true, suggestion: typoMatch };
   }
 
   // Check for common TLD typos on any domain
@@ -365,7 +366,7 @@ export const detectDomainTypo = (email: string | undefined | null): DomainTypoRe
       const baseDomain = domain.slice(0, -typoTld.length + 1);
       const correctedDomain = baseDomain + correctTld.slice(1);
       // Only suggest if the corrected domain is legitimate
-      if (LEGITIMATE_DOMAINS[correctedDomain]) {
+      if ((LEGITIMATE_DOMAINS as Record<string, boolean>)[correctedDomain]) {
         return { isTypo: true, suggestion: correctedDomain };
       }
     }
@@ -382,7 +383,7 @@ export const detectDomainTypo = (email: string | undefined | null): DomainTypoRe
 export const isLegitimateProvider = (email: string | undefined | null): boolean => {
   if (!email) return false;
   const domain = email.toLowerCase().split('@')[1];
-  return !!LEGITIMATE_DOMAINS[domain];
+  return !!(LEGITIMATE_DOMAINS as Record<string, boolean>)[domain];
 };
 
 // ============================================

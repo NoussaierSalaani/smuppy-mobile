@@ -308,7 +308,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // Handle scroll
-  const handleScroll = (event) => {
+  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const offsetY = event.nativeEvent.contentOffset.y;
 
     if (offsetY > 50 && viewState === VIEW_STATES.FULLSCREEN) {
@@ -582,7 +582,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // Format numbers
-  const formatNumber = (num) => {
+  const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
     return num.toString();
@@ -610,7 +610,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // Render modern grid post card
-  const renderGridPost = (post, index) => {
+  const renderGridPost = (post: { id: string; type?: string; thumbnail: string; title?: string; likes?: number; category?: string; height?: number; duration?: string; user?: { id?: string; name?: string; avatar?: string } }, index: number) => {
     const scale = getCardScale(post.id);
 
     // Convert mock post to format expected by this screen
@@ -696,7 +696,7 @@ const PostDetailVibesFeedScreen = () => {
             </View>
             <View style={styles.gridStatsRow}>
               <SmuppyHeartIcon size={14} color={COLORS.heartRed} filled />
-              <Text style={styles.gridLikes}>{formatNumber(post.likes)}</Text>
+              <Text style={styles.gridLikes}>{formatNumber(post.likes ?? 0)}</Text>
             </View>
           </View>
         </TouchableOpacity>

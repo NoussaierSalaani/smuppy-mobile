@@ -26,7 +26,17 @@ const GoogleLogo = ({ size = 20 }) => (
   </Svg>
 );
 
-export default function LoginScreen({ navigation }) {
+type BiometricType = 'face' | 'fingerprint' | 'iris' | null;
+
+interface LoginScreenProps {
+  navigation: {
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+}
+
+export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +46,7 @@ export default function LoginScreen({ navigation }) {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [biometricType, setBiometricType] = useState(null);
+  const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [biometricBlocked, setBiometricBlocked] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
   const [successModal, setSuccessModal] = useState({ visible: false, title: '', message: '' });
@@ -132,11 +142,11 @@ export default function LoginScreen({ navigation }) {
         message: `You can now use ${isFaceId ? 'Face ID' : 'Touch ID'} for faster login.` 
       });
     } else if (result.error === 'blocked') {
-      const minutes = Math.ceil(result.remainingSeconds / 60);
-      setErrorModal({ 
-        visible: true, 
-        title: 'Too Many Attempts', 
-        message: `Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before trying again.` 
+      const minutes = Math.ceil((result.remainingSeconds ?? 60) / 60);
+      setErrorModal({
+        visible: true,
+        title: 'Too Many Attempts',
+        message: `Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before trying again.`
       });
     }
   }, [isFaceId]);
@@ -168,7 +178,7 @@ export default function LoginScreen({ navigation }) {
         message: 'Your session has expired. Please login with your password to continue.'
       });
     } else if (result.error === 'blocked') {
-      const minutes = Math.ceil(result.remainingSeconds / 60);
+      const minutes = Math.ceil((result.remainingSeconds ?? 60) / 60);
       setErrorModal({
         visible: true,
         title: 'Too Many Attempts',

@@ -28,7 +28,17 @@ import { resetAllStores } from '../../stores';
 
 const COVER_HEIGHT = 160;
 
-const SettingsScreen = ({ navigation }) => {
+type BiometricType = 'face' | 'fingerprint' | null;
+
+interface SettingsScreenProps {
+  navigation: {
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    dispatch: (action: { type: string; payload?: unknown }) => void;
+  };
+}
+
+const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const insets = useSafeAreaInsets();
   const { user: contextUser, getFullName } = useUser();
   const { data: profileData, refetch } = useCurrentProfile();
@@ -37,7 +47,7 @@ const SettingsScreen = ({ navigation }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [biometricType, setBiometricType] = useState(null);
+  const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');

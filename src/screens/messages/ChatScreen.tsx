@@ -39,13 +39,28 @@ import {
 
 const { width } = Dimensions.get('window');
 
-export default function ChatScreen({ route, navigation }) {
+interface ChatScreenProps {
+  route: {
+    params: {
+      conversationId?: string | null;
+      otherUser?: Profile | null;
+      userId?: string;
+    };
+  };
+  navigation: {
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    setOptions: (options: Record<string, unknown>) => void;
+  };
+}
+
+export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { conversationId: initialConversationId, otherUser, userId } = route.params;
   const insets = useSafeAreaInsets();
-  const flatListRef = useRef(null);
+  const flatListRef = useRef<typeof FlashList.prototype | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
+  const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);

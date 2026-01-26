@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, StatusBar } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, StatusBar, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeHeader from '../../components/HomeHeader';
@@ -22,7 +22,7 @@ export interface FeedRef {
 export default function FeedScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef(null);
+  const scrollRef = useRef<ScrollView>(null);
   const fanFeedRef = useRef<FeedRef>(null);
   const vibesFeedRef = useRef<FeedRef>(null);
   const { setBottomBarHidden, showBars } = useTabBar();
@@ -49,7 +49,7 @@ export default function FeedScreen() {
     setVisitedTabs(prev => new Set([...prev, activeTab]));
   }, [activeTab, setBottomBarHidden]);
 
-  const handleScroll = (event) => {
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / width);
     if (index !== activeTab && index >= 0 && index < TABS.length) {

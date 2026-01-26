@@ -9,7 +9,18 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { awsAPI } from '../../services/aws-api';
 
-export default function FindFriendsScreen({ navigation, route }) {
+interface FindFriendsScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: { accountType?: string } & Record<string, unknown> };
+}
+
+export default function FindFriendsScreen({ navigation, route }: FindFriendsScreenProps) {
   const params = route?.params || {};
   const { accountType } = params;
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);

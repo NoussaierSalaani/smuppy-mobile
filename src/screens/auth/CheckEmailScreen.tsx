@@ -13,8 +13,23 @@ import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { useCooldown } from '../../hooks/useCooldown';
 import * as backend from '../../services/backend';
 
-export default function CheckEmailScreen({ navigation, route }) {
-  const { email } = route.params || {};
+interface CheckEmailScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+    canGoBack: () => boolean;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route?: {
+    params?: {
+      email?: string;
+    };
+  };
+}
+
+export default function CheckEmailScreen({ navigation, route }: CheckEmailScreenProps) {
+  const { email } = route?.params || {};
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const { remaining: remainingTime, isCoolingDown, start: triggerCooldown } = useCooldown(30);

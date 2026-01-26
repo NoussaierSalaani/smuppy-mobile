@@ -13,7 +13,18 @@ import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 
-export default function BusinessInfoScreen({ navigation, route }) {
+interface BusinessInfoScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route: { params?: Record<string, unknown> };
+}
+
+export default function BusinessInfoScreen({ navigation, route }: BusinessInfoScreenProps) {
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);

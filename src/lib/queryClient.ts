@@ -13,9 +13,10 @@ const QUERY_CACHE_KEY = '@smuppy_query_cache';
 /**
  * Custom retry function with exponential backoff
  */
-const retryFn = (failureCount, error) => {
+const retryFn = (failureCount: number, error: Error) => {
   // Don't retry on 4xx errors (client errors)
-  if (error?.status >= 400 && error?.status < 500) {
+  const status = (error as Error & { status?: number })?.status;
+  if (status !== undefined && status >= 400 && status < 500) {
     return false;
   }
   // Retry up to 3 times for network/server errors
@@ -25,7 +26,7 @@ const retryFn = (failureCount, error) => {
 /**
  * Calculate retry delay with exponential backoff
  */
-const retryDelay = (attemptIndex) => {
+const retryDelay = (attemptIndex: number) => {
   return Math.min(1000 * 2 ** attemptIndex, 30000);
 };
 
@@ -47,7 +48,7 @@ export const queryClient = new QueryClient({
       // Refetch on reconnect
       refetchOnReconnect: true,
       // Keep previous data while fetching new data
-      placeholderData: (previousData) => previousData,
+      placeholderData: (previousData: unknown) => previousData,
       // Network mode - fetch only when online
       networkMode: 'offlineFirst',
     },
@@ -89,7 +90,7 @@ export const restoreQueryCache = async () => {
       const parsedCache = JSON.parse(cached);
       const now = Date.now();
 
-      parsedCache.forEach(({ queryKey, data, dataUpdatedAt }) => {
+      parsedCache.forEach(({ queryKey, data, dataUpdatedAt }: { queryKey: unknown[]; data: unknown; dataUpdatedAt: number }) => {
         // Only restore if data is less than 30 minutes old
         if (now - dataUpdatedAt < 30 * 60 * 1000) {
           queryClient.setQueryData(queryKey, data);
@@ -112,14 +113,14 @@ export const clearQueryCache = async () => {
 /**
  * Invalidate specific queries
  */
-export const invalidateQueries = (queryKey) => {
+export const invalidateQueries = (queryKey: unknown[]) => {
   queryClient.invalidateQueries({ queryKey });
 };
 
 /**
  * Prefetch data for better UX
  */
-export const prefetchQuery = async (queryKey, queryFn) => {
+export const prefetchQuery = async (queryKey: unknown[], queryFn: () => Promise<unknown>) => {
   await queryClient.prefetchQuery({
     queryKey,
     queryFn,
@@ -141,56 +142,56 @@ export const isOnline = async () => {
 export const queryKeys = {
   // User
   user: {
-    all: ['user'],
-    profile: (id) => ['user', 'profile', id],
-    current: () => ['user', 'current'],
+    all: ['user'] as const,
+    profile: (id: string) => ['user', 'profile', id] as const,
+    current: () => ['user', 'current'] as const,
   },
   // Posts
   posts: {
-    all: ['posts'],
-    feed: (page) => ['posts', 'feed', page],
-    byUser: (userId, page) => ['posts', 'user', userId, page],
-    single: (id) => ['posts', 'detail', id],
+    all: ['posts'] as const,
+    feed: (page: number) => ['posts', 'feed', page] as const,
+    byUser: (userId: string, page: number) => ['posts', 'user', userId, page] as const,
+    single: (id: string) => ['posts', 'detail', id] as const,
   },
   // Follows
   follows: {
-    followers: (userId, page) => ['follows', 'followers', userId, page],
-    following: (userId, page) => ['follows', 'following', userId, page],
-    isFollowing: (userId) => ['follows', 'check', userId],
+    followers: (userId: string, page: number) => ['follows', 'followers', userId, page] as const,
+    following: (userId: string, page: number) => ['follows', 'following', userId, page] as const,
+    isFollowing: (userId: string) => ['follows', 'check', userId] as const,
   },
   // Likes
   likes: {
-    hasLiked: (postId) => ['likes', 'check', postId],
+    hasLiked: (postId: string) => ['likes', 'check', postId] as const,
   },
   // Collections (Saved Posts)
   collections: {
-    all: ['collections'],
-    saved: (page) => ['collections', 'saved', page],
-    hasSaved: (postId) => ['collections', 'saved', 'check', postId],
+    all: ['collections'] as const,
+    saved: (page: number) => ['collections', 'saved', page] as const,
+    hasSaved: (postId: string) => ['collections', 'saved', 'check', postId] as const,
   },
   // Comments
   comments: {
-    byPost: (postId, page) => ['comments', postId, page],
+    byPost: (postId: string, page: number) => ['comments', postId, page] as const,
   },
   // Interests & Expertise
   interests: {
-    all: () => ['interests'],
+    all: () => ['interests'] as const,
   },
   expertise: {
-    all: () => ['expertise'],
+    all: () => ['expertise'] as const,
   },
   // Spots
   spots: {
-    all: ['spots'],
-    feed: (page) => ['spots', 'feed', page],
-    single: (id) => ['spots', 'detail', id],
-    byCreator: (creatorId, page) => ['spots', 'creator', creatorId, page],
-    byCategory: (category, page) => ['spots', 'category', category, page],
-    bySportType: (sportType, page) => ['spots', 'sport', sportType, page],
-    nearby: (lat, lon, radius) => ['spots', 'nearby', lat, lon, radius],
-    saved: (page) => ['spots', 'saved', page],
-    hasSaved: (spotId) => ['spots', 'saved', 'check', spotId],
-    reviews: (spotId, page) => ['spots', 'reviews', spotId, page],
+    all: ['spots'] as const,
+    feed: (page: number) => ['spots', 'feed', page] as const,
+    single: (id: string) => ['spots', 'detail', id] as const,
+    byCreator: (creatorId: string, page: number) => ['spots', 'creator', creatorId, page] as const,
+    byCategory: (category: string, page: number) => ['spots', 'category', category, page] as const,
+    bySportType: (sportType: string, page: number) => ['spots', 'sport', sportType, page] as const,
+    nearby: (lat: number, lon: number, radius: number) => ['spots', 'nearby', lat, lon, radius] as const,
+    saved: (page: number) => ['spots', 'saved', page] as const,
+    hasSaved: (spotId: string) => ['spots', 'saved', 'check', spotId] as const,
+    reviews: (spotId: string, page: number) => ['spots', 'reviews', spotId, page] as const,
   },
 };
 

@@ -1,31 +1,124 @@
 #!/bin/sh
 
+# ========================================
+# Smuppy Pre-commit Security & Quality Checks
+# ========================================
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
 # Run lint-staged for code quality
+echo "📝 Running lint-staged..."
 npx lint-staged
 
-# Check for secrets (basic patterns)
-echo "Checking for potential secrets..."
+# ========================================
+# SAST - Security Scanning
+# ========================================
 
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx|js|jsx|json)$' || true)
 
 if [ -n "$STAGED_FILES" ]; then
-  # Check for AWS keys
+  echo "🔒 Running security checks on staged files..."
+
+  # Check for AWS keys (AKIA pattern)
   if echo "$STAGED_FILES" | xargs grep -lE 'AKIA[0-9A-Z]{16}' 2>/dev/null; then
-    echo "ERROR: AWS Access Key detected!"
+    echo "❌ ERROR: AWS Access Key detected!"
+    exit 1
+  fi
+
+  # Check for AWS Secret keys
+  if echo "$STAGED_FILES" | xargs grep -lE '[A-Za-z0-9/+=]{40}' 2>/dev/null | xargs grep -lE 'aws_secret|secret_access_key|AWS_SECRET' 2>/dev/null; then
+    echo "❌ ERROR: AWS Secret Key pattern detected!"
     exit 1
   fi
 
   # Check for private keys
   if echo "$STAGED_FILES" | xargs grep -l 'PRIVATE KEY' 2>/dev/null; then
-    echo "ERROR: Private key detected!"
+    echo "❌ ERROR: Private key detected!"
     exit 1
   fi
 
-  # Check for Stripe live keys
+  # Check for Stripe keys
   if echo "$STAGED_FILES" | xargs grep -lE 'sk_live_[a-zA-Z0-9]{24}' 2>/dev/null; then
-    echo "ERROR: Stripe live key detected!"
+    echo "❌ ERROR: Stripe live key detected!"
     exit 1
+  fi
+
+  if echo "$STAGED_FILES" | xargs grep -lE 'pk_live_[a-zA-Z0-9]{24}' 2>/dev/null; then
+    echo "❌ ERROR: Stripe live publishable key detected!"
+    exit 1
+  fi
+
+  # Check for Google API keys
+  if echo "$STAGED_FILES" | xargs grep -lE 'AIza[0-9A-Za-z_-]{35}' 2>/dev/null; then
+    echo "⚠️  WARNING: Google API Key pattern detected - verify it's not a production key"
+  fi
+
+  # Check for JWT secrets
+  if echo "$STAGED_FILES" | xargs grep -lE '(jwt_secret|JWT_SECRET|jwtSecret).*=.*["\047][a-zA-Z0-9+/=]{20,}["\047]' 2>/dev/null; then
+    echo "❌ ERROR: Hardcoded JWT secret detected!"
+    exit 1
+  fi
+
+  # Check for database connection strings with passwords
+  if echo "$STAGED_FILES" | xargs grep -lE '(postgres|mysql|mongodb)://[^:]+:[^@]+@' 2>/dev/null; then
+    echo "❌ ERROR: Database connection string with credentials detected!"
+    exit 1
+  fi
+
+  # Check for hardcoded passwords
+  if echo "$STAGED_FILES" | xargs grep -lE '(password|passwd|pwd).*=.*["\047].{8,}["\047]' 2>/dev/null | grep -v test | grep -v spec | grep -v mock; then
+    echo "⚠️  WARNING: Possible hardcoded password detected - review before committing"
+  fi
+
+  # ========================================
+  # SAST - Code Pattern Checks
+  # ========================================
+
+  # Check for eval() usage (code injection risk)
+  if echo "$STAGED_FILES" | xargs grep -lE '\beval\s*\(' 2>/dev/null | grep -v test | grep -v spec; then
+    echo "⚠️  WARNING: eval() usage detected - potential code injection risk"
+  fi
+
+  # Check for dangerouslySetInnerHTML (XSS risk in React)
+  if echo "$STAGED_FILES" | xargs grep -l 'dangerouslySetInnerHTML' 2>/dev/null; then
+    echo "⚠️  WARNING: dangerouslySetInnerHTML detected - ensure input is sanitized"
+  fi
+
+  # Check for SQL string concatenation (SQL injection risk)
+  if echo "$STAGED_FILES" | xargs grep -lE 'SELECT.*\+.*FROM|INSERT.*\+.*INTO|UPDATE.*\+.*SET|DELETE.*\+.*FROM' 2>/dev/null; then
+    echo "⚠️  WARNING: SQL string concatenation detected - use parameterized queries"
+  fi
+
+  # Check for shell command execution
+  if echo "$STAGED_FILES" | xargs grep -lE 'exec\(|execSync\(|spawn\(|child_process' 2>/dev/null | grep -v test | grep -v spec; then
+    echo "⚠️  WARNING: Shell command execution detected - review for command injection"
   fi
 fi
 
-echo "Pre-commit checks passed."
+# ========================================
+# Dependency Security Check
+# ========================================
+
+echo "📦 Checking for vulnerable dependencies..."
+
+# Check root package.json for vulnerabilities (non-blocking)
+# Note: npm audit can be slow, so we only warn and don't block commits
+if [ -f "package.json" ] && command -v npm &> /dev/null; then
+  # Quick check - just see if audit has any output
+  AUDIT_RESULT=$(npm audit --audit-level=critical 2>&1 || true)
+  if echo "$AUDIT_RESULT" | grep -qi "critical"; then
+    echo "⚠️  WARNING: Critical vulnerabilities detected. Run 'npm audit' for details"
+  fi
+fi
+
+# ========================================
+# TypeScript Type Check (optional but recommended)
+# ========================================
+
+# Uncomment to enable TypeScript checking on staged files
+# echo "🔷 Running TypeScript check..."
+# npx tsc --noEmit
+
+echo "✅ Pre-commit checks passed."

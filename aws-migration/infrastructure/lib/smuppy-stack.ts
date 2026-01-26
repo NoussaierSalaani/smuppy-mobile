@@ -193,13 +193,13 @@ export class SmuppyStack extends cdk.Stack {
       autoVerify: {
         email: true,
       },
-      // Strong password policy
+      // Strong password policy - SECURITY HARDENED
       passwordPolicy: {
-        minLength: 8,
+        minLength: 10, // Increased from 8
         requireLowercase: true,
         requireUppercase: true,
         requireDigits: true,
-        requireSymbols: false,
+        requireSymbols: true, // SECURITY: Now required
         tempPasswordValidity: cdk.Duration.days(3),
       },
       // Account security

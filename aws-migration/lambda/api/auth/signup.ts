@@ -235,11 +235,23 @@ export const handler = async (
     }
 
     // Parse JSON with error handling for special characters
+    // Handle both plain JSON and base64-encoded bodies
     let parsedBody: SignupRequest;
     try {
-      parsedBody = JSON.parse(event.body) as SignupRequest;
+      let bodyStr = event.body;
+
+      // If body is base64 encoded, decode it first
+      if (event.isBase64Encoded) {
+        bodyStr = Buffer.from(event.body, 'base64').toString('utf-8');
+      }
+
+      parsedBody = JSON.parse(bodyStr) as SignupRequest;
     } catch (parseError: any) {
-      log.error('JSON parse error', parseError, { bodyLength: event.body?.length });
+      log.error('JSON parse error', parseError, {
+        bodyLength: event.body?.length,
+        isBase64: event.isBase64Encoded,
+        bodyPreview: event.body?.substring(0, 50)
+      });
       return {
         statusCode: 400,
         headers,
@@ -297,7 +309,7 @@ export const handler = async (
         log.info('User exists by email but is unconfirmed - will delete and recreate', { usernameToDelete });
         await deleteUnconfirmedUser(usernameToDelete);
         // Small delay to ensure deletion is processed
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     } else {
       // SECOND: Also check by generated username (fallback)

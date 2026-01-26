@@ -22,10 +22,11 @@ import { AccountBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
-import { useContentStore } from '../../store/contentStore';
-import { useUserSafetyStore } from '../../store/userSafetyStore';
+import { useContentStore, useUserSafetyStore } from '../../stores';
+import { useShareModal } from '../../hooks';
+import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Post, Profile, hasLikedPostsBatch } from '../../services/database';
+import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 
@@ -39,84 +40,9 @@ interface UISuggestion {
   accountType?: 'personal' | 'pro_creator' | 'pro_local';
 }
 
-// Transform Post from database to UI format
-interface UIPost {
-  id: string;
-  type: 'image' | 'video' | 'carousel';
-  media: string;
-  slideCount?: number;
-  duration?: string;
-  user: {
-    id: string;
-    name: string;
-    username: string;
-    avatar: string;
-    isVerified: boolean;
-    isBot?: boolean;
-    accountType?: 'personal' | 'pro_creator' | 'pro_local';
-  };
-  caption: string;
-  likes: number;
-  comments: number;
-  shares: number;
-  saves: number;
-  isLiked: boolean;
-  isSaved: boolean;
-  timeAgo: string;
-  location: string | null;
-}
-
-// Transform Post from database to UI format
-// Handles both new format (media_urls, content) and legacy format (media_url, caption)
-const transformPostToUI = (post: Post, likedPostIds: Set<string>): UIPost => {
-  const getTimeAgo = (dateString: string): string => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  // Get media URL - support both array and single string formats
-  const mediaUrl = post.media_urls?.[0] || post.media_url || 'https://via.placeholder.com/800x1000';
-
-  // Get content - support both 'content' and 'caption' fields
-  const contentText = post.content || post.caption || '';
-
-  // Determine media type - normalize 'photo' to 'image'
-  const normalizedType = post.media_type === 'photo' ? 'image' : post.media_type;
-
-  return {
-    id: post.id,
-    type: normalizedType === 'video' ? 'video' : normalizedType === 'multiple' ? 'carousel' : 'image',
-    media: mediaUrl,
-    slideCount: normalizedType === 'multiple' ? (post.media_urls?.length || 1) : undefined,
-    user: {
-      id: post.author?.id || post.author_id,
-      name: post.author?.full_name || 'User',
-      username: `@${post.author?.username || 'user'}`,
-      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
-      isVerified: post.author?.is_verified || false,
-      isBot: post.author?.is_bot || false,
-      accountType: post.author?.account_type || 'personal',
-    },
-    caption: contentText,
-    likes: post.likes_count || 0,
-    comments: post.comments_count || 0,
-    shares: 0,
-    saves: 0,
-    isLiked: likedPostIds.has(post.id),
-    isSaved: false,
-    timeAgo: getTimeAgo(post.created_at),
-    location: post.location || null,
-  };
-};
+// UIFanPost and transformToFanPost are now imported from utils/postTransformers
+// Using UIFanPost as UIPost alias for backward compatibility
+type UIPost = UIFanPost;
 
 interface FanFeedProps {
   headerHeight?: number;
@@ -157,14 +83,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const hasMoreSuggestionsRef = useRef(true);
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
 
-  // Share modal state
-  const [shareModalVisible, setShareModalVisible] = useState(false);
-  const [postToShare, setPostToShare] = useState<{
-    id: string;
-    media: string;
-    caption?: string;
-    user: { name: string; avatar: string };
-  } | null>(null);
+  // Share modal state (using shared hook)
+  const shareModal = useShareModal();
 
   // Post menu state
   const [menuVisible, setMenuVisible] = useState(false);
@@ -210,7 +130,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           postIds.filter(id => likedMap.get(id))
         );
 
-        const transformedPosts = data.map(post => transformPostToUI(post, likedIds));
+        const transformedPosts = data.map(post => transformToFanPost(post, likedIds));
 
         if (refresh || pageNum === 0) {
           setPosts(transformedPosts);
@@ -459,7 +379,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Handle share post
   const handleSharePost = useCallback((post: UIPost) => {
-    setPostToShare({
+    shareModal.open({
       id: post.id,
       media: post.media,
       caption: post.caption,
@@ -468,8 +388,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         avatar: post.user.avatar,
       },
     });
-    setShareModalVisible(true);
-  }, []);
+  }, [shareModal]);
 
   // Handle post menu
   const handlePostMenu = useCallback((post: UIPost) => {
@@ -835,12 +754,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       {/* Share Post Modal */}
       <SharePostModal
-        visible={shareModalVisible}
-        post={postToShare}
-        onClose={() => {
-          setShareModalVisible(false);
-          setPostToShare(null);
-        }}
+        visible={shareModal.isVisible}
+        post={shareModal.data}
+        onClose={shareModal.close}
       />
 
       {/* Post Menu Modal */}

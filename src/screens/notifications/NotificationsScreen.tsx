@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -255,7 +255,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       ? notifications
       : notifications.filter((n) => n.type === activeFilter);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const _unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const getNotificationIcon = (
     type: string

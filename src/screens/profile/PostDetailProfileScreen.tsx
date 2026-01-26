@@ -22,7 +22,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { COLORS } from '../../config/theme';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { useContentStore } from '../../store/contentStore';
+import { useContentStore } from '../../stores';
 
 const { width, height } = Dimensions.get('window');
 

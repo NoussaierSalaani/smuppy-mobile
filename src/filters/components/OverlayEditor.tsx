@@ -26,7 +26,7 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useFilters } from '../FilterContext';
+import { useFilters } from '../../stores/filterStore';
 import { OverlayType, OverlayConfig, OverlayPosition } from '../types';
 import { WorkoutTimer } from '../overlays/WorkoutTimer';
 import { RepCounter } from '../overlays/RepCounter';

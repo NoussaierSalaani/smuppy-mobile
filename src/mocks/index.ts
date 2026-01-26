@@ -1,0 +1,19 @@
+/**
+ * Mock Data Index
+ * Centralized exports for all mock data
+ * TODO: Remove mock data when real API is fully implemented
+ */
+
+export {
+  MOCK_POSTS,
+  MOCK_PEAKS,
+  MOCK_COLLECTIONS,
+  MOCK_VIDEOS,
+  MOCK_LIVES,
+  MOCK_SESSIONS,
+} from './profileMocks';
+
+export {
+  PEAKS_DATA,
+  INTEREST_DATA,
+} from './feedMocks';

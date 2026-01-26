@@ -20,11 +20,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
 import { biometrics } from '../../utils/biometrics';
-import { useUser } from '../../context/UserContext';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../config/theme';
-import { resetAllStores } from '../../stores';
+import { resetAllStores, useUserStore } from '../../stores';
 
 const COVER_HEIGHT = 160;
 
@@ -40,7 +39,8 @@ interface SettingsScreenProps {
 
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const insets = useSafeAreaInsets();
-  const { user: contextUser, getFullName } = useUser();
+  const user = useUserStore((state) => state.user);
+  const getFullName = useUserStore((state) => state.getFullName);
   const { data: profileData, refetch } = useCurrentProfile();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -60,7 +60,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const loadUserData = useCallback(async () => {
     try {
       const authUser = await backend.getCurrentUser();
-      const email = authUser?.email || contextUser?.email || '';
+      const email = authUser?.email || user?.email || '';
       const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
 
       const isEmailDerivedName = (name: string | undefined | null): boolean => {
@@ -71,9 +71,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
       let name = 'User';
       const candidates = [
-        contextUser?.fullName,
+        user?.fullName,
         profileData?.full_name,
-        contextUser?.displayName,
+        user?.displayName,
         getFullName?.(),
       ].filter(Boolean) as string[];
 
@@ -90,9 +90,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         name = emailPrefix || 'User';
       }
 
-      const avatar = profileData?.avatar_url || contextUser?.avatar || null;
+      const avatar = profileData?.avatar_url || user?.avatar || null;
       const cover = profileData?.cover_url || null;
-      const userInterests = profileData?.interests || contextUser?.interests || [];
+      const userInterests = profileData?.interests || user?.interests || [];
       const userUsername = profileData?.username || authUser?.username || emailPrefix || '';
 
       setDisplayName(name);
@@ -102,15 +102,15 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setInterests(userInterests);
       setIsPrivate(profileData?.is_private || false);
     } catch {
-      const emailPrefix = contextUser?.email?.split('@')[0] || '';
-      setDisplayName(contextUser?.fullName || profileData?.full_name || contextUser?.displayName || getFullName?.() || emailPrefix || 'User');
+      const emailPrefix = user?.email?.split('@')[0] || '';
+      setDisplayName(user?.fullName || profileData?.full_name || user?.displayName || getFullName?.() || emailPrefix || 'User');
       setUsername(profileData?.username || emailPrefix || '');
-      setAvatarUrl(profileData?.avatar_url || contextUser?.avatar || null);
+      setAvatarUrl(profileData?.avatar_url || user?.avatar || null);
       setCoverUrl(profileData?.cover_url || null);
-      setInterests(profileData?.interests || contextUser?.interests || []);
+      setInterests(profileData?.interests || user?.interests || []);
       setIsPrivate(profileData?.is_private || false);
     }
-  }, [contextUser, getFullName, profileData]);
+  }, [user, getFullName, profileData]);
 
   useEffect(() => {
     checkBiometrics();

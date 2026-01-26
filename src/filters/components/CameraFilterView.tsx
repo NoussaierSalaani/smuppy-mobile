@@ -8,7 +8,7 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { CameraView, CameraType, CameraMode } from 'expo-camera';
 import { Canvas, Group, useImage, Image } from '@shopify/react-native-skia';
 import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
-import { useFilters } from '../FilterContext';
+import { useFilters } from '../../stores/filterStore';
 import { shaderManager } from '../core/ShaderManager';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');

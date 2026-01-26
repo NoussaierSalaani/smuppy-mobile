@@ -9,9 +9,14 @@
  * - Filter selection UI components
  */
 
-// Context and Hooks
-export { FilterProvider, useFilters, FILTER_DEFINITIONS } from './FilterContext';
+// Store and Hooks (migrated from Context to Zustand)
+export { useFilters, useFilterStore, FILTER_DEFINITIONS } from '../stores/filterStore';
 export { useFilterControls } from './hooks/useFilterControls';
+
+// Deprecated: FilterProvider is no longer needed with Zustand
+// Keeping for backward compatibility - it's now a passthrough
+import { ReactNode } from 'react';
+export const FilterProvider = ({ children }: { children: ReactNode }): ReactNode => children;
 
 // Types
 export * from './types';

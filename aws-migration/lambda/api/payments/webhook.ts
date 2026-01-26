@@ -21,6 +21,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
+// UUID validation helper for metadata fields
+const isValidUUID = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+};
+
 // Revenue share tiers for channel subscriptions
 function calculatePlatformFeePercent(fanCount: number): number {
   if (fanCount >= 1000000) return 20;
@@ -79,15 +86,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         // Handle identity verification payment
         if (paymentType === 'identity_verification') {
+          const userId = paymentIntent.metadata?.userId;
+          if (!isValidUUID(userId)) {
+            log.warn('Invalid userId in identity verification metadata', { userId });
+            break;
+          }
           await db.query(
             `UPDATE profiles
              SET verification_payment_status = 'paid',
                  verification_payment_date = NOW(),
                  updated_at = NOW()
              WHERE id = $1`,
-            [paymentIntent.metadata?.userId]
+            [userId]
           );
-          log.info('Identity verification payment recorded', { userId: paymentIntent.metadata?.userId });
+          log.info('Identity verification payment recorded', { userId });
           break;
         }
 
@@ -103,7 +115,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         // If there's a session, update its status
         const sessionId = paymentIntent.metadata?.session_id;
-        if (sessionId) {
+        if (sessionId && isValidUUID(sessionId)) {
           await db.query(
             `UPDATE private_sessions
              SET payment_status = 'paid',
@@ -116,7 +128,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         // If there's a pack, update its status
         const packId = paymentIntent.metadata?.pack_id;
-        if (packId) {
+        if (packId && isValidUUID(packId)) {
           await db.query(
             `UPDATE monthly_packs
              SET payment_status = 'paid',
@@ -130,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Create notification for creator
         const creatorId = paymentIntent.metadata?.creator_id;
         const buyerId = paymentIntent.metadata?.buyer_id;
-        if (creatorId && buyerId) {
+        if (creatorId && buyerId && isValidUUID(creatorId) && isValidUUID(buyerId)) {
           const buyerResult = await db.query(
             'SELECT full_name, username FROM profiles WHERE id = $1',
             [buyerId]
@@ -196,6 +208,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const userId = session.metadata?.userId;
           const planType = session.metadata?.planType;
 
+          if (!isValidUUID(userId)) {
+            log.warn('Invalid userId in platform subscription metadata', { userId });
+            break;
+          }
+
           await db.query(
             `INSERT INTO platform_subscriptions (
                user_id, stripe_subscription_id, plan_type, status, created_at
@@ -217,6 +234,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           // Channel subscription (Fan subscribing to Creator)
           const fanId = session.metadata?.fanId;
           const creatorId = session.metadata?.creatorId;
+
+          if (!isValidUUID(fanId) || !isValidUUID(creatorId)) {
+            log.warn('Invalid IDs in channel subscription metadata', { fanId, creatorId });
+            break;
+          }
 
           // Get current period from subscription
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string);

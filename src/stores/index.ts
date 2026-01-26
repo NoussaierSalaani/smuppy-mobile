@@ -9,6 +9,21 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Import Zustand stores for reset
+import { contentStore } from './contentStore';
+import { userSafetyStore } from './userSafetyStore';
+import { filterStore } from './filterStore';
+import { tabBarStore } from './tabBarStore';
+
+// Re-export all stores
+export { useContentStore, contentStore } from './contentStore';
+export { useUserSafetyStore, userSafetyStore } from './userSafetyStore';
+export { useEngagementStore } from './engagementStore';
+export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS } from './filterStore';
+export { useTabBarStore, useTabBar, useTabBarAnimations, tabBarStore } from './tabBarStore';
+export type { TabBarContextValue } from './tabBarStore';
+export type { ContentStatus } from './contentStore';
+
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
@@ -370,6 +385,7 @@ export const selectFeedCache = (state: FeedState) => state.feedCache;
 // ============================================
 
 export const resetAllStores = () => {
+  // Reset Zustand stores
   useUserStore.getState().logout();
   useFeedStore.getState().clearFeed();
   useAuthStore.getState().clearAuth();
@@ -379,4 +395,10 @@ export const resetAllStores = () => {
     globalLoading: false,
     errorModal: { visible: false, title: '', message: '' },
   });
+
+  // Reset all Zustand stores
+  contentStore.reset();
+  userSafetyStore.reset();
+  filterStore.reset();
+  tabBarStore.reset();
 };

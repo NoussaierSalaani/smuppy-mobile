@@ -31,7 +31,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 // Apple's JWKS endpoint
 const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
 const APPLE_ISSUER = 'https://appleid.apple.com';
-const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || 'com.smuppy.app';
+const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || 'com.nou09.Smuppy';
 
 // JWKS client for Apple token verification
 const jwks = jwksClient.default({

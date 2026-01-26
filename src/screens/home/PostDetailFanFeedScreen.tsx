@@ -23,8 +23,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../config/theme';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore } from '../../store/contentStore';
-import { useUserSafetyStore } from '../../store/userSafetyStore';
+import { useContentStore, useUserSafetyStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 

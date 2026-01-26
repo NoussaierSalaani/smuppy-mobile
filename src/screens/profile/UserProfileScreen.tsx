@@ -13,7 +13,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { useUserSafetyStore } from '../../store/userSafetyStore';
+import { useUserSafetyStore } from '../../stores';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';

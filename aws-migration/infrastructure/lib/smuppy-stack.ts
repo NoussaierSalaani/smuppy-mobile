@@ -873,8 +873,8 @@ export class SmuppyStack extends cdk.Stack {
       DB_WRITER_HOST: dbCluster.clusterEndpoint.hostname,
       // Reader endpoint for read-heavy operations (feeds, search, list queries)
       DB_READER_HOST: dbCluster.clusterReadEndpoint.hostname,
-      // Enable IAM authentication for RDS Proxy
-      DB_USE_IAM_AUTH: 'true',
+      // IAM auth disabled - using Secrets Manager password auth through RDS Proxy
+      DB_USE_IAM_AUTH: 'false',
       USER_POOL_ID: userPool.userPoolId,
       MEDIA_BUCKET: mediaBucket.bucketName,
       ENVIRONMENT: environment,

@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { useFilters, FILTER_DEFINITIONS } from '../FilterContext';
+import { useFilters, FILTER_DEFINITIONS } from '../../stores/filterStore';
 import { FilterCategory } from '../types';
 
 export interface FilterControlsReturn {

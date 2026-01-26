@@ -64,19 +64,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profile = result.rows[0];
 
-    // Check follow status if authenticated
+    // Check follow status and resolve current user ID
     let isFollowing = false;
     let isFollowedBy = false;
+    let resolvedUserId: string | null = null;
+    let isOwner = false;
 
-    if (currentUserId && currentUserId !== profile.id) {
-      // First, resolve the current user's profile ID from cognito_sub
+    if (currentUserId) {
+      // Resolve the current user's profile ID from cognito_sub
       const userResult = await db.query(
         'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
         [currentUserId]
       );
-      const resolvedUserId = userResult.rows[0]?.id;
+      resolvedUserId = userResult.rows[0]?.id || null;
+      isOwner = resolvedUserId === profile.id;
 
-      if (resolvedUserId && resolvedUserId !== profile.id) {
+      if (resolvedUserId && !isOwner) {
         const followResult = await db.query(
           `SELECT
             EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_following,
@@ -91,6 +94,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // PRIVACY CHECK: If profile is private and user is not owner/follower, return limited info
+    const isPrivate = profile.is_private || false;
+    const canViewFullProfile = isOwner || isFollowing || !isPrivate;
+
+    if (!canViewFullProfile) {
+      // Return limited public information for private profiles
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          id: profile.id,
+          username: profile.username,
+          fullName: profile.full_name,
+          avatarUrl: profile.avatar_url,
+          isVerified: profile.is_verified || false,
+          isPrivate: true,
+          accountType: profile.account_type || 'personal',
+          followersCount: profile.fan_count || 0,
+          followingCount: profile.following_count || 0,
+          isFollowing,
+          isFollowedBy,
+          // Bio, cover, posts count hidden for private profiles
+        }),
+      };
+    }
+
     return {
       statusCode: 200,
       headers,
@@ -102,7 +131,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         coverUrl: profile.cover_url,
         bio: profile.bio,
         isVerified: profile.is_verified || false,
-        isPrivate: profile.is_private || false,
+        isPrivate,
         accountType: profile.account_type || 'personal',
         followersCount: profile.fan_count || 0,
         followingCount: profile.following_count || 0,

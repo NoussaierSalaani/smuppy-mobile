@@ -22,11 +22,13 @@ import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
-import { useContentStore } from '../../store/contentStore';
-import { useUserSafetyStore } from '../../store/userSafetyStore';
+import { useContentStore, useUserSafetyStore } from '../../stores';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
+import { useShareModal } from '../../hooks';
+import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
+import { PEAKS_DATA, INTEREST_DATA } from '../../mocks';
 import SharePostModal from '../../components/SharePostModal';
-import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, Post, followUser, isFollowing } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -35,167 +37,9 @@ const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 const PEAK_CARD_WIDTH = 100;
 const PEAK_CARD_HEIGHT = 140;
 
-// Icon and color mapping for interests (matching EditInterestsScreen)
-const INTEREST_DATA: Record<string, { icon: string; color: string }> = {
-  // Sports
-  'Football': { icon: 'football', color: '#8B4513' },
-  'Basketball': { icon: 'basketball', color: '#FF6B35' },
-  'Tennis': { icon: 'tennisball', color: '#C5E063' },
-  'Swimming': { icon: 'water', color: '#0099CC' },
-  'Running': { icon: 'walk', color: '#FF5722' },
-  'Cycling': { icon: 'bicycle', color: '#E63946' },
-  'Golf': { icon: 'golf', color: '#228B22' },
-  'Volleyball': { icon: 'basketball-outline', color: '#FFC107' },
-  // Fitness
-  'Gym': { icon: 'barbell', color: '#1E90FF' },
-  'CrossFit': { icon: 'fitness', color: '#FF4500' },
-  'Weightlifting': { icon: 'barbell-outline', color: '#2F4F4F' },
-  'Cardio': { icon: 'heart', color: '#FF1493' },
-  'HIIT': { icon: 'flash', color: '#FF6347' },
-  'Calisthenics': { icon: 'body', color: '#20B2AA' },
-  'Pilates': { icon: 'fitness-outline', color: '#E91E63' },
-  'Stretching': { icon: 'resize', color: '#8BC34A' },
-  'Fitness': { icon: 'fitness', color: '#FF4500' },
-  // Wellness
-  'Yoga': { icon: 'body', color: '#9B59B6' },
-  'Meditation': { icon: 'leaf', color: '#27AE60' },
-  'Nutrition': { icon: 'nutrition', color: '#FF9800' },
-  'Spa & Recovery': { icon: 'sparkles', color: '#00BCD4' },
-  'Mental Health': { icon: 'happy', color: '#607D8B' },
-  'Sleep': { icon: 'moon', color: '#3F51B5' },
-  'Mindfulness': { icon: 'flower', color: '#E91E63' },
-  'Breathwork': { icon: 'cloudy', color: '#00ACC1' },
-  // Outdoor
-  'Hiking': { icon: 'trail-sign', color: '#5D4037' },
-  'Climbing': { icon: 'trending-up', color: '#795548' },
-  'Surfing': { icon: 'water', color: '#0288D1' },
-  'Skiing': { icon: 'snow', color: '#42A5F5' },
-  'Camping': { icon: 'bonfire', color: '#FF7043' },
-  'Trail Running': { icon: 'walk', color: '#4CAF50' },
-  'Mountain Biking': { icon: 'bicycle', color: '#795548' },
-  'Kayaking': { icon: 'boat', color: '#00897B' },
-  // Combat Sports
-  'Boxing': { icon: 'fitness', color: '#DC143C' },
-  'MMA': { icon: 'fitness', color: '#D32F2F' },
-  'Judo': { icon: 'body', color: '#1976D2' },
-  'Karate': { icon: 'hand-right', color: '#F57C00' },
-  'Taekwondo': { icon: 'flash', color: '#7B1FA2' },
-  'BJJ': { icon: 'body-outline', color: '#388E3C' },
-  'Kickboxing': { icon: 'fitness-outline', color: '#E64A19' },
-  'Muay Thai': { icon: 'flash-outline', color: '#FF5722' },
-  // Water Sports
-  'Scuba Diving': { icon: 'water', color: '#0277BD' },
-  'Snorkeling': { icon: 'water-outline', color: '#00ACC1' },
-  'Wakeboarding': { icon: 'boat', color: '#0288D1' },
-  'Water Polo': { icon: 'water', color: '#1976D2' },
-  'Paddle Board': { icon: 'boat', color: '#00BCD4' },
-  'Sailing': { icon: 'boat', color: '#0097A7' },
-  // Recovery
-  'Massage': { icon: 'hand-left', color: '#8BC34A' },
-  'Physiotherapy': { icon: 'bandage', color: '#3498DB' },
-  'Cryotherapy': { icon: 'snow', color: '#00BCD4' },
-  'Foam Rolling': { icon: 'resize', color: '#FF9800' },
-  'Sauna': { icon: 'flame', color: '#FF5722' },
-  'Ice Baths': { icon: 'water', color: '#2196F3' },
-  // Fallback
-  'Dance': { icon: 'musical-notes', color: '#E91E63' },
-};
+// INTEREST_DATA and PEAKS_DATA are now imported from ../../mocks
 
-// Mock Peaks data (will be replaced with real API)
-const PEAKS_DATA = [
-  {
-    id: 'peak1',
-    thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200',
-    user: { id: 'u1', name: 'Sarah', avatar: 'https://i.pravatar.cc/100?img=1' },
-    duration: 10,
-    hasNew: true,
-  },
-  {
-    id: 'peak2',
-    thumbnail: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=200',
-    user: { id: 'u2', name: 'Mike', avatar: 'https://i.pravatar.cc/100?img=12' },
-    duration: 6,
-    hasNew: true,
-  },
-  {
-    id: 'peak3',
-    thumbnail: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=200',
-    user: { id: 'u3', name: 'Emma', avatar: 'https://i.pravatar.cc/100?img=5' },
-    duration: 15,
-    hasNew: false,
-  },
-  {
-    id: 'peak4',
-    thumbnail: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200',
-    user: { id: 'u4', name: 'John', avatar: 'https://i.pravatar.cc/100?img=8' },
-    duration: 10,
-    hasNew: true,
-  },
-  {
-    id: 'peak5',
-    thumbnail: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=200',
-    user: { id: 'u5', name: 'Lisa', avatar: 'https://i.pravatar.cc/100?img=9' },
-    duration: 6,
-    hasNew: false,
-  },
-];
-
-// UI Post interface for VibesFeed display
-interface UIVibePost {
-  id: string;
-  type: 'image' | 'video' | 'carousel';
-  media: string;
-  height: number;
-  duration?: string;
-  slideCount?: number;
-  user: {
-    id: string;
-    name: string;
-    avatar: string;
-  };
-  title: string;
-  likes: number;
-  isLiked: boolean;
-  isSaved: boolean;
-  category: string;
-  tags?: string[];
-}
-
-// Transform Post from database to UI format
-// Handles both new format (media_urls, content) and legacy format (media_url, caption)
-const transformToUIPost = (post: Post, likedPostIds: Set<string>): UIVibePost => {
-  // Generate varied heights for masonry layout
-  const heights = [180, 200, 220, 240, 260, 280];
-  const randomHeight = heights[Math.abs(post.id.charCodeAt(0)) % heights.length];
-
-  // Get media URL - support both array and single string formats
-  const mediaUrl = post.media_urls?.[0] || post.media_url || 'https://via.placeholder.com/400x500';
-
-  // Get content - support both 'content' and 'caption' fields
-  const contentText = post.content || post.caption || '';
-
-  // Determine media type - normalize 'photo' to 'image'
-  const normalizedType = post.media_type === 'photo' ? 'image' : post.media_type;
-
-  return {
-    id: post.id,
-    type: normalizedType === 'video' ? 'video' : normalizedType === 'multiple' ? 'carousel' : 'image',
-    media: mediaUrl,
-    height: randomHeight,
-    slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
-    user: {
-      id: post.author?.id || post.author_id,
-      name: post.author?.full_name || post.author?.username || 'User',
-      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
-    },
-    title: contentText,
-    likes: post.likes_count || 0,
-    isLiked: likedPostIds.has(post.id),
-    isSaved: false, // TODO: Check saved status from API
-    category: post.tags?.[0] || 'Fitness',
-    tags: post.tags || [],
-  };
-};
+// UIVibePost and transformToVibePost are now imported from utils/postTransformers
 
 
 // Advanced Smuppy Mood Indicator Component
@@ -349,14 +193,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Share modal state
-  const [shareModalVisible, setShareModalVisible] = useState(false);
-  const [postToShare, setPostToShare] = useState<{
-    id: string;
-    media: string;
-    caption?: string;
-    user: { name: string; avatar: string };
-  } | null>(null);
+  // Share modal state (using shared hook)
+  const shareModal = useShareModal();
 
   // Follow state for modal
   const [isFollowingUser, setIsFollowingUser] = useState(false);
@@ -410,7 +248,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           postIds.filter(id => likedMap.get(id))
         );
 
-        const transformedPosts = data.map(post => transformToUIPost(post, likedIds));
+        const transformedPosts = data.map(post => transformToVibePost(post, likedIds));
 
         if (refresh || pageNum === 0) {
           setAllPosts(transformedPosts);
@@ -934,7 +772,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                     style={styles.modalAction}
                     onPress={() => {
                       if (selectedPost) {
-                        setPostToShare({
+                        shareModal.open({
                           id: selectedPost.id,
                           media: selectedPost.media,
                           caption: selectedPost.title,
@@ -943,7 +781,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                             avatar: selectedPost.user.avatar,
                           },
                         });
-                        setShareModalVisible(true);
                       }
                     }}
                   >
@@ -1147,12 +984,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       {/* Share Post Modal */}
       <SharePostModal
-        visible={shareModalVisible}
-        post={postToShare}
-        onClose={() => {
-          setShareModalVisible(false);
-          setPostToShare(null);
-        }}
+        visible={shareModal.isVisible}
+        post={shareModal.data}
+        onClose={shareModal.close}
       />
     </View>
   );

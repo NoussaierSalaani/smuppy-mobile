@@ -23,7 +23,7 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useFilters } from '../FilterContext';
+import { useFilters } from '../../stores/filterStore';
 import { FilterDefinition } from '../types';
 
 Dimensions.get('window');

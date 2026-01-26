@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
-import { useUser } from '../../context/UserContext';
+import { useUserStore } from '../../stores';
 
 // Same interests list as onboarding
 const ALL_INTERESTS = [
@@ -121,12 +121,13 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
   const insets = useSafeAreaInsets();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const { data: profileData, refetch } = useCurrentProfile();
-  const { updateProfile: updateLocalProfile, user } = useUser();
+  const user = useUserStore((state) => state.user);
+  const updateLocalProfile = useUserStore((state) => state.updateProfile);
 
   // Load interests from route params, profile data, or user context
   const initialInterests = route?.params?.currentInterests
     || profileData?.interests
-    || user.interests
+    || user?.interests
     || [];
 
   const [selected, setSelected] = useState<string[]>(initialInterests);
@@ -134,18 +135,18 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
 
   // Sync with profile data when it loads
   useEffect(() => {
-    const interests = profileData?.interests || user.interests || [];
+    const interests = profileData?.interests || user?.interests || [];
     if (interests.length > 0 && selected.length === 0) {
       setSelected(interests);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileData, user.interests]);
+  }, [profileData, user?.interests]);
 
   const hasChanges = useMemo(() => {
-    const currentInterests = profileData?.interests || user.interests || [];
+    const currentInterests = profileData?.interests || user?.interests || [];
     if (selected.length !== currentInterests.length) return true;
     return !selected.every(item => currentInterests.includes(item));
-  }, [selected, profileData?.interests, user.interests]);
+  }, [selected, profileData?.interests, user?.interests]);
 
   const toggle = useCallback((itemName: string) => {
     setSelected(prev =>
@@ -161,8 +162,8 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
       // Save to AWS
       await updateDbProfile({ interests: selected });
 
-      // Update local context
-      await updateLocalProfile({ ...user, interests: selected });
+      // Update local store
+      updateLocalProfile({ interests: selected });
 
       // Refresh profile data
       await refetch();

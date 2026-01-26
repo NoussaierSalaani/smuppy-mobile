@@ -410,6 +410,24 @@ INSERT INTO expertise (name, icon, category) VALUES
 ON CONFLICT (name) DO NOTHING;
 `;
 
+// SQL to drop all tables (for reset)
+const DROP_ALL_SQL = `
+DO $$ DECLARE
+    r RECORD;
+BEGIN
+    -- Disable foreign key checks temporarily
+    EXECUTE 'SET session_replication_role = replica';
+
+    -- Drop all tables in public schema
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+
+    -- Re-enable foreign key checks
+    EXECUTE 'SET session_replication_role = DEFAULT';
+END $$;
+`;
+
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
@@ -427,8 +445,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    log.info('Running database migration...');
     const db = await getPool();
+
+    // Check for reset flag in query params or body
+    const body = event.body ? JSON.parse(event.body) : {};
+    const resetMode = event.queryStringParameters?.reset === 'true' || body.reset === true;
+
+    if (resetMode) {
+      log.info('RESET MODE: Dropping all tables...');
+      await db.query(DROP_ALL_SQL);
+      log.info('All tables dropped successfully');
+    }
+
+    log.info('Running database migration...');
 
     // Split and execute statements
     const statements = SCHEMA_SQL.split(';').filter(s => s.trim().length > 0);

@@ -11,7 +11,6 @@ import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { createProfile } from '../../services/database';
 import { uploadProfileImage } from '../../services/imageUpload';
-import { useUser } from '../../context/UserContext';
 import { useUserStore } from '../../stores';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -80,7 +79,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
-  const { updateProfile: updateUserContext } = useUser();
   const setZustandUser = useUserStore((state) => state.setUser);
 
   // Shake animation
@@ -242,7 +240,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         businessPhone: businessPhone || '',
         locationsMode: locationsMode || '',
       };
-      await updateUserContext(userData);
       setZustandUser(userData);
 
       // Persist session
@@ -273,7 +270,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     } finally {
       setIsVerifying(false);
     }
-  }, [email, password, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, updateUserContext, setZustandUser]);
+  }, [email, password, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, setZustandUser]);
 
   // Handle code input
   const handleChange = useCallback((text: string, index: number) => {

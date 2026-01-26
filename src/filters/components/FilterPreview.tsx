@@ -16,7 +16,7 @@ import Animated, {
   useSharedValue,
   useFrameCallback,
 } from 'react-native-reanimated';
-import { useFilters } from '../FilterContext';
+import { useFilters } from '../../stores/filterStore';
 import { shaderManager } from '../core/ShaderManager';
 import { filterEngine } from '../core/FilterEngine';
 

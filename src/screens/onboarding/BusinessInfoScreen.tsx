@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
-import { buildPlacesAutocompleteUrl } from '../../config/api';
+import { searchNominatim, NominatimSearchResult } from '../../config/api';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -27,7 +27,7 @@ interface BusinessInfoScreenProps {
 export default function BusinessInfoScreen({ navigation, route }: BusinessInfoScreenProps) {
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
-  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -48,14 +48,13 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   const hasBusinessName = businessName.trim().length > 0;
   const isFormValid = hasBusinessName && address.trim().length > 0;
 
-  // Google Places autocomplete
+  // Nominatim (OpenStreetMap) autocomplete - FREE
   const searchPlaces = useCallback(async (query: string) => {
-    if (query.length < 2) return setAddressSuggestions([]);
+    if (query.length < 3) return setAddressSuggestions([]);
     setIsLoadingSuggestions(true);
     try {
-      const response = await fetch(buildPlacesAutocompleteUrl(query));
-      const data = await response.json();
-      setAddressSuggestions(data.predictions?.slice(0, 3) || []);
+      const results = await searchNominatim(query, { limit: 4 });
+      setAddressSuggestions(results);
     } catch {
       setAddressSuggestions([]);
     } finally {
@@ -71,8 +70,8 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
     searchTimeout.current = setTimeout(() => searchPlaces(text), 300);
   }, [searchPlaces]);
 
-  const selectAddress = useCallback((suggestion: any) => {
-    setAddress(suggestion.description);
+  const selectAddress = useCallback((suggestion: NominatimSearchResult) => {
+    setAddress(suggestion.display_name);
     setAddressSuggestions([]);
     Keyboard.dismiss();
   }, []);
@@ -187,12 +186,12 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
             <View style={styles.suggestions}>
               {addressSuggestions.map((s, i) => (
                 <TouchableOpacity
-                  key={s.place_id}
+                  key={s.place_id.toString()}
                   style={[styles.suggestionItem, i === addressSuggestions.length - 1 && styles.suggestionLast]}
                   onPress={() => selectAddress(s)}
                 >
                   <Ionicons name="location" size={16} color={COLORS.primary} />
-                  <Text style={styles.suggestionText} numberOfLines={1}>{s.description}</Text>
+                  <Text style={styles.suggestionText} numberOfLines={2}>{s.display_name}</Text>
                 </TouchableOpacity>
               ))}
             </View>

@@ -657,3 +657,32 @@ export type DeepPartial<T> = {
 export type Nullable<T> = T | null;
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+// ============================================
+// RE-EXPORTS FROM OTHER TYPE FILES
+// ============================================
+
+// Profile types for UI normalization
+export {
+  ProfileDataSource,
+  UserProfile as NormalizedUserProfile,
+  INITIAL_USER_PROFILE,
+  isEmailDerivedName,
+  resolveProfile,
+} from './profile';
+
+// Database types (for API/service layer)
+// Note: Use these for database operations
+export type {
+  Profile as DbProfile,
+  Post as DbPost,
+  Comment as DbComment,
+  Like as DbLike,
+  Follow as DbFollow,
+  FollowRequest as DbFollowRequest,
+  FollowResult,
+  BlockedUser,
+  MutedUser,
+  Message as DbMessage,
+  Conversation as DbConversation,
+} from '../services/database';

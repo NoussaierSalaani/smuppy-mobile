@@ -12,7 +12,6 @@ import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
 import { TabBarProvider } from '../context/TabBarContext';
-import { UserProvider } from '../context/UserContext';
 import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
 
 const { width, height } = Dimensions.get('window');
@@ -200,10 +199,9 @@ export default function AppNavigator(): React.JSX.Element {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
       {isReady && (
-        <UserProvider>
-          <TabBarProvider>
-            <NavigationContainer linking={linking}>
-              <RootStack.Navigator
+        <TabBarProvider>
+          <NavigationContainer linking={linking}>
+            <RootStack.Navigator
                 id="RootStack"
                 screenOptions={{
                   headerShown: false,
@@ -250,10 +248,9 @@ export default function AppNavigator(): React.JSX.Element {
                   !pendingRecovery &&
                   !justSignedUp &&
                   !isCheckingSignup && <RootStack.Screen name="Main" component={MainNavigator} />}
-              </RootStack.Navigator>
-            </NavigationContainer>
-          </TabBarProvider>
-        </UserProvider>
+            </RootStack.Navigator>
+          </NavigationContainer>
+        </TabBarProvider>
       )}
 
       {!hideSplash && (

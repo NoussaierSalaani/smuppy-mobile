@@ -12,7 +12,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { useUser } from '../../context/UserContext';
+import { useUserStore } from '../../stores';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { uploadProfileImage } from '../../services/imageUpload';
 import { awsAuth } from '../../services/aws-auth';
@@ -27,7 +27,8 @@ interface EditProfileScreenProps {
 
 const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const insets = useSafeAreaInsets();
-  const { user, updateProfile: updateLocalProfile } = useUser();
+  const user = useUserStore((state) => state.user);
+  const updateLocalProfile = useUserStore((state) => state.updateProfile);
   const { data: profileData, refetch } = useCurrentProfile();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const [hasChanges, setHasChanges] = useState(false);
@@ -51,12 +52,12 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   // Merge profile data from DB and local context
   const mergedProfile = {
     ...user,
-    fullName: profileData?.full_name || user.fullName,
-    avatar: profileData?.avatar_url || user.avatar,
-    bio: profileData?.bio || user.bio || '',
-    dateOfBirth: profileData?.date_of_birth || user.dateOfBirth,
-    gender: profileData?.gender || user.gender,
-    interests: profileData?.interests || user.interests || [],
+    fullName: profileData?.full_name || user?.fullName,
+    avatar: profileData?.avatar_url || user?.avatar,
+    bio: profileData?.bio || user?.bio || '',
+    dateOfBirth: profileData?.date_of_birth || user?.dateOfBirth,
+    gender: profileData?.gender || user?.gender,
+    interests: profileData?.interests || user?.interests || [],
   };
 
   // Form state - initialisé avec les données fusionnées
@@ -74,15 +75,15 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   // Sync with profile data when it changes
   useEffect(() => {
     const merged = {
-      avatar: profileData?.avatar_url || user.avatar || '',
-      fullName: profileData?.full_name || user.fullName || '',
-      bio: profileData?.bio || user.bio || '',
-      dateOfBirth: profileData?.date_of_birth || user.dateOfBirth || '',
-      gender: profileData?.gender || user.gender || '',
+      avatar: profileData?.avatar_url || user?.avatar || '',
+      fullName: profileData?.full_name || user?.fullName || '',
+      bio: profileData?.bio || user?.bio || '',
+      dateOfBirth: profileData?.date_of_birth || user?.dateOfBirth || '',
+      gender: profileData?.gender || user?.gender || '',
     };
     setAvatar(merged.avatar);
-    setFirstName(user.firstName || merged.fullName?.split(' ')[0] || '');
-    setLastName(user.lastName || merged.fullName?.split(' ').slice(1).join(' ') || '');
+    setFirstName(user?.firstName || merged.fullName?.split(' ')[0] || '');
+    setLastName(user?.lastName || merged.fullName?.split(' ').slice(1).join(' ') || '');
     setBio(merged.bio);
     setDateOfBirth(merged.dateOfBirth);
     setGender(merged.gender);
@@ -173,7 +174,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       // Handle avatar upload if changed
       let avatarUrl = avatar;
       if (avatarChanged && avatar && !avatar.startsWith('http')) {
-        const { url, error: uploadError } = await uploadProfileImage(avatar, profileData?.id || user.id || '');
+        const { url, error: uploadError } = await uploadProfileImage(avatar, profileData?.id || user?.id || '');
         if (uploadError) {
           alert.error('Upload Failed', 'Failed to upload photo. Please try again.');
           return;
@@ -190,8 +191,8 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         gender: gender,
       });
 
-      // Also update local context
-      await updateLocalProfile({
+      // Also update local store
+      updateLocalProfile({
         avatar: avatarUrl,
         firstName,
         lastName,

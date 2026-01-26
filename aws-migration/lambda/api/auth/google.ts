@@ -228,12 +228,15 @@ export const handler = async (
   } catch (error: any) {
     console.error('[Google Auth] Error:', error);
 
+    // SECURITY: Log full error server-side, return generic message to client
+    console.error('[GoogleAuth] Authentication error:', error.message);
+
     return {
       statusCode: 401,
       headers,
       body: JSON.stringify({
         error: 'Authentication failed',
-        message: error.message,
+        message: 'Unable to authenticate with Google. Please try again.',
       }),
     };
   }

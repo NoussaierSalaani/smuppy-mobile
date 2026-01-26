@@ -257,12 +257,15 @@ export const handler = async (
   } catch (error: any) {
     console.error('[Apple Auth] Error:', error);
 
+    // SECURITY: Log full error server-side, return generic message to client
+    console.error('[AppleAuth] Authentication error:', error.message);
+
     return {
       statusCode: 401,
       headers,
       body: JSON.stringify({
         error: 'Authentication failed',
-        message: error.message,
+        message: 'Unable to authenticate with Apple. Please try again.',
       }),
     };
   }

@@ -1,5 +1,5 @@
 # SMUPPY - DOCUMENTATION MASTER
-> Version: 3.0.0 | Mise a jour: 26 Janvier 2026
+> Version: 4.0.0 | Mise a jour: 26 Janvier 2026
 
 ---
 
@@ -10,7 +10,9 @@
 3. [Endpoints API](#3-endpoints-api)
 4. [Securite](#4-securite)
 5. [Tests & CI/CD](#5-tests--cicd)
-6. [Guide de Developpement](#6-guide-de-developpement)
+6. [Capacite & Performance](#6-capacite--performance)
+7. [Guide de Developpement](#7-guide-de-developpement)
+8. [Documentation Index](#8-documentation-index)
 
 ---
 
@@ -23,13 +25,13 @@
 | Frontend (UI/UX) | 8/10 | Complet (50+ ecrans) |
 | Backend (API) | 9/10 | 57 endpoints deployes |
 | Infrastructure | 9/10 | Production-ready |
-| Securite | 9/10 | Hardened (WAF, TLS, rotation) |
-| Tests | 6/10 | 46 unit tests + CI |
-| **GLOBAL** | **8.2/10** | **Production Ready** |
+| Securite | 9.5/10 | WAF, CSRF, TLS, logging structure |
+| Tests | 8/10 | 137 unit tests (80%+ coverage) + E2E |
+| **GLOBAL** | **8.6/10** | **Production Ready** |
 
 ### Verdict
 
-L'application est prete pour la production. Infrastructure AWS complete avec 57+ endpoints Lambda, securite renforcee, et pipeline CI/CD.
+L'application est prete pour la production. Infrastructure AWS complete avec 57+ endpoints Lambda, securite renforcee (CSRF, structured logging, Dependabot), et 137 tests avec 80%+ de couverture.
 
 ---
 
@@ -196,7 +198,7 @@ smuppy-mobile/
 | Element | Status |
 |---------|--------|
 | WAF avec 8 regles actives | OK |
-| Rate limiting (2000 req/5min global, 100 req/5min auth) | OK |
+| Rate limiting (10000 req/5min global, 100 req/5min auth) | OK |
 | CORS restrictif (pas de `*` en production) | OK |
 | Secrets dans AWS Secrets Manager | OK |
 | Redis TLS + auth token | OK |
@@ -205,6 +207,10 @@ smuppy-mobile/
 | Error handling sans information leakage | OK |
 | Middleware securite (SQL, XSS, Path Traversal) | OK |
 | Security headers (HSTS, CSP, X-Frame-Options) | OK |
+| CSRF protection avec tokens HMAC | OK |
+| Structured logging avec PII masking | OK |
+| Dependabot pour mises a jour automatiques | OK |
+| Pre-commit hooks (secrets detection) | OK |
 
 ### WAF Rules
 
@@ -212,42 +218,116 @@ smuppy-mobile/
 2. AWS Managed - Known Bad Inputs
 3. AWS Managed - SQL Injection Protection
 4. AWS Managed - Bot Control
-5. Rate Limiting Global
+5. Rate Limiting Global (10000 req/5min per IP)
 6. Geographic Blocking (pays sanctionnes)
 7. Anonymous IP List
 8. IP Reputation List
+
+### Politique de Securite
+
+Voir [.github/SECURITY.md](../.github/SECURITY.md) pour:
+- Signalement de vulnerabilites
+- Politique de divulgation responsable
+- Contact securite: security@smuppy.com
 
 ---
 
 ## 5. TESTS & CI/CD
 
-### Tests Unitaires
+### Tests Unitaires (Jest)
 
-| Suite | Tests | Status |
-|-------|-------|--------|
-| aws-api.test.ts | 22 tests | OK |
-| aws-auth.test.ts | 12 tests | OK |
-| validation.test.ts | 12 tests | OK |
-| **Total** | **46 tests** | **OK** |
+| Metrique | Valeur |
+|----------|--------|
+| Tests totaux | 137 |
+| Suites | 7 |
+| Statements | 91.88% |
+| Branches | 80% |
+| Functions | 92.68% |
+| Lines | 93.51% |
+
+**Commandes:**
+```bash
+npm test                # Run all tests
+npm run test:coverage   # With coverage report
+npm run test:ci         # CI mode
+```
+
+### Tests E2E (Maestro)
+
+| Flow | Description |
+|------|-------------|
+| auth/login.yaml | Flux de connexion |
+| auth/signup.yaml | Flux d'inscription |
+| feed/view-feed.yaml | Visualisation du feed |
+| feed/create-post.yaml | Creation de post |
+| profile/view-profile.yaml | Visualisation profil |
+| profile/edit-profile.yaml | Edition profil |
+
+**Commandes:**
+```bash
+npm run test:e2e           # Tous les tests
+npm run test:e2e:auth      # Auth seulement
+npm run test:e2e:feed      # Feed seulement
+npm run test:e2e:profile   # Profile seulement
+```
 
 ### Pre-commit Hooks
 
 - ESLint + TypeScript type checking (lint-staged)
 - Detection de secrets (AWS keys, private keys, passwords)
+- Verification des dependances vulnerables
 
 ### CI Pipeline (GitHub Actions)
 
 | Job | Description |
 |-----|-------------|
 | Lint & Typecheck | ESLint + TypeScript strict |
-| Unit Tests | Jest avec coverage |
+| Unit Tests | Jest avec coverage (80% threshold) |
 | Lambda Check | TypeScript compilation Lambda |
 | CDK Synth | Validation infrastructure |
 | Secret Scan | Gitleaks detection |
 
+### Dependabot
+
+Configuration automatique pour:
+- npm (root, lambda, CDK)
+- GitHub Actions
+- Scans hebdomadaires (lundi 09:00 Paris)
+
 ---
 
-## 6. GUIDE DE DEVELOPPEMENT
+## 6. CAPACITE & PERFORMANCE
+
+### Limites Infrastructure
+
+| Composant | Limite Production |
+|-----------|-------------------|
+| API Gateway | 100,000 req/s |
+| Lambda Concurrency | 1,000 (default, extensible a 10,000+) |
+| Aurora ACU | 0.5-128 auto-scaling |
+| WAF Rate Limit | 10,000 req/5min per IP |
+
+### Capacite Estimee
+
+| Metrique | Actuel | Optimise |
+|----------|--------|----------|
+| Utilisateurs simultanes | 50,000 | 500,000+ |
+| Requetes/seconde | 3,300 | 50,000+ |
+| DAU supportes | 500,000 | 2,000,000+ |
+
+### Couts Estimes
+
+| DAU | Cout mensuel |
+|-----|-------------|
+| 100,000 | ~$650 |
+| 500,000 | ~$2,450 |
+| 1,000,000 | ~$5,000 |
+
+Voir [CAPACITY_ANALYSIS.md](../aws-migration/CAPACITY_ANALYSIS.md) pour les details complets.
+
+---
+
+## 7. GUIDE DE DEVELOPPEMENT
 
 ### Commandes Utiles
 
@@ -285,6 +365,21 @@ aws logs tail /aws/lambda/smuppy-staging-api --follow
 
 ---
 
+## 8. DOCUMENTATION INDEX
+
+| Document | Description | Lien |
+|----------|-------------|------|
+| README.md | Vue d'ensemble projet | [Lien](../README.md) |
+| FEATURES_SPECS.md | Specifications UI/UX | [Lien](FEATURES_SPECS.md) |
+| aws-migration/README.md | Infrastructure AWS | [Lien](../aws-migration/README.md) |
+| CAPACITY_ANALYSIS.md | Analyse de capacite | [Lien](../aws-migration/CAPACITY_ANALYSIS.md) |
+| AWS_SCALING_GUIDE.md | Guide de scaling 5M+ | [Lien](../aws-scaling/AWS_SCALING_GUIDE.md) |
+| SECURITY.md | Politique de securite | [Lien](../.github/SECURITY.md) |
+| .maestro/README.md | Guide tests E2E | [Lien](../.maestro/README.md) |
+| AGENTS.md | Regles pour AI agents | [Lien](../AGENTS.md) |
+
+---
+
 ## ANNEXES
 
 ### Couleurs du Theme
@@ -301,9 +396,10 @@ aws logs tail /aws/lambda/smuppy-staging-api --follow
 | Type | Description |
 |------|-------------|
 | personal | Utilisateur standard |
-| pro_creator | Createur de contenu |
-| pro_local | Business local |
+| creator | Createur de contenu |
+| business | Business/entreprise |
 
 ---
 
 *Document genere le 26 Janvier 2026*
+*Version 4.0.0 - Tests 137 (80%+ coverage) - Securite 9.5/10*

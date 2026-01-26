@@ -1,6 +1,8 @@
 # Smuppy Mobile - Features & UI Specifications
 
-> Dernière mise à jour: 23 janvier 2026
+> Dernière mise à jour: 26 janvier 2026
+>
+> Documentation liee: [SMUPPY_MASTER_DOC.md](SMUPPY_MASTER_DOC.md) | [README.md](../README.md)
 
 ## Table des matières
 

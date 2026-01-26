@@ -1,5 +1,9 @@
 # 🚀 GUIDE DE SCALING AWS - SMUPPY
 
+> Pour la capacite actuelle (50k-500k utilisateurs), voir [CAPACITY_ANALYSIS.md](../aws-migration/CAPACITY_ANALYSIS.md)
+>
+> Ce guide couvre le scaling vers 5M+ utilisateurs.
+
 ## 📊 Résultats des Tests de Charge (25/01/2026)
 
 | VUs | Requêtes/sec | Latence Moy | Latence P99 | Succès |

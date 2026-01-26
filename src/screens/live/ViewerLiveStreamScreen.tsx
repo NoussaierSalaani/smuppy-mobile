@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
+import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
 import { RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
 
 const { width, height } = Dimensions.get('window');
@@ -75,7 +76,6 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     autoJoin: true,
   });
 
-  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [showReactions, setShowReactions] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -84,9 +84,53 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   const floatingReactions = useRef<{ id: string; emoji: string; anim: Animated.Value }[]>([]);
   const [, forceUpdate] = useState({});
 
-  // Cleanup on unmount
+  // Real-time live stream hook
+  const {
+    viewerCount: wsViewerCount,
+    comments: liveComments,
+    sendComment: sendLiveComment,
+    sendReaction: sendLiveReaction,
+    joinStream,
+    leaveStream,
+  } = useLiveStream({
+    channelName,
+    isHost: false,
+    onReaction: (reaction: LiveReaction) => {
+      // Trigger floating reaction animation
+      triggerFloatingReaction(reaction.emoji);
+    },
+  });
+
+  // Transform LiveComment to local Comment format
+  const comments: Comment[] = liveComments.map((c: LiveComment) => ({
+    id: c.id,
+    user: c.user.displayName || c.user.username,
+    avatar: c.user.avatarUrl,
+    text: c.content,
+  }));
+
+  // Trigger floating reaction animation
+  const triggerFloatingReaction = (emoji: string) => {
+    const id = Date.now().toString();
+    const anim = new Animated.Value(0);
+    floatingReactions.current.push({ id, emoji, anim });
+    forceUpdate({});
+
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 2000,
+      useNativeDriver: true,
+    }).start(() => {
+      floatingReactions.current = floatingReactions.current.filter(r => r.id !== id);
+      forceUpdate({});
+    });
+  };
+
+  // Join stream on mount and cleanup on unmount
   useEffect(() => {
+    joinStream();
     return () => {
+      leaveStream();
       destroy();
     };
   }, []);
@@ -111,38 +155,21 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
 
   const handleSendComment = () => {
     if (!newComment.trim()) return;
-    const comment: Comment = {
-      id: Date.now().toString(),
-      user: 'You',
-      avatar: 'https://i.pravatar.cc/100?img=8',
-      text: newComment.trim(),
-    };
-    setComments(prev => [...prev, comment]);
+    sendLiveComment(newComment.trim());
     setNewComment('');
-    // TODO: Send comment to real-time backend
   };
 
   const handleReaction = (emoji: string) => {
-    const id = Date.now().toString();
-    const anim = new Animated.Value(0);
-    floatingReactions.current.push({ id, emoji, anim });
-    forceUpdate({});
-
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 2000,
-      useNativeDriver: true,
-    }).start(() => {
-      floatingReactions.current = floatingReactions.current.filter(r => r.id !== id);
-      forceUpdate({});
-    });
-
+    // Trigger local animation
+    triggerFloatingReaction(emoji);
+    // Send to other viewers via WebSocket
+    sendLiveReaction(emoji);
     setShowReactions(false);
-    // TODO: Send reaction to real-time backend
   };
 
   const handleLeave = async () => {
     setShowLeaveModal(false);
+    await leaveStream();
     await leaveChannel();
     await destroy();
     navigation.goBack();
@@ -277,7 +304,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
         {/* Viewer Count */}
         <View style={styles.viewerCount}>
           <Ionicons name="eye" size={16} color="white" />
-          <Text style={styles.viewerCountText}>{remoteUsers.length > 0 ? remoteUsers.length : '...'}</Text>
+          <Text style={styles.viewerCountText}>{wsViewerCount > 0 ? wsViewerCount : '...'}</Text>
         </View>
       </View>
 

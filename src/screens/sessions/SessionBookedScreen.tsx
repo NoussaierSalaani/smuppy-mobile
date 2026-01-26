@@ -8,10 +8,13 @@ import {
   SafeAreaView,
   StatusBar,
   Image,
+  Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as Calendar from 'expo-calendar';
 import { COLORS, GRADIENTS } from '../../config/theme';
 
 export default function SessionBookedScreen(): React.JSX.Element {
@@ -29,8 +32,66 @@ export default function SessionBookedScreen(): React.JSX.Element {
     navigation.popToTop();
   };
 
-  const handleAddToCalendar = () => {
-    // TODO: Implement calendar integration
+  const handleAddToCalendar = async () => {
+    try {
+      // Request calendar permissions
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow calendar access to add this event.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Get default calendar
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const defaultCalendar = calendars.find(
+        (cal: Calendar.Calendar) =>
+          cal.allowsModifications &&
+          (Platform.OS === 'ios'
+            ? cal.source.name === 'iCloud' || cal.source.name === 'Default'
+            : cal.isPrimary)
+      ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
+
+      if (!defaultCalendar) {
+        Alert.alert('Error', 'No writable calendar found on this device.');
+        return;
+      }
+
+      // Create event date/time
+      const sessionDate = date.fullDate || new Date();
+      const [hours, minutes] = time.split(':').map(Number);
+      const startDate = new Date(sessionDate);
+      startDate.setHours(hours, minutes, 0, 0);
+
+      const endDate = new Date(startDate);
+      endDate.setMinutes(endDate.getMinutes() + duration);
+
+      // Create the calendar event
+      await Calendar.createEventAsync(defaultCalendar.id, {
+        title: `Session with ${creator.name}`,
+        notes: `Private 1-to-1 session on Smuppy\n\nDuration: ${duration} minutes`,
+        startDate,
+        endDate,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        alarms: [
+          { relativeOffset: -30 }, // 30 minutes before
+          { relativeOffset: -1440 }, // 1 day before
+        ],
+      });
+
+      Alert.alert(
+        'Added to Calendar',
+        `Your session with ${creator.name} has been added to your calendar.`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('[Calendar] Error adding event:', error);
+      Alert.alert('Error', 'Failed to add event to calendar. Please try again.');
+    }
   };
 
   const formatDate = () => {

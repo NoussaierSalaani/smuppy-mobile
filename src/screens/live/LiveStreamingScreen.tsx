@@ -22,12 +22,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
+import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
-interface Comment {
+interface UIComment {
   id: string;
   user: string;
   avatar: string;
@@ -72,14 +73,33 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     channelName,
   });
 
-  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [viewerCount, setViewerCount] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isStarting, setIsStarting] = useState(true);
 
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
+
+  // Real-time live stream hook
+  const {
+    viewerCount,
+    comments: liveComments,
+    sendComment: sendLiveComment,
+    joinStream,
+    leaveStream,
+  } = useLiveStream({
+    channelName,
+    isHost: true,
+  });
+
+  // Transform LiveComment to UIComment format
+  const comments: UIComment[] = liveComments.map((c: LiveComment) => ({
+    id: c.id,
+    user: c.user.displayName || c.user.username,
+    avatar: c.user.avatarUrl,
+    message: c.content,
+    isNew: c.isNew,
+  }));
 
   // Initialize and join on mount
   useEffect(() => {
@@ -95,7 +115,10 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     if (!success && error) {
       Alert.alert('Error', error || 'Failed to start stream');
       navigation.goBack();
+      return;
     }
+    // Join WebSocket channel for real-time comments/reactions
+    await joinStream();
     setIsStarting(false);
   };
 
@@ -109,10 +132,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     return () => clearInterval(timer);
   }, [isJoined]);
 
-  // Update viewer count based on remote users
-  useEffect(() => {
-    setViewerCount(remoteUsers.length);
-  }, [remoteUsers]);
+  // Note: viewerCount now comes from useLiveStream hook (WebSocket)
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -125,6 +145,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   };
 
   const endStream = async () => {
+    await leaveStream();
     await leaveChannel();
     await destroy();
     navigation.replace('LiveEnded', { duration, viewerCount, channelName });
@@ -132,20 +153,12 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
   const sendComment = () => {
     if (newComment.trim()) {
-      const comment: Comment = {
-        id: Date.now().toString(),
-        user: 'You',
-        avatar: hostAvatar,
-        message: newComment,
-        isNew: true,
-      };
-      setComments((prev) => [...prev, comment]);
+      sendLiveComment(newComment);
       setNewComment('');
-      // TODO: Send comment to real-time backend
     }
   };
 
-  const renderComment = ({ item }: { item: Comment }) => {
+  const renderComment = ({ item }: { item: UIComment }) => {
     if (!fadeAnims[item.id]) {
       fadeAnims[item.id] = new Animated.Value(item.isNew ? 0 : 1);
       if (item.isNew) {

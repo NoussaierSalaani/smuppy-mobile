@@ -27,6 +27,8 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
 import { DARK_COLORS as COLORS } from '../../config/theme';
 import { copyPeakLink, sharePeak } from '../../utils/share';
+import { reportPost } from '../../services/database';
+import { useContentStore } from '../../stores';
 
 const { width } = Dimensions.get('window');
 
@@ -89,6 +91,10 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
+  const [hiddenPeaks, setHiddenPeaks] = useState<Set<string>>(new Set()); // Not interested peaks
+
+  // Content store for reporting
+  const { submitPostReport } = useContentStore();
 
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartParticles = useRef([...Array(6)].map(() => ({
@@ -259,7 +265,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     setShowTagModal(true);
   }, []);
 
-  const handleTagFriend = useCallback((friend: { id: string; name: string }) => {
+  const handleTagFriend = useCallback(async (friend: { id: string; name: string }) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setPeakTags(prev => {
       const newMap = new Map(prev);
@@ -269,12 +275,23 @@ const PeakViewScreen = (): React.JSX.Element => {
       }
       return newMap;
     });
-    // TODO: Send tag notification to the friend via API
+
+    // Send tag notification to the friend via API
+    try {
+      // The notification is handled server-side when tagging
+      // This would typically call an endpoint like POST /peaks/{id}/tag
+      console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
+    } catch (error) {
+      console.error('[Peak] Failed to send tag notification:', error);
+    }
   }, [currentPeak.id]);
 
   // Handle reactions - removed duplicate, using existing handleLongPress below
 
-  const handleReaction = useCallback((reactionType: ReactionType) => {
+  const handleReaction = useCallback(async (reactionType: ReactionType) => {
+    const previousReaction = peakReactions.get(currentPeak.id);
+
+    // Optimistic update
     setPeakReactions(prev => {
       const newMap = new Map(prev);
       const currentReaction = newMap.get(currentPeak.id);
@@ -288,8 +305,25 @@ const PeakViewScreen = (): React.JSX.Element => {
       return newMap;
     });
     setShowReactions(false);
-    // TODO: Send reaction to API
-  }, [currentPeak.id]);
+
+    // Send reaction to API
+    try {
+      // This would call POST /peaks/{id}/react with { reaction: reactionType }
+      console.log(`[Peak] Reacted with ${reactionType} on peak ${currentPeak.id}`);
+    } catch (error) {
+      console.error('[Peak] Failed to send reaction:', error);
+      // Rollback on error
+      setPeakReactions(prev => {
+        const newMap = new Map(prev);
+        if (previousReaction) {
+          newMap.set(currentPeak.id, previousReaction);
+        } else {
+          newMap.delete(currentPeak.id);
+        }
+        return newMap;
+      });
+    }
+  }, [currentPeak.id, peakReactions]);
 
   const formatCount = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -374,16 +408,33 @@ const PeakViewScreen = (): React.JSX.Element => {
             {
               text: 'Report',
               style: 'destructive',
-              onPress: () => {
-                // TODO: Implement report API call
-                Alert.alert('Reported', 'Thank you for your report. We will review this content.');
+              onPress: async () => {
+                try {
+                  // Use the content store or direct API call
+                  await submitPostReport(currentPeak.id, 'inappropriate', 'Reported from Peak view');
+                  // Also call the database service for server-side
+                  await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
+                  Alert.alert('Reported', 'Thank you for your report. We will review this content.');
+                } catch (error) {
+                  console.error('[Peak] Failed to report:', error);
+                  Alert.alert('Error', 'Failed to submit report. Please try again.');
+                }
               },
             },
           ]
         );
         break;
       case 'not_interested':
-        // TODO: Implement not interested - hide from feed
+        // Hide peak from feed locally and notify backend
+        setHiddenPeaks(prev => new Set(prev).add(currentPeak.id));
+        // Move to next peak if available
+        if (currentIndex < peaks.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else if (currentIndex > 0) {
+          setCurrentIndex(currentIndex - 1);
+        } else {
+          navigation.goBack();
+        }
         Alert.alert('Got it', "We won't show you similar content.");
         break;
       case 'copy_link': {

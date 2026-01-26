@@ -11,7 +11,7 @@ env:
 
 jobs:
   # ============================================
-  # LINT & TYPE CHECK
+  # LINT & TYPE CHECK (STRICT)
   # ============================================
   lint:
     name: Lint & Type Check
@@ -30,12 +30,40 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run ESLint
-        run: npm run lint || echo "Linting completed with warnings"
-        continue-on-error: true
+        run: npm run lint
 
       - name: TypeScript type check
-        run: npx tsc --noEmit || echo "Type check completed with warnings"
-        continue-on-error: true
+        run: npm run typecheck
+
+  # ============================================
+  # TESTS
+  # ============================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run tests with coverage
+        run: npm run test:ci
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
 
   # ============================================
   # BUILD TEST
@@ -43,7 +71,7 @@ jobs:
   build:
     name: Build Test
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -87,6 +115,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -98,24 +128,50 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run npm audit
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Check for secrets in code
+      - name: Install gitleaks
         run: |
-          # Check for potential API keys or secrets in code
-          if grep -rE "(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]+['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/ 2>/dev/null | grep -v "placeholder\|example\|ENV\.\|process\.env"; then
-            echo "::warning::Potential hardcoded secrets found"
-          else
-            echo "No hardcoded secrets detected"
+          wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.2_linux_x64.tar.gz
+          chmod +x gitleaks
+
+      - name: Scan for secrets
+        run: ./gitleaks detect --source . --verbose --no-git
+        continue-on-error: true
+
+      - name: Check for hardcoded secrets in code
+        run: |
+          # Check for AWS keys
+          if grep -rE 'AKIA[0-9A-Z]{16}' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/ 2>/dev/null; then
+            echo "::error::AWS Access Key found in code!"
+            exit 1
           fi
 
+          # Check for private keys
+          if grep -rE 'PRIVATE KEY' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/ 2>/dev/null; then
+            echo "::error::Private key found in code!"
+            exit 1
+          fi
+
+          # Check for Stripe live keys
+          if grep -rE 'sk_live_[a-zA-Z0-9]{24}' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/ 2>/dev/null; then
+            echo "::error::Stripe live key found in code!"
+            exit 1
+          fi
+
+          echo "No hardcoded secrets detected"
+
   # ============================================
-  # DEPENDENCY CHECK
+  # LAMBDA TESTS (AWS Backend)
   # ============================================
-  dependencies:
-    name: Dependency Check
+  lambda-test:
+    name: Lambda Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aws-migration/lambda/api
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -124,13 +180,48 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
 
-      - name: Check for outdated dependencies
-        run: npm outdated || true
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Check package-lock integrity
-        run: npm ci --legacy-peer-deps
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        run: npx eslint . --ext .ts
+
+  # ============================================
+  # CDK SYNTH TEST
+  # ============================================
+  cdk-synth:
+    name: CDK Synth Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aws-migration/infrastructure
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        run: cd ../lambda/api && npm ci
+
+      - name: CDK Synth (staging)
+        run: npx cdk synth --context environment=staging SmuppyStack-staging
+        env:
+          AWS_REGION: us-east-1
+          AWS_ACCOUNT_ID: '123456789012'
 
 # ============================================
 # FUTURE: EAS BUILD (uncomment when ready)
@@ -138,7 +229,7 @@ jobs:
 # eas-build:
 #   name: EAS Build
 #   runs-on: ubuntu-latest
-#   needs: [build, security]
+#   needs: [build, security, test]
 #   if: github.ref == 'refs/heads/main'
 #   steps:
 #     - name: Checkout code

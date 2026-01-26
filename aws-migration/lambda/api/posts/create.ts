@@ -22,10 +22,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    // Get user ID from Cognito authorizer
-    const userId = event.requestContext.authorizer?.claims?.sub;
+    // Get Cognito sub from authorizer
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
-    if (!userId) {
+    if (!cognitoSub) {
       return {
         statusCode: 401,
         headers,
@@ -45,6 +45,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const db = await getPool();
+
+    // Resolve the user's profile ID from cognito_sub
+    const userResult = await db.query(
+      'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+      [cognitoSub]
+    );
+
+    if (userResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'Profile not found. Please complete onboarding.' }),
+      };
+    }
+
+    const userId = userResult.rows[0].id;
     const postId = uuidv4();
 
     // Insert post

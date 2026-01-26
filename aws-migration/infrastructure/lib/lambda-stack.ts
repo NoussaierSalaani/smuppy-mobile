@@ -671,6 +671,7 @@ export class LambdaStack extends cdk.NestedStack {
         'cognito-idp:AdminGetUser',
         'cognito-idp:AdminDeleteUser',
         'cognito-idp:SignUp',
+        'cognito-idp:ListUsers',
       ],
       resources: [userPool.userPoolArn],
     }));
@@ -791,7 +792,7 @@ export class LambdaStack extends cdk.NestedStack {
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
-    userPool.grant(this.checkUserFn, 'cognito-idp:AdminGetUser');
+    userPool.grant(this.checkUserFn, 'cognito-idp:AdminGetUser', 'cognito-idp:ListUsers');
 
     // ========================================
     // WebSocket Lambda Functions

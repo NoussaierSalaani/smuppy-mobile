@@ -214,22 +214,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Add updated_at
     updateFields.push(`updated_at = NOW()`);
 
-    // Add user ID for WHERE clause
-    values.push(userId);
-
-    // First, check if profile exists
+    // First, check if profile exists (by both id and cognito_sub for compatibility)
     const existingProfile = await db.query(
-      `SELECT id FROM profiles WHERE id = $1`,
+      `SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1`,
       [userId]
     );
 
     let result;
     if (existingProfile.rows.length === 0) {
-      // Create new profile
-      const insertFields = ['id'];
-      const insertValues = [userId];
-      const insertParams = ['$1'];
-      let insertIndex = 2;
+      // Create new profile - use cognito_sub as the primary id for simplicity
+      // This ensures all other queries using id = cognito_sub will work
+      const insertFields = ['id', 'cognito_sub'];
+      const insertValues = [userId, userId];
+      const insertParams = ['$1', '$2'];
+      let insertIndex = 3;
 
       for (const [apiField, dbField] of Object.entries(fieldMapping)) {
         if (body[apiField] !== undefined) {
@@ -250,7 +248,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         insertValues
       );
     } else {
-      // Update existing profile
+      // Update existing profile using the resolved profile ID
+      const profileId = existingProfile.rows[0].id;
+      values.push(profileId);
+
       result = await db.query(
         `UPDATE profiles
          SET ${updateFields.join(', ')}

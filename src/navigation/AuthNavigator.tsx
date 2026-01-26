@@ -178,6 +178,7 @@ export default function AuthNavigator({ route }: AuthNavigatorProps): React.JSX.
         name="Success"
         component={SuccessScreen}
         initialParams={{ onSignupComplete }}
+        options={{ gestureEnabled: false }}
       />
     </Stack.Navigator>
   );

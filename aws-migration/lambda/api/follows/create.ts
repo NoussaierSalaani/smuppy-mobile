@@ -16,9 +16,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const followerId = event.requestContext.authorizer?.claims?.sub;
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
-    if (!followerId) {
+    if (!cognitoSub) {
       return {
         statusCode: 401,
         headers,
@@ -37,6 +37,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    const db = await getPool();
+
+    // Resolve the follower's profile ID from cognito_sub
+    const followerResult = await db.query(
+      'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+      [cognitoSub]
+    );
+
+    if (followerResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'Your profile not found. Please complete onboarding.' }),
+      };
+    }
+
+    const followerId = followerResult.rows[0].id;
+
     if (followerId === followingId) {
       return {
         statusCode: 400,
@@ -44,8 +62,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Cannot follow yourself' }),
       };
     }
-
-    const db = await getPool();
 
     // Check if target user exists and if they're private
     const targetResult = await db.query(

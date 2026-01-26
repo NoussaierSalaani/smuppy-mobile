@@ -84,7 +84,7 @@ export class SmuppyGlobalStack extends cdk.Stack {
           'X-Amz-Security-Token',
           'X-Amz-User-Agent',
         ],
-        exposedHeaders: ['ETag', 'x-amz-meta-*'],
+        exposedHeaders: ['ETag', 'Content-Length', 'Content-Type', 'x-amz-request-id', 'x-amz-id-2'],
         maxAge: 3600,
       }],
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
@@ -352,12 +352,15 @@ export class SmuppyGlobalStack extends cdk.Stack {
         {
           id: 'DeleteOldLogs',
           expiration: cdk.Duration.days(isProduction ? 90 : 30),
-          transitions: [
-            {
-              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: cdk.Duration.days(30),
-            },
-          ],
+          // Only add transitions in production (expiration must be > transition days)
+          ...(isProduction && {
+            transitions: [
+              {
+                storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+                transitionAfter: cdk.Duration.days(30),
+              },
+            ],
+          }),
         },
       ],
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,

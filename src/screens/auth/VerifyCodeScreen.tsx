@@ -168,12 +168,9 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     Keyboard.dismiss();
 
     try {
-      await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
-
-      // Confirm signup
+      // Confirm signup FIRST (don't set flag yet)
       const confirmed = await awsAuth.confirmSignUp(email || '', fullCode);
       if (!confirmed) {
-        await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Verification failed. Please try again.');
         triggerShake();
         clearCode(true);
@@ -183,11 +180,13 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       // Sign in
       const user = await backend.signIn({ email: email || '', password: password || '' });
       if (!user) {
-        await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
         setError('Account verified but login failed. Please try logging in.');
         triggerShake();
         return;
       }
+
+      // Set JUST_SIGNED_UP flag AFTER successful confirmation and sign-in
+      await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
 
       // Upload profile image
       let avatarUrl: string | null = null;
@@ -256,13 +255,16 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       });
 
     } catch (err: any) {
-      await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
+      // Only delete flag if it was already set (during profile creation phase)
+      // This won't affect anything since we only set it after successful confirmation now
       const msg = err?.message || '';
 
       if (msg.includes('expired') || msg.includes('ExpiredCode')) {
         setError('Code expired. Please request a new one.');
       } else if (msg.includes('invalid') || msg.includes('CodeMismatch')) {
         setError('Invalid code. Please try again.');
+      } else if (msg.includes('already')) {
+        setError('This email is already registered. Please log in instead.');
       } else {
         setError('Verification failed. Please try again.');
       }

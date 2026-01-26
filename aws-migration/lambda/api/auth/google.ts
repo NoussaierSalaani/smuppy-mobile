@@ -85,7 +85,7 @@ const getOrCreateCognitoUser = async (
   googleUserId: string,
   email?: string,
   name?: string
-): Promise<{ userId: string; isNewUser: boolean }> => {
+): Promise<{ userId: string; isNewUser: boolean; password: string }> => {
   const username = `google_${googleUserId}`;
 
   try {
@@ -96,7 +96,17 @@ const getOrCreateCognitoUser = async (
         Username: username,
       })
     );
-    return { userId: username, isNewUser: false };
+    // For existing users, reset password since we don't store it
+    const newPassword = generateSecurePassword();
+    await cognitoClient.send(
+      new AdminSetUserPasswordCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: username,
+        Password: newPassword,
+        Permanent: true,
+      })
+    );
+    return { userId: username, isNewUser: false, password: newPassword };
   } catch (error) {
     if (!(error instanceof UserNotFoundException)) {
       throw error;
@@ -104,13 +114,11 @@ const getOrCreateCognitoUser = async (
   }
 
   // Create new user
-  const tempPassword = generateSecurePassword();
+  const password = generateSecurePassword();
 
   const userAttributes = [
     { Name: 'email', Value: email || `${googleUserId}@google.com` },
     { Name: 'email_verified', Value: 'true' },
-    { Name: 'custom:auth_provider', Value: 'google' },
-    { Name: 'custom:google_user_id', Value: googleUserId },
   ];
 
   if (name) {
@@ -131,16 +139,16 @@ const getOrCreateCognitoUser = async (
     new AdminSetUserPasswordCommand({
       UserPoolId: USER_POOL_ID,
       Username: username,
-      Password: tempPassword,
+      Password: password,
       Permanent: true,
     })
   );
 
-  return { userId: username, isNewUser: true };
+  return { userId: username, isNewUser: true, password };
 };
 
 // Authenticate user and get tokens
-const authenticateUser = async (username: string): Promise<{
+const authenticateUser = async (username: string, password: string): Promise<{
   accessToken: string;
   idToken: string;
   refreshToken: string;
@@ -152,6 +160,7 @@ const authenticateUser = async (username: string): Promise<{
       AuthFlow: 'ADMIN_NO_SRP_AUTH',
       AuthParameters: {
         USERNAME: username,
+        PASSWORD: password,
       },
     })
   );
@@ -203,7 +212,7 @@ export const handler = async (
     log.info('Token verified', { googleUserId: googlePayload.sub });
 
     // Get or create Cognito user
-    const { userId, isNewUser } = await getOrCreateCognitoUser(
+    const { userId, isNewUser, password } = await getOrCreateCognitoUser(
       googlePayload.sub,
       googlePayload.email,
       googlePayload.name
@@ -211,7 +220,7 @@ export const handler = async (
     log.info('User authenticated', { userId, isNewUser });
 
     // Get Cognito tokens
-    const tokens = await authenticateUser(userId);
+    const tokens = await authenticateUser(userId, password);
 
     log.logResponse(200, Date.now() - startTime, { isNewUser });
 

@@ -63,7 +63,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } = event.queryStringParameters || {};
 
     const parsedLimit = Math.min(parseInt(limit), 100);
-    const requesterId = event.requestContext.authorizer?.claims?.sub;
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const cacheKey = `posts:list:${type}:${userId || 'all'}:${cursor || 'first'}:${parsedLimit}`;
 
     // Try cache first (for public feeds)
@@ -79,6 +79,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Use reader pool for read-heavy list operations (distributed across read replicas)
     const pool = await getReaderPool();
+
+    // Resolve the user's profile ID from cognito_sub if authenticated
+    let requesterId: string | null = null;
+    if (cognitoSub) {
+      const userResult = await pool.query(
+        'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+        [cognitoSub]
+      );
+      requesterId = userResult.rows[0]?.id || null;
+    }
+
     let query: string;
     let params: any[];
 

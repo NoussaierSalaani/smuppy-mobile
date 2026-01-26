@@ -240,18 +240,20 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, []);
 
   // Fetch suggestions with pagination - uses refs to avoid re-render loops
-  const fetchSuggestions = useCallback(async (append = false) => {
-    if (loadingSuggestionsRef.current || !hasMoreSuggestionsRef.current) return;
+  const fetchSuggestions = useCallback(async (append = false, force = false) => {
+    // Allow force fetch to bypass loading check (used when following a user)
+    if (loadingSuggestionsRef.current && !force) return;
+    if (!hasMoreSuggestionsRef.current && !force) return;
 
     try {
       loadingSuggestionsRef.current = true;
       const offset = append ? suggestionsOffsetRef.current : 0;
-      const { data, error } = await getSuggestedProfiles(10, offset);
+      const { data, error } = await getSuggestedProfiles(15, offset); // Fetch 15 to have buffer
 
       // Stop retrying on error
       if (error) {
         console.error('[FanFeed] Error fetching suggestions:', error);
-        hasMoreSuggestionsRef.current = false;
+        // Don't set hasMore to false on error - allow retry
         loadingSuggestionsRef.current = false;
         return;
       }
@@ -276,7 +278,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             return [...prev, ...newSuggestions];
           });
         } else {
-          setSuggestions(transformed);
+          // Filter out already followed users on initial load too
+          const filtered = transformed.filter(s => !followedUserIds.current.has(s.id));
+          setSuggestions(filtered);
         }
 
         suggestionsOffsetRef.current = offset + data.length;
@@ -286,7 +290,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
     } catch (err) {
       console.error('[FanFeed] Error fetching suggestions:', err);
-      hasMoreSuggestionsRef.current = false;
+      // Don't disable hasMore on error - allow retry
     } finally {
       loadingSuggestionsRef.current = false;
     }
@@ -295,7 +299,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Keep track of followed user IDs to exclude from suggestions
   const followedUserIds = useRef<Set<string>>(new Set());
 
-  // Handle track/follow user - removes from list without scroll reset
+  // Handle track/follow user - removes from list and immediately loads replacement
   const handleTrackUser = useCallback(async (userId: string) => {
     // Prevent double-tap: skip if already tracking this user
     if (trackingUserIds.has(userId)) {
@@ -312,31 +316,38 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       // Remove from suggestions immediately (smooth animation)
       setSuggestions(prev => prev.filter(s => s.id !== userId));
 
-      await followUser(userId);
+      // Immediately fetch more suggestions to replace the removed one
+      // Use force=true to bypass loading check
+      fetchSuggestions(true, true);
 
-      // If feed is empty, refresh to show new posts from followed user
-      if (posts.length === 0) {
-        await fetchPosts(0, true);
-      }
-    } catch (err) {
-      console.error('[FanFeed] Error following user:', err);
-      // On error, remove from followed set
-      followedUserIds.current.delete(userId);
-    } finally {
-      // Remove from tracking set
-      setTrackingUserIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
+      // Follow user in background (don't await to keep UI responsive)
+      followUser(userId).then(() => {
+        // If feed is empty, refresh to show new posts from followed user
+        if (posts.length === 0) {
+          fetchPosts(0, true);
+        }
+      }).catch(err => {
+        console.error('[FanFeed] Error following user:', err);
+        // On error, remove from followed set
+        followedUserIds.current.delete(userId);
       });
+    } finally {
+      // Remove from tracking set after a short delay to prevent rapid re-clicks
+      setTimeout(() => {
+        setTrackingUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+      }, 500);
     }
-  }, [trackingUserIds, posts.length, fetchPosts]);
+  }, [trackingUserIds, posts.length, fetchPosts, fetchSuggestions]);
 
   // Refill suggestions when running low - load more from database
   useEffect(() => {
-    // Refill when we have less than 3 suggestions
-    if (suggestions.length < 3 && suggestions.length >= 0) {
-      fetchSuggestions(true);
+    // Refill when we have less than 5 suggestions (increased buffer)
+    if (suggestions.length < 5 && suggestions.length >= 0) {
+      fetchSuggestions(true, true); // Force fetch to ensure we always refill
     }
   }, [suggestions.length, fetchSuggestions]);
 

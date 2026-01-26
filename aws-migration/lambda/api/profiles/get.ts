@@ -69,16 +69,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let isFollowedBy = false;
 
     if (currentUserId && currentUserId !== profile.id) {
-      const followResult = await db.query(
-        `SELECT
-          EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_following,
-          EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = $1 AND status = 'accepted') as is_followed_by`,
-        [currentUserId, profile.id]
+      // First, resolve the current user's profile ID from cognito_sub
+      const userResult = await db.query(
+        'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+        [currentUserId]
       );
+      const resolvedUserId = userResult.rows[0]?.id;
 
-      if (followResult.rows.length > 0) {
-        isFollowing = followResult.rows[0].is_following;
-        isFollowedBy = followResult.rows[0].is_followed_by;
+      if (resolvedUserId && resolvedUserId !== profile.id) {
+        const followResult = await db.query(
+          `SELECT
+            EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_following,
+            EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = $1 AND status = 'accepted') as is_followed_by`,
+          [resolvedUserId, profile.id]
+        );
+
+        if (followResult.rows.length > 0) {
+          isFollowing = followResult.rows[0].is_following;
+          isFollowedBy = followResult.rows[0].is_followed_by;
+        }
       }
     }
 

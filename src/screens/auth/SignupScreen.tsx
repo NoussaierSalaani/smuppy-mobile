@@ -213,7 +213,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
           setErrorModal({
             visible: true,
             title: 'Unable to Continue',
-            message: 'Unable to create account with this email. Please try again or log in.',
+            message: 'Unable to create account. Please try again.',
           });
           return;
         }

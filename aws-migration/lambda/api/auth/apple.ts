@@ -107,7 +107,7 @@ const generateSecurePassword = (): string => {
 const getOrCreateCognitoUser = async (
   appleUserId: string,
   email?: string
-): Promise<{ userId: string; isNewUser: boolean }> => {
+): Promise<{ userId: string; isNewUser: boolean; password: string }> => {
   const username = `apple_${appleUserId}`;
 
   try {
@@ -118,7 +118,17 @@ const getOrCreateCognitoUser = async (
         Username: username,
       })
     );
-    return { userId: username, isNewUser: false };
+    // For existing users, we need to reset the password since we don't store it
+    const newPassword = generateSecurePassword();
+    await cognitoClient.send(
+      new AdminSetUserPasswordCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: username,
+        Password: newPassword,
+        Permanent: true,
+      })
+    );
+    return { userId: username, isNewUser: false, password: newPassword };
   } catch (error) {
     if (!(error instanceof UserNotFoundException)) {
       throw error;
@@ -126,7 +136,7 @@ const getOrCreateCognitoUser = async (
   }
 
   // Create new user
-  const tempPassword = generateSecurePassword();
+  const password = generateSecurePassword();
 
   await cognitoClient.send(
     new AdminCreateUserCommand({
@@ -135,8 +145,6 @@ const getOrCreateCognitoUser = async (
       UserAttributes: [
         { Name: 'email', Value: email || `${appleUserId}@privaterelay.appleid.com` },
         { Name: 'email_verified', Value: 'true' },
-        { Name: 'custom:auth_provider', Value: 'apple' },
-        { Name: 'custom:apple_user_id', Value: appleUserId },
       ],
       MessageAction: 'SUPPRESS', // Don't send welcome email
     })
@@ -147,21 +155,21 @@ const getOrCreateCognitoUser = async (
     new AdminSetUserPasswordCommand({
       UserPoolId: USER_POOL_ID,
       Username: username,
-      Password: tempPassword,
+      Password: password,
       Permanent: true,
     })
   );
 
-  return { userId: username, isNewUser: true };
+  return { userId: username, isNewUser: true, password };
 };
 
 // Authenticate user and get tokens
-const authenticateUser = async (username: string): Promise<{
+const authenticateUser = async (username: string, password: string): Promise<{
   accessToken: string;
   idToken: string;
   refreshToken: string;
 }> => {
-  // Use admin auth to bypass password
+  // Use admin auth with the password we set
   const authResult = await cognitoClient.send(
     new AdminInitiateAuthCommand({
       UserPoolId: USER_POOL_ID,
@@ -169,7 +177,7 @@ const authenticateUser = async (username: string): Promise<{
       AuthFlow: 'ADMIN_NO_SRP_AUTH',
       AuthParameters: {
         USERNAME: username,
-        // For social login, we use a custom auth flow
+        PASSWORD: password,
       },
     })
   );
@@ -240,14 +248,14 @@ export const handler = async (
     }
 
     // Get or create Cognito user
-    const { userId, isNewUser } = await getOrCreateCognitoUser(
+    const { userId, isNewUser, password } = await getOrCreateCognitoUser(
       applePayload.sub,
       applePayload.email
     );
     log.info('User authenticated', { userId, isNewUser });
 
     // Get Cognito tokens
-    const tokens = await authenticateUser(userId);
+    const tokens = await authenticateUser(userId, password);
 
     log.logResponse(200, Date.now() - startTime, { isNewUser });
 

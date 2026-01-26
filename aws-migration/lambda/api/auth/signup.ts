@@ -2,8 +2,13 @@
  * Smart Signup Lambda Handler
  * Handles user registration with proper handling of unconfirmed users
  *
+ * IMPORTANT: Checks BOTH by generated username AND by email attribute
+ * This handles legacy accounts with different username formats
+ *
+ * Includes rate limiting: 5 attempts per IP per 5 minutes
+ *
  * Logic:
- * 1. Check if user exists
+ * 1. Check if user exists (by email AND by username)
  * 2. If user exists and is UNCONFIRMED -> delete and recreate with new password
  * 3. If user exists and is CONFIRMED -> return error (email already taken)
  * 4. If user doesn't exist -> create new user
@@ -15,6 +20,7 @@ import {
   SignUpCommand,
   AdminGetUserCommand,
   AdminDeleteUserCommand,
+  ListUsersCommand,
   UserNotFoundException,
   UsernameExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
@@ -30,6 +36,42 @@ if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is r
 
 const USER_POOL_ID = process.env.USER_POOL_ID;
 const CLIENT_ID = process.env.CLIENT_ID;
+
+/**
+ * Rate Limiting
+ * 5 attempts per IP per 5 minutes
+ */
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_ATTEMPTS = 5;
+
+const checkRateLimit = (ip: string): { allowed: boolean; retryAfter?: number } => {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+
+  if (record.count >= MAX_ATTEMPTS) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+
+  record.count++;
+  return { allowed: true };
+};
+
+// Cleanup old entries periodically
+const cleanupRateLimitMap = () => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (now > value.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+};
 
 interface SignupRequest {
   email: string;
@@ -48,7 +90,35 @@ const generateUsername = (email: string): string => {
   return `u_${emailHash}`;
 };
 
-// Check if user exists and get their status
+// Check if user exists by email attribute (catches legacy accounts with different username formats)
+const checkUserByEmail = async (email: string): Promise<{
+  exists: boolean;
+  confirmed: boolean;
+  username?: string;
+}> => {
+  try {
+    const response = await cognitoClient.send(
+      new ListUsersCommand({
+        UserPoolId: USER_POOL_ID,
+        Filter: `email = "${email.toLowerCase()}"`,
+        Limit: 1,
+      })
+    );
+
+    if (response.Users && response.Users.length > 0) {
+      const user = response.Users[0];
+      const isConfirmed = user.UserStatus === 'CONFIRMED';
+      return { exists: true, confirmed: isConfirmed, username: user.Username };
+    }
+
+    return { exists: false, confirmed: false };
+  } catch (error) {
+    log.error('Error checking user by email', error);
+    return { exists: false, confirmed: false };
+  }
+};
+
+// Check if user exists and get their status (by username)
 const checkUserStatus = async (username: string): Promise<{
   exists: boolean;
   confirmed: boolean;
@@ -123,6 +193,33 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
 
+  // Cleanup old rate limit entries
+  cleanupRateLimitMap();
+
+  // Get client IP for rate limiting
+  const clientIp = event.requestContext.identity?.sourceIp ||
+                   event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
+                   'unknown';
+
+  // Check rate limit
+  const rateLimit = checkRateLimit(clientIp);
+  if (!rateLimit.allowed) {
+    log.info('Rate limited', { ip: clientIp, retryAfter: rateLimit.retryAfter });
+    return {
+      statusCode: 429,
+      headers: {
+        ...headers,
+        'Retry-After': rateLimit.retryAfter?.toString() || '300',
+      },
+      body: JSON.stringify({
+        success: false,
+        code: 'RATE_LIMITED',
+        message: `Too many attempts. Please wait ${Math.ceil((rateLimit.retryAfter || 300) / 60)} minutes.`,
+        retryAfter: rateLimit.retryAfter,
+      }),
+    };
+  }
+
   try {
     if (!event.body) {
       return {
@@ -149,21 +246,24 @@ export const handler = async (
       };
     }
 
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Generate the Cognito username
-    const cognitoUsername = username || generateUsername(email);
+    const cognitoUsername = username || generateUsername(normalizedEmail);
 
     // SECURITY: Log only masked identifier to prevent PII in logs
     log.setRequestId(getRequestId(event));
     log.info('Processing signup for user', { username: cognitoUsername.substring(0, 2) + '***' });
 
-    // Check if user already exists
-    const userStatus = await checkUserStatus(cognitoUsername);
+    // FIRST: Check if user already exists BY EMAIL (catches legacy accounts with different username formats)
+    const emailCheck = await checkUserByEmail(normalizedEmail);
 
-    if (userStatus.exists) {
-      if (userStatus.confirmed) {
+    if (emailCheck.exists) {
+      if (emailCheck.confirmed) {
         // User exists and is confirmed - cannot sign up again
         // Return generic error to prevent email enumeration
-        log.info('User exists and is confirmed');
+        log.info('User exists by email and is confirmed', { existingUsername: emailCheck.username });
         return {
           statusCode: 409,
           headers,
@@ -174,10 +274,36 @@ export const handler = async (
         };
       } else {
         // User exists but is UNCONFIRMED - delete and recreate with new password
-        log.info('User exists but is unconfirmed - will delete and recreate');
-        await deleteUnconfirmedUser(cognitoUsername);
+        // Use the ACTUAL username from the email lookup (not the generated one)
+        const usernameToDelete = emailCheck.username || cognitoUsername;
+        log.info('User exists by email but is unconfirmed - will delete and recreate', { usernameToDelete });
+        await deleteUnconfirmedUser(usernameToDelete);
         // Small delay to ensure deletion is processed
         await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } else {
+      // SECOND: Also check by generated username (fallback)
+      const userStatus = await checkUserStatus(cognitoUsername);
+
+      if (userStatus.exists) {
+        if (userStatus.confirmed) {
+          // User exists and is confirmed - cannot sign up again
+          log.info('User exists by username and is confirmed');
+          return {
+            statusCode: 409,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: 'Unable to create account. Please try again or login.'
+            }),
+          };
+        } else {
+          // User exists but is UNCONFIRMED - delete and recreate with new password
+          log.info('User exists by username but is unconfirmed - will delete and recreate');
+          await deleteUnconfirmedUser(cognitoUsername);
+          // Small delay to ensure deletion is processed
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
     }
 

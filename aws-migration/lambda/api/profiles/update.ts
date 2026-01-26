@@ -1,11 +1,114 @@
 /**
  * Update Profile Lambda Handler
  * Updates the current user's profile
+ *
+ * SECURITY: Input validation and sanitization
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/security';
+
+// Validation rules for profile fields
+const VALIDATION_RULES: Record<string, { maxLength: number; pattern?: RegExp; required?: boolean }> = {
+  username: { maxLength: 30, pattern: /^[a-zA-Z0-9_]{3,30}$/ },
+  fullName: { maxLength: 100 },
+  displayName: { maxLength: 50 },
+  bio: { maxLength: 500 },
+  avatarUrl: { maxLength: 2048, pattern: /^https?:\/\/.+/ },
+  coverUrl: { maxLength: 2048, pattern: /^https?:\/\/.+/ },
+  website: { maxLength: 200, pattern: /^https?:\/\/.+/ },
+  gender: { maxLength: 20 },
+  businessName: { maxLength: 100 },
+  businessCategory: { maxLength: 50 },
+  businessAddress: { maxLength: 500 },
+  businessPhone: { maxLength: 20, pattern: /^[+\d\s\-()]{0,20}$/ },
+};
+
+// Validate and sanitize a single field
+function validateField(field: string, value: unknown): { valid: boolean; sanitized: unknown; error?: string } {
+  const rules = VALIDATION_RULES[field];
+
+  // Boolean fields
+  if (field === 'isPrivate' || field === 'onboardingCompleted') {
+    if (typeof value !== 'boolean') {
+      return { valid: false, sanitized: null, error: `${field} must be a boolean` };
+    }
+    return { valid: true, sanitized: value };
+  }
+
+  // Array fields (interests, expertise)
+  if (field === 'interests' || field === 'expertise') {
+    if (!Array.isArray(value)) {
+      return { valid: false, sanitized: null, error: `${field} must be an array` };
+    }
+    if (value.length > 20) {
+      return { valid: false, sanitized: null, error: `${field} cannot have more than 20 items` };
+    }
+    const sanitized = value.map(v => typeof v === 'string' ? sanitizeInput(v, 50) : '').filter(Boolean);
+    return { valid: true, sanitized };
+  }
+
+  // Object fields (socialLinks)
+  if (field === 'socialLinks') {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return { valid: false, sanitized: null, error: `${field} must be an object` };
+    }
+    const sanitized: Record<string, string> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof val === 'string') {
+        sanitized[sanitizeInput(key, 30)] = sanitizeInput(val, 200);
+      }
+    }
+    return { valid: true, sanitized };
+  }
+
+  // Date field
+  if (field === 'dateOfBirth') {
+    if (typeof value !== 'string') {
+      return { valid: false, sanitized: null, error: `${field} must be a string` };
+    }
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(value)) {
+      return { valid: false, sanitized: null, error: `${field} must be in YYYY-MM-DD format` };
+    }
+    return { valid: true, sanitized: value };
+  }
+
+  // Account type validation
+  if (field === 'accountType') {
+    const validTypes = ['personal', 'creator', 'business'];
+    if (!validTypes.includes(value as string)) {
+      return { valid: false, sanitized: null, error: `${field} must be one of: ${validTypes.join(', ')}` };
+    }
+    return { valid: true, sanitized: value };
+  }
+
+  // Locations mode validation
+  if (field === 'locationsMode') {
+    const validModes = ['all', 'followers', 'none'];
+    if (!validModes.includes(value as string)) {
+      return { valid: false, sanitized: null, error: `${field} must be one of: ${validModes.join(', ')}` };
+    }
+    return { valid: true, sanitized: value };
+  }
+
+  // String fields with rules
+  if (rules) {
+    if (typeof value !== 'string') {
+      return { valid: false, sanitized: null, error: `${field} must be a string` };
+    }
+    const sanitized = sanitizeInput(value, rules.maxLength);
+    if (rules.pattern && !rules.pattern.test(sanitized)) {
+      return { valid: false, sanitized: null, error: `${field} has invalid format` };
+    }
+    return { valid: true, sanitized };
+  }
+
+  // Unknown field - skip
+  return { valid: false, sanitized: null, error: 'Unknown field' };
+}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -22,7 +125,42 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const body = JSON.parse(event.body || '{}');
+    const rawBody = JSON.parse(event.body || '{}');
+
+    // Validate and sanitize all input fields
+    const body: Record<string, unknown> = {};
+    const errors: string[] = [];
+
+    for (const [field, value] of Object.entries(rawBody)) {
+      const result = validateField(field, value);
+      if (result.valid) {
+        body[field] = result.sanitized;
+      } else if (result.error && result.error !== 'Unknown field') {
+        errors.push(result.error);
+      }
+    }
+
+    if (errors.length > 0) {
+      logSecurityEvent('invalid_input', {
+        userId,
+        errors,
+        ip: event.requestContext.identity?.sourceIp,
+      });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Validation failed', errors }),
+      };
+    }
+
+    // Special validation for username
+    if (body.username && !isValidUsername(body.username as string)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Username must be 3-30 characters, alphanumeric and underscores only' }),
+      };
+    }
     const db = await getPool();
 
     // Build update fields dynamically

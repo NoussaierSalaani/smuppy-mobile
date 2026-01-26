@@ -335,11 +335,43 @@ export class SmuppyGlobalStack extends cdk.Stack {
       },
     });
 
+    // ========================================
+    // CloudFront Access Logs Bucket
+    // SECURITY: Enable logging for audit and compliance
+    // ========================================
+    const logsBucket = new s3.Bucket(this, 'CloudFrontLogsBucket', {
+      bucketName: `smuppy-cloudfront-logs-${environment}-${this.account}`,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      // SECURITY: Object ownership for CloudFront logging
+      objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+      lifecycleRules: [
+        {
+          id: 'DeleteOldLogs',
+          expiration: cdk.Duration.days(isProduction ? 90 : 30),
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+          ],
+        },
+      ],
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: !isProduction,
+    });
+
     // Extract domain from API endpoint
     const apiDomain = apiEndpoint.replace('https://', '').replace(/\/.*$/, '');
     const graphqlDomain = graphqlEndpoint.replace('https://', '').replace(/\/.*$/, '');
 
     this.distribution = new cloudfront.Distribution(this, 'CDN', {
+      // SECURITY: Enable access logging
+      enableLogging: true,
+      logBucket: logsBucket,
+      logFilePrefix: 'cdn-logs/',
+      logIncludesCookies: false, // Privacy: don't log cookies
       comment: `Smuppy Global CDN - ${environment}`,
       enabled: true,
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
@@ -517,6 +549,12 @@ export class SmuppyGlobalStack extends cdk.Stack {
       value: likesTable.tableName,
       description: 'DynamoDB Likes Table',
       exportName: `smuppy-likes-table-${environment}`,
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontLogsBucketName', {
+      value: logsBucket.bucketName,
+      description: 'S3 Bucket for CloudFront access logs',
+      exportName: `smuppy-cloudfront-logs-${environment}`,
     });
   }
 }

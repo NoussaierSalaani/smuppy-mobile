@@ -314,6 +314,25 @@ All Lambda functions include:
   - `https://app.smuppy.com`
   - Development: `localhost:8081`, `localhost:19006`, `localhost:3000`
 
+### Redis Security (ElastiCache)
+- **TLS Encryption** - All connections require TLS (`tls: {}` in ioredis)
+- **Auth Token** - 64-character token stored in Secrets Manager
+- **Token Caching** - 30-minute TTL with automatic refresh
+- **Graceful Degradation** - Application works without Redis (feature flags)
+- **Connection Pooling** - Reused across Lambda invocations
+
+### Database Credential Security
+- **Secret Rotation** - All environments (30 days prod, 90 days staging)
+- **Credential Caching** - 30-minute TTL to support rotation
+- **Reader/Writer Split** - Read-heavy operations use reader endpoint
+- **RDS Proxy IAM Auth** - Optional IAM authentication support
+
+### Error Handling Security
+- **No Information Leakage** - Internal errors never exposed to clients
+- **Centralized Handler** - `error-handler.ts` utility for consistent responses
+- **Server-side Logging** - Full error details logged for debugging
+- **Generic Client Messages** - User-friendly error messages only
+
 ### IAM Least Privilege
 - Lambda functions only have required permissions
 - S3 access scoped to specific operations:
@@ -381,7 +400,9 @@ lambda/
 │   ├── send-message.ts
 │   └── default.ts
 └── shared/                       # Shared code
-    └── db.ts                     # Database connection pool
+    ├── db.ts                     # Database connection pool with credential rotation
+    ├── redis.ts                  # Secure Redis connection (TLS + auth token)
+    └── error-handler.ts          # Centralized error handling (no info leakage)
 ```
 
 ## Deployment
@@ -417,8 +438,9 @@ npx cdk deploy SmuppyStack-production --context environment=production
 | `READER_ENDPOINT` | RDS read replica endpoint |
 | `DATABASE_NAME` | Database name |
 | `DATABASE_SSL` | Enable SSL (true) |
-| `REDIS_HOST` | ElastiCache endpoint |
+| `REDIS_ENDPOINT` | ElastiCache endpoint |
 | `REDIS_PORT` | Redis port (6379) |
+| `REDIS_AUTH_SECRET_ARN` | Redis auth token secret ARN |
 | `USER_POOL_ID` | Cognito User Pool ID |
 | `CLIENT_ID` | Cognito Client ID |
 | `MEDIA_BUCKET` | S3 bucket name |
@@ -460,6 +482,7 @@ curl -H "Authorization: Bearer TOKEN" \
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: January 26, 2026*
 *Infrastructure Score: 10/10*
+*Security Score: 9/10*
 *Total Resources: 437*

@@ -71,6 +71,30 @@ export class SmuppyStack extends cdk.Stack {
     });
 
     // ========================================
+    // VPC Endpoints - Cost Optimization & Security
+    // Traffic stays within AWS network (no NAT charges)
+    // ========================================
+
+    // S3 Gateway Endpoint (free, reduces NAT costs)
+    vpc.addGatewayEndpoint('S3Endpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+      subnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
+    });
+
+    // DynamoDB Gateway Endpoint (free, reduces NAT costs)
+    vpc.addGatewayEndpoint('DynamoDBEndpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+      subnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
+    });
+
+    // Secrets Manager Interface Endpoint (for secure credential retrieval)
+    vpc.addInterfaceEndpoint('SecretsManagerEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      privateDnsEnabled: true,
+    });
+
+    // ========================================
     // CloudTrail - Security Audit Logging
     // ========================================
     const trailBucket = new s3.Bucket(this, 'CloudTrailBucket', {

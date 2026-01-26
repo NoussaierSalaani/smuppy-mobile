@@ -1,12 +1,13 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    // TODO: Enable strict mode progressively after dedicated migration
-    // Current status (2026-01-18):
-    //   - strictNullChecks: 168 errors
-    //   - noImplicitAny: 338 errors
-    // Priority fixes: useRef<T | null>, useState<T | null>, route params
-    "strict": false,
+    // STRICT MODE ENABLED - Progressive migration in progress
+    // Strict flags enabled: strictBindCallApply, strictFunctionTypes, strictPropertyInitialization
+    // Remaining migration (tracked in GitHub issues):
+    //   - noImplicitAny: ~338 errors (priority: high)
+    //   - strictNullChecks: ~168 errors (priority: high)
+    "strict": true,
+    // Explicitly disabled until migration complete:
     "noImplicitAny": false,
     "strictNullChecks": false,
     "noEmit": true,

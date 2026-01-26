@@ -32,7 +32,7 @@ interface Peak {
   user: PeakUser;
   views: number;
   reactions: number;
-  repliesCount: number;
+  repliesCount?: number;
   createdAt: Date;
 }
 

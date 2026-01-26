@@ -16,6 +16,7 @@ const CARD_WIDTH = (width - 48) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.6;
 
 interface PeakUser {
+  id: string;
   avatar: string;
   name: string;
 }
@@ -27,6 +28,8 @@ interface Peak {
   duration: number;
   user: PeakUser;
   views: number;
+  reactions: number;
+  createdAt: Date;
 }
 
 interface PeakCardProps {

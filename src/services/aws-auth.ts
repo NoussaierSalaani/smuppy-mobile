@@ -1,10 +1,14 @@
 /**
  * AWS Cognito Authentication Service
  * Using @aws-sdk/client-cognito-identity-provider for better React Native compatibility
+ *
+ * SECURITY: Sensitive tokens (access, refresh, id) stored in SecureStore (encrypted keychain)
+ * Non-sensitive user profile data stored in AsyncStorage for performance
  */
 
 // IMPORTANT: crypto polyfill is loaded in index.js before this file
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { AWS_CONFIG } from '../config/aws-config';
 
 // Lazy-loaded Cognito client to ensure crypto polyfill is ready
@@ -31,11 +35,39 @@ const getCognitoCommands = async () => {
 const CLIENT_ID = AWS_CONFIG.cognito.userPoolClientId;
 
 // Token storage keys
+// SECURITY: Tokens use SecureStore (encrypted keychain), user profile uses AsyncStorage
 const TOKEN_KEYS = {
-  ACCESS_TOKEN: '@smuppy/access_token',
-  REFRESH_TOKEN: '@smuppy/refresh_token',
-  ID_TOKEN: '@smuppy/id_token',
-  USER: '@smuppy/user',
+  ACCESS_TOKEN: 'smuppy_access_token',  // SecureStore (no @ prefix, alphanumeric only)
+  REFRESH_TOKEN: 'smuppy_refresh_token', // SecureStore
+  ID_TOKEN: 'smuppy_id_token',           // SecureStore
+  USER: '@smuppy/user',                  // AsyncStorage (non-sensitive)
+};
+
+// SecureStore helpers with error handling
+const secureStore = {
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+      console.error('[SecureStore] Failed to set item:', key, error);
+      throw error;
+    }
+  },
+  async getItem(key: string): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.error('[SecureStore] Failed to get item:', key, error);
+      return null;
+    }
+  },
+  async removeItem(key: string): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+      console.error('[SecureStore] Failed to remove item:', key, error);
+    }
+  },
 };
 
 export interface AuthUser {
@@ -74,11 +106,11 @@ class AWSAuthService {
     try {
       console.log('[AWS Auth] Initializing...');
 
-      // Load tokens from storage
+      // Load tokens from secure storage, user from async storage
       const [accessToken, refreshToken, idToken, userJson] = await Promise.all([
-        AsyncStorage.getItem(TOKEN_KEYS.ACCESS_TOKEN),
-        AsyncStorage.getItem(TOKEN_KEYS.REFRESH_TOKEN),
-        AsyncStorage.getItem(TOKEN_KEYS.ID_TOKEN),
+        secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN),
+        secureStore.getItem(TOKEN_KEYS.REFRESH_TOKEN),
+        secureStore.getItem(TOKEN_KEYS.ID_TOKEN),
         AsyncStorage.getItem(TOKEN_KEYS.USER),
       ]);
 
@@ -322,53 +354,49 @@ class AWSAuthService {
   async signIn(params: SignInParams): Promise<AuthUser> {
     const { email, password } = params;
 
-    try {
-      const client = await getCognitoClient();
-      const { InitiateAuthCommand } = await getCognitoCommands();
+    const client = await getCognitoClient();
+    const { InitiateAuthCommand } = await getCognitoCommands();
 
-      const command = new InitiateAuthCommand({
-        ClientId: CLIENT_ID,
-        AuthFlow: 'USER_PASSWORD_AUTH',
-        AuthParameters: {
-          USERNAME: email,
-          PASSWORD: password,
-        },
-      });
+    const command = new InitiateAuthCommand({
+      ClientId: CLIENT_ID,
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      AuthParameters: {
+        USERNAME: email,
+        PASSWORD: password,
+      },
+    });
 
-      const response = await client.send(command);
+    const response = await client.send(command);
 
-      if (!response.AuthenticationResult) {
-        throw new Error('Authentication failed - no result');
-      }
-
-      const { AccessToken, RefreshToken, IdToken } = response.AuthenticationResult;
-
-      if (!AccessToken || !IdToken) {
-        throw new Error('No tokens received');
-      }
-
-      // Store tokens
-      this.accessToken = AccessToken;
-      this.refreshToken = RefreshToken || null;
-      this.idToken = IdToken;
-
-      // Decode ID token to get user info (faster than API call)
-      const user = this.decodeIdToken(IdToken);
-      this.user = user;
-
-      // Store everything in parallel
-      await Promise.all([
-        AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken),
-        RefreshToken && AsyncStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken),
-        AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
-        AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
-      ]);
-
-      this.notifyAuthStateChange(user);
-      return user;
-    } catch (error: any) {
-      throw error;
+    if (!response.AuthenticationResult) {
+      throw new Error('Authentication failed - no result');
     }
+
+    const { AccessToken, RefreshToken, IdToken } = response.AuthenticationResult;
+
+    if (!AccessToken || !IdToken) {
+      throw new Error('No tokens received');
+    }
+
+    // Store tokens
+    this.accessToken = AccessToken;
+    this.refreshToken = RefreshToken || null;
+    this.idToken = IdToken;
+
+    // Decode ID token to get user info (faster than API call)
+    const user = this.decodeIdToken(IdToken);
+    this.user = user;
+
+    // Store tokens in SecureStore, user in AsyncStorage
+    await Promise.all([
+      secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken),
+      RefreshToken && secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken),
+      secureStore.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
+      AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
+    ]);
+
+    this.notifyAuthStateChange(user);
+    return user;
   }
 
   /**
@@ -644,9 +672,9 @@ class AWSAuthService {
       this.user = result.user;
 
       await Promise.all([
-        AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
-        AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
-        AsyncStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
+        secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
+        secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
+        secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
@@ -682,9 +710,9 @@ class AWSAuthService {
       this.user = result.user;
 
       await Promise.all([
-        AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
-        AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
-        AsyncStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
+        secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
+        secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
+        secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
@@ -778,8 +806,8 @@ class AWSAuthService {
         this.idToken = response.AuthenticationResult.IdToken || this.idToken;
 
         await Promise.all([
-          AsyncStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, this.accessToken),
-          this.idToken && AsyncStorage.setItem(TOKEN_KEYS.ID_TOKEN, this.idToken),
+          secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, this.accessToken),
+          this.idToken && secureStore.setItem(TOKEN_KEYS.ID_TOKEN, this.idToken),
         ]);
 
         return true;
@@ -797,9 +825,9 @@ class AWSAuthService {
     this.idToken = null;
 
     await Promise.all([
-      AsyncStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN),
-      AsyncStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN),
-      AsyncStorage.removeItem(TOKEN_KEYS.ID_TOKEN),
+      secureStore.removeItem(TOKEN_KEYS.ACCESS_TOKEN),
+      secureStore.removeItem(TOKEN_KEYS.REFRESH_TOKEN),
+      secureStore.removeItem(TOKEN_KEYS.ID_TOKEN),
       AsyncStorage.removeItem(TOKEN_KEYS.USER),
     ]);
   }

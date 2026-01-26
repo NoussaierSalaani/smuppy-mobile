@@ -162,8 +162,8 @@ export default function EditInterestsScreen({ navigation, route }) {
       await refetch();
 
       navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', `Failed to save interests: ${error.message || error}`);
+    } catch (error: any) {
+      Alert.alert('Error', `Failed to save interests: ${error?.message || error}`);
     } finally {
       setIsSaving(false);
     }

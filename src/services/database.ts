@@ -524,13 +524,13 @@ export const getPostsByUser = async (userId: string, _page = 0, limit = 10): Pro
 };
 
 // Shared cache for followed user IDs
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 let _followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
   ids: [],
   timestamp: 0,
   userId: null,
 };
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 const _CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
 
 // Clear cache when user follows/unfollows someone

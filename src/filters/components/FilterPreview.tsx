@@ -56,9 +56,11 @@ export function FilterPreview({
   const image = useImage(imageSource || '');
 
   // Get shader for active filter
+  // Only recompute when filterId changes, not when other activeFilter props change
   const shader = useMemo(() => {
     if (!activeFilter) return null;
     return shaderManager.getShader(activeFilter.filterId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilter?.filterId]);
 
   // Render filter effect
@@ -136,10 +138,11 @@ export function FilterOverlay({
     time.value = (frameInfo.timestamp / 1000) % 1000;
   });
 
-  // Get shader
+  // Get shader - only recompute when filterId changes
   const shader = useMemo(() => {
     if (!activeFilter) return null;
     return shaderManager.getShader(activeFilter.filterId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilter?.filterId]);
 
   if (!activeFilter || !shader) {

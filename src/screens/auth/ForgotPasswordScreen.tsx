@@ -7,12 +7,19 @@ import { COLORS, GRADIENTS, FORM } from '../../config/theme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 
-const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // SECURITY: Generic message that doesn't reveal if email exists
 const SUCCESS_MESSAGE = "If an account exists with this email, you will receive a password reset link.";
 
-export default function ForgotPasswordScreen({ navigation }) {
+interface ForgotPasswordScreenProps {
+  navigation: {
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -31,7 +38,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     navigation.goBack();
   }, [navigation]);
 
-  const handleEmailChange = useCallback((value) => {
+  const handleEmailChange = useCallback((value: string) => {
     setEmail(value);
     if (hasSubmitted) {
       setEmailError('');

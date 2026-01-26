@@ -6,6 +6,8 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -65,9 +67,9 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
   const [selectedMonth, setSelectedMonth] = useState(initial.month);
   const [selectedDay, setSelectedDay] = useState(initial.day);
 
-  const yearListRef = useRef(null);
-  const monthListRef = useRef(null);
-  const dayListRef = useRef(null);
+  const yearListRef = useRef<FlatList<number>>(null);
+  const monthListRef = useRef<FlatList<{ value: string; label: string }>>(null);
+  const dayListRef = useRef<FlatList<string>>(null);
 
   // Scroll vers les valeurs initiales quand le modal s'ouvre
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialDate]);
 
-  const scrollToYear = (year) => {
+  const scrollToYear = (year: number) => {
     const index = YEARS.indexOf(year);
     if (index !== -1 && yearListRef.current) {
       yearListRef.current.scrollToOffset({
@@ -91,7 +93,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     }
   };
 
-  const scrollToMonth = (month) => {
+  const scrollToMonth = (month: string) => {
     const index = MONTHS.findIndex(m => m.value === month);
     if (index !== -1 && monthListRef.current) {
       monthListRef.current.scrollToOffset({
@@ -101,7 +103,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     }
   };
 
-  const scrollToDay = (day) => {
+  const scrollToDay = (day: string) => {
     const index = DAYS.indexOf(day);
     if (index !== -1 && dayListRef.current) {
       dayListRef.current.scrollToOffset({
@@ -111,21 +113,21 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
     }
   };
 
-  const handleYearScroll = (event) => {
+  const handleYearScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT);
     if (index >= 0 && index < YEARS.length) {
       setSelectedYear(YEARS[index]);
     }
   };
 
-  const handleMonthScroll = (event) => {
+  const handleMonthScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT);
     if (index >= 0 && index < MONTHS.length) {
       setSelectedMonth(MONTHS[index].value);
     }
   };
 
-  const handleDayScroll = (event) => {
+  const handleDayScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT);
     if (index >= 0 && index < DAYS.length) {
       setSelectedDay(DAYS[index]);

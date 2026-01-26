@@ -7,7 +7,13 @@ import { SmuppyIcon, SmuppyText } from '../../components/SmuppyLogo';
 
 const { height } = Dimensions.get('window');
 
-const WelcomeScreen = ({ navigation }) => {
+interface WelcomeScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(height * 0.4)).current;
   const scaleAnim = useRef(new Animated.Value(1.1)).current;

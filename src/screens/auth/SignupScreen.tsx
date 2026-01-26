@@ -33,7 +33,14 @@ const GoogleLogo = ({ size = 20 }) => (
   </Svg>
 );
 
-export default function SignupScreen({ navigation }) {
+interface SignupScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+export default function SignupScreen({ navigation }: SignupScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

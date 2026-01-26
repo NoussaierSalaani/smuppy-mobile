@@ -5,8 +5,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../config/theme';
 import { biometrics } from '../../utils/biometrics';
 
-export default function BiometricLoginScreen({ navigation }) {
-  const [biometricType, setBiometricType] = useState(null);
+type BiometricType = 'face' | 'fingerprint' | 'iris' | null;
+
+interface BiometricLoginScreenProps {
+  navigation: {
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+export default function BiometricLoginScreen({ navigation }: BiometricLoginScreenProps) {
+  const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {

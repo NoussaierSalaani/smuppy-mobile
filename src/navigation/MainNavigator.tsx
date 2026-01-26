@@ -69,6 +69,14 @@ import {
   PrivateSessionsManageScreen,
 } from '../screens/sessions';
 
+// Payment Screens
+import {
+  CreatorWalletScreen,
+  PlatformSubscriptionScreen,
+  ChannelSubscriptionScreen,
+  IdentityVerificationScreen,
+} from '../screens/payments';
+
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
 import BottomNav from '../components/BottomNav';
@@ -207,6 +215,12 @@ export default function MainNavigator() {
       <Stack.Screen name="WaitingRoom" component={WaitingRoomScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="PrivateCall" component={PrivateCallScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="SessionEnded" component={SessionEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+
+      {/* Payments & Subscriptions */}
+      <Stack.Screen name="CreatorWallet" component={CreatorWalletScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="PlatformSubscription" component={PlatformSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="ChannelSubscription" component={ChannelSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
     </Stack.Navigator>
   );
 }

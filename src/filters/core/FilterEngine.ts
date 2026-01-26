@@ -123,8 +123,10 @@ export class FilterEngine {
     const imageShader = image.makeShaderOptions(
       TileMode.Clamp,
       TileMode.Clamp,
-      undefined,
-      undefined
+       
+      undefined as any,
+       
+      undefined as any
     );
 
     if (!imageShader) {

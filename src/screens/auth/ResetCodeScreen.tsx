@@ -10,13 +10,28 @@ import * as backend from '../../services/backend';
 
 const CODE_LENGTH = 6; // AWS Cognito OTP is 6 digits
 
-export default function ResetCodeScreen({ navigation, route }) {
+interface ResetCodeScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route?: {
+    params?: {
+      email?: string;
+    };
+  };
+}
+
+export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenProps) {
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  
-  const inputs = useRef([]);
+
+  const inputs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   
   const email = route?.params?.email || 'mailusersmuppy@mail.com';
@@ -39,7 +54,7 @@ export default function ResetCodeScreen({ navigation, route }) {
     if (shouldFocus) setTimeout(() => inputs.current[0]?.focus(), 100);
   }, []);
 
-  const verifyCode = useCallback(async (fullCode) => {
+  const verifyCode = useCallback(async (fullCode: string) => {
     setIsVerifying(true);
     setError('');
     Keyboard.dismiss();
@@ -64,7 +79,7 @@ export default function ResetCodeScreen({ navigation, route }) {
     }
   }, [navigate, email, triggerShake]);
 
-  const handleChange = useCallback((text, index) => {
+  const handleChange = useCallback((text: string, index: number) => {
     if (error) setError('');
     if (text && !/^\d+$/.test(text)) return;
     const newCode = [...code];
@@ -74,7 +89,7 @@ export default function ResetCodeScreen({ navigation, route }) {
     if (text && index === CODE_LENGTH - 1 && newCode.join('').length === CODE_LENGTH) verifyCode(newCode.join(''));
   }, [code, error, verifyCode]);
 
-  const handleKeyPress = useCallback((e, index) => {
+  const handleKeyPress = useCallback((e: { nativeEvent: { key: string } }, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) inputs.current[index - 1]?.focus();
   }, [code]);
 
@@ -107,7 +122,7 @@ export default function ResetCodeScreen({ navigation, route }) {
     }
   }, [canAction, tryAction, clearCode, setShowModal, email]);
 
-  const getBoxStyle = useCallback((index) => {
+  const getBoxStyle = useCallback((index: number) => {
     if (error) return [styles.codeBox, styles.codeBoxError];
     if (code[index]) return [styles.codeBox, styles.codeBoxFilled];
     if (focusedIndex === index) return [styles.codeBox, styles.codeBoxFocused];

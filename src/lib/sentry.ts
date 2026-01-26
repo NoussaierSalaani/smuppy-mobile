@@ -69,7 +69,7 @@ export const initSentry = () => {
     ],
 
     // Before sending an error
-    beforeSend(event, _hint) {
+    beforeSend(event: { user?: { email?: string; ip_address?: string } }, _hint: unknown) {
       // Filter out development errors
       if (ENV.APP_ENV === 'development') {
         console.log('Sentry event (dev):', event);
@@ -86,7 +86,7 @@ export const initSentry = () => {
     },
 
     // Before sending breadcrumbs
-    beforeBreadcrumb(breadcrumb) {
+    beforeBreadcrumb(breadcrumb: { category?: string; level?: string }) {
       // Filter out noisy breadcrumbs
       if (breadcrumb.category === 'console' && breadcrumb.level === 'debug') {
         return null;

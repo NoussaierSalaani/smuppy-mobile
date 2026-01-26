@@ -8,7 +8,24 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import * as backend from '../../services/backend';
 
-export default function NewPasswordScreen({ navigation, route }) {
+interface NewPasswordScreenProps {
+  navigation: {
+    canGoBack: () => boolean;
+    goBack: () => void;
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
+  };
+  route?: {
+    params?: {
+      email?: string;
+      code?: string;
+      onRecoveryComplete?: () => void;
+    };
+  };
+}
+
+export default function NewPasswordScreen({ navigation, route }: NewPasswordScreenProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

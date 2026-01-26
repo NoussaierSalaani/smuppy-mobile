@@ -181,6 +181,43 @@ export interface Fan {
 }
 
 // ============================================
+// PAYMENT TYPES
+// ============================================
+
+export interface Payment {
+  id: string;
+  stripePaymentIntentId: string;
+  buyerId: string;
+  creatorId: string;
+  sessionId?: string;
+  amount: number; // Amount in cents
+  currency: string;
+  platformFee: number;
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PrivateSession {
+  id: string;
+  creatorId: string;
+  buyerId?: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  price: number; // Price in cents
+  currency: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  paymentStatus: 'unpaid' | 'paid' | 'refunded';
+  agoraChannelName?: string;
+  startedAt?: string;
+  endedAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
 // ONBOARDING TYPES
 // ============================================
 
@@ -497,6 +534,15 @@ export type MainStackParamList = {
   ReportProblem: undefined;
   TermsPolicies: undefined;
   FacialRecognition: undefined;
+
+  // Payments & Subscriptions
+  CreatorWallet: undefined;
+  PlatformSubscription: undefined;
+  ChannelSubscription: { creatorId: string; creatorName?: string; creatorAvatar?: string; creatorUsername?: string; subscriberCount?: number; tier?: string };
+  IdentityVerification: undefined;
+
+  // WebView (for Stripe checkout)
+  WebView: { url: string; title?: string };
 };
 
 // Alias for backward compatibility

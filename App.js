@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Core
 import AppNavigator from './src/navigation/AppNavigator';
@@ -169,19 +170,28 @@ export default function App() {
     return null;
   }
 
+  // Stripe publishable key - will be set dynamically or from env
+  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+
   return (
     <SafeAreaProvider>
       <ErrorBoundary showReportButton>
-        <QueryClientProvider client={queryClient}>
-          <NetworkMonitor />
-          <UserContextSync />
-          <CachePersistence />
-          <PushNotificationHandler />
-          <View style={{ flex: 1 }}>
-            <AppNavigator />
-            <OfflineBanner />
-          </View>
-        </QueryClientProvider>
+        <StripeProvider
+          publishableKey={stripePublishableKey}
+          merchantIdentifier="merchant.com.smuppy.app"
+          urlScheme="smuppy"
+        >
+          <QueryClientProvider client={queryClient}>
+            <NetworkMonitor />
+            <UserContextSync />
+            <CachePersistence />
+            <PushNotificationHandler />
+            <View style={{ flex: 1 }}>
+              <AppNavigator />
+              <OfflineBanner />
+            </View>
+          </QueryClientProvider>
+        </StripeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

@@ -4,7 +4,12 @@
  * Multi-stack deployment for global social network
  */
 import 'source-map-support/register';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
+
+// Load environment variables from .env file
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 import { SmuppyStack } from '../lib/smuppy-stack';
 import { SmuppyGlobalStack } from '../lib/smuppy-global-stack';
 import { SecurityPhase2Stack } from '../lib/security-phase2-stack';

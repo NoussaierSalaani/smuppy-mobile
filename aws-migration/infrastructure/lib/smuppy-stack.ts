@@ -1287,6 +1287,64 @@ export class SmuppyStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
+    // ========================================
+    // Payment Endpoints (Stripe)
+    // ========================================
+    const payments = api.root.addResource('payments');
+
+    // Create payment intent: POST /payments/create-intent
+    const createIntent = payments.addResource('create-intent');
+    createIntent.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentCreateIntentFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Stripe webhook (no auth - verified via signature): POST /payments/webhook
+    const webhook = payments.addResource('webhook');
+    webhook.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentWebhookFn));
+
+    // Subscriptions: POST /payments/subscriptions
+    const subscriptions = payments.addResource('subscriptions');
+    subscriptions.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentSubscriptionsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Stripe Connect for creators: POST /payments/connect
+    const connect = payments.addResource('connect');
+    connect.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentConnectFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Stripe Identity verification: POST /payments/identity
+    const identity = payments.addResource('identity');
+    identity.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentIdentityFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Platform subscriptions (Pro Creator $99, Pro Business $49): POST /payments/platform-subscription
+    const platformSub = payments.addResource('platform-subscription');
+    platformSub.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentPlatformSubFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Channel subscriptions (Fan subscribing to Creator): POST /payments/channel-subscription
+    const channelSub = payments.addResource('channel-subscription');
+    channelSub.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentChannelSubFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Creator wallet (earnings, transactions, payouts): POST /payments/wallet
+    const wallet = payments.addResource('wallet');
+    wallet.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentWalletFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
     // Admin endpoints (no Cognito auth, uses admin key)
     const admin = api.root.addResource('admin');
     const migrate = admin.addResource('migrate');

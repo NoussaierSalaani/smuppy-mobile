@@ -375,6 +375,60 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </View>
         </View>
 
+        {/* Payments & Monetization */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Payments & Monetization</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemFirst]}
+              onPress={() => navigation.navigate('CreatorWallet')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: '#E8F5E9' }]}>
+                <Ionicons name="wallet-outline" size={20} color="#22C55E" />
+              </View>
+              <Text style={styles.menuItemLabel}>Creator Wallet</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('PlatformSubscription')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: '#EDE7F6' }]}>
+                <Ionicons name="rocket-outline" size={20} color="#7C3AED" />
+              </View>
+              <Text style={styles.menuItemLabel}>Go Pro</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('IdentityVerification')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: '#E3F2FD' }]}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#2196F3" />
+              </View>
+              <Text style={styles.menuItemLabel}>Identity Verification</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('PrivateSessionsManage')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: '#FFF3E0' }]}>
+                <Ionicons name="videocam-outline" size={20} color="#FF9800" />
+              </View>
+              <Text style={styles.menuItemLabel}>Private Sessions</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Danger Zone */}
         <View style={styles.menuSection}>
           <View style={styles.menuCard}>

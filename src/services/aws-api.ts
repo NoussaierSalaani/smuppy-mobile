@@ -625,6 +625,473 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Payments API (Stripe)
+  // ==========================================
+
+  /**
+   * Create a payment intent for a session booking
+   */
+  async createPaymentIntent(data: {
+    creatorId: string;
+    amount: number; // Amount in cents
+    sessionId?: string;
+    description?: string;
+  }): Promise<{
+    success: boolean;
+    paymentIntent?: {
+      id: string;
+      clientSecret: string;
+      amount: number;
+      currency: string;
+    };
+    publishableKey?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/create-intent', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get payment history for the current user
+   */
+  async getPaymentHistory(params?: {
+    limit?: number;
+    cursor?: string;
+  }): Promise<PaginatedResponse<Payment>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    const query = queryParams.toString();
+    return this.request(`/payments/history${query ? `?${query}` : ''}`);
+  }
+
+  // ==========================================
+  // Subscriptions API (Monthly subscriptions)
+  // ==========================================
+
+  /**
+   * Create a subscription to a creator
+   */
+  async createSubscription(data: {
+    creatorId: string;
+    priceId: string;
+  }): Promise<{
+    success: boolean;
+    subscription?: {
+      id: string;
+      status: string;
+      currentPeriodEnd: number;
+    };
+    message?: string;
+  }> {
+    return this.request('/payments/subscriptions', {
+      method: 'POST',
+      body: { action: 'create', ...data },
+    });
+  }
+
+  /**
+   * Cancel a subscription
+   */
+  async cancelSubscription(subscriptionId: string): Promise<{
+    success: boolean;
+    message?: string;
+    cancelAt?: number;
+  }> {
+    return this.request('/payments/subscriptions', {
+      method: 'POST',
+      body: { action: 'cancel', subscriptionId },
+    });
+  }
+
+  /**
+   * List user's active subscriptions
+   */
+  async listSubscriptions(): Promise<{
+    success: boolean;
+    subscriptions: Subscription[];
+  }> {
+    return this.request('/payments/subscriptions', {
+      method: 'POST',
+      body: { action: 'list' },
+    });
+  }
+
+  /**
+   * Get creator's subscription tiers/prices
+   */
+  async getCreatorPrices(creatorId: string): Promise<{
+    success: boolean;
+    tiers: SubscriptionTier[];
+  }> {
+    return this.request('/payments/subscriptions', {
+      method: 'POST',
+      body: { action: 'get-prices', creatorId },
+    });
+  }
+
+  // ==========================================
+  // Stripe Connect API (Creator payouts)
+  // ==========================================
+
+  /**
+   * Create Stripe Connect account for creator
+   */
+  async createConnectAccount(): Promise<{
+    success: boolean;
+    accountId?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/connect', {
+      method: 'POST',
+      body: { action: 'create-account' },
+    });
+  }
+
+  /**
+   * Get onboarding link for Stripe Connect
+   */
+  async getConnectOnboardingLink(returnUrl: string, refreshUrl: string): Promise<{
+    success: boolean;
+    url?: string;
+    expiresAt?: number;
+  }> {
+    return this.request('/payments/connect', {
+      method: 'POST',
+      body: { action: 'create-link', returnUrl, refreshUrl },
+    });
+  }
+
+  /**
+   * Get Connect account status
+   */
+  async getConnectStatus(): Promise<{
+    success: boolean;
+    hasAccount: boolean;
+    status: 'not_created' | 'pending' | 'active';
+    chargesEnabled?: boolean;
+    payoutsEnabled?: boolean;
+  }> {
+    return this.request('/payments/connect', {
+      method: 'POST',
+      body: { action: 'get-status' },
+    });
+  }
+
+  /**
+   * Get Stripe dashboard link for creators
+   */
+  async getStripeDashboardLink(): Promise<{
+    success: boolean;
+    url?: string;
+  }> {
+    return this.request('/payments/connect', {
+      method: 'POST',
+      body: { action: 'get-dashboard-link' },
+    });
+  }
+
+  /**
+   * Get creator's balance
+   */
+  async getCreatorBalance(): Promise<{
+    success: boolean;
+    balance?: {
+      available: { amount: number; currency: string }[];
+      pending: { amount: number; currency: string }[];
+    };
+  }> {
+    return this.request('/payments/connect', {
+      method: 'POST',
+      body: { action: 'get-balance' },
+    });
+  }
+
+  // ==========================================
+  // Stripe Identity API (Creator verification)
+  // ==========================================
+
+  /**
+   * Create identity verification session
+   */
+  async createVerificationSession(returnUrl: string): Promise<{
+    success: boolean;
+    sessionId?: string;
+    url?: string;
+    status?: string;
+  }> {
+    return this.request('/payments/identity', {
+      method: 'POST',
+      body: { action: 'create-session', returnUrl },
+    });
+  }
+
+  /**
+   * Get identity verification status
+   */
+  async getVerificationStatus(): Promise<{
+    success: boolean;
+    hasSession: boolean;
+    status: 'not_started' | 'requires_input' | 'processing' | 'verified' | 'canceled';
+    isVerified: boolean;
+  }> {
+    return this.request('/payments/identity', {
+      method: 'POST',
+      body: { action: 'get-status' },
+    });
+  }
+
+  /**
+   * Create payment intent for identity verification ($14.90)
+   */
+  async createVerificationPaymentIntent(): Promise<{
+    success: boolean;
+    paymentIntent?: {
+      id: string;
+      clientSecret: string;
+      amount: number;
+      currency: string;
+    };
+    publishableKey?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/identity', {
+      method: 'POST',
+      body: { action: 'create-payment' },
+    });
+  }
+
+  /**
+   * Confirm payment and start verification session
+   */
+  async confirmVerificationPayment(paymentIntentId: string, returnUrl: string): Promise<{
+    success: boolean;
+    sessionId?: string;
+    url?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/identity', {
+      method: 'POST',
+      body: { action: 'confirm-payment', paymentIntentId, returnUrl },
+    });
+  }
+
+  // ==========================================
+  // Platform Subscription API (Pro Creator/Business)
+  // ==========================================
+
+  /**
+   * Get platform subscription status
+   */
+  async getPlatformSubscriptionStatus(): Promise<{
+    success: boolean;
+    hasSubscription: boolean;
+    subscription?: {
+      planType: 'pro_creator' | 'pro_business';
+      status: string;
+      currentPeriodEnd: string;
+    };
+  }> {
+    return this.request('/payments/platform-subscription', {
+      method: 'POST',
+      body: { action: 'get-status' },
+    });
+  }
+
+  /**
+   * Subscribe to platform plan (Pro Creator $99 or Pro Business $49)
+   */
+  async subscribeToPlatform(planType: 'pro_creator' | 'pro_business'): Promise<{
+    success: boolean;
+    checkoutUrl?: string;
+    error?: string;
+  }> {
+    return this.request('/payments/platform-subscription', {
+      method: 'POST',
+      body: { action: 'subscribe', planType },
+    });
+  }
+
+  /**
+   * Cancel platform subscription
+   */
+  async cancelPlatformSubscription(): Promise<{
+    success: boolean;
+    message?: string;
+    cancelAt?: string;
+  }> {
+    return this.request('/payments/platform-subscription', {
+      method: 'POST',
+      body: { action: 'cancel' },
+    });
+  }
+
+  // ==========================================
+  // Channel Subscription API (Creator channels)
+  // ==========================================
+
+  /**
+   * Subscribe to a creator's channel
+   */
+  async subscribeToChannel(creatorId: string): Promise<{
+    success: boolean;
+    checkoutUrl?: string;
+    error?: string;
+  }> {
+    return this.request('/payments/channel-subscription', {
+      method: 'POST',
+      body: { action: 'subscribe', creatorId },
+    });
+  }
+
+  /**
+   * Get channel subscription status for a creator
+   */
+  async getChannelSubscriptionStatus(creatorId: string): Promise<{
+    success: boolean;
+    isSubscribed: boolean;
+    subscription?: {
+      status: string;
+      currentPeriodEnd: string;
+      price: number;
+    };
+  }> {
+    return this.request('/payments/channel-subscription', {
+      method: 'POST',
+      body: { action: 'get-status', creatorId },
+    });
+  }
+
+  /**
+   * Cancel channel subscription
+   */
+  async cancelChannelSubscription(subscriptionId: string): Promise<{
+    success: boolean;
+    message?: string;
+    cancelAt?: string;
+  }> {
+    return this.request('/payments/channel-subscription', {
+      method: 'POST',
+      body: { action: 'cancel', subscriptionId },
+    });
+  }
+
+  /**
+   * Get creator channel info (for subscription screen)
+   */
+  async getCreatorChannelInfo(creatorId: string): Promise<{
+    success: boolean;
+    creator?: {
+      id: string;
+      username: string;
+      fullName: string;
+      avatarUrl: string;
+      subscriberCount: number;
+      tier: string;
+      subscriptionPrice: number;
+      perks: string[];
+    };
+  }> {
+    return this.request('/payments/channel-subscription', {
+      method: 'POST',
+      body: { action: 'get-creator-info', creatorId },
+    });
+  }
+
+  // ==========================================
+  // Creator Wallet API (Dashboard & Analytics)
+  // ==========================================
+
+  /**
+   * Get creator wallet dashboard data
+   */
+  async getWalletDashboard(): Promise<{
+    success: boolean;
+    balance: {
+      available: number;
+      pending: number;
+      currency: string;
+    };
+    tier: {
+      name: string;
+      revenueShare: number;
+      fanCount: number;
+      nextTier?: string;
+      fansToNextTier?: number;
+    };
+    stats: {
+      thisMonth: number;
+      lifetime: number;
+      subscribers: number;
+    };
+    recentTransactions: WalletTransaction[];
+    revenueBreakdown: {
+      sessions: number;
+      packs: number;
+      subscriptions: number;
+      tips: number;
+    };
+  }> {
+    return this.request('/payments/wallet', {
+      method: 'POST',
+      body: { action: 'get-dashboard' },
+    });
+  }
+
+  /**
+   * Get wallet transactions with pagination
+   */
+  async getWalletTransactions(params?: {
+    limit?: number;
+    cursor?: string;
+    type?: 'all' | 'earnings' | 'payouts';
+  }): Promise<{
+    success: boolean;
+    transactions: WalletTransaction[];
+    nextCursor?: string;
+    hasMore: boolean;
+  }> {
+    return this.request('/payments/wallet', {
+      method: 'POST',
+      body: { action: 'get-transactions', ...params },
+    });
+  }
+
+  /**
+   * Get revenue analytics
+   */
+  async getRevenueAnalytics(period: 'week' | 'month' | 'year'): Promise<{
+    success: boolean;
+    data: {
+      date: string;
+      amount: number;
+    }[];
+    total: number;
+    growth: number;
+  }> {
+    return this.request('/payments/wallet', {
+      method: 'POST',
+      body: { action: 'get-analytics', period },
+    });
+  }
+
+  /**
+   * Request payout to connected account
+   */
+  async requestPayout(amount: number): Promise<{
+    success: boolean;
+    payoutId?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/wallet', {
+      method: 'POST',
+      body: { action: 'request-payout', amount },
+    });
+  }
+
+  // ==========================================
   // Utility Methods
   // ==========================================
 
@@ -790,6 +1257,58 @@ export interface Message {
   readAt: string | null;
   createdAt: string;
   sender?: Profile;
+}
+
+export interface Payment {
+  id: string;
+  stripePaymentIntentId: string;
+  buyerId: string;
+  creatorId: string;
+  amount: number;
+  currency: string;
+  platformFee: number;
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  createdAt: string;
+}
+
+export interface Subscription {
+  id: string;
+  subscriberId: string;
+  creatorId: string;
+  stripeSubscriptionId: string;
+  status: 'active' | 'canceling' | 'canceled' | 'past_due' | 'paused';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  createdAt: string;
+  // Joined fields
+  username?: string;
+  full_name?: string;
+  avatar_url?: string;
+}
+
+export interface SubscriptionTier {
+  id: string;
+  creatorId: string;
+  stripePriceId: string;
+  name: string;
+  description: string;
+  priceCents: number;
+  currency: string;
+  benefits: string[];
+  isActive: boolean;
+  subscriberCount: number;
+}
+
+export interface WalletTransaction {
+  id: string;
+  type: 'session' | 'pack' | 'subscription' | 'tip' | 'payout';
+  amount: number;
+  currency: string;
+  status: 'pending' | 'completed' | 'failed';
+  description: string;
+  createdAt: string;
+  buyerName?: string;
+  buyerAvatar?: string;
 }
 
 // Export singleton instance

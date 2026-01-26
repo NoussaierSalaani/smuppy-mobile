@@ -91,6 +91,16 @@ export class LambdaStack extends cdk.NestedStack {
   // Media Functions
   public readonly mediaUploadUrlFn: NodejsFunction;
 
+  // Payment Functions
+  public readonly paymentCreateIntentFn: NodejsFunction;
+  public readonly paymentWebhookFn: NodejsFunction;
+  public readonly paymentSubscriptionsFn: NodejsFunction;
+  public readonly paymentConnectFn: NodejsFunction;
+  public readonly paymentIdentityFn: NodejsFunction;
+  public readonly paymentPlatformSubFn: NodejsFunction;
+  public readonly paymentChannelSubFn: NodejsFunction;
+  public readonly paymentWalletFn: NodejsFunction;
+
   // Admin Functions
   public readonly adminMigrationFn: NodejsFunction;
   public readonly dataMigrationFn: NodejsFunction;
@@ -286,6 +296,187 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant S3 PutObject for presigned URL generation
     mediaBucket.grantPut(this.mediaUploadUrlFn);
+
+    // ========================================
+    // Payment Lambda Functions (Stripe)
+    // ========================================
+    this.paymentCreateIntentFn = new NodejsFunction(this, 'PaymentCreateIntentFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/create-intent.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentCreateIntentFn);
+
+    this.paymentWebhookFn = new NodejsFunction(this, 'PaymentWebhookFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/webhook.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        // Webhook secret for signature verification (staging)
+        // TODO: Move to Secrets Manager for production
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_sO8zjvpdgpf0TEPHCoTFN3V4xlER7T7N',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentWebhookFn);
+
+    // Subscriptions Lambda - Monthly subscriptions with revenue share
+    this.paymentSubscriptionsFn = new NodejsFunction(this, 'PaymentSubscriptionsFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/subscriptions.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentSubscriptionsFn);
+
+    // Stripe Connect Lambda - Creator onboarding for payouts
+    this.paymentConnectFn = new NodejsFunction(this, 'PaymentConnectFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/connect.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentConnectFn);
+
+    // Stripe Identity Lambda - Creator verification
+    this.paymentIdentityFn = new NodejsFunction(this, 'PaymentIdentityFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/identity.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentIdentityFn);
+
+    // Platform Subscription Lambda - Pro Creator ($99) & Pro Business ($49)
+    this.paymentPlatformSubFn = new NodejsFunction(this, 'PaymentPlatformSubFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/platform-subscription.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentPlatformSubFn);
+
+    // Channel Subscription Lambda - Fan subscribing to Creator channels
+    this.paymentChannelSubFn = new NodejsFunction(this, 'PaymentChannelSubFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/channel-subscription.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentChannelSubFn);
+
+    // Creator Wallet Lambda - Earnings, transactions, payouts
+    this.paymentWalletFn = new NodejsFunction(this, 'PaymentWalletFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/wallet.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentWalletFn);
 
     // ========================================
     // Admin Lambda Functions

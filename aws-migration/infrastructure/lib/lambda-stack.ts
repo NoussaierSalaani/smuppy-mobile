@@ -15,6 +15,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   lambdaSecurityGroup: ec2.ISecurityGroup;
   dbCredentials: secretsmanager.ISecret;
   adminApiKeySecret: secretsmanager.ISecret;
+  redisAuthSecret?: secretsmanager.ISecret; // Optional: Redis auth token secret
   mediaBucket: s3.IBucket;
   userPool: cognito.IUserPool;
   userPoolClientId: string;
@@ -175,8 +176,11 @@ export class LambdaStack extends cdk.NestedStack {
       });
 
       dbCredentials.grantRead(fn);
-      // SECURITY: S3 access removed from generic Lambdas (least privilege)
-      // Only mediaUploadUrlFn has S3 PutObject permission for presigned URLs
+
+      // Grant Redis auth secret read permission
+      if (props.redisAuthSecret) {
+        props.redisAuthSecret.grantRead(fn);
+      }
 
       // Grant RDS Proxy IAM authentication permissions
       // This allows Lambda to connect to RDS Proxy using IAM auth instead of username/password

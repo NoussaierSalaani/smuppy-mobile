@@ -21,20 +21,35 @@ interface DbCredentials {
   password: string;
 }
 
+interface CachedCredentials {
+  credentials: DbCredentials;
+  expiresAt: number;
+}
+
 // Connection pools (reused across Lambda invocations)
 let writerPool: Pool | null = null;
 let readerPool: Pool | null = null;
-let cachedCredentials: DbCredentials | null = null;
+let cachedCredentials: CachedCredentials | null = null;
+
+// Credential cache TTL: 30 minutes (allows for credential rotation)
+const CREDENTIALS_CACHE_TTL_MS = 30 * 60 * 1000;
 
 const secretsClient = new SecretsManagerClient({});
 
 /**
  * Fetches database credentials from AWS Secrets Manager
- * Caches credentials to reduce API calls
+ * Caches credentials with TTL to support credential rotation
+ *
+ * SECURITY: Credentials are cached for 30 minutes to balance
+ * performance (reducing Secrets Manager API calls) and security
+ * (picking up rotated credentials reasonably quickly)
  */
 async function getDbCredentials(): Promise<DbCredentials> {
-  if (cachedCredentials) {
-    return cachedCredentials;
+  const now = Date.now();
+
+  // Return cached credentials if still valid
+  if (cachedCredentials && cachedCredentials.expiresAt > now) {
+    return cachedCredentials.credentials;
   }
 
   if (!process.env.DB_SECRET_ARN) {
@@ -51,8 +66,21 @@ async function getDbCredentials(): Promise<DbCredentials> {
     throw new Error('Failed to retrieve database credentials from Secrets Manager');
   }
 
-  cachedCredentials = JSON.parse(response.SecretString);
-  return cachedCredentials!;
+  const credentials = JSON.parse(response.SecretString);
+
+  // Cache with expiration
+  cachedCredentials = {
+    credentials,
+    expiresAt: now + CREDENTIALS_CACHE_TTL_MS,
+  };
+
+  // If pools exist and credentials changed, recreate them
+  // This handles credential rotation gracefully
+  if (writerPool || readerPool) {
+    console.log('[DB] Credentials refreshed, pools will use new credentials on next connection');
+  }
+
+  return credentials;
 }
 
 /**

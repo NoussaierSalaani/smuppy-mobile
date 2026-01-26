@@ -789,6 +789,17 @@ export class SmuppyStack extends cdk.Stack {
       cacheSubnetGroupName: `smuppy-redis-${environment}`,
     });
 
+    // SECURITY: Redis Auth Token stored in Secrets Manager
+    const redisAuthToken = new secretsmanager.Secret(this, 'RedisAuthToken', {
+      secretName: `smuppy-redis-auth-${environment}`,
+      description: 'Authentication token for Redis cluster',
+      generateSecretString: {
+        excludePunctuation: true, // Redis auth tokens must be alphanumeric
+        passwordLength: 64,
+        excludeCharacters: '@%*()_+=[]{}|;:,.<>?/~`"\'\\',
+      },
+    });
+
     // Redis Cluster with replication for high availability
     const redisReplicationGroup = new elasticache.CfnReplicationGroup(this, 'RedisCluster', {
       replicationGroupDescription: 'Smuppy Redis cluster for caching and sessions',
@@ -804,6 +815,9 @@ export class SmuppyStack extends cdk.Stack {
       // Security: Encryption
       atRestEncryptionEnabled: true,
       transitEncryptionEnabled: true,
+      // SECURITY: Auth token for Redis authentication
+      authToken: redisAuthToken.secretValue.unsafeUnwrap(),
+      transitEncryptionMode: 'required',
       // Auto minor version upgrade
       autoMinorVersionUpgrade: true,
     });
@@ -849,6 +863,7 @@ export class SmuppyStack extends cdk.Stack {
     // This avoids CloudFormation validation issues with attrPrimaryEndPointAddress
     lambdaEnvironment.REDIS_REPLICATION_GROUP_ID = redisReplicationGroup.ref;
     lambdaEnvironment.REDIS_PORT = '6379';
+    lambdaEnvironment.REDIS_AUTH_SECRET_ARN = redisAuthToken.secretArn;
     lambdaEnvironment.AWS_REGION_NAME = this.region;
 
     // Shared log groups for Lambda functions (created in main stack to keep resource ownership)
@@ -876,6 +891,7 @@ export class SmuppyStack extends cdk.Stack {
       lambdaSecurityGroup,
       dbCredentials,
       adminApiKeySecret,
+      redisAuthSecret: redisAuthToken,
       mediaBucket,
       userPool,
       userPoolClientId: userPoolClient.userPoolClientId,

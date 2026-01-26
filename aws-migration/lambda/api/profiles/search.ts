@@ -4,76 +4,59 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { Pool } from 'pg';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-
-let pool: Pool | null = null;
-
-const secretsClient = new SecretsManagerClient({});
-
-async function getDbCredentials(): Promise<{ host: string; port: number; database: string; username: string; password: string }> {
-  const command = new GetSecretValueCommand({
-    SecretId: process.env.DB_SECRET_ARN,
-  });
-  const response = await secretsClient.send(command);
-  return JSON.parse(response.SecretString || '{}');
-}
-
-async function getPool(): Promise<Pool> {
-  if (!pool) {
-    const credentials = await getDbCredentials();
-    pool = new Pool({
-      host: credentials.host,
-      port: credentials.port,
-      database: credentials.dbname || 'smuppy',
-      user: credentials.username,
-      password: credentials.password,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
-    });
-  }
-  return pool;
-}
+import { getReaderPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  };
+  const headers = createHeaders(event);
 
   try {
     const query = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
 
-    if (!query || query.length < 2) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify([]),
-      };
+    // Use reader pool for read-heavy search operations
+    const db = await getReaderPool();
+
+    let result;
+
+    if (!query || query.length < 1) {
+      // No query - return popular/recent profiles
+      result = await db.query(
+        `SELECT
+          id, username, full_name, avatar_url, bio,
+          is_verified, is_private, account_type,
+          fan_count as followers_count, following_count, post_count as posts_count
+        FROM profiles
+        WHERE is_private = false
+        ORDER BY
+          CASE WHEN is_verified THEN 0 ELSE 1 END,
+          CASE WHEN account_type = 'pro_creator' THEN 0
+               WHEN account_type = 'pro_local' THEN 1
+               ELSE 2 END,
+          fan_count DESC NULLS LAST,
+          created_at DESC
+        LIMIT $1`,
+        [limit]
+      );
+    } else {
+      // Search using ILIKE for partial matching
+      result = await db.query(
+        `SELECT
+          id, username, full_name, avatar_url, bio,
+          is_verified, is_private, account_type,
+          fan_count as followers_count, following_count, post_count as posts_count
+        FROM profiles
+        WHERE username ILIKE $1 OR full_name ILIKE $1
+        ORDER BY
+          CASE WHEN username = $2 THEN 0
+               WHEN username ILIKE $3 THEN 1
+               ELSE 2
+          END,
+          fan_count DESC NULLS LAST
+        LIMIT $4`,
+        [`%${query}%`, query, `${query}%`, limit]
+      );
     }
-
-    const db = await getPool();
-
-    // Search using ILIKE for partial matching
-    const result = await db.query(
-      `SELECT
-        id, username, full_name, avatar_url, bio,
-        is_verified, is_private, account_type,
-        fan_count as followers_count, following_count, post_count as posts_count
-      FROM profiles
-      WHERE username ILIKE $1 OR full_name ILIKE $1
-      ORDER BY
-        CASE WHEN username = $2 THEN 0
-             WHEN username ILIKE $3 THEN 1
-             ELSE 2
-        END,
-        fan_count DESC NULLS LAST
-      LIMIT $4`,
-      [`%${query}%`, query, `${query}%`, limit]
-    );
 
     const profiles = result.rows.map(profile => ({
       id: profile.id,

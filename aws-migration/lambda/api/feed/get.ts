@@ -5,61 +5,30 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { Pool } from 'pg';
 import Redis from 'ioredis';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { DynamoDBClient, QueryCommand } from '@aws-sdk/client-dynamodb';
+import { getReaderPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
-let pool: Pool | null = null;
 let redis: Redis | null = null;
 
-const secretsClient = new SecretsManagerClient({});
-const dynamoClient = new DynamoDBClient({});
-
-async function getDbCredentials(): Promise<{ host: string; port: number; database: string; username: string; password: string }> {
-  const command = new GetSecretValueCommand({
-    SecretId: process.env.DB_SECRET_ARN,
-  });
-  const response = await secretsClient.send(command);
-  return JSON.parse(response.SecretString || '{}');
-}
-
-async function getPool(): Promise<Pool> {
-  if (!pool) {
-    const credentials = await getDbCredentials();
-    pool = new Pool({
-      host: credentials.host,
-      port: credentials.port,
-      database: credentials.dbname || 'smuppy',
-      user: credentials.username,
-      password: credentials.password,
-      ssl: { rejectUnauthorized: false },
-      max: 20,
-      idleTimeoutMillis: 30000,
-    });
+async function getRedis(): Promise<Redis | null> {
+  if (!process.env.REDIS_ENDPOINT) {
+    return null;
   }
-  return pool;
-}
-
-function getRedis(): Redis {
-  if (!redis && process.env.REDIS_ENDPOINT) {
+  if (!redis) {
     redis = new Redis({
       host: process.env.REDIS_ENDPOINT,
-      port: 6379,
+      port: parseInt(process.env.REDIS_PORT || '6379'),
       maxRetriesPerRequest: 3,
-      lazyConnect: true,
+      connectTimeout: 5000,
+      commandTimeout: 3000,
     });
   }
-  return redis!;
+  return redis;
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Cache-Control': 'private, max-age=60',
-  };
+  const headers = createHeaders(event);
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
@@ -74,17 +43,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const db = await getPool();
+    // Use reader pool for read-heavy feed operations (distributed across read replicas)
+    const db = await getReaderPool();
 
     // Try to get cached feed from Redis
     const cacheKey = `feed:${userId}:${cursor || 'start'}`;
     let cachedFeed: string | null = null;
 
-    if (process.env.REDIS_ENDPOINT) {
+    const redisClient = await getRedis();
+    if (redisClient) {
       try {
-        const redisClient = getRedis();
         cachedFeed = await redisClient.get(cacheKey);
-
         if (cachedFeed) {
           return {
             statusCode: 200,
@@ -92,8 +61,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             body: cachedFeed,
           };
         }
-      } catch (redisError) {
-        console.warn('Redis cache miss:', redisError);
+      } catch (_redisError) {
+        // Redis failure shouldn't break the feed - fallback to DB
+        console.warn('[Feed] Redis cache error, falling back to DB');
       }
     }
 
@@ -163,13 +133,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       total: posts.length,
     };
 
-    // Cache the response
-    if (process.env.REDIS_ENDPOINT) {
+    // Cache the response in Redis
+    if (redisClient) {
       try {
-        const redisClient = getRedis();
         await redisClient.setex(cacheKey, 60, JSON.stringify(response)); // 60 seconds TTL
-      } catch (redisError) {
-        console.warn('Redis cache write error:', redisError);
+      } catch (_redisError) {
+        // Redis write failure is non-critical
+        console.warn('[Feed] Redis cache write error');
       }
     }
 

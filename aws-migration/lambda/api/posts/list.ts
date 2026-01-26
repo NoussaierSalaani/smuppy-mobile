@@ -4,19 +4,14 @@
  */
 
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
-import { Pool, PoolConfig } from 'pg';
 import Redis from 'ioredis';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { getReaderPool } from '../../shared/db';
+import { headers as corsHeaders } from '../utils/cors';
 
-// Connection pools (reused across Lambda invocations for performance)
-let pgPool: Pool | null = null;
+// Redis connection (reused across Lambda invocations)
 let redis: Redis | null = null;
-let dbCredentials: any = null;
-
-const secretsManager = new SecretsManagerClient({});
 
 const {
-  DB_SECRET_ARN,
   REDIS_HOST,
   REDIS_PORT = '6379',
   ENVIRONMENT = 'staging',
@@ -28,41 +23,17 @@ const CACHE_TTL = {
   USER_FEED: 30,
 };
 
-async function getDbCredentials(): Promise<any> {
-  if (dbCredentials) return dbCredentials;
-  const command = new GetSecretValueCommand({ SecretId: DB_SECRET_ARN });
-  const response = await secretsManager.send(command);
-  dbCredentials = JSON.parse(response.SecretString || '{}');
-  return dbCredentials;
-}
-
-async function getPgPool(): Promise<Pool> {
-  if (pgPool) return pgPool;
-  const creds = await getDbCredentials();
-  const config: PoolConfig = {
-    host: creds.host,
-    port: creds.port || 5432,
-    database: creds.dbname || 'smuppy',
-    user: creds.username,
-    password: creds.password,
-    ssl: { rejectUnauthorized: false },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-  };
-  pgPool = new Pool(config);
-  return pgPool;
-}
-
-function getRedis(): Redis {
-  if (redis) return redis;
-  redis = new Redis({
-    host: REDIS_HOST,
-    port: parseInt(REDIS_PORT),
-    tls: {},
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-  });
+async function getRedis(): Promise<Redis | null> {
+  if (!REDIS_HOST) return null;
+  if (!redis) {
+    redis = new Redis({
+      host: REDIS_HOST,
+      port: parseInt(REDIS_PORT),
+      tls: {},
+      maxRetriesPerRequest: 3,
+      connectTimeout: 5000,
+    });
+  }
   return redis;
 }
 
@@ -70,9 +41,7 @@ function response(statusCode: number, body: any): APIGatewayProxyResult {
   return {
     statusCode,
     headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Credentials': 'true',
+      ...corsHeaders,
       'Cache-Control': statusCode === 200 ? 'public, max-age=60' : 'no-cache',
     },
     body: JSON.stringify(body),
@@ -95,8 +64,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const cacheKey = `posts:list:${type}:${userId || 'all'}:${cursor || 'first'}:${parsedLimit}`;
 
     // Try cache first (for public feeds)
-    const redisClient = getRedis();
-    if (type !== 'following') {
+    const redisClient = await getRedis();
+    if (type !== 'following' && redisClient) {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
@@ -105,20 +74,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       } catch (e) { /* Cache miss, continue */ }
     }
 
-    const pool = await getPgPool();
+    // Use reader pool for read-heavy list operations (distributed across read replicas)
+    const pool = await getReaderPool();
     let query: string;
     let params: any[];
 
     if (type === 'following' && requesterId) {
+      // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
       query = `
-        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+        SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType",
                EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked"
         FROM posts p
         JOIN profiles u ON p.author_id = u.id
-        JOIN follows f ON f.following_id = p.author_id AND f.follower_id = $1 AND f.status = 'accepted'
-        WHERE 1=1 ${cursor ? 'AND p.created_at < $3' : ''}
+        WHERE (
+          -- Posts from people I follow
+          EXISTS(SELECT 1 FROM follows f WHERE f.following_id = p.author_id AND f.follower_id = $1 AND f.status = 'accepted')
+          OR
+          -- Posts from people who follow me
+          EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = p.author_id AND f.following_id = $1 AND f.status = 'accepted')
+        )
+        AND p.author_id != $1
+        ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
       `;
       params = cursor ? [requesterId, parsedLimit + 1, new Date(parseInt(cursor))] : [requesterId, parsedLimit + 1];
@@ -158,7 +136,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const responseData = { posts: formattedPosts, nextCursor: hasMore ? posts[posts.length - 1].createdAt.getTime().toString() : null, hasMore, total: formattedPosts.length };
 
-    if (type !== 'following') {
+    if (type !== 'following' && redisClient) {
       try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch (e) { /* Ignore */ }
     }
 

@@ -1,0 +1,287 @@
+{
+  "options": {
+    "summaryTrendStats": [
+      "avg",
+      "min",
+      "med",
+      "max",
+      "p(90)",
+      "p(95)"
+    ],
+    "summaryTimeUnit": "",
+    "noColor": false
+  },
+  "state": {
+    "isStdOutTTY": false,
+    "isStdErrTTY": false,
+    "testRunDurationMs": 120297.31
+  },
+  "metrics": {
+    "http_req_waiting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 87.82367628205125,
+        "min": 31.465,
+        "med": 85.135,
+        "max": 477.991,
+        "p(90)": 131.5284,
+        "p(95)": 145.81635
+      }
+    },
+    "response_latency": {
+      "contains": "default",
+      "values": {
+        "max": 478.089,
+        "p(90)": 131.6213,
+        "p(95)": 145.92569999999998,
+        "avg": 88.12640865384616,
+        "min": 31.632,
+        "med": 85.624
+      },
+      "type": "trend"
+    },
+    "iteration_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 2268.888122774039,
+        "min": 2176.039291,
+        "med": 2263.4637915000003,
+        "max": 2606.883625,
+        "p(90)": 2324.8928544,
+        "p(95)": 2344.8092251
+      }
+    },
+    "http_req_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 88.12640865384616,
+        "min": 31.632,
+        "med": 85.624,
+        "max": 478.089,
+        "p(90)": 131.6213,
+        "p(95)": 145.92569999999998
+      },
+      "thresholds": {
+        "p(95)<1000": {
+          "ok": true
+        }
+      }
+    },
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 1,
+        "min": 1,
+        "max": 5
+      }
+    },
+    "http_reqs": {
+      "values": {
+        "count": 624,
+        "rate": 5.187148407557908
+      },
+      "type": "counter",
+      "contains": "default"
+    },
+    "data_sent": {
+      "contains": "data",
+      "values": {
+        "count": 32533,
+        "rate": 270.43829990878436
+      },
+      "type": "counter"
+    },
+    "http_req_receiving": {
+      "contains": "time",
+      "values": {
+        "p(90)": 0.048,
+        "p(95)": 0.06484999999999998,
+        "avg": 0.22267147435897422,
+        "min": 0.013,
+        "med": 0.034,
+        "max": 83.402
+      },
+      "type": "trend"
+    },
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 414763,
+        "rate": 3447.816081672982
+      }
+    },
+    "iterations": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 208,
+        "rate": 1.7290494691859695
+      }
+    },
+    "http_req_blocked": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(95)": 0.001,
+        "avg": 0.5631762820512756,
+        "min": 0,
+        "med": 0,
+        "max": 119.205,
+        "p(90)": 0.001
+      }
+    },
+    "vus_max": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "max": 5,
+        "value": 5,
+        "min": 5
+      }
+    },
+    "api_responding": {
+      "values": {
+        "rate": 1,
+        "passes": 624,
+        "fails": 0
+      },
+      "thresholds": {
+        "rate>0.95": {
+          "ok": true
+        }
+      },
+      "type": "rate",
+      "contains": "default"
+    },
+    "http_req_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "max": 88.852,
+        "p(90)": 0,
+        "p(95)": 0,
+        "avg": 0.25535096153846154,
+        "min": 0,
+        "med": 0
+      }
+    },
+    "http_req_sending": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(95)": 0.102,
+        "avg": 0.08006089743589764,
+        "min": 0.023,
+        "med": 0.076,
+        "max": 1.144,
+        "p(90)": 0.093
+      }
+    },
+    "http_req_failed": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 1,
+        "passes": 624,
+        "fails": 0
+      }
+    },
+    "checks": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 0.7777777777777778,
+        "passes": 1456,
+        "fails": 416
+      }
+    },
+    "http_req_tls_handshaking": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 0,
+        "max": 30.914,
+        "p(90)": 0,
+        "p(95)": 0,
+        "avg": 0.23238301282051282,
+        "min": 0
+      }
+    }
+  },
+  "root_group": {
+    "checks": [
+      {
+        "fails": 0,
+        "name": "posts: API responds",
+        "path": "::posts: API responds",
+        "id": "5813e1d3f8bdcf108b42c5f3fe796c83",
+        "passes": 208
+      },
+      {
+        "name": "posts: status is 401 (auth required)",
+        "path": "::posts: status is 401 (auth required)",
+        "id": "aa6cb40c4cc46e747e60a42499a09b04",
+        "passes": 0,
+        "fails": 208
+      },
+      {
+        "path": "::posts: response time < 1000ms",
+        "id": "39aeceab71d2ec9fa7ffd35295bb7498",
+        "passes": 208,
+        "fails": 0,
+        "name": "posts: response time < 1000ms"
+      },
+      {
+        "name": "posts: has response body",
+        "path": "::posts: has response body",
+        "id": "ea1a138c48b22e83ad02e47bce17f851",
+        "passes": 208,
+        "fails": 0
+      },
+      {
+        "name": "feed: API responds",
+        "path": "::feed: API responds",
+        "id": "9628e669de13173d2e5b04bd717da333",
+        "passes": 208,
+        "fails": 0
+      },
+      {
+        "name": "feed: status is 401 (auth required)",
+        "path": "::feed: status is 401 (auth required)",
+        "id": "4312eb23151243739912b61c81ac6182",
+        "passes": 208,
+        "fails": 0
+      },
+      {
+        "name": "feed: response time < 1000ms",
+        "path": "::feed: response time < 1000ms",
+        "id": "245b0aa2ffdc268bc3c80e24c37aff09",
+        "passes": 208,
+        "fails": 0
+      },
+      {
+        "name": "peaks: API responds",
+        "path": "::peaks: API responds",
+        "id": "c3eab46b53e533dfc935829951cf5fbf",
+        "passes": 208,
+        "fails": 0
+      },
+      {
+        "name": "peaks: status is 401 (auth required)",
+        "path": "::peaks: status is 401 (auth required)",
+        "id": "a3574da056876bd87e1c8c86309b8fa6",
+        "passes": 0,
+        "fails": 208
+      }
+    ],
+    "name": "",
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e",
+    "groups": []
+  }
+}

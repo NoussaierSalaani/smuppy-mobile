@@ -87,11 +87,7 @@ const getEnvironment = (): 'staging' | 'production' => {
   if (typeof process !== 'undefined' && process.env?.APP_ENV === 'production') {
     return 'production';
   }
-  // Vite web builds
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_APP_ENV === 'production') {
-    return 'production';
-  }
-  // Create React App web builds
+  // Create React App web builds (Vite/import.meta not supported in Hermes)
   if (typeof process !== 'undefined' && process.env?.REACT_APP_ENV === 'production') {
     return 'production';
   }

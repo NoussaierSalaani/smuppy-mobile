@@ -946,9 +946,10 @@ export class SmuppyStack extends cdk.Stack {
       cloudWatchRole: true,
       deployOptions: {
         stageName: environment,
-        // Rate limiting per user
-        throttlingRateLimit: isProduction ? 10000 : 1000,
-        throttlingBurstLimit: isProduction ? 5000 : 500,
+        // Rate limiting - massive scale for production social network
+        // 100k req/s steady, 50k burst handles viral content & peak hours
+        throttlingRateLimit: isProduction ? 100000 : 1000,
+        throttlingBurstLimit: isProduction ? 50000 : 500,
         // Logging
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: !isProduction,
@@ -1311,31 +1312,33 @@ export class SmuppyStack extends cdk.Stack {
         sampledRequestsEnabled: true,
       },
       rules: [
-        // Rule 1: Rate limiting - prevent DDoS and brute force
+        // Rule 1: Extreme rate limiting - only block obvious DDoS (100k/5min = 333 req/s per IP)
+        // High limit because legitimate users behind NAT/corporate networks share IPs
         {
-          name: 'RateLimitRule',
+          name: 'DDoSProtectionRule',
           priority: 1,
           action: { block: {} },
           statement: {
             rateBasedStatement: {
-              limit: isProduction ? 2000 : 1000, // requests per 5 minutes per IP
+              limit: isProduction ? 100000 : 10000, // 100k requests per 5 minutes per IP
               aggregateKeyType: 'IP',
             },
           },
           visibilityConfig: {
             cloudWatchMetricsEnabled: true,
-            metricName: 'RateLimitRule',
+            metricName: 'DDoSProtectionRule',
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 2: Stricter rate limit for auth endpoints (prevent credential stuffing)
+        // Rule 2: Auth endpoint protection - stricter but reasonable for mobile app
+        // 2000/5min = ~6.6 req/s per IP (handles rapid retries, token refresh)
         {
           name: 'AuthRateLimitRule',
           priority: 2,
           action: { block: {} },
           statement: {
             rateBasedStatement: {
-              limit: 100, // 100 requests per 5 minutes for auth
+              limit: isProduction ? 2000 : 500, // 2k requests per 5 minutes per IP for auth
               aggregateKeyType: 'IP',
               scopeDownStatement: {
                 byteMatchStatement: {
@@ -1353,10 +1356,37 @@ export class SmuppyStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 3: AWS Managed Rules - Common attacks (OWASP Top 10)
+        // Rule 3: Write operations protection (POST/PUT/DELETE) - prevent spam
+        // 5000/5min = ~16 req/s per IP for writes
+        {
+          name: 'WriteOperationsRateLimit',
+          priority: 3,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 5000 : 1000,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                orStatement: {
+                  statements: [
+                    { byteMatchStatement: { searchString: 'POST', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'PUT', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'DELETE', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                  ],
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'WriteOperationsRateLimit',
+            sampledRequestsEnabled: true,
+          },
+        },
+        // Rule 4: AWS Managed Rules - Common attacks (OWASP Top 10)
         {
           name: 'AWSManagedRulesCommonRuleSet',
-          priority: 3,
+          priority: 4,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -1370,10 +1400,10 @@ export class SmuppyStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 4: SQL Injection protection
+        // Rule 5: SQL Injection protection
         {
           name: 'AWSManagedRulesSQLiRuleSet',
-          priority: 4,
+          priority: 5,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -1387,10 +1417,10 @@ export class SmuppyStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 5: Known Bad Inputs
+        // Rule 6: Known Bad Inputs
         {
           name: 'AWSManagedRulesKnownBadInputsRuleSet',
-          priority: 5,
+          priority: 6,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -1404,10 +1434,10 @@ export class SmuppyStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
-        // Rule 6: Linux-specific protection (Lambda runs on Linux)
+        // Rule 7: Linux-specific protection (Lambda runs on Linux)
         {
           name: 'AWSManagedRulesLinuxRuleSet',
-          priority: 6,
+          priority: 7,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {

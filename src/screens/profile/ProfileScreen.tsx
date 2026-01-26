@@ -29,7 +29,7 @@ import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { unsavePost } from '../../services/database';
 import { LiquidTabsWithMore } from '../../components/LiquidTabs';
-import { styles, COVER_HEIGHT, AVATAR_SIZE } from './ProfileScreen.styles';
+import { styles, AVATAR_SIZE } from './ProfileScreen.styles';
 
 // ProfileDataSource is now imported from ../../types/profile
 

@@ -195,7 +195,7 @@ interface FilterStoreState extends FilterState {
 // ============================================
 
 export const useFilterStore = create<FilterStoreState>()(
-  immer((set, get) => ({
+  immer((set, _get) => ({
     // Initial state
     activeFilter: null,
     activeOverlays: [],

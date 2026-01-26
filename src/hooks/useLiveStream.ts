@@ -55,7 +55,7 @@ interface UseLiveStreamReturn {
 
 export function useLiveStream({
   channelName,
-  isHost = false,
+  isHost: _isHost = false,
   onViewerJoined,
   onViewerLeft,
   onComment,

@@ -91,7 +91,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
-  const [hiddenPeaks, setHiddenPeaks] = useState<Set<string>>(new Set()); // Not interested peaks
+  const [_hiddenPeaks, setHiddenPeaks] = useState<Set<string>>(new Set()); // Not interested peaks
 
   // Content store for reporting
   const { submitPostReport } = useContentStore();
@@ -280,7 +280,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     try {
       // The notification is handled server-side when tagging
       // This would typically call an endpoint like POST /peaks/{id}/tag
-      console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
+      if (__DEV__) console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
     } catch (error) {
       console.error('[Peak] Failed to send tag notification:', error);
     }
@@ -309,7 +309,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     // Send reaction to API
     try {
       // This would call POST /peaks/{id}/react with { reaction: reactionType }
-      console.log(`[Peak] Reacted with ${reactionType} on peak ${currentPeak.id}`);
+      if (__DEV__) console.log(`[Peak] Reacted with ${reactionType} on peak ${currentPeak.id}`);
     } catch (error) {
       console.error('[Peak] Failed to send reaction:', error);
       // Rollback on error

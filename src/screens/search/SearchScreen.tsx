@@ -548,7 +548,7 @@ const SearchScreen = (): React.JSX.Element => {
   // RENDER TABS
   // ============================================
 
-  const getTabLabel = (tab: SearchTab): string => {
+  const _getTabLabel = (tab: SearchTab): string => {
     switch (tab) {
       case 'all': return 'All';
       case 'users': return 'Users';
@@ -558,7 +558,7 @@ const SearchScreen = (): React.JSX.Element => {
     }
   };
 
-  const getTabCount = (tab: SearchTab): number => {
+  const _getTabCount = (tab: SearchTab): number => {
     switch (tab) {
       case 'all': return userResults.length + postResults.length + peakResults.length + hashtagResults.length;
       case 'users': return userResults.length;

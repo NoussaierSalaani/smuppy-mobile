@@ -126,7 +126,7 @@ interface SuccessScreenProps {
   navigation: { reset: (state: { index: number; routes: Array<{ name: string }> }) => void };
 }
 
-export default function SuccessScreen({ route, navigation }: SuccessScreenProps) {
+export default function SuccessScreen({ route, navigation: _navigation }: SuccessScreenProps) {
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslate = useRef(new Animated.Value(20)).current;
@@ -135,7 +135,7 @@ export default function SuccessScreen({ route, navigation }: SuccessScreenProps)
   const ringScale = useRef(new Animated.Value(0.5)).current;
   const ringOpacity = useRef(new Animated.Value(0)).current;
 
-  const { name, onSignupComplete } = route?.params || {};
+  const { name: _name, onSignupComplete } = route?.params || {};
 
   useEffect(() => {
     // Logo and text appear together quickly

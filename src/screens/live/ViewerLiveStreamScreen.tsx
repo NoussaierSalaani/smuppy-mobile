@@ -25,9 +25,9 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
-import { RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
+import { RemoteVideoView } from '../../components/AgoraVideoView';
 
-const { width, height } = Dimensions.get('window');
+const { width, height: _height } = Dimensions.get('window');
 
 interface Comment {
   id: string;

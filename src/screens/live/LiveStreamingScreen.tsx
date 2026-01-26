@@ -58,7 +58,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     isJoined,
     isLoading,
     error,
-    remoteUsers,
+    remoteUsers: _remoteUsers,
     isMuted,
     isVideoOff,
     initialize: _initialize,

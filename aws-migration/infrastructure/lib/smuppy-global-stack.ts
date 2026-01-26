@@ -44,6 +44,8 @@ export class SmuppyGlobalStack extends cdk.Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       versioned: isProduction,
+      // Enable EventBridge for virus scanning integration
+      eventBridgeEnabled: true,
       // Cost optimization with intelligent tiering
       intelligentTieringConfigurations: [{
         name: 'AutoTiering',
@@ -466,6 +468,10 @@ export class SmuppyGlobalStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // Tag feed table for backup
+    cdk.Tags.of(feedTable).add('service', 'smuppy');
+    cdk.Tags.of(feedTable).add('backup', 'true');
+
     // Likes Table - High write throughput
     const likesTable = new dynamodb.Table(this, 'LikesTable', {
       tableName: `smuppy-likes-${environment}`,
@@ -473,9 +479,14 @@ export class SmuppyGlobalStack extends cdk.Stack {
       sortKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: isProduction, // Enable PITR for production
       stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
+
+    // Tag likes table for backup
+    cdk.Tags.of(likesTable).add('service', 'smuppy');
+    cdk.Tags.of(likesTable).add('backup', 'true');
 
     // GSI for user's likes
     likesTable.addGlobalSecondaryIndex({
@@ -492,9 +503,14 @@ export class SmuppyGlobalStack extends cdk.Stack {
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING }, // view#user:456
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: isProduction, // Enable PITR for production
       timeToLiveAttribute: 'ttl',
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
+
+    // Tag analytics table for backup
+    cdk.Tags.of(analyticsTable).add('service', 'smuppy');
+    cdk.Tags.of(analyticsTable).add('backup', 'true');
 
     // Sessions Table for Redis backup/overflow
     const sessionsTable = new dynamodb.Table(this, 'SessionsTable', {
@@ -502,9 +518,14 @@ export class SmuppyGlobalStack extends cdk.Stack {
       partitionKey: { name: 'sessionId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: isProduction, // Enable PITR for production
       timeToLiveAttribute: 'expiresAt',
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
+
+    // Tag sessions table for backup
+    cdk.Tags.of(sessionsTable).add('service', 'smuppy');
+    cdk.Tags.of(sessionsTable).add('backup', 'true');
 
     // Notifications Table
     const notificationsTable = new dynamodb.Table(this, 'NotificationsTable', {
@@ -513,10 +534,15 @@ export class SmuppyGlobalStack extends cdk.Stack {
       sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: isProduction, // Enable PITR for production
       timeToLiveAttribute: 'ttl',
       stream: dynamodb.StreamViewType.NEW_IMAGE,
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
+
+    // Tag notifications table for backup
+    cdk.Tags.of(notificationsTable).add('service', 'smuppy');
+    cdk.Tags.of(notificationsTable).add('backup', 'true');
 
     // ========================================
     // Outputs

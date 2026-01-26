@@ -7,6 +7,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { SmuppyStack } from '../lib/smuppy-stack';
 import { SmuppyGlobalStack } from '../lib/smuppy-global-stack';
+import { SecurityPhase2Stack } from '../lib/security-phase2-stack';
 
 const app = new cdk.App();
 
@@ -53,6 +54,28 @@ const globalStack = new SmuppyGlobalStack(app, `SmuppyGlobal-${environment}`, {
 
 // Global stack depends on core stack
 globalStack.addDependency(coreStack);
+
+// Stack 3: Security Phase 2 (Multi-Region Backup + Virus Scanning)
+const securityStack = new SecurityPhase2Stack(app, `SmuppySecurity-${environment}`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: primaryRegion,
+  },
+  environment,
+  mediaBucket: globalStack.mediaBucket,
+  secondaryRegion: 'eu-west-1', // Ireland - DR region
+  alertEmail: isProduction ? 'security@smuppy.com' : undefined,
+  description: `Smuppy Security Phase 2 - Backup & Virus Scan - ${environment}`,
+  tags: {
+    Project: 'Smuppy',
+    Environment: environment,
+    ManagedBy: 'CDK',
+    Component: 'Security',
+  },
+});
+
+// Security stack depends on global stack (for media bucket)
+securityStack.addDependency(globalStack);
 
 // Output important information
 new cdk.CfnOutput(coreStack, 'DeploymentInfo', {

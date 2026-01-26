@@ -83,22 +83,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Remove like and update count in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Delete like
-      await db.query(
+      await client.query(
         'DELETE FROM likes WHERE user_id = $1 AND post_id = $2',
         [profileId, postId]
       );
 
       // Update likes count (ensure it doesn't go below 0)
-      const updatedPost = await db.query(
+      const updatedPost = await client.query(
         'UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1 RETURNING likes_count',
         [postId]
       );
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -111,8 +114,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error unliking post:', error);

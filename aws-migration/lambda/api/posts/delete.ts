@@ -84,19 +84,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Delete post and all associated data in transaction
     // CASCADE will handle likes, comments, and saved_posts due to FK constraints
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Delete the post (CASCADE handles related data)
-      await db.query('DELETE FROM posts WHERE id = $1', [postId]);
+      await client.query('DELETE FROM posts WHERE id = $1', [postId]);
 
       // Update user's post count
-      await db.query(
+      await client.query(
         'UPDATE profiles SET post_count = GREATEST(post_count - 1, 0) WHERE id = $1',
         [profileId]
       );
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -107,8 +110,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error deleting post:', error);

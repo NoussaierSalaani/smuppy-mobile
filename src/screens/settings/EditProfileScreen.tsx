@@ -21,7 +21,7 @@ import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
 
-const EditProfilScreen = ({ navigation }) => {
+const EditProfileScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, updateProfile: updateLocalProfile } = useUser();
   const { data: profileData, refetch } = useCurrentProfile();
@@ -541,4 +541,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EditProfilScreen;
+export default EditProfileScreen;

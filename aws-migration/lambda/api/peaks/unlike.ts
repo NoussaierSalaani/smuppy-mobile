@@ -58,24 +58,27 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const profileId = userResult.rows[0].id;
 
     // Unlike peak in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Delete like
-      const deleteResult = await db.query(
+      const deleteResult = await client.query(
         'DELETE FROM peak_likes WHERE user_id = $1 AND peak_id = $2 RETURNING id',
         [profileId, peakId]
       );
 
       // Only decrement if a like was actually deleted
       if (deleteResult.rows.length > 0) {
-        await db.query(
+        await client.query(
           'UPDATE peaks SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1',
           [peakId]
         );
       }
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -87,8 +90,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error unliking peak:', error);

@@ -131,11 +131,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Create comment in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Insert comment
-      const commentResult = await db.query(
+      const commentResult = await client.query(
         `INSERT INTO comments (user_id, post_id, text, parent_comment_id)
          VALUES ($1, $2, $3, $4)
          RETURNING id, text, parent_comment_id, created_at, updated_at`,
@@ -145,14 +148,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const comment = commentResult.rows[0];
 
       // Update comments count on post
-      await db.query(
+      await client.query(
         'UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1',
         [postId]
       );
 
       // Create notification for post author (if not self-comment)
       if (post.author_id !== profile.id) {
-        await db.query(
+        await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'comment', 'New Comment', $2, $3)`,
           [
@@ -163,7 +166,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
       }
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 201,
@@ -187,8 +190,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error creating comment:', error);

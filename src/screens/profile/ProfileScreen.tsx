@@ -772,7 +772,7 @@ const ProfileScreen = ({ navigation, route }) => {
       ) : isOwnProfile ? (
         <TouchableOpacity
           style={styles.addBioBtn}
-          onPress={() => navigation.navigate('Settings', { screen: 'EditProfil' })}
+          onPress={() => navigation.navigate('EditProfile')}
         >
           <Ionicons name="add" size={16} color="#0EBF8A" />
           <Text style={styles.addBioText}>Add Bio</Text>

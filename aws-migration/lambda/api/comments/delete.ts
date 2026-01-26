@@ -91,11 +91,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Delete comment in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Count child comments that will be deleted (CASCADE)
-      const childCount = await db.query(
+      const childCount = await client.query(
         'SELECT COUNT(*) as count FROM comments WHERE parent_comment_id = $1',
         [commentId]
       );
@@ -103,15 +106,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const totalDeleted = 1 + parseInt(childCount.rows[0].count);
 
       // Delete the comment (CASCADE will handle replies)
-      await db.query('DELETE FROM comments WHERE id = $1', [commentId]);
+      await client.query('DELETE FROM comments WHERE id = $1', [commentId]);
 
       // Update comments count on post
-      await db.query(
+      await client.query(
         'UPDATE posts SET comments_count = GREATEST(comments_count - $1, 0) WHERE id = $2',
         [totalDeleted, comment.post_id]
       );
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -122,8 +125,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error deleting comment:', error);

@@ -490,7 +490,6 @@ export type MainStackParamList = {
   // Settings
   Settings: undefined;
   EditProfile: undefined;
-  EditProfil: undefined;
   PasswordManager: undefined;
   AccountSettings: undefined;
   PrivacySettings: undefined;

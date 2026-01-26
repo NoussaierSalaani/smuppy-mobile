@@ -106,11 +106,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const peak = peakResult.rows[0];
 
     // Create comment in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Insert comment
-      const commentResult = await db.query(
+      const commentResult = await client.query(
         `INSERT INTO peak_comments (user_id, peak_id, text)
          VALUES ($1, $2, $3)
          RETURNING id, text, created_at`,
@@ -120,14 +123,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const comment = commentResult.rows[0];
 
       // Update comments count on peak
-      await db.query(
+      await client.query(
         'UPDATE peaks SET comments_count = comments_count + 1 WHERE id = $1',
         [peakId]
       );
 
       // Create notification for peak author (if not self-comment)
       if (peak.author_id !== profile.id) {
-        await db.query(
+        await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'peak_comment', 'New Comment', $2, $3)`,
           [
@@ -138,7 +141,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
       }
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 201,
@@ -160,8 +163,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error creating peak comment:', error);

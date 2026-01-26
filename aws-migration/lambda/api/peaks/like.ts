@@ -92,24 +92,27 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Like peak in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Create like
-      await db.query(
+      await client.query(
         'INSERT INTO peak_likes (user_id, peak_id) VALUES ($1, $2)',
         [profile.id, peakId]
       );
 
       // Update likes count
-      await db.query(
+      await client.query(
         'UPDATE peaks SET likes_count = likes_count + 1 WHERE id = $1',
         [peakId]
       );
 
       // Create notification for peak author (if not self-like)
       if (peak.author_id !== profile.id) {
-        await db.query(
+        await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'peak_like', 'New Like', $2, $3)`,
           [
@@ -120,7 +123,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
       }
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -132,8 +135,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error liking peak:', error);

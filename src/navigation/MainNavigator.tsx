@@ -34,7 +34,7 @@ import PostDetailVibesFeedScreen from '../screens/home/PostDetailVibesFeedScreen
 
 // Settings Screens
 import SettingsScreen from '../screens/settings/SettingsScreen';
-import EditProfilScreen from '../screens/settings/EditProfilScreen';
+import EditProfileScreen from '../screens/settings/EditProfileScreen';
 import EditInterestsScreen from '../screens/settings/EditInterestsScreen';
 import PasswordManagerScreen from '../screens/settings/PasswordManagerScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
@@ -167,7 +167,7 @@ export default function MainNavigator() {
 
       {/* Settings Stack */}
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EditProfil" component={EditProfilScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditInterests" component={EditInterestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

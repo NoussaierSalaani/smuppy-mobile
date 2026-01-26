@@ -93,17 +93,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Insert like and update count in transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Insert like
-      await db.query(
+      await client.query(
         'INSERT INTO likes (user_id, post_id) VALUES ($1, $2)',
         [profileId, postId]
       );
 
       // Update likes count
-      const updatedPost = await db.query(
+      const updatedPost = await client.query(
         'UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1 RETURNING likes_count',
         [postId]
       );
@@ -111,14 +114,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Create notification for post author (if not self-like)
       const post = postResult.rows[0];
       if (post.author_id !== profileId) {
-        await db.query(
+        await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'like', 'New Like', 'Someone liked your post', $2)`,
           [post.author_id, JSON.stringify({ postId, likerId: profileId })]
         );
       }
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -131,8 +134,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error liking post:', error);

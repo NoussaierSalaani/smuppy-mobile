@@ -92,17 +92,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Accept the request in a transaction
-    await db.query('BEGIN');
+    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
+    const client = await db.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Update request status
-      await db.query(
+      await client.query(
         'UPDATE follow_requests SET status = $1, updated_at = NOW() WHERE id = $2',
         ['accepted', requestId]
       );
 
       // Create the follow relationship
-      await db.query(
+      await client.query(
         `INSERT INTO follows (follower_id, following_id)
          VALUES ($1, $2)
          ON CONFLICT (follower_id, following_id) DO NOTHING`,
@@ -110,23 +113,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       // Update follower/following counts
-      await db.query(
+      await client.query(
         'UPDATE profiles SET followers_count = followers_count + 1 WHERE id = $1',
         [profileId]
       );
-      await db.query(
+      await client.query(
         'UPDATE profiles SET following_count = following_count + 1 WHERE id = $1',
         [request.requester_id]
       );
 
       // Create notification for the requester
-      await db.query(
+      await client.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
          VALUES ($1, 'follow_accepted', 'Follow Request Accepted', 'Your follow request was accepted', $2)`,
         [request.requester_id, JSON.stringify({ acceptedBy: profileId })]
       );
 
-      await db.query('COMMIT');
+      await client.query('COMMIT');
 
       return {
         statusCode: 200,
@@ -137,8 +140,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }),
       };
     } catch (error) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error: any) {
     console.error('Error accepting follow request:', error);

@@ -198,12 +198,12 @@ export class LambdaStack extends cdk.NestedStack {
     // ========================================
     // Phase 1: Core API Lambda Functions
     // ========================================
-    this.postsListFn = createLambda('PostsListFunction', 'posts/list', { memory: 1024 });
+    this.postsListFn = createLambda('PostsListFunction', 'posts/list', { memory: 1024, reservedConcurrency: 50 });
     this.postsGetFn = createLambda('PostsGetFunction', 'posts/get');
     this.postsCreateFn = createLambda('PostsCreateFunction', 'posts/create');
     this.profilesGetFn = createLambda('ProfilesGetFunction', 'profiles/get');
     this.profilesSearchFn = createLambda('ProfilesSearchFunction', 'profiles/search', { memory: 1024 });
-    this.feedGetFn = createLambda('FeedGetFunction', 'feed/get', { memory: 2048, timeout: 60 });
+    this.feedGetFn = createLambda('FeedGetFunction', 'feed/get', { memory: 2048, timeout: 60, reservedConcurrency: 100 });
     this.followsCreateFn = createLambda('FollowsCreateFunction', 'follows/create');
     this.followsDeleteFn = createLambda('FollowsDeleteFunction', 'follows/delete');
     this.profilesUpdateFn = createLambda('ProfilesUpdateFunction', 'profiles/update');
@@ -236,7 +236,7 @@ export class LambdaStack extends cdk.NestedStack {
     // ========================================
     // Phase 4: Peaks Lambda Functions
     // ========================================
-    this.peaksListFn = createLambda('PeaksListFunction', 'peaks/list', { memory: 1024 });
+    this.peaksListFn = createLambda('PeaksListFunction', 'peaks/list', { memory: 1024, reservedConcurrency: 50 });
     this.peaksGetFn = createLambda('PeaksGetFunction', 'peaks/get');
     this.peaksCreateFn = createLambda('PeaksCreateFunction', 'peaks/create');
     this.peaksDeleteFn = createLambda('PeaksDeleteFunction', 'peaks/delete');
@@ -391,6 +391,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
+      reservedConcurrentExecutions: 20,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [lambdaSecurityGroup],
@@ -427,6 +428,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
+      reservedConcurrentExecutions: 20,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [lambdaSecurityGroup],
@@ -459,6 +461,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
+      reservedConcurrentExecutions: 20,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [lambdaSecurityGroup],

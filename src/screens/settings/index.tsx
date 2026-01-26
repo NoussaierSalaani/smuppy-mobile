@@ -1,5 +1,5 @@
 export { default as SettingsScreen } from './SettingsScreen';
-export { default as EditProfilScreen } from './EditProfilScreen';
+export { default as EditProfileScreen } from './EditProfileScreen';
 export { default as EditInterestsScreen } from './EditInterestsScreen';
 export { default as PasswordManagerScreen } from './PasswordManagerScreen';
 export { default as NotificationSettingsScreen } from './NotificationSettingsScreen';

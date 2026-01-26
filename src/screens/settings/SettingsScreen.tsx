@@ -133,7 +133,7 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const MENU_ITEMS = [
-    { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfil' },
+    { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
     { id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } },
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),

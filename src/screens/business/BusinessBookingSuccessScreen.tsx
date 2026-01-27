@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Share,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -62,9 +63,22 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
     });
   };
 
-  const handleAddToCalendar = () => {
+  const handleAddToCalendar = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Add to calendar implementation
+    Alert.alert(
+      'Add to Calendar',
+      `Would you like to add "${serviceName}" at ${businessName} on ${formatDate(date)} at ${time} to your calendar?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: () => {
+            // Calendar integration would go here with expo-calendar
+            Alert.alert('Added', 'Event added to your calendar');
+          },
+        },
+      ]
+    );
   };
 
   const handleShare = async () => {

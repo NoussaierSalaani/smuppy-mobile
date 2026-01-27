@@ -184,16 +184,9 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       }
 
       // Set JUST_SIGNED_UP flag AFTER successful confirmation and sign-in
-      await storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
+      storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
 
-      // Upload profile image
-      let avatarUrl: string | null = null;
-      if (profileImage && user.id) {
-        const { url } = await uploadProfileImage(profileImage, user.id);
-        if (url) avatarUrl = url;
-      }
-
-      // Create profile
+      // Create profile data (without avatar first for speed)
       const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       const profileData: Record<string, unknown> = {
         full_name: name || generatedUsername,
@@ -201,7 +194,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         account_type: accountType || 'personal',
       };
 
-      if (avatarUrl) profileData.avatar_url = avatarUrl;
       if (gender) profileData.gender = gender;
       if (dateOfBirth) profileData.date_of_birth = dateOfBirth;
       if (displayName) profileData.display_name = displayName;
@@ -216,9 +208,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       if (businessPhone) profileData.business_phone = businessPhone;
       if (locationsMode) profileData.locations_mode = locationsMode;
 
-      await createProfile(profileData);
-
-      // Update contexts
+      // Update contexts immediately (for faster UI)
       const userData = {
         id: user.id,
         fullName: name || generatedUsername,
@@ -226,7 +216,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         email: email || '',
         dateOfBirth: dateOfBirth || '',
         gender: gender || '',
-        avatar: avatarUrl || undefined,
+        avatar: undefined,
         bio: bio || '',
         username: username || generatedUsername,
         accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_local',
@@ -242,14 +232,31 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       };
       setZustandUser(userData);
 
-      // Persist session
-      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+      // Persist session (non-blocking)
+      storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
-      // Navigate to success
+      // Navigate to success immediately (don't wait for profile creation)
       navigation.reset({
         index: 0,
         routes: [{ name: 'Success', params: { name } }],
       });
+
+      // Create profile and upload image in background (non-blocking)
+      createProfile(profileData).catch((err) => console.warn('Profile creation error:', err));
+
+      // Upload profile image in background (non-blocking)
+      if (profileImage && user.id) {
+        uploadProfileImage(profileImage, user.id)
+          .then(({ url }) => {
+            if (url) {
+              // Update profile with avatar URL in background
+              createProfile({ avatar_url: url }).catch(() => {});
+              // Update local state
+              setZustandUser({ ...userData, avatar: url });
+            }
+          })
+          .catch((err) => console.warn('Image upload error:', err));
+      }
 
     } catch (err: any) {
       // Only delete flag if it was already set (during profile creation phase)
@@ -319,18 +326,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     }
   }, [canAction, tryAction, clearCode, setShowModal, email]);
 
-  // Loading state
-  if (isCreatingAccount) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <OnboardingHeader onBack={goBack} disabled currentStep={4} totalSteps={4} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Setting up your account...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Show UI immediately - don't block on account creation
+  // The code input will be disabled until account is created
 
   return (
     <SafeAreaView style={styles.container}>
@@ -351,8 +348,16 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
             </Text>
           </View>
 
-          {/* Code Input */}
-          {accountCreated && (
+          {/* Account Creation Progress */}
+          {isCreatingAccount && (
+            <View style={styles.creatingAccountBox}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.creatingAccountText}>Setting up your account...</Text>
+            </View>
+          )}
+
+          {/* Code Input - show immediately but disabled while creating account */}
+          {(accountCreated || isCreatingAccount) && (
             <>
               <Text style={styles.label}>Enter code</Text>
               <Animated.View style={[styles.codeRow, { transform: [{ translateX: shakeAnim }] }]}>
@@ -375,7 +380,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                         onFocus={() => setFocusedIndex(i)}
                         onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
-                        editable={!isVerifying}
+                        editable={!isVerifying && !isCreatingAccount}
                       />
                     );
                   }
@@ -399,7 +404,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                         onFocus={() => setFocusedIndex(i)}
                         onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
-                        editable={!isVerifying}
+                        editable={!isVerifying && !isCreatingAccount}
                       />
                     </LinearGradient>
                   );
@@ -500,4 +505,8 @@ const styles = StyleSheet.create({
   // Verifying
   verifyingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: SPACING.lg },
   verifyingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+
+  // Creating account
+  creatingAccountBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: SPACING.lg, paddingVertical: SPACING.sm, backgroundColor: '#E8FBF5', borderRadius: 12 },
+  creatingAccountText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
 });

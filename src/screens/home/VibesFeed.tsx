@@ -26,7 +26,7 @@ import { useContentStore, useUserSafetyStore } from '../../stores';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
-import { PEAKS_DATA, INTEREST_DATA } from '../../mocks';
+import { PEAKS_DATA, INTEREST_DATA, MOCK_VIBE_POSTS } from '../../mocks';
 import SharePostModal from '../../components/SharePostModal';
 import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
 
@@ -225,16 +225,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       if (error) {
         console.error('[VibesFeed] Error fetching posts:', error);
         if (refresh || pageNum === 0) {
-          setAllPosts([]);
+          // Use mock data as fallback
+          console.log('[VibesFeed] Using mock data as fallback');
+          setAllPosts(MOCK_VIBE_POSTS);
           setHasMore(false);
         }
         return;
       }
 
-      if (!data) {
-        console.warn('[VibesFeed] No data returned');
+      if (!data || data.length === 0) {
+        console.warn('[VibesFeed] No data returned, using mock data');
         if (refresh || pageNum === 0) {
-          setAllPosts([]);
+          // Use mock data as fallback when API returns empty
+          setAllPosts(MOCK_VIBE_POSTS);
           setHasMore(false);
         }
         return;

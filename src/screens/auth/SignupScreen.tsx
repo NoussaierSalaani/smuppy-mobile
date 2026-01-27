@@ -181,34 +181,39 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
-      // Server-side email validation (format, domain, MX records)
+      // Server-side validation (parallelized for speed)
       const { awsAPI } = await import('../../services/aws-api');
 
-      try {
-        const validation = await awsAPI.validateEmail(normalizedEmail);
-        if (!validation.valid) {
+      // Run email validation and user existence check in parallel
+      const [validationResult, userCheckResult] = await Promise.allSettled([
+        awsAPI.validateEmail(normalizedEmail),
+        awsAPI.checkUserExists(normalizedEmail),
+      ]);
+
+      // Check email validation result
+      if (validationResult.status === 'fulfilled') {
+        if (!validationResult.value.valid) {
           setLoading(false);
           setErrorModal({
             visible: true,
             title: 'Invalid Email',
-            message: validation.error || 'Please enter a valid email address.',
+            message: validationResult.value.error || 'Please enter a valid email address.',
           });
           return;
         }
-      } catch (validationErr: any) {
+      } else {
         setLoading(false);
         setErrorModal({
           visible: true,
           title: 'Email Verification Failed',
-          message: validationErr?.message || 'Unable to verify email address. Please check and try again.',
+          message: 'Unable to verify email address. Please check and try again.',
         });
         return;
       }
 
-      // Check if user already exists (confirmed account)
-      try {
-        const userCheck = await awsAPI.checkUserExists(normalizedEmail);
-        if (userCheck.exists && userCheck.confirmed) {
+      // Check if user already exists
+      if (userCheckResult.status === 'fulfilled') {
+        if (userCheckResult.value.exists && userCheckResult.value.confirmed) {
           setLoading(false);
           setErrorModal({
             visible: true,
@@ -217,9 +222,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
           });
           return;
         }
-      } catch {
-        // If check fails, let user continue (will fail later if needed)
       }
+      // If user check fails, let user continue (will fail later if needed)
 
       // Email validated and user doesn't exist - continue to onboarding
       // Account creation and verification code will be sent in VerifyCodeScreen

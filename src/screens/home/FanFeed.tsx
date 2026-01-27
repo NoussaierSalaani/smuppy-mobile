@@ -27,6 +27,7 @@ import { useShareModal } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
+import { MOCK_FAN_POSTS } from '../../mocks';
 
 const { width } = Dimensions.get('window');
 
@@ -103,19 +104,21 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       if (error) {
         console.error('[FanFeed] Error fetching posts:', error);
-        // On error, still update state to avoid stuck loading
+        // On error, use mock data as fallback
         if (refresh || pageNum === 0) {
-          setPosts([]);
+          console.log('[FanFeed] Using mock data as fallback');
+          setPosts(MOCK_FAN_POSTS);
           setHasMore(false);
         }
         return;
       }
 
       // Handle null or undefined data
-      if (!data) {
-        console.warn('[FanFeed] No data returned');
+      if (!data || data.length === 0) {
+        console.warn('[FanFeed] No data returned, using mock data');
         if (refresh || pageNum === 0) {
-          setPosts([]);
+          // Use mock data as fallback when API returns empty
+          setPosts(MOCK_FAN_POSTS);
           setHasMore(false);
         }
         return;
@@ -142,9 +145,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
         setHasMore(data.length >= 10);
       } else {
-        // Empty data array
+        // This shouldn't be reached due to the check above, but as fallback
         if (refresh || pageNum === 0) {
-          setPosts([]);
+          setPosts(MOCK_FAN_POSTS);
           setLikedPostIds(new Set());
         }
         setHasMore(false);

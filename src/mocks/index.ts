@@ -16,4 +16,6 @@ export {
 export {
   PEAKS_DATA,
   INTEREST_DATA,
+  MOCK_VIBE_POSTS,
+  MOCK_FAN_POSTS,
 } from './feedMocks';

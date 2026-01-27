@@ -8,14 +8,16 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
-  Image,
   ActivityIndicator,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI, SessionPack } from '../../services/aws-api';
+import OptimizedImage from '../../components/OptimizedImage';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -219,7 +221,12 @@ export default function BookSessionScreen(): React.JSX.Element {
         {/* Creator Info */}
         {creator && (
           <View style={styles.creatorCard}>
-            <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+            <OptimizedImage
+              source={creator.avatar}
+              style={styles.creatorAvatar as StyleProp<ImageStyle>}
+              contentFit="cover"
+              priority="high"
+            />
             <View style={styles.creatorInfo}>
               <Text style={styles.creatorName}>{creator.name}</Text>
               <Text style={styles.creatorSpecialty}>@{creator.username}</Text>

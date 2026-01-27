@@ -10,9 +10,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Image,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -101,7 +103,12 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
       <View style={styles.content}>
         {/* Creator Avatar with Badge */}
         <Animated.View style={[styles.avatarContainer, { transform: [{ scale: scaleAnim }] }]}>
-          <Image source={{ uri: creator.avatar }} style={styles.avatar} />
+          <OptimizedImage
+            source={creator.avatar}
+            style={styles.avatar as StyleProp<ImageStyle>}
+            contentFit="cover"
+            priority="high"
+          />
           <View style={styles.badgeContainer}>
             <LinearGradient
               colors={[COLORS.primary, COLORS.secondary]}

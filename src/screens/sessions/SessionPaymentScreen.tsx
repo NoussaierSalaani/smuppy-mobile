@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Image,
   ActivityIndicator,
   Alert,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { usePaymentSheet, PaymentSheetError } from '@stripe/stripe-react-native';
@@ -190,7 +192,12 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       <>
         {/* Session Summary */}
         <View style={styles.summaryCard}>
-          <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+          <OptimizedImage
+              source={creator.avatar}
+              style={styles.creatorAvatar as StyleProp<ImageStyle>}
+              contentFit="cover"
+              priority="high"
+            />
           <View style={styles.summaryInfo}>
             <Text style={styles.creatorName}>{creator.name}</Text>
             <Text style={styles.sessionDetails}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -42,7 +42,7 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
     setBlockedUsers(getBlockedUsers());
   };
 
-  const handleUnblock = async (userId: string, userName: string) => {
+  const handleUnblock = useCallback(async (userId: string, userName: string) => {
     Alert.alert(
       'Unblock User',
       `Are you sure you want to unblock ${userName}?`,
@@ -66,9 +66,9 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
         },
       ]
     );
-  };
+  }, [unblock]);
 
-  const renderBlockedUser = ({ item }: { item: BlockedUser }) => {
+  const renderBlockedUser = useCallback(({ item }: { item: BlockedUser }) => {
     const user = item.blocked_user;
     if (!user) return null;
 
@@ -100,9 +100,9 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
         </TouchableOpacity>
       </View>
     );
-  };
+  }, [unblocking, handleUnblock, navigation]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
         <Ionicons name="ban-outline" size={48} color="#9CA3AF" />
@@ -112,7 +112,7 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
         Users you block won't be able to see your content or interact with you.
       </Text>
     </View>
-  );
+  ), []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -140,6 +140,10 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          windowSize={5}
         />
       )}
     </View>

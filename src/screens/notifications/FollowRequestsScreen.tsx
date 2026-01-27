@@ -50,7 +50,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
     loadRequests();
   }, [loadRequests]);
 
-  const handleAccept = async (request: FollowRequest) => {
+  const handleAccept = useCallback(async (request: FollowRequest) => {
     setProcessingIds(prev => ({ ...prev, [request.id]: 'accepting' }));
 
     const { error } = await acceptFollowRequest(request.id);
@@ -65,9 +65,9 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
       delete newState[request.id];
       return newState;
     });
-  };
+  }, []);
 
-  const handleDecline = async (request: FollowRequest) => {
+  const handleDecline = useCallback(async (request: FollowRequest) => {
     setProcessingIds(prev => ({ ...prev, [request.id]: 'declining' }));
 
     const { error } = await declineFollowRequest(request.id);
@@ -82,9 +82,9 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
       delete newState[request.id];
       return newState;
     });
-  };
+  }, []);
 
-  const renderRequest = ({ item }: { item: FollowRequest }) => {
+  const renderRequest = useCallback(({ item }: { item: FollowRequest }) => {
     const user = item.requester;
     if (!user) return null;
 
@@ -140,9 +140,9 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
         </View>
       </View>
     );
-  };
+  }, [processingIds, handleAccept, handleDecline, navigation]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
         <Ionicons name="person-add-outline" size={48} color="#9CA3AF" />
@@ -152,7 +152,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
         When someone requests to follow you, you'll see it here.
       </Text>
     </View>
-  );
+  ), []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -180,6 +180,10 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

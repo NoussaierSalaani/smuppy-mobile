@@ -73,12 +73,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const inputRef = useRef<TextInput>(null);
 
   // Handle emoji selection
-  const handleEmojiSelect = (emoji: { emoji: string }) => {
+  const handleEmojiSelect = useCallback((emoji: { emoji: string }) => {
     setInputText(prev => prev + emoji.emoji);
-  };
+  }, []);
 
   // Toggle emoji picker
-  const toggleEmojiPicker = () => {
+  const toggleEmojiPicker = useCallback(() => {
     if (showEmojiPicker) {
       setShowEmojiPicker(false);
       inputRef.current?.focus();
@@ -86,7 +86,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       Keyboard.dismiss();
       setShowEmojiPicker(true);
     }
-  };
+  }, [showEmojiPicker]);
 
   // Get current user ID
   useEffect(() => {
@@ -151,16 +151,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     return unsubscribe;
   }, [conversationId, currentUserId]);
 
-  const goToUserProfile = (profileUserId: string) => {
+  const goToUserProfile = useCallback((profileUserId: string) => {
     navigation.navigate('UserProfile', { userId: profileUserId });
-  };
+  }, [navigation]);
 
-  const formatTime = (dateString: string) => {
+  const formatTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  }, []);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!inputText.trim()) return;
 
     if (!conversationId) {
@@ -181,10 +181,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       setInputText(messageText);
     }
     setSending(false);
-  };
+  }, [conversationId, inputText, sending]);
 
   // Handle voice message send
-  const handleVoiceSend = async (uri: string, duration: number) => {
+  const handleVoiceSend = useCallback(async (uri: string, duration: number) => {
     if (!conversationId) return;
 
     setIsRecording(false);
@@ -211,9 +211,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       Alert.alert('Error', 'Failed to send voice message');
     }
     setSending(false);
-  };
+  }, [conversationId]);
 
-  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
+  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
     const isFromMe = item.sender_id === currentUserId;
     const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
 
@@ -267,7 +267,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         </View>
       </View>
     );
-  };
+  }, [currentUserId, messages, goToUserProfile, formatTime]);
 
   const displayName = otherUserProfile?.full_name || otherUserProfile?.username || 'User';
 

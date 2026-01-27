@@ -211,7 +211,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
             try {
               await awsAPI.deleteBusinessService(service.id);
               setServices((prev) => prev.filter((s) => s.id !== service.id));
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'Failed to delete service');
             }
           },

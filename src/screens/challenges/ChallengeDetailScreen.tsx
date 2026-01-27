@@ -13,7 +13,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  FlatList,
   RefreshControl,
   ActivityIndicator,
   Share,

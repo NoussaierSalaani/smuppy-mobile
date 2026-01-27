@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Image, StyleSheet, TouchableOpacity, Text, ViewStyle } from 'react-native';
+import React, { memo } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SIZES } from '../config/theme';
+import OptimizedImage from './OptimizedImage';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
 
@@ -29,7 +30,7 @@ interface AvatarProps {
 /**
  * Avatar Component
  */
-export default function Avatar({
+const Avatar = memo(function Avatar({
   source,
   size = 'md',
   hasBorder = false,
@@ -101,8 +102,8 @@ export default function Avatar({
     }
 
     return (
-      <Image
-        source={{ uri: source }}
+      <OptimizedImage
+        source={source}
         style={[
           styles.image,
           {
@@ -110,8 +111,9 @@ export default function Avatar({
             height: config.size,
             borderRadius: config.borderRadius,
           },
-        ]}
-        resizeMode="cover"
+        ] as StyleProp<ImageStyle>}
+        contentFit="cover"
+        priority="high"
       />
     );
   };
@@ -218,7 +220,11 @@ export default function Avatar({
       )}
     </Container>
   );
-}
+});
+
+Avatar.displayName = 'Avatar';
+
+export default Avatar;
 
 const styles = StyleSheet.create({
   container: {

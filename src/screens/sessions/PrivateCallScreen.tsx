@@ -6,14 +6,16 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   StatusBar,
   Dimensions,
   Alert,
   ActivityIndicator,
   Animated,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import OptimizedImage from '../../components/OptimizedImage';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -243,7 +245,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
           <Text style={styles.incomingLabel}>Incoming Video Call</Text>
 
           <Animated.View style={[styles.avatarPulse, { transform: [{ scale: pulseAnim }] }]}>
-            <Image source={{ uri: creator.avatar }} style={styles.callerAvatar} />
+            <OptimizedImage
+              source={creator.avatar}
+              style={styles.callerAvatar as StyleProp<ImageStyle>}
+              contentFit="cover"
+              priority="high"
+            />
           </Animated.View>
 
           <Text style={styles.callerName}>{creator.name}</Text>
@@ -277,7 +284,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
 
         <View style={[styles.connectingContent, { paddingTop: insets.top + 60 }]}>
           <Animated.View style={[styles.avatarPulse, { transform: [{ scale: pulseAnim }] }]}>
-            <Image source={{ uri: creator.avatar }} style={styles.callerAvatar} />
+            <OptimizedImage
+              source={creator.avatar}
+              style={styles.callerAvatar as StyleProp<ImageStyle>}
+              contentFit="cover"
+              priority="high"
+            />
           </Animated.View>
 
           <Text style={styles.callerName}>{creator.name}</Text>
@@ -353,7 +365,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
         <View style={styles.creatorInfo}>
-          <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+          <OptimizedImage
+            source={creator.avatar}
+            style={styles.creatorAvatar as StyleProp<ImageStyle>}
+            contentFit="cover"
+            priority="high"
+          />
           <View>
             <Text style={styles.creatorName}>{creator.name}</Text>
             <View style={styles.durationBadge}>

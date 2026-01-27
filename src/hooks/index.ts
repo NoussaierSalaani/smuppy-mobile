@@ -113,3 +113,13 @@ export { useCurrency } from './useCurrency';
 
 // Tips Payment
 export { useTipPayment } from './useTipPayment';
+
+// Image Preloading
+export {
+  useImagePreload,
+  preloadImage,
+  preloadImages,
+} from './useImagePreload';
+
+// Analytics
+export { useAnalytics } from './useAnalytics';

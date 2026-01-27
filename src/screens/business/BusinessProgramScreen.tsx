@@ -73,8 +73,8 @@ const RECOMMENDED_TAGS = [
 ];
 
 export default function BusinessProgramScreen({ navigation }: { navigation: any }) {
-  const { formatAmount, currency } = useCurrency();
-  const user = useUserStore((state) => state.user);
+  const { formatAmount: _formatAmount, currency: _currency } = useCurrency();
+  const _user = useUserStore((state) => state.user);
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
@@ -88,7 +88,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
-  const [editingSlot, setEditingSlot] = useState<ScheduleSlot | null>(null);
+  const [_editingSlot, setEditingSlot] = useState<ScheduleSlot | null>(null);
 
   // Form states
   const [activityName, setActivityName] = useState('');

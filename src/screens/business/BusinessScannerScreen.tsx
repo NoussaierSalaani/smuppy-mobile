@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
-const { width, height } = Dimensions.get('window');
+const { width, height: _height } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.7;
 
 interface Props {

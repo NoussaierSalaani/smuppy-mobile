@@ -29,7 +29,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 
-const { width, height } = Dimensions.get('window');
+const { width: _width, height: _height } = Dimensions.get('window');
 
 interface BusinessProfileScreenProps {
   route: { params: { businessId: string } };
@@ -124,7 +124,7 @@ const darkMapStyle = [
 export default function BusinessProfileScreen({ route, navigation }: BusinessProfileScreenProps) {
   const { businessId } = route.params;
   const { formatAmount } = useCurrency();
-  const user = useUserStore((state) => state.user);
+  const _user = useUserStore((state) => state.user);
 
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -175,7 +175,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
       } else {
         await awsAPI.unfollowBusiness(businessId);
       }
-    } catch (error) {
+    } catch (_error) {
       setIsFollowing(!newFollowing); // Revert on error
     }
   };

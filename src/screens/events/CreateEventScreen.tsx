@@ -31,7 +31,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface EventCategory {
   id: string;
@@ -59,7 +59,7 @@ const CATEGORIES: EventCategory[] = [
 const ROUTE_CATEGORIES = ['running', 'hiking', 'cycling'];
 
 const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const { currency, formatAmount } = useCurrency();
+  const { currency, formatAmount: _formatAmount } = useCurrency();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator';
 
@@ -73,18 +73,18 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(null);
   const [locationName, setLocationName] = useState('');
-  const [address, setAddress] = useState('');
+  const [address, _setAddress] = useState('');
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [startDate, setStartDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [_showTimePicker, _setShowTimePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'start' | 'end'>('start');
   const [maxParticipants, setMaxParticipants] = useState('');
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState('');
-  const [isPublic, setIsPublic] = useState(true);
-  const [isFansOnly, setIsFansOnly] = useState(false);
+  const [isPublic, _setIsPublic] = useState(true);
+  const [isFansOnly, _setIsFansOnly] = useState(false);
 
   // Route state (for running, hiking, cycling)
   const [hasRoute, setHasRoute] = useState(false);

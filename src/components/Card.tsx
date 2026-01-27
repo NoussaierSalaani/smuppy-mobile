@@ -1,9 +1,10 @@
 import React, { memo } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
 import { COLORS, GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+import OptimizedImage, { AvatarImage } from './OptimizedImage';
 
 const { width } = Dimensions.get('window');
 
@@ -57,13 +58,14 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
       >
         {/* Image */}
         <View style={styles.postImageContainer}>
-          <Image
-            source={{ uri: postData.image }}
+          <OptimizedImage
+            source={postData.image}
             style={[
               styles.postImage,
               postData.isVideo && styles.postImageTall,
-            ]}
-            resizeMode="cover"
+            ] as StyleProp<ImageStyle>}
+            contentFit="cover"
+            priority="normal"
           />
           {/* Duration Badge (for videos) */}
           {postData.duration && (
@@ -82,9 +84,10 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
           <View style={styles.postMeta}>
             {/* Author */}
             <View style={styles.postAuthor}>
-              <Image
-                source={{ uri: postData.authorAvatar }}
-                style={styles.postAvatar}
+              <AvatarImage
+                source={postData.authorAvatar}
+                size={SIZES.avatarXs}
+                style={{ marginRight: 2 }}
               />
               <Text style={styles.postAuthorName} numberOfLines={1}>
                 {postData.authorName}
@@ -108,9 +111,11 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
     return (
       <View style={[styles.suggestionCard, style]}>
         {/* Avatar */}
-        <Image
-          source={{ uri: suggestionData.avatar }}
-          style={styles.suggestionAvatar}
+        <OptimizedImage
+          source={suggestionData.avatar}
+          style={styles.suggestionAvatar as StyleProp<ImageStyle>}
+          contentFit="cover"
+          priority="high"
         />
 
         {/* Info */}
@@ -177,10 +182,11 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
         onPress={onPress}
         activeOpacity={0.9}
       >
-        <Image
-          source={{ uri: vibeData.image }}
-          style={styles.vibeImage}
-          resizeMode="cover"
+        <OptimizedImage
+          source={vibeData.image}
+          style={styles.vibeImage as StyleProp<ImageStyle>}
+          contentFit="cover"
+          priority="normal"
         />
 
         {/* Gradient Overlay */}

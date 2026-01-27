@@ -10,11 +10,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Alert,
   ActivityIndicator,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -172,7 +174,12 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Creator Hero */}
         <View style={styles.heroSection}>
-          <Image source={{ uri: creator.avatar }} style={styles.heroAvatar} />
+          <OptimizedImage
+            source={creator.avatar}
+            style={styles.heroAvatar as StyleProp<ImageStyle>}
+            contentFit="cover"
+            priority="high"
+          />
           <View style={styles.heroInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.heroName}>{creator.name}</Text>

@@ -4,12 +4,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Dimensions,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import OptimizedImage from '../OptimizedImage';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -51,10 +53,11 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
       activeOpacity={0.9}
     >
       {/* Thumbnail */}
-      <Image
-        source={{ uri: peak.thumbnail }}
-        style={styles.thumbnail}
-        resizeMode="cover"
+      <OptimizedImage
+        source={peak.thumbnail}
+        style={styles.thumbnail as StyleProp<ImageStyle>}
+        contentFit="cover"
+        priority="normal"
       />
 
       {/* Replies indicator (Peak Chain) */}
@@ -77,9 +80,11 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
       >
         {/* User info */}
         <View style={styles.userInfo}>
-          <Image
-            source={{ uri: peak.user.avatar }}
-            style={styles.avatar}
+          <OptimizedImage
+            source={peak.user.avatar}
+            style={styles.avatar as StyleProp<ImageStyle>}
+            contentFit="cover"
+            priority="high"
           />
           <Text style={styles.userName} numberOfLines={1}>
             {peak.user.name}

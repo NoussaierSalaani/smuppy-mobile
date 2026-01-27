@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Image,
   Animated,
   Easing,
   Alert,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
@@ -169,7 +171,12 @@ export default function WaitingRoomScreen(): React.JSX.Element {
             ]}
           />
           <View style={styles.avatarRing}>
-            <Image source={{ uri: creator.avatar }} style={styles.avatar} />
+            <OptimizedImage
+              source={creator.avatar}
+              style={styles.avatar as StyleProp<ImageStyle>}
+              contentFit="cover"
+              priority="high"
+            />
           </View>
         </View>
 

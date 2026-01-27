@@ -92,7 +92,7 @@ const darkMapStyle = [
 ];
 
 export default function BusinessDiscoveryScreen({ navigation }: { navigation: any }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount: _formatAmount } = useCurrency();
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);

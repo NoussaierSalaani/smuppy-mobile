@@ -10,11 +10,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Alert,
   Modal,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -172,7 +174,12 @@ const SessionDetailScreen = (): React.JSX.Element => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Creator Card */}
         <TouchableOpacity style={styles.creatorCard} onPress={handleViewCreatorProfile}>
-          <Image source={{ uri: session.creatorAvatar }} style={styles.creatorAvatar} />
+          <OptimizedImage
+            source={session.creatorAvatar}
+            style={styles.creatorAvatar as StyleProp<ImageStyle>}
+            contentFit="cover"
+            priority="high"
+          />
           <View style={styles.creatorInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.creatorName}>{session.creatorName}</Text>

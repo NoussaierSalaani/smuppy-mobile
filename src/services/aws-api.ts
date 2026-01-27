@@ -166,6 +166,31 @@ class AWSAPIService {
     });
   }
 
+  /**
+   * Upgrade account from Personal to Pro Creator
+   * This is a ONE-WAY process that cannot be reversed
+   */
+  async upgradeToProCreator(): Promise<{ success: boolean; message?: string }> {
+    return this.request('/profiles/upgrade-to-pro', {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Check event/group creation limits for personal accounts
+   */
+  async checkCreationLimits(): Promise<{
+    canCreateEvent: boolean;
+    canCreateGroup: boolean;
+    eventsThisMonth: number;
+    groupsThisMonth: number;
+    maxEventsPerMonth: number;
+    maxGroupsPerMonth: number;
+    nextResetDate: string;
+  }> {
+    return this.request('/profiles/creation-limits', { method: 'GET' });
+  }
+
   async searchProfiles(query: string, limit = 20): Promise<Profile[]> {
     return this.request(`/profiles?search=${encodeURIComponent(query)}&limit=${limit}`);
   }
@@ -249,6 +274,201 @@ class AWSAPIService {
     return this.request(`/peaks/${id}/unlike`, {
       method: 'POST',
     });
+  }
+
+  /**
+   * React to a peak with emoji reaction
+   */
+  async reactToPeak(id: string, reaction: string): Promise<{
+    success: boolean;
+    reaction: string;
+    reactionCounts: Record<string, number>;
+  }> {
+    return this.request(`/peaks/${id}/react`, {
+      method: 'POST',
+      body: { reaction },
+    });
+  }
+
+  /**
+   * Remove reaction from a peak
+   */
+  async removeReactionFromPeak(id: string): Promise<{ success: boolean }> {
+    return this.request(`/peaks/${id}/react`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Tag a friend on a peak
+   */
+  async tagFriendOnPeak(peakId: string, friendId: string): Promise<{
+    success: boolean;
+    tag: {
+      id: string;
+      taggedUser: {
+        id: string;
+        username: string;
+        displayName: string;
+        avatarUrl: string;
+      };
+      taggedBy: string;
+      createdAt: string;
+    };
+  }> {
+    return this.request(`/peaks/${peakId}/tags`, {
+      method: 'POST',
+      body: { friendId },
+    });
+  }
+
+  /**
+   * Get tags on a peak
+   */
+  async getPeakTags(peakId: string): Promise<{
+    tags: Array<{
+      id: string;
+      taggedUser: {
+        id: string;
+        username: string;
+        displayName: string;
+        avatarUrl: string;
+      };
+      taggedBy: string;
+      createdAt: string;
+    }>;
+  }> {
+    return this.request(`/peaks/${peakId}/tags`);
+  }
+
+  /**
+   * Remove a tag from a peak
+   */
+  async removeTagFromPeak(peakId: string, userId: string): Promise<{ success: boolean }> {
+    return this.request(`/peaks/${peakId}/tags/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Hide a peak from feed (not interested)
+   */
+  async hidePeak(id: string, reason: 'not_interested' | 'seen_too_often' | 'irrelevant' | 'other' = 'not_interested'): Promise<{
+    success: boolean;
+    message: string;
+    reason: string;
+  }> {
+    return this.request(`/peaks/${id}/hide`, {
+      method: 'POST',
+      body: { reason },
+    });
+  }
+
+  /**
+   * Unhide a peak (restore to feed)
+   */
+  async unhidePeak(id: string): Promise<{ success: boolean }> {
+    return this.request(`/peaks/${id}/hide`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get list of hidden peaks
+   */
+  async getHiddenPeaks(): Promise<{
+    hiddenPeaks: Array<{
+      peakId: string;
+      reason: string;
+      hiddenAt: string;
+      thumbnail: string;
+      author: {
+        id: string;
+        username: string;
+        displayName: string;
+        avatarUrl: string;
+      };
+    }>;
+  }> {
+    return this.request('/peaks/hidden');
+  }
+
+  /**
+   * Create a peak reply (respond to a peak with another peak)
+   */
+  async createPeakReply(peakId: string, data: {
+    videoUrl: string;
+    thumbnailUrl?: string;
+    caption?: string;
+    duration: number;
+  }): Promise<{
+    success: boolean;
+    reply: {
+      id: string;
+      authorId: string;
+      videoUrl: string;
+      thumbnailUrl: string;
+      caption: string;
+      duration: number;
+      likesCount: number;
+      commentsCount: number;
+      viewsCount: number;
+      repliesCount: number;
+      isLiked: boolean;
+      replyToPeakId: string;
+      createdAt: string;
+      author: {
+        id: string;
+        username: string;
+        displayName: string;
+        avatarUrl: string;
+        isVerified: boolean;
+      };
+    };
+  }> {
+    return this.request(`/peaks/${peakId}/replies`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get replies to a peak (peak responses)
+   */
+  async getPeakReplies(peakId: string, params?: {
+    limit?: number;
+    cursor?: string;
+  }): Promise<{
+    replies: Array<{
+      id: string;
+      authorId: string;
+      videoUrl: string;
+      thumbnailUrl: string;
+      caption: string;
+      duration: number;
+      likesCount: number;
+      commentsCount: number;
+      viewsCount: number;
+      repliesCount: number;
+      isLiked: boolean;
+      createdAt: string;
+      author: {
+        id: string;
+        username: string;
+        displayName: string;
+        avatarUrl: string;
+        isVerified: boolean;
+      };
+    }>;
+    nextCursor: string | null;
+    hasMore: boolean;
+    total: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    const query = queryParams.toString();
+    return this.request(`/peaks/${peakId}/replies${query ? `?${query}` : ''}`);
   }
 
   // ==========================================
@@ -1092,6 +1312,1611 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Sessions API
+  // ==========================================
+
+  /**
+   * List user's sessions
+   */
+  async listSessions(params?: {
+    status?: 'upcoming' | 'past' | 'pending';
+    role?: 'fan' | 'creator';
+  }): Promise<{
+    success: boolean;
+    sessions: Session[];
+    message?: string;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.role) query.set('role', params.role);
+    return this.request(`/sessions?${query.toString()}`);
+  }
+
+  /**
+   * Get session details
+   */
+  async getSession(sessionId: string): Promise<{
+    success: boolean;
+    session?: Session;
+    message?: string;
+  }> {
+    return this.request(`/sessions/${sessionId}`);
+  }
+
+  /**
+   * Book a new session
+   */
+  async bookSession(data: {
+    creatorId: string;
+    scheduledAt: string;
+    duration: number;
+    price: number;
+    notes?: string;
+    fromPackId?: string;
+  }): Promise<{
+    success: boolean;
+    session?: Session;
+    message?: string;
+  }> {
+    return this.request('/sessions', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Accept a session request (creator)
+   */
+  async acceptSession(sessionId: string): Promise<{
+    success: boolean;
+    session?: Session;
+    message?: string;
+  }> {
+    return this.request(`/sessions/${sessionId}/accept`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Decline a session request (creator)
+   */
+  async declineSession(sessionId: string, reason?: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/sessions/${sessionId}/decline`, {
+      method: 'POST',
+      body: { reason },
+    });
+  }
+
+  /**
+   * Get creator's availability for sessions
+   */
+  async getCreatorAvailability(creatorId: string, params?: {
+    startDate?: string;
+    days?: number;
+  }): Promise<{
+    success: boolean;
+    creator?: {
+      id: string;
+      name: string;
+      username: string;
+      avatar: string;
+      sessionPrice: number;
+      sessionDuration: number;
+      timezone: string;
+    };
+    availableSlots?: Array<{
+      date: string;
+      time: string;
+      datetime: string;
+    }>;
+    message?: string;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.startDate) query.set('startDate', params.startDate);
+    if (params?.days) query.set('days', params.days.toString());
+    return this.request(`/sessions/availability/${creatorId}?${query.toString()}`);
+  }
+
+  // ==========================================
+  // Session Packs API
+  // ==========================================
+
+  /**
+   * List available packs for a creator
+   */
+  async listCreatorPacks(creatorId: string): Promise<{
+    success: boolean;
+    packs: SessionPack[];
+    message?: string;
+  }> {
+    return this.request(`/packs?creatorId=${creatorId}`);
+  }
+
+  /**
+   * List user's purchased packs
+   */
+  async listMyPacks(): Promise<{
+    success: boolean;
+    packs: UserSessionPack[];
+    message?: string;
+  }> {
+    return this.request('/packs?owned=true');
+  }
+
+  /**
+   * Purchase a session pack
+   */
+  async purchasePack(data: {
+    packId: string;
+    creatorId: string;
+  }): Promise<{
+    success: boolean;
+    paymentIntent?: {
+      id: string;
+      clientSecret: string;
+      amount: number;
+    };
+    pack?: SessionPack;
+    message?: string;
+  }> {
+    return this.request('/packs/purchase', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get Agora token for a session video call
+   */
+  async getSessionToken(sessionId: string): Promise<{
+    success: boolean;
+    token?: string;
+    channelName?: string;
+    uid?: number;
+    appId?: string;
+    message?: string;
+  }> {
+    return this.request(`/sessions/${sessionId}/token`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Update creator's session settings (availability, pricing, etc.)
+   */
+  async updateSessionSettings(data: {
+    sessionsEnabled?: boolean;
+    sessionPrice?: number;
+    sessionDuration?: number;
+    sessionAvailability?: {
+      [day: string]: { start: string; end: string }[];
+    };
+    timezone?: string;
+  }): Promise<{
+    success: boolean;
+    settings?: {
+      sessionsEnabled: boolean;
+      sessionPrice: number;
+      sessionDuration: number;
+      sessionAvailability: { [day: string]: { start: string; end: string }[] };
+      timezone: string;
+    };
+    message?: string;
+  }> {
+    return this.request('/sessions/settings', {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  // ==========================================
+  // Pack Management (Creator)
+  // ==========================================
+
+  /**
+   * Create a new session pack (creator only)
+   */
+  async createPack(data: {
+    name: string;
+    description?: string;
+    sessionsIncluded: number;
+    sessionDuration: number;
+    validityDays: number;
+    price: number;
+    savingsPercent?: number;
+  }): Promise<{
+    success: boolean;
+    pack?: SessionPack;
+    message?: string;
+  }> {
+    return this.request('/packs', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Update an existing pack (creator only)
+   */
+  async updatePack(
+    packId: string,
+    data: {
+      name?: string;
+      description?: string;
+      sessionsIncluded?: number;
+      sessionDuration?: number;
+      validityDays?: number;
+      price?: number;
+      savingsPercent?: number;
+      isActive?: boolean;
+    }
+  ): Promise<{
+    success: boolean;
+    pack?: SessionPack;
+    message?: string;
+  }> {
+    return this.request(`/packs/${packId}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  /**
+   * Delete a pack (creator only)
+   */
+  async deletePack(packId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/packs/${packId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================
+  // Creator Earnings
+  // ==========================================
+
+  /**
+   * Get creator earnings summary and transactions
+   */
+  async getEarnings(params?: {
+    period?: 'week' | 'month' | 'year' | 'all';
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    earnings?: {
+      period: string;
+      totalEarnings: number;
+      availableBalance: number;
+      pendingBalance: number;
+      breakdown: {
+        sessions: { count: number; total: number };
+        packs: { count: number; total: number };
+        subscriptions: { count: number; total: number };
+      };
+      transactions: Array<{
+        id: string;
+        type: 'session' | 'pack' | 'subscription';
+        amount: number;
+        currency: string;
+        status: string;
+        description: string;
+        buyer: { name: string; avatar: string } | null;
+        createdAt: string;
+      }>;
+    };
+    message?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.period) queryParams.set('period', params.period);
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/earnings${query ? `?${query}` : ''}`);
+  }
+
+  // ==========================================
+  // Refunds
+  // ==========================================
+
+  /**
+   * List refunds (admin or user's own refunds)
+   */
+  async listRefunds(params?: {
+    limit?: number;
+    offset?: number;
+    status?: 'pending' | 'succeeded' | 'failed';
+  }): Promise<{
+    success: boolean;
+    refunds?: Array<{
+      id: string;
+      paymentId: string;
+      stripeRefundId: string | null;
+      amount: number;
+      reason: string;
+      status: string;
+      notes: string | null;
+      buyer: { username: string; name: string };
+      creator: { username: string; name: string };
+      createdAt: string;
+      processedAt: string | null;
+    }>;
+    total?: number;
+    message?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.status) queryParams.set('status', params.status);
+    const query = queryParams.toString();
+    return this.request(`/payments/refunds${query ? `?${query}` : ''}`);
+  }
+
+  /**
+   * Get refund details
+   */
+  async getRefund(refundId: string): Promise<{
+    success: boolean;
+    refund?: {
+      id: string;
+      paymentId: string;
+      stripeRefundId: string | null;
+      amount: number;
+      reason: string;
+      status: string;
+      notes: string | null;
+      buyer: { id: string; username: string; name: string };
+      creator: { id: string; username: string; name: string };
+      stripeDetails: {
+        status: string;
+        amount: number;
+        currency: string;
+        created: string;
+      } | null;
+      createdAt: string;
+      processedAt: string | null;
+    };
+    message?: string;
+  }> {
+    return this.request(`/payments/refunds/${refundId}`);
+  }
+
+  /**
+   * Request a refund
+   */
+  async createRefund(data: {
+    paymentId: string;
+    amount?: number; // Optional for partial refunds
+    reason: 'duplicate' | 'fraudulent' | 'requested_by_customer' | 'session_cancelled' | 'technical_issue' | 'creator_unavailable' | 'other';
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    refund?: {
+      id: string;
+      stripeRefundId: string;
+      amount: number;
+      status: string;
+      reason: string;
+    };
+    message?: string;
+  }> {
+    return this.request('/payments/refunds', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==========================================
+  // Payment Methods (Saved Cards)
+  // ==========================================
+
+  /**
+   * Create a setup intent for adding a new payment method
+   */
+  async createSetupIntent(): Promise<{
+    success: boolean;
+    setupIntent?: {
+      clientSecret: string;
+      id: string;
+    };
+    message?: string;
+  }> {
+    return this.request('/payments/methods/setup-intent', {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * List saved payment methods
+   */
+  async listPaymentMethods(): Promise<{
+    success: boolean;
+    paymentMethods?: Array<{
+      id: string;
+      type: string;
+      isDefault: boolean;
+      card: {
+        brand: string;
+        last4: string;
+        expMonth: number;
+        expYear: number;
+        funding: string;
+        country: string;
+      } | null;
+      billingDetails: {
+        name: string | null;
+        email: string | null;
+      };
+      created: string;
+    }>;
+    defaultPaymentMethodId?: string | null;
+    message?: string;
+  }> {
+    return this.request('/payments/methods');
+  }
+
+  /**
+   * Attach a payment method to the user
+   */
+  async attachPaymentMethod(data: {
+    paymentMethodId: string;
+    setAsDefault?: boolean;
+  }): Promise<{
+    success: boolean;
+    paymentMethod?: {
+      id: string;
+      type: string;
+      isDefault: boolean;
+      card: {
+        brand: string;
+        last4: string;
+        expMonth: number;
+        expYear: number;
+      } | null;
+    };
+    message?: string;
+  }> {
+    return this.request('/payments/methods', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Remove a payment method
+   */
+  async removePaymentMethod(paymentMethodId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/payments/methods/${paymentMethodId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Set a payment method as default
+   */
+  async setDefaultPaymentMethod(paymentMethodId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/payments/methods/${paymentMethodId}/default`, {
+      method: 'PUT',
+    });
+  }
+
+  // ==========================================
+  // Web Checkout (Avoids 30% App Store Fees)
+  // ==========================================
+
+  /**
+   * Create a web checkout session
+   * Opens Stripe Checkout in browser to avoid app store fees
+   */
+  async createWebCheckout(data: {
+    productType: 'session' | 'pack' | 'channel_subscription' | 'platform_subscription' | 'tip';
+    productId?: string;
+    creatorId?: string;
+    amount?: number;
+    planType?: 'pro_creator' | 'pro_business';
+  }): Promise<{
+    success: boolean;
+    checkoutUrl?: string;
+    sessionId?: string;
+    expiresAt?: number;
+    message?: string;
+  }> {
+    return this.request('/payments/web-checkout', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Check web checkout session status
+   */
+  async getWebCheckoutStatus(sessionId: string): Promise<{
+    success: boolean;
+    status?: string;
+    paymentStatus?: string;
+    metadata?: Record<string, string>;
+    amountTotal?: number;
+    currency?: string;
+    message?: string;
+  }> {
+    return this.request(`/payments/web-checkout/status/${sessionId}`);
+  }
+
+  // ==========================================
+  // Tips
+  // ==========================================
+
+  /**
+   * Send a tip to a creator
+   */
+  async sendTip(data: {
+    receiverId: string;
+    amount: number; // in cents
+    currency?: string;
+    contextType: 'profile' | 'live' | 'peak' | 'battle';
+    contextId?: string;
+    message?: string;
+    isAnonymous?: boolean;
+  }): Promise<{
+    success: boolean;
+    tipId?: string;
+    clientSecret?: string;
+    paymentIntentId?: string;
+    amount?: number;
+    currency?: string;
+    platformFee?: number;
+    creatorAmount?: number;
+    message?: string;
+  }> {
+    return this.request('/tips/send', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get tips history
+   */
+  async getTipsHistory(params: {
+    type?: 'sent' | 'received';
+    contextType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    success: boolean;
+    type?: string;
+    tips?: any[];
+    totals?: { count: number; totalAmount: number; monthAmount: number };
+    pagination?: { limit: number; offset: number; hasMore: boolean };
+  }> {
+    const query = new URLSearchParams();
+    if (params.type) query.append('type', params.type);
+    if (params.contextType) query.append('contextType', params.contextType);
+    if (params.limit) query.append('limit', params.limit.toString());
+    if (params.offset) query.append('offset', params.offset.toString());
+    return this.request(`/tips/history?${query.toString()}`);
+  }
+
+  /**
+   * Get tips leaderboard for a creator
+   */
+  async getTipsLeaderboard(creatorId: string, period?: 'all_time' | 'monthly' | 'weekly'): Promise<{
+    success: boolean;
+    period?: string;
+    leaderboard?: any[];
+    stats?: { uniqueTippers: number; totalAmount: number; creatorTotal: number };
+  }> {
+    const query = period ? `?period=${period}` : '';
+    return this.request(`/tips/leaderboard/${creatorId}${query}`);
+  }
+
+  // ==========================================
+  // Challenges
+  // ==========================================
+
+  /**
+   * Create a Peak Challenge
+   */
+  async createChallenge(data: {
+    peakId: string;
+    title: string;
+    description?: string;
+    rules?: string;
+    challengeTypeId?: string;
+    durationSeconds?: number;
+    endsAt?: string;
+    isPublic?: boolean;
+    allowAnyone?: boolean;
+    maxParticipants?: number;
+    taggedUserIds?: string[];
+    hasPrize?: boolean;
+    prizeDescription?: string;
+    prizeAmount?: number;
+    tipsEnabled?: boolean;
+  }): Promise<{ success: boolean; challenge?: any; message?: string }> {
+    return this.request('/challenges', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * List challenges
+   */
+  async getChallenges(params?: {
+    filter?: 'trending' | 'new' | 'ending_soon' | 'created' | 'tagged' | 'responded';
+    creatorId?: string;
+    category?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    page?: number;
+  }): Promise<{ success: boolean; challenges?: any[]; pagination?: any }> {
+    const query = new URLSearchParams();
+    if (params?.filter) query.append('filter', params.filter);
+    if (params?.creatorId) query.append('creatorId', params.creatorId);
+    if (params?.category) query.append('category', params.category);
+    if (params?.status) query.append('status', params.status);
+    if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
+    return this.request(`/challenges?${query.toString()}`);
+  }
+
+  async getChallengeDetail(challengeId: string): Promise<{
+    success: boolean;
+    challenge?: any;
+    message?: string;
+  }> {
+    return this.request(`/challenges/${challengeId}`, { method: 'GET' });
+  }
+
+  async getChallengeResponses(challengeId: string, params?: {
+    sortBy?: 'recent' | 'popular' | 'tips';
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    success: boolean;
+    responses?: any[];
+    pagination?: any;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.sortBy) query.append('sortBy', params.sortBy);
+    if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
+    return this.request(`/challenges/${challengeId}/responses?${query.toString()}`, { method: 'GET' });
+  }
+
+  /**
+   * Respond to a challenge
+   */
+  async respondToChallenge(challengeId: string, data: {
+    peakId: string;
+    score?: number;
+    timeSeconds?: number;
+  }): Promise<{ success: boolean; response?: any; message?: string }> {
+    return this.request(`/challenges/${challengeId}/respond`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==========================================
+  // Live Battles
+  // ==========================================
+
+  /**
+   * Create a live battle
+   */
+  async createBattle(data: {
+    title?: string;
+    description?: string;
+    battleType?: 'tips' | 'votes' | 'challenge';
+    maxParticipants?: number;
+    durationMinutes?: number;
+    scheduledAt?: string;
+    invitedUserIds: string[];
+  }): Promise<{ success: boolean; battle?: any; message?: string }> {
+    return this.request('/battles', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Join/leave a battle
+   */
+  async battleAction(battleId: string, action: 'accept' | 'decline' | 'start' | 'leave' | 'ready' | 'unready' | 'end'): Promise<{
+    success: boolean;
+    message?: string;
+    agora?: { appId: string; channelName: string; token: string; uid: number };
+    agora_token?: string;
+    agora_uid?: number;
+    position?: number;
+  }> {
+    return this.request(`/battles/${battleId}/join`, {
+      method: 'POST',
+      body: { action },
+    });
+  }
+
+  async getBattle(battleId: string): Promise<{
+    success: boolean;
+    battle?: any;
+    agora_token?: string;
+    agora_uid?: number;
+    message?: string;
+  }> {
+    return this.request(`/battles/${battleId}`, { method: 'GET' });
+  }
+
+  async getBattleState(battleId: string): Promise<{
+    success: boolean;
+    status?: string;
+    participants?: any[];
+    viewer_count?: number;
+    new_tips?: any[];
+    new_comments?: any[];
+    winner?: any;
+    message?: string;
+  }> {
+    return this.request(`/battles/${battleId}/state`, { method: 'GET' });
+  }
+
+  // ==========================================
+  // Events (Xplorer)
+  // ==========================================
+
+  /**
+   * Create an event
+   */
+  async createEvent(data: {
+    title: string;
+    description?: string;
+    categorySlug: string;
+    locationName: string;
+    address?: string;
+    latitude: number;
+    longitude: number;
+    startsAt: string;
+    endsAt?: string;
+    timezone?: string;
+    maxParticipants?: number;
+    minParticipants?: number;
+    isFree?: boolean;
+    price?: number;
+    currency?: string;
+    isPublic?: boolean;
+    isFansOnly?: boolean;
+    coverImageUrl?: string;
+    images?: string[];
+    hasRoute?: boolean;
+    routeDistanceKm?: number;
+    routeElevationGainM?: number;
+    routeDifficulty?: 'easy' | 'moderate' | 'hard' | 'expert';
+    routePolyline?: string;
+    routeWaypoints?: { lat: number; lng: number; name?: string }[];
+  }): Promise<{ success: boolean; event?: any; message?: string }> {
+    return this.request('/events', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * List events
+   */
+  async getEvents(params?: {
+    filter?: 'upcoming' | 'nearby' | 'category' | 'my-events' | 'joined';
+    latitude?: number;
+    longitude?: number;
+    radiusKm?: number;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+    isFree?: boolean;
+    hasRoute?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; events?: any[]; pagination?: any }> {
+    const query = new URLSearchParams();
+    if (params?.filter) query.append('filter', params.filter);
+    if (params?.latitude) query.append('latitude', params.latitude.toString());
+    if (params?.longitude) query.append('longitude', params.longitude.toString());
+    if (params?.radiusKm) query.append('radiusKm', params.radiusKm.toString());
+    if (params?.category) query.append('category', params.category);
+    if (params?.startDate) query.append('startDate', params.startDate);
+    if (params?.endDate) query.append('endDate', params.endDate);
+    if (params?.isFree !== undefined) query.append('isFree', params.isFree.toString());
+    if (params?.hasRoute !== undefined) query.append('hasRoute', params.hasRoute.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
+    return this.request(`/events?${query.toString()}`);
+  }
+
+  /**
+   * Get event details
+   */
+  async getEventDetail(eventId: string): Promise<{
+    success: boolean;
+    event?: any;
+    message?: string;
+  }> {
+    return this.request(`/events/${eventId}`);
+  }
+
+  /**
+   * Get event participants
+   */
+  async getEventParticipants(eventId: string, params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    success: boolean;
+    participants?: any[];
+    total?: number;
+    message?: string;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
+    return this.request(`/events/${eventId}/participants?${query.toString()}`);
+  }
+
+  /**
+   * Join a free event
+   */
+  async joinEvent(eventId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/events/${eventId}/join`, {
+      method: 'POST',
+      body: { action: 'join' },
+    });
+  }
+
+  /**
+   * Leave an event
+   */
+  async leaveEvent(eventId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/events/${eventId}/leave`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Create payment intent for paid event
+   */
+  async createEventPayment(data: {
+    eventId: string;
+    amount: number;
+    currency: string;
+  }): Promise<{
+    success: boolean;
+    clientSecret?: string;
+    paymentIntentId?: string;
+    message?: string;
+  }> {
+    return this.request(`/events/${data.eventId}/payment`, {
+      method: 'POST',
+      body: { amount: data.amount, currency: data.currency },
+    });
+  }
+
+  /**
+   * Confirm event payment and register participation
+   */
+  async confirmEventPayment(data: {
+    eventId: string;
+    paymentIntentId: string;
+  }): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/events/${data.eventId}/payment/confirm`, {
+      method: 'POST',
+      body: { paymentIntentId: data.paymentIntentId },
+    });
+  }
+
+  /**
+   * Update event (creator only)
+   */
+  async updateEvent(eventId: string, data: {
+    title?: string;
+    description?: string;
+    price_cents?: number;
+    max_participants?: number;
+    location_name?: string;
+    address?: string;
+  }): Promise<{
+    success: boolean;
+    event?: any;
+    message?: string;
+  }> {
+    return this.request(`/events/${eventId}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  /**
+   * Cancel event (creator only)
+   */
+  async cancelEvent(eventId: string): Promise<{
+    success: boolean;
+    message?: string;
+    refundsIssued?: number;
+  }> {
+    return this.request(`/events/${eventId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Remove participant from event (creator only)
+   */
+  async removeEventParticipant(eventId: string, userId: string): Promise<{
+    success: boolean;
+    message?: string;
+    refundIssued?: boolean;
+  }> {
+    return this.request(`/events/${eventId}/participants/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Legacy: Join/leave an event
+   */
+  async eventAction(eventId: string, action: 'register' | 'cancel' | 'interested', notes?: string): Promise<{
+    success: boolean;
+    message?: string;
+    participationStatus?: string;
+    currentParticipants?: number;
+    spotsLeft?: number;
+    requiresPayment?: boolean;
+    price?: number;
+    currency?: string;
+  }> {
+    return this.request(`/events/${eventId}/join`, {
+      method: 'POST',
+      body: { action, notes },
+    });
+  }
+
+  // ==========================================
+  // Currency Settings
+  // ==========================================
+
+  /**
+   * Get currency settings
+   */
+  async getCurrencySettings(): Promise<{
+    success: boolean;
+    currency?: { code: string; symbol: string; detected?: string; countryCode?: string };
+    supported?: { code: string; name: string; symbol: string }[];
+  }> {
+    return this.request('/settings/currency');
+  }
+
+  /**
+   * Update currency preference
+   */
+  async updateCurrencySettings(currency: string): Promise<{
+    success: boolean;
+    currency?: { code: string; symbol: string };
+    message?: string;
+  }> {
+    return this.request('/settings/currency', {
+      method: 'PUT',
+      body: { currency },
+    });
+  }
+
+  // ==========================================
+  // Business Discovery & Profiles
+  // ==========================================
+
+  /**
+   * Discover businesses (map/list view)
+   */
+  async discoverBusinesses(params?: {
+    category?: string;
+    lat?: number;
+    lng?: number;
+    radius?: number;
+    is_open?: boolean;
+    min_rating?: number;
+    price_range?: string[];
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    success: boolean;
+    businesses?: any[];
+    total?: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.lat) queryParams.append('lat', params.lat.toString());
+    if (params?.lng) queryParams.append('lng', params.lng.toString());
+    if (params?.radius) queryParams.append('radius', params.radius.toString());
+    if (params?.is_open !== undefined) queryParams.append('is_open', params.is_open.toString());
+    if (params?.min_rating) queryParams.append('min_rating', params.min_rating.toString());
+    if (params?.price_range) queryParams.append('price_range', params.price_range.join(','));
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+    return this.request(`/businesses/discover?${queryParams.toString()}`);
+  }
+
+  /**
+   * Get business profile
+   */
+  async getBusinessProfile(businessId: string): Promise<{
+    success: boolean;
+    business?: any;
+    message?: string;
+  }> {
+    return this.request(`/businesses/${businessId}`);
+  }
+
+  /**
+   * Get business services
+   */
+  async getBusinessServices(businessId: string): Promise<{
+    success: boolean;
+    services?: any[];
+  }> {
+    return this.request(`/businesses/${businessId}/services`);
+  }
+
+  /**
+   * Get business schedule/activities
+   */
+  async getBusinessSchedule(businessId: string): Promise<{
+    success: boolean;
+    activities?: any[];
+  }> {
+    return this.request(`/businesses/${businessId}/schedule`);
+  }
+
+  /**
+   * Get business reviews
+   */
+  async getBusinessReviews(businessId: string, params?: { limit?: number; offset?: number }): Promise<{
+    success: boolean;
+    reviews?: any[];
+    total?: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    return this.request(`/businesses/${businessId}/reviews?${queryParams.toString()}`);
+  }
+
+  /**
+   * Get business availability for booking
+   */
+  async getBusinessAvailability(businessId: string, params: { serviceId: string; date: string }): Promise<{
+    success: boolean;
+    slots?: any[];
+  }> {
+    return this.request(`/businesses/${businessId}/availability?serviceId=${params.serviceId}&date=${params.date}`);
+  }
+
+  /**
+   * Follow/unfollow business
+   */
+  async followBusiness(businessId: string): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/businesses/${businessId}/follow`, { method: 'POST' });
+  }
+
+  async unfollowBusiness(businessId: string): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/businesses/${businessId}/follow`, { method: 'DELETE' });
+  }
+
+  // ==========================================
+  // Business Booking
+  // ==========================================
+
+  /**
+   * Create booking payment intent
+   */
+  async createBusinessBookingPayment(data: {
+    businessId: string;
+    serviceId: string;
+    date: string;
+    slotId: string;
+    amount: number;
+    currency: string;
+  }): Promise<{
+    success: boolean;
+    clientSecret?: string;
+    paymentIntentId?: string;
+    bookingId?: string;
+    message?: string;
+  }> {
+    return this.request('/businesses/bookings/create-payment', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Confirm booking after payment
+   */
+  async confirmBusinessBooking(data: {
+    bookingId: string;
+    paymentIntentId: string;
+  }): Promise<{
+    success: boolean;
+    booking?: any;
+    message?: string;
+  }> {
+    return this.request('/businesses/bookings/confirm', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get my bookings
+   */
+  async getMyBusinessBookings(params?: { status?: string; limit?: number }): Promise<{
+    success: boolean;
+    bookings?: any[];
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    return this.request(`/businesses/bookings/my?${queryParams.toString()}`);
+  }
+
+  /**
+   * Cancel booking
+   */
+  async cancelBusinessBooking(bookingId: string): Promise<{
+    success: boolean;
+    refundAmount?: number;
+    message?: string;
+  }> {
+    return this.request(`/businesses/bookings/${bookingId}/cancel`, { method: 'POST' });
+  }
+
+  // ==========================================
+  // Business Subscriptions
+  // ==========================================
+
+  /**
+   * Get subscription plans for a business
+   */
+  async getBusinessSubscriptionPlans(businessId: string): Promise<{
+    success: boolean;
+    plans?: any[];
+  }> {
+    return this.request(`/businesses/${businessId}/subscription-plans`);
+  }
+
+  /**
+   * Get user's subscription to a business
+   */
+  async getUserBusinessSubscription(businessId: string): Promise<{
+    success: boolean;
+    subscription?: any;
+  }> {
+    return this.request(`/businesses/${businessId}/my-subscription`);
+  }
+
+  /**
+   * Create subscription
+   */
+  async createBusinessSubscription(data: {
+    businessId: string;
+    planId: string;
+    currency: string;
+  }): Promise<{
+    success: boolean;
+    clientSecret?: string;
+    paymentIntentId?: string;
+    subscriptionId?: string;
+    message?: string;
+  }> {
+    return this.request('/businesses/subscriptions/create', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Confirm subscription after payment
+   */
+  async confirmBusinessSubscription(data: {
+    subscriptionId: string;
+    paymentIntentId: string;
+  }): Promise<{
+    success: boolean;
+    subscription?: any;
+    message?: string;
+  }> {
+    return this.request('/businesses/subscriptions/confirm', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get my subscriptions
+   */
+  async getMyBusinessSubscriptions(): Promise<{
+    success: boolean;
+    subscriptions?: any[];
+  }> {
+    return this.request('/businesses/subscriptions/my');
+  }
+
+  /**
+   * Cancel subscription
+   */
+  async cancelBusinessSubscription(subscriptionId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/businesses/subscriptions/${subscriptionId}/cancel`, { method: 'POST' });
+  }
+
+  /**
+   * Reactivate subscription
+   */
+  async reactivateBusinessSubscription(subscriptionId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/businesses/subscriptions/${subscriptionId}/reactivate`, { method: 'POST' });
+  }
+
+  // ==========================================
+  // Business Program Management (for owners)
+  // ==========================================
+
+  /**
+   * Get my business program (activities, schedule, tags)
+   */
+  async getMyBusinessProgram(): Promise<{
+    success: boolean;
+    activities?: any[];
+    schedule?: any[];
+    tags?: any[];
+  }> {
+    return this.request('/businesses/my/program');
+  }
+
+  /**
+   * Create activity
+   */
+  async createBusinessActivity(data: any): Promise<{
+    success: boolean;
+    activity?: any;
+    message?: string;
+  }> {
+    return this.request('/businesses/my/activities', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Update activity
+   */
+  async updateBusinessActivity(activityId: string, data: any): Promise<{
+    success: boolean;
+    activity?: any;
+    message?: string;
+  }> {
+    return this.request(`/businesses/my/activities/${activityId}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  /**
+   * Delete activity
+   */
+  async deleteBusinessActivity(activityId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/businesses/my/activities/${activityId}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Create schedule slot
+   */
+  async createBusinessScheduleSlot(data: any): Promise<{
+    success: boolean;
+    slot?: any;
+    message?: string;
+  }> {
+    return this.request('/businesses/my/schedule', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Delete schedule slot
+   */
+  async deleteBusinessScheduleSlot(slotId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/businesses/my/schedule/${slotId}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Add tag to business
+   */
+  async addBusinessTag(data: { name: string; category: string }): Promise<{
+    success: boolean;
+    tag?: any;
+    message?: string;
+  }> {
+    return this.request('/businesses/my/tags', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Remove tag from business
+   */
+  async removeBusinessTag(tagId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/businesses/my/tags/${tagId}`, { method: 'DELETE' });
+  }
+
+  // ==========================================
+  // Business QR Code Access System
+  // ==========================================
+
+  /**
+   * Get member access pass (QR code data)
+   */
+  async getMemberAccessPass(subscriptionId: string): Promise<{
+    success: boolean;
+    accessPass?: {
+      id: string;
+      qrCode: string;
+      memberName: string;
+      membershipType: string;
+      validUntil: string;
+      status: 'active' | 'expired' | 'suspended';
+      remainingSessions?: number;
+      businessName: string;
+      businessLogo?: string;
+    };
+    message?: string;
+  }> {
+    return this.request(`/businesses/subscriptions/${subscriptionId}/access-pass`);
+  }
+
+  /**
+   * Validate member access (for business scanner)
+   */
+  async validateMemberAccess(params: {
+    subscriptionId: string;
+    businessId: string;
+    userId: string;
+  }): Promise<{
+    success: boolean;
+    valid: boolean;
+    memberName: string;
+    membershipType: string;
+    validUntil: string;
+    remainingSessions?: number;
+    photo?: string;
+    message?: string;
+  }> {
+    return this.request('/businesses/validate-access', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /**
+   * Log member entry/check-in
+   */
+  async logMemberEntry(params: {
+    subscriptionId: string;
+    businessId: string;
+  }): Promise<{
+    success: boolean;
+    entryId?: string;
+    message?: string;
+  }> {
+    return this.request('/businesses/log-entry', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // ==========================================
+  // Business Owner Dashboard
+  // ==========================================
+
+  /**
+   * Get business dashboard stats
+   */
+  async getBusinessDashboard(): Promise<{
+    success: boolean;
+    stats?: {
+      todayBookings: number;
+      activeMembers: number;
+      monthlyRevenue: number;
+      pendingRequests: number;
+      todayCheckIns: number;
+      upcomingClasses: number;
+    };
+    recentActivity?: Array<{
+      id: string;
+      type: 'booking' | 'check_in' | 'subscription' | 'cancellation';
+      memberName: string;
+      serviceName?: string;
+      time: string;
+    }>;
+    message?: string;
+  }> {
+    return this.request('/businesses/my/dashboard');
+  }
+
+  // ==========================================
+  // Business Services Management
+  // ==========================================
+
+  /**
+   * Create a new business service
+   */
+  async createBusinessService(serviceData: {
+    name: string;
+    description?: string;
+    category: string;
+    price_cents: number;
+    duration_minutes?: number;
+    is_subscription: boolean;
+    subscription_period?: 'weekly' | 'monthly' | 'yearly';
+    trial_days?: number;
+    max_capacity?: number;
+    is_active: boolean;
+  }): Promise<{
+    success: boolean;
+    service?: any;
+    message?: string;
+  }> {
+    return this.request('/businesses/my/services', {
+      method: 'POST',
+      body: JSON.stringify(serviceData),
+    });
+  }
+
+  /**
+   * Update a business service
+   */
+  async updateBusinessService(serviceId: string, serviceData: Partial<{
+    name: string;
+    description?: string;
+    category: string;
+    price_cents: number;
+    duration_minutes?: number;
+    is_subscription: boolean;
+    subscription_period?: 'weekly' | 'monthly' | 'yearly';
+    trial_days?: number;
+    max_capacity?: number;
+    is_active: boolean;
+  }>): Promise<{
+    success: boolean;
+    service?: any;
+    message?: string;
+  }> {
+    return this.request(`/businesses/my/services/${serviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(serviceData),
+    });
+  }
+
+  /**
+   * Delete a business service
+   */
+  async deleteBusinessService(serviceId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> {
+    return this.request(`/businesses/my/services/${serviceId}`, { method: 'DELETE' });
+  }
+
+  // ==========================================
+  // AI Schedule Analysis
+  // ==========================================
+
+  /**
+   * Analyze schedule document with AI
+   */
+  async analyzeScheduleDocument(params: {
+    fileUri: string;
+    fileType: 'image' | 'pdf';
+    mimeType: string;
+  }): Promise<{
+    success: boolean;
+    activities?: Array<{
+      name: string;
+      day: string;
+      startTime: string;
+      endTime: string;
+      instructor?: string;
+      description?: string;
+      category?: string;
+      confidence: number;
+    }>;
+    message?: string;
+  }> {
+    // For file upload, we need to use FormData
+    const formData = new FormData();
+    formData.append('file', {
+      uri: params.fileUri,
+      type: params.mimeType,
+      name: params.fileType === 'pdf' ? 'schedule.pdf' : 'schedule.jpg',
+    } as any);
+    formData.append('fileType', params.fileType);
+
+    return this.request('/businesses/my/analyze-schedule', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  /**
+   * Import extracted activities to schedule
+   */
+  async importScheduleActivities(params: {
+    activities: Array<{
+      name: string;
+      day: string;
+      startTime: string;
+      endTime: string;
+      instructor?: string;
+      description?: string;
+      category?: string;
+    }>;
+  }): Promise<{
+    success: boolean;
+    imported?: number;
+    message?: string;
+  }> {
+    return this.request('/businesses/my/import-schedule', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // ==========================================
   // Utility Methods
   // ==========================================
 
@@ -1309,6 +3134,71 @@ export interface WalletTransaction {
   createdAt: string;
   buyerName?: string;
   buyerAvatar?: string;
+}
+
+export interface Session {
+  id: string;
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  scheduledAt: string;
+  duration: number;
+  price: number;
+  notes?: string;
+  creator: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    verified?: boolean;
+    bio?: string;
+  };
+  fan: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+  };
+  isCreator: boolean;
+  agoraChannel?: string;
+  startedAt?: string;
+  endedAt?: string;
+  createdAt: string;
+}
+
+export interface SessionPack {
+  id: string;
+  name: string;
+  description?: string;
+  sessionsIncluded: number;
+  sessionDuration: number;
+  validityDays: number;
+  price: number;
+  savings?: number;
+  isActive?: boolean;
+  creator?: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    verified?: boolean;
+  };
+}
+
+export interface UserSessionPack {
+  id: string;
+  packId: string;
+  name: string;
+  description?: string;
+  sessionsIncluded: number;
+  sessionsRemaining: number;
+  sessionDuration: number;
+  expiresAt: string;
+  creator: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+  };
+  purchasedAt: string;
 }
 
 // Export singleton instance

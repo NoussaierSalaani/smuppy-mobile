@@ -48,6 +48,7 @@ import TermsPoliciesScreen from '../screens/settings/TermsPoliciesScreen';
 import FacialRecognitionScreen from '../screens/settings/FacialRecognitionScreen';
 import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/settings/MutedUsersScreen';
+import UpgradeToProScreen from '../screens/settings/UpgradeToProScreen';
 
 // PEAKS Screens
 import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
@@ -58,6 +59,38 @@ import PeakPreviewScreen from '../screens/peaks/PeakPreviewScreen';
 // Live Streaming Screens
 import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen, ViewerLiveStreamScreen } from '../screens/live';
 
+// Challenges Screens
+import ChallengeListScreen from '../screens/challenges/ChallengeListScreen';
+import CreateChallengeScreen from '../screens/challenges/CreateChallengeScreen';
+import ChallengeDetailScreen from '../screens/challenges/ChallengeDetailScreen';
+
+// Battles Screens
+import BattleLobbyScreen from '../screens/battles/BattleLobbyScreen';
+import BattleStreamScreen from '../screens/battles/BattleStreamScreen';
+
+// Events Screens
+import CreateEventScreen from '../screens/events/CreateEventScreen';
+import EventListScreen from '../screens/events/EventListScreen';
+import EventDetailScreen from '../screens/events/EventDetailScreen';
+import EventManageScreen from '../screens/events/EventManageScreen';
+
+// Business Screens
+import {
+  BusinessProfileScreen,
+  BusinessDiscoveryScreen,
+  BusinessBookingScreen,
+  BusinessSubscriptionScreen,
+  BusinessBookingSuccessScreen,
+  BusinessSubscriptionSuccessScreen,
+  BusinessProgramScreen,
+  MySubscriptionsScreen,
+  MemberAccessScreen,
+  BusinessScannerScreen,
+  BusinessDashboardScreen,
+  BusinessServicesManageScreen,
+  BusinessScheduleUploadScreen,
+} from '../screens/business';
+
 // Private Sessions Screens
 import {
   BookSessionScreen,
@@ -67,6 +100,14 @@ import {
   PrivateCallScreen,
   SessionEndedScreen,
   PrivateSessionsManageScreen,
+  MySessionsScreen,
+  SessionDetailScreen,
+  CreatorOfferingsScreen,
+  PackPurchaseScreen,
+  PackPurchaseSuccessScreen,
+  ChannelSubscribeScreen,
+  SubscriptionSuccessScreen,
+  CreatorEarningsScreen,
 } from '../screens/sessions';
 
 // Payment Screens
@@ -92,6 +133,8 @@ interface TabNavigatorProps {
 
 function TabNavigator({ navigation }: TabNavigatorProps) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
+  const user = useUserStore((state) => state.user);
+  const isProCreator = user?.accountType === 'pro_creator';
 
   return (
     <>
@@ -108,6 +151,8 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onClose={() => setShowCreatePopup(false)}
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
+        onSelectChallenge={isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateChallenge'); } : undefined}
+        onSelectEvent={isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateEvent'); } : undefined}
       />
     </>
   );
@@ -194,6 +239,7 @@ export default function MainNavigator() {
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="MutedUsers" component={MutedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="UpgradeToPro" component={UpgradeToProScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* PEAKS */}
       <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />
@@ -207,14 +253,58 @@ export default function MainNavigator() {
       <Stack.Screen name="LiveEnded" component={LiveEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="ViewerLiveStream" component={ViewerLiveStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
 
-      {/* Private Sessions */}
-      <Stack.Screen name="PrivateSessionsManage" component={PrivateSessionsManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Challenges */}
+      <Stack.Screen name="ChallengeList" component={ChallengeListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="ChallengeDetail" component={ChallengeDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="CreateChallenge" component={CreateChallengeScreen} options={{ animation: 'slide_from_bottom' }} />
+
+      {/* Live Battles */}
+      <Stack.Screen name="BattleLobby" component={BattleLobbyScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BattleStream" component={BattleStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+
+      {/* Events (Xplorer) */}
+      <Stack.Screen name="EventList" component={EventListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EventDetail" component={asScreen(EventDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EventManage" component={asScreen(EventManageScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="CreateEvent" component={asScreen(CreateEventScreen)} options={{ animation: 'slide_from_bottom' }} />
+
+      {/* Business (Pro Local) - User Screens */}
+      <Stack.Screen name="BusinessDiscovery" component={BusinessDiscoveryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessProfile" component={asScreen(BusinessProfileScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessBooking" component={asScreen(BusinessBookingScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BusinessSubscription" component={asScreen(BusinessSubscriptionScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BusinessBookingSuccess" component={asScreen(BusinessBookingSuccessScreen)} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="BusinessSubscriptionSuccess" component={asScreen(BusinessSubscriptionSuccessScreen)} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="MySubscriptions" component={MySubscriptionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="MemberAccess" component={asScreen(MemberAccessScreen)} options={{ animation: 'slide_from_bottom' }} />
+
+      {/* Business (Pro Local) - Owner Screens */}
+      <Stack.Screen name="BusinessDashboard" component={BusinessDashboardScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessServicesManage" component={BusinessServicesManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessProgram" component={asScreen(BusinessProgramScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessScheduleUpload" component={BusinessScheduleUploadScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BusinessScanner" component={BusinessScannerScreen} options={{ animation: 'slide_from_bottom' }} />
+
+      {/* Private Sessions - Fan Flow */}
+      <Stack.Screen name="MySessions" component={MySessionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BookSession" component={BookSessionScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="SessionPayment" component={SessionPaymentScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="SessionBooked" component={SessionBookedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="WaitingRoom" component={WaitingRoomScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="PrivateCall" component={PrivateCallScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="SessionEnded" component={SessionEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+
+      {/* Creator Offerings & Checkout (Fan) */}
+      <Stack.Screen name="CreatorOfferings" component={CreatorOfferingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PackPurchase" component={PackPurchaseScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="PackPurchaseSuccess" component={PackPurchaseSuccessScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="ChannelSubscribe" component={ChannelSubscribeScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="SubscriptionSuccess" component={SubscriptionSuccessScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+
+      {/* Creator Dashboard */}
+      <Stack.Screen name="PrivateSessionsManage" component={PrivateSessionsManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="CreatorEarnings" component={CreatorEarningsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Payments & Subscriptions */}
       <Stack.Screen name="CreatorWallet" component={CreatorWalletScreen} options={{ animation: 'slide_from_bottom' }} />

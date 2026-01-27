@@ -1,0 +1,1315 @@
+/**
+ * BusinessProfileScreen
+ * Public profile view for Pro Business accounts (gyms, stores, studios, etc.)
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  ActivityIndicator,
+  Animated,
+  FlatList,
+  Linking,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Haptics from 'expo-haptics';
+import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { awsAPI } from '../../services/aws-api';
+import { useCurrency } from '../../hooks/useCurrency';
+import { useUserStore } from '../../stores';
+
+const { width, height } = Dimensions.get('window');
+
+interface BusinessProfileScreenProps {
+  route: { params: { businessId: string } };
+  navigation: any;
+}
+
+interface BusinessProfile {
+  id: string;
+  name: string;
+  username: string;
+  logo_url?: string;
+  cover_url?: string;
+  bio?: string;
+  category: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+  };
+  location: {
+    name: string;
+    address: string;
+    city: string;
+    coordinates: { lat: number; lng: number };
+  };
+  contact: {
+    phone?: string;
+    email?: string;
+    website?: string;
+  };
+  hours: {
+    day: string;
+    open: string;
+    close: string;
+    is_closed: boolean;
+  }[];
+  stats: {
+    followers: number;
+    reviews: number;
+    rating: number;
+  };
+  is_verified: boolean;
+  is_following: boolean;
+  features: string[];
+  price_range?: 'budget' | 'moderate' | 'premium' | 'luxury';
+}
+
+interface Service {
+  id: string;
+  name: string;
+  description?: string;
+  price_cents: number;
+  duration_minutes?: number;
+  image_url?: string;
+  is_subscription: boolean;
+  subscription_period?: 'weekly' | 'monthly' | 'yearly';
+}
+
+interface Activity {
+  id: string;
+  name: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  instructor?: string;
+  spots_available?: number;
+  category_color: string;
+}
+
+interface Review {
+  id: string;
+  user: {
+    id: string;
+    username: string;
+    avatar_url?: string;
+  };
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
+  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#0e1626' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
+];
+
+export default function BusinessProfileScreen({ route, navigation }: BusinessProfileScreenProps) {
+  const { businessId } = route.params;
+  const { formatAmount } = useCurrency();
+  const user = useUserStore((state) => state.user);
+
+  const [business, setBusiness] = useState<BusinessProfile | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [schedule, setSchedule] = useState<Activity[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'about' | 'services' | 'schedule' | 'reviews'>('about');
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    loadBusinessProfile();
+  }, [businessId]);
+
+  const loadBusinessProfile = async () => {
+    try {
+      const [profileRes, servicesRes, scheduleRes, reviewsRes] = await Promise.all([
+        awsAPI.getBusinessProfile(businessId),
+        awsAPI.getBusinessServices(businessId),
+        awsAPI.getBusinessSchedule(businessId),
+        awsAPI.getBusinessReviews(businessId, { limit: 10 }),
+      ]);
+
+      if (profileRes.success) {
+        setBusiness(profileRes.business);
+        setIsFollowing(profileRes.business.is_following);
+      }
+      if (servicesRes.success) setServices(servicesRes.services || []);
+      if (scheduleRes.success) setSchedule(scheduleRes.activities || []);
+      if (reviewsRes.success) setReviews(reviewsRes.reviews || []);
+    } catch (error) {
+      console.error('Load business profile error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFollow = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const newFollowing = !isFollowing;
+    setIsFollowing(newFollowing);
+
+    try {
+      if (newFollowing) {
+        await awsAPI.followBusiness(businessId);
+      } else {
+        await awsAPI.unfollowBusiness(businessId);
+      }
+    } catch (error) {
+      setIsFollowing(!newFollowing); // Revert on error
+    }
+  };
+
+  const handleBookService = (service: Service) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (service.is_subscription) {
+      navigation.navigate('BusinessSubscription', { businessId, serviceId: service.id });
+    } else {
+      navigation.navigate('BusinessBooking', { businessId, serviceId: service.id });
+    }
+  };
+
+  const handleCallBusiness = () => {
+    if (business?.contact.phone) {
+      Linking.openURL(`tel:${business.contact.phone}`);
+    }
+  };
+
+  const handleOpenMaps = () => {
+    if (business?.location.coordinates) {
+      const { lat, lng } = business.location.coordinates;
+      const url = Platform.select({
+        ios: `maps:0,0?q=${business.name}@${lat},${lng}`,
+        android: `geo:0,0?q=${lat},${lng}(${business.name})`,
+      });
+      if (url) Linking.openURL(url);
+    }
+  };
+
+  const handleOpenWebsite = () => {
+    if (business?.contact.website) {
+      Linking.openURL(business.contact.website);
+    }
+  };
+
+  const getTodayActivities = () => {
+    return schedule.filter((a) => a.day_of_week === selectedDay);
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <View style={styles.starsContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Ionicons
+            key={star}
+            name={star <= rating ? 'star' : star - 0.5 <= rating ? 'star-half' : 'star-outline'}
+            size={14}
+            color="#FFD700"
+          />
+        ))}
+      </View>
+    );
+  };
+
+  const renderServiceCard = ({ item }: { item: Service }) => (
+    <TouchableOpacity
+      style={styles.serviceCard}
+      onPress={() => handleBookService(item)}
+      activeOpacity={0.8}
+    >
+      {item.image_url && (
+        <Image source={{ uri: item.image_url }} style={styles.serviceImage} />
+      )}
+      <View style={styles.serviceContent}>
+        <View style={styles.serviceHeader}>
+          <Text style={styles.serviceName}>{item.name}</Text>
+          {item.is_subscription && (
+            <View style={styles.subscriptionBadge}>
+              <Ionicons name="refresh" size={10} color="#fff" />
+              <Text style={styles.subscriptionBadgeText}>
+                {item.subscription_period === 'monthly' ? '/mo' : item.subscription_period === 'yearly' ? '/yr' : '/wk'}
+              </Text>
+            </View>
+          )}
+        </View>
+        {item.description && (
+          <Text style={styles.serviceDescription} numberOfLines={2}>
+            {item.description}
+          </Text>
+        )}
+        <View style={styles.serviceFooter}>
+          <View style={styles.serviceMeta}>
+            {item.duration_minutes && (
+              <View style={styles.serviceMetaItem}>
+                <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+                <Text style={styles.serviceMetaText}>{item.duration_minutes} min</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.servicePrice}>
+            <Text style={styles.servicePriceText}>{formatAmount(item.price_cents)}</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderActivityItem = ({ item }: { item: Activity }) => (
+    <View style={styles.activityItem}>
+      <View style={[styles.activityTime, { borderLeftColor: item.category_color }]}>
+        <Text style={styles.activityStartTime}>{item.start_time}</Text>
+        <Text style={styles.activityEndTime}>{item.end_time}</Text>
+      </View>
+      <View style={styles.activityInfo}>
+        <Text style={styles.activityName}>{item.name}</Text>
+        {item.instructor && (
+          <Text style={styles.activityInstructor}>with {item.instructor}</Text>
+        )}
+      </View>
+      {item.spots_available !== undefined && (
+        <View style={styles.activitySpots}>
+          <Text style={[
+            styles.activitySpotsText,
+            item.spots_available === 0 && styles.activitySpotsFull,
+          ]}>
+            {item.spots_available === 0 ? 'Full' : `${item.spots_available} spots`}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderReviewItem = ({ item }: { item: Review }) => (
+    <View style={styles.reviewItem}>
+      <View style={styles.reviewHeader}>
+        <Image
+          source={{
+            uri: item.user.avatar_url ||
+              `https://ui-avatars.com/api/?name=${item.user.username}&background=random`,
+          }}
+          style={styles.reviewAvatar}
+        />
+        <View style={styles.reviewUserInfo}>
+          <Text style={styles.reviewUsername}>@{item.user.username}</Text>
+          {renderStars(item.rating)}
+        </View>
+        <Text style={styles.reviewDate}>
+          {new Date(item.created_at).toLocaleDateString()}
+        </Text>
+      </View>
+      <Text style={styles.reviewComment}>{item.comment}</Text>
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (!business) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="business-outline" size={64} color={COLORS.gray} />
+        <Text style={styles.errorText}>Business not found</Text>
+        <TouchableOpacity style={styles.errorButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.errorButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+
+      {/* Animated Header */}
+      <Animated.View
+        style={[
+          styles.animatedHeader,
+          {
+            opacity: scrollY.interpolate({
+              inputRange: [0, 200],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      >
+        <BlurView intensity={80} tint="dark" style={styles.headerBlur}>
+          <SafeAreaView edges={['top']}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+                <Ionicons name="arrow-back" size={24} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {business.name}
+              </Text>
+              <TouchableOpacity style={styles.headerButton}>
+                <Ionicons name="share-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </BlurView>
+      </Animated.View>
+
+      <Animated.ScrollView
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Cover & Logo */}
+        <View style={styles.coverContainer}>
+          {business.cover_url ? (
+            <Image source={{ uri: business.cover_url }} style={styles.coverImage} />
+          ) : (
+            <LinearGradient
+              colors={[business.category.color, `${business.category.color}66`]}
+              style={styles.coverImage}
+            />
+          )}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.9)']}
+            style={styles.coverGradient}
+          />
+
+          {/* Back Button */}
+          <SafeAreaView edges={['top']} style={styles.floatingHeader}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.floatingButton}>
+              <BlurView intensity={50} tint="dark" style={styles.floatingButtonBlur}>
+                <Ionicons name="arrow-back" size={24} color="#fff" />
+              </BlurView>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.floatingButton}>
+              <BlurView intensity={50} tint="dark" style={styles.floatingButtonBlur}>
+                <Ionicons name="share-outline" size={24} color="#fff" />
+              </BlurView>
+            </TouchableOpacity>
+          </SafeAreaView>
+
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={{
+                uri: business.logo_url ||
+                  `https://ui-avatars.com/api/?name=${business.name}&background=${business.category.color.replace('#', '')}&size=200`,
+              }}
+              style={styles.logo}
+            />
+            {business.is_verified && (
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={24} color="#00BFFF" />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Business Info */}
+        <View style={styles.infoSection}>
+          <View style={styles.nameRow}>
+            <Text style={styles.businessName}>{business.name}</Text>
+            <View style={[styles.categoryBadge, { backgroundColor: business.category.color + '30' }]}>
+              <Ionicons name={business.category.icon as any} size={14} color={business.category.color} />
+              <Text style={[styles.categoryText, { color: business.category.color }]}>
+                {business.category.name}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.username}>@{business.username}</Text>
+
+          {/* Stats */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{business.stats.followers}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <View style={styles.ratingValue}>
+                <Ionicons name="star" size={16} color="#FFD700" />
+                <Text style={styles.statValue}>{business.stats.rating.toFixed(1)}</Text>
+              </View>
+              <Text style={styles.statLabel}>{business.stats.reviews} reviews</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {business.price_range === 'budget' ? '€' :
+                  business.price_range === 'moderate' ? '€€' :
+                  business.price_range === 'premium' ? '€€€' : '€€€€'}
+              </Text>
+              <Text style={styles.statLabel}>Price Range</Text>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.followButton, isFollowing && styles.followButtonActive]}
+              onPress={handleFollow}
+            >
+              <Ionicons
+                name={isFollowing ? 'checkmark' : 'add'}
+                size={20}
+                color={isFollowing ? COLORS.primary : '#fff'}
+              />
+              <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>
+                {isFollowing ? 'Following' : 'Follow'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.iconButton} onPress={handleCallBusiness}>
+              <Ionicons name="call" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.iconButton} onPress={handleOpenMaps}>
+              <Ionicons name="navigate" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            {business.contact.website && (
+              <TouchableOpacity style={styles.iconButton} onPress={handleOpenWebsite}>
+                <Ionicons name="globe" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          {(['about', 'services', 'schedule', 'reviews'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Tab Content */}
+        <View style={styles.tabContent}>
+          {activeTab === 'about' && (
+            <View style={styles.aboutTab}>
+              {/* Bio */}
+              {business.bio && (
+                <View style={styles.bioSection}>
+                  <Text style={styles.sectionTitle}>About</Text>
+                  <Text style={styles.bioText}>{business.bio}</Text>
+                </View>
+              )}
+
+              {/* Features */}
+              {business.features.length > 0 && (
+                <View style={styles.featuresSection}>
+                  <Text style={styles.sectionTitle}>Amenities</Text>
+                  <View style={styles.featuresGrid}>
+                    {business.features.map((feature, index) => (
+                      <View key={index} style={styles.featureItem}>
+                        <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                        <Text style={styles.featureText}>{feature}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Location Map */}
+              <View style={styles.locationSection}>
+                <Text style={styles.sectionTitle}>Location</Text>
+                <View style={styles.mapContainer}>
+                  <MapView
+                    style={styles.map}
+                    provider={PROVIDER_GOOGLE}
+                    customMapStyle={darkMapStyle}
+                    initialRegion={{
+                      latitude: business.location.coordinates.lat,
+                      longitude: business.location.coordinates.lng,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: business.location.coordinates.lat,
+                        longitude: business.location.coordinates.lng,
+                      }}
+                    >
+                      <View style={[styles.mapMarker, { backgroundColor: business.category.color }]}>
+                        <Ionicons name={business.category.icon as any} size={16} color="#fff" />
+                      </View>
+                    </Marker>
+                  </MapView>
+                </View>
+                <TouchableOpacity style={styles.addressRow} onPress={handleOpenMaps}>
+                  <Ionicons name="location" size={18} color={COLORS.primary} />
+                  <View style={styles.addressText}>
+                    <Text style={styles.addressName}>{business.location.name}</Text>
+                    <Text style={styles.addressDetail}>{business.location.address}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.gray} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Opening Hours */}
+              <View style={styles.hoursSection}>
+                <Text style={styles.sectionTitle}>Opening Hours</Text>
+                {business.hours.map((hour, index) => (
+                  <View key={index} style={styles.hourRow}>
+                    <Text style={styles.hourDay}>{hour.day}</Text>
+                    <Text style={[styles.hourTime, hour.is_closed && styles.hourClosed]}>
+                      {hour.is_closed ? 'Closed' : `${hour.open} - ${hour.close}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {activeTab === 'services' && (
+            <View style={styles.servicesTab}>
+              {services.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="pricetag-outline" size={48} color={COLORS.gray} />
+                  <Text style={styles.emptyTitle}>No services available</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={services}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderServiceCard}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.servicesList}
+                />
+              )}
+            </View>
+          )}
+
+          {activeTab === 'schedule' && (
+            <View style={styles.scheduleTab}>
+              {/* Day Selector */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.daySelector}
+              >
+                {DAYS_SHORT.map((day, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.dayButton, selectedDay === index && styles.dayButtonActive]}
+                    onPress={() => setSelectedDay(index)}
+                  >
+                    <Text style={[styles.dayButtonText, selectedDay === index && styles.dayButtonTextActive]}>
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Activities */}
+              {getTodayActivities().length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                  <Text style={styles.emptyTitle}>No activities scheduled</Text>
+                  <Text style={styles.emptySubtitle}>Check another day</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={getTodayActivities()}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderActivityItem}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.activitiesList}
+                />
+              )}
+            </View>
+          )}
+
+          {activeTab === 'reviews' && (
+            <View style={styles.reviewsTab}>
+              {/* Rating Summary */}
+              <View style={styles.ratingSummary}>
+                <Text style={styles.ratingBig}>{business.stats.rating.toFixed(1)}</Text>
+                {renderStars(business.stats.rating)}
+                <Text style={styles.ratingCount}>{business.stats.reviews} reviews</Text>
+              </View>
+
+              {/* Reviews List */}
+              {reviews.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="chatbubble-outline" size={48} color={COLORS.gray} />
+                  <Text style={styles.emptyTitle}>No reviews yet</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={reviews}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderReviewItem}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.reviewsList}
+                />
+              )}
+            </View>
+          )}
+        </View>
+
+        <View style={{ height: 100 }} />
+      </Animated.ScrollView>
+
+      {/* Bottom CTA */}
+      {services.length > 0 && (
+        <View style={styles.bottomCTA}>
+          <BlurView intensity={80} tint="dark" style={styles.bottomCTABlur}>
+            <TouchableOpacity
+              style={styles.bookButton}
+              onPress={() => navigation.navigate('BusinessBooking', { businessId })}
+            >
+              <LinearGradient colors={GRADIENTS.primary} style={styles.bookGradient}>
+                <Ionicons name="calendar" size={20} color="#fff" />
+                <Text style={styles.bookButtonText}>Book Now</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f0f1a',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0f0f1a',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0f0f1a',
+    gap: 16,
+  },
+  errorText: {
+    fontSize: 18,
+    color: COLORS.gray,
+  },
+  errorButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+  },
+  errorButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+
+  // Header
+  animatedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+  headerBlur: {
+    backgroundColor: 'rgba(15,15,26,0.8)',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+    marginHorizontal: 8,
+  },
+
+  // Cover
+  coverContainer: {
+    height: 220,
+    position: 'relative',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  coverGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  floatingButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  floatingButtonBlur: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  logoContainer: {
+    position: 'absolute',
+    bottom: -40,
+    left: 20,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    borderWidth: 4,
+    borderColor: '#0f0f1a',
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: '#0f0f1a',
+    borderRadius: 12,
+    padding: 2,
+  },
+
+  // Info Section
+  infoSection: {
+    paddingHorizontal: 20,
+    paddingTop: 50,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  businessName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+    flex: 1,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    gap: 4,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  username: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  ratingValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  followButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  followButtonActive: {
+    backgroundColor: 'rgba(14,191,138,0.15)',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  followButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  followButtonTextActive: {
+    color: COLORS.primary,
+  },
+  iconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Tabs
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 20,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+  },
+  tabActive: {
+    backgroundColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.gray,
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  tabContent: {
+    paddingHorizontal: 20,
+  },
+
+  // About Tab
+  aboutTab: {
+    gap: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  bioSection: {},
+  bioText: {
+    fontSize: 15,
+    color: COLORS.lightGray,
+    lineHeight: 22,
+  },
+  featuresSection: {},
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  featureText: {
+    fontSize: 13,
+    color: COLORS.lightGray,
+  },
+  locationSection: {},
+  mapContainer: {
+    height: 150,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  map: {
+    flex: 1,
+  },
+  mapMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  addressText: {
+    flex: 1,
+  },
+  addressName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  addressDetail: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginTop: 2,
+  },
+  hoursSection: {},
+  hourRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  hourDay: {
+    fontSize: 14,
+    color: COLORS.lightGray,
+  },
+  hourTime: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  hourClosed: {
+    color: COLORS.gray,
+  },
+
+  // Services Tab
+  servicesTab: {},
+  servicesList: {
+    gap: 12,
+  },
+  serviceCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  serviceImage: {
+    width: '100%',
+    height: 120,
+  },
+  serviceContent: {
+    padding: 16,
+  },
+  serviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  serviceName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    flex: 1,
+  },
+  subscriptionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 2,
+  },
+  subscriptionBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  serviceDescription: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginBottom: 12,
+  },
+  serviceFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  serviceMeta: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  serviceMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  serviceMetaText: {
+    fontSize: 13,
+    color: COLORS.gray,
+  },
+  servicePrice: {
+    backgroundColor: 'rgba(14,191,138,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  servicePriceText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  // Schedule Tab
+  scheduleTab: {},
+  daySelector: {
+    gap: 8,
+    paddingBottom: 16,
+  },
+  dayButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+  },
+  dayButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  dayButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.gray,
+  },
+  dayButtonTextActive: {
+    color: '#fff',
+  },
+  activitiesList: {
+    gap: 8,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 14,
+    borderRadius: 12,
+    gap: 12,
+  },
+  activityTime: {
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+  },
+  activityStartTime: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  activityEndTime: {
+    fontSize: 12,
+    color: COLORS.gray,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  activityInstructor: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginTop: 2,
+  },
+  activitySpots: {},
+  activitySpotsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  activitySpotsFull: {
+    color: COLORS.gray,
+  },
+
+  // Reviews Tab
+  reviewsTab: {},
+  ratingSummary: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 24,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  ratingBig: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: 8,
+  },
+  ratingCount: {
+    fontSize: 14,
+    color: COLORS.gray,
+  },
+  reviewsList: {
+    gap: 12,
+  },
+  reviewItem: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    borderRadius: 14,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+  },
+  reviewUserInfo: {
+    flex: 1,
+  },
+  reviewUsername: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: COLORS.gray,
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: COLORS.lightGray,
+    lineHeight: 20,
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: COLORS.gray,
+  },
+
+  // Bottom CTA
+  bottomCTA: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  bottomCTABlur: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 34,
+    backgroundColor: 'rgba(15,15,26,0.9)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  bookButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  bookGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  bookButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+});

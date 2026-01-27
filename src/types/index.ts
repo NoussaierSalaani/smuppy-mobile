@@ -541,8 +541,88 @@ export type MainStackParamList = {
   ChannelSubscription: { creatorId: string; creatorName?: string; creatorAvatar?: string; creatorUsername?: string; subscriberCount?: number; tier?: string };
   IdentityVerification: undefined;
 
+  // Private Sessions - Fan
+  MySessions: undefined;
+  SessionDetail: { sessionId: string };
+  BookSession: { creatorId: string; fromPack?: boolean };
+  SessionPayment: { creatorId: string; sessionId?: string; date: string; time: string; duration: number; price: number };
+  SessionBooked: { sessionId: string; creatorName: string; date: string; time: string };
+  WaitingRoom: { sessionId: string };
+  PrivateCall: { sessionId: string; channelName: string; token: string };
+  SessionEnded: { sessionId: string; duration: number; creatorName: string };
+
+  // Creator Offerings & Checkout (Fan)
+  CreatorOfferings: { creatorId: string };
+  PackPurchase: { creatorId: string; pack: { id: string; name: string; description: string; sessionsIncluded: number; sessionDuration: number; validityDays: number; price: number; savings: number } };
+  PackPurchaseSuccess: { pack: { id: string; name: string; sessionsIncluded: number; sessionDuration: number; validityDays: number; price: number }; creator: { id: string; name: string; username: string } };
+  ChannelSubscribe: { creatorId: string; tier: { id: string; name: string; price: number; perks: string[]; popular?: boolean } };
+  SubscriptionSuccess: { tier: { id: string; name: string; price: number; perks: string[] }; creator: { id: string; name: string; username: string; avatar: string } };
+
+  // Creator Dashboard
+  PrivateSessionsManage: undefined;
+  CreatorEarnings: undefined;
+
   // WebView (for Stripe checkout)
   WebView: { url: string; title?: string };
+
+  // Challenges
+  ChallengeList: undefined;
+  ChallengeDetail: { challengeId: string };
+  CreateChallenge: { peakId?: string } | undefined;
+  CreateChallengeResponse: { challengeId: string };
+
+  // Live Battles
+  BattleLobby: { battleId: string };
+  BattleStream: { battleId: string; agoraToken?: string; agoraUid?: number };
+  BattleResults: { battleId: string; winner?: any; participants?: any[] };
+  InviteToBattle: { battleId: string };
+
+  // Events (Xplorer)
+  EventList: undefined;
+  EventDetail: { eventId: string };
+  CreateEvent: undefined;
+  EventManage: { eventId: string };
+
+  // Tips
+  TipLeaderboard: { creatorId: string; creatorUsername: string };
+
+  // Account Upgrade
+  UpgradeToPro: undefined;
+
+  // Business (Pro Local) - User Screens
+  BusinessDiscovery: undefined;
+  BusinessProfile: { businessId: string };
+  BusinessBooking: { businessId: string; serviceId?: string };
+  BusinessSubscription: { businessId: string; serviceId?: string };
+  BusinessBookingSuccess: {
+    bookingId: string;
+    businessName: string;
+    serviceName: string;
+    date: string;
+    time: string;
+  };
+  BusinessSubscriptionSuccess: {
+    subscriptionId: string;
+    businessName: string;
+    planName: string;
+    period: 'weekly' | 'monthly' | 'yearly';
+    trialDays?: number;
+  };
+  MySubscriptions: undefined;
+  MemberAccess: {
+    subscriptionId: string;
+    businessId: string;
+    businessName: string;
+  };
+
+  // Business (Pro Local) - Owner Screens
+  BusinessDashboard: undefined;
+  BusinessServicesManage: undefined;
+  BusinessProgram: { tab?: 'activities' | 'schedule' | 'tags' } | undefined;
+  BusinessScheduleUpload: undefined;
+  BusinessScanner: undefined;
+  BusinessMembers: undefined;
+  BusinessSettings: undefined;
 };
 
 // Alias for backward compatibility

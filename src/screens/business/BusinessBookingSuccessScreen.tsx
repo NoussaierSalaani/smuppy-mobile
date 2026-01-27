@@ -1,0 +1,337 @@
+/**
+ * BusinessBookingSuccessScreen
+ * Confirmation screen after successful booking
+ */
+
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Share,
+  Animated,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+
+interface Props {
+  route: {
+    params: {
+      bookingId: string;
+      businessName: string;
+      serviceName: string;
+      date: string;
+      time: string;
+    };
+  };
+  navigation: any;
+}
+
+export default function BusinessBookingSuccessScreen({ route, navigation }: Props) {
+  const { bookingId, businessName, serviceName, date, time } = route.params;
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const formatDate = (dateString: string) => {
+    const d = new Date(dateString);
+    return d.toLocaleDateString(undefined, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  };
+
+  const handleAddToCalendar = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Add to calendar implementation
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDate(date)} at ${time}`,
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+    }
+  };
+
+  const handleDone = () => {
+    navigation.popToTop();
+    navigation.navigate('Tabs');
+  };
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          {/* Success Animation */}
+          <Animated.View
+            style={[
+              styles.animationContainer,
+              {
+                transform: [{ scale: scaleAnim }],
+                opacity: opacityAnim,
+              },
+            ]}
+          >
+            <LinearGradient colors={GRADIENTS.primary} style={styles.successCircle}>
+              <Ionicons name="checkmark" size={60} color="#fff" />
+            </LinearGradient>
+          </Animated.View>
+
+          {/* Success Message */}
+          <Text style={styles.title}>Booking Confirmed! 🎉</Text>
+          <Text style={styles.subtitle}>
+            Your session has been booked successfully
+          </Text>
+
+          {/* Booking Details Card */}
+          <View style={styles.detailsCard}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="business" size={20} color={COLORS.primary} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Location</Text>
+                <Text style={styles.detailValue}>{businessName}</Text>
+              </View>
+            </View>
+
+            <View style={styles.detailDivider} />
+
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="fitness" size={20} color={COLORS.primary} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Service</Text>
+                <Text style={styles.detailValue}>{serviceName}</Text>
+              </View>
+            </View>
+
+            <View style={styles.detailDivider} />
+
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="calendar" size={20} color={COLORS.primary} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Date & Time</Text>
+                <Text style={styles.detailValue}>{formatDate(date)}</Text>
+                <Text style={styles.detailSubvalue}>{time}</Text>
+              </View>
+            </View>
+
+            <View style={styles.detailDivider} />
+
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="receipt" size={20} color={COLORS.primary} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Booking ID</Text>
+                <Text style={styles.detailValueSmall}>{bookingId}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Reminder */}
+          <View style={styles.reminderCard}>
+            <Ionicons name="notifications" size={20} color="#FFD700" />
+            <Text style={styles.reminderText}>
+              We'll send you a reminder 24 hours before your appointment
+            </Text>
+          </View>
+        </View>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleAddToCalendar}>
+              <Ionicons name="calendar-outline" size={20} color="#fff" />
+              <Text style={styles.secondaryButtonText}>Add to Calendar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleShare}>
+              <Ionicons name="share-outline" size={20} color="#fff" />
+              <Text style={styles.secondaryButtonText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.primaryButton} onPress={handleDone}>
+            <LinearGradient colors={GRADIENTS.primary} style={styles.primaryGradient}>
+              <Text style={styles.primaryButtonText}>Done</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f0f1a',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 40,
+  },
+  animationContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  detailsCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  detailIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(14,191,138,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  detailContent: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  detailSubvalue: {
+    fontSize: 14,
+    color: COLORS.lightGray,
+    marginTop: 2,
+  },
+  detailValueSmall: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.lightGray,
+    fontFamily: 'monospace',
+  },
+  detailDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  reminderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    padding: 14,
+    borderRadius: 14,
+    gap: 12,
+    width: '100%',
+  },
+  reminderText: {
+    flex: 1,
+    fontSize: 13,
+    color: 'rgba(255,215,0,0.9)',
+  },
+  actions: {
+    padding: 20,
+    paddingBottom: 34,
+    gap: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  primaryButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  primaryGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+});

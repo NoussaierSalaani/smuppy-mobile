@@ -10,8 +10,8 @@
  * 5. App verifies payment status
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { Linking, Alert, Platform } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Linking, Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../services/aws-api';
 
@@ -88,6 +88,7 @@ export function useWebCheckout() {
     }));
 
     await startCheckoutInternal(options);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.pendingOptions]);
 
   /**
@@ -230,6 +231,7 @@ export function useWebCheckout() {
    */
   const startCheckoutDirect = useCallback(async (options: WebCheckoutOptions) => {
     await startCheckoutInternal(options);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

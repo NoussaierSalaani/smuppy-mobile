@@ -3,7 +3,7 @@
  * Live Battle streaming with split-screen view and tips
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Dimensions,
   Alert,
   FlatList,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +29,7 @@ import TipModal from '../../components/tips/TipModal';
 // Get user from store
 const getUser = (state: any) => state.user;
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 const STREAM_HEIGHT = (height - 200) / 2;
 
 interface Participant {
@@ -64,10 +63,11 @@ interface Comment {
 export default function BattleStreamScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const user = useUserStore(getUser);
+  const _user = useUserStore(getUser);
   const { formatAmount } = useCurrency();
 
-  const { battleId, agoraToken, agoraUid } = route.params;
+  // agoraToken and agoraUid will be used when integrating Agora RTC
+  const { battleId, agoraToken: _agoraToken, agoraUid: _agoraUid } = route.params;
 
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
@@ -97,6 +97,7 @@ export default function BattleStreamScreen() {
         clearInterval(durationInterval.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadBattleState = async () => {

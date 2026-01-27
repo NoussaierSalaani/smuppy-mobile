@@ -65,6 +65,7 @@ export default function TipLeaderboard({
 
   useEffect(() => {
     loadLeaderboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPeriod]);
 
   const loadLeaderboard = async () => {

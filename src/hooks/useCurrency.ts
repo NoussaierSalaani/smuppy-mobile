@@ -118,7 +118,7 @@ export function useCurrency() {
           });
           return;
         }
-      } catch (apiError) {
+      } catch {
         console.log('API currency detection failed, using locale');
       }
 
@@ -157,7 +157,7 @@ export function useCurrency() {
     // Update on server if logged in
     try {
       await awsAPI.updateCurrencySettings(code);
-    } catch (error) {
+    } catch {
       console.log('Failed to update currency on server');
     }
   }, []);
@@ -195,7 +195,7 @@ export function useCurrency() {
   );
 
   const convertAmount = useCallback(
-    (amountInCents: number, fromCurrency: string): number => {
+    (amountInCents: number, _fromCurrency: string): number => {
       // This is a simplified version - in production you'd use real exchange rates
       // For now, we just return the same amount
       // You could integrate with a forex API for real-time rates

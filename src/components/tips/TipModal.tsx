@@ -48,7 +48,7 @@ const TipModal: React.FC<TipModalProps> = ({
   onClose,
   onConfirm,
   receiver,
-  contextType,
+  contextType: _contextType,
   presetAmounts = DEFAULT_PRESETS,
   isLoading = false,
 }) => {
@@ -84,6 +84,7 @@ const TipModal: React.FC<TipModalProps> = ({
       fadeAnim.setValue(0);
       resetState();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const resetState = () => {

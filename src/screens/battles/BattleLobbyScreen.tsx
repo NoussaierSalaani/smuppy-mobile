@@ -3,7 +3,7 @@
  * Live Battle lobby - waiting room before battle starts
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 
-const { width, height } = Dimensions.get('window');
+const { width: _width } = Dimensions.get('window');
 
 interface Participant {
   id: string;
@@ -67,6 +67,7 @@ export default function BattleLobbyScreen() {
     loadBattle();
     const interval = setInterval(loadBattle, 3000); // Poll for updates
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [battleId]);
 
   useEffect(() => {
@@ -101,6 +102,7 @@ export default function BattleLobbyScreen() {
         }),
       ])
     ).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -117,6 +119,7 @@ export default function BattleLobbyScreen() {
         startCountdown();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [battle]);
 
   const loadBattle = async () => {

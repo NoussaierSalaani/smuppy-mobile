@@ -30,9 +30,11 @@ interface CreateOptionsPopupProps {
   onClose?: () => void;
   onSelectPost?: () => void;
   onSelectPeak?: () => void;
+  onSelectChallenge?: () => void;
+  onSelectEvent?: () => void;
 }
 
-const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }: CreateOptionsPopupProps): React.JSX.Element | null => {
+const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSelectChallenge, onSelectEvent }: CreateOptionsPopupProps): React.JSX.Element | null => {
   const insets = useSafeAreaInsets();
 
   // Animations
@@ -133,6 +135,16 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }: Cr
   const handleSelectPeak = (): void => {
     onClose?.();
     setTimeout(() => onSelectPeak?.(), 100);
+  };
+
+  const handleSelectChallenge = (): void => {
+    onClose?.();
+    setTimeout(() => onSelectChallenge?.(), 100);
+  };
+
+  const handleSelectEvent = (): void => {
+    onClose?.();
+    setTimeout(() => onSelectEvent?.(), 100);
   };
 
   if (!visible) return null;
@@ -244,6 +256,64 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak }: Cr
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
+
+            {/* Challenge Option */}
+            {onSelectChallenge && (
+              <Animated.View style={{ transform: [{ translateY: postSlideAnim }] }}>
+                <TouchableOpacity
+                  style={styles.option}
+                  onPress={handleSelectChallenge}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.optionContent}>
+                    <View style={styles.optionIconContainer}>
+                      <LinearGradient
+                        colors={['rgba(255, 107, 53, 0.15)', 'rgba(255, 69, 0, 0.15)']}
+                        style={styles.optionIconBg}
+                      >
+                        <Ionicons name="trophy" size={26} color="#FF6B35" />
+                      </LinearGradient>
+                    </View>
+                    <View style={styles.optionInfo}>
+                      <Text style={styles.optionTitle}>Challenge</Text>
+                      <Text style={styles.optionDesc}>Create a challenge and tag your fans!</Text>
+                    </View>
+                  </View>
+                  <View style={styles.optionArrow}>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+
+            {/* Event Option */}
+            {onSelectEvent && (
+              <Animated.View style={{ transform: [{ translateY: postSlideAnim }] }}>
+                <TouchableOpacity
+                  style={styles.option}
+                  onPress={handleSelectEvent}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.optionContent}>
+                    <View style={styles.optionIconContainer}>
+                      <LinearGradient
+                        colors={['rgba(0, 129, 190, 0.15)', 'rgba(0, 181, 193, 0.15)']}
+                        style={styles.optionIconBg}
+                      >
+                        <Ionicons name="calendar" size={26} color="#0081BE" />
+                      </LinearGradient>
+                    </View>
+                    <View style={styles.optionInfo}>
+                      <Text style={styles.optionTitle}>Event</Text>
+                      <Text style={styles.optionDesc}>Organize a running, hiking, or sports event</Text>
+                    </View>
+                  </View>
+                  <View style={styles.optionArrow}>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
           </View>
 
           {/* Feature Highlight */}

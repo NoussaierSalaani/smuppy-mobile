@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import SubscribeChannelModal from '../../components/SubscribeChannelModal';
+import { TipButton } from '../../components/tips';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -873,6 +874,18 @@ const UserProfileScreen = () => {
                 <Text style={styles.sessionButtonText}>Book 1:1</Text>
               </LinearGradient>
             </TouchableOpacity>
+
+            {/* Send Tip Button */}
+            <TipButton
+              recipient={{
+                id: profile.id,
+                username: profile.username,
+                displayName: profile.displayName,
+                avatarUrl: profile.avatar || undefined,
+              }}
+              contextType="profile"
+              variant="compact"
+            />
           </>
         )}
       </View>

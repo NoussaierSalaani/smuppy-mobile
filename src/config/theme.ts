@@ -77,9 +77,11 @@ export const DARK_COLORS = {
     primary: '#0EBF8A',           // Green accent
     primaryGreen: '#0EBF8A',      // Alias for primary
     primaryDark: '#0EBF8A',       // Darker green
+    secondary: '#00B3C7',         // Secondary accent (cyan-blue)
     cyan: '#00E5FF',              // Cyan accent
     dark: '#0A0A0F',              // Near black background
     darkBg: '#0D0D0D',            // Darker background variant
+    darkGray: '#1C1C1E',          // Card/elevated background
     darkCard: '#1C1C1E',          // Card background
     cardBg: '#1A1A1A',            // Alternative card bg
     border: '#2A2A2A',            // Border color
@@ -88,9 +90,11 @@ export const DARK_COLORS = {
     textMuted: '#6B7280',         // Muted text
     gray: '#8E8E93',              // iOS gray
     grayLight: '#6E6E73',
+    lightGray: '#AEAEB2',         // Light gray text
     red: '#FF6B6B',               // Danger/unfollow color
     orange: '#FFA500',            // Warning color
     error: '#EF4444',             // Error color
+    success: '#22C55E',           // Success color
     overlay: 'rgba(0, 0, 0, 0.4)',
     cardBgTransparent: 'rgba(28, 28, 30, 0.95)',
   };

@@ -29,6 +29,7 @@ import { DARK_COLORS as COLORS } from '../../config/theme';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { reportPost } from '../../services/database';
 import { useContentStore } from '../../stores';
+import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
 
@@ -232,8 +233,11 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   };
 
-  const toggleLike = useCallback((): void => {
+  const toggleLike = useCallback(async (): Promise<void> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const isCurrentlyLiked = likedPeaks.has(currentPeak.id);
+
+    // Optimistic update
     setLikedPeaks(prev => {
       const newSet = new Set(prev);
       if (newSet.has(currentPeak.id)) {
@@ -244,8 +248,28 @@ const PeakViewScreen = (): React.JSX.Element => {
       }
       return newSet;
     });
+
+    try {
+      if (isCurrentlyLiked) {
+        await awsAPI.unlikePeak(currentPeak.id);
+      } else {
+        await awsAPI.likePeak(currentPeak.id);
+      }
+    } catch (error) {
+      console.error('[Peak] Failed to toggle like:', error);
+      // Rollback on error
+      setLikedPeaks(prev => {
+        const newSet = new Set(prev);
+        if (isCurrentlyLiked) {
+          newSet.add(currentPeak.id);
+        } else {
+          newSet.delete(currentPeak.id);
+        }
+        return newSet;
+      });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPeak.id]);
+  }, [currentPeak.id, likedPeaks]);
 
   const toggleSave = useCallback((): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -266,7 +290,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   }, []);
 
   const handleTagFriend = useCallback(async (friend: { id: string; name: string }) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Optimistic update
     setPeakTags(prev => {
       const newMap = new Map(prev);
       const currentTags = newMap.get(currentPeak.id) || [];
@@ -276,13 +300,20 @@ const PeakViewScreen = (): React.JSX.Element => {
       return newMap;
     });
 
-    // Send tag notification to the friend via API
     try {
-      // The notification is handled server-side when tagging
-      // This would typically call an endpoint like POST /peaks/{id}/tag
+      await awsAPI.tagFriendOnPeak(currentPeak.id, friend.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (__DEV__) console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
     } catch (error) {
-      console.error('[Peak] Failed to send tag notification:', error);
+      console.error('[Peak] Failed to tag friend:', error);
+      // Rollback on error
+      setPeakTags(prev => {
+        const newMap = new Map(prev);
+        const currentTags = newMap.get(currentPeak.id) || [];
+        newMap.set(currentPeak.id, currentTags.filter(id => id !== friend.id));
+        return newMap;
+      });
+      Alert.alert('Error', 'Failed to tag friend. Please try again.');
     }
   }, [currentPeak.id]);
 
@@ -290,14 +321,12 @@ const PeakViewScreen = (): React.JSX.Element => {
 
   const handleReaction = useCallback(async (reactionType: ReactionType) => {
     const previousReaction = peakReactions.get(currentPeak.id);
+    const isRemovingReaction = previousReaction === reactionType;
 
     // Optimistic update
     setPeakReactions(prev => {
       const newMap = new Map(prev);
-      const currentReaction = newMap.get(currentPeak.id);
-
-      // Toggle off if same reaction
-      if (currentReaction === reactionType) {
+      if (isRemovingReaction) {
         newMap.delete(currentPeak.id);
       } else {
         newMap.set(currentPeak.id, reactionType);
@@ -305,13 +334,17 @@ const PeakViewScreen = (): React.JSX.Element => {
       return newMap;
     });
     setShowReactions(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Send reaction to API
     try {
-      // This would call POST /peaks/{id}/react with { reaction: reactionType }
-      if (__DEV__) console.log(`[Peak] Reacted with ${reactionType} on peak ${currentPeak.id}`);
+      if (isRemovingReaction) {
+        await awsAPI.removeReactionFromPeak(currentPeak.id);
+      } else {
+        await awsAPI.reactToPeak(currentPeak.id, reactionType);
+      }
+      if (__DEV__) console.log(`[Peak] ${isRemovingReaction ? 'Removed' : 'Added'} reaction ${reactionType} on peak ${currentPeak.id}`);
     } catch (error) {
-      console.error('[Peak] Failed to send reaction:', error);
+      console.error('[Peak] Failed to update reaction:', error);
       // Rollback on error
       setPeakReactions(prev => {
         const newMap = new Map(prev);
@@ -425,7 +458,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         );
         break;
       case 'not_interested':
-        // Hide peak from feed locally and notify backend
+        // Hide peak from feed - optimistic update
         setHiddenPeaks(prev => new Set(prev).add(currentPeak.id));
         // Move to next peak if available
         if (currentIndex < peaks.length - 1) {
@@ -435,7 +468,19 @@ const PeakViewScreen = (): React.JSX.Element => {
         } else {
           navigation.goBack();
         }
-        Alert.alert('Got it', "We won't show you similar content.");
+        // Call API to persist the hide
+        try {
+          await awsAPI.hidePeak(currentPeak.id, 'not_interested');
+          Alert.alert('Got it', "We won't show you similar content.");
+        } catch (error) {
+          console.error('[Peak] Failed to hide peak:', error);
+          // Rollback on error
+          setHiddenPeaks(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(currentPeak.id);
+            return newSet;
+          });
+        }
         break;
       case 'copy_link': {
         const copied = await copyPeakLink(currentPeak.id);

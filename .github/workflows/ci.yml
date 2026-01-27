@@ -5,6 +5,17 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
 
 env:
   NODE_VERSION: '20'
@@ -222,6 +233,205 @@ jobs:
         env:
           AWS_REGION: us-east-1
           AWS_ACCOUNT_ID: '123456789012'
+
+  # ============================================
+  # DEPLOY TO DEV (on develop branch)
+  # ============================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [build, security, lambda-test, cdk-synth]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: dev
+      url: https://api-dev.smuppy.com
+    defaults:
+      run:
+        working-directory: aws-migration/infrastructure
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install CDK dependencies
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        run: cd ../lambda/api && npm ci
+
+      - name: Install Lambda Layer dependencies
+        run: cd ../lambda/layers/shared/nodejs && npm ci
+
+      - name: Create .env file for Lambda
+        run: |
+          cat << EOF > .env
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_DEV }}
+          STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_DEV }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}
+          GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_ANDROID_CLIENT_ID=${{ secrets.GOOGLE_ANDROID_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          EOF
+
+      - name: CDK Deploy (dev)
+        run: npx cdk deploy --all --context environment=dev --require-approval never
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: us-east-1
+
+      - name: Notify deployment success
+        if: success()
+        run: echo "🚀 Dev deployment successful!"
+
+  # ============================================
+  # DEPLOY TO STAGING (on main branch)
+  # ============================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build, security, lambda-test, cdk-synth]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://api-staging.smuppy.com
+    defaults:
+      run:
+        working-directory: aws-migration/infrastructure
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install CDK dependencies
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        run: cd ../lambda/api && npm ci
+
+      - name: Install Lambda Layer dependencies
+        run: cd ../lambda/layers/shared/nodejs && npm ci
+
+      - name: Create .env file for Lambda
+        run: |
+          cat << EOF > .env
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_STAGING }}
+          STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_STAGING }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_STAGING }}
+          GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_ANDROID_CLIENT_ID=${{ secrets.GOOGLE_ANDROID_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          EOF
+
+      - name: CDK Deploy (staging)
+        run: npx cdk deploy --all --context environment=staging --require-approval never
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: us-east-1
+
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations for staging..."
+          # Migrations are handled by Lambda on first request or via migration script
+        continue-on-error: true
+
+      - name: Notify deployment success
+        if: success()
+        run: echo "🚀 Staging deployment successful!"
+
+  # ============================================
+  # DEPLOY TO PRODUCTION (manual trigger only)
+  # ============================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+      url: https://api.smuppy.com
+    defaults:
+      run:
+        working-directory: aws-migration/infrastructure
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: us-east-1
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install CDK dependencies
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        run: cd ../lambda/api && npm ci
+
+      - name: Install Lambda Layer dependencies
+        run: cd ../lambda/layers/shared/nodejs && npm ci
+
+      - name: Create .env file for Lambda
+        run: |
+          cat << EOF > .env
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }}
+          STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
+          GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_ANDROID_CLIENT_ID=${{ secrets.GOOGLE_ANDROID_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          EOF
+
+      - name: CDK Deploy (production)
+        run: npx cdk deploy --all --context environment=production --require-approval never
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          CDK_DEFAULT_REGION: us-east-1
+
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations for production..."
+
+      - name: Notify deployment success
+        if: success()
+        run: echo "🚀 Production deployment successful!"
 
 # ============================================
 # FUTURE: EAS BUILD (uncomment when ready)

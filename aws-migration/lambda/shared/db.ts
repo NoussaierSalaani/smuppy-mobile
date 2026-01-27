@@ -286,3 +286,9 @@ export async function healthCheck(): Promise<{ writer: boolean; reader: boolean 
 
   return results;
 }
+
+/**
+ * Re-export CORS utilities for backwards compatibility
+ * @deprecated Import from '../api/utils/cors' instead
+ */
+export { headers as corsHeaders, createCorsResponse, getCorsHeaders, getSecureHeaders } from '../api/utils/cors';

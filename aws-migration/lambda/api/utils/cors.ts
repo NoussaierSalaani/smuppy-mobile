@@ -115,3 +115,53 @@ export function createHeaders(event?: { headers?: Record<string, string | undefi
     ...getCorsHeaders(origin),
   };
 }
+
+/**
+ * Create a full API Gateway response with CORS headers
+ * Convenience function for Lambda handlers
+ *
+ * @param statusCode - HTTP status code
+ * @param body - Response body (will be JSON stringified)
+ * @param requestOrigin - Optional origin header from request
+ * @returns APIGatewayProxyResult compatible response
+ */
+export function createCorsResponse(
+  statusCode: number,
+  body: Record<string, unknown>,
+  requestOrigin?: string
+): { statusCode: number; headers: Record<string, string>; body: string } {
+  return {
+    statusCode,
+    headers: getSecureHeaders(requestOrigin),
+    body: JSON.stringify(body),
+  };
+}
+
+/**
+ * Wrap a response object with CORS headers
+ * @param response - The response object to wrap
+ * @returns Response with CORS headers added
+ */
+export function cors(
+  response: { statusCode: number; body: string; headers?: Record<string, string> }
+): { statusCode: number; headers: Record<string, string>; body: string } {
+  return {
+    ...response,
+    headers: {
+      ...getSecureHeaders(),
+      ...(response.headers || {}),
+    },
+  };
+}
+
+/**
+ * Handle OPTIONS preflight requests
+ * @returns 200 response with CORS headers
+ */
+export function handleOptions(): { statusCode: number; headers: Record<string, string>; body: string } {
+  return {
+    statusCode: 200,
+    headers: getSecureHeaders(),
+    body: '',
+  };
+}

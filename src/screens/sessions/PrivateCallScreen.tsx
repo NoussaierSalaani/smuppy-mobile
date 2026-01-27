@@ -1,6 +1,6 @@
 // src/screens/sessions/PrivateCallScreen.tsx
 // 1:1 Private Video Call Screen with Agora
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,10 +21,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../config/theme';
 import { usePrivateCall } from '../../hooks/useAgora';
 import { LocalVideoView, RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
+import { awsAPI } from '../../services/aws-api';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
 interface _RouteParams {
+  sessionId: string;
   creator: {
     id: string;
     name: string;
@@ -42,6 +44,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   const {
+    sessionId,
     creator = { id: 'creator_123', name: 'Apte Fitness', avatar: 'https://i.pravatar.cc/100?img=33' },
     myUserId = 'user_123',
     isIncoming = false,
@@ -68,8 +71,33 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [localVideoLarge, setLocalVideoLarge] = useState(false);
+  const [agoraToken, setAgoraToken] = useState<string | null>(null);
+  const [agoraChannelName, setAgoraChannelName] = useState<string | null>(null);
 
   const pulseAnim = new Animated.Value(1);
+
+  // Fetch Agora token from backend
+  const fetchAgoraToken = useCallback(async (): Promise<boolean> => {
+    if (!sessionId) {
+      console.warn('No sessionId provided, using fallback channel');
+      return true; // Continue with fallback
+    }
+
+    try {
+      const response = await awsAPI.getSessionToken(sessionId);
+      if (response.success && response.token) {
+        setAgoraToken(response.token);
+        setAgoraChannelName(response.channelName || `private_${sessionId}`);
+        return true;
+      } else {
+        console.error('Failed to get Agora token:', response.message);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error fetching Agora token:', err);
+      return false;
+    }
+  }, [sessionId]);
 
   // Start call on mount (if not incoming)
   useEffect(() => {
@@ -128,7 +156,18 @@ export default function PrivateCallScreen(): React.JSX.Element {
 
   const startCall = async () => {
     setCallState('connecting');
-    const success = await joinChannel();
+
+    // First fetch the Agora token from backend
+    const tokenFetched = await fetchAgoraToken();
+    if (!tokenFetched) {
+      Alert.alert('Error', 'Failed to initialize video call. Please try again.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
+
+    // Then join the channel with the token
+    const success = await joinChannel(agoraToken || undefined);
     if (success) {
       setCallState('ringing');
     } else {
@@ -140,7 +179,17 @@ export default function PrivateCallScreen(): React.JSX.Element {
 
   const acceptCall = async () => {
     setCallState('connecting');
-    const success = await joinChannel();
+
+    // First fetch the Agora token from backend
+    const tokenFetched = await fetchAgoraToken();
+    if (!tokenFetched) {
+      Alert.alert('Error', 'Failed to initialize video call. Please try again.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
+
+    const success = await joinChannel(agoraToken || undefined);
     if (!success) {
       Alert.alert('Error', error || 'Failed to join call', [
         { text: 'OK', onPress: () => navigation.goBack() },
@@ -178,7 +227,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   };
 
   const remoteUid = remoteUsers[0];
-  const channelId = `private_${[myUserId, creator.id].sort().join('_')}`;
+  const channelId = agoraChannelName || `private_${[myUserId, creator.id].sort().join('_')}`;
 
   // Incoming call UI
   if (callState === 'ringing' && isIncoming) {

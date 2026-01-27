@@ -1,5 +1,5 @@
 // src/screens/sessions/WaitingRoomScreen.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -10,21 +10,29 @@ import {
   Image,
   Animated,
   Easing,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
+import { awsAPI } from '../../services/aws-api';
+
+const POLL_INTERVAL = 3000; // Poll every 3 seconds
 
 export default function WaitingRoomScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const { creator } = route.params || {
+  const { sessionId, creator } = route.params || {
+    sessionId: null,
     creator: {
-      name: 'Apte Fitness',
+      id: '',
+      name: 'Creator',
       avatar: 'https://i.pravatar.cc/100?img=33',
     },
   };
+
+  const [isPolling, setIsPolling] = useState(true);
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const dotAnim = useRef(new Animated.Value(0)).current;
@@ -66,17 +74,64 @@ export default function WaitingRoomScreen(): React.JSX.Element {
   }, []);
 
   const handleCancel = () => {
+    setIsPolling(false);
     navigation.goBack();
   };
 
-  // Simulate creator accepting after a few seconds (for demo)
+  // Poll for session status to check if creator accepted
+  const checkSessionStatus = useCallback(async () => {
+    if (!sessionId) {
+      // No sessionId - this is a demo mode, auto-transition after 5 seconds
+      return;
+    }
+
+    try {
+      const response = await awsAPI.getSession(sessionId);
+      if (response.success && response.session) {
+        const { status } = response.session;
+
+        if (status === 'confirmed') {
+          // Creator accepted - go to call
+          setIsPolling(false);
+          navigation.replace('PrivateCall', { sessionId, creator });
+        } else if (status === 'cancelled') {
+          // Creator declined or session cancelled
+          setIsPolling(false);
+          Alert.alert(
+            'Session Declined',
+            'The creator was unable to accept your session request.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        }
+        // If status is still 'pending', continue polling
+      }
+    } catch (error) {
+      console.error('Failed to check session status:', error);
+    }
+  }, [sessionId, creator, navigation]);
+
+  // Poll for session status
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('PrivateCall', { creator });
-    }, 5000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!sessionId) {
+      // Demo mode - auto-transition after 5 seconds
+      const timer = setTimeout(() => {
+        navigation.replace('PrivateCall', { creator });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+
+    // Real mode - poll for status
+    const pollInterval = setInterval(() => {
+      if (isPolling) {
+        checkSessionStatus();
+      }
+    }, POLL_INTERVAL);
+
+    // Initial check
+    checkSessionStatus();
+
+    return () => clearInterval(pollInterval);
+  }, [sessionId, isPolling, checkSessionStatus, creator, navigation]);
 
   const ringScale = pulseAnim.interpolate({
     inputRange: [0, 1],

@@ -1,6 +1,6 @@
 // src/screens/sessions/PrivateSessionsManageScreen.tsx
 // Creator's screen to manage their private 1:1 sessions availability
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   TextInput,
   Switch,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
+import { awsAPI, Session, SessionPack as APISessionPack } from '../../services/aws-api';
 
 type TabType = 'calendar' | 'requests' | 'packs';
 type SessionMode = 'unique' | 'range';
@@ -75,69 +78,7 @@ interface _ScheduledSession {
   fanName?: string;
 }
 
-// Mock data
-const MOCK_REQUESTS: SessionRequest[] = [
-  { id: '1', fan: { name: 'Emma Wilson', avatar: 'https://i.pravatar.cc/100?img=5', memberSince: 'Jan 2024' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'confirmed' },
-  { id: '2', fan: { name: 'Alicia Smith', avatar: 'https://i.pravatar.cc/100?img=9', memberSince: 'Mar 2024' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'pending' },
-  { id: '3', fan: { name: 'Alex Rodriguez', avatar: 'https://i.pravatar.cc/100?img=12', memberSince: 'Nov 2023' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'rejected' },
-  { id: '4', fan: { name: 'David Kim', avatar: 'https://i.pravatar.cc/100?img=15', memberSince: 'Aug 2024' }, date: 'Sept 15, 2025', time: '15:00', duration: 90, status: 'confirmed' },
-];
-
-const MOCK_PACKS: SessionPack[] = [
-  {
-    id: '1',
-    name: 'Premium Pack',
-    sessions: 8,
-    duration: 60,
-    validity: 30,
-    price: 350,
-    isActive: true,
-    isNew: true,
-    offerings: [
-      { id: 'o1', type: 'training_program', title: 'Custom Training Program', description: '8-week personalized workout plan' },
-      { id: 'o2', type: 'diet_plan', title: 'Nutrition Guide', description: 'Meal plan tailored to your goals' },
-      { id: 'o3', type: 'video_access', title: 'Video Library Access', description: 'Access to 50+ training videos' },
-    ]
-  },
-  {
-    id: '2',
-    name: 'Intensive Pack',
-    sessions: 8,
-    duration: 60,
-    validity: 30,
-    price: 350,
-    isActive: false,
-    isNew: true,
-    offerings: [
-      { id: 'o4', type: 'training_program', title: 'HIIT Program', description: 'High-intensity interval training' },
-      { id: 'o5', type: 'live_access', title: 'Weekly Live Q&A', description: 'Join exclusive live sessions' },
-    ]
-  },
-  {
-    id: '3',
-    name: 'Starter Pack',
-    sessions: 12,
-    duration: 45,
-    validity: 30,
-    price: 500,
-    isActive: false,
-    isPopular: true,
-    offerings: [
-      { id: 'o6', type: 'training_program', title: 'Beginner Program', description: 'Perfect for fitness beginners' },
-    ]
-  },
-];
-
-// Mock available slots for a date
-const MOCK_AVAILABLE_SLOTS: AvailableSlot[] = [
-  { time: '09:00', duration: 60, isBooked: false },
-  { time: '10:00', duration: 60, isBooked: true },
-  { time: '11:00', duration: 45, isBooked: false },
-  { time: '14:00', duration: 60, isBooked: false },
-  { time: '15:00', duration: 90, isBooked: false },
-  { time: '16:30', duration: 60, isBooked: true },
-  { time: '18:00', duration: 45, isBooked: false },
-];
+// No more mock data - we'll fetch from API
 
 const OFFERING_TYPES = [
   { key: 'training_program', label: 'Training Program', icon: 'barbell-outline' },
@@ -172,6 +113,13 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const [sessionMode, setSessionMode] = useState<SessionMode>('unique');
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
+  // Data states
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [sessionRequests, setSessionRequests] = useState<SessionRequest[]>([]);
+  const [creatorPacks, setCreatorPacks] = useState<SessionPack[]>([]);
+  const [availableSlots, _setAvailableSlots] = useState<AvailableSlot[]>([]);
+
   // Protect route - only pro_creator can manage sessions
   useEffect(() => {
     if (user?.accountType !== 'pro_creator') {
@@ -182,6 +130,63 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       );
     }
   }, [user?.accountType, navigation]);
+
+  // Fetch data from API
+  const fetchData = useCallback(async () => {
+    try {
+      // Fetch session requests (as creator)
+      const sessionsResponse = await awsAPI.listSessions({ role: 'creator' });
+      if (sessionsResponse.success && sessionsResponse.sessions) {
+        const requests: SessionRequest[] = sessionsResponse.sessions.map((session: Session) => ({
+          id: session.id,
+          fan: {
+            name: session.fan?.name || 'Unknown',
+            avatar: session.fan?.avatar || 'https://i.pravatar.cc/100',
+            memberSince: 'Member',
+          },
+          date: new Date(session.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          time: new Date(session.scheduledAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          duration: session.duration,
+          status: session.status as 'pending' | 'confirmed' | 'rejected',
+        }));
+        setSessionRequests(requests);
+      }
+
+      // Fetch creator's packs
+      if (user?.id) {
+        const packsResponse = await awsAPI.listCreatorPacks(user.id);
+        if (packsResponse.success && packsResponse.packs) {
+          const packs: SessionPack[] = packsResponse.packs.map((pack: APISessionPack) => ({
+            id: pack.id,
+            name: pack.name,
+            sessions: pack.sessionsIncluded,
+            duration: pack.sessionDuration,
+            validity: pack.validityDays,
+            price: pack.price,
+            isActive: pack.isActive ?? true,
+            isNew: false,
+            isPopular: false,
+            offerings: [],
+          }));
+          setCreatorPacks(packs);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, [fetchData]);
 
   // Pack offerings state
   const [packOfferings, setPackOfferings] = useState<PackOffering[]>([]);
@@ -219,23 +224,169 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
     }
   };
 
-  const handleSaveSession = () => {
-    setShowAddModal(false);
-    Alert.alert('Success', 'Session availability saved!');
+  const handleSaveSession = async () => {
+    try {
+      // Build availability object from selected days and times
+      const availability: { [day: string]: { start: string; end: string }[] } = {};
+      const dayMapping: { [key: string]: string } = {
+        'lun': 'monday',
+        'mar': 'tuesday',
+        'mer': 'wednesday',
+        'jeu': 'thursday',
+        'ven': 'friday',
+        'sam': 'saturday',
+        'dim': 'sunday',
+        'mon': 'monday',
+        'tue': 'tuesday',
+        'wed': 'wednesday',
+        'thu': 'thursday',
+        'fri': 'friday',
+        'sat': 'saturday',
+        'sun': 'sunday',
+      };
+
+      // Initialize all days as empty
+      Object.values(dayMapping).forEach(day => {
+        if (!availability[day]) {
+          availability[day] = [];
+        }
+      });
+
+      // Add availability for selected days
+      selectedDays.forEach(dayKey => {
+        const day = dayMapping[dayKey.toLowerCase()] || dayKey.toLowerCase();
+        availability[day] = [{ start: sessionTime || '09:00', end: '18:00' }];
+      });
+
+      const response = await awsAPI.updateSessionSettings({
+        sessionsEnabled: true,
+        sessionPrice: parseFloat(sessionPrice) || 20,
+        sessionDuration: sessionDuration,
+        sessionAvailability: availability,
+      });
+
+      if (response.success) {
+        setShowAddModal(false);
+        Alert.alert('Success', 'Session availability saved!');
+      } else {
+        Alert.alert('Error', response.message || 'Failed to save session settings');
+      }
+    } catch (error) {
+      console.error('Failed to save session:', error);
+      Alert.alert('Error', 'Failed to save session settings. Please try again.');
+    }
   };
 
-  const handleSavePack = () => {
-    setShowAddPackModal(false);
-    Alert.alert('Success', 'Pack created successfully!');
+  const handleSavePack = async () => {
+    if (!packName.trim() || !packPrice) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const response = await awsAPI.createPack({
+        name: packName,
+        description: '',
+        sessionsIncluded: parseInt(packSessions) || 8,
+        sessionDuration: packDuration,
+        validityDays: parseInt(packValidity) || 30,
+        price: parseFloat(packPrice) || 0,
+        savingsPercent: 0,
+      });
+
+      if (response.success) {
+        setShowAddPackModal(false);
+        Alert.alert('Success', 'Pack created successfully!');
+        // Reset form
+        setPackName('');
+        setPackSessions('8');
+        setPackDuration(60);
+        setPackValidity('30');
+        setPackPrice('');
+        setPackOfferings([]);
+        // Refresh data
+        fetchData();
+      } else {
+        Alert.alert('Error', response.message || 'Failed to create pack');
+      }
+    } catch (error) {
+      console.error('Failed to create pack:', error);
+      Alert.alert('Error', 'Failed to create pack. Please try again.');
+    }
   };
 
-  const handleRequestAction = (id: string, action: 'accept' | 'reject') => {
+  const handleTogglePackActive = async (packId: string, currentActive: boolean) => {
+    try {
+      const response = await awsAPI.updatePack(packId, { isActive: !currentActive });
+      if (response.success) {
+        // Update local state
+        setCreatorPacks(prev => prev.map(p =>
+          p.id === packId ? { ...p, isActive: !currentActive } : p
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to update pack:', error);
+      Alert.alert('Error', 'Failed to update pack');
+    }
+  };
+
+  const handleDeletePack = async (packId: string) => {
+    Alert.alert(
+      'Delete Pack',
+      'Are you sure you want to delete this pack?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await awsAPI.deletePack(packId);
+              if (response.success) {
+                setCreatorPacks(prev => prev.filter(p => p.id !== packId));
+                Alert.alert('Success', 'Pack deleted');
+              } else {
+                Alert.alert('Error', response.message || 'Failed to delete pack');
+              }
+            } catch (error) {
+              console.error('Failed to delete pack:', error);
+              Alert.alert('Error', 'Failed to delete pack');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRequestAction = async (id: string, action: 'accept' | 'reject') => {
     Alert.alert(
       action === 'accept' ? 'Accept Request' : 'Reject Request',
       `Are you sure you want to ${action} this booking request?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: action === 'accept' ? 'Accept' : 'Reject', onPress: () => {} },
+        {
+          text: action === 'accept' ? 'Accept' : 'Reject',
+          onPress: async () => {
+            try {
+              const response = action === 'accept'
+                ? await awsAPI.acceptSession(id)
+                : await awsAPI.declineSession(id);
+
+              if (response.success) {
+                // Update local state
+                setSessionRequests(prev => prev.map(r =>
+                  r.id === id ? { ...r, status: action === 'accept' ? 'confirmed' : 'rejected' } : r
+                ));
+                Alert.alert('Success', `Request ${action === 'accept' ? 'accepted' : 'rejected'}`);
+              } else {
+                Alert.alert('Error', response.message || `Failed to ${action} request`);
+              }
+            } catch (error) {
+              console.error(`Failed to ${action} request:`, error);
+              Alert.alert('Error', `Failed to ${action} request`);
+            }
+          },
+        },
       ]
     );
   };
@@ -390,7 +541,13 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const renderRequestsTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.sectionTitle}>Reservation requests</Text>
-      {MOCK_REQUESTS.map(request => (
+      {sessionRequests.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+          <Ionicons name="calendar-outline" size={48} color="#CCCCCC" />
+          <Text style={{ color: '#8E8E93', marginTop: 12 }}>No requests yet</Text>
+        </View>
+      ) : null}
+      {sessionRequests.map(request => (
         <View key={request.id} style={styles.requestCard}>
           <AvatarImage source={request.fan.avatar} size={48} />
           <View style={styles.requestInfo}>
@@ -449,7 +606,15 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         </TouchableOpacity>
       </View>
 
-      {MOCK_PACKS.map(pack => (
+      {creatorPacks.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+          <Ionicons name="cube-outline" size={48} color="#CCCCCC" />
+          <Text style={{ color: '#8E8E93', marginTop: 12 }}>No packs created yet</Text>
+          <Text style={{ color: '#AAAAAA', fontSize: 13, marginTop: 4 }}>Create your first pack to get started</Text>
+        </View>
+      ) : null}
+
+      {creatorPacks.map(pack => (
         <View key={pack.id} style={[styles.packCard, pack.isActive && styles.packCardActive]}>
           <View style={styles.packHeader}>
             <View style={styles.packNameRow}>
@@ -461,7 +626,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               <Text style={styles.packToggleLabel}>{pack.isActive ? 'Active' : 'Inactive'}</Text>
               <Switch
                 value={pack.isActive}
-                onValueChange={() => {}}
+                onValueChange={() => handleTogglePackActive(pack.id, pack.isActive)}
                 trackColor={{ false: '#E5E5E5', true: COLORS.primary }}
                 thumbColor="white"
               />
@@ -498,7 +663,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               <Ionicons name="pencil-outline" size={16} color={COLORS.dark} />
               <Text style={styles.packEditText}>Edit</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.packDeleteBtn}>
+            <TouchableOpacity style={styles.packDeleteBtn} onPress={() => handleDeletePack(pack.id)}>
               <Ionicons name="trash-outline" size={16} color="#FF3B30" />
               <Text style={styles.packDeleteText}>Delete</Text>
             </TouchableOpacity>
@@ -507,6 +672,16 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       ))}
     </View>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: '#8E8E93', marginTop: 16 }}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -536,7 +711,13 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         ))}
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        }
+      >
         {activeTab === 'calendar' && renderCalendarTab()}
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'packs' && renderPacksTab()}
@@ -822,7 +1003,13 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             </View>
 
             <ScrollView style={styles.slotsModalBody} showsVerticalScrollIndicator={false}>
-              {MOCK_AVAILABLE_SLOTS.map((slot, index) => (
+              {availableSlots.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <Ionicons name="time-outline" size={48} color="#CCCCCC" />
+                  <Text style={{ color: '#8E8E93', marginTop: 12 }}>No slots available</Text>
+                </View>
+              ) : null}
+              {availableSlots.map((slot, index) => (
                 <View key={index} style={[styles.slotItem, slot.isBooked && styles.slotItemBooked]}>
                   <View style={styles.slotTimeContainer}>
                     <Ionicons name="time-outline" size={18} color={slot.isBooked ? '#8E8E93' : COLORS.primary} />

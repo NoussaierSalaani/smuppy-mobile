@@ -116,13 +116,34 @@ export default function SessionPaymentScreen(): React.JSX.Element {
           Alert.alert('Payment Failed', paymentError.message);
         }
       } else {
-        // Payment successful!
-        navigation.replace('SessionBooked', {
-          creator,
-          date,
-          time,
-          duration,
-        });
+        // Payment successful - now create the booking
+        try {
+          const bookingResponse = await awsAPI.bookSession({
+            creatorId: creator.id,
+            scheduledAt: route.params?.datetime || new Date(date.fullDate.setHours(
+              parseInt(time.split(':')[0]),
+              parseInt(time.split(':')[1])
+            )).toISOString(),
+            duration: duration,
+            price: price,
+          });
+
+          if (bookingResponse.success) {
+            navigation.replace('SessionBooked', {
+              creator,
+              date,
+              time,
+              duration,
+              sessionId: bookingResponse.session?.id,
+            });
+          } else {
+            // Payment succeeded but booking failed - rare edge case
+            Alert.alert('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
+          }
+        } catch (bookingError) {
+          console.error('Booking error:', bookingError);
+          Alert.alert('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
+        }
       }
     } catch (err: any) {
       console.error('Payment error:', err);

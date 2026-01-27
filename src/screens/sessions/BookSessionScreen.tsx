@@ -1,5 +1,5 @@
 // src/screens/sessions/BookSessionScreen.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,67 +9,15 @@ import {
   SafeAreaView,
   StatusBar,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { awsAPI, SessionPack } from '../../services/aws-api';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-// Mock creator's available slots (would come from API)
-const CREATOR_AVAILABILITY = {
-  // Days of week the creator is available (0 = Sunday, 1 = Monday, etc.)
-  availableDays: [1, 3, 5], // Mon, Wed, Fri
-  // Time slots with their availability
-  timeSlots: [
-    { time: '09:00', available: true },
-    { time: '10:00', available: true },
-    { time: '11:00', available: false }, // Already booked
-    { time: '14:00', available: true },
-    { time: '15:00', available: true },
-    { time: '16:00', available: false }, // Already booked
-    { time: '17:00', available: true },
-    { time: '18:00', available: true },
-  ],
-  // Available durations with prices set by creator
-  durations: [
-    { value: 30, label: '30 min', price: 25 },
-    { value: 45, label: '45 min', price: 35 },
-    { value: 60, label: '60 min', price: 45 },
-    { value: 90, label: '90 min', price: 65 },
-  ],
-};
-
-// Mock packs offered by creator
-const CREATOR_PACKS = [
-  {
-    id: 'pack-1',
-    name: 'Premium Pack',
-    sessions: 8,
-    duration: 60,
-    validity: 30,
-    price: 350,
-    offerings: [
-      { title: 'Custom Training Program', description: '8-week personalized workout plan' },
-      { title: 'Nutrition Guide', description: 'Meal plan tailored to your goals' },
-      { title: 'Video Library Access', description: 'Access to 50+ training videos' },
-    ],
-    isPopular: true,
-  },
-  {
-    id: 'pack-2',
-    name: 'Starter Pack',
-    sessions: 4,
-    duration: 45,
-    validity: 30,
-    price: 150,
-    offerings: [
-      { title: 'Beginner Program', description: 'Perfect for fitness beginners' },
-    ],
-    isPopular: false,
-  },
-];
 
 interface DateItem {
   day: string;
@@ -77,6 +25,23 @@ interface DateItem {
   month: string;
   fullDate: Date;
   isAvailable: boolean;
+  slots: Array<{ time: string; datetime: string }>;
+}
+
+interface AvailableSlot {
+  date: string;
+  time: string;
+  datetime: string;
+}
+
+interface CreatorInfo {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  sessionPrice: number;
+  sessionDuration: number;
+  timezone: string;
 }
 
 type BookingMode = 'single' | 'pack';
@@ -85,41 +50,112 @@ export default function BookSessionScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const { creator } = route.params || {
-    creator: {
-      id: '1',
-      name: 'Apte Fitness',
-      avatar: 'https://i.pravatar.cc/100?img=33',
-      specialty: 'Personal Training',
-    },
-  };
+  const { creatorId, creator: routeCreator } = route.params || {};
 
   const [bookingMode, setBookingMode] = useState<BookingMode>('single');
   const [selectedDate, setSelectedDate] = useState<DateItem | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedDuration, setSelectedDuration] = useState<number>(CREATOR_AVAILABILITY.durations[0]?.value || 30);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
 
-  // Generate next 14 days with availability info
+  // API state
+  const [loading, setLoading] = useState(true);
+  const [creator, setCreator] = useState<CreatorInfo | null>(routeCreator || null);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [packs, setPacks] = useState<SessionPack[]>([]);
+
+  // Duration options with calculated prices
+  const durations = useMemo(() => {
+    const basePrice = creator?.sessionPrice || 25;
+    const baseDuration = creator?.sessionDuration || 30;
+    const pricePerMin = basePrice / baseDuration;
+
+    return [
+      { value: 30, label: '30 min', price: Math.round(pricePerMin * 30) },
+      { value: 45, label: '45 min', price: Math.round(pricePerMin * 45) },
+      { value: 60, label: '60 min', price: Math.round(pricePerMin * 60) },
+      { value: 90, label: '90 min', price: Math.round(pricePerMin * 90) },
+    ];
+  }, [creator]);
+
+  // Fetch availability and packs
+  const fetchData = useCallback(async () => {
+    if (!creatorId && !routeCreator?.id) return;
+
+    const targetCreatorId = creatorId || routeCreator?.id;
+    setLoading(true);
+
+    try {
+      // Fetch availability and packs in parallel
+      const [availabilityRes, packsRes] = await Promise.all([
+        awsAPI.getCreatorAvailability(targetCreatorId, { days: 14 }),
+        awsAPI.listCreatorPacks(targetCreatorId),
+      ]);
+
+      if (availabilityRes.success && availabilityRes.creator) {
+        setCreator(availabilityRes.creator);
+        setAvailableSlots(availabilityRes.availableSlots || []);
+        if (availabilityRes.creator.sessionDuration) {
+          setSelectedDuration(availabilityRes.creator.sessionDuration);
+        }
+      }
+
+      if (packsRes.success) {
+        setPacks(packsRes.packs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching booking data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [creatorId, routeCreator]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Generate dates with availability info from API
   const dates = useMemo((): DateItem[] => {
     const result: DateItem[] = [];
     const today = new Date();
 
+    // Group slots by date
+    const slotsByDate: Record<string, AvailableSlot[]> = {};
+    availableSlots.forEach(slot => {
+      if (!slotsByDate[slot.date]) {
+        slotsByDate[slot.date] = [];
+      }
+      slotsByDate[slot.date].push(slot);
+    });
+
     for (let i = 0; i < 14; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
       const dayOfWeek = date.getDay();
-      const isAvailable = CREATOR_AVAILABILITY.availableDays.includes(dayOfWeek);
+      const slotsForDate = slotsByDate[dateStr] || [];
+
       result.push({
         day: DAYS[dayOfWeek === 0 ? 6 : dayOfWeek - 1],
         date: date.getDate(),
         month: date.toLocaleString('default', { month: 'short' }),
         fullDate: date,
-        isAvailable,
+        isAvailable: slotsForDate.length > 0,
+        slots: slotsForDate,
       });
     }
     return result;
-  }, []);
+  }, [availableSlots]);
+
+  // Get time slots for selected date
+  const timeSlots = useMemo(() => {
+    if (!selectedDate) return [];
+    return selectedDate.slots.map(slot => ({
+      time: slot.time,
+      datetime: slot.datetime,
+      available: true,
+    }));
+  }, [selectedDate]);
 
   const handleBack = () => {
     navigation.goBack();
@@ -127,31 +163,44 @@ export default function BookSessionScreen(): React.JSX.Element {
 
   const handleContinue = () => {
     if (bookingMode === 'single' && selectedDate && selectedTime) {
-      const duration = CREATOR_AVAILABILITY.durations.find((d) => d.value === selectedDuration);
+      const duration = durations.find((d) => d.value === selectedDuration);
+      const slot = selectedDate.slots.find(s => s.time === selectedTime);
       navigation.navigate('SessionPayment', {
         creator,
         date: selectedDate,
         time: selectedTime,
+        datetime: slot?.datetime,
         duration: selectedDuration,
         price: duration?.price || 25,
         type: 'single',
       });
     } else if (bookingMode === 'pack' && selectedPack) {
-      const pack = CREATOR_PACKS.find(p => p.id === selectedPack);
+      const pack = packs.find(p => p.id === selectedPack);
       if (pack) {
-        navigation.navigate('SessionPayment', {
-          creator,
+        navigation.navigate('PackPurchase', {
+          creatorId: creator?.id,
           pack,
-          type: 'pack',
         });
       }
     }
   };
 
-  const selectedDurationInfo = CREATOR_AVAILABILITY.durations.find((d) => d.value === selectedDuration);
+  const selectedDurationInfo = durations.find((d) => d.value === selectedDuration);
   const canContinue = bookingMode === 'single'
     ? (selectedDate && selectedTime)
     : selectedPack;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading availability...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -168,13 +217,15 @@ export default function BookSessionScreen(): React.JSX.Element {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Creator Info */}
-        <View style={styles.creatorCard}>
-          <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
-          <View style={styles.creatorInfo}>
-            <Text style={styles.creatorName}>{creator.name}</Text>
-            <Text style={styles.creatorSpecialty}>{creator.specialty}</Text>
+        {creator && (
+          <View style={styles.creatorCard}>
+            <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+            <View style={styles.creatorInfo}>
+              <Text style={styles.creatorName}>{creator.name}</Text>
+              <Text style={styles.creatorSpecialty}>@{creator.username}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Session Type Toggle */}
         <View style={styles.sessionTypeContainer}>
@@ -220,7 +271,12 @@ export default function BookSessionScreen(): React.JSX.Element {
                       isSelected && styles.dateItemSelected,
                       !isAvailable && styles.dateItemUnavailable,
                     ]}
-                    onPress={() => isAvailable && setSelectedDate(item)}
+                    onPress={() => {
+                      if (isAvailable) {
+                        setSelectedDate(item);
+                        setSelectedTime(null);
+                      }
+                    }}
                     disabled={!isAvailable}
                   >
                     <Text style={[
@@ -251,40 +307,39 @@ export default function BookSessionScreen(): React.JSX.Element {
 
             {/* Time Selection */}
             <Text style={styles.sectionTitle}>Select Time</Text>
-            <View style={styles.timeSlotsContainer}>
-              {CREATOR_AVAILABILITY.timeSlots.map((slot) => {
-                const isSelected = selectedTime === slot.time;
-                const isAvailable = slot.available;
-                return (
-                  <TouchableOpacity
-                    key={slot.time}
-                    style={[
-                      styles.timeSlot,
-                      isSelected && styles.timeSlotSelected,
-                      !isAvailable && styles.timeSlotUnavailable,
-                    ]}
-                    onPress={() => isAvailable && setSelectedTime(slot.time)}
-                    disabled={!isAvailable}
-                  >
-                    <Text style={[
-                      styles.timeSlotText,
-                      isSelected && styles.timeSlotTextSelected,
-                      !isAvailable && styles.timeSlotTextUnavailable,
-                    ]}>
-                      {slot.time}
-                    </Text>
-                    {!isAvailable && (
-                      <Text style={styles.bookedLabel}>Booked</Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {timeSlots.length === 0 ? (
+              <Text style={styles.noSlotsText}>
+                {selectedDate ? 'No available time slots for this date' : 'Select a date to see available times'}
+              </Text>
+            ) : (
+              <View style={styles.timeSlotsContainer}>
+                {timeSlots.map((slot) => {
+                  const isSelected = selectedTime === slot.time;
+                  return (
+                    <TouchableOpacity
+                      key={slot.time}
+                      style={[
+                        styles.timeSlot,
+                        isSelected && styles.timeSlotSelected,
+                      ]}
+                      onPress={() => setSelectedTime(slot.time)}
+                    >
+                      <Text style={[
+                        styles.timeSlotText,
+                        isSelected && styles.timeSlotTextSelected,
+                      ]}>
+                        {slot.time}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             {/* Duration Selection */}
             <Text style={styles.sectionTitle}>Session Duration</Text>
             <View style={styles.durationsContainer}>
-              {CREATOR_AVAILABILITY.durations.map((duration) => {
+              {durations.map((duration) => {
                 const isSelected = selectedDuration === duration.value;
                 return (
                   <TouchableOpacity
@@ -307,57 +362,55 @@ export default function BookSessionScreen(): React.JSX.Element {
           <>
             {/* Packs Selection */}
             <Text style={styles.sectionTitle}>Available Packs</Text>
-            {CREATOR_PACKS.map((pack) => {
-              const isSelected = selectedPack === pack.id;
-              return (
-                <TouchableOpacity
-                  key={pack.id}
-                  style={[styles.packCard, isSelected && styles.packCardSelected]}
-                  onPress={() => setSelectedPack(pack.id)}
-                >
-                  <View style={styles.packHeader}>
-                    <View style={styles.packNameRow}>
-                      <Text style={styles.packName}>{pack.name}</Text>
-                      {pack.isPopular && (
-                        <View style={styles.popularBadge}>
-                          <Text style={styles.popularBadgeText}>Popular</Text>
-                        </View>
+            {packs.length === 0 ? (
+              <Text style={styles.noSlotsText}>No packs available from this creator</Text>
+            ) : (
+              packs.map((pack) => {
+                const isSelected = selectedPack === pack.id;
+                return (
+                  <TouchableOpacity
+                    key={pack.id}
+                    style={[styles.packCard, isSelected && styles.packCardSelected]}
+                    onPress={() => setSelectedPack(pack.id)}
+                  >
+                    <View style={styles.packHeader}>
+                      <View style={styles.packNameRow}>
+                        <Text style={styles.packName}>{pack.name}</Text>
+                        {pack.savings && pack.savings > 0 && (
+                          <View style={styles.savingsBadge}>
+                            <Text style={styles.savingsBadgeText}>-{pack.savings}%</Text>
+                          </View>
+                        )}
+                      </View>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
                       )}
                     </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
-                    )}
-                  </View>
 
-                  <View style={styles.packDetails}>
-                    <View style={styles.packDetailRow}>
-                      <Ionicons name="time-outline" size={14} color="#8E8E93" />
-                      <Text style={styles.packDetailText}>{pack.sessions} sessions × {pack.duration}min</Text>
-                    </View>
-                    <View style={styles.packDetailRow}>
-                      <Ionicons name="calendar-outline" size={14} color="#8E8E93" />
-                      <Text style={styles.packDetailText}>Valid {pack.validity} days from purchase</Text>
-                    </View>
-                  </View>
-
-                  {/* Offerings */}
-                  <View style={styles.packOfferingsSection}>
-                    <Text style={styles.packOfferingsTitle}>What's included:</Text>
-                    {pack.offerings.map((offering, idx) => (
-                      <View key={idx} style={styles.packOfferingItem}>
-                        <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
-                        <View style={styles.packOfferingInfo}>
-                          <Text style={styles.packOfferingTitle}>{offering.title}</Text>
-                          <Text style={styles.packOfferingDesc}>{offering.description}</Text>
-                        </View>
+                    <View style={styles.packDetails}>
+                      <View style={styles.packDetailRow}>
+                        <Ionicons name="time-outline" size={14} color="#8E8E93" />
+                        <Text style={styles.packDetailText}>
+                          {pack.sessionsIncluded} sessions × {pack.sessionDuration}min
+                        </Text>
                       </View>
-                    ))}
-                  </View>
+                      <View style={styles.packDetailRow}>
+                        <Ionicons name="calendar-outline" size={14} color="#8E8E93" />
+                        <Text style={styles.packDetailText}>
+                          Valid {pack.validityDays} days from purchase
+                        </Text>
+                      </View>
+                    </View>
 
-                  <Text style={styles.packPrice}>${pack.price}</Text>
-                </TouchableOpacity>
-              );
-            })}
+                    {pack.description && (
+                      <Text style={styles.packDescription}>{pack.description}</Text>
+                    )}
+
+                    <Text style={styles.packPrice}>${pack.price}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </>
         )}
 
@@ -371,7 +424,7 @@ export default function BookSessionScreen(): React.JSX.Element {
           <Text style={styles.priceValue}>
             ${bookingMode === 'single'
               ? (selectedDurationInfo?.price || 25)
-              : (CREATOR_PACKS.find(p => p.id === selectedPack)?.price || 0)}
+              : (packs.find(p => p.id === selectedPack)?.price || 0)}
           </Text>
         </View>
         <TouchableOpacity
@@ -399,6 +452,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: COLORS.dark,
   },
   header: {
     flexDirection: 'row',
@@ -499,6 +562,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: -8,
   },
+  noSlotsText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
   datesContainer: {
     marginBottom: 24,
     marginHorizontal: -20,
@@ -582,19 +652,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
   },
-  timeSlotUnavailable: {
-    backgroundColor: 'rgba(10, 37, 47, 0.02)',
-    opacity: 0.6,
-  },
-  timeSlotTextUnavailable: {
-    color: 'rgba(10, 37, 47, 0.4)',
-  },
-  bookedLabel: {
-    fontSize: 9,
-    color: '#FF3B30',
-    fontWeight: '600',
-    marginTop: 2,
-  },
   durationsContainer: {
     flexDirection: 'row',
     gap: 10,
@@ -658,16 +715,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.dark,
   },
-  popularBadge: {
-    backgroundColor: COLORS.primary,
+  savingsBadge: {
+    backgroundColor: '#22C55E20',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
-  popularBadgeText: {
-    fontSize: 10,
+  savingsBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: 'white',
+    color: '#22C55E',
   },
   packDetails: {
     marginBottom: 12,
@@ -682,36 +739,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8E8E93',
   },
-  packOfferingsSection: {
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderRadius: 10,
-    padding: 12,
+  packDescription: {
+    fontSize: 13,
+    color: '#666',
     marginBottom: 12,
-  },
-  packOfferingsTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.dark,
-    marginBottom: 8,
-  },
-  packOfferingItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 6,
-  },
-  packOfferingInfo: {
-    flex: 1,
-  },
-  packOfferingTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.dark,
-  },
-  packOfferingDesc: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 2,
   },
   packPrice: {
     fontSize: 24,

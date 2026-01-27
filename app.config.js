@@ -19,6 +19,12 @@ ios: {
 supportsTablet: true,
 bundleIdentifier: 'com.nou09.Smuppy',
 usesAppleSignIn: true,
+// Universal Links - associate app with web domain
+associatedDomains: [
+  'applinks:smuppy.com',
+  'applinks:www.smuppy.com',
+  'applinks:app.smuppy.com',
+],
 infoPlist: {
   ITSAppUsesNonExemptEncryption: false,
   // Allow network requests (required for AWS API Gateway)
@@ -44,6 +50,31 @@ permissions: [
 'android.permission.CAMERA',
 'android.permission.BLUETOOTH',
 'android.permission.BLUETOOTH_CONNECT',
+],
+// Android App Links - associate app with web domain
+intentFilters: [
+  {
+    action: 'VIEW',
+    autoVerify: true,
+    data: [
+      {
+        scheme: 'https',
+        host: 'smuppy.com',
+        pathPrefix: '/',
+      },
+      {
+        scheme: 'https',
+        host: 'www.smuppy.com',
+        pathPrefix: '/',
+      },
+      {
+        scheme: 'https',
+        host: 'app.smuppy.com',
+        pathPrefix: '/',
+      },
+    ],
+    category: ['BROWSABLE', 'DEFAULT'],
+  },
 ],
     },
 web: {

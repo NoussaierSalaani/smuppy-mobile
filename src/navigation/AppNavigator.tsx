@@ -32,14 +32,86 @@ export type RootStackParamList = {
 const RootStack = createStackNavigator<RootStackParamList>();
 
 // Deep linking configuration for React Navigation
-// Using type assertion to handle nested navigators
+// Supports URLs like:
+// - smuppy://profile/123 - User profile
+// - smuppy://post/123 - Post detail
+// - smuppy://peak/123 - Peak detail
+// - smuppy://event/123 - Event detail
+// - smuppy://messages - Messages screen
+// - smuppy://reset-password - Password reset
+// - https://smuppy.com/profile/123 - Web URL
 const linking = {
-  prefixes: [Linking.createURL('/'), 'smuppy://'],
+  prefixes: [
+    Linking.createURL('/'),
+    'smuppy://',
+    'https://smuppy.com',
+    'https://www.smuppy.com',
+    'https://app.smuppy.com',
+  ],
   config: {
     screens: {
       Auth: {
         screens: {
           NewPassword: 'reset-password',
+        },
+      },
+      Main: {
+        screens: {
+          Tabs: {
+            screens: {
+              HomeTab: {
+                screens: {
+                  Feed: 'home',
+                },
+              },
+              MessagesTab: {
+                screens: {
+                  Messages: 'messages',
+                },
+              },
+              ProfileTab: {
+                screens: {
+                  Profile: 'my-profile',
+                },
+              },
+            },
+          },
+          UserProfile: {
+            path: 'profile/:userId',
+            parse: {
+              userId: (userId: string) => userId,
+            },
+          },
+          PostDetailFanFeed: {
+            path: 'post/:postId',
+            parse: {
+              postId: (postId: string) => postId,
+            },
+          },
+          PeakView: {
+            path: 'peak/:peakId',
+            parse: {
+              peakId: (peakId: string) => peakId,
+            },
+          },
+          EventDetail: {
+            path: 'event/:eventId',
+            parse: {
+              eventId: (eventId: string) => eventId,
+            },
+          },
+          ChallengeDetail: {
+            path: 'challenge/:challengeId',
+            parse: {
+              challengeId: (challengeId: string) => challengeId,
+            },
+          },
+          BusinessProfile: {
+            path: 'business/:businessId',
+            parse: {
+              businessId: (businessId: string) => businessId,
+            },
+          },
         },
       },
     },

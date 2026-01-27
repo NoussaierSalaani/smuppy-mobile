@@ -379,8 +379,35 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Payments & Monetization</Text>
           <View style={styles.menuCard}>
+            {/* Upgrade to Pro Creator - Only for personal accounts */}
+            {user?.accountType !== 'pro_creator' && (
+              <TouchableOpacity
+                style={[styles.menuItem, styles.menuItemFirst, styles.upgradeItem]}
+                onPress={() => navigation.navigate('UpgradeToPro')}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={[COLORS.primaryGreen, '#00B5C1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.upgradeGradient}
+                >
+                  <View style={styles.upgradeIconContainer}>
+                    <Ionicons name="star" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.upgradeTextContainer}>
+                    <Text style={styles.upgradeTitle}>Upgrade to Pro Creator</Text>
+                    <Text style={styles.upgradeSubtitle}>Unlock tips, unlimited events & more</Text>
+                  </View>
+                  <View style={styles.upgradeArrow}>
+                    <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemFirst]}
+              style={[styles.menuItem, user?.accountType === 'pro_creator' ? styles.menuItemFirst : undefined]}
               onPress={() => navigation.navigate('CreatorWallet')}
               activeOpacity={0.7}
             >
@@ -635,6 +662,50 @@ const styles = StyleSheet.create({
   },
   dangerLabel: {
     color: '#FF3B30',
+  },
+
+  // Upgrade to Pro Creator
+  upgradeItem: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  upgradeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    width: '100%',
+  },
+  upgradeIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  upgradeTextContainer: {
+    flex: 1,
+  },
+  upgradeTitle: {
+    fontSize: 15,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#FFF',
+  },
+  upgradeSubtitle: {
+    fontSize: 11,
+    fontFamily: 'Poppins-Regular',
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 1,
+  },
+  upgradeArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Footer

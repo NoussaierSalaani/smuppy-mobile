@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement Annule - Smuppy</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #0A0A0F 0%, #1C1C1E 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #FFFFFF;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .cancel-icon {
+      width: 100px;
+      height: 100px;
+      background: rgba(239, 68, 68, 0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      border: 2px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .cancel-icon svg {
+      width: 50px;
+      height: 50px;
+      fill: none;
+      stroke: #EF4444;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #FFFFFF;
+    }
+
+    p {
+      color: #8E8E93;
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 16px 32px;
+      border-radius: 28px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(90deg, #00B3C7, #0EBF8A);
+      color: white;
+      box-shadow: 0 8px 24px rgba(14, 191, 138, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(14, 191, 138, 0.4);
+    }
+
+    .btn-secondary {
+      background: #2C2C2E;
+      color: #FFFFFF;
+      border: 1px solid #3A3A3C;
+    }
+
+    .btn-secondary:hover {
+      background: #3A3A3C;
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #2C2C2E;
+      color: #6E6E73;
+      font-size: 12px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #00B3C7, #0EBF8A);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .info-box {
+      background: #1C1C1E;
+      border: 1px solid #2C2C2E;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .info-box h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-box ul {
+      list-style: none;
+      color: #8E8E93;
+      font-size: 13px;
+    }
+
+    .info-box li {
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-box li::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      background: #0EBF8A;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="cancel-icon">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+    </div>
+
+    <h1>Paiement Annule</h1>
+    <p>Votre paiement n'a pas ete effectue. Aucun montant n'a ete debite de votre compte.</p>
+
+    <div class="info-box">
+      <h3>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0EBF8A" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        Vous pouvez reessayer a tout moment
+      </h3>
+      <ul>
+        <li>Votre panier est sauvegarde</li>
+        <li>Paiement securise par Stripe</li>
+        <li>Apple Pay et Google Pay acceptes</li>
+      </ul>
+    </div>
+
+    <div class="btn-group">
+      <a href="#" id="retryBtn" class="btn btn-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        </svg>
+        Reessayer le paiement
+      </a>
+      <a href="#" id="openAppBtn" class="btn btn-secondary">
+        Retourner a l'app
+      </a>
+    </div>
+
+    <div class="footer">
+      <div class="logo">Smuppy</div>
+      <p>Besoin d'aide? support@smuppy.com</p>
+    </div>
+  </div>
+
+  <script>
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const type = urlParams.get('type');
+    const id = urlParams.get('id');
+    const creator = urlParams.get('creator');
+    const plan = urlParams.get('plan');
+
+    // Build deep link URL
+    let deepLink = 'smuppy://checkout/cancel';
+    const params = new URLSearchParams();
+
+    if (type) params.append('type', type);
+    if (id) params.append('id', id);
+    if (creator) params.append('creator', creator);
+    if (plan) params.append('plan', plan);
+
+    if (params.toString()) {
+      deepLink += '?' + params.toString();
+    }
+
+    // Open app
+    function openApp() {
+      window.location.href = deepLink;
+    }
+
+    // Set up button clicks
+    document.getElementById('openAppBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      openApp();
+    });
+
+    document.getElementById('retryBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      // Go back to retry (the app will handle creating a new session)
+      let retryDeepLink = 'smuppy://checkout/retry';
+      if (params.toString()) {
+        retryDeepLink += '?' + params.toString();
+      }
+      window.location.href = retryDeepLink;
+    });
+  </script>
+</body>
+</html>

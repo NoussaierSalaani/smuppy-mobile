@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement Reussi - Smuppy</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #0A0A0F 0%, #1C1C1E 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #FFFFFF;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .success-icon {
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(135deg, #00B3C7, #0EBF8A, #72D1AD);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.9; }
+    }
+
+    .success-icon svg {
+      width: 50px;
+      height: 50px;
+      fill: none;
+      stroke: white;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .checkmark {
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      animation: draw 0.6s ease forwards 0.3s;
+    }
+
+    @keyframes draw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #00B3C7, #0EBF8A);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    p {
+      color: #8E8E93;
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(90deg, #00B3C7, #0EBF8A);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 16px 32px;
+      border-radius: 28px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 8px 24px rgba(14, 191, 138, 0.3);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(14, 191, 138, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .loading {
+      display: none;
+      margin-top: 20px;
+      color: #8E8E93;
+      font-size: 14px;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #2C2C2E;
+      border-top-color: #0EBF8A;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #2C2C2E;
+      color: #6E6E73;
+      font-size: 12px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #00B3C7, #0EBF8A);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="success-icon">
+      <svg viewBox="0 0 24 24">
+        <polyline class="checkmark" points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+
+    <h1>Paiement Reussi!</h1>
+    <p>Merci pour votre achat. Votre transaction a ete traitee avec succes.</p>
+
+    <a href="#" id="openAppBtn" class="btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+      Retourner a l'app
+    </a>
+
+    <div id="loading" class="loading">
+      <span class="spinner"></span>
+      Redirection en cours...
+    </div>
+
+    <div class="footer">
+      <div class="logo">Smuppy</div>
+      <p>Paiement securise par Stripe</p>
+    </div>
+  </div>
+
+  <script>
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    const type = urlParams.get('type');
+    const id = urlParams.get('id');
+    const creator = urlParams.get('creator');
+    const plan = urlParams.get('plan');
+
+    // Build deep link URL
+    let deepLink = 'smuppy://checkout/success';
+    const params = new URLSearchParams();
+
+    if (sessionId) params.append('session_id', sessionId);
+    if (type) params.append('type', type);
+    if (id) params.append('id', id);
+    if (creator) params.append('creator', creator);
+    if (plan) params.append('plan', plan);
+
+    if (params.toString()) {
+      deepLink += '?' + params.toString();
+    }
+
+    // Try to open app automatically
+    function openApp() {
+      document.getElementById('loading').classList.add('show');
+
+      // Try deep link
+      window.location.href = deepLink;
+
+      // Fallback: show button after delay
+      setTimeout(() => {
+        document.getElementById('loading').classList.remove('show');
+      }, 2000);
+    }
+
+    // Set up button click
+    document.getElementById('openAppBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      openApp();
+    });
+
+    // Auto-redirect after short delay
+    setTimeout(openApp, 1500);
+  </script>
+</body>
+</html>

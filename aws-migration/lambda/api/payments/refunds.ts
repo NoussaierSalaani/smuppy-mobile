@@ -1,0 +1,489 @@
+/**
+ * Stripe Refunds Lambda Handler
+ * Handles manual refund operations:
+ * - POST /payments/refunds - Create a refund
+ * - GET /payments/refunds - List refunds
+ * - GET /payments/refunds/{refundId} - Get refund details
+ */
+
+import { APIGatewayProxyHandler } from 'aws-lambda';
+import Stripe from 'stripe';
+import { getPool } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+import { getUserFromEvent, corsHeaders } from '../utils/auth';
+
+const log = createLogger('payments/refunds');
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2024-12-18.acacia',
+});
+
+// Refund reason types
+type RefundReason =
+  | 'duplicate'
+  | 'fraudulent'
+  | 'requested_by_customer'
+  | 'session_cancelled'
+  | 'technical_issue'
+  | 'creator_unavailable'
+  | 'other';
+
+export const handler: APIGatewayProxyHandler = async (event) => {
+  const headers = corsHeaders(event);
+
+  // Handle preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers, body: '' };
+  }
+
+  try {
+    const user = await getUserFromEvent(event);
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+      };
+    }
+
+    const db = await getPool();
+    const pathParts = event.path.split('/').filter(Boolean);
+    const refundId = pathParts.length > 2 ? pathParts[2] : null;
+
+    // GET /payments/refunds - List refunds
+    if (event.httpMethod === 'GET' && !refundId) {
+      return await listRefunds(db, user, event, headers);
+    }
+
+    // GET /payments/refunds/{refundId} - Get refund details
+    if (event.httpMethod === 'GET' && refundId) {
+      return await getRefund(db, user, refundId, headers);
+    }
+
+    // POST /payments/refunds - Create a refund
+    if (event.httpMethod === 'POST') {
+      return await createRefund(db, user, event, headers);
+    }
+
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Method not allowed' }),
+    };
+  } catch (error) {
+    log.error('Refunds error', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
+    };
+  }
+};
+
+/**
+ * List refunds for a user
+ */
+async function listRefunds(
+  db: any,
+  user: { sub: string },
+  event: any,
+  headers: any
+) {
+  const { limit = '20', offset = '0', status } = event.queryStringParameters || {};
+
+  // Check if user is admin
+  const adminCheck = await db.query(
+    'SELECT account_type FROM profiles WHERE id = $1',
+    [user.sub]
+  );
+  const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
+
+  let query = `
+    SELECT
+      r.*,
+      p.stripe_payment_intent_id,
+      buyer.username as buyer_username,
+      buyer.full_name as buyer_name,
+      creator.username as creator_username,
+      creator.full_name as creator_name
+    FROM refunds r
+    JOIN payments p ON r.payment_id = p.id
+    JOIN profiles buyer ON p.buyer_id = buyer.id
+    JOIN profiles creator ON p.creator_id = creator.id
+    WHERE 1=1
+  `;
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  // Non-admins can only see their own refunds
+  if (!isAdmin) {
+    query += ` AND (p.buyer_id = $${paramIndex} OR p.creator_id = $${paramIndex})`;
+    params.push(user.sub);
+    paramIndex++;
+  }
+
+  if (status) {
+    query += ` AND r.status = $${paramIndex}`;
+    params.push(status);
+    paramIndex++;
+  }
+
+  query += ` ORDER BY r.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+  params.push(parseInt(limit), parseInt(offset));
+
+  const result = await db.query(query, params);
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      success: true,
+      refunds: result.rows.map((r: any) => ({
+        id: r.id,
+        paymentId: r.payment_id,
+        stripeRefundId: r.stripe_refund_id,
+        amount: r.amount_cents / 100,
+        reason: r.reason,
+        status: r.status,
+        notes: r.notes,
+        buyer: {
+          username: r.buyer_username,
+          name: r.buyer_name,
+        },
+        creator: {
+          username: r.creator_username,
+          name: r.creator_name,
+        },
+        createdAt: r.created_at,
+        processedAt: r.processed_at,
+      })),
+      total: result.rowCount,
+    }),
+  };
+}
+
+/**
+ * Get refund details
+ */
+async function getRefund(
+  db: any,
+  user: { sub: string },
+  refundId: string,
+  headers: any
+) {
+  const result = await db.query(
+    `SELECT
+      r.*,
+      p.stripe_payment_intent_id,
+      p.buyer_id,
+      p.creator_id,
+      buyer.username as buyer_username,
+      buyer.full_name as buyer_name,
+      creator.username as creator_username,
+      creator.full_name as creator_name
+    FROM refunds r
+    JOIN payments p ON r.payment_id = p.id
+    JOIN profiles buyer ON p.buyer_id = buyer.id
+    JOIN profiles creator ON p.creator_id = creator.id
+    WHERE r.id = $1`,
+    [refundId]
+  );
+
+  if (result.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Refund not found' }),
+    };
+  }
+
+  const refund = result.rows[0];
+
+  // Check authorization
+  const adminCheck = await db.query(
+    'SELECT account_type FROM profiles WHERE id = $1',
+    [user.sub]
+  );
+  const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
+
+  if (!isAdmin && refund.buyer_id !== user.sub && refund.creator_id !== user.sub) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Forbidden' }),
+    };
+  }
+
+  // Get Stripe refund details if available
+  let stripeDetails = null;
+  if (refund.stripe_refund_id) {
+    try {
+      stripeDetails = await stripe.refunds.retrieve(refund.stripe_refund_id);
+    } catch (e) {
+      log.warn('Failed to fetch Stripe refund details', e);
+    }
+  }
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      success: true,
+      refund: {
+        id: refund.id,
+        paymentId: refund.payment_id,
+        stripeRefundId: refund.stripe_refund_id,
+        amount: refund.amount_cents / 100,
+        reason: refund.reason,
+        status: refund.status,
+        notes: refund.notes,
+        buyer: {
+          id: refund.buyer_id,
+          username: refund.buyer_username,
+          name: refund.buyer_name,
+        },
+        creator: {
+          id: refund.creator_id,
+          username: refund.creator_username,
+          name: refund.creator_name,
+        },
+        stripeDetails: stripeDetails ? {
+          status: stripeDetails.status,
+          amount: stripeDetails.amount / 100,
+          currency: stripeDetails.currency,
+          created: new Date(stripeDetails.created * 1000).toISOString(),
+        } : null,
+        createdAt: refund.created_at,
+        processedAt: refund.processed_at,
+      },
+    }),
+  };
+}
+
+/**
+ * Create a refund
+ */
+async function createRefund(
+  db: any,
+  user: { sub: string },
+  event: any,
+  headers: any
+) {
+  const body = JSON.parse(event.body || '{}');
+  const { paymentId, amount, reason, notes } = body as {
+    paymentId: string;
+    amount?: number; // Optional for partial refunds
+    reason: RefundReason;
+    notes?: string;
+  };
+
+  if (!paymentId || !reason) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        message: 'paymentId and reason are required',
+      }),
+    };
+  }
+
+  // Get payment details
+  const paymentResult = await db.query(
+    `SELECT
+      p.*,
+      creator.stripe_account_id as creator_stripe_account
+    FROM payments p
+    JOIN profiles creator ON p.creator_id = creator.id
+    WHERE p.id = $1`,
+    [paymentId]
+  );
+
+  if (paymentResult.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Payment not found' }),
+    };
+  }
+
+  const payment = paymentResult.rows[0];
+
+  // Check authorization - only admin, buyer, or creator can request refund
+  const adminCheck = await db.query(
+    'SELECT account_type FROM profiles WHERE id = $1',
+    [user.sub]
+  );
+  const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
+
+  if (!isAdmin && payment.buyer_id !== user.sub && payment.creator_id !== user.sub) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Forbidden' }),
+    };
+  }
+
+  // Check if payment can be refunded
+  if (payment.status !== 'succeeded') {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        message: 'Only succeeded payments can be refunded',
+      }),
+    };
+  }
+
+  // Check if already refunded
+  const existingRefund = await db.query(
+    'SELECT id FROM refunds WHERE payment_id = $1 AND status IN ($2, $3)',
+    [paymentId, 'pending', 'succeeded']
+  );
+
+  if (existingRefund.rows.length > 0) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        message: 'A refund already exists for this payment',
+      }),
+    };
+  }
+
+  // Calculate refund amount
+  const refundAmountCents = amount
+    ? Math.round(amount * 100)
+    : payment.amount_cents;
+
+  if (refundAmountCents > payment.amount_cents) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        message: 'Refund amount cannot exceed payment amount',
+      }),
+    };
+  }
+
+  // Map reason to Stripe reason
+  const stripeReason = mapToStripeReason(reason);
+
+  try {
+    // Create Stripe refund
+    const stripeRefund = await stripe.refunds.create({
+      payment_intent: payment.stripe_payment_intent_id,
+      amount: refundAmountCents,
+      reason: stripeReason,
+      metadata: {
+        paymentId,
+        reason,
+        requestedBy: user.sub,
+        platform: 'smuppy',
+      },
+      // If using Connect, reverse the transfer too
+      ...(payment.creator_stripe_account && {
+        reverse_transfer: true,
+      }),
+    });
+
+    // Create refund record
+    const refundResult = await db.query(
+      `INSERT INTO refunds (
+        payment_id, stripe_refund_id, amount_cents, reason, notes, status, requested_by, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      RETURNING id`,
+      [
+        paymentId,
+        stripeRefund.id,
+        refundAmountCents,
+        reason,
+        notes || null,
+        stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
+        user.sub,
+      ]
+    );
+
+    // Update payment status
+    await db.query(
+      `UPDATE payments
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [refundAmountCents === payment.amount_cents ? 'refunded' : 'partially_refunded', paymentId]
+    );
+
+    // Create notification for affected user
+    const notifyUserId = user.sub === payment.buyer_id ? payment.creator_id : payment.buyer_id;
+    await db.query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'refund_processed', 'Refund Processed', $2, $3)`,
+      [
+        notifyUserId,
+        `A refund of €${(refundAmountCents / 100).toFixed(2)} has been processed`,
+        JSON.stringify({ paymentId, refundId: refundResult.rows[0].id }),
+      ]
+    );
+
+    log.info('Refund created', {
+      refundId: refundResult.rows[0].id,
+      stripeRefundId: stripeRefund.id,
+      amount: refundAmountCents,
+    });
+
+    return {
+      statusCode: 201,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        refund: {
+          id: refundResult.rows[0].id,
+          stripeRefundId: stripeRefund.id,
+          amount: refundAmountCents / 100,
+          status: stripeRefund.status,
+          reason,
+        },
+      }),
+    };
+  } catch (error: any) {
+    log.error('Stripe refund failed', error);
+
+    // Store failed refund attempt
+    await db.query(
+      `INSERT INTO refunds (
+        payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
+      ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
+      [paymentId, refundAmountCents, reason, notes || null, user.sub, error.message]
+    );
+
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        message: error.message || 'Failed to process refund',
+      }),
+    };
+  }
+}
+
+/**
+ * Map internal reason to Stripe refund reason
+ */
+function mapToStripeReason(reason: RefundReason): 'duplicate' | 'fraudulent' | 'requested_by_customer' | undefined {
+  switch (reason) {
+    case 'duplicate':
+      return 'duplicate';
+    case 'fraudulent':
+      return 'fraudulent';
+    case 'requested_by_customer':
+    case 'session_cancelled':
+    case 'creator_unavailable':
+    case 'technical_issue':
+    case 'other':
+    default:
+      return 'requested_by_customer';
+  }
+}

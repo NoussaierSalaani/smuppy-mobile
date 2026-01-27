@@ -1167,6 +1167,173 @@ export class SmuppyStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
+    // Peak reactions: POST /peaks/{id}/react, DELETE /peaks/{id}/react
+    const peakReact = peakById.addResource('react');
+    peakReact.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksReactFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    peakReact.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksReactFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Peak tags: GET /peaks/{id}/tags, POST /peaks/{id}/tags
+    const peakTags = peakById.addResource('tags');
+    peakTags.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksTagFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    peakTags.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksTagFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Peak tag by user: DELETE /peaks/{id}/tags/{userId}
+    const peakTagByUser = peakTags.addResource('{userId}');
+    peakTagByUser.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksTagFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Peak hide: POST /peaks/{id}/hide, DELETE /peaks/{id}/hide
+    const peakHide = peakById.addResource('hide');
+    peakHide.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    peakHide.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Hidden peaks list: GET /peaks/hidden
+    const peaksHidden = peaks.addResource('hidden');
+    peaksHidden.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Peak replies (respond to peak with another peak): GET/POST /peaks/{id}/replies
+    const peakReplies = peakById.addResource('replies');
+    peakReplies.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksRepliesFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    peakReplies.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksRepliesFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Sessions Endpoints
+    // ========================================
+    const sessions = api.root.addResource('sessions');
+
+    // List sessions: GET /sessions
+    sessions.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.sessionsListFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Create session: POST /sessions
+    sessions.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.sessionsCreateFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Session by ID: GET /sessions/{id}
+    const sessionById = sessions.addResource('{id}');
+    sessionById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.sessionsGetFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Accept session: POST /sessions/{id}/accept
+    const sessionAccept = sessionById.addResource('accept');
+    sessionAccept.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.sessionsAcceptFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Decline session: POST /sessions/{id}/decline
+    const sessionDecline = sessionById.addResource('decline');
+    sessionDecline.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.sessionsDeclineFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Creator availability: GET /sessions/availability/{creatorId}
+    const sessionAvailability = sessions.addResource('availability');
+    const sessionAvailabilityByCreator = sessionAvailability.addResource('{creatorId}');
+    sessionAvailabilityByCreator.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.sessionsAvailabilityFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Session Packs Endpoints
+    // ========================================
+    const packs = api.root.addResource('packs');
+
+    // List packs: GET /packs
+    packs.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.packsListFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Purchase pack: POST /packs/purchase
+    const packsPurchase = packs.addResource('purchase');
+    packsPurchase.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.packsPurchaseFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Create pack (creator): POST /packs
+    packs.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.packsManageFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Update/delete pack by ID
+    const packById = packs.addResource('{id}');
+    packById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.packsManageFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    packById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.packsManageFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Session Token (Agora) Endpoint
+    // ========================================
+    // Generate Agora token: POST /sessions/{id}/token
+    const sessionToken = sessionById.addResource('token');
+    sessionToken.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.sessionsTokenFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Update session settings: PUT /sessions/settings
+    const sessionSettings = sessions.addResource('settings');
+    sessionSettings.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.sessionsSettingsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Earnings Endpoints
+    // ========================================
+    const earnings = api.root.addResource('earnings');
+
+    // Get earnings: GET /earnings
+    earnings.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.earningsGetFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
     // ========================================
     // Notifications Endpoints (Phase 5)
     // ========================================
@@ -1344,6 +1511,163 @@ export class SmuppyStack extends cdk.Stack {
     // Creator wallet (earnings, transactions, payouts): POST /payments/wallet
     const wallet = payments.addResource('wallet');
     wallet.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentWalletFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Refunds: GET/POST /payments/refunds, GET /payments/refunds/{refundId}
+    const refunds = payments.addResource('refunds');
+    refunds.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.paymentRefundsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    refunds.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentRefundsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const refundById = refunds.addResource('{refundId}');
+    refundById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.paymentRefundsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Payment methods: GET/POST/DELETE /payments/methods
+    const methods = payments.addResource('methods');
+    methods.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.paymentMethodsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    methods.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentMethodsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const setupIntent = methods.addResource('setup-intent');
+    setupIntent.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentMethodsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const methodById = methods.addResource('{methodId}');
+    methodById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.paymentMethodsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const methodDefault = methodById.addResource('default');
+    methodDefault.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.paymentMethodsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Web Checkout: POST /payments/web-checkout, GET /payments/web-checkout/status/{sessionId}
+    // This endpoint creates Stripe Checkout Sessions for web-based payments
+    // to avoid the 30% App Store / Play Store fees
+    const webCheckout = payments.addResource('web-checkout');
+    webCheckout.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.paymentWebCheckoutFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const webCheckoutStatus = webCheckout.addResource('status');
+    const webCheckoutStatusById = webCheckoutStatus.addResource('{sessionId}');
+    webCheckoutStatusById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.paymentWebCheckoutFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Tips Endpoints
+    // ========================================
+    const tips = api.root.addResource('tips');
+
+    // Send tip: POST /tips/send
+    const tipsSend = tips.addResource('send');
+    tipsSend.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.tipsSendFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Tips history: GET /tips/history
+    const tipsHistory = tips.addResource('history');
+    tipsHistory.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.tipsHistoryFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Tips leaderboard: GET /tips/leaderboard/{creatorId}
+    const tipsLeaderboard = tips.addResource('leaderboard');
+    const tipsLeaderboardByCreator = tipsLeaderboard.addResource('{creatorId}');
+    tipsLeaderboardByCreator.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.tipsLeaderboardFn));
+
+    // ========================================
+    // Challenges Endpoints
+    // ========================================
+    const challenges = api.root.addResource('challenges');
+
+    // Create challenge: POST /challenges
+    challenges.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.challengesCreateFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // List challenges: GET /challenges
+    challenges.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.challengesListFn));
+
+    // Respond to challenge: POST /challenges/{challengeId}/respond
+    const challengeById = challenges.addResource('{challengeId}');
+    const challengeRespond = challengeById.addResource('respond');
+    challengeRespond.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.challengesRespondFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Live Battles Endpoints
+    // ========================================
+    const battles = api.root.addResource('battles');
+
+    // Create battle: POST /battles
+    battles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.battlesCreateFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Join/leave battle: POST /battles/{battleId}/join
+    const battleById = battles.addResource('{battleId}');
+    const battleJoin = battleById.addResource('join');
+    battleJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.battlesJoinFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Events Endpoints (Xplorer)
+    // ========================================
+    const events = api.root.addResource('events');
+
+    // Create event: POST /events
+    events.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.eventsCreateFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // List events: GET /events
+    events.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.eventsListFn));
+
+    // Join event: POST /events/{eventId}/join
+    const eventById = events.addResource('{eventId}');
+    const eventJoin = eventById.addResource('join');
+    eventJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.eventsJoinFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // ========================================
+    // Settings Endpoints
+    // ========================================
+    const settings = api.root.addResource('settings');
+
+    // Currency settings: GET/PUT /settings/currency
+    const settingsCurrency = settings.addResource('currency');
+    settingsCurrency.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.settingsCurrencyFn));
+    settingsCurrency.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.settingsCurrencyFn), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
@@ -1575,6 +1899,20 @@ export class SmuppyStack extends cdk.Stack {
     // Add sendMessage route
     webSocketApi.addRoute('sendMessage', {
       integration: new WebSocketLambdaIntegration('SendMessageIntegration', lambdaStack.wsSendMessageFn),
+    });
+
+    // Add Live Stream routes (join, leave, comment, reaction)
+    webSocketApi.addRoute('joinLive', {
+      integration: new WebSocketLambdaIntegration('JoinLiveIntegration', lambdaStack.wsLiveStreamFn),
+    });
+    webSocketApi.addRoute('leaveLive', {
+      integration: new WebSocketLambdaIntegration('LeaveLiveIntegration', lambdaStack.wsLiveStreamFn),
+    });
+    webSocketApi.addRoute('liveComment', {
+      integration: new WebSocketLambdaIntegration('LiveCommentIntegration', lambdaStack.wsLiveStreamFn),
+    });
+    webSocketApi.addRoute('liveReaction', {
+      integration: new WebSocketLambdaIntegration('LiveReactionIntegration', lambdaStack.wsLiveStreamFn),
     });
 
     // WebSocket Stage

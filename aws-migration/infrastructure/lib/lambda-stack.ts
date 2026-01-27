@@ -100,6 +100,9 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly paymentPlatformSubFn: NodejsFunction;
   public readonly paymentChannelSubFn: NodejsFunction;
   public readonly paymentWalletFn: NodejsFunction;
+  public readonly paymentRefundsFn: NodejsFunction;
+  public readonly paymentMethodsFn: NodejsFunction;
+  public readonly paymentWebCheckoutFn: NodejsFunction;
 
   // Admin Functions
   public readonly adminMigrationFn: NodejsFunction;
@@ -123,6 +126,55 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly wsDisconnectFn: NodejsFunction;
   public readonly wsSendMessageFn: NodejsFunction;
   public readonly wsDefaultFn: NodejsFunction;
+  public readonly wsLiveStreamFn: NodejsFunction;
+
+  // Peaks - Extended
+  public readonly peaksReactFn: NodejsFunction;
+  public readonly peaksTagFn: NodejsFunction;
+  public readonly peaksHideFn: NodejsFunction;
+  public readonly peaksRepliesFn: NodejsFunction;
+
+  // Sessions
+  public readonly sessionsListFn: NodejsFunction;
+  public readonly sessionsCreateFn: NodejsFunction;
+  public readonly sessionsGetFn: NodejsFunction;
+  public readonly sessionsAcceptFn: NodejsFunction;
+  public readonly sessionsDeclineFn: NodejsFunction;
+  public readonly sessionsAvailabilityFn: NodejsFunction;
+
+  // Session Packs
+  public readonly packsListFn: NodejsFunction;
+  public readonly packsPurchaseFn: NodejsFunction;
+  public readonly packsManageFn: NodejsFunction;
+
+  // Session Token (Agora)
+  public readonly sessionsTokenFn: NodejsFunction;
+  public readonly sessionsSettingsFn: NodejsFunction;
+
+  // Earnings
+  public readonly earningsGetFn: NodejsFunction;
+
+  // Tips
+  public readonly tipsSendFn: NodejsFunction;
+  public readonly tipsHistoryFn: NodejsFunction;
+  public readonly tipsLeaderboardFn: NodejsFunction;
+
+  // Challenges
+  public readonly challengesCreateFn: NodejsFunction;
+  public readonly challengesListFn: NodejsFunction;
+  public readonly challengesRespondFn: NodejsFunction;
+
+  // Battles
+  public readonly battlesCreateFn: NodejsFunction;
+  public readonly battlesJoinFn: NodejsFunction;
+
+  // Events
+  public readonly eventsCreateFn: NodejsFunction;
+  public readonly eventsListFn: NodejsFunction;
+  public readonly eventsJoinFn: NodejsFunction;
+
+  // Settings
+  public readonly settingsCurrencyFn: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -253,6 +305,70 @@ export class LambdaStack extends cdk.NestedStack {
     this.peaksLikeFn = createLambda('PeaksLikeFunction', 'peaks/like');
     this.peaksUnlikeFn = createLambda('PeaksUnlikeFunction', 'peaks/unlike');
     this.peaksCommentFn = createLambda('PeaksCommentFunction', 'peaks/comment');
+    this.peaksReactFn = createLambda('PeaksReactFunction', 'peaks/react');
+    this.peaksTagFn = createLambda('PeaksTagFunction', 'peaks/tag');
+    this.peaksHideFn = createLambda('PeaksHideFunction', 'peaks/hide');
+    this.peaksRepliesFn = createLambda('PeaksRepliesFunction', 'peaks/replies');
+
+    // ========================================
+    // Sessions Lambda Functions
+    // ========================================
+    this.sessionsListFn = createLambda('SessionsListFunction', 'sessions/list');
+    this.sessionsCreateFn = createLambda('SessionsCreateFunction', 'sessions/create');
+    this.sessionsGetFn = createLambda('SessionsGetFunction', 'sessions/get');
+    this.sessionsAcceptFn = createLambda('SessionsAcceptFunction', 'sessions/accept');
+    this.sessionsDeclineFn = createLambda('SessionsDeclineFunction', 'sessions/decline');
+    this.sessionsAvailabilityFn = createLambda('SessionsAvailabilityFunction', 'sessions/availability');
+
+    // ========================================
+    // Session Packs Lambda Functions
+    // ========================================
+    this.packsListFn = createLambda('PacksListFunction', 'packs/list');
+    this.packsPurchaseFn = createLambda('PacksPurchaseFunction', 'packs/purchase');
+    this.packsManageFn = createLambda('PacksManageFunction', 'packs/manage');
+
+    // ========================================
+    // Session Token (Agora) Lambda Functions
+    // ========================================
+    this.sessionsTokenFn = createLambda('SessionsTokenFunction', 'sessions/token');
+    this.sessionsSettingsFn = createLambda('SessionsSettingsFunction', 'sessions/settings');
+
+    // ========================================
+    // Earnings Lambda Functions
+    // ========================================
+    this.earningsGetFn = createLambda('EarningsGetFunction', 'earnings/get');
+
+    // ========================================
+    // Tips Lambda Functions
+    // ========================================
+    this.tipsSendFn = createLambda('TipsSendFunction', 'tips/send');
+    this.tipsHistoryFn = createLambda('TipsHistoryFunction', 'tips/history');
+    this.tipsLeaderboardFn = createLambda('TipsLeaderboardFunction', 'tips/leaderboard');
+
+    // ========================================
+    // Challenges Lambda Functions
+    // ========================================
+    this.challengesCreateFn = createLambda('ChallengesCreateFunction', 'challenges/create');
+    this.challengesListFn = createLambda('ChallengesListFunction', 'challenges/list');
+    this.challengesRespondFn = createLambda('ChallengesRespondFunction', 'challenges/respond');
+
+    // ========================================
+    // Live Battles Lambda Functions
+    // ========================================
+    this.battlesCreateFn = createLambda('BattlesCreateFunction', 'battles/create');
+    this.battlesJoinFn = createLambda('BattlesJoinFunction', 'battles/join');
+
+    // ========================================
+    // Events Lambda Functions (Xplorer)
+    // ========================================
+    this.eventsCreateFn = createLambda('EventsCreateFunction', 'events/create');
+    this.eventsListFn = createLambda('EventsListFunction', 'events/list');
+    this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
+
+    // ========================================
+    // Settings Lambda Functions
+    // ========================================
+    this.settingsCurrencyFn = createLambda('SettingsCurrencyFunction', 'settings/currency');
 
     // ========================================
     // Phase 5: Notifications Lambda Functions
@@ -477,6 +593,74 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
     dbCredentials.grantRead(this.paymentWalletFn);
+
+    // Refunds Lambda - Manual refund processing
+    this.paymentRefundsFn = new NodejsFunction(this, 'PaymentRefundsFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/refunds.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentRefundsFn);
+
+    // Payment Methods Lambda - Saved cards management
+    this.paymentMethodsFn = new NodejsFunction(this, 'PaymentMethodsFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/payment-methods.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentMethodsFn);
+
+    // Web Checkout Lambda - Stripe Checkout Sessions (avoids 30% app store fees)
+    this.paymentWebCheckoutFn = new NodejsFunction(this, 'PaymentWebCheckoutFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/web-checkout.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        APP_SCHEME: 'smuppy',
+        WEB_DOMAIN: process.env.WEB_DOMAIN || 'https://smuppy.com',
+      },
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.paymentWebCheckoutFn);
 
     // ========================================
     // Admin Lambda Functions
@@ -888,5 +1072,24 @@ export class LambdaStack extends cdk.NestedStack {
       depsLockFilePath: path.join(__dirname, '../../lambda/websocket/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/websocket'),
     });
+
+    // Live Stream WebSocket Handler
+    this.wsLiveStreamFn = new NodejsFunction(this, 'WsLiveStreamFunction', {
+      entry: path.join(__dirname, '../../lambda/websocket/live-stream.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: lambdaEnvironment,
+      bundling: { minify: true, sourceMap: true, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: wsLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/websocket/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/websocket'),
+    });
+    dbCredentials.grantRead(this.wsLiveStreamFn);
   }
 }

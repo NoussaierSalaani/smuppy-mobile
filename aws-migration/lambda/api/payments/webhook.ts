@@ -472,6 +472,217 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         break;
       }
 
+      // ========================================
+      // DISPUTE EVENTS (Chargebacks)
+      // ========================================
+      case 'charge.dispute.created': {
+        const dispute = stripeEvent.data.object as Stripe.Dispute;
+        log.warn('Dispute created', {
+          disputeId: dispute.id,
+          chargeId: dispute.charge,
+          amount: dispute.amount,
+          reason: dispute.reason,
+        });
+
+        // Get payment from charge
+        const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+
+        // Record dispute
+        await db.query(
+          `INSERT INTO disputes (
+            stripe_dispute_id, stripe_charge_id, amount_cents, reason, status, created_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW())
+          ON CONFLICT (stripe_dispute_id) DO UPDATE SET
+            status = $5, updated_at = NOW()`,
+          [dispute.id, chargeId, dispute.amount, dispute.reason, dispute.status]
+        );
+
+        // Update payment status
+        await db.query(
+          `UPDATE payments
+           SET status = 'disputed',
+               dispute_status = $2,
+               updated_at = NOW()
+           WHERE stripe_charge_id = $1`,
+          [chargeId, dispute.status]
+        );
+
+        // Get payment details for notification
+        const paymentResult = await db.query(
+          'SELECT creator_id, buyer_id, amount_cents FROM payments WHERE stripe_charge_id = $1',
+          [chargeId]
+        );
+
+        if (paymentResult.rows.length > 0) {
+          const payment = paymentResult.rows[0];
+
+          // Notify creator about the dispute
+          await db.query(
+            `INSERT INTO notifications (user_id, type, title, body, data)
+             VALUES ($1, 'dispute_created', 'Payment Disputed', $2, $3)`,
+            [
+              payment.creator_id,
+              `A payment of €${(dispute.amount / 100).toFixed(2)} has been disputed. Reason: ${dispute.reason}`,
+              JSON.stringify({
+                disputeId: dispute.id,
+                chargeId,
+                amount: dispute.amount,
+                reason: dispute.reason,
+              }),
+            ]
+          );
+
+          // Also notify admins (TODO: implement admin notification system)
+          log.warn('ADMIN ALERT: Dispute created', {
+            disputeId: dispute.id,
+            amount: dispute.amount,
+            creatorId: payment.creator_id,
+          });
+        }
+        break;
+      }
+
+      case 'charge.dispute.updated': {
+        const dispute = stripeEvent.data.object as Stripe.Dispute;
+        log.info('Dispute updated', {
+          disputeId: dispute.id,
+          status: dispute.status,
+        });
+
+        const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+
+        // Update dispute record
+        await db.query(
+          `UPDATE disputes
+           SET status = $1, updated_at = NOW()
+           WHERE stripe_dispute_id = $2`,
+          [dispute.status, dispute.id]
+        );
+
+        // Update payment dispute status
+        await db.query(
+          `UPDATE payments
+           SET dispute_status = $1, updated_at = NOW()
+           WHERE stripe_charge_id = $2`,
+          [dispute.status, chargeId]
+        );
+        break;
+      }
+
+      case 'charge.dispute.closed': {
+        const dispute = stripeEvent.data.object as Stripe.Dispute;
+        log.info('Dispute closed', {
+          disputeId: dispute.id,
+          status: dispute.status,
+        });
+
+        const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+
+        // Update dispute record
+        await db.query(
+          `UPDATE disputes
+           SET status = $1, closed_at = NOW(), updated_at = NOW()
+           WHERE stripe_dispute_id = $2`,
+          [dispute.status, dispute.id]
+        );
+
+        // Update payment based on dispute outcome
+        const newPaymentStatus = dispute.status === 'won' ? 'succeeded' : 'disputed_lost';
+        await db.query(
+          `UPDATE payments
+           SET status = $1, dispute_status = $2, updated_at = NOW()
+           WHERE stripe_charge_id = $3`,
+          [newPaymentStatus, dispute.status, chargeId]
+        );
+
+        // Notify creator about outcome
+        const paymentResult = await db.query(
+          'SELECT creator_id FROM payments WHERE stripe_charge_id = $1',
+          [chargeId]
+        );
+
+        if (paymentResult.rows.length > 0) {
+          const won = dispute.status === 'won';
+          await db.query(
+            `INSERT INTO notifications (user_id, type, title, body, data)
+             VALUES ($1, 'dispute_closed', $2, $3, $4)`,
+            [
+              paymentResult.rows[0].creator_id,
+              won ? 'Dispute Won!' : 'Dispute Lost',
+              won
+                ? 'The dispute has been resolved in your favor. The funds have been returned.'
+                : `The dispute was lost. €${(dispute.amount / 100).toFixed(2)} has been deducted.`,
+              JSON.stringify({ disputeId: dispute.id, status: dispute.status }),
+            ]
+          );
+        }
+        break;
+      }
+
+      // ========================================
+      // PAYOUT EVENTS (Creator notifications)
+      // ========================================
+      case 'payout.paid': {
+        const payout = stripeEvent.data.object as Stripe.Payout;
+        log.info('Payout paid', { payoutId: payout.id, amount: payout.amount });
+
+        // Find creator by Stripe account
+        const accountId = (stripeEvent.account as string) || null;
+        if (accountId) {
+          const creatorResult = await db.query(
+            'SELECT id FROM profiles WHERE stripe_account_id = $1',
+            [accountId]
+          );
+
+          if (creatorResult.rows.length > 0) {
+            await db.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'payout_received', 'Payout Received!', $2, $3)`,
+              [
+                creatorResult.rows[0].id,
+                `€${(payout.amount / 100).toFixed(2)} has been sent to your bank account`,
+                JSON.stringify({ payoutId: payout.id, amount: payout.amount }),
+              ]
+            );
+          }
+        }
+        break;
+      }
+
+      case 'payout.failed': {
+        const payout = stripeEvent.data.object as Stripe.Payout;
+        log.error('Payout failed', {
+          payoutId: payout.id,
+          failureCode: payout.failure_code,
+          failureMessage: payout.failure_message,
+        });
+
+        const accountId = (stripeEvent.account as string) || null;
+        if (accountId) {
+          const creatorResult = await db.query(
+            'SELECT id FROM profiles WHERE stripe_account_id = $1',
+            [accountId]
+          );
+
+          if (creatorResult.rows.length > 0) {
+            await db.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'payout_failed', 'Payout Failed', $2, $3)`,
+              [
+                creatorResult.rows[0].id,
+                `Your payout of €${(payout.amount / 100).toFixed(2)} failed. Please check your bank details.`,
+                JSON.stringify({
+                  payoutId: payout.id,
+                  failureCode: payout.failure_code,
+                  failureMessage: payout.failure_message,
+                }),
+              ]
+            );
+          }
+        }
+        break;
+      }
+
       default:
         log.info('Unhandled event type', { type: stripeEvent.type });
     }

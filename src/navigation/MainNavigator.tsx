@@ -75,6 +75,14 @@ import EventListScreen from '../screens/events/EventListScreen';
 import EventDetailScreen from '../screens/events/EventDetailScreen';
 import EventManageScreen from '../screens/events/EventManageScreen';
 
+// Group Screens
+import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
+import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
+
+// Spot Screens
+import SuggestSpotScreen from '../screens/spots/SuggestSpotScreen';
+import SpotDetailScreen from '../screens/spots/SpotDetailScreen';
+
 // Business Screens
 import {
   BusinessProfileScreen,
@@ -269,6 +277,14 @@ export default function MainNavigator() {
       <Stack.Screen name="EventDetail" component={asScreen(EventDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EventManage" component={asScreen(EventManageScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="CreateEvent" component={asScreen(CreateEventScreen)} options={{ animation: 'slide_from_bottom' }} />
+
+      {/* Groups */}
+      <Stack.Screen name="CreateGroup" component={asScreen(CreateGroupScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="GroupDetail" component={asScreen(GroupDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Spots */}
+      <Stack.Screen name="SuggestSpot" component={asScreen(SuggestSpotScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="SpotDetail" component={asScreen(SpotDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Business (Pro Local) - User Screens */}
       <Stack.Screen name="BusinessDiscovery" component={BusinessDiscoveryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

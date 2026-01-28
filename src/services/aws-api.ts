@@ -2932,6 +2932,221 @@ class AWSAPIService {
     }
     return `${CDN_URL}/${path}`;
   }
+
+  // ============================================
+  // GROUP ACTIVITIES
+  // ============================================
+
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    category: string;
+    subcategory: string;
+    sport_type?: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    cover_image_url?: string;
+    starts_at: string;
+    ends_at?: string;
+    timezone?: string;
+    max_participants?: number;
+    is_free: boolean;
+    price?: number;
+    currency?: string;
+    is_public: boolean;
+    is_fans_only: boolean;
+    is_route: boolean;
+    route_start?: { lat: number; lng: number };
+    route_end?: { lat: number; lng: number };
+    route_waypoints?: { lat: number; lng: number }[];
+    route_geojson?: object;
+    route_profile?: string;
+    route_distance_km?: number;
+    route_duration_min?: number;
+    route_elevation_gain?: number;
+    difficulty?: string;
+  }): Promise<{ success: boolean; group?: any; message?: string }> {
+    return this.request('/groups', { method: 'POST', body: data });
+  }
+
+  async getGroups(params: {
+    filter?: 'upcoming' | 'nearby' | 'my-groups' | 'joined';
+    latitude?: number;
+    longitude?: number;
+    radiusKm?: number;
+    category?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; groups?: any[]; pagination?: any }> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
+    return this.request(`/groups?${query.toString()}`);
+  }
+
+  async getGroup(groupId: string): Promise<{ success: boolean; group?: any }> {
+    return this.request(`/groups/${groupId}`);
+  }
+
+  async joinGroup(groupId: string): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/groups/${groupId}/join`, { method: 'POST' });
+  }
+
+  async leaveGroup(groupId: string): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/groups/${groupId}/leave`, { method: 'DELETE' });
+  }
+
+  // ============================================
+  // SPOTS (enhanced)
+  // ============================================
+
+  async createSpot(data: {
+    name: string;
+    description?: string;
+    category: string;
+    subcategory: string;
+    sport_type?: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    cover_image_url?: string;
+    images?: string[];
+    tags?: string[];
+    qualities?: string[];
+    is_route: boolean;
+    route_start?: { lat: number; lng: number };
+    route_end?: { lat: number; lng: number };
+    route_waypoints?: { lat: number; lng: number }[];
+    route_geojson?: object;
+    route_profile?: string;
+    route_distance_km?: number;
+    route_duration_min?: number;
+    route_elevation_gain?: number;
+    difficulty?: string;
+    initial_rating?: number;
+    initial_review?: string;
+  }): Promise<{ success: boolean; spot?: any; message?: string }> {
+    return this.request('/spots', { method: 'POST', body: data });
+  }
+
+  async getSpot(spotId: string): Promise<{ success: boolean; spot?: any }> {
+    return this.request(`/spots/${spotId}`);
+  }
+
+  async getNearbySpots(params: {
+    latitude: number;
+    longitude: number;
+    radiusKm?: number;
+    category?: string;
+    subcategory?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; spots?: any[]; pagination?: any }> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
+    return this.request(`/spots?${query.toString()}`);
+  }
+
+  // ============================================
+  // REVIEWS
+  // ============================================
+
+  async createReview(data: {
+    target_id: string;
+    target_type: 'spot' | 'business' | 'event' | 'live';
+    rating: number;
+    comment?: string;
+    photos?: string[];
+    qualities?: string[];
+  }): Promise<{ success: boolean; review?: any; message?: string }> {
+    return this.request('/reviews', { method: 'POST', body: data });
+  }
+
+  async getReviews(params: {
+    target_id: string;
+    target_type: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; reviews?: any[]; pagination?: any }> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
+    return this.request(`/reviews?${query.toString()}`);
+  }
+
+  // ============================================
+  // DYNAMIC CATEGORIES
+  // ============================================
+
+  async getCategories(): Promise<{ success: boolean; categories?: any[] }> {
+    return this.request('/categories');
+  }
+
+  async suggestSubcategory(data: {
+    parent_category: string;
+    name: string;
+  }): Promise<{ success: boolean; subcategory?: any; message?: string }> {
+    return this.request('/categories/suggest', { method: 'POST', body: data });
+  }
+
+  // ============================================
+  // LIVE PINS (Map)
+  // ============================================
+
+  async createLivePin(data: {
+    channel_name: string;
+    title?: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<{ success: boolean; livePin?: any }> {
+    return this.request('/map/live-pin', { method: 'POST', body: data });
+  }
+
+  async deleteLivePin(): Promise<{ success: boolean }> {
+    return this.request('/map/live-pin', { method: 'DELETE' });
+  }
+
+  async getNearbyLivePins(params: {
+    latitude: number;
+    longitude: number;
+    radiusKm?: number;
+  }): Promise<{ success: boolean; livePins?: any[] }> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
+    return this.request(`/map/live-pins?${query.toString()}`);
+  }
+
+  // ============================================
+  // MAP MARKERS (unified endpoint)
+  // ============================================
+
+  async getMapMarkers(params: {
+    latitude: number;
+    longitude: number;
+    radiusKm?: number;
+    filters?: string;       // comma-separated: "coaches,gyms,events"
+    subcategories?: string; // comma-separated: "CrossFit,Boxing"
+    limit?: number;
+  }): Promise<{ success: boolean; markers?: any[] }> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
+    return this.request(`/map/markers?${query.toString()}`);
+  }
+
+  // ============================================
+  // MAP SEARCH (unified search with schedule indexing)
+  // ============================================
+
+  async searchMap(params: {
+    query: string;
+    latitude?: number;
+    longitude?: number;
+    radiusKm?: number;
+    limit?: number;
+  }): Promise<{ success: boolean; results?: any[] }> {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) queryParams.set(k, String(v)); });
+    return this.request(`/search/map?${queryParams.toString()}`);
+  }
 }
 
 // Custom API Error class

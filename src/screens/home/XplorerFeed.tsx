@@ -1,12 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, ActivityIndicator, TextInput, StatusBar } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable } from 'react-native';
+import Mapbox, { MapView, Camera, PointAnnotation, LocationPuck } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
+import { useUserStore } from '../../stores';
+
+// Initialize Mapbox with access token
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) {
+  Mapbox.setAccessToken(mapboxToken);
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const baseWidth = 390;
@@ -15,33 +23,103 @@ const wp = (percentage: number) => (percentage * SCREEN_WIDTH) / 100;
 const hp = (percentage: number) => (percentage * SCREEN_HEIGHT) / 100;
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / baseWidth));
 
-const PIN_COLORS = {
-  coach: '#0EBF8A',
-  gym: '#0EBF8A',
-  restaurant: '#00B5C1',
-  store: '#0081BE',
+// ============================================
+// PIN COLORS BY CATEGORY
+// ============================================
+const PIN_COLORS: Record<string, string> = {
+  coaches: '#0EBF8A',
+  gyms: '#1E90FF',
+  wellness: '#9B59B6',
+  sports: '#FFD700',
+  food: '#00B5C1',
+  stores: '#0081BE',
+  events: '#FF6B6B',
+  spots: '#5D4037',
 };
 
+// ============================================
+// 8 FILTER CHIPS - Available to ALL accounts
+// ============================================
+type FilterDef = {
+  key: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  subcategories: string[];
+};
+
+const FILTERS: FilterDef[] = [
+  { key: 'coaches', label: 'Coaches', icon: 'person', color: PIN_COLORS.coaches, subcategories: ['Personal Trainers', 'Yoga Teachers', 'Sport Coaches', 'Nutritionists'] },
+  { key: 'gyms', label: 'Gyms', icon: 'barbell', color: PIN_COLORS.gyms, subcategories: ['Gym', 'CrossFit', 'Boxing', 'Climbing', 'MMA', 'HIIT', 'Pilates', 'Bootcamp'] },
+  { key: 'wellness', label: 'Wellness', icon: 'leaf', color: PIN_COLORS.wellness, subcategories: ['Yoga Studios', 'Spas', 'Meditation', 'Pools', 'Swim Schools'] },
+  { key: 'sports', label: 'Sports', icon: 'trophy', color: PIN_COLORS.sports, subcategories: ['Sports Club', 'Tennis', 'Golf', 'Running Club', 'Cycling', 'Dance'] },
+  { key: 'food', label: 'Food', icon: 'restaurant', color: PIN_COLORS.food, subcategories: ['Healthy Food', 'Smoothies', 'Meal Prep', 'Supplements', 'Juice Bars'] },
+  { key: 'stores', label: 'Stores', icon: 'bag-handle', color: PIN_COLORS.stores, subcategories: ['Sportswear', 'Equipment', 'Accessories', 'Shoes', 'Nutrition'] },
+  { key: 'events', label: 'Events', icon: 'calendar', color: PIN_COLORS.events, subcategories: ['Running', 'Hiking', 'Cycling', 'Soccer', 'Basketball', 'Tennis', 'Yoga', 'CrossFit', 'Swimming'] },
+  { key: 'spots', label: 'Spots', icon: 'location', color: PIN_COLORS.spots, subcategories: ['Parks', 'Outdoor Gyms', 'Trails', 'Courts', 'Fields', 'Beaches'] },
+];
+
+const MAX_ACTIVE_FILTERS = 3;
+
+// ============================================
+// FAB ACTIONS BY ACCOUNT TYPE
+// ============================================
+type FabAction = { label: string; icon: keyof typeof Ionicons.glyphMap; action: string };
+
+// Personal: Create Event, Create Group (ephemeral on map)
+const PERSONAL_ACTIONS: FabAction[] = [
+  { label: 'Create Event', icon: 'calendar-outline', action: 'create_event' },
+  { label: 'Create Group', icon: 'people-outline', action: 'create_group' },
+];
+
+// Personal verified / Pro Creator: + Suggest Spot, Add Review (interact with map)
+const VERIFIED_ACTIONS: FabAction[] = [
+  ...PERSONAL_ACTIONS,
+  { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
+  { label: 'Add Review', icon: 'star-outline', action: 'add_review' },
+];
+
+// Pro Creator Premium: + Share Live on Map
+const CREATOR_PREMIUM_ACTIONS: FabAction[] = [
+  ...VERIFIED_ACTIONS,
+  { label: 'Share Live', icon: 'videocam-outline', action: 'share_live' },
+];
+
+// Pro Business: Create Event, Create Group (locked to business location)
+const BUSINESS_ACTIONS: FabAction[] = [
+  { label: 'Create Event', icon: 'calendar-outline', action: 'create_event' },
+  { label: 'Create Group', icon: 'people-outline', action: 'create_group' },
+];
+
+// Pro Business Premium: All of Pro Creator + event/group anywhere + planning indexed
+const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
+  ...CREATOR_PREMIUM_ACTIONS,
+];
+
+// ============================================
+// MOCK MARKERS
+// ============================================
 const MOCK_MARKERS = [
-  { id: '1', type: 'coach', category: 'user', name: 'Darlene Robertson', avatar: 'https://randomuser.me/api/portraits/women/1.jpg', bio: 'Certified Personal Trainer | Helping you reach your fitness goals 💪', fans: 1234, posts: 89, coordinate: { latitude: 45.5017, longitude: -73.5673 } },
-  { id: '2', type: 'coach', category: 'user', name: 'Marcus Johnson', avatar: 'https://randomuser.me/api/portraits/men/2.jpg', bio: 'Yoga & Meditation Coach | Find your inner peace 🧘', fans: 856, posts: 45, coordinate: { latitude: 45.5087, longitude: -73.5540 } },
-  { id: '3', type: 'coach', category: 'user', name: 'Sophie Chen', avatar: 'https://randomuser.me/api/portraits/women/3.jpg', bio: 'CrossFit Level 2 Trainer', fans: 2341, posts: 156, coordinate: { latitude: 45.4950, longitude: -73.5780 } },
-  { id: '4', type: 'gym', category: 'business', name: 'Oxygen Fitness', avatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400', coverImage: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600', address: '1234 Rue Saint-Denis, Montréal, QC', hours: 'Open 24/7', expertise: ['Bodybuilding', 'CrossFit', 'Cardio'], fans: 5420, coordinate: { latitude: 45.5100, longitude: -73.5600 } },
-  { id: '5', type: 'gym', category: 'business', name: 'PowerHouse Gym', avatar: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400', coverImage: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=600', address: '567 Boulevard René-Lévesque, Montréal, QC', hours: '6:00 AM - 11:00 PM', expertise: ['Powerlifting', 'Strength Training'], fans: 3200, coordinate: { latitude: 45.4980, longitude: -73.5650 } },
-  { id: '6', type: 'restaurant', category: 'business', name: 'Green Bowl', avatar: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400', coverImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600', address: '890 Avenue du Parc, Montréal, QC', hours: '8:00 AM - 9:00 PM', expertise: ['Healthy Food', 'Smoothies', 'Meal Prep'], fans: 1890, coordinate: { latitude: 45.5050, longitude: -73.5720 } },
-  { id: '7', type: 'store', category: 'business', name: 'FitWear MTL', avatar: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=400', coverImage: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=600', address: '432 Rue Sainte-Catherine, Montréal, QC', hours: '10:00 AM - 8:00 PM', expertise: ['Sportswear', 'Accessories', 'Shoes'], fans: 2100, coordinate: { latitude: 45.4990, longitude: -73.5800 } },
+  { id: '1', type: 'coaches', subcategory: 'Personal Trainers', category: 'user', name: 'Darlene Robertson', avatar: 'https://randomuser.me/api/portraits/women/1.jpg', bio: 'Certified Personal Trainer | Helping you reach your fitness goals', fans: 1234, posts: 89, coordinate: { latitude: 45.5017, longitude: -73.5673 } },
+  { id: '2', type: 'coaches', subcategory: 'Yoga Teachers', category: 'user', name: 'Marcus Johnson', avatar: 'https://randomuser.me/api/portraits/men/2.jpg', bio: 'Yoga & Meditation Coach | Find your inner peace', fans: 856, posts: 45, coordinate: { latitude: 45.5087, longitude: -73.5540 } },
+  { id: '3', type: 'gyms', subcategory: 'Gym', category: 'business', name: 'Oxygen Fitness', avatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400', coverImage: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600', address: '1234 Rue Saint-Denis, Montreal, QC', hours: 'Open 24/7', expertise: ['Bodybuilding', 'CrossFit', 'Cardio'], fans: 5420, coordinate: { latitude: 45.5100, longitude: -73.5600 } },
+  { id: '4', type: 'gyms', subcategory: 'CrossFit', category: 'business', name: 'PowerHouse Gym', avatar: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400', coverImage: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=600', address: '567 Boulevard Rene-Levesque, Montreal, QC', hours: '6:00 AM - 11:00 PM', expertise: ['Powerlifting', 'Strength Training'], fans: 3200, coordinate: { latitude: 45.4980, longitude: -73.5650 } },
+  { id: '5', type: 'wellness', subcategory: 'Yoga Studios', category: 'business', name: 'ZenFlow Studio', avatar: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=400', coverImage: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=600', address: '321 Avenue du Mont-Royal, Montreal, QC', hours: '7:00 AM - 9:00 PM', expertise: ['Yoga', 'Pilates', 'Meditation'], fans: 2100, coordinate: { latitude: 45.5230, longitude: -73.5820 } },
+  { id: '6', type: 'food', subcategory: 'Healthy Food', category: 'business', name: 'Green Bowl', avatar: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400', coverImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600', address: '890 Avenue du Parc, Montreal, QC', hours: '8:00 AM - 9:00 PM', expertise: ['Healthy Food', 'Smoothies', 'Meal Prep'], fans: 1890, coordinate: { latitude: 45.5050, longitude: -73.5720 } },
+  { id: '7', type: 'stores', subcategory: 'Sportswear', category: 'business', name: 'FitWear MTL', avatar: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=400', coverImage: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=600', address: '432 Rue Sainte-Catherine, Montreal, QC', hours: '10:00 AM - 8:00 PM', expertise: ['Sportswear', 'Accessories', 'Shoes'], fans: 2100, coordinate: { latitude: 45.4990, longitude: -73.5800 } },
+  { id: '8', type: 'events', subcategory: 'Running', category: 'event', name: 'Montreal Marathon 2025', avatar: 'https://images.unsplash.com/photo-1513593771513-7b58b6c4af38?w=400', coverImage: 'https://images.unsplash.com/photo-1513593771513-7b58b6c4af38?w=600', address: 'Parc Jean-Drapeau, Montreal, QC', hours: 'Oct 15, 2025', expertise: ['Marathon', '10K', '5K'], fans: 8500, coordinate: { latitude: 45.5150, longitude: -73.5530 } },
+  { id: '9', type: 'spots', subcategory: 'Outdoor Gyms', category: 'spot', name: 'Parc Lafontaine Gym', avatar: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400', coverImage: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600', address: 'Parc La Fontaine, Montreal, QC', hours: 'Always Open', expertise: ['Calisthenics', 'Pull-ups', 'Dips'], fans: 1200, coordinate: { latitude: 45.5280, longitude: -73.5690 } },
+  { id: '10', type: 'sports', subcategory: 'Tennis', category: 'business', name: 'Club de Tennis MTL', avatar: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=400', coverImage: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=600', address: '100 Avenue des Pins, Montreal, QC', hours: '6:00 AM - 10:00 PM', expertise: ['Tennis', 'Lessons', 'Leagues'], fans: 3400, coordinate: { latitude: 45.5120, longitude: -73.5760 } },
 ];
 
-const FILTER_OPTIONS = [
-  { key: 'coach', label: 'Coaches', icon: 'person' as const, color: PIN_COLORS.coach },
-  { key: 'gym', label: 'Gyms', icon: 'barbell' as const, color: PIN_COLORS.gym },
-  { key: 'restaurant', label: 'Restaurants', icon: 'restaurant' as const, color: PIN_COLORS.restaurant },
-  { key: 'store', label: 'Stores', icon: 'bag-handle' as const, color: PIN_COLORS.store },
-  { key: 'event', label: 'Events', icon: 'calendar' as const, color: '#FF6B6B' },
-  { key: 'peak', label: 'Peaks', icon: 'videocam' as const, color: '#9B59B6' },
-];
+type MockMarker = typeof MOCK_MARKERS[0];
 
-const MAX_ACTIVE_FILTERS = 4;
+// Default center (Montreal)
+const DEFAULT_CENTER: [number, number] = [-73.5673, 45.5017];
+
+// ============================================
+// COMPONENT
+// ============================================
 
 interface XplorerFeedProps {
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -50,100 +128,201 @@ interface XplorerFeedProps {
 
 export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) {
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<Camera>(null);
   const hasRequestedPermission = useRef(false);
   const { setBottomBarHidden, showBars, xplorerFullscreen, toggleXplorerFullscreen, setXplorerFullscreen } = useTabBar();
 
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeFilters, setActiveFilters] = useState<string[]>(['coach', 'gym', 'restaurant']);
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedMarker, setSelectedMarker] = useState<typeof MOCK_MARKERS[0] | null>(null);
+  // User info
+  const accountType = useUserStore((s) => s.user?.accountType);
+  const isVerified = useUserStore((s) => s.user?.isVerified);
+  const isPremium = useUserStore((s) => s.user?.isPremium);
+
+  const [userCoords, setUserCoords] = useState<[number, number]>(DEFAULT_CENTER);
+  const [hasLocation, setHasLocation] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [activeSubFilters, setActiveSubFilters] = useState<Record<string, string[]>>({});
+  const [selectedMarker, setSelectedMarker] = useState<MockMarker | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [subFilterSheet, setSubFilterSheet] = useState<string | null>(null);
+  const [fabOpen, setFabOpen] = useState(false);
 
-  const [region, setRegion] = useState({
-    latitude: 45.5017,
-    longitude: -73.5673,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
+  // Determine if business has a locked location
+  const businessLocation = useUserStore((s) => {
+    const u = s.user;
+    if (u?.accountType !== 'pro_business') return null;
+    // Business location from profile (latitude/longitude stored on profile)
+    return u.businessAddress ? { address: u.businessAddress } : null;
   });
+
+  // FAB visibility & actions based on account type
+  const fabActions = useMemo((): FabAction[] => {
+    if (accountType === 'pro_business' && isPremium) return BUSINESS_PREMIUM_ACTIONS;
+    if (accountType === 'pro_business') return BUSINESS_ACTIONS;
+    if (accountType === 'pro_creator' && isPremium) return CREATOR_PREMIUM_ACTIONS;
+    if (accountType === 'pro_creator') return VERIFIED_ACTIONS;
+    if (isVerified) return VERIFIED_ACTIONS;
+    // Personal (non-verified) still gets basic actions
+    return PERSONAL_ACTIONS;
+  }, [accountType, isVerified, isPremium]);
+
+  // ============================================
+  // LOCATION
+  // ============================================
+
+  const requestLocation = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      setShowPermissionModal(true);
+      return;
+    }
+
+    try {
+      const lastKnown = await Location.getLastKnownPositionAsync({});
+      if (lastKnown) {
+        const coords: [number, number] = [lastKnown.coords.longitude, lastKnown.coords.latitude];
+        setUserCoords(coords);
+        setHasLocation(true);
+      }
+    } catch (_e) { /* Location unavailable */ }
+
+    try {
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const coords: [number, number] = [current.coords.longitude, current.coords.latitude];
+      setUserCoords(coords);
+      setHasLocation(true);
+    } catch (err) {
+      console.log('[XplorerFeed] Could not get position:', err);
+    }
+  }, []);
+
+  // ============================================
+  // LIFECYCLE
+  // ============================================
 
   useEffect(() => {
     if (isActive) {
-      // Only hide bottom nav in fullscreen mode
-      setBottomBarHidden(xplorerFullscreen);
-
+      setBottomBarHidden(true);
       if (!hasRequestedPermission.current) {
         hasRequestedPermission.current = true;
-        requestLocationPermission();
+        requestLocation();
       }
     } else {
-      // Reset when leaving Xplorer
       setBottomBarHidden(false);
       setXplorerFullscreen(false);
       showBars();
     }
+  }, [isActive, xplorerFullscreen, setBottomBarHidden, setXplorerFullscreen, showBars, requestLocation]);
 
-  }, [isActive, xplorerFullscreen, setBottomBarHidden, setXplorerFullscreen, showBars]);
+  // ============================================
+  // ACTIONS
+  // ============================================
 
-  const requestLocationPermission = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      setShowPermissionModal(true);
-      setLoading(false);
-      return;
+  const centerOnUser = useCallback(() => {
+    if (!cameraRef.current) return;
+    if (hasLocation) {
+      cameraRef.current.setCamera({
+        centerCoordinate: userCoords,
+        zoomLevel: 14,
+        animationDuration: 600,
+      });
+    } else {
+      requestLocation();
     }
-    let currentLocation = await Location.getCurrentPositionAsync({});
-    setLocation(currentLocation);
-    setRegion({
-      latitude: currentLocation.coords.latitude,
-      longitude: currentLocation.coords.longitude,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
-    });
-    setLoading(false);
-  };
+  }, [hasLocation, userCoords, requestLocation]);
 
-  const toggleFilter = (filterKey: string) => {
+  const toggleFilter = useCallback((filterKey: string) => {
     setActiveFilters(prev => {
-      if (prev.includes(filterKey)) return prev.filter(f => f !== filterKey);
-      if (prev.length >= MAX_ACTIVE_FILTERS) return [...prev.slice(1), filterKey];
+      if (prev.includes(filterKey)) {
+        // Also clear sub-filters when deactivating
+        setActiveSubFilters(sub => {
+          const next = { ...sub };
+          delete next[filterKey];
+          return next;
+        });
+        return prev.filter(f => f !== filterKey);
+      }
+      if (prev.length >= MAX_ACTIVE_FILTERS) return prev; // Block instead of rotating
       return [...prev, filterKey];
     });
-  };
+  }, []);
 
-  const centerOnUser = () => {
-    if (location && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      }, 500);
+  const handleLongPress = useCallback((filterKey: string) => {
+    if (activeFilters.includes(filterKey)) {
+      setSubFilterSheet(filterKey);
     }
-  };
+  }, [activeFilters]);
 
-  // Toggle fullscreen mode (header visible/hidden)
-  const toggleFullscreen = () => {
-    toggleXplorerFullscreen();
-  };
+  const toggleSubFilter = useCallback((filterKey: string, sub: string) => {
+    setActiveSubFilters(prev => {
+      const current = prev[filterKey] || [];
+      const next = current.includes(sub)
+        ? current.filter(s => s !== sub)
+        : [...current, sub];
+      return { ...prev, [filterKey]: next };
+    });
+  }, []);
 
+  const handleMarkerPress = useCallback((marker: MockMarker) => setSelectedMarker(marker), []);
+  const closePopup = useCallback(() => setSelectedMarker(null), []);
 
-  type MockMarker = typeof MOCK_MARKERS[0];
-
-  const handleMarkerPress = (marker: MockMarker) => setSelectedMarker(marker);
-  const closePopup = () => setSelectedMarker(null);
-
-  const goToProfile = (marker: MockMarker) => {
+  const goToProfile = useCallback((marker: MockMarker) => {
     closePopup();
     navigation.navigate('UserProfile', { userId: marker.id });
-  };
+  }, [closePopup, navigation]);
 
-  const filteredMarkers = MOCK_MARKERS.filter(m => activeFilters.includes(m.type));
+  const handleFabAction = useCallback((action: string) => {
+    setFabOpen(false);
+    switch (action) {
+      case 'create_event':
+        // Pro Business non-premium: lock location to business address
+        if (accountType === 'pro_business' && !isPremium && businessLocation) {
+          navigation.navigate('CreateEvent', { lockedLocation: businessLocation });
+        } else {
+          navigation.navigate('CreateEvent');
+        }
+        break;
+      case 'create_group':
+        if (accountType === 'pro_business' && !isPremium && businessLocation) {
+          navigation.navigate('CreateGroup', { lockedLocation: businessLocation });
+        } else {
+          navigation.navigate('CreateGroup');
+        }
+        break;
+      case 'suggest_spot':
+        navigation.navigate('SuggestSpot');
+        break;
+      case 'add_review':
+        // Review is done via AddReviewSheet on a selected marker popup
+        // For FAB, open spot suggestion which includes initial review
+        navigation.navigate('SuggestSpot');
+        break;
+      case 'share_live':
+        navigation.navigate('GoLiveIntro');
+        break;
+    }
+  }, [navigation, accountType, isPremium, businessLocation]);
 
-  const renderCustomMarker = (marker: MockMarker) => {
-    const pinColor = PIN_COLORS[marker.type as keyof typeof PIN_COLORS] || PIN_COLORS.coach;
+  const filteredMarkers = useMemo(() => {
+    if (activeFilters.length === 0) return MOCK_MARKERS; // Show all when no filter
+    return MOCK_MARKERS.filter(m => {
+      if (!activeFilters.includes(m.type)) return false;
+      const subs = activeSubFilters[m.type];
+      if (subs && subs.length > 0) {
+        return subs.includes(m.subcategory);
+      }
+      return true;
+    });
+  }, [activeFilters, activeSubFilters]);
+
+  // ============================================
+  // RENDERERS
+  // ============================================
+
+  const renderCustomMarker = useCallback((marker: MockMarker) => {
+    const pinColor = PIN_COLORS[marker.type] || COLORS.primary;
     return (
       <View style={styles.markerContainer}>
         <View style={styles.markerShadow} />
@@ -153,12 +332,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <View style={[styles.markerPointer, { borderTopColor: pinColor }]} />
       </View>
     );
-  };
+  }, []);
 
   const renderUserPopup = () => {
     if (!selectedMarker) return null;
     return (
-      <View style={[styles.popupContainer, { bottom: insets.bottom + hp(3) }]}>
+      <View style={[styles.popupContainer, { bottom: insets.bottom + hp(2) }]}>
         <TouchableOpacity style={styles.popupClose} onPress={closePopup}>
           <Ionicons name="close" size={normalize(20)} color={COLORS.gray} />
         </TouchableOpacity>
@@ -168,15 +347,17 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             <Text style={styles.popupName}>{selectedMarker.name}</Text>
             <View style={styles.popupStats}>
               <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
-              <Text style={styles.popupStatDot}>•</Text>
+              <Text style={styles.popupStatDot}>·</Text>
               <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
             </View>
             <Text style={styles.popupBio} numberOfLines={2}>{selectedMarker.bio}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.popupButton} onPress={() => goToProfile(selectedMarker)}>
-          <Text style={styles.popupButtonText}>See Profile</Text>
-          <Ionicons name="arrow-forward" size={normalize(18)} color={COLORS.white} />
+        <TouchableOpacity activeOpacity={0.85} onPress={() => goToProfile(selectedMarker)}>
+          <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.popupButton}>
+            <Text style={styles.popupButtonText}>See Profile</Text>
+            <Ionicons name="arrow-forward" size={normalize(16)} color={COLORS.white} />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     );
@@ -185,7 +366,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const renderBusinessPopup = () => {
     if (!selectedMarker) return null;
     return (
-      <View style={[styles.businessPopupContainer, { bottom: insets.bottom + hp(3) }]}>
+      <View style={[styles.businessPopupContainer, { bottom: insets.bottom + hp(2) }]}>
         <TouchableOpacity style={styles.businessPopupClose} onPress={closePopup}>
           <Ionicons name="close" size={normalize(22)} color={COLORS.white} />
         </TouchableOpacity>
@@ -207,126 +388,169 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               </View>
             ))}
           </View>
-          <TouchableOpacity style={styles.popupButton} onPress={() => goToProfile(selectedMarker)}>
-            <Text style={styles.popupButtonText}>See Profile</Text>
-            <Ionicons name="arrow-forward" size={normalize(18)} color={COLORS.white} />
+          <TouchableOpacity activeOpacity={0.85} onPress={() => goToProfile(selectedMarker)}>
+            <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.popupButton}>
+              <Text style={styles.popupButtonText}>See Profile</Text>
+              <Ionicons name="arrow-forward" size={normalize(16)} color={COLORS.white} />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
 
-  const renderPopup = () => {
-    if (!selectedMarker) return null;
-    return selectedMarker.category === 'business' ? renderBusinessPopup() : renderUserPopup();
+  // ============================================
+  // SUB-FILTER BOTTOM SHEET
+  // ============================================
+
+  const renderSubFilterSheet = () => {
+    if (!subFilterSheet) return null;
+    const filter = FILTERS.find(f => f.key === subFilterSheet);
+    if (!filter) return null;
+    const activeSubs = activeSubFilters[subFilterSheet] || [];
+
+    return (
+      <Modal visible transparent animationType="slide" onRequestClose={() => setSubFilterSheet(null)}>
+        <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setSubFilterSheet(null)}>
+          <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + hp(3) }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View style={[styles.sheetIconCircle, { backgroundColor: filter.color + '20' }]}>
+                <Ionicons name={filter.icon} size={normalize(22)} color={filter.color} />
+              </View>
+              <Text style={styles.sheetTitle}>{filter.label}</Text>
+            </View>
+            <Text style={styles.sheetSubtitle}>Filter by subcategory</Text>
+            <View style={styles.sheetChips}>
+              {filter.subcategories.map(sub => {
+                const isActive = activeSubs.includes(sub);
+                return (
+                  <TouchableOpacity key={sub} activeOpacity={0.8} onPress={() => toggleSubFilter(subFilterSheet, sub)}>
+                    {isActive ? (
+                      <LinearGradient
+                        colors={GRADIENTS.primary}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.sheetChip}
+                      >
+                        <Text style={[styles.sheetChipText, { color: COLORS.white }]}>{sub}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.sheetChipInactive}>
+                        <Text style={styles.sheetChipText}>{sub}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity activeOpacity={0.85} onPress={() => setSubFilterSheet(null)}>
+              <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetApplyButton}>
+                <Text style={styles.sheetApplyText}>Done</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
   };
 
-  const renderFilters = () => (
-    <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
-      <TouchableOpacity style={styles.filterModalOverlay} activeOpacity={1} onPress={() => setShowFilters(false)}>
-        <View style={[styles.filterModal, { paddingBottom: insets.bottom + hp(3) }]}>
-          <View style={styles.filterHandle} />
-          <Text style={styles.filterTitle}>Filters</Text>
-          <Text style={styles.filterSubtitle}>Select up to {MAX_ACTIVE_FILTERS} categories ({activeFilters.length}/{MAX_ACTIVE_FILTERS})</Text>
-          <View style={styles.filterOptions}>
-            {FILTER_OPTIONS.map((filter) => {
-              const isFilterActive = activeFilters.includes(filter.key);
-              return (
-                <TouchableOpacity key={filter.key} style={[styles.filterOption, isFilterActive && { backgroundColor: filter.color }]} onPress={() => toggleFilter(filter.key)}>
-                  <Ionicons name={filter.icon} size={normalize(24)} color={isFilterActive ? COLORS.white : COLORS.dark} />
-                  <Text style={[styles.filterOptionText, isFilterActive && { color: COLORS.white }]}>{filter.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity style={styles.filterApplyButton} onPress={() => setShowFilters(false)}>
-            <Text style={styles.filterApplyText}>Apply</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
+  // ============================================
+  // PERMISSION MODAL
+  // ============================================
 
   const renderPermissionModal = () => (
     <Modal visible={showPermissionModal} transparent animationType="fade">
       <View style={styles.permissionOverlay}>
         <View style={styles.permissionModal}>
-          <View style={styles.permissionIcon}>
+          <LinearGradient colors={['#E7FCF6', '#E0F7FA']} style={styles.permissionIcon}>
             <Ionicons name="location" size={normalize(40)} color={COLORS.primary} />
-          </View>
+          </LinearGradient>
           <Text style={styles.permissionTitle}>Enable your location</Text>
-          <Text style={styles.permissionText}>Come see what your friends nearby are up to</Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={async () => {
-            let { status } = await Location.requestForegroundPermissionsAsync();
+          <Text style={styles.permissionText}>Discover what your friends nearby are up to</Text>
+          <TouchableOpacity activeOpacity={0.85} onPress={async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
               setShowPermissionModal(false);
-              let currentLocation = await Location.getCurrentPositionAsync({});
-              setLocation(currentLocation);
-              setRegion({ latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 });
-              setLoading(false);
+              requestLocation();
             }
           }}>
-            <Text style={styles.permissionButtonText}>Activate</Text>
+            <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.permissionButton}>
+              <Text style={styles.permissionButtonText}>Activate</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 
-  // Gradient Button Component
-  const GradientMapButton = ({ onPress, iconName }: { onPress: () => void; iconName: keyof typeof Ionicons.glyphMap }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+  // ============================================
+  // GRADIENT MAP BUTTON
+  // ============================================
+
+  const GradientMapButton = useCallback(({ onPress, iconName, size = 46 }: { onPress: () => void; iconName: keyof typeof Ionicons.glyphMap; size?: number }) => (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
       <LinearGradient
         colors={GRADIENTS.primary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradientMapButton}
+        style={[styles.gradientMapButton, { width: normalize(size), height: normalize(size), borderRadius: normalize(size / 2) }]}
       >
         <Ionicons name={iconName} size={normalize(22)} color={COLORS.white} />
       </LinearGradient>
     </TouchableOpacity>
-  );
+  ), []);
 
-  if (loading && isActive) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading map...</Text>
-      </View>
-    );
-  }
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* MAP - Plein écran */}
+      {/* MAP */}
       <MapView
-        ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        region={region}
-        onRegionChangeComplete={setRegion}
-        showsUserLocation
-        showsMyLocationButton={false}
+        styleURL="mapbox://styles/mapbox/streets-v12"
+        logoEnabled={false}
+        attributionEnabled={false}
+        scaleBarEnabled={false}
       >
+        <Camera
+          ref={cameraRef}
+          zoomLevel={12}
+          centerCoordinate={userCoords}
+          animationMode="flyTo"
+          animationDuration={500}
+        />
+        <LocationPuck
+          puckBearing="heading"
+          puckBearingEnabled
+          pulsing={{ isEnabled: true, color: COLORS.primary }}
+        />
         {filteredMarkers.map((marker) => (
-          <Marker key={marker.id} coordinate={marker.coordinate} onPress={() => handleMarkerPress(marker)}>
+          <PointAnnotation
+            key={marker.id}
+            id={marker.id}
+            coordinate={[marker.coordinate.longitude, marker.coordinate.latitude]}
+            onSelected={() => handleMarkerPress(marker)}
+          >
             {renderCustomMarker(marker)}
-          </Marker>
+          </PointAnnotation>
         ))}
       </MapView>
 
-      {/* SEARCH BAR + FILTER - Just below safe area */}
+      {/* SEARCH BAR */}
       <View style={[
         styles.searchContainer,
-        { top: insets.top + 8 }
+        { top: xplorerFullscreen ? insets.top + 8 : insets.top + 44 + 38 + 8 }
       ]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={normalize(18)} color={COLORS.primary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Coaches, gyms, restos..."
+            placeholder="Coaches, gyms, wellness..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -337,53 +561,151 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
-          style={[styles.filterButton, activeFilters.length > 0 && styles.filterButtonActive]}
-          onPress={() => setShowFilters(true)}
-        >
-          <Ionicons
-            name="options-outline"
-            size={normalize(20)}
-            color={activeFilters.length > 0 ? COLORS.white : COLORS.dark}
-          />
-          {activeFilters.length > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilters.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
-      {/* BOUTONS COIN INFÉRIEUR DROIT */}
-      <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(3) }]}>
-        <GradientMapButton onPress={toggleFullscreen} iconName={xplorerFullscreen ? "contract-outline" : "expand-outline"} />
-        <GradientMapButton onPress={centerOnUser} iconName="navigate" />
+      {/* HORIZONTAL FILTER CHIPS - Below search bar */}
+      <View style={[
+        styles.chipsContainer,
+        { top: xplorerFullscreen ? insets.top + 8 + normalize(44) + 8 : insets.top + 44 + 38 + 8 + normalize(44) + 8 }
+      ]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsScroll}
+        >
+          {FILTERS.map(filter => {
+            const isActive = activeFilters.includes(filter.key);
+            const subCount = (activeSubFilters[filter.key] || []).length;
+            return (
+              <Pressable
+                key={filter.key}
+                onPress={() => toggleFilter(filter.key)}
+                onLongPress={() => handleLongPress(filter.key)}
+                style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+              >
+                {isActive ? (
+                  <LinearGradient
+                    colors={GRADIENTS.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.chip}
+                  >
+                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.white} />
+                    <Text style={[styles.chipText, { color: COLORS.white }]}>{filter.label}</Text>
+                    {subCount > 0 && (
+                      <View style={styles.chipSubBadge}>
+                        <Text style={styles.chipSubBadgeText}>{subCount}</Text>
+                      </View>
+                    )}
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.chipInactive}>
+                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.dark} />
+                    <Text style={styles.chipText}>{filter.label}</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
+
+      {/* MAP BUTTONS - Bottom right */}
+      <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(2) }]}>
+        <GradientMapButton
+          onPress={toggleXplorerFullscreen}
+          iconName={xplorerFullscreen ? 'contract-outline' : 'expand-outline'}
+        />
+        <GradientMapButton
+          onPress={centerOnUser}
+          iconName="navigate"
+        />
+      </View>
+
+      {/* FAB overlay to close */}
+      {fabOpen && (
+        <TouchableOpacity
+          style={[StyleSheet.absoluteFill, { zIndex: 15 }]}
+          activeOpacity={1}
+          onPress={() => setFabOpen(false)}
+        />
+      )}
+
+      {/* FAB - Bottom left */}
+      {fabActions.length > 0 && (
+        <View style={[styles.fabContainer, { bottom: insets.bottom + hp(2) }]}>
+          {/* Expanded actions */}
+          {fabOpen && fabActions.map((item) => (
+            <TouchableOpacity
+              key={item.action}
+              style={styles.fabActionRow}
+              activeOpacity={0.85}
+              onPress={() => handleFabAction(item.action)}
+            >
+              <View style={styles.fabActionLabel}>
+                <Text style={styles.fabActionLabelText}>{item.label}</Text>
+              </View>
+              <LinearGradient
+                colors={GRADIENTS.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabActionButton}
+              >
+                <Ionicons name={item.icon} size={normalize(20)} color={COLORS.white} />
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+
+          {/* Main FAB */}
+          <TouchableOpacity activeOpacity={0.85} onPress={() => {
+            if (fabActions.length === 1) {
+              handleFabAction(fabActions[0].action);
+            } else {
+              setFabOpen(prev => !prev);
+            }
+          }}>
+            <LinearGradient
+              colors={GRADIENTS.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fab}
+            >
+              <Ionicons name={fabOpen ? 'close' : 'add'} size={normalize(26)} color={COLORS.white} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* POPUP */}
-      {renderPopup()}
+      {selectedMarker && (
+        selectedMarker.category === 'business' || selectedMarker.category === 'event' || selectedMarker.category === 'spot'
+          ? renderBusinessPopup()
+          : renderUserPopup()
+      )}
 
       {/* MODALS */}
-      {renderFilters()}
+      {renderSubFilterSheet()}
       {renderPermissionModal()}
     </View>
   );
 }
 
+// ============================================
+// STYLES
+// ============================================
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
-  loadingText: { marginTop: hp(1.5), fontSize: normalize(16), color: COLORS.gray },
   map: { ...StyleSheet.absoluteFillObject },
 
-  // Search Bar - Compact and elegant
+  // Search Bar
   searchContainer: {
     position: 'absolute',
     left: wp(4),
     right: wp(4),
     flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 10
+    zIndex: 10,
   },
   searchBar: {
     flex: 1,
@@ -393,7 +715,6 @@ const styles = StyleSheet.create({
     borderRadius: normalize(14),
     paddingHorizontal: wp(3.5),
     height: normalize(44),
-    marginRight: wp(2),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
@@ -406,58 +727,70 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: wp(2.5),
     fontSize: normalize(15),
-    fontFamily: 'Poppins-Regular',
     color: COLORS.dark,
     paddingVertical: 0,
   },
-  filterButton: {
-    width: normalize(44),
-    height: normalize(44),
-    borderRadius: normalize(14),
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-  },
-  filterButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  filterBadge: {
+
+  // Horizontal filter chips
+  chipsContainer: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    width: normalize(18),
-    height: normalize(18),
-    borderRadius: normalize(9),
-    backgroundColor: '#FF6B6B',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  chipsScroll: {
+    paddingHorizontal: wp(4),
+    gap: wp(2),
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: wp(3.5),
+    paddingVertical: hp(1),
+    borderRadius: normalize(20),
+    gap: wp(1.5),
+  },
+  chipInactive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: wp(3.5),
+    paddingVertical: hp(1),
+    borderRadius: normalize(20),
+    gap: wp(1.5),
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  chipText: {
+    fontSize: normalize(13),
+    fontWeight: '600',
+    color: COLORS.dark,
+  },
+  chipSubBadge: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: normalize(8),
+    width: normalize(16),
+    height: normalize(16),
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.white,
   },
-  filterBadgeText: {
+  chipSubBadgeText: {
     fontSize: normalize(10),
     fontWeight: '700',
     color: COLORS.white,
   },
 
-  // Map Buttons with Gradient
+  // Map Buttons
   mapButtonsRight: {
     position: 'absolute',
     right: wp(4),
     gap: normalize(10),
+    zIndex: 20,
   },
   gradientMapButton: {
-    width: normalize(46),
-    height: normalize(46),
-    borderRadius: normalize(23),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: COLORS.primary,
@@ -467,15 +800,85 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 
+  // FAB
+  fabContainer: {
+    position: 'absolute',
+    left: wp(4),
+    alignItems: 'flex-start',
+    zIndex: 20,
+  },
+  fab: {
+    width: normalize(54),
+    height: normalize(54),
+    borderRadius: normalize(27),
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: normalize(10),
+  },
+  fabActionLabel: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: wp(3),
+    paddingVertical: hp(0.8),
+    borderRadius: normalize(8),
+    marginRight: wp(2),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fabActionLabelText: {
+    fontSize: normalize(13),
+    fontWeight: '600',
+    color: COLORS.dark,
+  },
+  fabActionButton: {
+    width: normalize(42),
+    height: normalize(42),
+    borderRadius: normalize(21),
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+
   // Marker
   markerContainer: { alignItems: 'center' },
-  markerShadow: { position: 'absolute', bottom: -2, width: wp(4), height: hp(0.5), backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: wp(2) },
-  markerPin: { width: wp(11), height: wp(11), borderRadius: wp(5.5), borderWidth: 3, borderColor: COLORS.white, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
+  markerShadow: { position: 'absolute', bottom: -2, width: wp(4), height: hp(0.5), backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: wp(2) },
+  markerPin: {
+    width: wp(11), height: wp(11), borderRadius: wp(5.5),
+    borderWidth: 3, borderColor: COLORS.white,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
+  },
   markerAvatar: { width: wp(9), height: wp(9), borderRadius: wp(4.5) },
-  markerPointer: { width: 0, height: 0, borderLeftWidth: wp(2), borderRightWidth: wp(2), borderTopWidth: hp(1.2), borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
+  markerPointer: {
+    width: 0, height: 0,
+    borderLeftWidth: wp(2), borderRightWidth: wp(2), borderTopWidth: hp(1.2),
+    borderLeftColor: 'transparent', borderRightColor: 'transparent',
+    marginTop: -2,
+  },
 
   // User Popup
-  popupContainer: { position: 'absolute', left: wp(4), right: wp(4), backgroundColor: COLORS.white, borderRadius: normalize(16), padding: wp(4), shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
+  popupContainer: {
+    position: 'absolute', left: wp(4), right: wp(4),
+    backgroundColor: COLORS.white, borderRadius: normalize(20),
+    padding: wp(4),
+    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
+    zIndex: 30,
+  },
   popupClose: { position: 'absolute', top: hp(1.5), right: wp(3), zIndex: 10 },
   popupContent: { flexDirection: 'row' },
   popupAvatar: { width: wp(15), height: wp(15), borderRadius: wp(7.5), marginRight: wp(3) },
@@ -486,12 +889,23 @@ const styles = StyleSheet.create({
   popupStatNumber: { fontWeight: '600', color: COLORS.dark },
   popupStatDot: { marginHorizontal: wp(1.5), color: COLORS.grayMuted },
   popupBio: { fontSize: normalize(13), color: COLORS.gray, lineHeight: normalize(18) },
-  popupButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, paddingVertical: hp(1.5), borderRadius: normalize(12), marginTop: hp(1.8) },
+  popupButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: hp(1.5), borderRadius: normalize(14), marginTop: hp(1.8),
+  },
   popupButtonText: { fontSize: normalize(15), fontWeight: '600', color: COLORS.white, marginRight: wp(1.5) },
 
   // Business Popup
-  businessPopupContainer: { position: 'absolute', left: wp(4), right: wp(4), backgroundColor: COLORS.white, borderRadius: normalize(16), overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
-  businessPopupClose: { position: 'absolute', top: hp(1.5), right: wp(3), zIndex: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: wp(4), padding: wp(1) },
+  businessPopupContainer: {
+    position: 'absolute', left: wp(4), right: wp(4),
+    backgroundColor: COLORS.white, borderRadius: normalize(20), overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
+    zIndex: 30,
+  },
+  businessPopupClose: {
+    position: 'absolute', top: hp(1.5), right: wp(3), zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: wp(4), padding: wp(1),
+  },
   businessCover: { width: '100%', height: hp(15) },
   businessContent: { padding: wp(4) },
   businessName: { fontSize: normalize(18), fontWeight: '700', color: COLORS.dark, marginBottom: hp(1.2) },
@@ -501,24 +915,63 @@ const styles = StyleSheet.create({
   expertiseTag: { backgroundColor: '#E7FCF6', paddingHorizontal: wp(3), paddingVertical: hp(0.8), borderRadius: normalize(16), marginRight: wp(2), marginBottom: hp(1) },
   expertiseTagText: { fontSize: normalize(12), color: COLORS.primary, fontWeight: '500' },
 
-  // Filter Modal
-  filterModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  filterModal: { backgroundColor: COLORS.white, borderTopLeftRadius: normalize(24), borderTopRightRadius: normalize(24), padding: wp(5) },
-  filterHandle: { width: wp(10), height: hp(0.5), backgroundColor: COLORS.grayLight, borderRadius: normalize(2), alignSelf: 'center', marginBottom: hp(2.5) },
-  filterTitle: { fontSize: normalize(20), fontWeight: '700', color: COLORS.dark, marginBottom: hp(0.5) },
-  filterSubtitle: { fontSize: normalize(14), color: COLORS.gray, marginBottom: hp(2.5) },
-  filterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: wp(3) },
-  filterOption: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: wp(4), paddingVertical: hp(1.5), borderRadius: normalize(12), backgroundColor: '#F5F5F5', gap: wp(2) },
-  filterOptionText: { fontSize: normalize(15), fontWeight: '500', color: COLORS.dark },
-  filterApplyButton: { backgroundColor: COLORS.primary, paddingVertical: hp(1.8), borderRadius: normalize(12), alignItems: 'center', marginTop: hp(3) },
-  filterApplyText: { fontSize: normalize(16), fontWeight: '600', color: COLORS.white },
+  // Sub-filter bottom sheet
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheetContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: normalize(28), borderTopRightRadius: normalize(28),
+    padding: wp(5),
+  },
+  sheetHandle: {
+    width: wp(10), height: 4,
+    backgroundColor: COLORS.grayLight, borderRadius: 2,
+    alignSelf: 'center', marginBottom: hp(2),
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: hp(0.5),
+  },
+  sheetIconCircle: {
+    width: normalize(36),
+    height: normalize(36),
+    borderRadius: normalize(18),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: wp(2.5),
+  },
+  sheetTitle: { fontSize: normalize(22), fontWeight: '700', color: COLORS.dark },
+  sheetSubtitle: { fontSize: normalize(14), color: COLORS.gray, marginBottom: hp(2) },
+  sheetChips: { flexDirection: 'row', flexWrap: 'wrap', gap: wp(2.5) },
+  sheetChip: {
+    paddingHorizontal: wp(4), paddingVertical: hp(1.2),
+    borderRadius: normalize(14),
+  },
+  sheetChipInactive: {
+    paddingHorizontal: wp(4), paddingVertical: hp(1.2),
+    borderRadius: normalize(14),
+    backgroundColor: '#F5F5F5',
+  },
+  sheetChipText: { fontSize: normalize(14), fontWeight: '500', color: COLORS.dark },
+  sheetApplyButton: {
+    paddingVertical: hp(1.8), borderRadius: normalize(14),
+    alignItems: 'center', marginTop: hp(3),
+  },
+  sheetApplyText: { fontSize: normalize(16), fontWeight: '600', color: COLORS.white },
 
   // Permission Modal
   permissionOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', padding: wp(5) },
-  permissionModal: { backgroundColor: COLORS.white, borderRadius: normalize(20), padding: wp(6), width: '85%', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
-  permissionIcon: { width: wp(16), height: wp(16), borderRadius: wp(8), backgroundColor: '#E7FCF6', justifyContent: 'center', alignItems: 'center', marginBottom: hp(2) },
+  permissionModal: {
+    backgroundColor: COLORS.white, borderRadius: normalize(24), padding: wp(6),
+    width: '85%', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
+  },
+  permissionIcon: {
+    width: wp(18), height: wp(18), borderRadius: wp(9),
+    justifyContent: 'center', alignItems: 'center', marginBottom: hp(2),
+  },
   permissionTitle: { fontSize: normalize(20), fontWeight: '700', color: COLORS.dark, marginBottom: hp(1), textAlign: 'center' },
   permissionText: { fontSize: normalize(14), color: COLORS.gray, textAlign: 'center', marginBottom: hp(2.5), lineHeight: normalize(20) },
-  permissionButton: { backgroundColor: COLORS.primary, paddingVertical: hp(1.5), paddingHorizontal: wp(10), borderRadius: normalize(25) },
+  permissionButton: { paddingVertical: hp(1.5), paddingHorizontal: wp(10), borderRadius: normalize(25) },
   permissionButtonText: { fontSize: normalize(15), fontWeight: '600', color: COLORS.white },
 });

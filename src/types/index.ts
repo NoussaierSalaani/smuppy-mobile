@@ -351,7 +351,7 @@ export interface Spot {
   };
 }
 
-export type SpotCategory = 'sport' | 'event' | 'business' | 'meetup' | 'route_point' | 'other';
+export type SpotCategory = 'coaches' | 'gyms' | 'wellness' | 'sports' | 'food' | 'stores' | 'events' | 'spots' | 'other';
 
 export type SportType =
   | 'running' | 'cycling' | 'hiking' | 'climbing' | 'swimming'
@@ -359,6 +359,8 @@ export type SportType =
   | 'basketball' | 'football' | 'tennis' | 'other';
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'expert';
+
+export type RouteProfile = 'walking' | 'cycling';
 
 export interface RoutePoint {
   lat: number;
@@ -424,6 +426,179 @@ export interface NearbySpot {
   distance_km: number;
   rating_average: number;
   creator_id: string;
+}
+
+// ============================================
+// GROUP ACTIVITY TYPES
+// ============================================
+
+export interface GroupActivity {
+  id: string;
+  creator_id: string;
+  name: string;
+  description?: string;
+  category: SpotCategory;
+  subcategory: string;
+  sport_type?: SportType;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  cover_image_url?: string;
+  starts_at: string;
+  ends_at?: string;
+  timezone?: string;
+  max_participants?: number;
+  current_participants: number;
+  is_free: boolean;
+  price?: number;
+  currency?: string;
+  is_public: boolean;
+  is_fans_only: boolean;
+  // Route (for running, cycling, hiking groups)
+  is_route: boolean;
+  route_start?: { lat: number; lng: number };
+  route_end?: { lat: number; lng: number };
+  route_waypoints?: { lat: number; lng: number }[];
+  route_geojson?: object;
+  route_profile?: RouteProfile;
+  route_distance_km?: number;
+  route_duration_min?: number;
+  route_elevation_gain?: number;
+  difficulty?: DifficultyLevel;
+  // Status
+  status: 'upcoming' | 'active' | 'ended' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  creator?: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url?: string | null;
+    is_verified?: boolean;
+    account_type?: string;
+  };
+}
+
+export interface CreateGroupData {
+  name: string;
+  description?: string;
+  category: SpotCategory;
+  subcategory: string;
+  sport_type?: SportType;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  cover_image_url?: string;
+  starts_at: string;
+  ends_at?: string;
+  timezone?: string;
+  max_participants?: number;
+  is_free: boolean;
+  price?: number;
+  currency?: string;
+  is_public: boolean;
+  is_fans_only: boolean;
+  is_route: boolean;
+  route_start?: { lat: number; lng: number };
+  route_end?: { lat: number; lng: number };
+  route_waypoints?: { lat: number; lng: number }[];
+  route_geojson?: object;
+  route_profile?: RouteProfile;
+  route_distance_km?: number;
+  route_duration_min?: number;
+  route_elevation_gain?: number;
+  difficulty?: DifficultyLevel;
+}
+
+// ============================================
+// LIVE PIN TYPES (Pro Creator Premium + Pro Business Premium)
+// ============================================
+
+export interface LivePin {
+  id: string;
+  user_id: string;
+  channel_name: string;
+  title?: string;
+  latitude: number;
+  longitude: number;
+  viewer_count: number;
+  started_at: string;
+  user?: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url?: string | null;
+    is_verified?: boolean;
+  };
+}
+
+// ============================================
+// DYNAMIC SUBCATEGORY TYPES
+// ============================================
+
+export interface Subcategory {
+  id: string;
+  parent_category: SpotCategory;
+  name: string;
+  status: 'official' | 'pending';
+  spot_count: number;
+  suggested_by: string;
+  created_at: string;
+}
+
+// ============================================
+// SPOT QUALITIES (per category)
+// ============================================
+
+export const SPOT_QUALITIES: Record<string, string[]> = {
+  hiking: ['Shade', 'Water Source', 'Trail Markers', 'Parking', 'Dogs Allowed', 'Panoramic View', 'Restrooms'],
+  running: ['Lighting', 'Asphalt', 'Dirt', 'Mixed Surface', 'Fountains', 'Restrooms', 'Flat', 'Hilly'],
+  cycling: ['Separated Lane', 'Lighting', 'Repair Stations', 'Smooth Surface', 'Scenic'],
+  outdoor_gym: ['Pull-up Bars', 'Parallel Bars', 'Dip Station', 'Lighting', 'Rubber Surface'],
+  wellness: ['Quiet', 'Nature', 'Accessible', 'Indoor', 'Outdoor'],
+  food: ['Terrace', 'Vegan Options', 'Gluten Free', 'Parking', 'Delivery'],
+  general: ['Wheelchair Accessible', 'Parking', 'Public Transit', 'Free', 'Kid Friendly'],
+};
+
+// ============================================
+// MAP MARKER TYPES (unified for XplorerFeed)
+// ============================================
+
+export interface MapMarker {
+  id: string;
+  type: SpotCategory | 'live';
+  subcategory: string;
+  entity_type: 'user' | 'business' | 'event' | 'group' | 'spot' | 'live';
+  name: string;
+  avatar?: string;
+  cover_image?: string;
+  latitude: number;
+  longitude: number;
+  // Optional fields depending on entity_type
+  address?: string;
+  hours?: string;
+  expertise?: string[];
+  bio?: string;
+  fans?: number;
+  posts?: number;
+  rating?: number;
+  review_count?: number;
+  // Route info
+  is_route?: boolean;
+  route_geojson?: object;
+  route_distance_km?: number;
+  difficulty?: DifficultyLevel;
+  // Live specific
+  viewer_count?: number;
+  channel_name?: string;
+  // Event/Group specific
+  starts_at?: string;
+  ends_at?: string;
+  participant_count?: number;
+  max_participants?: number;
+  // Relationship
+  is_fan?: boolean;
+  is_subscribed?: boolean;
 }
 
 // ============================================
@@ -587,6 +762,14 @@ export type MainStackParamList = {
   EventDetail: { eventId: string };
   CreateEvent: undefined;
   EventManage: { eventId: string };
+
+  // Groups
+  CreateGroup: { lockedLocation?: { latitude: number; longitude: number; address: string } } | undefined;
+  GroupDetail: { groupId: string };
+
+  // Spots
+  SuggestSpot: undefined;
+  SpotDetail: { spotId: string };
 
   // Tips
   TipLeaderboard: { creatorId: string; creatorUsername: string };

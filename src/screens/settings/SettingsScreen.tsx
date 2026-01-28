@@ -144,9 +144,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
-  // Pro creators only have expertise (no separate interests)
+  // Pro creators and pro_business only have expertise (no separate interests)
   // Personal users have both interests and expertise
-  const isProCreator = user?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
   const MENU_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },

@@ -452,7 +452,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER TABS ====================
   // Dynamic tabs based on account type
-  const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business' || resolvedProfile?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_business';
 
   // Primary tabs (always visible) - max 4
   const PRIMARY_TABS = useMemo(() => {

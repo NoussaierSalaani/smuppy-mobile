@@ -61,7 +61,7 @@ const ROUTE_CATEGORIES = ['running', 'hiking', 'cycling'];
 const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { currency, formatAmount: _formatAmount } = useCurrency();
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
   // Account limits state
   const [canCreate, setCanCreate] = useState(true);

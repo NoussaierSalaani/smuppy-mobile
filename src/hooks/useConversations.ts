@@ -156,7 +156,7 @@ export function useMessages(conversationId: string, otherUserId: string): UseMes
   const [cursor, setCursor] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
 
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     isConnected,

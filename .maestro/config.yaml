@@ -1,7 +1,7 @@
 # Maestro Configuration for Smuppy
 # https://maestro.mobile.dev/
 
-appId: com.smuppy.app
+appId: com.nou09.Smuppy
 
 # Default settings
 name: Smuppy E2E Tests

@@ -135,7 +135,7 @@ interface TabNavigatorProps {
 function TabNavigator({ navigation }: TabNavigatorProps) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
   return (
     <>

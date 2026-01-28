@@ -80,7 +80,7 @@ export default function BattleStreamScreen() {
 
   const tipAnimations = useRef<Animated.Value[]>([]).current;
   const commentsRef = useRef<FlatList<Comment>>(null);
-  const durationInterval = useRef<NodeJS.Timeout | null>(null);
+  const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadBattleState();

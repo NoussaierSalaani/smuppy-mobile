@@ -206,9 +206,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   const insets = useSafeAreaInsets();
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
 
-  // Check if user is pro_creator for special styling
+  // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
   // Pro creator menu state
   const [showProMenu, setShowProMenu] = useState(false);

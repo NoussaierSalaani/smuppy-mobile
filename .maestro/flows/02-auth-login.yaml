@@ -1,5 +1,5 @@
 # Test: Login Flow
-appId: com.smuppy.app
+appId: com.nou09.Smuppy
 name: "Auth - Login Flow"
 tags:
   - auth

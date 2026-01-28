@@ -1,18 +1,23 @@
 # Test: Feed Navigation
-appId: com.smuppy.app
+appId: com.nou09.Smuppy
 name: "Feed - Tab Navigation"
 tags:
   - feed
   - navigation
 ---
 
-# Prerequisite: User must be logged in
+# Launch app
 - launchApp
 
-# Wait for feed to load
-- assertVisible:
-    text: "Fan"
-    timeout: 5000
+# Handle Expo dev launcher - tap on localhost to load bundle
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
+# Wait for bundle to load
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 20000
 
 # Test FanFeed tab
 - tapOn: "Fan"
@@ -22,25 +27,18 @@ tags:
 - tapOn: "Vibes"
 - assertVisible: "Vibes"
 
-# Test Explorer tab  
+# Test Explorer tab
 - tapOn: "Xplorer"
 - assertVisible: "Xplorer"
 
-# Test scroll in each feed
+# Navigate back to Fan and scroll
 - tapOn: "Fan"
-- scroll:
-    direction: DOWN
-    duration: 1000
-- scroll:
-    direction: UP
-    duration: 500
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%
 
+# Navigate to Vibes and scroll
 - tapOn: "Vibes"
-- scroll:
-    direction: DOWN
-    duration: 1000
-
-- tapOn: "Xplorer"
-- scroll:
-    direction: DOWN
-    duration: 1000
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%

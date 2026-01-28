@@ -1,7 +1,7 @@
 # Test: Complete Signup Flow
 # Tests the entire onboarding and signup process
 
-appId: com.smuppy.app
+appId: com.nou09.Smuppy
 name: "Auth - Complete Signup Flow"
 tags:
   - auth

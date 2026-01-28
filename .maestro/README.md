@@ -32,7 +32,7 @@ maestro test .maestro/feed/view-feed.yaml
 
 ### Run with different app ID
 ```bash
-maestro test --app-id com.smuppy.app.dev .maestro/auth/login.yaml
+maestro test --app-id com.nou09.Smuppy.dev .maestro/auth/login.yaml
 ```
 
 ## Test Flows
@@ -59,7 +59,7 @@ Environment variables can be set in `.maestro/config.yaml`:
 
 ### Basic Flow Structure
 ```yaml
-appId: com.smuppy.app
+appId: com.nou09.Smuppy
 
 ---
 

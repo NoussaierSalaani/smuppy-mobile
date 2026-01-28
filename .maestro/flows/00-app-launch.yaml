@@ -1,0 +1,56 @@
+# Test: App Launch and Login
+appId: com.nou09.Smuppy
+name: "App - Launch and Login Test"
+tags:
+  - smoke
+  - launch
+  - auth
+---
+
+# Launch app
+- launchApp
+
+# Handle Expo dev launcher
+- tapOn:
+    text: "localhost"
+    optional: true
+
+# Wait for welcome screen
+- extendedWaitUntil:
+    visible: "Welcome To"
+    timeout: 20000
+
+# Tap login button on welcome screen
+- tapOn:
+    text: "Login.*"
+
+# Wait for screen transition
+- waitForAnimationToEnd
+
+# Tap login button to submit (credentials already filled)
+# Login button is around 62% from top
+- tapOn:
+    point: 50%, 62%
+
+# Wait for home feed to load
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 25000
+
+# Verify we're on the home feed - test tab navigation
+- assertVisible: "Fan"
+- assertVisible: "Vibes"
+- assertVisible: "Xplorer"
+
+# Test tab navigation
+- tapOn: "Fan"
+- tapOn: "Vibes"
+- tapOn: "Xplorer"
+- tapOn: "Vibes"
+
+# Test scroll on Vibes feed
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%
+
+# Success - all tabs accessible and scrollable

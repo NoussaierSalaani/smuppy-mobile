@@ -19,7 +19,7 @@ export interface User {
   location: string | null;
   website: string | null;
   isVerified: boolean;
-  accountType: 'fan' | 'creator';
+  accountType: 'personal' | 'pro_creator' | 'pro_business';
   createdAt: string;
   updatedAt: string;
 }
@@ -222,7 +222,7 @@ export interface PrivateSession {
 // ============================================
 
 export interface OnboardingData {
-  accountType: 'fan' | 'creator';
+  accountType: 'personal' | 'pro_creator' | 'pro_business';
   displayName: string;
   dateOfBirth: Date;
   gender: 'male' | 'female' | 'other' | 'prefer_not_to_say';
@@ -478,7 +478,7 @@ export type MainStackParamList = {
 
   // Onboarding
   AccountType: { email: string; password: string; name?: string };
-  TellUsAboutYou: { accountType: 'fan' | 'creator' | 'personal' | 'pro_creator' | 'pro_business'; [key: string]: unknown };
+  TellUsAboutYou: { accountType: 'personal' | 'pro_creator' | 'pro_business'; [key: string]: unknown };
   CreatorInfo: { [key: string]: unknown };
   CreatorOptionalInfo: { [key: string]: unknown };
   BusinessCategory: { [key: string]: unknown };

@@ -133,9 +133,15 @@ describe('Critical Paths', () => {
     await safeTap('profile-tab');
     
     // Should show error or cached content
-    await waitFor(element(by.text('Erreur')).or(element(by.id('profile-screen'))))
-      .toBeVisible()
-      .withTimeout(TIMEOUTS.medium);
+    try {
+      await waitFor(element(by.text('Erreur')))
+        .toBeVisible()
+        .withTimeout(TIMEOUTS.medium);
+    } catch {
+      await waitFor(element(by.id('profile-screen')))
+        .toBeVisible()
+        .withTimeout(TIMEOUTS.medium);
+    }
     
     // Re-enable network
     await device.setURLBlacklist([]);
@@ -152,6 +158,8 @@ describe('Critical Paths', () => {
 
   it('should handle deep links', async () => {
     await device.openURL({ url: 'smuppy://profile/testuser' });
-    await waitForElement('user-profile-screen', TIMEOUTS.medium);
+    await waitFor(element(by.id('user-profile-screen')))
+      .toBeVisible()
+      .withTimeout(TIMEOUTS.medium);
   });
 });

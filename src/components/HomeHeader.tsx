@@ -44,9 +44,9 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity } = useTabBar();
 
-  // Check if user is pro_creator for special styling
+  // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
   const tabs: Tab[] = useMemo(() => [
     { id: 'Fan', label: 'Fan' },

@@ -82,6 +82,9 @@ export interface RateLimitCheckResult {
   remaining: number;
   retryIn: number;
   retryInMinutes?: number;
+  // Progressive delay
+  shouldDelay?: boolean;
+  delayMs?: number;
 }
 
 /**
@@ -207,10 +210,19 @@ export interface RateLimitConfig {
   max: number;
   window: number;
   blockDuration: number;
+  // Progressive delay (Level 2 Security)
+  progressiveDelay?: boolean;
+  delayAfterAttempts?: number; // Start delay after X attempts
+  delayMs?: number; // Delay duration in ms
 }
 
 /**
  * Pre-defined rate limit configurations
+ *
+ * Progressive delay strategy (Level 2 Security):
+ * - Attempts 1-3: Normal (no delay)
+ * - Attempts 4-5: 2s delay enforced
+ * - Attempts 6+: Blocked for blockDuration
  */
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   LOGIN: {
@@ -218,6 +230,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     max: 5,
     window: 60000, // 1 minute
     blockDuration: 900000, // 15 minutes
+    progressiveDelay: true, // Enable progressive delay
+    delayAfterAttempts: 3, // Start delay after 3 attempts
+    delayMs: 2000, // 2 seconds delay
   },
   SIGNUP: {
     key: 'signup',
@@ -298,6 +313,18 @@ export const checkRateLimit = async (config: RateLimitConfig): Promise<RateLimit
       retryIn: Math.ceil(config.blockDuration / 1000),
       retryInMinutes: Math.ceil(config.blockDuration / 60000),
     };
+  }
+
+  // Progressive delay: after X attempts, require a delay
+  if (config.progressiveDelay && config.delayAfterAttempts && config.delayMs) {
+    const attemptsUsed = config.max - status.remaining;
+    if (attemptsUsed >= config.delayAfterAttempts) {
+      return {
+        ...status,
+        shouldDelay: true,
+        delayMs: config.delayMs,
+      };
+    }
   }
 
   return status;

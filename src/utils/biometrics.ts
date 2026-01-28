@@ -3,6 +3,7 @@ import { storage, STORAGE_KEYS } from './secureStorage';
 
 const MAX_ATTEMPTS = 3;
 const BLOCK_DURATION = 5 * 60 * 1000; // 5 minutes
+const SESSION_TIMEOUT_DAYS = 30; // Session expires after 30 days of inactivity
 
 /**
  * Biometric authentication types
@@ -34,10 +35,24 @@ export interface Biometrics {
   recordFailedAttempt: () => Promise<AttemptResult>;
   resetAttempts: () => Promise<void>;
   authenticate: (promptMessage?: string) => Promise<AuthResult>;
-  enable: () => Promise<AuthResult>;
+  /**
+   * Enable biometrics - REQUIRES password verification for security
+   * This prevents someone from enabling biometrics on a borrowed device
+   * @param verifyPassword - Function to verify password with backend
+   */
+  enable: (verifyPassword: () => Promise<boolean>) => Promise<AuthResult>;
   disable: () => Promise<{ success: boolean }>;
   isEnabled: () => Promise<boolean>;
   loginWithBiometrics: () => Promise<AuthResult>;
+  /**
+   * Check if session is still valid (not timed out)
+   * Sessions expire after SESSION_TIMEOUT_DAYS of inactivity
+   */
+  isSessionValid: () => Promise<boolean>;
+  /**
+   * Update last activity timestamp
+   */
+  updateLastActivity: () => Promise<void>;
 }
 
 export const biometrics: Biometrics = {
@@ -118,13 +133,28 @@ export const biometrics: Biometrics = {
     }
   },
 
-  enable: async (): Promise<AuthResult> => {
+  /**
+   * Enable biometrics with password verification
+   * SECURITY: Requires password to prevent unauthorized biometric enrollment
+   */
+  enable: async (verifyPassword: () => Promise<boolean>): Promise<AuthResult> => {
     const available = await biometrics.isAvailable();
     if (!available) return { success: false, error: 'Biometrics not available' };
 
+    // SECURITY STEP 1: Verify password FIRST (before biometric prompt)
+    // This ensures the account owner is enabling biometrics, not device owner
+    const passwordValid = await verifyPassword();
+    if (!passwordValid) {
+      return { success: false, error: 'Password verification failed' };
+    }
+
+    // SECURITY STEP 2: Now authenticate with biometrics
     const auth = await biometrics.authenticate('Enable biometric login');
     if (auth.success) {
       await storage.set(STORAGE_KEYS.BIOMETRIC_ENABLED, 'true');
+      // Record when biometrics was enabled for session tracking
+      await storage.set('biometric_enabled_at', Date.now().toString());
+      await biometrics.updateLastActivity();
       return { success: true };
     }
     return auth;
@@ -132,6 +162,8 @@ export const biometrics: Biometrics = {
 
   disable: async (): Promise<{ success: boolean }> => {
     await storage.delete(STORAGE_KEYS.BIOMETRIC_ENABLED);
+    await storage.delete('biometric_enabled_at');
+    await storage.delete('biometric_last_activity');
     await biometrics.resetAttempts();
     return { success: true };
   },
@@ -141,11 +173,46 @@ export const biometrics: Biometrics = {
     return enabled === 'true';
   },
 
+  /**
+   * Check if biometric session is still valid
+   * Sessions expire after SESSION_TIMEOUT_DAYS of inactivity
+   */
+  isSessionValid: async (): Promise<boolean> => {
+    const lastActivity = await storage.get('biometric_last_activity');
+    if (!lastActivity) return false;
+
+    const lastActivityTime = parseInt(lastActivity, 10);
+    const now = Date.now();
+    const daysSinceActivity = (now - lastActivityTime) / (1000 * 60 * 60 * 24);
+
+    return daysSinceActivity < SESSION_TIMEOUT_DAYS;
+  },
+
+  /**
+   * Update last activity timestamp
+   * Call this on successful biometric login
+   */
+  updateLastActivity: async (): Promise<void> => {
+    await storage.set('biometric_last_activity', Date.now().toString());
+  },
+
   loginWithBiometrics: async (): Promise<AuthResult> => {
     const enabled = await biometrics.isEnabled();
     if (!enabled) return { success: false, error: 'Biometrics not enabled' };
 
+    // SECURITY: Check session timeout
+    const sessionValid = await biometrics.isSessionValid();
+    if (!sessionValid) {
+      // Session expired - disable biometrics and require password login
+      await biometrics.disable();
+      return { success: false, error: 'session_expired' };
+    }
+
     const auth = await biometrics.authenticate('Login to Smuppy');
+    if (auth.success) {
+      // Update last activity on successful login
+      await biometrics.updateLastActivity();
+    }
     return auth;
   },
 };

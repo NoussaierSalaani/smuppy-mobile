@@ -91,9 +91,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       setIsLoading(true);
 
       // Get current user ID
-      const { data: currentProfile } = await getCurrentProfile();
+      const { data: currentProfile, error: profileError } = await getCurrentProfile();
       if (!currentProfile) {
-        console.error('[FansListScreen] No current profile');
+        console.warn('[FansListScreen] No current profile:', profileError);
+        // Show empty state instead of crashing
+        setFans([]);
+        setTracking([]);
         setIsLoading(false);
         return;
       }

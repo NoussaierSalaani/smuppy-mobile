@@ -133,13 +133,37 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   }, [navigation]);
 
   const handleEnableBiometric = useCallback(async () => {
-    const result = await biometrics.enable();
+    // SECURITY: From login screen, we need the password to enable biometrics
+    // If the user has entered their password, use it; otherwise show error
+    if (!password) {
+      setErrorModal({
+        visible: true,
+        title: 'Password Required',
+        message: 'Please enter your password first to enable biometric login.'
+      });
+      return;
+    }
+
+    // Create a password verification function that uses AWS auth
+    const verifyPassword = async (): Promise<boolean> => {
+      try {
+        // We need to verify this is the correct password for this account
+        // Use signIn to verify (it will fail if wrong password)
+        const normalizedEmail = email.trim().toLowerCase();
+        await backend.signIn({ email: normalizedEmail, password });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const result = await biometrics.enable(verifyPassword);
     if (result.success) {
       setBiometricEnabled(true);
-      setSuccessModal({ 
-        visible: true, 
-        title: `${isFaceId ? 'Face ID' : 'Touch ID'} Enabled!`, 
-        message: `You can now use ${isFaceId ? 'Face ID' : 'Touch ID'} for faster login.` 
+      setSuccessModal({
+        visible: true,
+        title: `${isFaceId ? 'Face ID' : 'Touch ID'} Enabled!`,
+        message: `You can now use ${isFaceId ? 'Face ID' : 'Touch ID'} for faster login.`
       });
     } else if (result.error === 'blocked') {
       const minutes = Math.ceil((result.remainingSeconds ?? 60) / 60);
@@ -148,8 +172,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         title: 'Too Many Attempts',
         message: `Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before trying again.`
       });
+    } else if (result.error === 'Password verification failed') {
+      setErrorModal({
+        visible: true,
+        title: 'Verification Failed',
+        message: 'The password you entered is incorrect. Please try again.'
+      });
     }
-  }, [isFaceId]);
+  }, [isFaceId, email, password]);
 
   const handleBiometricLogin = useCallback(async () => {
     const blockStatus = await biometrics.isBlocked();
@@ -177,6 +207,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         title: 'Session Expired',
         message: 'Your session has expired. Please login with your password to continue.'
       });
+      // Disable biometrics since session is invalid
+      setBiometricEnabled(false);
+    } else if (result.error === 'session_expired') {
+      // SECURITY: Biometric session expired after 30 days of inactivity
+      // User must re-authenticate with password
+      setErrorModal({
+        visible: true,
+        title: 'Session Expired',
+        message: 'For your security, biometric login has been disabled after 30 days of inactivity. Please login with your password.'
+      });
+      setBiometricEnabled(false);
     } else if (result.error === 'blocked') {
       const minutes = Math.ceil((result.remainingSeconds ?? 60) / 60);
       setErrorModal({
@@ -226,7 +267,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           title: 'Too Many Attempts',
           message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
         });
+        setLoading(false);
         return;
+      }
+
+      // Progressive delay: if too many attempts, slow down the attacker
+      if (awsCheck.shouldDelay && awsCheck.delayMs) {
+        await new Promise(resolve => setTimeout(resolve, awsCheck.delayMs));
       }
 
       // Use backend service which routes to AWS Cognito
@@ -246,12 +293,25 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
-    } catch (_error) {
-      setErrorModal({
-        visible: true,
-        title: 'Login Failed',
-        message: 'Invalid email or password. Please try again.'
-      });
+    } catch (error: any) {
+      const errorMessage = error?.message || '';
+
+      // SECURITY: Generic message for ALL auth errors to prevent information leakage
+      // Don't reveal if email exists, if account is unconfirmed, etc.
+      if (errorMessage.includes('Too many') || errorMessage.includes('rate') || errorMessage.includes('limit')) {
+        // Only exception: rate limiting (user needs to know to wait)
+        setErrorModal({
+          visible: true,
+          title: 'Too Many Attempts',
+          message: 'Please wait a few minutes before trying again.',
+        });
+      } else {
+        setErrorModal({
+          visible: true,
+          title: 'Login Failed',
+          message: 'Invalid email or password. Please try again.',
+        });
+      }
     } finally {
       setLoading(false);
     }

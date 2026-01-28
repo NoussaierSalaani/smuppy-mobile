@@ -10,6 +10,29 @@ import * as backend from '../../services/backend';
 
 const CODE_LENGTH = 6; // AWS Cognito OTP is 6 digits
 
+/**
+ * Mask email for privacy/security
+ * Example: "john.doe@gmail.com" → "j••••••e@g••••.com"
+ */
+const maskEmail = (email: string): string => {
+  if (!email || !email.includes('@')) return '••••@••••.com';
+
+  const [localPart, domain] = email.split('@');
+  const [domainName, ...domainExt] = domain.split('.');
+
+  // Mask local part: show first and last char, rest as dots
+  const maskedLocal = localPart.length <= 2
+    ? '••'
+    : `${localPart[0]}${'•'.repeat(Math.min(localPart.length - 2, 6))}${localPart[localPart.length - 1]}`;
+
+  // Mask domain name: show first char, rest as dots
+  const maskedDomain = domainName.length <= 1
+    ? '••••'
+    : `${domainName[0]}${'•'.repeat(Math.min(domainName.length - 1, 4))}`;
+
+  return `${maskedLocal}@${maskedDomain}.${domainExt.join('.')}`;
+};
+
 interface ResetCodeScreenProps {
   navigation: {
     canGoBack: () => boolean;
@@ -144,7 +167,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
             <View style={styles.header}>
               <Text style={styles.title}>Verify your identity</Text>
               <Text style={styles.subtitle}>
-                An authentication code has been sent to <Text style={styles.emailText}>{email}</Text> ✏️
+                An authentication code has been sent to <Text style={styles.emailText}>{maskEmail(email)}</Text>
               </Text>
             </View>
 

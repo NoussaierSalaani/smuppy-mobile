@@ -112,8 +112,8 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       },
     ];
 
-    // Add remove option if avatar exists
-    if (avatar && avatar.startsWith('http')) {
+    // Add remove option if avatar exists (http URL or local file URI)
+    if (avatar && (avatar.startsWith('http') || avatar.startsWith('file://') || avatar.startsWith('ph://'))) {
       options.push({
         label: 'Remove Photo',
         icon: 'trash-outline',

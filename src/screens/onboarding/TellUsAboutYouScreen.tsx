@@ -288,6 +288,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
                 onChange={onDateChange}
                 maximumDate={new Date()}
                 minimumDate={new Date(1920, 0, 1)}
+                locale="en"
               />
             </View>
           </View>
@@ -303,6 +304,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
           onChange={onDateChange}
           maximumDate={new Date()}
           minimumDate={new Date(1920, 0, 1)}
+          locale="en"
         />
       )}
     </SafeAreaView>

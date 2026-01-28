@@ -274,7 +274,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
                   <Text style={styles.pickerDone}>Done</Text>
                 </TouchableOpacity>
               </View>
-              <DateTimePicker value={date} mode="date" display="spinner" onChange={onDateChange} maximumDate={new Date()} minimumDate={new Date(1920, 0, 1)} />
+              <DateTimePicker value={date} mode="date" display="spinner" onChange={onDateChange} maximumDate={new Date()} minimumDate={new Date(1920, 0, 1)} locale="en" />
             </View>
           </View>
         </Modal>
@@ -282,7 +282,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
 
       {/* Android Date Picker */}
       {Platform.OS === 'android' && showPicker && (
-        <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} maximumDate={new Date()} minimumDate={new Date(1920, 0, 1)} />
+        <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} maximumDate={new Date()} minimumDate={new Date(1920, 0, 1)} locale="en" />
       )}
     </SafeAreaView>
   );

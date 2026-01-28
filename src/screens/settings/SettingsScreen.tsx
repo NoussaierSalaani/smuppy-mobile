@@ -15,7 +15,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CommonActions } from '@react-navigation/native';
+// CommonActions removed - signOut auto-triggers navigation via onAuthStateChange
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
@@ -33,7 +33,6 @@ interface SettingsScreenProps {
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
-    dispatch: (action: { type: string; payload?: unknown }) => void;
   };
 }
 
@@ -168,9 +167,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // Reset all Zustand stores (user, feed, auth, app)
       resetAllStores();
       await biometrics.disable();
-      await backend.signOut();
       setShowLogoutModal(false);
-      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Auth' }] }));
+      // signOut triggers onAuthStateChange in AppNavigator which auto-navigates to Auth
+      // No need for manual navigation.reset - it causes "action not handled" warning
+      await backend.signOut();
     } catch (error) {
       console.error('Logout error:', error);
       setShowLogoutModal(false);
@@ -182,8 +182,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      const user = await backend.getCurrentUser();
-      if (!user) {
+      const currentUser = await backend.getCurrentUser();
+      if (!currentUser) {
         Alert.alert('Error', 'User not found');
         return;
       }
@@ -201,10 +201,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // Reset all Zustand stores
       resetAllStores();
       await biometrics.disable();
-      await backend.signOut();
-
       setShowDeleteModal(false);
-      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Auth' }] }));
+      // signOut triggers onAuthStateChange in AppNavigator which auto-navigates to Auth
+      // No need for manual navigation.reset - it causes "action not handled" warning
+      await backend.signOut();
     } catch (error) {
       console.error('Delete account error:', error);
       Alert.alert('Error', 'Failed to delete account. Please try again.');

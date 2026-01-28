@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { awsAuth } from '../../services/aws-auth';
 import Button from '../../components/Button';
 
 type BiometricType = 'face' | 'fingerprint' | null;
+type PasswordAction = 'enable' | 'disable' | 'update';
 
 interface FacialRecognitionScreenProps {
   navigation: { goBack: () => void };
@@ -18,12 +19,16 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
   const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<PasswordAction>('enable');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [successModal, setSuccessModal] = useState({ visible: false, title: '', message: '' });
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
+
+  // Store password verification result for biometrics.enable() callback
+  const passwordVerifiedRef = useRef(false);
 
   useEffect(() => {
     loadSettings();
@@ -39,38 +44,18 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
   const handleToggle = async (value: boolean) => {
     if (loading) return;
     if (value) {
-      // Activer : utilise Face ID natif
-      setLoading(true);
-      const result = await biometrics.enable();
-      setLoading(false);
-      
-      if (result.success) {
-        setEnabled(true);
-        setSuccessModal({
-          visible: true,
-          title: 'Enabled!',
-          message: `${isFaceId ? 'Face ID' : 'Touch ID'} has been enabled for quick and secure login.`,
-        });
-      } else if (result.error === 'blocked') {
-        setErrorModal({
-          visible: true,
-          title: 'Too Many Attempts',
-          message: `Please wait ${Math.ceil((result.remainingSeconds ?? 60) / 60)} minutes before trying again.`,
-        });
-      } else {
-        setErrorModal({
-          visible: true,
-          title: 'Failed',
-          message: 'Could not enable biometric authentication. Please try again.',
-        });
-      }
+      // SECURITY: Require password to enable biometrics
+      // This prevents device owner from adding their biometrics to another person's account
+      setPasswordAction('enable');
+      setShowPasswordModal(true);
     } else {
-      // Désactiver : demander mot de passe Smuppy
+      // Disable: also require password
+      setPasswordAction('disable');
       setShowPasswordModal(true);
     }
   };
 
-  const handleDisableWithPassword = async () => {
+  const handlePasswordSubmit = async () => {
     if (!password.trim()) {
       setPasswordError('Please enter your password');
       return;
@@ -89,16 +74,61 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
         return;
       }
 
-      // Mot de passe correct, désactiver
-      await biometrics.disable();
-      setEnabled(false);
-      setShowPasswordModal(false);
-      setPassword('');
-      setSuccessModal({
-        visible: true,
-        title: 'Disabled',
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} has been disabled. You can enable it again anytime.`,
-      });
+      // Password verified - now perform the action
+      passwordVerifiedRef.current = true;
+
+      if (passwordAction === 'disable') {
+        // Disable biometrics
+        await biometrics.disable();
+        setEnabled(false);
+        setShowPasswordModal(false);
+        setPassword('');
+        setSuccessModal({
+          visible: true,
+          title: 'Disabled',
+          message: `${isFaceId ? 'Face ID' : 'Touch ID'} has been disabled. You can enable it again anytime.`,
+        });
+      } else if (passwordAction === 'enable' || passwordAction === 'update') {
+        // Close modal first
+        setShowPasswordModal(false);
+        setPassword('');
+
+        // Enable/Update biometrics with verified password
+        setLoading(true);
+        const result = await biometrics.enable(async () => passwordVerifiedRef.current);
+        setLoading(false);
+        passwordVerifiedRef.current = false;
+
+        if (result.success) {
+          setEnabled(true);
+          setSuccessModal({
+            visible: true,
+            title: passwordAction === 'enable' ? 'Enabled!' : 'Updated!',
+            message: passwordAction === 'enable'
+              ? `${isFaceId ? 'Face ID' : 'Touch ID'} has been enabled for quick and secure login.`
+              : 'Biometric data has been updated successfully.',
+          });
+        } else if (result.error === 'blocked') {
+          setErrorModal({
+            visible: true,
+            title: 'Too Many Attempts',
+            message: `Please wait ${Math.ceil((result.remainingSeconds ?? 60) / 60)} minutes before trying again.`,
+          });
+        } else if (result.error === 'Password verification failed') {
+          // Should not happen since we verified above, but handle it
+          setErrorModal({
+            visible: true,
+            title: 'Verification Failed',
+            message: 'Password verification failed. Please try again.',
+          });
+        } else {
+          setErrorModal({
+            visible: true,
+            title: 'Failed',
+            message: 'Could not enable biometric authentication. Please try again.',
+          });
+        }
+      }
     } catch {
       setPasswordError('An error occurred. Please try again.');
     } finally {
@@ -108,23 +138,9 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
 
   const handleUpdate = async () => {
     if (loading) return;
-    setLoading(true);
-    const result = await biometrics.enable();
-    setLoading(false);
-    
-    if (result.success) {
-      setSuccessModal({
-        visible: true,
-        title: 'Updated!',
-        message: 'Biometric data has been updated successfully.',
-      });
-    } else {
-      setErrorModal({
-        visible: true,
-        title: 'Update Failed',
-        message: 'Could not update biometric data. Please try again.',
-      });
-    }
+    // SECURITY: Require password to update biometrics
+    setPasswordAction('update');
+    setShowPasswordModal(true);
   };
 
   const closePasswordModal = () => {
@@ -136,59 +152,81 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
 
   const isFaceId = biometricType === 'face';
 
-  const renderPasswordModal = () => (
-    <Modal visible={showPasswordModal} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <TouchableOpacity style={styles.modalClose} onPress={closePasswordModal} disabled={verifying}>
-            <Ionicons name="close" size={24} color="#9CA3AF" />
-          </TouchableOpacity>
+  const getPasswordModalText = () => {
+    switch (passwordAction) {
+      case 'enable':
+        return {
+          title: 'Confirm Your Identity',
+          message: `Enter your Smuppy password to enable ${isFaceId ? 'Face ID' : 'Touch ID'}.\n\nOnly enable on your personal device for security.`,
+        };
+      case 'update':
+        return {
+          title: 'Confirm Your Identity',
+          message: `Enter your Smuppy password to update ${isFaceId ? 'Face ID' : 'Touch ID'} data.`,
+        };
+      case 'disable':
+      default:
+        return {
+          title: 'Confirm Your Identity',
+          message: `Enter your Smuppy password to disable ${isFaceId ? 'Face ID' : 'Touch ID'}.`,
+        };
+    }
+  };
 
-          <View style={styles.modalIconBox}>
-            <Ionicons name="lock-closed" size={32} color={COLORS.primary} />
-          </View>
-
-          <Text style={styles.modalTitle}>Confirm Your Identity</Text>
-          <Text style={styles.modalMessage}>
-            Enter your Smuppy password to disable {isFaceId ? 'Face ID' : 'Touch ID'}.
-          </Text>
-
-          <View style={styles.passwordInputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={COLORS.grayMuted} />
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Enter your password"
-              placeholderTextColor={COLORS.grayMuted}
-              value={password}
-              onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!verifying}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={verifying}>
-              <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+  const renderPasswordModal = () => {
+    const modalText = getPasswordModalText();
+    return (
+      <Modal visible={showPasswordModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.modalClose} onPress={closePasswordModal} disabled={verifying}>
+              <Ionicons name="close" size={24} color="#9CA3AF" />
             </TouchableOpacity>
-          </View>
 
-          {passwordError ? <Text style={styles.passwordError}>{passwordError}</Text> : null}
+            <View style={styles.modalIconBox}>
+              <Ionicons name="lock-closed" size={32} color={COLORS.primary} />
+            </View>
 
-          <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={closePasswordModal} disabled={verifying}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleDisableWithPassword} disabled={verifying}>
-              {verifying ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Confirm</Text>
-              )}
-            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{modalText.title}</Text>
+            <Text style={styles.modalMessage}>{modalText.message}</Text>
+
+            <View style={styles.passwordInputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color={COLORS.grayMuted} />
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                placeholderTextColor={COLORS.grayMuted}
+                value={password}
+                onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!verifying}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={verifying}>
+                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {passwordError ? <Text style={styles.passwordError}>{passwordError}</Text> : null}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={closePasswordModal} disabled={verifying}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handlePasswordSubmit} disabled={verifying}>
+                {verifying ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   const renderSuccessModal = () => (
     <Modal visible={successModal.visible} transparent animationType="fade">

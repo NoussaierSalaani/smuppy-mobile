@@ -61,6 +61,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
@@ -232,31 +233,70 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       };
       setZustandUser(userData);
 
-      // Persist session (non-blocking)
+      // Persist session
       storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
-      // Navigate to success immediately (don't wait for profile creation)
+      // OPTION A: BLOCKING - Create profile BEFORE navigating (reliable at scale)
+      // This ensures profile data is saved before showing success
+      setIsSavingProfile(true);
+
+      let profileCreated = false;
+      let retryCount = 0;
+      const maxRetries = 2;
+
+      while (!profileCreated && retryCount < maxRetries) {
+        try {
+          const { error: profileError } = await createProfile(profileData);
+          if (profileError) {
+            console.warn(`[VerifyCode] Profile creation attempt ${retryCount + 1} failed:`, profileError);
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+            }
+          } else {
+            profileCreated = true;
+          }
+        } catch (profileErr) {
+          console.warn(`[VerifyCode] Profile creation attempt ${retryCount + 1} error:`, profileErr);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+          }
+        }
+      }
+
+      if (!profileCreated) {
+        // Profile creation failed after retries - show error but still allow navigation
+        // The user is authenticated, just profile data wasn't saved
+        console.error('[VerifyCode] Profile creation failed after retries');
+        // Don't block user - they can update profile later from Settings
+      }
+
+      // Upload profile image (blocking with timeout for reliability)
+      if (profileImage && user.id) {
+        try {
+          const { url, error: uploadError } = await uploadProfileImage(profileImage, user.id);
+          if (url && !uploadError) {
+            // Update profile with avatar URL
+            await createProfile({ avatar_url: url });
+            // Update local state
+            setZustandUser({ ...userData, avatar: url });
+          } else {
+            console.warn('[VerifyCode] Image upload failed:', uploadError);
+          }
+        } catch (imgErr) {
+          console.warn('[VerifyCode] Image upload error:', imgErr);
+          // Don't block navigation for image upload failure
+        }
+      }
+
+      setIsSavingProfile(false);
+
+      // Navigate to success AFTER profile is created
       navigation.reset({
         index: 0,
         routes: [{ name: 'Success', params: { name } }],
       });
-
-      // Create profile and upload image in background (non-blocking)
-      createProfile(profileData).catch((err) => console.warn('Profile creation error:', err));
-
-      // Upload profile image in background (non-blocking)
-      if (profileImage && user.id) {
-        uploadProfileImage(profileImage, user.id)
-          .then(({ url }) => {
-            if (url) {
-              // Update profile with avatar URL in background
-              createProfile({ avatar_url: url }).catch(() => {});
-              // Update local state
-              setZustandUser({ ...userData, avatar: url });
-            }
-          })
-          .catch((err) => console.warn('Image upload error:', err));
-      }
 
     } catch (err: any) {
       // Only delete flag if it was already set (during profile creation phase)
@@ -356,6 +396,14 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
             </View>
           )}
 
+          {/* Profile Saving Progress */}
+          {isSavingProfile && (
+            <View style={styles.creatingAccountBox}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.creatingAccountText}>Saving your profile...</Text>
+            </View>
+          )}
+
           {/* Code Input - show immediately but disabled while creating account */}
           {(accountCreated || isCreatingAccount) && (
             <>
@@ -380,7 +428,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                         onFocus={() => setFocusedIndex(i)}
                         onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
-                        editable={!isVerifying && !isCreatingAccount}
+                        editable={!isVerifying && !isCreatingAccount && !isSavingProfile}
                       />
                     );
                   }
@@ -404,7 +452,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                         onFocus={() => setFocusedIndex(i)}
                         onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
-                        editable={!isVerifying && !isCreatingAccount}
+                        editable={!isVerifying && !isCreatingAccount && !isSavingProfile}
                       />
                     </LinearGradient>
                   );

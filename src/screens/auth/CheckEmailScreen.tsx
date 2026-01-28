@@ -28,8 +28,32 @@ interface CheckEmailScreenProps {
   };
 }
 
+/**
+ * Mask email for privacy/security
+ * Example: "john.doe@gmail.com" → "j••••••e@g••••.com"
+ */
+const maskEmail = (email: string): string => {
+  if (!email || !email.includes('@')) return '••••@••••.com';
+
+  const [localPart, domain] = email.split('@');
+  const [domainName, ...domainExt] = domain.split('.');
+
+  // Mask local part: show first and last char, rest as dots
+  const maskedLocal = localPart.length <= 2
+    ? '••'
+    : `${localPart[0]}${'•'.repeat(Math.min(localPart.length - 2, 6))}${localPart[localPart.length - 1]}`;
+
+  // Mask domain name: show first char, rest as dots
+  const maskedDomain = domainName.length <= 1
+    ? '••••'
+    : `${domainName[0]}${'•'.repeat(Math.min(domainName.length - 1, 4))}`;
+
+  return `${maskedLocal}@${maskedDomain}.${domainExt.join('.')}`;
+};
+
 export default function CheckEmailScreen({ navigation, route }: CheckEmailScreenProps) {
   const { email } = route?.params || {};
+  const maskedEmailDisplay = maskEmail(email || '');
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const { remaining: remainingTime, isCoolingDown, start: triggerCooldown } = useCooldown(30);
@@ -86,8 +110,8 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         {/* Title & Subtitle */}
         <Text style={styles.title}>Check your email</Text>
         <Text style={styles.subtitle}>
-          We've sent a password reset link to{'\n'}
-          <Text style={styles.emailText}>{email || 'your email'}</Text>
+          We've sent a password reset code to{'\n'}
+          <Text style={styles.emailText}>{maskedEmailDisplay}</Text>
         </Text>
 
         {/* Instructions */}
@@ -98,11 +122,11 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
           </View>
           <View style={styles.instructionRow}>
             <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
-            <Text style={styles.instructionText}>Click the reset password link</Text>
+            <Text style={styles.instructionText}>Copy the 6-digit verification code</Text>
           </View>
           <View style={styles.instructionRow}>
             <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
-            <Text style={styles.instructionText}>Create your new password</Text>
+            <Text style={styles.instructionText}>Enter the code to reset your password</Text>
           </View>
         </View>
 
@@ -110,11 +134,11 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         {resendSuccess && (
           <View style={styles.successMessage}>
             <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
-            <Text style={styles.successText}>Link sent successfully!</Text>
+            <Text style={styles.successText}>Code sent successfully!</Text>
           </View>
         )}
 
-        {/* Resend Link Button */}
+        {/* Resend Code Button */}
         <TouchableOpacity
           style={[styles.resendBtn, (!canAction || isResending) && styles.resendBtnDisabled]}
           onPress={handleResend}
@@ -124,12 +148,12 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
             <ActivityIndicator size="small" color={COLORS.primary} />
           ) : !canAction ? (
             <Text style={styles.resendTextDisabled}>
-              Resend link in {remainingTime}s
+              Resend code in {remainingTime}s
             </Text>
           ) : (
             <>
               <Ionicons name="refresh-outline" size={18} color={COLORS.primary} />
-              <Text style={styles.resendText}>Resend link</Text>
+              <Text style={styles.resendText}>Resend code</Text>
             </>
           )}
         </TouchableOpacity>
@@ -137,18 +161,23 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         {/* Spacer */}
         <View style={styles.spacer} />
 
-        {/* Back to Login */}
+        {/* I Have a Code Button */}
         <LinearGradient
           colors={GRADIENTS.primary}
           start={GRADIENTS.primaryStart}
           end={GRADIENTS.primaryEnd}
           style={styles.btn}
         >
-          <TouchableOpacity style={styles.btnInner} onPress={handleBackToLogin} activeOpacity={0.8}>
-            <Text style={styles.btnText}>Back to login</Text>
+          <TouchableOpacity style={styles.btnInner} onPress={() => navigation.navigate('ResetCode', { email })} activeOpacity={0.8}>
+            <Text style={styles.btnText}>I have a code</Text>
             <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
           </TouchableOpacity>
         </LinearGradient>
+
+        {/* Back to Login Link */}
+        <TouchableOpacity style={styles.backToLoginBtn} onPress={handleBackToLogin}>
+          <Text style={styles.backToLoginText}>Back to login</Text>
+        </TouchableOpacity>
 
         {/* Footer */}
         <View style={styles.footer}>
@@ -263,7 +292,7 @@ const styles = StyleSheet.create({
   btn: {
     height: FORM.buttonHeight,
     borderRadius: FORM.buttonRadius,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.md,
   },
   btnInner: {
     flex: 1,
@@ -276,6 +305,16 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  backToLoginBtn: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  backToLoginText: {
+    fontSize: 15,
+    color: COLORS.gray,
+    fontWeight: '500',
   },
   footer: {
     alignItems: 'center',

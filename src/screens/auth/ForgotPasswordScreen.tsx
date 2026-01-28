@@ -10,7 +10,7 @@ import * as backend from '../../services/backend';
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // SECURITY: Generic message that doesn't reveal if email exists
-const SUCCESS_MESSAGE = "If an account exists with this email, you will receive a password reset link.";
+const SUCCESS_MESSAGE = "If an account exists with this email, you will receive a password reset code.";
 
 interface ForgotPasswordScreenProps {
   navigation: {
@@ -143,7 +143,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Forgot password</Text>
-              <Text style={styles.subtitle}>Enter your email address and we'll send you a link to reset your password</Text>
+              <Text style={styles.subtitle}>Enter your email address and we'll send you a code to reset your password</Text>
             </View>
 
             {/* Email Input */}

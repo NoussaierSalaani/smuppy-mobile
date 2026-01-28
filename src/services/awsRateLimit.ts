@@ -23,6 +23,9 @@ export interface AWSRateLimitResult {
   remaining?: number;
   retryAfter?: number;
   error?: string;
+  // Progressive delay (Level 2 Security)
+  shouldDelay?: boolean;
+  delayMs?: number;
 }
 
 /**
@@ -89,6 +92,9 @@ export const checkAWSRateLimit = async (
   return {
     allowed: true,
     remaining: status.remaining - 1, // -1 because we just recorded an attempt
+    // Progressive delay: pass through delay info
+    shouldDelay: status.shouldDelay,
+    delayMs: status.delayMs,
   };
 };
 

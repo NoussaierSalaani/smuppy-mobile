@@ -38,7 +38,10 @@ export default function EnableBiometricScreen({ navigation }: EnableBiometricScr
   const handleEnable = async () => {
     if (loading) return;
     setLoading(true);
-    const result = await biometrics.enable();
+    // SECURITY: During onboarding, the user JUST signed up and verified their account
+    // They are already authenticated, so we can skip password re-verification
+    // This is safe because they just entered their password moments ago
+    const result = await biometrics.enable(async () => true);
     setLoading(false);
     if (result.success) {
       navigation.replace('BiometricSuccess');

@@ -66,6 +66,12 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
     }).start();
   }, [activeTab, indicatorAnim, tabs]);
 
+  // Hide header completely on Xplorer (fullscreen map experience)
+  // Must be after all hooks to comply with React rules
+  if (activeTab === 'Xplorer') {
+    return <></>;
+  }
+
   const handleTabPress = (tabId: TabId): void => {
     if (onTabChange) {
       onTabChange(tabId);
@@ -252,8 +258,8 @@ const styles = StyleSheet.create({
 
   // ===== TABBAR - Liquid Glass =====
   tabBarContainer: {
-    marginTop: 4,
-    paddingBottom: 8,
+    marginTop: 0,
+    paddingBottom: 0,
   },
 
   // ===== PRO CREATOR: FLOATING GLASS HEADER =====

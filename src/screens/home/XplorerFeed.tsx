@@ -123,6 +123,20 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
   };
 
+  // Zoom out to see all markers (fullscreen/overview mode)
+  const zoomToFitAll = () => {
+    if (mapRef.current && filteredMarkers.length > 0) {
+      const coords = filteredMarkers.map(m => m.coordinate);
+      if (location) {
+        coords.push({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+      }
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
+        animated: true,
+      });
+    }
+  };
+
 
   type MockMarker = typeof MOCK_MARKERS[0];
 
@@ -348,8 +362,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         </TouchableOpacity>
       </View>
 
-      {/* BOUTON COIN INFÉRIEUR DROIT - Center on user */}
+      {/* BOUTONS COIN INFÉRIEUR DROIT */}
       <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(3) }]}>
+        <GradientMapButton onPress={zoomToFitAll} iconName="expand-outline" />
         <GradientMapButton onPress={centerOnUser} iconName="navigate" />
       </View>
 

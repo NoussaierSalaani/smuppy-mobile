@@ -80,7 +80,8 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
   const containerPadding = config.padding;
   // For non-fullWidth: use smaller tabs for small size (compact header)
   const nonFullWidthTabSize = size === 'small' ? 66 : 90;
-  const containerWidth = fullWidth ? SCREEN_WIDTH - 40 : tabs.length * nonFullWidthTabSize;
+  // Full width = entire screen width (no margins)
+  const containerWidth = fullWidth ? SCREEN_WIDTH : tabs.length * nonFullWidthTabSize;
   const tabWidth = (containerWidth - containerPadding * 2) / tabs.length;
   const indicatorWidth = tabWidth - 4;
 
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   fullWidth: {
-    marginHorizontal: 20,
+    // No margins - truly full width
   },
   glassOverlay: {
     ...StyleSheet.absoluteFillObject,

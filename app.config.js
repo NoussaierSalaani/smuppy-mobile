@@ -27,10 +27,29 @@ associatedDomains: [
 ],
 infoPlist: {
   ITSAppUsesNonExemptEncryption: false,
-  // Allow network requests (required for AWS API Gateway)
+  // ATS: restrict to specific domains instead of allowing all
   NSAppTransportSecurity: {
-    NSAllowsArbitraryLoads: true,
     NSAllowsLocalNetworking: true,
+    NSExceptionDomains: {
+      'amazonaws.com': {
+        NSIncludesSubdomains: true,
+        NSExceptionAllowsInsecureHTTPLoads: false,
+        NSExceptionRequiresForwardSecrecy: true,
+        NSExceptionMinimumTLSVersion: 'TLSv1.2',
+      },
+      'cloudfront.net': {
+        NSIncludesSubdomains: true,
+        NSExceptionAllowsInsecureHTTPLoads: false,
+        NSExceptionRequiresForwardSecrecy: true,
+        NSExceptionMinimumTLSVersion: 'TLSv1.2',
+      },
+      'smuppy.com': {
+        NSIncludesSubdomains: true,
+        NSExceptionAllowsInsecureHTTPLoads: false,
+        NSExceptionRequiresForwardSecrecy: true,
+        NSExceptionMinimumTLSVersion: 'TLSv1.2',
+      },
+    },
   },
   // Camera & Microphone for live streaming
   NSCameraUsageDescription: 'Smuppy needs access to your camera for live streaming and video calls.',

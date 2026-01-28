@@ -70,6 +70,36 @@ const secureStore = {
   },
 };
 
+/**
+ * Base64 URL decode that works on all JS engines (Hermes, JSC, V8)
+ * without depending on global.atob polyfill availability.
+ */
+function base64UrlDecode(str: string): string {
+  // Base64url → standard Base64
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  // Pad to multiple of 4
+  while (b64.length % 4 !== 0) b64 += '=';
+
+  // Pure-JS Base64 decode
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(128);
+  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
+
+  const bytes: number[] = [];
+  for (let i = 0; i < b64.length; i += 4) {
+    const a = lookup[b64.charCodeAt(i)];
+    const b = lookup[b64.charCodeAt(i + 1)];
+    const c = lookup[b64.charCodeAt(i + 2)];
+    const d = lookup[b64.charCodeAt(i + 3)];
+    bytes.push((a << 2) | (b >> 4));
+    if (b64[i + 2] !== '=') bytes.push(((b & 0xf) << 4) | (c >> 2));
+    if (b64[i + 3] !== '=') bytes.push(((c & 0x3) << 6) | d);
+  }
+  return decodeURIComponent(
+    bytes.map(b => '%' + ('00' + b.toString(16)).slice(-2)).join('')
+  );
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -125,7 +155,7 @@ class AWSAuthService {
 
       try {
         this.user = JSON.parse(userJson);
-        console.log('[AWS Auth] Restored session for:', this.user?.email);
+        console.log('[AWS Auth] Restored session for:', this.user?.email ? this.user.email.replace(/^(.).*@/, '$1***@') : 'unknown');
 
         // Verify token is still valid
         const isValid = await this.verifyToken();
@@ -158,7 +188,7 @@ class AWSAuthService {
   async signUp(params: SignUpParams): Promise<{ user: AuthUser | null; confirmationRequired: boolean }> {
     const { email, password, username, fullName } = params;
 
-    console.log('[AWS Auth] SignUp attempt:', { email, username, hasPassword: !!password, passwordLength: password?.length });
+    console.log('[AWS Auth] SignUp attempt:', { email: email.replace(/^(.).*@/, '$1***@'), username, hasPassword: !!password });
 
     try {
       // Try server-side smart signup first (handles unconfirmed users)
@@ -258,7 +288,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async confirmSignUp(email: string, code: string): Promise<boolean> {
-    console.log('[AWS Auth] Confirming signup for:', email);
+    console.log('[AWS Auth] Confirming signup for:', email.replace(/^(.).*@/, '$1***@'));
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -305,7 +335,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async resendConfirmationCode(email: string): Promise<boolean> {
-    console.log('[AWS Auth] Resending confirmation code for:', email);
+    console.log('[AWS Auth] Resending confirmation code for:', email.replace(/^(.).*@/, '$1***@'));
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -410,15 +440,7 @@ class AWSAuthService {
       const parts = idToken.split('.');
       if (parts.length !== 3) throw new Error('Invalid token');
 
-      // Base64 URL decode (works in React Native)
-      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        global.atob(base64)
-          .split('')
-          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      const payload = JSON.parse(jsonPayload);
+      const payload = JSON.parse(base64UrlDecode(parts[1]));
 
       return {
         id: payload.sub || '',
@@ -475,7 +497,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async forgotPassword(email: string): Promise<boolean> {
-    console.log('[AWS Auth] Forgot password for:', email);
+    console.log('[AWS Auth] Forgot password for:', email.replace(/^(.).*@/, '$1***@'));
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -526,7 +548,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async confirmForgotPassword(email: string, code: string, newPassword: string): Promise<boolean> {
-    console.log('[AWS Auth] Confirm forgot password for:', email);
+    console.log('[AWS Auth] Confirm forgot password for:', email.replace(/^(.).*@/, '$1***@'));
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -569,21 +591,46 @@ class AWSAuthService {
   }
 
   /**
+   * Check if a JWT token is expired (with 60s buffer)
+   */
+  private isTokenExpired(token: string): boolean {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(base64UrlDecode(parts[1]));
+      // Expired if less than 60 seconds remaining
+      return !payload.exp || payload.exp * 1000 < Date.now() + 60_000;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
    * Get access token for API calls
+   * Automatically refreshes if expired
    */
   async getAccessToken(): Promise<string | null> {
     if (!this.accessToken) {
       await this.initialize();
+    }
+    if (this.accessToken && this.isTokenExpired(this.accessToken)) {
+      console.log('[AWS Auth] Access token expired, refreshing...');
+      await this.refreshSession();
     }
     return this.accessToken;
   }
 
   /**
    * Get ID token for API calls
+   * Automatically refreshes if expired
    */
   async getIdToken(): Promise<string | null> {
     if (!this.idToken) {
       await this.initialize();
+    }
+    if (this.idToken && this.isTokenExpired(this.idToken)) {
+      console.log('[AWS Auth] ID token expired, refreshing...');
+      await this.refreshSession();
     }
     return this.idToken;
   }

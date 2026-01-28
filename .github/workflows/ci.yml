@@ -140,7 +140,6 @@ jobs:
 
       - name: Run npm audit
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Install gitleaks
         run: |
@@ -150,7 +149,6 @@ jobs:
 
       - name: Scan for secrets
         run: ./gitleaks detect --source . --verbose --no-git
-        continue-on-error: true
 
       - name: Check for hardcoded secrets in code
         run: |

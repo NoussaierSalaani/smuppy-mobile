@@ -64,12 +64,13 @@ class WebSocketService {
         throw new Error('No authentication token available');
       }
 
-      // Build WebSocket URL with token
-      const wsUrl = `${AWS_CONFIG.api.websocketEndpoint}?token=${encodeURIComponent(token)}`;
+      // Pass token via Sec-WebSocket-Protocol header instead of query string
+      // to avoid token exposure in server logs and browser history
+      const wsUrl = AWS_CONFIG.api.websocketEndpoint;
 
-      console.log('[WebSocket] Connecting to:', AWS_CONFIG.api.websocketEndpoint);
+      console.log('[WebSocket] Connecting to:', wsUrl);
 
-      this.socket = new WebSocket(wsUrl);
+      this.socket = new WebSocket(wsUrl, ['access-token', token]);
 
       this.socket.onopen = () => {
         console.log('[WebSocket] Connected successfully');
@@ -245,10 +246,14 @@ class WebSocketService {
 
     console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
-    setTimeout(() => {
-      this.connect().catch((error) => {
+    setTimeout(async () => {
+      try {
+        // Refresh token before reconnecting to avoid using an expired token
+        await awsAuth.getIdToken();
+        await this.connect();
+      } catch (error) {
         console.error('[WebSocket] Reconnection failed:', error);
-      });
+      }
     }, delay);
   }
 

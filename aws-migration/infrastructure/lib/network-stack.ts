@@ -23,6 +23,12 @@ export class NetworkStack extends cdk.NestedStack {
 
     const { isProduction } = props;
 
+    // Flow Logs log group with short retention to control CloudWatch costs
+    const flowLogGroup = new logs.LogGroup(this, 'VPCFlowLogGroup', {
+      retention: isProduction ? logs.RetentionDays.TWO_WEEKS : logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     // VPC - High Availability Network
     this.vpc = new ec2.Vpc(this, 'SmuppyVPC', {
       maxAzs: isProduction ? 3 : 2,
@@ -46,8 +52,8 @@ export class NetworkStack extends cdk.NestedStack {
       ],
       flowLogs: {
         'FlowLog': {
-          destination: ec2.FlowLogDestination.toCloudWatchLogs(),
-          trafficType: ec2.FlowLogTrafficType.REJECT,
+          destination: ec2.FlowLogDestination.toCloudWatchLogs(flowLogGroup),
+          trafficType: ec2.FlowLogTrafficType.ALL,
         },
       },
     });

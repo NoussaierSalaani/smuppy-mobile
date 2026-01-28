@@ -515,6 +515,18 @@ export class SmuppyGlobalStack extends cdk.Stack {
     cdk.Tags.of(analyticsTable).add('service', 'smuppy');
     cdk.Tags.of(analyticsTable).add('backup', 'true');
 
+    // Rate Limit Table - distributed rate limiting for auth endpoints
+    const rateLimitTable = new dynamodb.Table(this, 'RateLimitTable', {
+      tableName: `smuppy-rate-limit-${environment}`,
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING }, // e.g. "signup#<ip>"
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    cdk.Tags.of(rateLimitTable).add('service', 'smuppy');
+
     // Sessions Table for Redis backup/overflow
     const sessionsTable = new dynamodb.Table(this, 'SessionsTable', {
       tableName: `smuppy-sessions-${environment}`,
@@ -578,6 +590,12 @@ export class SmuppyGlobalStack extends cdk.Stack {
       value: likesTable.tableName,
       description: 'DynamoDB Likes Table',
       exportName: `smuppy-likes-table-${environment}`,
+    });
+
+    new cdk.CfnOutput(this, 'RateLimitTableName', {
+      value: rateLimitTable.tableName,
+      description: 'DynamoDB Rate Limit Table',
+      exportName: `smuppy-rate-limit-table-${environment}`,
     });
 
     new cdk.CfnOutput(this, 'CloudFrontLogsBucketName', {

@@ -1,10 +1,20 @@
 /**
  * AWS Configuration for Smuppy
- * Auto-generated from CDK deployment
  *
- * IMPORTANT: This file contains staging configuration.
- * For production, use environment variables or a separate config.
+ * All config values are loaded from EXPO_PUBLIC_* environment variables.
+ * In local dev, hardcoded staging defaults are used as fallback.
+ * In production (EAS Build), values MUST be injected via EAS Secrets —
+ * no sensitive IDs are embedded in the release bundle.
  */
+
+// Helper: read Expo env var (works with Expo's inline substitution)
+const env = (key: string): string | undefined => {
+  try {
+    return typeof process !== 'undefined' ? process.env?.[key] : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 export interface AWSConfig {
   region: string;
@@ -28,87 +38,69 @@ export interface AWSConfig {
   };
 }
 
-// Staging Configuration
-export const AWS_CONFIG_STAGING: AWSConfig = {
+// Staging defaults — used only when EXPO_PUBLIC_* vars are not set (local dev).
+// In EAS builds these are overridden by EAS Secrets / .env.
+const STAGING_DEFAULTS = {
   region: 'us-east-1',
-  cognito: {
-    userPoolId: 'us-east-1_mvBH1S3yX',
-    userPoolClientId: '60bt4bafj98q0nkjprpidegr0t',
-    identityPoolId: 'us-east-1:ff7c6b31-86c7-4bd1-8b91-f0f41adc828a',
-  },
-  api: {
-    restEndpoint: 'https://90pg0i63ff.execute-api.us-east-1.amazonaws.com/staging',
-    graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
-    websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
-  },
-  storage: {
-    bucket: 'smuppy-media-staging-471112656108',
-    cdnDomain: 'https://d3gy4x1feicix3.cloudfront.net',
-  },
-  dynamodb: {
-    feedTable: 'smuppy-feeds-staging',
-    likesTable: 'smuppy-likes-staging',
-  },
-};
-
-// Production Configuration (to be updated after production deployment)
-export const AWS_CONFIG_PRODUCTION: AWSConfig = {
-  region: 'us-east-1',
-  cognito: {
-    userPoolId: '', // TODO: Update after production deployment
-    userPoolClientId: '',
-    identityPoolId: '',
-  },
-  api: {
-    restEndpoint: '',
-    graphqlEndpoint: '',
-    websocketEndpoint: '',
-  },
-  storage: {
-    bucket: '',
-    cdnDomain: '',
-  },
-  dynamodb: {
-    feedTable: '',
-    likesTable: '',
-  },
-};
+  userPoolId: 'us-east-1_mvBH1S3yX',
+  userPoolClientId: '60bt4bafj98q0nkjprpidegr0t',
+  identityPoolId: 'us-east-1:ff7c6b31-86c7-4bd1-8b91-f0f41adc828a',
+  restEndpoint: 'https://90pg0i63ff.execute-api.us-east-1.amazonaws.com/staging',
+  graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
+  websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
+  bucket: 'smuppy-media-staging-471112656108',
+  cdnDomain: 'https://d3gy4x1feicix3.cloudfront.net',
+  feedTable: 'smuppy-feeds-staging',
+  likesTable: 'smuppy-likes-staging',
+} as const;
 
 // Environment detection
-// For React Native: uses __DEV__ global or EXPO_PUBLIC_ENV / APP_ENV
-// For web builds: uses import.meta.env.VITE_APP_ENV or process.env.REACT_APP_ENV
 const getEnvironment = (): 'staging' | 'production' => {
-  // Check for explicit environment variable (highest priority)
-  // React Native with Expo
-  if (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_ENV === 'production') {
-    return 'production';
-  }
-  // React Native bare / env injection
-  if (typeof process !== 'undefined' && process.env?.APP_ENV === 'production') {
-    return 'production';
-  }
-  // Create React App web builds (Vite/import.meta not supported in Hermes)
-  if (typeof process !== 'undefined' && process.env?.REACT_APP_ENV === 'production') {
-    return 'production';
-  }
-  // Default to staging (safe fallback)
+  if (env('EXPO_PUBLIC_ENV') === 'production') return 'production';
+  if (env('APP_ENV') === 'production') return 'production';
+  if (env('REACT_APP_ENV') === 'production') return 'production';
   return 'staging';
 };
 
-// Get current environment config
+// Build config from env vars, falling back to staging defaults only in non-production
 export const getAWSConfig = (): AWSConfig => {
-  const env = getEnvironment();
+  const currentEnv = getEnvironment();
+  const isProduction = currentEnv === 'production';
 
-  if (env === 'production') {
-    // Check if production config is properly set up
-    if (!AWS_CONFIG_PRODUCTION.cognito.userPoolId) {
-      console.warn('[AWS Config] Production config not yet populated. Falling back to staging.');
-      return AWS_CONFIG_STAGING;
+  // In production, every value MUST come from env vars — no fallback to staging
+  const resolve = (envKey: string, stagingDefault: string): string => {
+    const value = env(envKey);
+    if (value) return value;
+    if (isProduction) {
+      throw new Error(
+        `[AWS Config] FATAL: ${envKey} is not set in production. ` +
+        'All AWS config must be injected via EAS Secrets for production builds.'
+      );
     }
-    return AWS_CONFIG_PRODUCTION;
-  }
+    return stagingDefault;
+  };
 
-  return AWS_CONFIG_STAGING;
+  return {
+    region: resolve('EXPO_PUBLIC_AWS_REGION', STAGING_DEFAULTS.region),
+    cognito: {
+      userPoolId: resolve('EXPO_PUBLIC_COGNITO_USER_POOL_ID', STAGING_DEFAULTS.userPoolId),
+      userPoolClientId: resolve('EXPO_PUBLIC_COGNITO_CLIENT_ID', STAGING_DEFAULTS.userPoolClientId),
+      identityPoolId: resolve('EXPO_PUBLIC_COGNITO_IDENTITY_POOL_ID', STAGING_DEFAULTS.identityPoolId),
+    },
+    api: {
+      restEndpoint: resolve('EXPO_PUBLIC_API_REST_ENDPOINT', STAGING_DEFAULTS.restEndpoint),
+      graphqlEndpoint: resolve('EXPO_PUBLIC_API_GRAPHQL_ENDPOINT', STAGING_DEFAULTS.graphqlEndpoint),
+      websocketEndpoint: resolve('EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT', STAGING_DEFAULTS.websocketEndpoint),
+    },
+    storage: {
+      bucket: resolve('EXPO_PUBLIC_S3_BUCKET', STAGING_DEFAULTS.bucket),
+      cdnDomain: resolve('EXPO_PUBLIC_CDN_DOMAIN', STAGING_DEFAULTS.cdnDomain),
+    },
+    dynamodb: {
+      feedTable: resolve('EXPO_PUBLIC_DYNAMODB_FEED_TABLE', STAGING_DEFAULTS.feedTable),
+      likesTable: resolve('EXPO_PUBLIC_DYNAMODB_LIKES_TABLE', STAGING_DEFAULTS.likesTable),
+    },
+  };
 };
 
 export const AWS_CONFIG = getAWSConfig();

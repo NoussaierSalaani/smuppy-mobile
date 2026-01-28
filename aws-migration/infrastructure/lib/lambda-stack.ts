@@ -843,6 +843,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -858,6 +859,14 @@ export class LambdaStack extends cdk.NestedStack {
         'cognito-idp:ListUsers',
       ],
       resources: [userPool.userPoolArn],
+    }));
+    this.signupAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'dynamodb:GetItem',
+        'dynamodb:PutItem',
+        'dynamodb:UpdateItem',
+      ],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     this.validateEmailFn = new NodejsFunction(this, 'ValidateEmailFunction', {

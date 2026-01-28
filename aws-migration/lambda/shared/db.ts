@@ -13,6 +13,7 @@ import { Pool, PoolConfig } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Signer } from '@aws-sdk/rds-signer';
 import { createLogger } from '../api/utils/logger';
+import { RDS_CA_BUNDLE } from './rds-ca-bundle';
 
 const log = createLogger('db');
 
@@ -127,10 +128,10 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     user: credentials.username,
     password,
     // Secure SSL configuration for AWS Aurora PostgreSQL
-    // In production with RDS Proxy, strict verification is handled at proxy level
-    // For direct connections, we use permissive SSL (RDS requires SSL but Lambda doesn't have CA bundle)
+    // RDS CA bundle is embedded at build time via rds-ca-bundle.ts
     ssl: {
-      rejectUnauthorized: false, // RDS Proxy handles certificate verification
+      rejectUnauthorized: true,
+      ca: RDS_CA_BUNDLE,
     },
     // Connection pool settings optimized for Lambda with RDS Proxy
     // RDS Proxy handles connection pooling, so Lambda can use fewer connections

@@ -54,12 +54,33 @@ export class SmuppyStackV2 extends cdk.Stack {
     // ========================================
     // S3 Media Bucket
     // ========================================
+    // Allowed CORS origins for S3 media bucket
+    // S3 CORS supports one wildcard (*) per origin entry
+    // Using *.cloudfront.net so the origin stays valid across redeployments
+    const CORS_ALLOWED_ORIGINS = isProduction
+      ? [
+          'https://*.cloudfront.net',
+          'https://*.execute-api.us-east-1.amazonaws.com',
+          'https://app.smuppy.com',
+          'https://smuppy.com',
+          'https://www.smuppy.com',
+        ]
+      : [
+          'https://*.cloudfront.net',
+          'https://*.execute-api.us-east-1.amazonaws.com',
+          'https://app.smuppy.com',
+          'https://smuppy.com',
+          'http://localhost:8081',
+          'http://localhost:19006',
+          'http://localhost:3000',
+        ];
+
     const mediaBucket = new s3.Bucket(this, 'MediaBucket', {
       bucketName: `smuppy-media-${environment}-${this.account}`,
       cors: [{
         allowedHeaders: ['*'],
         allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
-        allowedOrigins: ['*'],
+        allowedOrigins: CORS_ALLOWED_ORIGINS,
         maxAge: 3000,
       }],
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,

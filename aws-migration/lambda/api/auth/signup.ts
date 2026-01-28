@@ -5,7 +5,7 @@
  * IMPORTANT: Checks BOTH by generated username AND by email attribute
  * This handles legacy accounts with different username formats
  *
- * Includes rate limiting: 5 attempts per IP per 5 minutes
+ * Includes distributed rate limiting via DynamoDB: 5 attempts per IP per 5 minutes
  *
  * Logic:
  * 1. Check if user exists (by email AND by username)
@@ -24,11 +24,13 @@ import {
   UserNotFoundException,
   UsernameExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
 const log = createLogger('auth-signup');
 const cognitoClient = new CognitoIdentityProviderClient({});
+const dynamoClient = new DynamoDBClient({});
 
 // Validate required environment variables at module load
 if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
@@ -36,40 +38,48 @@ if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is r
 
 const USER_POOL_ID = process.env.USER_POOL_ID;
 const CLIENT_ID = process.env.CLIENT_ID;
+const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE || 'smuppy-rate-limit-staging';
 
 /**
- * Rate Limiting
- * 5 attempts per IP per 5 minutes
+ * Distributed Rate Limiting via DynamoDB
+ * 5 attempts per IP per 5-minute window, shared across all Lambda instances.
+ * Uses DynamoDB atomic counters with TTL for automatic cleanup.
  */
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const RATE_LIMIT_WINDOW_S = 5 * 60; // 5 minutes in seconds
 const MAX_ATTEMPTS = 5;
 
-const checkRateLimit = (ip: string): { allowed: boolean; retryAfter?: number } => {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
+const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfter?: number }> => {
+  const now = Math.floor(Date.now() / 1000);
+  const windowKey = `signup#${ip}#${Math.floor(now / RATE_LIMIT_WINDOW_S)}`;
+  const windowEnd = (Math.floor(now / RATE_LIMIT_WINDOW_S) + 1) * RATE_LIMIT_WINDOW_S;
 
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
+  try {
+    // Atomic increment - creates item if it doesn't exist
+    const result = await dynamoClient.send(new UpdateItemCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Key: { pk: { S: windowKey } },
+      UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :one, #ttl = :ttl',
+      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':zero': { N: '0' },
+        ':one': { N: '1' },
+        ':ttl': { N: String(windowEnd + 60) }, // TTL: window end + 60s buffer
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
 
-  if (record.count >= MAX_ATTEMPTS) {
-    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
-    return { allowed: false, retryAfter };
-  }
+    const count = parseInt(result.Attributes?.count?.N || '1', 10);
 
-  record.count++;
-  return { allowed: true };
-};
-
-// Cleanup old entries periodically
-const cleanupRateLimitMap = () => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key);
+    if (count > MAX_ATTEMPTS) {
+      const retryAfter = windowEnd - now;
+      return { allowed: false, retryAfter };
     }
+
+    return { allowed: true };
+  } catch (error) {
+    // Fail-closed: if DynamoDB is unavailable, block the request for safety
+    log.error('Rate limit check failed, blocking request', error);
+    return { allowed: false, retryAfter: 60 };
   }
 };
 
@@ -195,16 +205,13 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
 
-  // Cleanup old rate limit entries
-  cleanupRateLimitMap();
-
   // Get client IP for rate limiting
   const clientIp = event.requestContext.identity?.sourceIp ||
                    event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
                    'unknown';
 
-  // Check rate limit
-  const rateLimit = checkRateLimit(clientIp);
+  // Check rate limit (distributed via DynamoDB)
+  const rateLimit = await checkRateLimit(clientIp);
   if (!rateLimit.allowed) {
     log.info('Rate limited', { ip: clientIp, retryAfter: rateLimit.retryAfter });
     return {

@@ -14,8 +14,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const connectionId = event.requestContext.connectionId;
 
   try {
-    // Get token from query string (WebSocket doesn't support headers on connect)
-    const token = event.queryStringParameters?.token;
+    // Read token from Sec-WebSocket-Protocol header (preferred, avoids token in URL/logs)
+    // Client sends: new WebSocket(url, ['access-token', '<jwt>'])
+    // API Gateway exposes this as the 'Sec-WebSocket-Protocol' header
+    const protocols = event.headers?.['Sec-WebSocket-Protocol'] || event.headers?.['sec-websocket-protocol'] || '';
+    const protocolParts = protocols.split(',').map((p: string) => p.trim());
+    const tokenIndex = protocolParts.indexOf('access-token');
+    const token = tokenIndex >= 0 && tokenIndex + 1 < protocolParts.length
+      ? protocolParts[tokenIndex + 1]
+      : event.queryStringParameters?.token; // fallback for older clients
 
     if (!token) {
       log.info('No token provided');

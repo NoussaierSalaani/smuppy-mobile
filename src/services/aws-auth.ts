@@ -49,15 +49,15 @@ const secureStore = {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
-      console.error('[SecureStore] Failed to set item:', key, error);
-      throw error;
+      // Silent on simulator (no keychain access)
+      return;
     }
   },
   async getItem(key: string): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
-      console.error('[SecureStore] Failed to get item:', key, error);
+      // Silent on simulator (no keychain access)
       return null;
     }
   },
@@ -65,7 +65,7 @@ const secureStore = {
     try {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
-      console.error('[SecureStore] Failed to remove item:', key, error);
+      // Silent on simulator (no keychain access)
     }
   },
 };

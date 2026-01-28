@@ -22,8 +22,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
+
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
@@ -97,7 +101,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   // Check creation limits on mount (personal accounts: 1 event/month)
@@ -153,7 +157,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   };
 
   const handleMapPress = (e: any) => {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
+    const [longitude, latitude] = e.geometry.coordinates;
 
     if (hasRoute && selectedCategory && ROUTE_CATEGORIES.includes(selectedCategory.slug)) {
       // Add point to route
@@ -494,57 +498,66 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <MapView
           ref={mapRef}
           style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={{
-            latitude: userLocation?.lat || 48.8566,
-            longitude: userLocation?.lng || 2.3522,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }}
           onPress={handleMapPress}
-          customMapStyle={darkMapStyle}
         >
+          <Camera
+            centerCoordinate={[userLocation?.lng || 2.3522, userLocation?.lat || 48.8566]}
+            zoomLevel={14}
+          />
           {coordinates && !hasRoute && (
-            <Marker
-              coordinate={{ latitude: coordinates.lat, longitude: coordinates.lng }}
-              pinColor={selectedCategory?.color || COLORS.primary}
-            />
+            <MarkerView
+              coordinate={[coordinates.lng, coordinates.lat]}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: selectedCategory?.color || COLORS.primary, borderWidth: 2, borderColor: '#fff' }} />
+            </MarkerView>
           )}
 
-          {hasRoute && routePoints.length > 0 && (
-            <>
-              <Polyline
-                coordinates={routePoints}
-                strokeColor={selectedCategory?.color || COLORS.primary}
-                strokeWidth={4}
+          {hasRoute && routePoints.length > 1 && (
+            <ShapeSource
+              id="routeLine"
+              shape={{
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: routePoints.map(p => [p.longitude, p.latitude]),
+                },
+              }}
+            >
+              <LineLayer
+                id="routeLineLayer"
+                style={{
+                  lineColor: selectedCategory?.color || COLORS.primary,
+                  lineWidth: 4,
+                }}
               />
-              {routePoints.map((point, index) => (
-                <Marker
-                  key={index}
-                  coordinate={point}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                >
-                  <View
-                    style={[
-                      styles.routeMarker,
-                      {
-                        backgroundColor:
-                          index === 0
-                            ? '#4CAF50'
-                            : index === routePoints.length - 1
-                            ? '#F44336'
-                            : selectedCategory?.color || COLORS.primary,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.routeMarkerText}>
-                      {index === 0 ? 'S' : index === routePoints.length - 1 ? 'E' : index}
-                    </Text>
-                  </View>
-                </Marker>
-              ))}
-            </>
+            </ShapeSource>
           )}
+
+          {hasRoute && routePoints.length > 0 && routePoints.map((point, index) => (
+            <MarkerView
+              key={index}
+              coordinate={[point.longitude, point.latitude]}
+            >
+              <View
+                style={[
+                  styles.routeMarker,
+                  {
+                    backgroundColor:
+                      index === 0
+                        ? '#4CAF50'
+                        : index === routePoints.length - 1
+                        ? '#F44336'
+                        : selectedCategory?.color || COLORS.primary,
+                  },
+                ]}
+              >
+                <Text style={styles.routeMarkerText}>
+                  {index === 0 ? 'S' : index === routePoints.length - 1 ? 'E' : index}
+                </Text>
+              </View>
+            </MarkerView>
+          ))}
         </MapView>
 
         {hasRoute && (

@@ -90,14 +90,18 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
       // Brief delay to show success, then navigate to login
       setTimeout(() => {
-        if (onRecoveryComplete) {
-          onRecoveryComplete();
-        } else {
-          // Navigate to login screen
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          });
+        try {
+          if (onRecoveryComplete) {
+            onRecoveryComplete();
+          } else {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+          }
+        } catch (navError) {
+          console.warn('[NewPassword] Navigation error, using replace:', navError);
+          navigation.replace('Login');
         }
       }, 1500);
     } catch (err: any) {
@@ -152,7 +156,9 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           </Text>
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Entering the app...</Text>
+            <Text style={styles.loadingText}>
+              {onRecoveryComplete ? 'Entering the app...' : 'Redirecting to login...'}
+            </Text>
           </View>
         </View>
       </SafeAreaView>

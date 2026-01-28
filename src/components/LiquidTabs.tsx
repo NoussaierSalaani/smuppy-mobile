@@ -116,8 +116,8 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
   });
 
   const handleTabPress = (key: string, _index: number) => {
-    if (key === activeTab) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Always call onTabChange - parent handles scroll-to-top for same tab
     onTabChange(key);
   };
 
@@ -126,7 +126,8 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
       style={[
         styles.container,
         {
-          borderRadius: config.radius,
+          // No borderRadius when fullWidth - connected to header above
+          borderRadius: fullWidth ? 0 : config.radius,
           width: fullWidth ? undefined : containerWidth,
           maxWidth: fullWidth ? undefined : containerWidth,
         },
@@ -198,8 +199,8 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
         })}
       </View>
 
-      {/* Outer border glow */}
-      <View style={[styles.borderGlow, { borderRadius: config.radius }]} />
+      {/* Outer border glow - only when not fullWidth */}
+      {!fullWidth && <View style={[styles.borderGlow, { borderRadius: config.radius }]} />}
     </View>
   );
 };
@@ -258,14 +259,10 @@ export const LiquidTabsWithMore: React.FC<LiquidTabsWithMoreProps> = ({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
   },
   fullWidth: {
-    // No margins - truly full width
+    // No margins - truly full width connected to header
+    // No shadow when connected
   },
   glassOverlay: {
     ...StyleSheet.absoluteFillObject,

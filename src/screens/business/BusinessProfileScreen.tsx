@@ -22,8 +22,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import Mapbox, { MapView, Camera, MarkerView } from '@rnmapbox/maps';
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
+
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -548,27 +552,20 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                 <View style={styles.mapContainer}>
                   <MapView
                     style={styles.map}
-                    provider={PROVIDER_GOOGLE}
-                    customMapStyle={darkMapStyle}
-                    initialRegion={{
-                      latitude: business.location.coordinates.lat,
-                      longitude: business.location.coordinates.lng,
-                      latitudeDelta: 0.01,
-                      longitudeDelta: 0.01,
-                    }}
                     scrollEnabled={false}
                     zoomEnabled={false}
                   >
-                    <Marker
-                      coordinate={{
-                        latitude: business.location.coordinates.lat,
-                        longitude: business.location.coordinates.lng,
-                      }}
+                    <Camera
+                      centerCoordinate={[business.location.coordinates.lng, business.location.coordinates.lat]}
+                      zoomLevel={15}
+                    />
+                    <MarkerView
+                      coordinate={[business.location.coordinates.lng, business.location.coordinates.lat]}
                     >
                       <View style={[styles.mapMarker, { backgroundColor: business.category.color }]}>
                         <Ionicons name={business.category.icon as any} size={16} color="#fff" />
                       </View>
-                    </Marker>
+                    </MarkerView>
                   </MapView>
                 </View>
                 <TouchableOpacity style={styles.addressRow} onPress={handleOpenMaps}>

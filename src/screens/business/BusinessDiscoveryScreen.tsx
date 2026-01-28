@@ -24,8 +24,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
+
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 import * as Haptics from 'expo-haptics';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
@@ -109,7 +113,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
   const [filterRating, setFilterRating] = useState<number>(0);
   const [filterPriceRange, setFilterPriceRange] = useState<string[]>([]);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
 
@@ -368,24 +372,22 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
   };
 
   const renderMapMarker = (business: Business) => (
-    <Marker
+    <MarkerView
       key={business.id}
-      coordinate={{
-        latitude: business.location.coordinates.lat,
-        longitude: business.location.coordinates.lng,
-      }}
-      onPress={() => handleMarkerPress(business)}
+      coordinate={[business.location.coordinates.lng, business.location.coordinates.lat]}
     >
-      <View
-        style={[
-          styles.mapMarker,
-          { backgroundColor: business.category.color },
-          selectedBusiness?.id === business.id && styles.mapMarkerSelected,
-        ]}
-      >
-        <Ionicons name={business.category.icon as any} size={16} color="#fff" />
-      </View>
-    </Marker>
+      <TouchableOpacity onPress={() => handleMarkerPress(business)}>
+        <View
+          style={[
+            styles.mapMarker,
+            { backgroundColor: business.category.color },
+            selectedBusiness?.id === business.id && styles.mapMarkerSelected,
+          ]}
+        >
+          <Ionicons name={business.category.icon as any} size={16} color="#fff" />
+        </View>
+      </TouchableOpacity>
+    </MarkerView>
   );
 
   const renderFiltersModal = () => (
@@ -631,17 +633,12 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
             <MapView
               ref={mapRef}
               style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              customMapStyle={darkMapStyle}
-              initialRegion={{
-                latitude: userLocation?.lat || 48.8566,
-                longitude: userLocation?.lng || 2.3522,
-                latitudeDelta: 0.1,
-                longitudeDelta: 0.1,
-              }}
-              showsUserLocation
-              showsMyLocationButton={false}
             >
+              <Camera
+                centerCoordinate={[userLocation?.lng || 2.3522, userLocation?.lat || 48.8566]}
+                zoomLevel={12}
+              />
+              <LocationPuck />
               {businesses.map(renderMapMarker)}
             </MapView>
 

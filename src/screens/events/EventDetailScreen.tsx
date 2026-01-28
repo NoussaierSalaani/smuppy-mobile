@@ -21,8 +21,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
+
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 import { useStripe } from '@stripe/stripe-react-native';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
@@ -107,7 +111,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const [showFullDescription, setShowFullDescription] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
     loadEventDetails();
@@ -376,33 +380,38 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
             <MapView
               ref={mapRef}
               style={styles.coverMap}
-              provider={PROVIDER_GOOGLE}
-              customMapStyle={darkMapStyle}
-              initialRegion={{
-                latitude: event.coordinates.lat,
-                longitude: event.coordinates.lng,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
               scrollEnabled={false}
               zoomEnabled={false}
             >
-              <Marker
-                coordinate={{
-                  latitude: event.coordinates.lat,
-                  longitude: event.coordinates.lng,
-                }}
-                pinColor={event.category.color}
+              <Camera
+                centerCoordinate={[event.coordinates.lng, event.coordinates.lat]}
+                zoomLevel={15}
               />
+              <MarkerView
+                coordinate={[event.coordinates.lng, event.coordinates.lat]}
+              >
+                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: event.category.color, borderWidth: 2, borderColor: '#fff' }} />
+              </MarkerView>
               {event.route_waypoints && event.route_waypoints.length > 1 && (
-                <Polyline
-                  coordinates={event.route_waypoints.map((p) => ({
-                    latitude: p.lat,
-                    longitude: p.lng,
-                  }))}
-                  strokeColor={event.category.color}
-                  strokeWidth={3}
-                />
+                <ShapeSource
+                  id="routeLine"
+                  shape={{
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                      type: 'LineString',
+                      coordinates: event.route_waypoints.map((p) => [p.lng, p.lat]),
+                    },
+                  }}
+                >
+                  <LineLayer
+                    id="routeLineLayer"
+                    style={{
+                      lineColor: event.category.color,
+                      lineWidth: 3,
+                    }}
+                  />
+                </ShapeSource>
               )}
             </MapView>
           )}

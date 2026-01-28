@@ -19,7 +19,7 @@ export const storage: Storage = {
       await SecureStore.setItemAsync(key, data);
       return true;
     } catch (e) {
-      console.error('SecureStore set error:', e);
+      // Silent on simulator (no keychain access)
       return false;
     }
   },
@@ -30,7 +30,7 @@ export const storage: Storage = {
       if (!value) return null;
       return parse ? JSON.parse(value) : (value as unknown as T);
     } catch (e) {
-      console.error('SecureStore get error:', e);
+      // Silent on simulator (no keychain access)
       return null;
     }
   },
@@ -40,7 +40,7 @@ export const storage: Storage = {
       await SecureStore.deleteItemAsync(key);
       return true;
     } catch (e) {
-      console.error('SecureStore delete error:', e);
+      // Silent on simulator (no keychain access)
       return false;
     }
   },
@@ -50,7 +50,7 @@ export const storage: Storage = {
       await Promise.all(keys.map(k => SecureStore.deleteItemAsync(k)));
       return true;
     } catch (e) {
-      console.error('SecureStore clear error:', e);
+      // Silent on simulator (no keychain access)
       return false;
     }
   },

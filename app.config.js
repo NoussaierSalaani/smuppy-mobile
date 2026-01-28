@@ -89,6 +89,10 @@ plugins: [
 'expo-web-browser',
 '@sentry/react-native',
 'expo-apple-authentication',
+[
+  '@rnmapbox/maps',
+  {},
+],
 ],
 extra: {
 eas: {
@@ -111,6 +115,8 @@ agoraAppId: process.env.AGORA_APP_ID,
 awsRegion: process.env.AWS_REGION,
 s3BucketName: process.env.S3_BUCKET_NAME,
 cloudfrontUrl: process.env.CLOUDFRONT_URL,
+// Mapbox
+mapboxAccessToken: process.env.MAPBOX_ACCESS_TOKEN,
     },
   },
 };

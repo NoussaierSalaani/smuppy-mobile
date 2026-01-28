@@ -2,30 +2,30 @@
 // Lazy-loaded MapView component to improve initial load performance
 import React, { useState, useEffect, forwardRef, memo } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
+import Mapbox from '@rnmapbox/maps';
+import Constants from 'expo-constants';
 import { COLORS } from '../config/theme';
 
-// Types for MapView props (subset of react-native-maps)
-interface Region {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 
+// Types for MapView props (Mapbox-compatible)
 interface LazyMapViewProps {
   style?: ViewStyle;
-  region?: Region;
-  onRegionChangeComplete?: (region: Region) => void;
+  centerCoordinate?: [number, number]; // [lng, lat]
+  zoomLevel?: number;
   onPress?: (event: any) => void;
   children?: React.ReactNode;
   showsUserLocation?: boolean;
-  showsMyLocationButton?: boolean;
+  scrollEnabled?: boolean;
+  zoomEnabled?: boolean;
 }
 
 // Lazy-loaded MapView component
 const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
   const [MapViewComponent, setMapViewComponent] = useState<any>(null);
-  const [, setMarkerComponent] = useState<any>(null);
+  const [CameraComponent, setCameraComponent] = useState<any>(null);
+  const [LocationPuckComponent, setLocationPuckComponent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,10 +33,11 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
 
     const loadMapView = async () => {
       try {
-        const maps = await import('react-native-maps');
+        const maps = await import('@rnmapbox/maps');
         if (mounted) {
-          setMapViewComponent(() => maps.default);
-          setMarkerComponent(() => maps.Marker);
+          setMapViewComponent(() => maps.default.MapView);
+          setCameraComponent(() => maps.default.Camera);
+          setLocationPuckComponent(() => maps.default.LocationPuck);
           setIsLoading(false);
         }
       } catch (error) {
@@ -62,32 +63,51 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
     );
   }
 
+  const { centerCoordinate, zoomLevel, showsUserLocation, scrollEnabled, zoomEnabled, onPress, style, children } = props;
+
   return (
     <MapViewComponent
       ref={ref}
-      provider="google"
-      {...props}
-    />
+      style={style}
+      onPress={onPress}
+      scrollEnabled={scrollEnabled}
+      zoomEnabled={zoomEnabled}
+    >
+      {CameraComponent && centerCoordinate && (
+        <CameraComponent centerCoordinate={centerCoordinate} zoomLevel={zoomLevel ?? 12} />
+      )}
+      {showsUserLocation && LocationPuckComponent && <LocationPuckComponent />}
+      {children}
+    </MapViewComponent>
   );
 }));
 
-// Export Marker separately for use in parent components
-export const LazyMarker = memo(({ children, ...props }: any) => {
-  const [MarkerComponent, setMarkerComponent] = useState<any>(null);
+// Export MarkerView separately for use in parent components
+export const LazyMarker = memo(({ children, coordinate, ...props }: any) => {
+  const [MarkerViewComponent, setMarkerViewComponent] = useState<any>(null);
 
   useEffect(() => {
     let mounted = true;
-    import('react-native-maps').then((maps) => {
+    import('@rnmapbox/maps').then((maps) => {
       if (mounted) {
-        setMarkerComponent(() => maps.Marker);
+        setMarkerViewComponent(() => maps.default.MarkerView);
       }
     });
     return () => { mounted = false; };
   }, []);
 
-  if (!MarkerComponent) return null;
+  if (!MarkerViewComponent) return null;
 
-  return <MarkerComponent {...props}>{children}</MarkerComponent>;
+  // Convert coordinate from {latitude, longitude} to [lng, lat]
+  const coord = coordinate
+    ? [coordinate.longitude, coordinate.latitude]
+    : props.coordinateArray;
+
+  return (
+    <MarkerViewComponent coordinate={coord} {...props}>
+      {children}
+    </MarkerViewComponent>
+  );
 });
 
 export default LazyMapView;

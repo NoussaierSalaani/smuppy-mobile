@@ -36,14 +36,19 @@ export default function FeedScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setBottomBarHidden(false);
-      showBars();
-    }, [setBottomBarHidden, showBars])
+      // Don't override Xplorer's bottom bar state
+      if (activeTab !== 2) {
+        setBottomBarHidden(false);
+        showBars();
+      }
+    }, [activeTab, setBottomBarHidden, showBars])
   );
 
   useEffect(() => {
-    // Don't hide bottom bar for any tab - let scroll handle visibility
-    setBottomBarHidden(false);
+    // Xplorer manages its own bottom bar visibility
+    if (activeTab !== 2) {
+      setBottomBarHidden(false);
+    }
 
     // Mark tab as visited for lazy loading
     setVisitedTabs(prev => new Set([...prev, activeTab]));

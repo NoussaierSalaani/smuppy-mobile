@@ -22,7 +22,7 @@ import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
-import { useContentStore, useUserSafetyStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
@@ -200,25 +200,39 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
-  // Load user expertise from profile (reload when screen receives focus)
-  // Using expertise instead of interests - more professional for pro creators
+  // Get account type to determine what to show (interests vs expertise vs category)
+  const accountType = useUserStore((state) => state.user?.accountType);
+
+  // Load user interests/expertise based on account type
+  // Personal → interests, Pro_creator → expertise, Pro_business → business_category + expertise
   useFocusEffect(
     useCallback(() => {
-      const loadUserExpertise = async () => {
+      const loadUserPreferences = async () => {
         const { data: profile } = await getCurrentProfile();
-        // Prioritize expertise over interests (more professional)
-        if (profile?.expertise && profile.expertise.length > 0) {
-          setUserInterests(profile.expertise);
-        } else if (profile?.interests && profile.interests.length > 0) {
-          // Fallback to interests if no expertise set
-          setUserInterests(profile.interests);
+
+        // Choose the right field based on account type
+        if (accountType === 'pro_business') {
+          // Business accounts: business_category + expertise combined
+          const combined: string[] = [];
+          if (profile?.business_category) {
+            combined.push(profile.business_category);
+          }
+          if (profile?.expertise && profile.expertise.length > 0) {
+            profile.expertise.forEach((e: string) => {
+              if (!combined.includes(e)) combined.push(e);
+            });
+          }
+          setUserInterests(combined);
+        } else if (accountType === 'pro_creator') {
+          // Pro creators: expertise only
+          setUserInterests(profile?.expertise?.length ? profile.expertise : []);
         } else {
-          // Default expertise if user hasn't set any
-          setUserInterests(['General Fitness', 'Weight Loss', 'Strength Training', 'Cardio', 'HIIT', 'Yoga']);
+          // Personal accounts: interests only
+          setUserInterests(profile?.interests?.length ? profile.interests : []);
         }
       };
-      loadUserExpertise();
-    }, [])
+      loadUserPreferences();
+    }, [accountType])
   );
 
   // Fetch posts from API - fetches ALL posts, filtering is done locally for speed
@@ -948,16 +962,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               )}
             </Animated.View>
           ))}
-          {/* Add interests button */}
+          {/* Add interests/expertise button - navigates based on account type */}
           <TouchableOpacity
             style={styles.addInterestButton}
-            onPress={() => navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' })}
+            onPress={() => {
+              // Personal → EditInterests, Pro creator & Business → EditExpertise
+              const screen = accountType === 'personal' ? 'EditInterests' : 'EditExpertise';
+              navigation.navigate(screen, { returnTo: 'VibesFeed' });
+            }}
             activeOpacity={0.7}
           >
             <Ionicons name="add" size={16} color={COLORS.primary} />
           </TouchableOpacity>
         </ScrollView>
-
 
         {/* Grid */}
         <View style={styles.gridContainer}>

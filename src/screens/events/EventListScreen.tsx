@@ -23,8 +23,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
+
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -128,7 +132,7 @@ export default function EventListScreen() {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const filterDrawerAnim = useRef(new Animated.Value(0)).current;
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 
@@ -535,24 +539,22 @@ export default function EventListScreen() {
   };
 
   const renderMapMarker = (event: Event) => (
-    <Marker
+    <MarkerView
       key={event.id}
-      coordinate={{
-        latitude: event.coordinates.lat,
-        longitude: event.coordinates.lng,
-      }}
-      onPress={() => handleMarkerPress(event)}
+      coordinate={[event.coordinates.lng, event.coordinates.lat]}
     >
-      <View
-        style={[
-          styles.mapMarker,
-          { backgroundColor: event.category.color },
-          selectedEvent?.id === event.id && styles.mapMarkerSelected,
-        ]}
-      >
-        <Ionicons name={event.category.icon as any} size={16} color="#fff" />
-      </View>
-    </Marker>
+      <TouchableOpacity onPress={() => handleMarkerPress(event)}>
+        <View
+          style={[
+            styles.mapMarker,
+            { backgroundColor: event.category.color },
+            selectedEvent?.id === event.id && styles.mapMarkerSelected,
+          ]}
+        >
+          <Ionicons name={event.category.icon as any} size={16} color="#fff" />
+        </View>
+      </TouchableOpacity>
+    </MarkerView>
   );
 
   return (
@@ -629,17 +631,12 @@ export default function EventListScreen() {
             <MapView
               ref={mapRef}
               style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              customMapStyle={darkMapStyle}
-              initialRegion={{
-                latitude: userLocation?.lat || 48.8566,
-                longitude: userLocation?.lng || 2.3522,
-                latitudeDelta: 0.1,
-                longitudeDelta: 0.1,
-              }}
-              showsUserLocation
-              showsMyLocationButton={false}
             >
+              <Camera
+                centerCoordinate={[userLocation?.lng || 2.3522, userLocation?.lat || 48.8566]}
+                zoomLevel={12}
+              />
+              <LocationPuck />
               {events.map(renderMapMarker)}
             </MapView>
 

@@ -699,17 +699,14 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             <LazyMapView
               ref={mapRef}
               style={styles.map}
-              region={mapRegion}
-              onRegionChangeComplete={setMapRegion}
+              centerCoordinate={[mapRegion.longitude, mapRegion.latitude]}
+              zoomLevel={15}
               onPress={handleMapPress}
               showsUserLocation
-              showsMyLocationButton
             >
               {selectedCoords && (
                 <LazyMarker
                   coordinate={selectedCoords}
-                  draggable
-                  onDragEnd={handleMapPress}
                 >
                   <View style={styles.mapMarker}>
                     <Ionicons name="location" size={32} color={COLORS.primary} />

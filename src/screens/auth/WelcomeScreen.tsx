@@ -32,7 +32,7 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="welcome-screen">
       <Animated.View style={[styles.imageContainer, { transform: [{ scale: scaleAnim }] }]}>
         <ImageBackground source={require('../../../assets/images/bg.png')} style={styles.backgroundImage} resizeMode="cover">
           <LinearGradient colors={['rgba(0, 179, 199, 0.3)', 'rgba(10, 37, 47, 0.85)', 'rgba(10, 37, 47, 0.95)']} locations={[0, 0.5, 1]} style={styles.gradientOverlay} />
@@ -56,14 +56,14 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
         </View>
 
         <Animated.View style={[styles.buttonContainer, { opacity: buttonsAnim }]}>
-          <TouchableOpacity style={styles.primaryButtonWrapper} onPress={() => navigation.navigate('Signup')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.primaryButtonWrapper} onPress={() => navigation.navigate('Signup')} activeOpacity={0.8} testID="signup-button" accessible={true} accessibilityLabel="signup-button" accessibilityRole="button">
             <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Create an Account?</Text>
               <Text style={styles.arrowIcon}>→</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Login')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Login')} activeOpacity={0.8} testID="login-button" accessible={true} accessibilityLabel="login-button" accessibilityRole="button">
             <Text style={styles.secondaryButtonText}>Login</Text>
             <Text style={styles.arrowIconSecondary}>→</Text>
           </TouchableOpacity>

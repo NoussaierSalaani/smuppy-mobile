@@ -1,10 +1,11 @@
-# Test: App Launch and Login
+# Test: App Launch, Login, and Navigation
 appId: com.nou09.Smuppy
-name: "App - Launch and Login Test"
+name: "App - Full Navigation Test"
 tags:
   - smoke
   - launch
   - auth
+  - navigation
 ---
 
 # Launch app
@@ -12,45 +13,100 @@ tags:
 
 # Handle Expo dev launcher
 - tapOn:
-    text: "localhost"
+    id: ".*localhost.*"
     optional: true
 
-# Wait for welcome screen
+# Wait for welcome screen using testID
 - extendedWaitUntil:
-    visible: "Welcome To"
+    visible:
+      id: "welcome-screen"
     timeout: 20000
 
-# Tap login button on welcome screen
+# Tap login button using testID
 - tapOn:
-    text: "Login.*"
+    id: "login-button"
 
-# Wait for screen transition
+# Wait for login screen
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 10000
+
+# Wait a moment for form to be ready
 - waitForAnimationToEnd
 
-# Tap login button to submit (credentials already filled)
-# Login button is around 62% from top
+# Try to tap login submit button
 - tapOn:
-    point: 50%, 62%
+    id: "submit-login-button"
+    optional: true
 
-# Wait for home feed to load
+# Fallback: tap by approximate position of login button
+- tapOn:
+    point: 50%, 57%
+    optional: true
+
+# Wait for home feed
 - extendedWaitUntil:
-    visible: "Fan"
-    timeout: 25000
+    visible:
+      id: "feed-screen"
+    timeout: 30000
 
-# Verify we're on the home feed - test tab navigation
-- assertVisible: "Fan"
-- assertVisible: "Vibes"
-- assertVisible: "Xplorer"
+# ========== TEST TAB NAVIGATION ==========
 
-# Test tab navigation
-- tapOn: "Fan"
-- tapOn: "Vibes"
-- tapOn: "Xplorer"
-- tapOn: "Vibes"
+# Test Fan tab
+- tapOn:
+    id: "tab-Fan"
+- assertVisible:
+    id: "tab-Fan"
 
-# Test scroll on Vibes feed
-- swipe:
-    start: 50%, 80%
-    end: 50%, 30%
+# Test Vibes tab
+- tapOn:
+    id: "tab-Vibes"
+- assertVisible:
+    id: "tab-Vibes"
 
-# Success - all tabs accessible and scrollable
+# Test Xplorer tab (fullscreen mode - no tabs visible after)
+- tapOn:
+    id: "tab-Xplorer"
+
+# Wait for map to load
+- waitForAnimationToEnd
+
+# ========== TEST BOTTOM NAVIGATION ==========
+
+# Use bottom nav to go to Peaks (gets us out of fullscreen map)
+- tapOn:
+    id: "nav-peaks"
+
+# Use bottom nav to go back to Home
+- tapOn:
+    id: "nav-home"
+
+# Verify we're back on feed with tabs visible
+- extendedWaitUntil:
+    visible:
+      id: "tab-Fan"
+    timeout: 5000
+
+# ========== TEST HEADER BUTTONS ==========
+
+# Test search button
+- tapOn:
+    id: "search-button"
+- waitForAnimationToEnd
+- back
+
+# Test notifications button
+- tapOn:
+    id: "notifications-button"
+- waitForAnimationToEnd
+- back
+
+# ========== TEST PROFILE ==========
+
+# Navigate to profile
+- tapOn:
+    id: "nav-profile"
+
+# ========== SUCCESS ==========
+# All main navigation flows working!

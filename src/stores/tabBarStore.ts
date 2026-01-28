@@ -31,6 +31,11 @@ interface TabBarStoreState {
   isVisible: boolean;
   setIsVisible: (visible: boolean) => void;
 
+  // Xplorer fullscreen mode (header hidden, map takes full screen)
+  xplorerFullscreen: boolean;
+  setXplorerFullscreen: (fullscreen: boolean) => void;
+  toggleXplorerFullscreen: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -38,11 +43,14 @@ interface TabBarStoreState {
 export const useTabBarStore = create<TabBarStoreState>((set) => ({
   bottomBarHidden: false,
   isVisible: true,
+  xplorerFullscreen: false,
 
   setBottomBarHidden: (hidden) => set({ bottomBarHidden: hidden }),
   setIsVisible: (visible) => set({ isVisible: visible }),
+  setXplorerFullscreen: (fullscreen) => set({ xplorerFullscreen: fullscreen }),
+  toggleXplorerFullscreen: () => set((state) => ({ xplorerFullscreen: !state.xplorerFullscreen })),
 
-  reset: () => set({ bottomBarHidden: false, isVisible: true }),
+  reset: () => set({ bottomBarHidden: false, isVisible: true, xplorerFullscreen: false }),
 }));
 
 // ============================================
@@ -182,6 +190,10 @@ export interface TabBarContextValue {
   // BottomNav visibility (for Xplorer)
   bottomBarHidden: boolean;
   setBottomBarHidden: (hidden: boolean) => void;
+  // Xplorer fullscreen mode
+  xplorerFullscreen: boolean;
+  setXplorerFullscreen: (fullscreen: boolean) => void;
+  toggleXplorerFullscreen: () => void;
   // Methods
   showBars: () => void;
   hideBars: () => void;
@@ -196,13 +208,16 @@ export interface TabBarContextValue {
  * This is the main hook to use in components (replaces useTabBar from Context)
  */
 export function useTabBar(): TabBarContextValue {
-  const { bottomBarHidden, setBottomBarHidden, isVisible } = useTabBarStore();
+  const { bottomBarHidden, setBottomBarHidden, isVisible, xplorerFullscreen, setXplorerFullscreen, toggleXplorerFullscreen } = useTabBarStore();
   const animations = useTabBarAnimations();
 
   return {
     ...animations,
     bottomBarHidden,
     setBottomBarHidden,
+    xplorerFullscreen,
+    setXplorerFullscreen,
+    toggleXplorerFullscreen,
     tabBarVisible: isVisible,
     setTabBarVisible: (v: boolean) => (v ? animations.showBars() : animations.hideBars()),
   };

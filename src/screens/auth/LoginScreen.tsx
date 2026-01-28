@@ -459,7 +459,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="login-screen">
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             
@@ -494,6 +494,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     autoCorrect={false}
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
+                    testID="email-input"
                   />
                 </View>
               </LinearGradient>
@@ -520,6 +521,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     autoCorrect={false}
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
+                    testID="password-input"
                   />
                   <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
@@ -545,6 +547,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               disabled={!isFormValid || loading}
               activeOpacity={0.8}
               style={styles.btnTouchable}
+              testID="submit-login-button"
+              accessible={true}
+              accessibilityLabel="submit-login-button"
+              accessibilityRole="button"
             >
               <LinearGradient
                 colors={isFormValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled}

@@ -52,7 +52,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const hasRequestedPermission = useRef(false);
-  const { setBottomBarHidden, showBars } = useTabBar();
+  const { setBottomBarHidden, showBars, xplorerFullscreen, toggleXplorerFullscreen, setXplorerFullscreen } = useTabBar();
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,20 +71,21 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   useEffect(() => {
     if (isActive) {
-      // Always hide bottom nav in Xplorer
-      setBottomBarHidden(true);
+      // Only hide bottom nav in fullscreen mode
+      setBottomBarHidden(xplorerFullscreen);
 
       if (!hasRequestedPermission.current) {
         hasRequestedPermission.current = true;
         requestLocationPermission();
       }
     } else {
-      // Show bottom nav when leaving Xplorer
+      // Reset when leaving Xplorer
       setBottomBarHidden(false);
+      setXplorerFullscreen(false);
       showBars();
     }
-     
-  }, [isActive, setBottomBarHidden, showBars]);
+
+  }, [isActive, xplorerFullscreen, setBottomBarHidden, setXplorerFullscreen, showBars]);
 
   const requestLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -123,18 +124,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
   };
 
-  // Zoom out to see all markers (fullscreen/overview mode)
-  const zoomToFitAll = () => {
-    if (mapRef.current && filteredMarkers.length > 0) {
-      const coords = filteredMarkers.map(m => m.coordinate);
-      if (location) {
-        coords.push({ latitude: location.coords.latitude, longitude: location.coords.longitude });
-      }
-      mapRef.current.fitToCoordinates(coords, {
-        edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
-        animated: true,
-      });
-    }
+  // Toggle fullscreen mode (header visible/hidden)
+  const toggleFullscreen = () => {
+    toggleXplorerFullscreen();
   };
 
 
@@ -364,7 +356,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
       {/* BOUTONS COIN INFÉRIEUR DROIT */}
       <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(3) }]}>
-        <GradientMapButton onPress={zoomToFitAll} iconName="expand-outline" />
+        <GradientMapButton onPress={toggleFullscreen} iconName={xplorerFullscreen ? "contract-outline" : "expand-outline"} />
         <GradientMapButton onPress={centerOnUser} iconName="navigate" />
       </View>
 

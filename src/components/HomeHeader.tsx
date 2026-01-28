@@ -42,7 +42,7 @@ type RootStackParamList = {
 export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { topBarTranslate, barsOpacity } = useTabBar();
+  const { topBarTranslate, barsOpacity, xplorerFullscreen } = useTabBar();
 
   // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
@@ -66,9 +66,9 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
     }).start();
   }, [activeTab, indicatorAnim, tabs]);
 
-  // Hide header completely on Xplorer (fullscreen map experience)
+  // Hide header in fullscreen map mode only
   // Must be after all hooks to comply with React rules
-  if (activeTab === 'Xplorer') {
+  if (activeTab === 'Xplorer' && xplorerFullscreen) {
     return <></>;
   }
 
@@ -123,6 +123,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                   style={styles.compactIconButton}
                   onPress={handleSearchPress}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  testID="search-button"
                 >
                   <Ionicons name="search-outline" size={20} color={COLORS.dark} />
                 </TouchableOpacity>
@@ -144,6 +145,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                   style={styles.compactIconButton}
                   onPress={handleNotificationsPress}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  testID="notifications-button"
                 >
                   <Ionicons name="notifications-outline" size={20} color={COLORS.dark} />
                 </TouchableOpacity>
@@ -174,6 +176,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 style={styles.iconButton}
                 onPress={handleSearchPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                testID="search-button"
               >
                 <Ionicons name="search-outline" size={24} color={iconColor} />
               </TouchableOpacity>
@@ -186,6 +189,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 style={styles.iconButton}
                 onPress={handleNotificationsPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                testID="notifications-button"
               >
                 <Ionicons name="notifications-outline" size={24} color={iconColor} />
               </TouchableOpacity>

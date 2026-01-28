@@ -144,7 +144,7 @@ describe('Profile Update Handler - Input Validation', () => {
 
   describe('Account Type Validation', () => {
     it('should accept valid account types', async () => {
-      for (const type of ['personal', 'creator', 'business']) {
+      for (const type of ['personal', 'pro_creator', 'pro_business']) {
         const event = createMockEvent({ accountType: type });
         const response = await handler(event);
 

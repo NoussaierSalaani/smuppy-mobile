@@ -29,7 +29,7 @@ interface UserToMigrate {
   fullName?: string;
   avatarUrl?: string;
   bio?: string;
-  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
   isVerified?: boolean;
 }
 

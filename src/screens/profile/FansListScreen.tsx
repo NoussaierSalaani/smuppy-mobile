@@ -35,7 +35,7 @@ interface User {
   username: string;
   avatar: string;
   isVerified: boolean;
-  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
   isFanOfMe: boolean;
   iAmFanOf: boolean;
   unfollowCount: number;

@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useUserStore } from '../../stores';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -85,6 +86,15 @@ const PLANS: SubscriptionPlan[] = [
 export default function PlatformSubscriptionScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const user = useUserStore((state) => state.user);
+
+  // Filter plans based on account type
+  // pro_creator users can only subscribe to pro_creator premium, not pro_business
+  // personal users can choose between both
+  const availablePlans = user?.accountType === 'pro_creator'
+    ? PLANS.filter(p => p.id === 'pro_creator')
+    : PLANS;
+
   const [selectedPlan, setSelectedPlan] = useState<'pro_creator' | 'pro_business'>('pro_creator');
   const [loading, setLoading] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
@@ -166,8 +176,14 @@ export default function PlatformSubscriptionScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Go Pro</Text>
-          <Text style={styles.headerSubtitle}>Unlock your full potential</Text>
+          <Text style={styles.headerTitle}>
+            {user?.accountType === 'pro_creator' ? 'Premium Subscription' : 'Go Pro'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {user?.accountType === 'pro_creator'
+              ? 'Unlock premium creator features'
+              : 'Unlock your full potential'}
+          </Text>
         </View>
 
         {/* Floating Icon */}
@@ -188,7 +204,7 @@ export default function PlatformSubscriptionScreen() {
       >
         {/* Plan Selection */}
         <View style={styles.plansContainer}>
-          {PLANS.map((plan) => (
+          {availablePlans.map((plan) => (
             <Animated.View
               key={plan.id}
               style={[

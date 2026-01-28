@@ -15,7 +15,7 @@ const log = createLogger('profiles-update');
 
 // Validation rules for profile fields
 const VALIDATION_RULES: Record<string, { maxLength: number; pattern?: RegExp; required?: boolean }> = {
-  username: { maxLength: 30, pattern: /^[a-zA-Z0-9_]{3,30}$/ },
+  username: { maxLength: 30, pattern: /^[a-zA-Z0-9_.]{3,30}$/ },
   fullName: { maxLength: 100 },
   displayName: { maxLength: 50 },
   bio: { maxLength: 500 },
@@ -72,16 +72,23 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
     if (typeof value !== 'string') {
       return { valid: false, sanitized: null, error: `${field} must be a string` };
     }
+    // Accept both YYYY-MM-DD and full ISO format (extract date part)
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(value)) {
+    const isoPattern = /^\d{4}-\d{2}-\d{2}T/;
+    let sanitizedDate = value;
+    if (isoPattern.test(value)) {
+      // Extract just the date part from ISO string
+      sanitizedDate = value.split('T')[0];
+    }
+    if (!datePattern.test(sanitizedDate)) {
       return { valid: false, sanitized: null, error: `${field} must be in YYYY-MM-DD format` };
     }
-    return { valid: true, sanitized: value };
+    return { valid: true, sanitized: sanitizedDate };
   }
 
   // Account type validation
   if (field === 'accountType') {
-    const validTypes = ['personal', 'creator', 'business'];
+    const validTypes = ['personal', 'pro_creator', 'pro_business'];
     if (!validTypes.includes(value as string)) {
       return { valid: false, sanitized: null, error: `${field} must be one of: ${validTypes.join(', ')}` };
     }

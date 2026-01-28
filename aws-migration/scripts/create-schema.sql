@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     bio TEXT,
     location VARCHAR(255),
     website VARCHAR(255),
-    account_type VARCHAR(20) DEFAULT 'personal' CHECK (account_type IN ('personal', 'pro_creator', 'pro_local')),
+    account_type VARCHAR(20) DEFAULT 'personal' CHECK (account_type IN ('personal', 'pro_creator', 'pro_business')),
     is_verified BOOLEAN DEFAULT FALSE,
     is_premium BOOLEAN DEFAULT FALSE,
     is_private BOOLEAN DEFAULT FALSE,

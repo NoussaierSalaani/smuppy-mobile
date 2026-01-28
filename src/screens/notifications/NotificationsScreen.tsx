@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { COLORS, GRADIENTS, SIZES, SPACING } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
+import { awsAPI } from '../../services/aws-api';
 
 // ============================================
 // TYPES
@@ -27,7 +29,7 @@ interface NotificationUser {
 }
 
 interface BaseNotification {
-  id: number;
+  id: number | string;
   time: string;
   isRead: boolean;
 }
@@ -62,126 +64,68 @@ type RootStackParamList = {
 };
 
 // ============================================
-// MOCK DATA
+// HELPERS
 // ============================================
 
-const NOTIFICATIONS: Notification[] = [
-  {
-    id: 1,
-    type: 'follow',
+// Transform API notification to display format
+function transformNotification(apiNotif: any): Notification {
+  const baseNotif = {
+    id: apiNotif.id,
+    time: formatTimeAgo(new Date(apiNotif.createdAt)),
+    isRead: apiNotif.read,
+  };
+
+  // System/reminder notifications
+  if (apiNotif.type === 'system' || apiNotif.type === 'reminder') {
+    return {
+      ...baseNotif,
+      type: apiNotif.type,
+      icon: apiNotif.data?.icon || 'notifications',
+      title: apiNotif.title || 'Notification',
+      message: apiNotif.body || '',
+    } as SystemNotification;
+  }
+
+  // User notifications (follow, like, peak_reply, live, etc.)
+  const userData = apiNotif.data?.user || {};
+  return {
+    ...baseNotif,
+    type: apiNotif.type || 'like',
     user: {
-      id: '1',
-      name: 'Hannah Smith',
-      avatar: 'https://i.pravatar.cc/100?img=1',
-      isVerified: true,
+      id: userData.id || apiNotif.data?.actorId || '',
+      name: userData.name || userData.username || 'User',
+      avatar: userData.avatar || userData.avatarUrl || 'https://i.pravatar.cc/100',
+      isVerified: userData.isVerified || false,
     },
-    message: 'became your fan',
-    time: '2m ago',
-    isRead: false,
-    isFollowing: false,
-  },
-  {
-    id: 2,
-    type: 'like',
-    user: {
-      id: '2',
-      name: 'Thomas Lefèvre',
-      avatar: 'https://i.pravatar.cc/100?img=3',
-      isVerified: false,
-    },
-    message: 'liked your post',
-    time: '15m ago',
-    isRead: false,
-    postImage: 'https://picsum.photos/100/100?random=1',
-  },
-  {
-    id: 3,
-    type: 'peak_reply',
-    user: {
-      id: '3',
-      name: 'Mariam Fiori',
-      avatar: 'https://i.pravatar.cc/100?img=5',
-      isVerified: true,
-    },
-    message: 'replied to your Peak',
-    time: '1h ago',
-    isRead: false,
-    postImage: 'https://picsum.photos/100/100?random=2',
-  },
-  {
-    id: 4,
-    type: 'like',
-    user: {
-      id: '4',
-      name: 'Alex Johnson',
-      avatar: 'https://i.pravatar.cc/100?img=8',
-      isVerified: false,
-    },
-    message: 'liked your Peak',
-    time: '2h ago',
-    isRead: true,
-    postImage: 'https://picsum.photos/100/100?random=3',
-  },
-  {
-    id: 5,
-    type: 'follow',
-    user: {
-      id: '5',
-      name: 'Emma Wilson',
-      avatar: 'https://i.pravatar.cc/100?img=9',
-      isVerified: true,
-    },
-    message: 'became your fan',
-    time: '3h ago',
-    isRead: true,
-    isFollowing: true,
-  },
-  {
-    id: 6,
-    type: 'like',
-    user: {
-      id: '6',
-      name: 'James Chen',
-      avatar: 'https://i.pravatar.cc/100?img=11',
-      isVerified: false,
-    },
-    message: 'and 12 others liked your post',
-    time: '5h ago',
-    isRead: true,
-    postImage: 'https://picsum.photos/100/100?random=4',
-  },
-  {
-    id: 7,
-    type: 'system',
-    icon: 'trophy',
-    title: 'Milestone reached!',
-    message: 'You reached 100 fans! Keep it up!',
-    time: '1d ago',
-    isRead: true,
-  },
-  {
-    id: 8,
-    type: 'live',
-    user: {
-      id: '8',
-      name: 'FitCoach Pro',
-      avatar: 'https://i.pravatar.cc/100?img=12',
-      isVerified: true,
-    },
-    message: 'is live now: "Morning HIIT Session"',
-    time: '1d ago',
-    isRead: true,
-  },
-  {
-    id: 9,
-    type: 'reminder',
-    icon: 'calendar',
-    title: 'Workout Reminder',
-    message: "Don't forget your evening yoga session!",
-    time: '2d ago',
-    isRead: true,
-  },
-];
+    message: apiNotif.body || getDefaultMessage(apiNotif.type),
+    isFollowing: apiNotif.data?.isFollowing,
+    postImage: apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
+  } as UserNotification;
+}
+
+function getDefaultMessage(type: string): string {
+  switch (type) {
+    case 'follow': return 'became your fan';
+    case 'like': return 'liked your post';
+    case 'peak_reply': return 'replied to your Peak';
+    case 'live': return 'is live now';
+    default: return 'interacted with your content';
+  }
+}
+
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
 
 // ============================================
 // MAIN COMPONENT
@@ -190,10 +134,37 @@ const NOTIFICATIONS: Notification[] = [
 export default function NotificationsScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const [notifications, setNotifications] = useState<Notification[]>(NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [followRequestsCount, setFollowRequestsCount] = useState(0);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Fetch notifications from API
+  const fetchNotifications = useCallback(async (isRefresh = false) => {
+    try {
+      const response = await awsAPI.getNotifications({
+        limit: 20,
+        cursor: isRefresh ? undefined : cursor || undefined,
+      });
+
+      const transformed = (response as any).notifications?.map(transformNotification) || [];
+
+      if (isRefresh) {
+        setNotifications(transformed);
+      } else {
+        setNotifications(prev => [...prev, ...transformed]);
+      }
+
+      setCursor((response as any).cursor || null);
+      setHasMore((response as any).hasMore || false);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      // Keep existing notifications on error
+    }
+  }, [cursor]);
 
   // Load follow requests count
   const loadFollowRequestsCount = useCallback(async () => {
@@ -201,11 +172,23 @@ export default function NotificationsScreen(): React.JSX.Element {
     setFollowRequestsCount(count);
   }, []);
 
-  // Reload count when screen comes into focus
+  // Initial load
+  useEffect(() => {
+    const loadInitial = async () => {
+      setLoading(true);
+      await fetchNotifications(true);
+      setLoading(false);
+    };
+    loadInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadFollowRequestsCount();
-    }, [loadFollowRequestsCount])
+      fetchNotifications(true);
+    }, [loadFollowRequestsCount, fetchNotifications])
   );
 
   const filters: Filter[] = [
@@ -220,15 +203,16 @@ export default function NotificationsScreen(): React.JSX.Element {
     navigation.navigate('UserProfile', { userId });
   };
 
-  const onRefresh = (): void => {
+  const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
-    loadFollowRequestsCount();
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    await Promise.all([
+      loadFollowRequestsCount(),
+      fetchNotifications(true),
+    ]);
+    setRefreshing(false);
   };
 
-  const toggleFollow = (id: number): void => {
+  const toggleFollow = (id: number | string): void => {
     setNotifications(
       notifications.map((notif) => {
         if (notif.id === id && 'isFollowing' in notif) {
@@ -239,7 +223,8 @@ export default function NotificationsScreen(): React.JSX.Element {
     );
   };
 
-  const markAsRead = (id: number): void => {
+  const markAsRead = async (id: number | string): Promise<void> => {
+    // Optimistic update
     setNotifications(
       notifications.map((notif) => {
         if (notif.id === id) {
@@ -248,6 +233,12 @@ export default function NotificationsScreen(): React.JSX.Element {
         return notif;
       })
     );
+    // Call API in background
+    try {
+      await awsAPI.markNotificationRead(String(id));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   const filteredNotifications =
@@ -469,7 +460,14 @@ export default function NotificationsScreen(): React.JSX.Element {
         <Text style={styles.sectionTitle}>Earlier</Text>
         {filteredNotifications.filter((n) => n.time.includes('d ago')).map(renderNotification)}
 
-        {filteredNotifications.length === 0 && (
+        {loading && notifications.length === 0 && (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Loading notifications...</Text>
+          </View>
+        )}
+
+        {!loading && filteredNotifications.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="notifications-off-outline" size={60} color={COLORS.grayLight} />
             <Text style={styles.emptyTitle}>No notifications</Text>
@@ -669,6 +667,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
     color: COLORS.white,
+  },
+  loadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  loadingText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: SPACING.md,
   },
   emptyState: {
     alignItems: 'center',

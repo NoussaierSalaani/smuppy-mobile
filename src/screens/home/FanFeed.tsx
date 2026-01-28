@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Share,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,7 +39,7 @@ interface UISuggestion {
   username: string;
   avatar: string;
   isVerified: boolean;
-  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
 }
 
 // UIFanPost and transformToFanPost are now imported from utils/postTransformers
@@ -644,26 +645,59 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     </View>
   ), [visiblePosts, goToUserProfile, toggleLike, toggleSave, formatNumber, navigation, handlePostMenu, handleSharePost]);
 
-  // List header with suggestions
+  // Invite friends using native share
+  const inviteFriends = useCallback(async () => {
+    try {
+      await Share.share({
+        message: 'Join me on Smuppy - the fitness social network! Download now: https://smuppy.app/download',
+        title: 'Join Smuppy',
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  }, []);
+
+  // List header with suggestions - ALWAYS show (even without suggestions)
   const ListHeader = useMemo(() => (
-    suggestions.length > 0 ? (
-      <View style={styles.suggestionsSection}>
-        <View style={styles.suggestionsSectionHeader}>
-          <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-            <Text style={styles.seeAllText}>See all</Text>
+    <View style={styles.suggestionsSection}>
+      <View style={styles.suggestionsSectionHeader}>
+        <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+          <Text style={styles.seeAllText}>See all</Text>
+        </TouchableOpacity>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.suggestionsScrollContent}
+      >
+        {suggestions.map(renderSuggestion)}
+        {/* Invite Friends Button - always visible */}
+        <View style={styles.suggestionItem}>
+          <TouchableOpacity
+            style={styles.inviteButton}
+            onPress={inviteFriends}
+          >
+            <LinearGradient
+              colors={['#E8F5E9', '#C8E6C9']}
+              style={styles.inviteButtonInner}
+            >
+              <Ionicons name="person-add" size={28} color={COLORS.primary} />
+            </LinearGradient>
+          </TouchableOpacity>
+          <Text style={styles.suggestionName} numberOfLines={1}>
+            Invite
+          </Text>
+          <TouchableOpacity
+            style={styles.inviteTextButton}
+            onPress={inviteFriends}
+          >
+            <Text style={styles.inviteTextButtonText}>Friends</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.suggestionsScrollContent}
-        >
-          {suggestions.map(renderSuggestion)}
-        </ScrollView>
-      </View>
-    ) : null
-  ), [suggestions, renderSuggestion, navigation]);
+      </ScrollView>
+    </View>
+  ), [suggestions, renderSuggestion, navigation, inviteFriends]);
 
   // List footer with loading indicator
   const ListFooter = useCallback(() => {
@@ -888,6 +922,38 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.primary,
+  },
+  // Invite button
+  inviteButton: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    marginBottom: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inviteButtonInner: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+  },
+  inviteTextButton: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  inviteTextButtonText: {
+    fontSize: 12,
+    fontFamily: 'Poppins-SemiBold',
+    color: COLORS.primary,
   },
 
   // Post

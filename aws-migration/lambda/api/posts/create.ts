@@ -15,7 +15,7 @@ interface CreatePostInput {
   content?: string;
   mediaUrls?: string[];
   mediaType?: 'image' | 'video';
-  visibility?: 'public' | 'followers' | 'private';
+  visibility?: 'public' | 'followers' | 'fans' | 'private' | 'subscribers';
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

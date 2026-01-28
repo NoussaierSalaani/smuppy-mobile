@@ -2,13 +2,21 @@
  * TabBar Store - Zustand Version
  * Manages tab bar visibility state
  *
- * Note: Animation values remain in useTabBarAnimations hook
- * because Animated.Value doesn't serialize to Zustand
+ * Note: Animation values are stored globally (singleton) to be shared
+ * across all components that use scroll-based hide/show
  */
 
 import { create } from 'zustand';
-import { useRef, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Animated, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+
+// ============================================
+// GLOBAL SHARED ANIMATION VALUE (SINGLETON)
+// ============================================
+// This MUST be outside the hook to be shared across all components
+const globalHideAnim = new Animated.Value(0);
+let globalIsVisible = true;
+let globalLastScrollY = 0;
 
 // ============================================
 // ZUSTAND STORE (for simple state)
@@ -55,15 +63,13 @@ interface TabBarAnimations {
 
 /**
  * Hook that provides animated values for tab bar hide/show
- * Uses useRef for Animated.Value to persist across renders
+ * Uses global singleton Animated.Value to share across all components
  */
 export function useTabBarAnimations(): TabBarAnimations {
   const { setIsVisible } = useTabBarStore();
 
-  // Animation value: 0 = visible, 1 = hidden
-  const hideAnim = useRef(new Animated.Value(0)).current;
-  const isVisibleRef = useRef(true);
-  const lastScrollY = useRef(0);
+  // Use GLOBAL animation value (shared across all components)
+  const hideAnim = globalHideAnim;
 
   // TopBar translate (scroll animation)
   const topBarTranslate = useMemo(
@@ -100,8 +106,8 @@ export function useTabBarAnimations(): TabBarAnimations {
 
   // Show bars
   const showBars = useCallback(() => {
-    if (!isVisibleRef.current) {
-      isVisibleRef.current = true;
+    if (!globalIsVisible) {
+      globalIsVisible = true;
       setIsVisible(true);
       Animated.spring(hideAnim, {
         toValue: 0,
@@ -114,8 +120,8 @@ export function useTabBarAnimations(): TabBarAnimations {
 
   // Hide bars
   const hideBars = useCallback(() => {
-    if (isVisibleRef.current) {
-      isVisibleRef.current = false;
+    if (globalIsVisible) {
+      globalIsVisible = false;
       setIsVisible(false);
       Animated.spring(hideAnim, {
         toValue: 1,
@@ -130,12 +136,12 @@ export function useTabBarAnimations(): TabBarAnimations {
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const currentY = event.nativeEvent.contentOffset.y;
-      const diff = currentY - lastScrollY.current;
+      const diff = currentY - globalLastScrollY;
       const threshold = 10;
 
       if (currentY <= 0) {
         showBars();
-        lastScrollY.current = currentY;
+        globalLastScrollY = currentY;
         return;
       }
 
@@ -149,7 +155,7 @@ export function useTabBarAnimations(): TabBarAnimations {
         showBars();
       }
 
-      lastScrollY.current = currentY;
+      globalLastScrollY = currentY;
     },
     [showBars, hideBars]
   );
@@ -204,5 +210,11 @@ export function useTabBar(): TabBarContextValue {
 
 // Legacy export for backward compatibility
 export const tabBarStore = {
-  reset: () => useTabBarStore.getState().reset(),
+  reset: () => {
+    useTabBarStore.getState().reset();
+    // Reset global animation values too
+    globalHideAnim.setValue(0);
+    globalIsVisible = true;
+    globalLastScrollY = 0;
+  },
 };

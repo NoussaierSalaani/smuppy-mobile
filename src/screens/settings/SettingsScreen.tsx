@@ -53,6 +53,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
+  const [expertise, setExpertise] = useState<string[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
 
@@ -92,6 +93,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       const avatar = profileData?.avatar_url || user?.avatar || null;
       const cover = profileData?.cover_url || null;
       const userInterests = profileData?.interests || user?.interests || [];
+      const userExpertise = profileData?.expertise || user?.expertise || [];
+      setExpertise(userExpertise);
       const userUsername = profileData?.username || authUser?.username || emailPrefix || '';
 
       setDisplayName(name);
@@ -141,9 +144,16 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
+  // Pro creators only have expertise (no separate interests)
+  // Personal users have both interests and expertise
+  const isProCreator = user?.accountType === 'pro_creator';
+
   const MENU_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
-    { id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } },
+    // Only show Interests for non-pro_creator accounts
+    ...(!isProCreator ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
+    // Expertise for everyone (but especially important for pro_creator)
+    { id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } },
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },

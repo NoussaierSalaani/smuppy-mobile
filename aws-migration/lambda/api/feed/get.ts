@@ -111,7 +111,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     queryParams.push(limit + 1); // Fetch one extra to check hasMore
 
-    // Get feed posts
+    // Get user's channel subscriptions (for subscribers-only content)
+    const subscriptionsResult = await db.query(
+      `SELECT creator_id FROM channel_subscriptions WHERE fan_id = $1 AND status = 'active'`,
+      [userId]
+    );
+    const subscribedCreatorIds = subscriptionsResult.rows.map(row => row.creator_id);
+
+    // Get feed posts with visibility filtering
+    // - public: anyone can see
+    // - fans/followers: only followers can see (covered by following list)
+    // - subscribers: only paid channel subscribers can see
+    // - private: only author can see
     const result = await db.query(
       `SELECT
         p.*,
@@ -127,11 +138,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       FROM posts p
       LEFT JOIN profiles pr ON p.author_id = pr.id
       WHERE p.author_id = ANY($1)
-        AND (p.visibility = 'public' OR p.author_id = $${queryParams.length + 1})
+        AND (
+          p.visibility = 'public'
+          OR p.author_id = $${queryParams.length + 1}
+          OR (p.visibility IN ('fans', 'followers') AND p.author_id = ANY($1))
+          OR (p.visibility = 'subscribers' AND p.author_id = ANY($${queryParams.length + 2}::uuid[]))
+        )
         ${cursorCondition}
       ORDER BY p.created_at DESC
-      LIMIT $${cursorCondition ? 3 : 2}`,
-      [...queryParams, userId]
+      LIMIT $${cursorCondition ? 4 : 3}`,
+      [...queryParams, userId, subscribedCreatorIds.length > 0 ? subscribedCreatorIds : []]
     );
 
     const hasMore = result.rows.length > limit;

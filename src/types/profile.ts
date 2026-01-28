@@ -53,7 +53,7 @@ export interface UserProfile {
   coverImage: string | null;
   bio: string;
   location: string;
-  accountType: 'personal' | 'pro_creator' | 'pro_local';
+  accountType: 'personal' | 'pro_creator' | 'pro_business';
   interests: string[];
   expertise: string[];
   website: string;

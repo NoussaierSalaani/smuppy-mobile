@@ -60,7 +60,7 @@ export default function AccountTypeScreen({ navigation, route }: AccountTypeScre
     } else if (proType === 'creator') {
       navigate('CreatorInfo', { ...baseParams, accountType: 'pro_creator' });
     } else if (proType === 'business') {
-      navigate('BusinessCategory', { ...baseParams, accountType: 'pro_local' });
+      navigate('BusinessCategory', { ...baseParams, accountType: 'pro_business' });
     }
   }, [isFormValid, selected, proType, email, password, rememberMe, accountCreated, navigate]);
 

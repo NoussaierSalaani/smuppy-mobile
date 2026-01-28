@@ -40,6 +40,7 @@ import {
 } from '../../config/api';
 import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
+import { useUserStore } from '../../stores';
 import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
@@ -51,11 +52,20 @@ const { width } = Dimensions.get('window');
 // CONSTANTS
 // ============================================
 
-const VISIBILITY_OPTIONS = [
+// Base visibility options
+const BASE_VISIBILITY_OPTIONS = [
   { id: 'public', label: 'Public', icon: 'globe-outline' as const, description: 'Anyone can see this post' },
   { id: 'fans', label: 'Fans Only', icon: 'people-outline' as const, description: 'Only your fans can see this' },
   { id: 'private', label: 'Private', icon: 'lock-closed-outline' as const, description: 'Only you can see this' },
 ] as const;
+
+// Additional option for pro_creators - subscribers only (paid channel members)
+const SUBSCRIBERS_OPTION = {
+  id: 'subscribers',
+  label: 'Subscribers Only',
+  icon: 'star-outline' as const,
+  description: 'Only paid channel subscribers can see this',
+} as const;
 
 const MAX_DESCRIPTION_LENGTH = 2200;
 
@@ -127,10 +137,17 @@ interface AddPostDetailsScreenProps {
 export default function AddPostDetailsScreen({ route, navigation }: AddPostDetailsScreenProps) {
   const { media, postType } = route.params;
   const insets = useSafeAreaInsets();
+  const user = useUserStore((state) => state.user);
+
+  // Dynamic visibility options based on account type
+  // Pro creators can restrict content to paid subscribers
+  const VISIBILITY_OPTIONS = user?.accountType === 'pro_creator'
+    ? [...BASE_VISIBILITY_OPTIONS.slice(0, 2), SUBSCRIBERS_OPTION, BASE_VISIBILITY_OPTIONS[2]]
+    : BASE_VISIBILITY_OPTIONS;
 
   // State
   const [description, setDescription] = useState('');
-  const [visibility, setVisibility] = useState<'public' | 'private' | 'fans'>('public');
+  const [visibility, setVisibility] = useState<'public' | 'private' | 'fans' | 'subscribers'>('public');
   const [location, setLocation] = useState('');
   const [taggedPeople, setTaggedPeople] = useState<TaggedPerson[]>([]);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -550,7 +567,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     navigation.goBack();
   }, [navigation]);
 
-  const handleSelectVisibility = useCallback((optionId: 'public' | 'private' | 'fans') => {
+  const handleSelectVisibility = useCallback((optionId: 'public' | 'private' | 'fans' | 'subscribers') => {
     setVisibility(optionId);
     setShowVisibilityModal(false);
   }, []);
@@ -617,7 +634,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   styles.visibilityOption,
                   isActive && styles.visibilityOptionActive
                 ]}
-                onPress={() => handleSelectVisibility(option.id)}
+                onPress={() => handleSelectVisibility(option.id as 'public' | 'private' | 'fans' | 'subscribers')}
               >
                 <View style={[
                   styles.visibilityIconContainer,

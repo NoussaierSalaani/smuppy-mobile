@@ -44,8 +44,8 @@ interface User {
   // Personal info
   dateOfBirth?: string;
   gender?: string;
-  // Account type: 'personal' | 'pro_creator' | 'pro_local'
-  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  // Account type: 'personal' | 'pro_creator' | 'pro_business'
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
   isVerified?: boolean;
   isPremium?: boolean;
   // Onboarding data
@@ -53,7 +53,7 @@ interface User {
   expertise?: string[];
   website?: string;
   socialLinks?: Record<string, string>;
-  // Business data (for pro_local)
+  // Business data (for pro_business)
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
@@ -194,7 +194,7 @@ export const useUserStore = create<UserState>()(
 
       isPro: () => {
         const { user } = get();
-        return user?.accountType === 'pro_creator' || user?.accountType === 'pro_local';
+        return user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
       },
 
       isProfileComplete: () => {
@@ -202,7 +202,7 @@ export const useUserStore = create<UserState>()(
         if (!user) return false;
         // Check required fields based on account type
         const hasBasicInfo = !!(user.username && (user.fullName || user.displayName || (user.firstName && user.lastName)));
-        if (user.accountType === 'pro_local') {
+        if (user.accountType === 'pro_business') {
           return hasBasicInfo && !!(user.businessName && user.businessCategory);
         }
         return hasBasicInfo;

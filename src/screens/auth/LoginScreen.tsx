@@ -236,7 +236,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   }, [isFaceId]);
 
   const handleLogin = useCallback(async () => {
+    console.log('[Login] handleLogin called', { email, password: password ? '***' : 'empty', loading });
+
     if (!email || !password) {
+      console.log('[Login] Missing email or password');
       setErrorModal({
         visible: true,
         title: 'Missing Information',
@@ -246,7 +249,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
 
     // Prevent double-tap: set loading BEFORE any async operation
-    if (loading) return;
+    if (loading) {
+      console.log('[Login] Already loading, skipping');
+      return;
+    }
+    console.log('[Login] Setting loading to true');
     setLoading(true);
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -290,6 +297,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       // Save "Remember Me" preference
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+
+      // Clear any leftover signup flag (login = not new signup)
+      await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
 
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
@@ -527,17 +537,27 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             </TouchableOpacity>
 
             {/* Login Button */}
-            <LinearGradient 
-              colors={isFormValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled} 
-              start={GRADIENTS.primaryStart} 
-              end={GRADIENTS.primaryEnd} 
-              style={styles.btn}
+            <TouchableOpacity
+              onPress={() => {
+                console.log('[Login] Button pressed!', { isFormValid, loading, disabled: !isFormValid || loading });
+                handleLogin();
+              }}
+              disabled={!isFormValid || loading}
+              activeOpacity={0.8}
+              style={styles.btnTouchable}
             >
-              <TouchableOpacity style={styles.btnInner} onPress={handleLogin} disabled={!isFormValid || loading} activeOpacity={0.8}>
-                <Text style={styles.btnText}>{loading ? 'Logging in...' : 'Login'}</Text>
-                {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
-              </TouchableOpacity>
-            </LinearGradient>
+              <LinearGradient
+                colors={isFormValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled}
+                start={GRADIENTS.primaryStart}
+                end={GRADIENTS.primaryEnd}
+                style={styles.btn}
+              >
+                <View style={styles.btnInner}>
+                  <Text style={styles.btnText}>{loading ? 'Logging in...' : 'Login'}</Text>
+                  {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
             {/* Divider */}
             <View style={styles.dividerRow}>
@@ -721,8 +741,9 @@ const styles = StyleSheet.create({
   rememberText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
 
   // Button
-  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginBottom: 16 },
-  btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  btnTouchable: { marginBottom: 16 },
+  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
+  btnInner: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
 
   // Divider

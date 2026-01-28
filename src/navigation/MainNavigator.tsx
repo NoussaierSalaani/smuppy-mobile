@@ -41,6 +41,7 @@ import PostDetailVibesFeedScreen from '../screens/home/PostDetailVibesFeedScreen
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import EditProfileScreen from '../screens/settings/EditProfileScreen';
 import EditInterestsScreen from '../screens/settings/EditInterestsScreen';
+import EditExpertiseScreen from '../screens/settings/EditExpertiseScreen';
 import PasswordManagerScreen from '../screens/settings/PasswordManagerScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
@@ -182,7 +183,7 @@ export default function MainNavigator() {
             avatar: data.avatar_url || undefined,
             coverImage: data.cover_url || undefined,
             bio: data.bio || undefined,
-            accountType: data.account_type as 'personal' | 'pro_creator' | 'pro_local',
+            accountType: data.account_type as 'personal' | 'pro_creator' | 'pro_business',
             isVerified: data.is_verified || false,
             interests: data.interests || [],
             expertise: data.expertise || [],
@@ -231,6 +232,7 @@ export default function MainNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditInterests" component={EditInterestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EditExpertise" component={EditExpertiseScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

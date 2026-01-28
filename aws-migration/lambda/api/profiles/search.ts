@@ -37,7 +37,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         ORDER BY
           CASE WHEN is_verified THEN 0 ELSE 1 END,
           CASE WHEN account_type = 'pro_creator' THEN 0
-               WHEN account_type = 'pro_local' THEN 1
+               WHEN account_type = 'pro_business' THEN 1
                ELSE 2 END,
           fan_count DESC NULLS LAST,
           created_at DESC

@@ -246,7 +246,7 @@ export const createSocialAuthProfile = async (
   userId: string,
   email?: string,
   fullName?: string,
-  _accountType: 'personal' | 'pro_creator' | 'pro_local' = 'personal'
+  _accountType: 'personal' | 'pro_creator' | 'pro_business' = 'personal'
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     // Generate username from email or name

@@ -18,7 +18,7 @@ interface UserProperties {
   userId?: string;
   email?: string;
   username?: string;
-  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
   createdAt?: string;
   [key: string]: string | number | boolean | undefined;
 }

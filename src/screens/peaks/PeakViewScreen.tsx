@@ -44,7 +44,7 @@ interface PeakTag {
   userId: string;
   userName: string;
   userAvatar: string;
-  taggedAt: Date;
+  taggedAt: string; // ISO string for React Navigation serialization
 }
 
 interface Peak {
@@ -58,7 +58,7 @@ interface Peak {
   tagsCount?: number;
   tags?: PeakTag[];
   textOverlay?: string;
-  createdAt: Date;
+  createdAt: string; // ISO string for React Navigation serialization
   isLiked?: boolean;
   isSaved?: boolean;
   isOwnPeak?: boolean; // To show tag count only to creator

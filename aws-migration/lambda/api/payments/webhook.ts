@@ -223,7 +223,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           );
 
           // Update account type
-          const accountType = planType === 'pro_creator' ? 'pro_creator' : 'pro_local';
+          const accountType = planType === 'pro_creator' ? 'pro_creator' : 'pro_business';
           await db.query(
             'UPDATE profiles SET account_type = $1, updated_at = NOW() WHERE id = $2',
             [accountType, userId]

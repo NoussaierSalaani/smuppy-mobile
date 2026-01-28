@@ -200,19 +200,24 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
-  // Load user interests from profile (reload when screen receives focus)
+  // Load user expertise from profile (reload when screen receives focus)
+  // Using expertise instead of interests - more professional for pro creators
   useFocusEffect(
     useCallback(() => {
-      const loadUserInterests = async () => {
+      const loadUserExpertise = async () => {
         const { data: profile } = await getCurrentProfile();
-        if (profile?.interests && profile.interests.length > 0) {
+        // Prioritize expertise over interests (more professional)
+        if (profile?.expertise && profile.expertise.length > 0) {
+          setUserInterests(profile.expertise);
+        } else if (profile?.interests && profile.interests.length > 0) {
+          // Fallback to interests if no expertise set
           setUserInterests(profile.interests);
         } else {
-          // Default interests if user hasn't set any
-          setUserInterests(['Fitness', 'Yoga', 'Running', 'Nutrition', 'Swimming', 'Cycling']);
+          // Default expertise if user hasn't set any
+          setUserInterests(['General Fitness', 'Weight Loss', 'Strength Training', 'Cardio', 'HIIT', 'Yoga']);
         }
       };
-      loadUserInterests();
+      loadUserExpertise();
     }, [])
   );
 
@@ -946,7 +951,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           {/* Add interests button */}
           <TouchableOpacity
             style={styles.addInterestButton}
-            onPress={() => navigation.navigate('EditInterests', { returnTo: 'VibesFeed' })}
+            onPress={() => navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' })}
             activeOpacity={0.7}
           >
             <Ionicons name="add" size={16} color={COLORS.primary} />

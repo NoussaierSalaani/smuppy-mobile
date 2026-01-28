@@ -338,15 +338,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         />
       </View>
 
-      {/* Settings Button */}
-      {isOwnProfile && (
-        <TouchableOpacity
-          style={[styles.settingsBtn, { top: insets.top + 8 }]}
-          onPress={() => navigation.navigate('Settings')}
-        >
-          <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
+      {/* Settings Button moved to fixed position outside ScrollView */}
 
       {/* Spacer for cover height */}
       <View style={styles.coverSpacer} />
@@ -410,7 +402,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             size={18}
             style={styles.badge}
             isVerified={user.isVerified}
-            accountType={user.accountType as 'personal' | 'pro_creator' | 'pro_local'}
+            accountType={user.accountType as 'personal' | 'pro_creator' | 'pro_business'}
           />
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>
@@ -824,25 +816,34 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER VIDEO ITEM ====================
   const renderVideoItem = useCallback((video: typeof MOCK_VIDEOS[0]) => {
-    const getVisibilityIcon = () => {
+    const getVisibilityIcon = (): 'globe-outline' | 'lock-closed-outline' | 'eye-off-outline' | 'star-outline' | 'people-outline' => {
       switch (video.visibility) {
         case 'public': return 'globe-outline';
+        case 'subscribers': return 'star-outline';
+        case 'fans': return 'people-outline';
         case 'private': return 'lock-closed-outline';
         case 'hidden': return 'eye-off-outline';
+        default: return 'globe-outline';
       }
     };
     const getVisibilityColor = () => {
       switch (video.visibility) {
         case 'public': return COLORS.primary;
-        case 'private': return '#0081BE';
+        case 'subscribers': return '#FFD700'; // Gold for premium/subscribers
+        case 'fans': return '#0081BE';
+        case 'private': return '#8E8E93';
         case 'hidden': return '#8E8E93';
+        default: return COLORS.primary;
       }
     };
     const getVisibilityLabel = () => {
       switch (video.visibility) {
-        case 'public': return 'All Fans';
-        case 'private': return 'Members Only';
+        case 'public': return 'Public';
+        case 'subscribers': return 'Subscribers Only';
+        case 'fans': return 'Fans Only';
+        case 'private': return 'Private';
         case 'hidden': return video.scheduledAt ? `Scheduled ${new Date(video.scheduledAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : 'Hidden';
+        default: return 'Public';
       }
     };
 
@@ -882,9 +883,14 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER VIDEOS ====================
   const renderVideos = () => {
     // Filter videos based on visibility for non-owners
+    // - Owner sees all videos
+    // - Non-owner sees: public only (TODO: implement fans/subscribers visibility check)
+    // In production, this would check:
+    // - fans: user is following this creator
+    // - subscribers: user has active channel subscription
     const visibleVideos = isOwnProfile
       ? MOCK_VIDEOS
-      : MOCK_VIDEOS.filter(v => v.visibility === 'public' || v.visibility === 'private');
+      : MOCK_VIDEOS.filter(v => v.visibility === 'public');
 
     if (visibleVideos.length === 0) {
       return (
@@ -1187,13 +1193,17 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Fixed Header */}
-      {renderHeader()}
+      {/* Settings Button - Fixed on top */}
+      {isOwnProfile && (
+        <TouchableOpacity
+          style={[styles.settingsBtnFixed, { top: insets.top + 8 }]}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
 
-      {/* Fixed Tabs */}
-      {renderTabs()}
-
-      {/* Scrollable Content Area */}
+      {/* Fully Scrollable Profile - Header, Tabs, and Content all scroll together */}
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
@@ -1201,7 +1211,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
         }
+        stickyHeaderIndices={[1]} // Make tabs sticky when scrolling
       >
+        {/* Scrollable Header */}
+        {renderHeader()}
+
+        {/* Sticky Tabs */}
+        {renderTabs()}
+
+        {/* Tab Content */}
         {renderTabContent()}
         <View style={{ height: 120 }} />
       </ScrollView>

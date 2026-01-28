@@ -105,7 +105,7 @@ async function createPlatformSubscription(
     const { stripe_customer_id, email, full_name, account_type } = userResult.rows[0];
 
     // Check if already subscribed
-    if (account_type === 'pro_creator' || account_type === 'pro_local') {
+    if (account_type === 'pro_creator' || account_type === 'pro_business') {
       return {
         statusCode: 400,
         headers: corsHeaders,

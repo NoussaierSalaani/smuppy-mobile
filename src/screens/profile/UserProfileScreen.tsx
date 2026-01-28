@@ -47,7 +47,7 @@ interface ProfileApiData {
   is_team?: boolean;
   is_private?: boolean;
   interests?: string[];
-  account_type?: 'personal' | 'pro_creator' | 'pro_local';
+  account_type?: 'personal' | 'pro_creator' | 'pro_business';
 }
 
 const DEFAULT_PROFILE = {

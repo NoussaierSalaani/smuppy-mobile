@@ -31,7 +31,7 @@ interface Peak {
   user: PeakUser;
   views: number;
   reactions: number;
-  createdAt: Date;
+  createdAt: string; // ISO string for React Navigation serialization
 }
 
 interface PeakCardProps {

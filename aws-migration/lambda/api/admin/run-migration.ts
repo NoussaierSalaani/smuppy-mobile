@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     bio TEXT,
     location VARCHAR(255),
     website VARCHAR(255),
-    account_type VARCHAR(20) DEFAULT 'personal' CHECK (account_type IN ('personal', 'pro_creator', 'pro_local')),
+    account_type VARCHAR(20) DEFAULT 'personal' CHECK (account_type IN ('personal', 'pro_creator', 'pro_business')),
     is_verified BOOLEAN DEFAULT FALSE,
     is_premium BOOLEAN DEFAULT FALSE,
     is_private BOOLEAN DEFAULT FALSE,
@@ -410,6 +410,113 @@ INSERT INTO expertise (name, icon, category) VALUES
 ON CONFLICT (name) DO NOTHING;
 `;
 
+// Demo profiles for seeding - Comprehensive mix of all account types and categories
+const DEMO_PROFILES = [
+  // ========== PRO CREATORS - FITNESS & TRAINING ==========
+  { username: 'alex_fitness_pro', full_name: 'Alex Martin', account_type: 'pro_creator', bio: 'Certified Personal Trainer | 10+ years experience | Transform your body', expertise: ['Personal Training', 'HIIT', 'Nutrition', 'Weight Loss'], interests: ['Fitness', 'Healthy Living', 'Motivation'], avatar_url: 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=200', location: 'Los Angeles, CA', is_verified: true },
+  { username: 'sarah_yoga_master', full_name: 'Sarah Johnson', account_type: 'pro_creator', bio: 'RYT-500 Yoga Instructor | Mindfulness Coach | Find your inner peace', expertise: ['Yoga', 'Meditation', 'Breathwork', 'Flexibility'], interests: ['Wellness', 'Mindfulness', 'Nature'], avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200', location: 'San Diego, CA', is_verified: true },
+  { username: 'mike_strongman', full_name: 'Mike Thompson', account_type: 'pro_creator', bio: 'Powerlifting Champion | Strength Coach | Build unstoppable power', expertise: ['Powerlifting', 'Strength Training', 'Sports Nutrition'], interests: ['Strength Sports', 'Competition', 'Recovery'], avatar_url: 'https://images.unsplash.com/photo-1581009146145-b5ef050c149a?w=200', location: 'Austin, TX', is_verified: true },
+  { username: 'emma_crossfit', full_name: 'Emma Williams', account_type: 'pro_creator', bio: 'CrossFit Level 3 Trainer | Competition Coach | Push your limits', expertise: ['CrossFit', 'Olympic Lifting', 'Conditioning'], interests: ['CrossFit Games', 'Functional Fitness', 'Community'], avatar_url: 'https://images.unsplash.com/photo-1594381898411-846e7d193883?w=200', location: 'Miami, FL', is_verified: true },
+  { username: 'david_nutrition', full_name: 'David Chen', account_type: 'pro_creator', bio: 'Sports Nutritionist | Meal Prep Expert | Fuel your performance', expertise: ['Nutrition', 'Meal Planning', 'Sports Nutrition', 'Weight Management'], interests: ['Healthy Eating', 'Cooking', 'Science'], avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200', location: 'New York, NY', is_verified: true },
+
+  // ========== PRO CREATORS - COMBAT SPORTS ==========
+  { username: 'luis_boxing', full_name: 'Luis Rodriguez', account_type: 'pro_creator', bio: 'Former Pro Boxer | Boxing Coach | Train like a champion', expertise: ['Boxing', 'Conditioning', 'Self-Defense'], interests: ['Boxing', 'Combat Sports', 'Discipline'], avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200', location: 'Las Vegas, NV', is_verified: true },
+  { username: 'kenji_mma', full_name: 'Kenji Tanaka', account_type: 'pro_creator', bio: 'MMA Fighter | BJJ Black Belt | Master all disciplines', expertise: ['MMA', 'BJJ', 'Wrestling', 'Muay Thai'], interests: ['Martial Arts', 'Competition', 'Teaching'], avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200', location: 'San Jose, CA', is_verified: true },
+  { username: 'maya_kickboxing', full_name: 'Maya Santos', account_type: 'pro_creator', bio: 'World Kickboxing Champion | Cardio Kickboxing Instructor', expertise: ['Kickboxing', 'Muay Thai', 'Cardio'], interests: ['Combat Sports', 'Fitness', 'Empowerment'], avatar_url: 'https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=200', location: 'Phoenix, AZ', is_verified: true },
+  { username: 'ivan_wrestling', full_name: 'Ivan Petrov', account_type: 'pro_creator', bio: 'Olympic Wrestler | Grappling Coach | Dominate the mat', expertise: ['Wrestling', 'Grappling', 'Strength'], interests: ['Wrestling', 'Olympics', 'Coaching'], avatar_url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200', location: 'Colorado Springs, CO', is_verified: false },
+
+  // ========== PRO CREATORS - CARDIO & ENDURANCE ==========
+  { username: 'jessica_running', full_name: 'Jessica Moore', account_type: 'pro_creator', bio: 'Marathon Coach | Ultra Runner | Every mile matters', expertise: ['Running', 'Marathon Training', 'Endurance'], interests: ['Running', 'Trail Running', 'Ultra Marathon'], avatar_url: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=200', location: 'Portland, OR', is_verified: true },
+  { username: 'marcus_cycling', full_name: 'Marcus Johnson', account_type: 'pro_creator', bio: 'Pro Cyclist | Indoor Cycling Instructor | Ride to victory', expertise: ['Cycling', 'Indoor Cycling', 'Endurance Training'], interests: ['Cycling', 'Triathlon', 'Outdoor Sports'], avatar_url: 'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=200', location: 'Boulder, CO', is_verified: true },
+  { username: 'natalie_swim', full_name: 'Natalie Brooks', account_type: 'pro_creator', bio: 'Former Olympic Swimmer | Swim Coach | Dive into fitness', expertise: ['Swimming', 'Aqua Fitness', 'Triathlon'], interests: ['Swimming', 'Water Sports', 'Competition'], avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200', location: 'San Diego, CA', is_verified: true },
+  { username: 'tom_triathlon', full_name: 'Tom Richardson', account_type: 'pro_creator', bio: 'Ironman Finisher | Triathlon Coach | No limits', expertise: ['Triathlon', 'Endurance', 'Multi-Sport'], interests: ['Ironman', 'Endurance Sports', 'Mental Toughness'], avatar_url: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200', location: 'Austin, TX', is_verified: false },
+
+  // ========== PRO CREATORS - MIND & BODY ==========
+  { username: 'elena_pilates', full_name: 'Elena Kowalski', account_type: 'pro_creator', bio: 'Master Pilates Instructor | Core Specialist | Move with grace', expertise: ['Pilates', 'Core Training', 'Rehabilitation'], interests: ['Pilates', 'Dance', 'Wellness'], avatar_url: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=200', location: 'Chicago, IL', is_verified: true },
+  { username: 'raj_meditation', full_name: 'Raj Sharma', account_type: 'pro_creator', bio: 'Meditation Master | Breathwork Expert | Find your calm', expertise: ['Meditation', 'Breathwork', 'Mindfulness', 'Stress Management'], interests: ['Meditation', 'Spirituality', 'Mental Health'], avatar_url: 'https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=200', location: 'Seattle, WA', is_verified: true },
+  { username: 'anna_stretch', full_name: 'Anna Dubois', account_type: 'pro_creator', bio: 'Flexibility Coach | Mobility Expert | Unlock your body', expertise: ['Stretching', 'Mobility', 'Flexibility', 'Recovery'], interests: ['Flexibility', 'Dance', 'Yoga'], avatar_url: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200', location: 'Montreal, Canada', is_verified: false },
+
+  // ========== PRO CREATORS - DANCE & MOVEMENT ==========
+  { username: 'carmen_dance', full_name: 'Carmen Rivera', account_type: 'pro_creator', bio: 'Professional Dancer | Zumba Instructor | Dance your way fit', expertise: ['Zumba', 'Latin Dance', 'Dance Fitness'], interests: ['Dance', 'Music', 'Latin Culture'], avatar_url: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200', location: 'Miami, FL', is_verified: true },
+  { username: 'tyrone_hiphop', full_name: 'Tyrone Jackson', account_type: 'pro_creator', bio: 'Hip Hop Choreographer | Dance Fitness | Move with swagger', expertise: ['Hip Hop', 'Dance', 'Choreography'], interests: ['Dance', 'Music', 'Street Culture'], avatar_url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200', location: 'Atlanta, GA', is_verified: true },
+  { username: 'sofia_ballet', full_name: 'Sofia Petrova', account_type: 'pro_creator', bio: 'Professional Ballerina | Barre Fitness | Elegance meets strength', expertise: ['Ballet', 'Barre', 'Dance'], interests: ['Ballet', 'Classical Music', 'Art'], avatar_url: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=200', location: 'New York, NY', is_verified: true },
+
+  // ========== PRO CREATORS - SPECIALTY ==========
+  { username: 'chris_calisthenics', full_name: 'Chris Park', account_type: 'pro_creator', bio: 'Calisthenics Master | Street Workout | Bodyweight is enough', expertise: ['Calisthenics', 'Street Workout', 'Bodyweight Training'], interests: ['Calisthenics', 'Gymnastics', 'Parkour'], avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200', location: 'Los Angeles, CA', is_verified: true },
+  { username: 'nina_physio', full_name: 'Nina Andersson', account_type: 'pro_creator', bio: 'Sports Physiotherapist | Injury Prevention | Move pain-free', expertise: ['Physiotherapy', 'Injury Prevention', 'Rehabilitation'], interests: ['Sports Medicine', 'Recovery', 'Anatomy'], avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200', location: 'Stockholm, Sweden', is_verified: true },
+  { username: 'jake_bodybuilding', full_name: 'Jake Morrison', account_type: 'pro_creator', bio: 'IFBB Pro Bodybuilder | Prep Coach | Sculpt your physique', expertise: ['Bodybuilding', 'Contest Prep', 'Posing'], interests: ['Bodybuilding', 'Physique', 'Competition'], avatar_url: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200', location: 'Tampa, FL', is_verified: true },
+  { username: 'maria_prenatal', full_name: 'Maria Lopez', account_type: 'pro_creator', bio: 'Prenatal Fitness Expert | Postnatal Recovery | Strong moms', expertise: ['Prenatal Fitness', 'Postnatal Recovery', 'Women Health'], interests: ['Motherhood', 'Wellness', 'Family'], avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200', location: 'San Antonio, TX', is_verified: false },
+  { username: 'omar_hiit', full_name: 'Omar Hassan', account_type: 'pro_creator', bio: 'HIIT Specialist | Fat Loss Expert | Maximum results minimum time', expertise: ['HIIT', 'Fat Loss', 'Conditioning'], interests: ['Fitness', 'Efficiency', 'Results'], avatar_url: 'https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=200', location: 'Dubai, UAE', is_verified: true },
+  { username: 'kim_senior', full_name: 'Kim Patterson', account_type: 'pro_creator', bio: 'Senior Fitness Specialist | Active Aging | Never too late', expertise: ['Senior Fitness', 'Balance', 'Low Impact'], interests: ['Active Aging', 'Health', 'Community'], avatar_url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200', location: 'Scottsdale, AZ', is_verified: false },
+
+  // ========== PRO LOCAL - GYMS ==========
+  { username: 'ironforge_gym', full_name: 'Iron Forge Fitness', account_type: 'pro_business', bio: 'Premium 24/7 Gym | State-of-the-art equipment | Personal training', expertise: ['Gym', 'Personal Training', 'Group Classes'], interests: ['Fitness Community', 'Training'], avatar_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200', location: 'Downtown LA', is_verified: true, business_name: 'Iron Forge Fitness Center', business_category: 'gym' },
+  { username: 'titan_fitness', full_name: 'Titan Fitness Club', account_type: 'pro_business', bio: 'Full-service gym | Olympic lifting platforms | Recovery zone', expertise: ['Weightlifting', 'Cardio', 'Recovery'], interests: ['Strength', 'Community'], avatar_url: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=200', location: 'Brooklyn, NY', is_verified: true, business_name: 'Titan Fitness Club', business_category: 'gym' },
+  { username: 'flex_gym_miami', full_name: 'Flex Gym Miami', account_type: 'pro_business', bio: 'Beach body headquarters | Outdoor training | Cardio cinema', expertise: ['Bodybuilding', 'Cardio', 'Outdoor Training'], interests: ['Beach Fitness', 'Lifestyle'], avatar_url: 'https://images.unsplash.com/photo-1558611848-73f7eb4001a1?w=200', location: 'Miami Beach, FL', is_verified: true, business_name: 'Flex Gym Miami', business_category: 'gym' },
+  { username: 'powerhouse_gym', full_name: 'Powerhouse Gym', account_type: 'pro_business', bio: 'Hardcore training facility | Strongman equipment | No excuses', expertise: ['Powerlifting', 'Strongman', 'Bodybuilding'], interests: ['Strength Sports', 'Competition'], avatar_url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=200', location: 'Detroit, MI', is_verified: false, business_name: 'Powerhouse Gym Detroit', business_category: 'gym' },
+
+  // ========== PRO LOCAL - YOGA & PILATES STUDIOS ==========
+  { username: 'zenflow_studio', full_name: 'ZenFlow Yoga Studio', account_type: 'pro_business', bio: 'Boutique yoga studio | Hot yoga, Vinyasa, Restorative', expertise: ['Yoga Classes', 'Meditation', 'Wellness'], interests: ['Yoga', 'Wellness', 'Community'], avatar_url: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=200', location: 'Santa Monica, CA', is_verified: true, business_name: 'ZenFlow Yoga Studio', business_category: 'studio' },
+  { username: 'om_sanctuary', full_name: 'Om Sanctuary', account_type: 'pro_business', bio: 'Traditional yoga | Meditation retreats | Teacher training', expertise: ['Yoga', 'Meditation', 'Teacher Training'], interests: ['Spirituality', 'Wellness'], avatar_url: 'https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?w=200', location: 'Sedona, AZ', is_verified: true, business_name: 'Om Sanctuary Retreat', business_category: 'studio' },
+  { username: 'core_pilates', full_name: 'Core Pilates Studio', account_type: 'pro_business', bio: 'Reformer Pilates | Private sessions | Rehabilitation', expertise: ['Pilates', 'Reformer', 'Core Training'], interests: ['Pilates', 'Rehabilitation'], avatar_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=200', location: 'San Francisco, CA', is_verified: true, business_name: 'Core Pilates Studio', business_category: 'studio' },
+
+  // ========== PRO LOCAL - CROSSFIT & FUNCTIONAL ==========
+  { username: 'crossfit_apex', full_name: 'CrossFit Apex', account_type: 'pro_business', bio: 'Affiliate CrossFit box | Competition team | All levels welcome', expertise: ['CrossFit', 'Olympic Lifting', 'Competition'], interests: ['CrossFit', 'Community', 'Competition'], avatar_url: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=200', location: 'Denver, CO', is_verified: true, business_name: 'CrossFit Apex', business_category: 'crossfit' },
+  { username: 'functional_fit', full_name: 'Functional Fit Lab', account_type: 'pro_business', bio: 'Functional training | Small group classes | Personal coaching', expertise: ['Functional Training', 'HIIT', 'Mobility'], interests: ['Functional Fitness', 'Health'], avatar_url: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200', location: 'Austin, TX', is_verified: false, business_name: 'Functional Fit Lab', business_category: 'studio' },
+
+  // ========== PRO LOCAL - COMBAT SPORTS ==========
+  { username: 'knockout_boxing', full_name: 'Knockout Boxing Gym', account_type: 'pro_business', bio: 'Professional boxing gym | Amateur & pro fighters | Cardio boxing', expertise: ['Boxing', 'Training', 'Competition'], interests: ['Boxing', 'Combat Sports'], avatar_url: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=200', location: 'Philadelphia, PA', is_verified: true, business_name: 'Knockout Boxing Gym', business_category: 'gym' },
+  { username: 'warrior_mma', full_name: 'Warrior MMA Academy', account_type: 'pro_business', bio: 'Complete MMA training | BJJ, Muay Thai, Wrestling | All ages', expertise: ['MMA', 'BJJ', 'Muay Thai'], interests: ['Martial Arts', 'Self Defense'], avatar_url: 'https://images.unsplash.com/photo-1555597673-b21d5c935865?w=200', location: 'Las Vegas, NV', is_verified: true, business_name: 'Warrior MMA Academy', business_category: 'gym' },
+  { username: 'gracie_bjj', full_name: 'Gracie BJJ Academy', account_type: 'pro_business', bio: 'Traditional Brazilian Jiu-Jitsu | Competition team | Kids program', expertise: ['BJJ', 'Grappling', 'Self Defense'], interests: ['BJJ', 'Martial Arts'], avatar_url: 'https://images.unsplash.com/photo-1564415315949-7a0c4c73aab4?w=200', location: 'Los Angeles, CA', is_verified: true, business_name: 'Gracie BJJ Academy', business_category: 'gym' },
+
+  // ========== PRO LOCAL - SPECIALTY ==========
+  { username: 'aqua_center', full_name: 'Aqua Fitness Center', account_type: 'pro_business', bio: 'Olympic pool | Swim lessons | Aqua aerobics | Therapy pool', expertise: ['Swimming', 'Aqua Fitness', 'Lessons'], interests: ['Swimming', 'Water Sports'], avatar_url: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=200', location: 'San Diego, CA', is_verified: true, business_name: 'Aqua Fitness Center', business_category: 'pool' },
+  { username: 'climb_zone', full_name: 'Climb Zone', account_type: 'pro_business', bio: 'Indoor climbing gym | Bouldering | Lead climbing | Youth programs', expertise: ['Climbing', 'Bouldering', 'Training'], interests: ['Climbing', 'Adventure'], avatar_url: 'https://images.unsplash.com/photo-1522163182402-834f871fd851?w=200', location: 'Boulder, CO', is_verified: true, business_name: 'Climb Zone Boulder', business_category: 'gym' },
+  { username: 'dance_fusion', full_name: 'Dance Fusion Studio', account_type: 'pro_business', bio: 'All dance styles | Fitness classes | Performance teams', expertise: ['Dance', 'Zumba', 'Hip Hop'], interests: ['Dance', 'Music', 'Fitness'], avatar_url: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=200', location: 'Atlanta, GA', is_verified: false, business_name: 'Dance Fusion Studio', business_category: 'studio' },
+  { username: 'recovery_lab', full_name: 'Recovery Lab', account_type: 'pro_business', bio: 'Sports recovery center | Cryotherapy | Massage | Compression', expertise: ['Recovery', 'Cryotherapy', 'Massage'], interests: ['Recovery', 'Performance'], avatar_url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=200', location: 'Los Angeles, CA', is_verified: true, business_name: 'Recovery Lab LA', business_category: 'wellness' },
+
+  // ========== PERSONAL USERS - BEGINNERS ==========
+  { username: 'fitness_newbie_john', full_name: 'John Miller', account_type: 'personal', bio: 'Starting my fitness journey | Day 1 mentality | Looking for motivation', expertise: [], interests: ['Weight Loss', 'Running', 'Healthy Eating'], avatar_url: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=200', location: 'Chicago, IL', is_verified: false },
+  { username: 'newbie_sarah', full_name: 'Sarah Kim', account_type: 'personal', bio: 'New to fitness | Learning the ropes | One day at a time', expertise: [], interests: ['Yoga', 'Wellness', 'Self Care'], avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200', location: 'Seattle, WA', is_verified: false },
+  { username: 'starting_over_mike', full_name: 'Mike Brown', account_type: 'personal', bio: 'Getting back in shape | 40s fitness | Consistency is key', expertise: [], interests: ['Weight Training', 'Golf', 'Health'], avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200', location: 'Dallas, TX', is_verified: false },
+
+  // ========== PERSONAL USERS - INTERMEDIATE ==========
+  { username: 'lisa_runner', full_name: 'Lisa Anderson', account_type: 'personal', bio: 'Marathon runner in training | 5K to 42K journey | Never give up', expertise: [], interests: ['Running', 'Cardio', 'Outdoor Activities'], avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200', location: 'Boston, MA', is_verified: false },
+  { username: 'gym_enthusiast_mark', full_name: 'Mark Davis', account_type: 'personal', bio: 'Gym rat | Gains over everything | Always learning', expertise: [], interests: ['Bodybuilding', 'Strength Training', 'Supplements'], avatar_url: 'https://images.unsplash.com/photo-1557862921-37829c790f19?w=200', location: 'Denver, CO', is_verified: false },
+  { username: 'yoga_journey_amy', full_name: 'Amy Chen', account_type: 'personal', bio: '2 years into yoga | Handstand goal | Finding balance', expertise: [], interests: ['Yoga', 'Meditation', 'Flexibility'], avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200', location: 'Portland, OR', is_verified: false },
+  { username: 'crossfit_convert', full_name: 'Brian O Connor', account_type: 'personal', bio: 'CrossFit addict | RX or nothing | Community over everything', expertise: [], interests: ['CrossFit', 'Olympic Lifting', 'Competition'], avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200', location: 'Austin, TX', is_verified: false },
+
+  // ========== PERSONAL USERS - ATHLETES ==========
+  { username: 'triathlete_emma', full_name: 'Emma Thompson', account_type: 'personal', bio: 'Amateur triathlete | Ironman dreamer | Swim bike run repeat', expertise: [], interests: ['Triathlon', 'Swimming', 'Cycling', 'Running'], avatar_url: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=200', location: 'San Diego, CA', is_verified: false },
+  { username: 'bjj_purple_belt', full_name: 'Carlos Mendez', account_type: 'personal', bio: 'BJJ purple belt | Competition focused | Always learning', expertise: [], interests: ['BJJ', 'Grappling', 'MMA'], avatar_url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200', location: 'Houston, TX', is_verified: false },
+  { username: 'weekend_warrior', full_name: 'Tom Jackson', account_type: 'personal', bio: 'Spartan racer | OCR enthusiast | Pain is temporary', expertise: [], interests: ['OCR', 'Running', 'Obstacle Course'], avatar_url: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200', location: 'Nashville, TN', is_verified: false },
+
+  // ========== PERSONAL USERS - SPECIFIC INTERESTS ==========
+  { username: 'vegan_lifter', full_name: 'Rachel Green', account_type: 'personal', bio: 'Plant-powered athlete | Proving vegans can lift | Compassion + strength', expertise: [], interests: ['Vegan Fitness', 'Strength Training', 'Nutrition'], avatar_url: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200', location: 'Los Angeles, CA', is_verified: false },
+  { username: 'dad_bod_to_rad', full_name: 'Steve Wilson', account_type: 'personal', bio: 'Transforming the dad bod | 6 months in | Family man fitness', expertise: [], interests: ['Weight Loss', 'Family Fitness', 'Home Workouts'], avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200', location: 'Minneapolis, MN', is_verified: false },
+  { username: 'fit_mom_life', full_name: 'Jennifer Martinez', account_type: 'personal', bio: 'Mom of 3 | Fitness is self-care | Making time for health', expertise: [], interests: ['Home Workouts', 'Yoga', 'Running'], avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200', location: 'Phoenix, AZ', is_verified: false },
+  { username: 'senior_strong', full_name: 'Robert Taylor', account_type: 'personal', bio: '65 and stronger than ever | Age is just a number | Keep moving', expertise: [], interests: ['Senior Fitness', 'Walking', 'Swimming'], avatar_url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200', location: 'Florida', is_verified: false },
+  { username: 'wheelchair_athlete', full_name: 'David Park', account_type: 'personal', bio: 'Adaptive athlete | Paralympic hopeful | No limits', expertise: [], interests: ['Adaptive Sports', 'Wheelchair Basketball', 'Strength'], avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200', location: 'Chicago, IL', is_verified: false },
+];
+
+const POST_CAPTIONS = [
+  'Starting the week strong! What are your fitness goals?',
+  'Recovery is just as important as the workout.',
+  'New personal record today!',
+  'Meal prep Sunday! Nutrition is 80% of the battle.',
+  'Early morning workout - best way to start the day.',
+  'Form check! Proper technique prevents injuries.',
+];
+
+const POST_IMAGES = [
+  'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800',
+  'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800',
+  'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=800',
+  'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
+  'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800',
+  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+];
+
 // SQL to drop all tables (for reset)
 const DROP_ALL_SQL = `
 DO $$ DECLARE
@@ -427,6 +534,78 @@ BEGIN
     EXECUTE 'SET session_replication_role = DEFAULT';
 END $$;
 `;
+
+// Seed demo data function
+async function seedDemoData(db: any): Promise<{ profiles: number; posts: number; peaks: number; follows: number }> {
+  // Clean existing demo data
+  const existingDemo = await db.query("SELECT COUNT(*) FROM profiles WHERE is_bot = true");
+  if (parseInt(existingDemo.rows[0].count) > 0) {
+    log.info('Cleaning existing demo data...');
+    await db.query("DELETE FROM follows WHERE follower_id IN (SELECT id FROM profiles WHERE is_bot = true) OR following_id IN (SELECT id FROM profiles WHERE is_bot = true)");
+    await db.query("DELETE FROM posts WHERE author_id IN (SELECT id FROM profiles WHERE is_bot = true)");
+    await db.query("DELETE FROM peaks WHERE author_id IN (SELECT id FROM profiles WHERE is_bot = true)");
+    await db.query("DELETE FROM profiles WHERE is_bot = true");
+  }
+
+  // Insert profiles
+  const profileIds: { id: string; accountType: string }[] = [];
+  for (const profile of DEMO_PROFILES) {
+    const result = await db.query(
+      `INSERT INTO profiles (username, full_name, account_type, bio, expertise, interests, avatar_url, location, is_verified, business_name, business_category, is_bot, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
+       RETURNING id`,
+      [profile.username, profile.full_name, profile.account_type, profile.bio, profile.expertise, profile.interests, profile.avatar_url, profile.location, profile.is_verified, (profile as any).business_name || null, (profile as any).business_category || null]
+    );
+    profileIds.push({ id: result.rows[0].id, accountType: profile.account_type });
+  }
+
+  // Insert posts
+  let totalPosts = 0;
+  for (const { id, accountType } of profileIds) {
+    const numPosts = accountType === 'pro_creator' ? 5 : accountType === 'pro_business' ? 3 : 2;
+    for (let i = 0; i < numPosts; i++) {
+      const daysAgo = Math.floor(Math.random() * 30);
+      await db.query(
+        `INSERT INTO posts (author_id, content, media_urls, media_type, visibility, likes_count, comments_count, created_at)
+         VALUES ($1, $2, $3, 'image', $4, $5, $6, NOW() - interval '${daysAgo} days')`,
+        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], i === 0 && accountType === 'pro_creator' ? 'fans' : 'public', Math.floor(Math.random() * 300) + 50, Math.floor(Math.random() * 30) + 5]
+      );
+      totalPosts++;
+    }
+  }
+
+  // Insert peaks for pro_creators
+  let totalPeaks = 0;
+  for (const { id, accountType } of profileIds) {
+    if (accountType !== 'pro_creator') continue;
+    for (let i = 0; i < 2; i++) {
+      await db.query(
+        `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, views_count, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW() - interval '${Math.floor(Math.random() * 7)} days')`,
+        [id, 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4', POST_IMAGES[i], ['Quick tip!', 'Behind the scenes'][i], 15, Math.floor(Math.random() * 500) + 100]
+      );
+      totalPeaks++;
+    }
+  }
+
+  // Create follow relationships
+  let totalFollows = 0;
+  for (let i = 0; i < profileIds.length; i++) {
+    for (let j = 0; j < profileIds.length; j++) {
+      if (i !== j && Math.random() > 0.6) {
+        try {
+          await db.query(`INSERT INTO follows (follower_id, following_id, status, created_at) VALUES ($1, $2, 'accepted', NOW()) ON CONFLICT DO NOTHING`, [profileIds[i].id, profileIds[j].id]);
+          totalFollows++;
+        } catch { /* ignore */ }
+      }
+    }
+  }
+
+  // Update follower counts
+  await db.query(`UPDATE profiles SET followers_count = (SELECT COUNT(*) FROM follows WHERE following_id = profiles.id AND status = 'accepted'), following_count = (SELECT COUNT(*) FROM follows WHERE follower_id = profiles.id AND status = 'accepted') WHERE is_bot = true`);
+
+  return { profiles: DEMO_PROFILES.length, posts: totalPosts, peaks: totalPeaks, follows: totalFollows };
+}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -446,9 +625,58 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const db = await getPool();
-
-    // Check for reset flag in query params or body
     const body = event.body ? JSON.parse(event.body) : {};
+    const action = body.action || 'migrate';
+
+    // Handle seed action
+    if (action === 'seed') {
+      log.info('Seeding demo data...');
+      const stats = await seedDemoData(db);
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ message: 'Demo data seeded successfully', ...stats }),
+      };
+    }
+
+    // Handle check action
+    if (action === 'check') {
+      const stats = await db.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN is_bot = true THEN 1 END) as demo FROM profiles`);
+      const samples = await db.query(`SELECT id, username, account_type, is_bot FROM profiles ORDER BY created_at DESC LIMIT 10`);
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ stats: stats.rows[0], profiles: samples.rows }),
+      };
+    }
+
+    // Handle fix-constraint action - updates CHECK constraint for account_type
+    if (action === 'fix-constraint') {
+      log.info('Fixing account_type constraint...');
+
+      // Step 1: Drop the existing constraint first
+      await db.query(`ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_account_type_check`);
+      log.info('Old constraint dropped');
+
+      // Step 2: Update any existing pro_local values to pro_business
+      const updateResult = await db.query(`UPDATE profiles SET account_type = 'pro_business' WHERE account_type = 'pro_local'`);
+      log.info(`Updated ${updateResult.rowCount} profiles from pro_local to pro_business`);
+
+      // Step 3: Add the new constraint
+      await db.query(`ALTER TABLE profiles ADD CONSTRAINT profiles_account_type_check CHECK (account_type IN ('personal', 'pro_creator', 'pro_business'))`);
+      log.info('New constraint added');
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          message: 'Account type constraint updated successfully',
+          updatedProfiles: updateResult.rowCount
+        }),
+      };
+    }
+
+    // Default: migration
     const resetMode = event.queryStringParameters?.reset === 'true' || body.reset === true;
 
     if (resetMode) {

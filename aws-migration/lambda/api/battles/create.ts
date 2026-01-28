@@ -83,7 +83,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const host = hostResult.rows[0];
-    if (host.account_type !== 'creator' && host.account_type !== 'business') {
+    if (host.account_type !== 'pro_creator' && host.account_type !== 'pro_business') {
       return cors({
         statusCode: 403,
         body: JSON.stringify({
@@ -98,7 +98,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `SELECT id, username, display_name, avatar_url, account_type, is_verified
        FROM profiles
        WHERE id = ANY($1)
-       AND (account_type = 'creator' OR account_type = 'business')`,
+       AND (account_type = 'pro_creator' OR account_type = 'pro_business')`,
       [invitedUserIds]
     );
 

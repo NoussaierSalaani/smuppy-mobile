@@ -1692,11 +1692,11 @@ Smuppy supporte 3 types de comptes avec des permissions différentes:
 |------|-------------|-------|
 | `personal` | Compte utilisateur standard | Consommation de contenu, interaction sociale |
 | `pro_creator` | Créateur de contenu professionnel | Streaming live, sessions privées, subscriptions |
-| `pro_local` | Business/commerce local | Profil business, location-based features |
+| `pro_business` | Business/commerce local | Profil business, location-based features |
 
 ### 22.2 Matrice des permissions
 
-| Feature | personal | pro_creator | pro_local |
+| Feature | personal | pro_creator | pro_business |
 |---------|:--------:|:-----------:|:---------:|
 | **Contenu** | | | |
 | Créer des posts | ✅ | ✅ | ✅ |

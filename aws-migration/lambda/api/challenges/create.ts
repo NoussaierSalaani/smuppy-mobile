@@ -107,7 +107,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const user = userResult.rows[0];
       if (
         !user ||
-        (user.account_type !== 'creator' && user.account_type !== 'business') ||
+        (user.account_type !== 'pro_creator' && user.account_type !== 'pro_business') ||
         !user.is_verified ||
         !user.subscription_tier
       ) {

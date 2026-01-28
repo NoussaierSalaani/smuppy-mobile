@@ -32,7 +32,7 @@ export interface Profile {
   bio?: string;
   location?: string;
   website?: string;
-  account_type?: 'personal' | 'pro_creator' | 'pro_local';
+  account_type?: 'personal' | 'pro_creator' | 'pro_business';
   is_verified?: boolean;
   is_premium?: boolean;
   is_private?: boolean;
@@ -67,7 +67,7 @@ export interface Post {
   media_urls?: string[];
   media_url?: string;
   media_type?: 'image' | 'video' | 'multiple' | 'photo'; // 'photo' for legacy support
-  visibility: 'public' | 'private' | 'fans';
+  visibility: 'public' | 'private' | 'fans' | 'subscribers';
   likes_count?: number;
   comments_count?: number;
   views_count?: number;

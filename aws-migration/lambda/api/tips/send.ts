@@ -126,7 +126,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const receiver = receiverResult.rows[0];
 
     // Check if receiver can accept tips
-    if (receiver.account_type !== 'creator' && receiver.account_type !== 'business') {
+    if (receiver.account_type !== 'pro_creator' && receiver.account_type !== 'pro_business') {
       return cors({
         statusCode: 400,
         body: JSON.stringify({

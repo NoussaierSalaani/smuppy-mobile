@@ -109,7 +109,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).errors).toContain('accountType must be one of: personal, creator, business');
+      expect(JSON.parse(response.body).errors).toContain('accountType must be one of: personal, pro_creator, pro_business');
     });
 
     it('should reject non-boolean isPrivate', async () => {
@@ -229,7 +229,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
     });
 
     it('should accept valid accountType values', async () => {
-      for (const accountType of ['personal', 'creator', 'business']) {
+      for (const accountType of ['personal', 'pro_creator', 'pro_business']) {
         jest.clearAllMocks();
         mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
         mockQuery.mockResolvedValueOnce({

@@ -61,6 +61,17 @@ export const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 3,
   },
+  settingsBtnFixed: {
+    position: 'absolute',
+    right: 16,
+    padding: 8,
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+    elevation: 10,
+  },
 
   // ===== AVATAR ROW =====
   avatarRow: {
@@ -249,6 +260,12 @@ export const styles = StyleSheet.create({
   tabsContainer: {
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
+    // Ensure tabs have shadow when sticky
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   liquidProfileTabs: {
     marginHorizontal: 20,

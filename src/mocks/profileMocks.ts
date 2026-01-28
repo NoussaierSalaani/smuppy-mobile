@@ -40,44 +40,45 @@ export const MOCK_POSTS = [
 ];
 
 // Mock data for peaks
+// IDs must be valid UUIDs for backend compatibility
 export const MOCK_PEAKS = [
   {
-    id: 'peak-1',
+    id: 'b2c3d4e5-f6a7-4b8c-9d0e-000000000001',
     content: 'Behind the scenes',
     media_urls: ['https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400'],
     peak_duration: 15,
     is_peak: true,
   },
   {
-    id: 'peak-2',
+    id: 'b2c3d4e5-f6a7-4b8c-9d0e-000000000002',
     content: 'Quick workout tip',
     media_urls: ['https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400'],
     peak_duration: 10,
     is_peak: true,
   },
   {
-    id: 'peak-3',
+    id: 'b2c3d4e5-f6a7-4b8c-9d0e-000000000003',
     content: 'Match highlights',
     media_urls: ['https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400'],
     peak_duration: 15,
     is_peak: true,
   },
   {
-    id: 'peak-4',
+    id: 'b2c3d4e5-f6a7-4b8c-9d0e-000000000004',
     content: 'Morning routine',
     media_urls: ['https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400'],
     peak_duration: 12,
     is_peak: true,
   },
   {
-    id: 'peak-5',
+    id: 'b2c3d4e5-f6a7-4b8c-9d0e-000000000005',
     content: 'Training day',
     media_urls: ['https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400'],
     peak_duration: 8,
     is_peak: true,
   },
   {
-    id: 'peak-6',
+    id: 'b2c3d4e5-f6a7-4b8c-9d0e-000000000006',
     content: 'Recovery session',
     media_urls: ['https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=400'],
     peak_duration: 15,
@@ -113,24 +114,36 @@ export const MOCK_COLLECTIONS = [
   },
 ];
 
+// Video visibility types for pro_creator content gating
+export type VideoVisibility = 'public' | 'fans' | 'subscribers' | 'private' | 'hidden';
+
 // Mock data for Videos (pro_creator)
-export const MOCK_VIDEOS = [
+export const MOCK_VIDEOS: Array<{
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  visibility: VideoVisibility;
+  scheduledAt: string | null;
+  views: number;
+  createdAt: string;
+}> = [
   {
     id: 'video-1',
     title: 'Full Body Workout Program - Week 1',
     thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
     duration: '35:20',
-    visibility: 'public' as const,
+    visibility: 'public',
     scheduledAt: null,
     views: 2847,
     createdAt: '2026-01-20',
   },
   {
     id: 'video-2',
-    title: 'Advanced Techniques - Members Only',
+    title: 'Advanced Techniques - Subscribers Only',
     thumbnail: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400',
     duration: '42:15',
-    visibility: 'private' as const,
+    visibility: 'subscribers', // Paid channel subscribers only
     scheduledAt: null,
     views: 543,
     createdAt: '2026-01-18',
@@ -140,7 +153,7 @@ export const MOCK_VIDEOS = [
     title: 'Upcoming Program Preview',
     thumbnail: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400',
     duration: '28:45',
-    visibility: 'hidden' as const,
+    visibility: 'hidden',
     scheduledAt: new Date('2026-01-25T10:00:00').toISOString(),
     views: 0,
     createdAt: '2026-01-22',
@@ -150,10 +163,20 @@ export const MOCK_VIDEOS = [
     title: 'Nutrition Tips & Meal Prep',
     thumbnail: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=400',
     duration: '25:30',
-    visibility: 'public' as const,
+    visibility: 'fans', // All fans (followers) can see
     scheduledAt: null,
     views: 1234,
     createdAt: '2026-01-15',
+  },
+  {
+    id: 'video-5',
+    title: 'Personal Training Notes',
+    thumbnail: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400',
+    duration: '15:00',
+    visibility: 'private', // Only the creator can see
+    scheduledAt: null,
+    views: 0,
+    createdAt: '2026-01-10',
   },
 ];
 

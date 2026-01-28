@@ -37,9 +37,11 @@ const FILTER_OPTIONS = [
   { key: 'gym', label: 'Gyms', icon: 'barbell' as const, color: PIN_COLORS.gym },
   { key: 'restaurant', label: 'Restaurants', icon: 'restaurant' as const, color: PIN_COLORS.restaurant },
   { key: 'store', label: 'Stores', icon: 'bag-handle' as const, color: PIN_COLORS.store },
+  { key: 'event', label: 'Events', icon: 'calendar' as const, color: '#FF6B6B' },
+  { key: 'peak', label: 'Peaks', icon: 'videocam' as const, color: '#9B59B6' },
 ];
 
-const MAX_ACTIVE_FILTERS = 3;
+const MAX_ACTIVE_FILTERS = 4;
 
 interface XplorerFeedProps {
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -50,7 +52,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const hasRequestedPermission = useRef(false);
-  const { setBottomBarHidden, hideBars, showBars } = useTabBar();
+  const { setBottomBarHidden, showBars } = useTabBar();
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,6 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [selectedMarker, setSelectedMarker] = useState<typeof MOCK_MARKERS[0] | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [region, setRegion] = useState({
     latitude: 45.5017,
@@ -81,11 +82,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       // Show bottom nav when leaving Xplorer
       setBottomBarHidden(false);
       showBars();
-      if (isFullscreen) {
-        setIsFullscreen(false);
-      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isActive, setBottomBarHidden, showBars]);
 
   const requestLocationPermission = async () => {
@@ -125,16 +123,6 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
   };
 
-  const toggleFullscreen = () => {
-    const newFullscreen = !isFullscreen;
-    setIsFullscreen(newFullscreen);
-    // Hide/show top header in fullscreen mode (bottom nav always hidden in Xplorer)
-    if (newFullscreen) {
-      hideBars();
-    } else {
-      showBars();
-    }
-  };
 
   type MockMarker = typeof MOCK_MARKERS[0];
 
@@ -323,10 +311,10 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         ))}
       </MapView>
 
-      {/* SEARCH BAR + FILTER - Position adjusts based on fullscreen mode */}
+      {/* SEARCH BAR + FILTER - Just below safe area */}
       <View style={[
         styles.searchContainer,
-        { top: isFullscreen ? insets.top + 8 : insets.top + 12 }
+        { top: insets.top + 8 }
       ]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={normalize(18)} color={COLORS.primary} />
@@ -360,10 +348,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         </TouchableOpacity>
       </View>
 
-      {/* BOUTONS COIN INFÉRIEUR DROIT - Avec gradient */}
+      {/* BOUTON COIN INFÉRIEUR DROIT - Center on user */}
       <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(3) }]}>
         <GradientMapButton onPress={centerOnUser} iconName="navigate" />
-        <GradientMapButton onPress={toggleFullscreen} iconName={isFullscreen ? "contract-outline" : "expand-outline"} />
       </View>
 
       {/* POPUP */}

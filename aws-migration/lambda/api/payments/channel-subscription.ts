@@ -144,7 +144,7 @@ async function subscribeToChannel(
       `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name,
               (SELECT COUNT(*) FROM follows WHERE following_id = p.id) as fan_count
        FROM profiles p
-       WHERE p.id = $1 AND p.account_type IN ('pro_creator', 'pro_local')`,
+       WHERE p.id = $1 AND p.account_type IN ('pro_creator', 'pro_business')`,
       [creatorId]
     );
 
@@ -479,7 +479,7 @@ async function setChannelPrice(
       };
     }
 
-    if (!['pro_creator', 'pro_local'].includes(result.rows[0].account_type)) {
+    if (!['pro_creator', 'pro_business'].includes(result.rows[0].account_type)) {
       return {
         statusCode: 403,
         headers: corsHeaders,

@@ -37,7 +37,7 @@ export const AWS_CONFIG_STAGING: AWSConfig = {
     identityPoolId: 'us-east-1:ff7c6b31-86c7-4bd1-8b91-f0f41adc828a',
   },
   api: {
-    restEndpoint: 'https://bmkd8zayee.execute-api.us-east-1.amazonaws.com/staging',
+    restEndpoint: 'https://90pg0i63ff.execute-api.us-east-1.amazonaws.com/staging',
     graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
     websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
   },

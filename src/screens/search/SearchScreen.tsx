@@ -429,7 +429,7 @@ const SearchScreen = (): React.JSX.Element => {
       views: p.views_count || 0,
       likes: p.likes_count || 0,
       textOverlay: p.content || p.caption || '',
-      createdAt: new Date(p.created_at),
+      createdAt: p.created_at, // Keep as ISO string for React Navigation serialization
     }));
     navigation.navigate('PeakView', { peaks: transformedPeaks, initialIndex: index });
   };

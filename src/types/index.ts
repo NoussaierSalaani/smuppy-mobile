@@ -478,7 +478,7 @@ export type MainStackParamList = {
 
   // Onboarding
   AccountType: { email: string; password: string; name?: string };
-  TellUsAboutYou: { accountType: 'fan' | 'creator' | 'personal' | 'pro_creator' | 'pro_local'; [key: string]: unknown };
+  TellUsAboutYou: { accountType: 'fan' | 'creator' | 'personal' | 'pro_creator' | 'pro_business'; [key: string]: unknown };
   CreatorInfo: { [key: string]: unknown };
   CreatorOptionalInfo: { [key: string]: unknown };
   BusinessCategory: { [key: string]: unknown };
@@ -527,6 +527,8 @@ export type MainStackParamList = {
   // Settings
   Settings: undefined;
   EditProfile: undefined;
+  EditInterests: { currentInterests?: string[] } | undefined;
+  EditExpertise: { currentExpertise?: string[]; returnTo?: string } | undefined;
   PasswordManager: undefined;
   AccountSettings: undefined;
   PrivacySettings: undefined;
@@ -534,6 +536,9 @@ export type MainStackParamList = {
   ReportProblem: undefined;
   TermsPolicies: undefined;
   FacialRecognition: undefined;
+  BlockedUsers: undefined;
+  MutedUsers: undefined;
+  FollowRequests: undefined;
 
   // Payments & Subscriptions
   CreatorWallet: undefined;

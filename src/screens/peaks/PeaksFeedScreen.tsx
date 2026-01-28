@@ -33,7 +33,7 @@ interface Peak {
   views: number;
   reactions: number;
   repliesCount?: number;
-  createdAt: Date;
+  createdAt: string; // ISO string for React Navigation serialization
 }
 
 type RootStackParamList = {
@@ -42,91 +42,91 @@ type RootStackParamList = {
   [key: string]: object | undefined;
 };
 
-// Mock data for Peaks
+// Mock data for Peaks - IDs must be valid UUIDs, dates must be ISO strings
 const MOCK_PEAKS: Peak[] = [
   {
-    id: '1',
+    id: 'c3d4e5f6-a7b8-4c9d-0e1f-000000000001',
     thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
     duration: 10,
     user: {
-      id: 'user1',
+      id: 'c3d4e5f6-a7b8-4c9d-0e1f-100000000001',
       name: 'Sarah Fit',
       avatar: 'https://i.pravatar.cc/100?img=1',
     },
     views: 12500,
     reactions: 890,
     repliesCount: 5,
-    createdAt: new Date(),
+    createdAt: '2026-01-27T10:00:00.000Z',
   },
   {
-    id: '2',
+    id: 'c3d4e5f6-a7b8-4c9d-0e1f-000000000002',
     thumbnail: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400',
     duration: 6,
     user: {
-      id: 'user2',
+      id: 'c3d4e5f6-a7b8-4c9d-0e1f-100000000002',
       name: 'Mike Strong',
       avatar: 'https://i.pravatar.cc/100?img=12',
     },
     views: 8700,
     reactions: 432,
     repliesCount: 0,
-    createdAt: new Date(),
+    createdAt: '2026-01-27T09:30:00.000Z',
   },
   {
-    id: '3',
+    id: 'c3d4e5f6-a7b8-4c9d-0e1f-000000000003',
     thumbnail: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=400',
     duration: 15,
     user: {
-      id: 'user3',
+      id: 'c3d4e5f6-a7b8-4c9d-0e1f-100000000003',
       name: 'Emma Yoga',
       avatar: 'https://i.pravatar.cc/100?img=5',
     },
     views: 23400,
     reactions: 1567,
     repliesCount: 12,
-    createdAt: new Date(),
+    createdAt: '2026-01-27T08:45:00.000Z',
   },
   {
-    id: '4',
+    id: 'c3d4e5f6-a7b8-4c9d-0e1f-000000000004',
     thumbnail: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400',
     duration: 10,
     user: {
-      id: 'user4',
+      id: 'c3d4e5f6-a7b8-4c9d-0e1f-100000000004',
       name: 'John Gym',
       avatar: 'https://i.pravatar.cc/100?img=8',
     },
     views: 5600,
     reactions: 234,
     repliesCount: 3,
-    createdAt: new Date(),
+    createdAt: '2026-01-26T18:00:00.000Z',
   },
   {
-    id: '5',
+    id: 'c3d4e5f6-a7b8-4c9d-0e1f-000000000005',
     thumbnail: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400',
     duration: 6,
     user: {
-      id: 'user5',
+      id: 'c3d4e5f6-a7b8-4c9d-0e1f-100000000005',
       name: 'Lisa Run',
       avatar: 'https://i.pravatar.cc/100?img=9',
     },
     views: 15800,
     reactions: 876,
     repliesCount: 8,
-    createdAt: new Date(),
+    createdAt: '2026-01-26T14:30:00.000Z',
   },
   {
-    id: '6',
+    id: 'c3d4e5f6-a7b8-4c9d-0e1f-000000000006',
     thumbnail: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
     duration: 15,
     user: {
-      id: 'user6',
+      id: 'c3d4e5f6-a7b8-4c9d-0e1f-100000000006',
       name: 'Alex CrossFit',
       avatar: 'https://i.pravatar.cc/100?img=11',
     },
     views: 34200,
     reactions: 2341,
     repliesCount: 25,
-    createdAt: new Date(),
+    createdAt: '2026-01-26T10:00:00.000Z',
   },
 ];
 

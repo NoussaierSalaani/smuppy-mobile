@@ -35,7 +35,7 @@ interface VerifyCodeScreenProps {
       name?: string;
       gender?: string;
       dateOfBirth?: string;
-      accountType?: 'personal' | 'pro_creator' | 'pro_local';
+      accountType?: 'personal' | 'pro_creator' | 'pro_business';
       interests?: string[];
       profileImage?: string;
       displayName?: string;
@@ -184,8 +184,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         return;
       }
 
-      // Set JUST_SIGNED_UP flag AFTER successful confirmation and sign-in
-      storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
+      // NOTE: JUST_SIGNED_UP flag is set AFTER profile creation succeeds (see below)
 
       // Create profile data (without avatar first for speed)
       const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
@@ -220,7 +219,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         avatar: undefined,
         bio: bio || '',
         username: username || generatedUsername,
-        accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_local',
+        accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_business',
         interests: interests || [],
         expertise: expertise || [],
         website: website || '',
@@ -270,6 +269,10 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         // The user is authenticated, just profile data wasn't saved
         console.error('[VerifyCode] Profile creation failed after retries');
         // Don't block user - they can update profile later from Settings
+        // DON'T set JUST_SIGNED_UP flag - user should go to Main, not SuccessScreen
+      } else {
+        // Profile created successfully - now set the flag to show SuccessScreen
+        storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
       }
 
       // Upload profile image (blocking with timeout for reliability)

@@ -1,0 +1,418 @@
+import * as cdk from 'aws-cdk-lib';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
+import { Construct } from 'constructs';
+import { LambdaStack } from './lambda-stack';
+
+export interface ApiGatewayStackProps extends cdk.NestedStackProps {
+  userPool: cognito.IUserPool;
+  lambdaStack: LambdaStack;
+  environment: string;
+  isProduction: boolean;
+}
+
+/**
+ * API Gateway Nested Stack - Core Endpoints
+ * Contains: posts, profiles, feed, follows, comments, peaks, notifications, conversations, auth, media
+ */
+export class ApiGatewayStack extends cdk.NestedStack {
+  public readonly api: apigateway.RestApi;
+  public readonly authorizer: apigateway.CognitoUserPoolsAuthorizer;
+
+  constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
+    super(scope, id, props);
+
+    const { userPool, lambdaStack, environment, isProduction } = props;
+
+    // ========================================
+    // API Gateway - REST API with Throttling
+    // ========================================
+    this.api = new apigateway.RestApi(this, 'SmuppyAPI', {
+      restApiName: `smuppy-api-${environment}`,
+      description: 'Smuppy REST API - Core Endpoints',
+      cloudWatchRole: true,
+      deployOptions: {
+        stageName: environment,
+        throttlingRateLimit: isProduction ? 100000 : 1000,
+        throttlingBurstLimit: isProduction ? 50000 : 500,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: !isProduction,
+        metricsEnabled: true,
+        cachingEnabled: isProduction,
+        cacheClusterEnabled: isProduction,
+        cacheClusterSize: isProduction ? '0.5' : undefined,
+      },
+      defaultCorsPreflightOptions: {
+        allowOrigins: isProduction
+          ? ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com']
+          : ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com', 'http://localhost:8081', 'http://localhost:19006'],
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Amz-Date',
+          'X-Api-Key',
+          'X-Amz-Security-Token',
+          'X-Request-Id',
+        ],
+        allowCredentials: true,
+        maxAge: cdk.Duration.hours(1),
+      },
+      binaryMediaTypes: ['image/*', 'video/*'],
+    });
+
+    // Cognito Authorizer
+    this.authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {
+      cognitoUserPools: [userPool],
+      resultsCacheTtl: cdk.Duration.minutes(5),
+    });
+
+    // Create all API routes
+    this.createRoutes(lambdaStack, isProduction);
+
+    // Create WAF
+    this.createWaf(environment, isProduction);
+  }
+
+  private createRoutes(lambdaStack: LambdaStack, isProduction: boolean) {
+    const authMethodOptions: apigateway.MethodOptions = {
+      authorizer: this.authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    };
+
+    // ========================================
+    // Posts Endpoints
+    // ========================================
+    const posts = this.api.root.addResource('posts');
+    posts.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsListFn, {
+      ...(isProduction && { cacheKeyParameters: ['method.request.querystring.limit', 'method.request.querystring.offset'] }),
+    }));
+    posts.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsCreateFn), authMethodOptions);
+
+    const postById = posts.addResource('{id}');
+    postById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsGetFn));
+    postById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsDeleteFn), authMethodOptions);
+
+    const postLike = postById.addResource('like');
+    postLike.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsLikeFn), authMethodOptions);
+    postLike.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsUnlikeFn), authMethodOptions);
+
+    const postSave = postById.addResource('save');
+    postSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsSaveFn), authMethodOptions);
+    postSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsUnsaveFn), authMethodOptions);
+
+    const postComments = postById.addResource('comments');
+    postComments.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.commentsListFn));
+    postComments.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.commentsCreateFn), authMethodOptions);
+
+    const postSaved = postById.addResource('saved');
+    postSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsIsSavedFn), authMethodOptions);
+
+    // ========================================
+    // Comments Endpoints
+    // ========================================
+    const comments = this.api.root.addResource('comments');
+    const commentById = comments.addResource('{id}');
+    commentById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.commentsDeleteFn), authMethodOptions);
+    commentById.addMethod('PATCH', new apigateway.LambdaIntegration(lambdaStack.commentsUpdateFn), authMethodOptions);
+
+    // ========================================
+    // Profiles Endpoints
+    // ========================================
+    const profiles = this.api.root.addResource('profiles');
+    profiles.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesSearchFn));
+
+    const profileById = profiles.addResource('{id}');
+    profileById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetFn));
+
+    const profileIsFollowing = profileById.addResource('is-following');
+    profileIsFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesIsFollowingFn), authMethodOptions);
+
+    const profileFollowers = profileById.addResource('followers');
+    profileFollowers.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesFollowersFn));
+
+    const profileFollowing = profileById.addResource('following');
+    profileFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesFollowingFn));
+
+    const profileMe = profiles.addResource('me');
+    profileMe.addMethod('PATCH', new apigateway.LambdaIntegration(lambdaStack.profilesUpdateFn), authMethodOptions);
+
+    const profilesSuggested = profiles.addResource('suggested');
+    profilesSuggested.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesSuggestedFn), authMethodOptions);
+
+    // ========================================
+    // Feed Endpoint
+    // ========================================
+    const feed = this.api.root.addResource('feed');
+    feed.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedGetFn), authMethodOptions);
+
+    // ========================================
+    // Follows Endpoints
+    // ========================================
+    const follows = this.api.root.addResource('follows');
+    follows.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followsCreateFn), authMethodOptions);
+
+    const followsByUser = follows.addResource('{userId}');
+    followsByUser.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.followsDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Follow Requests Endpoints
+    // ========================================
+    const followRequests = this.api.root.addResource('follow-requests');
+    followRequests.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.followRequestsListFn), authMethodOptions);
+
+    const followRequestById = followRequests.addResource('{id}');
+    const followRequestAccept = followRequestById.addResource('accept');
+    followRequestAccept.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followRequestsAcceptFn), authMethodOptions);
+
+    const followRequestDecline = followRequestById.addResource('decline');
+    followRequestDecline.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followRequestsDeclineFn), authMethodOptions);
+
+    // ========================================
+    // Peaks Endpoints
+    // ========================================
+    const peaks = this.api.root.addResource('peaks');
+    peaks.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksListFn));
+    peaks.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksCreateFn), authMethodOptions);
+
+    const peakById = peaks.addResource('{id}');
+    peakById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksGetFn));
+    peakById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksDeleteFn), authMethodOptions);
+
+    const peakLike = peakById.addResource('like');
+    peakLike.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksLikeFn), authMethodOptions);
+    peakLike.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksUnlikeFn), authMethodOptions);
+
+    const peakComments = peakById.addResource('comments');
+    peakComments.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksCommentFn), authMethodOptions);
+
+    const peakReact = peakById.addResource('react');
+    peakReact.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksReactFn), authMethodOptions);
+    peakReact.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksReactFn), authMethodOptions);
+
+    const peakTags = peakById.addResource('tags');
+    peakTags.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksTagFn), authMethodOptions);
+    peakTags.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksTagFn), authMethodOptions);
+
+    const peakTagByUser = peakTags.addResource('{userId}');
+    peakTagByUser.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksTagFn), authMethodOptions);
+
+    const peakHide = peakById.addResource('hide');
+    peakHide.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), authMethodOptions);
+    peakHide.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), authMethodOptions);
+
+    const peaksHidden = peaks.addResource('hidden');
+    peaksHidden.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), authMethodOptions);
+
+    const peakReplies = peakById.addResource('replies');
+    peakReplies.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksRepliesFn), authMethodOptions);
+    peakReplies.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksRepliesFn), authMethodOptions);
+
+    // ========================================
+    // Notifications Endpoints
+    // ========================================
+    const notifications = this.api.root.addResource('notifications');
+    notifications.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.notificationsListFn), authMethodOptions);
+
+    const notificationsReadAll = notifications.addResource('read-all');
+    notificationsReadAll.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsMarkAllReadFn), authMethodOptions);
+
+    const notificationsUnreadCount = notifications.addResource('unread-count');
+    notificationsUnreadCount.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.notificationsUnreadCountFn), authMethodOptions);
+
+    const notificationsPushToken = notifications.addResource('push-token');
+    notificationsPushToken.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsPushTokenFn), authMethodOptions);
+
+    const notificationById = notifications.addResource('{id}');
+    const notificationRead = notificationById.addResource('read');
+    notificationRead.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsMarkReadFn), authMethodOptions);
+
+    // ========================================
+    // Conversations & Messages Endpoints
+    // ========================================
+    const conversations = this.api.root.addResource('conversations');
+    conversations.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.conversationsListFn), authMethodOptions);
+    conversations.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.conversationsCreateFn), authMethodOptions);
+
+    const conversationById = conversations.addResource('{id}');
+    const conversationMessages = conversationById.addResource('messages');
+    conversationMessages.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.conversationsMessagesFn), authMethodOptions);
+    conversationMessages.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.conversationsSendMessageFn), authMethodOptions);
+
+    const messages = this.api.root.addResource('messages');
+    const messageById = messages.addResource('{id}');
+    messageById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.messagesDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Auth Endpoints (no Cognito auth)
+    // ========================================
+    const auth = this.api.root.addResource('auth');
+    const appleAuth = auth.addResource('apple');
+    appleAuth.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.appleAuthFn));
+
+    const googleAuth = auth.addResource('google');
+    googleAuth.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.googleAuthFn));
+
+    const signupAuth = auth.addResource('signup');
+    signupAuth.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.signupAuthFn));
+
+    const validateEmail = auth.addResource('validate-email');
+    validateEmail.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.validateEmailFn));
+
+    const confirmSignup = auth.addResource('confirm-signup');
+    confirmSignup.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.confirmSignupFn));
+
+    const resendCode = auth.addResource('resend-code');
+    resendCode.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.resendCodeFn));
+
+    const forgotPassword = auth.addResource('forgot-password');
+    forgotPassword.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.forgotPasswordFn));
+
+    const confirmForgotPassword = auth.addResource('confirm-forgot-password');
+    confirmForgotPassword.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.confirmForgotPasswordFn));
+
+    const checkUser = auth.addResource('check-user');
+    checkUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkUserFn));
+
+    // ========================================
+    // Media Endpoints
+    // ========================================
+    const media = this.api.root.addResource('media');
+    const mediaUploadUrl = media.addResource('upload-url');
+    mediaUploadUrl.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadUrlFn), authMethodOptions);
+  }
+
+  private createWaf(environment: string, isProduction: boolean) {
+    const webAcl = new wafv2.CfnWebACL(this, 'SmuppyWAF', {
+      defaultAction: { allow: {} },
+      scope: 'REGIONAL',
+      name: `smuppy-core-waf-${environment}`,
+      visibilityConfig: {
+        cloudWatchMetricsEnabled: true,
+        metricName: `SmuppyCoreWAF-${environment}`,
+        sampledRequestsEnabled: true,
+      },
+      rules: [
+        {
+          name: 'DDoSProtectionRule',
+          priority: 1,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 100000 : 10000,
+              aggregateKeyType: 'IP',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'DDoSProtectionRule',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AuthRateLimitRule',
+          priority: 2,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 2000 : 500,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                byteMatchStatement: {
+                  searchString: '/auth/',
+                  fieldToMatch: { uriPath: {} },
+                  textTransformations: [{ priority: 0, type: 'LOWERCASE' }],
+                  positionalConstraint: 'CONTAINS',
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AuthRateLimitRule',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'WriteOperationsRateLimit',
+          priority: 3,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 5000 : 1000,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                orStatement: {
+                  statements: [
+                    { byteMatchStatement: { searchString: 'POST', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'PUT', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'DELETE', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                  ],
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'WriteOperationsRateLimit',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesCommonRuleSet',
+          priority: 4,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesCommonRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesCommonRuleSet',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesSQLiRuleSet',
+          priority: 5,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesSQLiRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesSQLiRuleSet',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesKnownBadInputsRuleSet',
+          priority: 6,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesKnownBadInputsRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesKnownBadInputsRuleSet',
+            sampledRequestsEnabled: true,
+          },
+        },
+      ],
+    });
+
+    new wafv2.CfnWebACLAssociation(this, 'WafApiAssociation', {
+      resourceArn: this.api.deploymentStage.stageArn,
+      webAclArn: webAcl.attrArn,
+    });
+  }
+}

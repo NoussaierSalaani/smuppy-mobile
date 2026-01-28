@@ -81,8 +81,8 @@ export function isValidEmail(email: string): boolean {
  */
 export function isValidUsername(username: string): boolean {
   if (!username || typeof username !== 'string') return false;
-  // Alphanumeric, underscores, 3-30 characters
-  const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+  // Alphanumeric, underscores, dots, 3-30 characters
+  const usernameRegex = /^[a-zA-Z0-9_.]{3,30}$/;
   return usernameRegex.test(username);
 }
 

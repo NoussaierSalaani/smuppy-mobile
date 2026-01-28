@@ -126,9 +126,9 @@ export const LargeBadge: React.FC<BadgeProps & { variant?: 'verified' | 'premium
  * AccountBadge - Automatically selects the right badge based on account type
  * - personal + verified = Green (VerifiedBadge)
  * - pro_creator + verified = Blue (CreatorBadge)
- * - pro_local + verified = Gold (PremiumBadge)
+ * - pro_business + verified = Gold (PremiumBadge)
  */
-export type AccountType = 'personal' | 'pro_creator' | 'pro_local';
+export type AccountType = 'personal' | 'pro_creator' | 'pro_business';
 
 interface AccountBadgeProps extends BadgeProps {
   isVerified?: boolean;
@@ -148,7 +148,7 @@ export const AccountBadge: React.FC<AccountBadgeProps> = ({
   switch (accountType) {
     case 'pro_creator':
       return <ShutterBadge size={size} style={style} color={BADGE_COLORS.creator} />;
-    case 'pro_local':
+    case 'pro_business':
       return <ShutterBadge size={size} style={style} color={BADGE_COLORS.premium} />;
     case 'personal':
     default:

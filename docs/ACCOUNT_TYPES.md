@@ -77,7 +77,7 @@ All Personal features plus:
 
 ---
 
-## 3. Pro Business Account (`pro_local`)
+## 3. Pro Business Account (`pro_business`)
 
 **Target Users:** Gyms, studios, wellness centers, sports facilities, and local businesses.
 

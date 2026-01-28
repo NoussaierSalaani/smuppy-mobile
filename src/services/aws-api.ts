@@ -41,10 +41,13 @@ class AWSAPIService {
     };
 
     // Add authentication header if needed
+    // Cognito Authorizer expects the ID token (not Access token)
     if (authenticated) {
-      const token = await awsAuth.getAccessToken();
+      const token = await awsAuth.getIdToken();
       if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
+      } else {
+        console.warn('[AWS API] No ID token available for authenticated request');
       }
     }
 
@@ -2968,7 +2971,7 @@ export interface Profile {
   website?: string | null;
   isVerified: boolean;
   isPrivate: boolean;
-  accountType: 'personal' | 'pro_creator' | 'pro_local';
+  accountType: 'personal' | 'pro_creator' | 'pro_business';
   followersCount: number;
   followingCount: number;
   postsCount: number;
@@ -3046,7 +3049,7 @@ export interface UpdateProfileInput {
   bio?: string;
   avatarUrl?: string;
   isPrivate?: boolean;
-  accountType?: 'personal' | 'pro_creator' | 'pro_local';
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
   gender?: string;
   dateOfBirth?: string;
   displayName?: string;

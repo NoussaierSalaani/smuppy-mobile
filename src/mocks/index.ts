@@ -19,3 +19,11 @@ export {
   MOCK_VIBE_POSTS,
   MOCK_FAN_POSTS,
 } from './feedMocks';
+
+export {
+  DEMO_PROFILES,
+  getDemoProfileByUsername,
+  getDemoProfilesByType,
+  getVerifiedDemoProfiles,
+} from './demoProfiles';
+export type { DemoProfile } from './demoProfiles';

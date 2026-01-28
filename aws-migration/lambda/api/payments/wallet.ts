@@ -122,7 +122,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
 
     const profile = profileResult.rows[0];
 
-    if (!['pro_creator', 'pro_local'].includes(profile.account_type)) {
+    if (!['pro_creator', 'pro_business'].includes(profile.account_type)) {
       return {
         statusCode: 403,
         headers: corsHeaders,

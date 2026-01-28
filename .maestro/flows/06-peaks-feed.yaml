@@ -1,0 +1,30 @@
+# Test: Peaks Feed (TikTok-style videos)
+appId: com.smuppy.app
+name: "Peaks - Video Feed"
+tags:
+  - peaks
+---
+
+- launchApp
+
+# Navigate to peaks
+- tapOn:
+    id: "peaks-tab"
+
+# Verify peaks screen
+- assertVisible: "Peaks"
+
+# Swipe through peaks
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: DOWN
+    duration: 500
+
+# Like a peak
+- doubleTapOn:
+    point: "50%,50%"

@@ -1,0 +1,36 @@
+# Test: Settings Screen
+appId: com.smuppy.app
+name: "Settings - All Options"
+tags:
+  - settings
+---
+
+- launchApp
+
+# Navigate to profile then settings
+- tapOn:
+    id: "profile-tab"
+- tapOn:
+    id: "settings-button"
+
+# Verify all settings options
+- assertVisible: "Paramètres"
+- assertVisible: "Compte"
+- assertVisible: "Confidentialité"
+- assertVisible: "Notifications"
+- assertVisible: "Aide"
+
+# Test each section
+- tapOn: "Compte"
+- assertVisible: "Modifier le profil"
+- tapOn:
+    id: "back-button"
+
+- tapOn: "Confidentialité"
+- tapOn:
+    id: "back-button"
+
+# Test logout
+- scroll:
+    direction: DOWN
+- assertVisible: "Déconnexion"

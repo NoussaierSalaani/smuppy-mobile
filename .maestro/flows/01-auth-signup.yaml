@@ -1,0 +1,55 @@
+# Test: Complete Signup Flow
+# Tests the entire onboarding and signup process
+
+appId: com.smuppy.app
+name: "Auth - Complete Signup Flow"
+tags:
+  - auth
+  - critical
+---
+
+# Step 1: Launch and welcome screen
+- launchApp:
+    clearState: true
+- assertVisible: "Bienvenue"
+
+# Step 2: Account type selection
+- tapOn: "Créer un compte"
+- assertVisible: "Type de compte"
+- tapOn: "Personnel"
+- tapOn: "Continuer"
+
+# Step 3: Personal info
+- assertVisible: "Informations"
+- inputText:
+    id: "name-input"
+    text: "Test User"
+- tapOn: "Homme"
+- tapOn: "Continuer"
+
+# Step 4: Interests selection
+- assertVisible: "Intérêts"
+- tapOn: "Fitness"
+- tapOn: "Yoga"
+- tapOn: "Running"
+- tapOn: "Continuer"
+
+# Step 5: Profile setup
+- assertVisible: "Profil"
+- inputText:
+    id: "username-input"
+    text: "testuser_${RANDOM}"
+- tapOn: "Continuer"
+
+# Step 6: Email and password
+- assertVisible: "Email"
+- inputText:
+    id: "email-input"
+    text: "${TEST_EMAIL}"
+- inputText:
+    id: "password-input"
+    text: "${TEST_PASSWORD}"
+- tapOn: "Créer mon compte"
+
+# Step 7: Verify code screen appears
+- assertVisible: "Vérifier"

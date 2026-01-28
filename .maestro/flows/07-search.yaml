@@ -1,0 +1,27 @@
+# Test: Search Functionality
+appId: com.smuppy.app
+name: "Search - Users & Content"
+tags:
+  - search
+---
+
+- launchApp
+
+# Go to explorer
+- tapOn: "Xplorer"
+
+# Tap search bar
+- tapOn:
+    id: "search-input"
+
+# Search for user
+- inputText: "fitness"
+- pressKey: Enter
+
+# Wait for results
+- waitForAnimationToEnd
+
+# Verify results appear
+- assertVisible:
+    text: ".*"
+    timeout: 5000

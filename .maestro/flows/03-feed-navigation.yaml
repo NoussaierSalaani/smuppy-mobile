@@ -1,0 +1,46 @@
+# Test: Feed Navigation
+appId: com.smuppy.app
+name: "Feed - Tab Navigation"
+tags:
+  - feed
+  - navigation
+---
+
+# Prerequisite: User must be logged in
+- launchApp
+
+# Wait for feed to load
+- assertVisible:
+    text: "Fan"
+    timeout: 5000
+
+# Test FanFeed tab
+- tapOn: "Fan"
+- assertVisible: "Fan"
+
+# Test VibesFeed tab
+- tapOn: "Vibes"
+- assertVisible: "Vibes"
+
+# Test Explorer tab  
+- tapOn: "Xplorer"
+- assertVisible: "Xplorer"
+
+# Test scroll in each feed
+- tapOn: "Fan"
+- scroll:
+    direction: DOWN
+    duration: 1000
+- scroll:
+    direction: UP
+    duration: 500
+
+- tapOn: "Vibes"
+- scroll:
+    direction: DOWN
+    duration: 1000
+
+- tapOn: "Xplorer"
+- scroll:
+    direction: DOWN
+    duration: 1000

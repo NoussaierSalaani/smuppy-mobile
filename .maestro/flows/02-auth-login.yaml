@@ -1,0 +1,25 @@
+# Test: Login Flow
+appId: com.smuppy.app
+name: "Auth - Login Flow"
+tags:
+  - auth
+  - critical
+---
+
+- launchApp:
+    clearState: true
+- assertVisible: "Bienvenue"
+- tapOn: "Se connecter"
+- assertVisible: "Connexion"
+- inputText:
+    id: "email-input"
+    text: "${TEST_EMAIL}"
+- tapOn: "Continuer"
+- assertVisible: "Mot de passe"
+- inputText:
+    id: "password-input"
+    text: "${TEST_PASSWORD}"
+- tapOn: "Se connecter"
+- assertVisible:
+    text: "Fan"
+    timeout: 10000

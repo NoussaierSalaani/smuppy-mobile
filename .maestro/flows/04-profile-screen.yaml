@@ -1,0 +1,30 @@
+# Test: Profile Screen
+appId: com.smuppy.app
+name: "Profile - View & Edit"
+tags:
+  - profile
+---
+
+- launchApp
+
+# Navigate to profile
+- tapOn:
+    id: "profile-tab"
+
+# Verify profile screen elements
+- assertVisible: "Posts"
+- assertVisible: "Fans"
+- assertVisible: "Following"
+
+# Test edit profile button
+- tapOn: "Modifier"
+- assertVisible: "Modifier le profil"
+
+# Go back
+- tapOn:
+    id: "back-button"
+    
+# Test settings
+- tapOn:
+    id: "settings-button"
+- assertVisible: "Paramètres"

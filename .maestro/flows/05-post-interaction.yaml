@@ -1,0 +1,36 @@
+# Test: Post Interactions
+appId: com.smuppy.app
+name: "Post - Like, Save, Share"
+tags:
+  - feed
+  - interaction
+---
+
+- launchApp
+
+# Wait for feed
+- assertVisible:
+    text: "Fan"
+    timeout: 5000
+
+# Go to Vibes (public posts)
+- tapOn: "Vibes"
+
+# Wait for posts to load
+- waitForAnimationToEnd
+
+# Like first post
+- tapOn:
+    id: "like-button-0"
+    
+# Save first post
+- tapOn:
+    id: "save-button-0"
+
+# Open post detail
+- tapOn:
+    id: "post-0"
+- assertVisible: "Retour"
+
+# Go back
+- tapOn: "Retour"

@@ -1,21 +1,20 @@
-# Maestro E2E Test Configuration
+# Maestro Configuration for Smuppy
 # https://maestro.mobile.dev/
 
-# Global configuration
-executionOrder:
-  continueOnFailure: false
-  flowsOrder:
-    - auth/login.yaml
-    - auth/signup.yaml
-    - feed/view-feed.yaml
-    - feed/create-post.yaml
-    - profile/view-profile.yaml
-    - profile/edit-profile.yaml
+appId: com.smuppy.app
 
-# Environment variables
+# Default settings
+name: Smuppy E2E Tests
+
+# Environment
 env:
-  TEST_EMAIL: "e2e-test@smuppy.com"
-  TEST_PASSWORD: "TestPassword123!"
+  TEST_EMAIL: test@smuppy.com
+  TEST_PASSWORD: Test123!@#
 
-# Output settings
-outputExtension: .json
+# Tags for organizing tests
+tags:
+  - auth
+  - feed
+  - profile
+  - peaks
+  - explorer

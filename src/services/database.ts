@@ -288,6 +288,9 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (updates.business_phone) updateData.businessPhone = updates.business_phone;
     if (updates.locations_mode) updateData.locationsMode = updates.locations_mode;
 
+    // Onboarding flag
+    if (updates.onboarding_completed !== undefined) updateData.onboardingCompleted = updates.onboarding_completed;
+
     if (process.env.NODE_ENV === 'development') console.log('[Database] updateProfile');
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };

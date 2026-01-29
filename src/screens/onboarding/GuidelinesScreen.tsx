@@ -114,6 +114,9 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         return;
       }
 
+      // Mark onboarding as completed
+      await createProfile({ onboarding_completed: true });
+
       // Update Zustand store
       const userData = {
         id: currentUser.id,

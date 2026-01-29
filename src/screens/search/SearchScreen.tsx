@@ -454,7 +454,7 @@ const SearchScreen = (): React.JSX.Element => {
       />
       <View style={styles.resultInfo}>
         <View style={styles.usernameRow}>
-          <Text style={styles.resultUsername}>@{profile.username}</Text>
+          <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
           <AccountBadge
             size={16}
             style={{ marginLeft: 4 }}
@@ -462,7 +462,7 @@ const SearchScreen = (): React.JSX.Element => {
             accountType={profile.account_type}
           />
         </View>
-        <Text style={styles.resultFullName}>{profile.full_name}</Text>
+        <Text style={styles.resultFullName}>@{profile.username}</Text>
         {profile.fan_count !== undefined && profile.fan_count > 0 && (
           <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
         )}
@@ -657,7 +657,7 @@ const SearchScreen = (): React.JSX.Element => {
             />
             <View style={styles.resultInfo}>
               <View style={styles.usernameRow}>
-                <Text style={styles.resultUsername}>@{profile.username}</Text>
+                <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
                 <AccountBadge
                   size={16}
                   style={{ marginLeft: 4 }}
@@ -665,7 +665,7 @@ const SearchScreen = (): React.JSX.Element => {
                   accountType={profile.account_type}
                 />
               </View>
-              <Text style={styles.resultFullName}>{profile.full_name}</Text>
+              <Text style={styles.resultFullName}>@{profile.username}</Text>
               {profile.fan_count !== undefined && profile.fan_count > 0 && (
                 <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
               )}
@@ -702,7 +702,7 @@ const SearchScreen = (): React.JSX.Element => {
               />
               <View style={styles.resultInfo}>
                 <View style={styles.usernameRow}>
-                  <Text style={styles.resultUsername}>@{profile.username}</Text>
+                  <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
                   <AccountBadge
                     size={16}
                     style={{ marginLeft: 4 }}
@@ -710,7 +710,7 @@ const SearchScreen = (): React.JSX.Element => {
                     accountType={profile.account_type}
                   />
                 </View>
-                <Text style={styles.resultFullName}>{profile.full_name}</Text>
+                <Text style={styles.resultFullName}>@{profile.username}</Text>
               </View>
             </TouchableOpacity>
           ))}

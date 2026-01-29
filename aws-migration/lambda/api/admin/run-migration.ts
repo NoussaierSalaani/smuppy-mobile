@@ -665,6 +665,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Handle custom SQL action (admin only - for one-off migrations)
+    if (action === 'run-sql') {
+      const sql = body.sql;
+      if (!sql || typeof sql !== 'string') {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Missing sql field' }),
+        };
+      }
+      log.info('Running custom SQL...');
+      const sqlResult = await db.query(sql);
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          message: 'SQL executed',
+          rowCount: sqlResult.rowCount,
+          rows: sqlResult.rows?.slice(0, 100),
+        }),
+      };
+    }
+
     // Handle fix-constraint action - updates CHECK constraint for account_type
     if (action === 'fix-constraint') {
       log.info('Fixing account_type constraint...');

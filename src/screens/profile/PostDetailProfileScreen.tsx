@@ -41,51 +41,7 @@ interface PostItem {
   };
 }
 
-// Mock data - posts du profil
-const MOCK_PROFILE_POSTS = [
-  {
-    id: '1',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
-    description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing when you just let go and enjoy the moment.',
-    likes: 1234,
-    views: 5420,
-    user: {
-      id: 'user1',
-      name: 'Dianne Russell',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-    },
-  },
-  {
-    id: '2',
-    type: 'image',
-    media: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    description: 'Mountain vibes 🏔️ Nothing beats this view!',
-    likes: 892,
-    views: 3210,
-    user: {
-      id: 'user1',
-      name: 'Dianne Russell',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-    },
-  },
-  {
-    id: '3',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800',
-    description: 'Nature at its finest 🌿',
-    likes: 2341,
-    views: 8750,
-    user: {
-      id: 'user1',
-      name: 'Dianne Russell',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-    },
-  },
-];
+const MOCK_PROFILE_POSTS: PostItem[] = [];
 
 
 const PostDetailProfileScreen = () => {
@@ -125,7 +81,7 @@ const PostDetailProfileScreen = () => {
   const lastTap = useRef(0);
   
   // Current post
-  const currentPost = profilePosts[currentIndex] || MOCK_PROFILE_POSTS[0];
+  const currentPost = profilePosts[currentIndex];
 
   // Validate UUID format
   const isValidUUID = (id: string) => {
@@ -558,7 +514,7 @@ const PostDetailProfileScreen = () => {
       {/* Posts FlashList (vertical scroll) */}
       <FlashList
         ref={flatListRef}
-        data={profilePosts.length > 0 ? profilePosts : MOCK_PROFILE_POSTS}
+        data={profilePosts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
         pagingEnabled

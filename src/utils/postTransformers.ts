@@ -49,7 +49,7 @@ export const normalizeMediaType = (
  * Get the primary media URL from a post
  * Supports both array (media_urls) and single string (media_url) formats
  */
-export const getMediaUrl = (post: Post, fallback = 'https://via.placeholder.com/400x500'): string => {
+export const getMediaUrl = (post: Post, fallback: string | null = null): string | null => {
   return post.media_urls?.[0] || post.media_url || fallback;
 };
 
@@ -69,7 +69,7 @@ export interface UIPostUser {
   id: string;
   name: string;
   username?: string;
-  avatar: string;
+  avatar: string | null;
   isVerified?: boolean;
   isBot?: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
@@ -78,7 +78,7 @@ export interface UIPostUser {
 export interface UIPostBase {
   id: string;
   type: 'image' | 'video' | 'carousel';
-  media: string;
+  media: string | null;
   slideCount?: number;
   duration?: string;
   user: UIPostUser;
@@ -119,13 +119,13 @@ export const transformToFanPost = (
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
-    media: getMediaUrl(post, 'https://via.placeholder.com/800x1000'),
+    media: getMediaUrl(post, null),
     slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || 'User',
       username: `@${post.author?.username || 'user'}`,
-      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
+      avatar: post.author?.avatar_url || null,
       isVerified: post.author?.is_verified || false,
       isBot: post.author?.is_bot || false,
       accountType: post.author?.account_type || 'personal',
@@ -163,7 +163,7 @@ export const transformToVibePost = (
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || post.author?.username || 'User',
-      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
+      avatar: post.author?.avatar_url || null,
     },
     title: getContentText(post),
     likes: post.likes_count || 0,

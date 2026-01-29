@@ -64,7 +64,7 @@ type SearchTab = 'all' | 'users' | 'posts' | 'peaks' | 'tags';
 // ============================================
 // DEFAULT AVATAR
 // ============================================
-const DEFAULT_AVATAR = 'https://via.placeholder.com/100/0EBF8A/FFFFFF?text=S';
+const DEFAULT_AVATAR: string | undefined = undefined;
 
 // ============================================
 // MAIN COMPONENT

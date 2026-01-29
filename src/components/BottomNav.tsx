@@ -178,7 +178,7 @@ const ProfileIcon = ({ imageUri, isActive, size = 26 }: ProfileIconProps): React
     isActive && styles.profileActive
   ]}>
     <Image
-      source={{ uri: imageUri || 'https://i.pravatar.cc/100?img=33' }}
+      source={{ uri: imageUri || undefined }}
       style={styles.profileImage}
     />
   </View>

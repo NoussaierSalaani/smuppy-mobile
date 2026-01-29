@@ -54,7 +54,7 @@ interface Creator {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   verified: boolean;
   bio: string;
   subscribersCount: number;
@@ -129,7 +129,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             id: profile.id,
             name: profile.fullName || profile.username,
             username: profile.username,
-            avatar: profile.avatarUrl || 'https://via.placeholder.com/100',
+            avatar: profile.avatarUrl || null,
             verified: profile.isVerified,
             bio: profile.bio || '',
             subscribersCount: profile.followersCount,
@@ -419,7 +419,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           style={styles.creatorCard}
           onPress={() => navigation.navigate('UserProfile', { userId: creator.id })}
         >
-          <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+          <Image source={{ uri: creator.avatar || undefined }} style={styles.creatorAvatar} />
           <View style={styles.creatorInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.creatorName}>{creator.name}</Text>

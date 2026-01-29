@@ -30,7 +30,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
     creator: {
       id: '',
       name: 'Creator',
-      avatar: 'https://i.pravatar.cc/100?img=33',
+      avatar: null,
     },
   };
 

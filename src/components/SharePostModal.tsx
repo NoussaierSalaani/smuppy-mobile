@@ -28,11 +28,11 @@ interface SharePostModalProps {
   visible: boolean;
   post: {
     id: string;
-    media: string;
+    media: string | null;
     caption?: string;
     user: {
       name: string;
-      avatar: string;
+      avatar: string | null;
     };
   } | null;
   onClose: () => void;

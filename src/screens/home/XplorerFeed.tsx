@@ -100,20 +100,24 @@ const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
 // ============================================
 // MOCK MARKERS
 // ============================================
-const MOCK_MARKERS = [
-  { id: '1', type: 'coaches', subcategory: 'Personal Trainers', category: 'user', name: 'Darlene Robertson', avatar: 'https://randomuser.me/api/portraits/women/1.jpg', bio: 'Certified Personal Trainer | Helping you reach your fitness goals', fans: 1234, posts: 89, coordinate: { latitude: 45.5017, longitude: -73.5673 } },
-  { id: '2', type: 'coaches', subcategory: 'Yoga Teachers', category: 'user', name: 'Marcus Johnson', avatar: 'https://randomuser.me/api/portraits/men/2.jpg', bio: 'Yoga & Meditation Coach | Find your inner peace', fans: 856, posts: 45, coordinate: { latitude: 45.5087, longitude: -73.5540 } },
-  { id: '3', type: 'gyms', subcategory: 'Gym', category: 'business', name: 'Oxygen Fitness', avatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400', coverImage: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600', address: '1234 Rue Saint-Denis, Montreal, QC', hours: 'Open 24/7', expertise: ['Bodybuilding', 'CrossFit', 'Cardio'], fans: 5420, coordinate: { latitude: 45.5100, longitude: -73.5600 } },
-  { id: '4', type: 'gyms', subcategory: 'CrossFit', category: 'business', name: 'PowerHouse Gym', avatar: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400', coverImage: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=600', address: '567 Boulevard Rene-Levesque, Montreal, QC', hours: '6:00 AM - 11:00 PM', expertise: ['Powerlifting', 'Strength Training'], fans: 3200, coordinate: { latitude: 45.4980, longitude: -73.5650 } },
-  { id: '5', type: 'wellness', subcategory: 'Yoga Studios', category: 'business', name: 'ZenFlow Studio', avatar: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=400', coverImage: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=600', address: '321 Avenue du Mont-Royal, Montreal, QC', hours: '7:00 AM - 9:00 PM', expertise: ['Yoga', 'Pilates', 'Meditation'], fans: 2100, coordinate: { latitude: 45.5230, longitude: -73.5820 } },
-  { id: '6', type: 'food', subcategory: 'Healthy Food', category: 'business', name: 'Green Bowl', avatar: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400', coverImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600', address: '890 Avenue du Parc, Montreal, QC', hours: '8:00 AM - 9:00 PM', expertise: ['Healthy Food', 'Smoothies', 'Meal Prep'], fans: 1890, coordinate: { latitude: 45.5050, longitude: -73.5720 } },
-  { id: '7', type: 'stores', subcategory: 'Sportswear', category: 'business', name: 'FitWear MTL', avatar: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=400', coverImage: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=600', address: '432 Rue Sainte-Catherine, Montreal, QC', hours: '10:00 AM - 8:00 PM', expertise: ['Sportswear', 'Accessories', 'Shoes'], fans: 2100, coordinate: { latitude: 45.4990, longitude: -73.5800 } },
-  { id: '8', type: 'events', subcategory: 'Running', category: 'event', name: 'Montreal Marathon 2025', avatar: 'https://images.unsplash.com/photo-1513593771513-7b58b6c4af38?w=400', coverImage: 'https://images.unsplash.com/photo-1513593771513-7b58b6c4af38?w=600', address: 'Parc Jean-Drapeau, Montreal, QC', hours: 'Oct 15, 2025', expertise: ['Marathon', '10K', '5K'], fans: 8500, coordinate: { latitude: 45.5150, longitude: -73.5530 } },
-  { id: '9', type: 'spots', subcategory: 'Outdoor Gyms', category: 'spot', name: 'Parc Lafontaine Gym', avatar: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400', coverImage: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600', address: 'Parc La Fontaine, Montreal, QC', hours: 'Always Open', expertise: ['Calisthenics', 'Pull-ups', 'Dips'], fans: 1200, coordinate: { latitude: 45.5280, longitude: -73.5690 } },
-  { id: '10', type: 'sports', subcategory: 'Tennis', category: 'business', name: 'Club de Tennis MTL', avatar: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=400', coverImage: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=600', address: '100 Avenue des Pins, Montreal, QC', hours: '6:00 AM - 10:00 PM', expertise: ['Tennis', 'Lessons', 'Leagues'], fans: 3400, coordinate: { latitude: 45.5120, longitude: -73.5760 } },
-];
+const MOCK_MARKERS: { id: string; type: string; subcategory: string; category: string; name: string; avatar: string; bio?: string; fans: number; posts?: number; coordinate: { latitude: number; longitude: number }; coverImage?: string; address?: string; hours?: string; expertise?: string[] }[] = [];
 
-type MockMarker = typeof MOCK_MARKERS[0];
+interface MockMarker {
+  id: string;
+  type: string;
+  subcategory: string;
+  category: string;
+  name: string;
+  avatar: string;
+  bio?: string;
+  fans: number;
+  posts?: number;
+  coordinate: { latitude: number; longitude: number };
+  coverImage?: string;
+  address?: string;
+  hours?: string;
+  expertise?: string[];
+}
 
 // Default center (Montreal)
 const DEFAULT_CENTER: [number, number] = [-73.5673, 45.5017];

@@ -24,7 +24,7 @@ export default function SessionEndedScreen(): React.JSX.Element {
     duration: 0,
     creator: {
       name: 'Apte Fitness',
-      avatar: 'https://i.pravatar.cc/100?img=33',
+      avatar: null,
     },
   };
 

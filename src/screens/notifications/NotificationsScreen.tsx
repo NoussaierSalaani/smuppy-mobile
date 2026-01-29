@@ -94,7 +94,7 @@ function transformNotification(apiNotif: any): Notification {
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
       name: userData.name || userData.username || 'User',
-      avatar: userData.avatar || userData.avatarUrl || 'https://i.pravatar.cc/100',
+      avatar: userData.avatar || userData.avatarUrl || null,
       isVerified: userData.isVerified || false,
     },
     message: apiNotif.body || getDefaultMessage(apiNotif.type),

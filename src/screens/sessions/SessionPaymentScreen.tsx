@@ -26,7 +26,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
 
   const { creator, date, time, duration, price, sessionId } = route.params || {
-    creator: { id: '', name: 'Creator', avatar: 'https://i.pravatar.cc/100?img=33' },
+    creator: { id: '', name: 'Creator', avatar: null },
     date: { date: 15, month: 'Sep' },
     time: '15:00',
     duration: 60,

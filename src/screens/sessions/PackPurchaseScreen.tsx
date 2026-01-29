@@ -39,7 +39,7 @@ interface Creator {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   verified: boolean;
 }
 
@@ -68,7 +68,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           id: profile.id,
           name: profile.fullName || profile.username,
           username: profile.username,
-          avatar: profile.avatarUrl || 'https://via.placeholder.com/100',
+          avatar: profile.avatarUrl || null,
           verified: profile.isVerified,
         });
       }

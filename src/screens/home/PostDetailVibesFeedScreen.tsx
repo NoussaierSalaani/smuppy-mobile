@@ -40,128 +40,9 @@ const VIEW_STATES = {
   GRID_ONLY: 'grid_only',
 };
 
-// Mock data - posts du VibesFeed (basés sur centres d'intérêt)
-const MOCK_VIBESFEED_POSTS = [
-  {
-    id: '1',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
-    description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing!',
-    likes: 1234,
-    views: 5420,
-    category: 'Adventure',
-    user: {
-      id: 'user1',
-      name: 'Dianne Russell',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      followsMe: false,
-    },
-  },
-  {
-    id: '2',
-    type: 'image',
-    media: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    description: 'Mountain vibes 🏔️',
-    likes: 892,
-    views: 3210,
-    category: 'Nature',
-    user: {
-      id: 'user2',
-      name: 'Alex Chen',
-      avatar: 'https://i.pravatar.cc/150?img=12',
-      followsMe: true,
-    },
-  },
-];
+const MOCK_VIBESFEED_POSTS: { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; user: { id: string; name: string; avatar: string; followsMe: boolean } }[] = [];
 
-// Mock grid posts (Pinterest style)
-const MOCK_GRID_POSTS = [
-  {
-    id: 'g1',
-    thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
-    title: 'Morning Workout',
-    likes: 234,
-    height: 200,
-    type: 'image',
-    category: 'Fitness',
-    user: { id: 'u1', name: 'FitCoach', avatar: 'https://i.pravatar.cc/150?img=1' },
-  },
-  {
-    id: 'g2',
-    thumbnail: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400',
-    title: 'Gym Session',
-    likes: 567,
-    height: 240,
-    type: 'video',
-    duration: '0:34',
-    category: 'Training',
-    user: { id: 'u2', name: 'GymBro', avatar: 'https://i.pravatar.cc/150?img=2' },
-  },
-  {
-    id: 'g3',
-    thumbnail: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400',
-    title: 'Yoga Flow',
-    likes: 891,
-    height: 180,
-    type: 'image',
-    category: 'Yoga',
-    user: { id: 'u3', name: 'YogaMaster', avatar: 'https://i.pravatar.cc/150?img=3' },
-  },
-  {
-    id: 'g4',
-    thumbnail: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400',
-    title: 'HIIT Training',
-    likes: 432,
-    height: 220,
-    type: 'video',
-    duration: '1:20',
-    category: 'HIIT',
-    user: { id: 'u4', name: 'HIITPro', avatar: 'https://i.pravatar.cc/150?img=4' },
-  },
-  {
-    id: 'g5',
-    thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
-    title: 'Trail Running',
-    likes: 1203,
-    height: 260,
-    type: 'image',
-    category: 'Running',
-    user: { id: 'u5', name: 'TrailRunner', avatar: 'https://i.pravatar.cc/150?img=5' },
-  },
-  {
-    id: 'g6',
-    thumbnail: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400',
-    title: 'Boxing Class',
-    likes: 765,
-    height: 190,
-    type: 'image',
-    category: 'Boxing',
-    user: { id: 'u6', name: 'BoxingCoach', avatar: 'https://i.pravatar.cc/150?img=6' },
-  },
-  {
-    id: 'g7',
-    thumbnail: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400',
-    title: 'Weight Training',
-    likes: 543,
-    height: 210,
-    type: 'image',
-    category: 'Strength',
-    user: { id: 'u7', name: 'LiftHeavy', avatar: 'https://i.pravatar.cc/150?img=7' },
-  },
-  {
-    id: 'g8',
-    thumbnail: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?w=400',
-    title: 'Pool Swim',
-    likes: 2341,
-    height: 180,
-    type: 'video',
-    duration: '0:45',
-    category: 'Swimming',
-    user: { id: 'u8', name: 'SwimChamp', avatar: 'https://i.pravatar.cc/150?img=8' },
-  },
-];
+const MOCK_GRID_POSTS: { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }[] = [];
 
 const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
@@ -180,8 +61,9 @@ const PostDetailVibesFeedScreen = () => {
     startCondensed?: boolean;
   } || {};
   const { postId: _postId, post: initialPost, startCondensed } = params;
-  const currentPost = initialPost || MOCK_VIBESFEED_POSTS[0];
+  const currentPost = initialPost;
 
+  // All hooks must be called before any early return
   // States - start in CONDENSED if coming from grid post click
   const [viewState, setViewState] = useState(startCondensed ? VIEW_STATES.CONDENSED : VIEW_STATES.FULLSCREEN);
   const [isLiked, setIsLiked] = useState(false);
@@ -220,10 +102,11 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // User follows me?
-  const _theyFollowMe = currentPost.user?.followsMe || false;
+  const _theyFollowMe = currentPost?.user?.followsMe || false;
 
   // Check follow status on mount
   useEffect(() => {
+    if (!currentPost) return;
     const checkFollowStatus = async () => {
       if (currentPost.user?.id) {
         const { following } = await isFollowing(currentPost.user.id);
@@ -231,10 +114,11 @@ const PostDetailVibesFeedScreen = () => {
       }
     };
     checkFollowStatus();
-  }, [currentPost.user?.id]);
+  }, [currentPost?.user?.id]);
 
   // Check like/bookmark status on mount
   useEffect(() => {
+    if (!currentPost) return;
     const checkPostStatus = async () => {
       const postId = currentPost.id;
       if (!postId || !isValidUUID(postId)) return;
@@ -246,7 +130,10 @@ const PostDetailVibesFeedScreen = () => {
       setIsBookmarked(saved);
     };
     checkPostStatus();
-  }, [currentPost.id]);
+  }, [currentPost?.id]);
+
+  // Guard: if no post data was passed, bail out
+  if (!currentPost) return null;
 
   // Double tap to like
   const handleDoubleTap = () => {
@@ -625,7 +512,7 @@ const PostDetailVibesFeedScreen = () => {
       user: {
         id: post.user?.id || 'unknown',
         name: post.user?.name || 'User',
-        avatar: post.user?.avatar || 'https://i.pravatar.cc/150',
+        avatar: post.user?.avatar || null,
         followsMe: false,
       },
     };

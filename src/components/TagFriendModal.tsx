@@ -40,7 +40,7 @@ interface Friend {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   isMutual?: boolean;
 }
 
@@ -57,7 +57,7 @@ const profileToFriend = (profile: Profile, isMutual: boolean): Friend => ({
   id: profile.id,
   name: profile.full_name || profile.username || 'User',
   username: profile.username || 'user',
-  avatar: profile.avatar_url || 'https://via.placeholder.com/100',
+  avatar: profile.avatar_url || null,
   isMutual,
 });
 

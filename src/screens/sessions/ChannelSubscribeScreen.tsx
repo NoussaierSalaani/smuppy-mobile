@@ -36,7 +36,7 @@ interface Creator {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   verified: boolean;
   subscribersCount: number;
 }
@@ -45,14 +45,13 @@ type RouteParams = {
   ChannelSubscribe: { creatorId: string; tier: ChannelTier };
 };
 
-// Mock creator data
 const getCreator = (_creatorId: string): Creator => ({
-  id: 'c1',
-  name: 'Sarah Fitness',
-  username: 'sarah_fitness',
-  avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-  verified: true,
-  subscribersCount: 12500,
+  id: _creatorId,
+  name: '',
+  username: '',
+  avatar: null,
+  verified: false,
+  subscribersCount: 0,
 });
 
 const ChannelSubscribeScreen = (): React.JSX.Element => {

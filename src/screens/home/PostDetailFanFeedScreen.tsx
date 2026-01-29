@@ -50,84 +50,7 @@ interface FanFeedPost {
 // Loading state record type
 type LoadingRecord = Record<string, boolean>;
 
-// Mock data - posts du FanFeed (plusieurs créateurs)
-const MOCK_FANFEED_POSTS: FanFeedPost[] = [
-  {
-    id: '1',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
-    description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing when you just let go and enjoy the moment.',
-    likes: 1234,
-    views: 5420,
-    user: {
-      id: 'user1',
-      name: 'Dianne Russell',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      followsMe: false,
-    },
-  },
-  {
-    id: '2',
-    type: 'image',
-    media: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    description: 'Mountain vibes. Nothing beats this view!',
-    likes: 892,
-    views: 3210,
-    user: {
-      id: 'user2',
-      name: 'Alex Chen',
-      avatar: 'https://i.pravatar.cc/150?img=12',
-      followsMe: true,
-    },
-  },
-  {
-    id: '3',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800',
-    description: 'Nature at its finest. Can\'t believe I captured this moment!',
-    likes: 2341,
-    views: 8750,
-    user: {
-      id: 'user3',
-      name: 'Sarah Kim',
-      avatar: 'https://i.pravatar.cc/150?img=9',
-      followsMe: false,
-    },
-  },
-  {
-    id: '4',
-    type: 'image',
-    media: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
-    thumbnail: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
-    description: 'New project coming soon! Stay tuned',
-    likes: 567,
-    views: 1890,
-    user: {
-      id: 'user4',
-      name: 'Marcus Johnson',
-      avatar: 'https://i.pravatar.cc/150?img=15',
-      followsMe: true,
-    },
-  },
-  {
-    id: '5',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
-    description: 'Epic sunset from yesterday. Sometimes you just need to stop and appreciate the view.',
-    likes: 3421,
-    views: 12500,
-    user: {
-      id: 'user5',
-      name: 'Emma Wilson',
-      avatar: 'https://i.pravatar.cc/150?img=20',
-      followsMe: false,
-    },
-  },
-];
+const MOCK_FANFEED_POSTS: FanFeedPost[] = [];
 
 const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
@@ -178,7 +101,7 @@ const PostDetailFanFeedScreen = () => {
   const lastTap = useRef(0);
   
   // Current post
-  const currentPost = fanFeedPosts[currentIndex] || MOCK_FANFEED_POSTS[0];
+  const currentPost = fanFeedPosts[currentIndex];
   
   // Check if already fan of current post user
   const _isAlreadyFan = fanStatus[currentPost.user.id] === true;
@@ -784,7 +707,7 @@ const PostDetailFanFeedScreen = () => {
       {/* Posts FlashList (vertical scroll) */}
       <FlashList<FanFeedPost>
         ref={flatListRef}
-        data={fanFeedPosts.length > 0 ? fanFeedPosts : (MOCK_FANFEED_POSTS as FanFeedPost[])}
+        data={fanFeedPosts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
         pagingEnabled

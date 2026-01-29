@@ -22,7 +22,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
   const route = useRoute<any>();
 
   const { creator, date, time, duration } = route.params || {
-    creator: { name: 'Apte Fitness', avatar: 'https://i.pravatar.cc/100?img=33' },
+    creator: { name: 'Apte Fitness', avatar: null },
     date: { date: 15, month: 'Sep' },
     time: '15:00',
     duration: 60,

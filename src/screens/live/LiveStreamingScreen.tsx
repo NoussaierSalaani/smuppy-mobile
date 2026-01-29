@@ -46,7 +46,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     audience: _audience = 'public',
     hostId = 'host_123', // Should come from auth
     hostName = 'Apte Fitness',
-    hostAvatar = 'https://i.pravatar.cc/100?img=33',
+    hostAvatar = null,
   } = route.params || {};
 
   // Generate channel name

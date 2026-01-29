@@ -33,7 +33,7 @@ interface User {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   isVerified: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
   isFanOfMe: boolean;
@@ -53,7 +53,7 @@ const profileToUser = (
   id: profile.id,
   name: profile.full_name || profile.username || 'User',
   username: `@${profile.username || 'user'}`,
-  avatar: profile.avatar_url || 'https://via.placeholder.com/100',
+  avatar: profile.avatar_url || null,
   isVerified: profile.is_verified || false,
   accountType: profile.account_type || 'personal',
   isFanOfMe,

@@ -26,7 +26,7 @@ import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores'
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
-import { PEAKS_DATA, INTEREST_DATA, MOCK_VIBE_POSTS } from '../../mocks';
+
 import SharePostModal from '../../components/SharePostModal';
 import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
 
@@ -37,7 +37,8 @@ const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 const PEAK_CARD_WIDTH = 100;
 const PEAK_CARD_HEIGHT = 140;
 
-// INTEREST_DATA and PEAKS_DATA are now imported from ../../mocks
+const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
+const INTEREST_DATA: Record<string, { icon: string; color: string }> = {};
 
 // UIVibePost and transformToVibePost are now imported from utils/postTransformers
 
@@ -246,17 +247,15 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         if (refresh || pageNum === 0) {
           // Use mock data as fallback
           console.log('[VibesFeed] Using mock data as fallback');
-          setAllPosts(MOCK_VIBE_POSTS);
+          setAllPosts([]);
           setHasMore(false);
         }
         return;
       }
 
       if (!data || data.length === 0) {
-        console.warn('[VibesFeed] No data returned, using mock data');
         if (refresh || pageNum === 0) {
-          // Use mock data as fallback when API returns empty
-          setAllPosts(MOCK_VIBE_POSTS);
+          setAllPosts([]);
           setHasMore(false);
         }
         return;
@@ -647,7 +646,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       </View>
       
       <View style={styles.peakAvatarContainer}>
-        <Image source={{ uri: peak.user.avatar }} style={styles.peakAvatar} />
+        <Image source={{ uri: peak.user.avatar || undefined }} style={styles.peakAvatar} />
       </View>
       
       <Text style={styles.peakUserName} numberOfLines={1}>{peak.user.name}</Text>
@@ -667,7 +666,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       showAnimation={!post.isLiked}
       style={[styles.vibeCard, { height: post.height }]}
     >
-      <Image source={{ uri: post.media }} style={styles.vibeImage} />
+      <Image source={{ uri: post.media || undefined }} style={styles.vibeImage} />
 
       {post.type === 'video' && (
         <View style={styles.videoIndicator}>
@@ -693,7 +692,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               goToUserProfile(post.user.id);
             }}
           >
-            <Image source={{ uri: post.user.avatar }} style={styles.vibeAvatar} />
+            <Image source={{ uri: post.user.avatar || undefined }} style={styles.vibeAvatar} />
             <Text style={styles.vibeUserName} numberOfLines={1}>{post.user.name}</Text>
             <View style={styles.vibeLikes}>
               <SmuppyHeartIcon
@@ -729,7 +728,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               {/* Full screen image with close button */}
               <View style={styles.modalImageContainer}>
                 <Image
-                  source={{ uri: selectedPost.media }}
+                  source={{ uri: selectedPost.media || undefined }}
                   style={styles.modalImage}
                   resizeMode="cover"
                 />
@@ -753,7 +752,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                     style={styles.modalUserTouch}
                     onPress={() => goToUserProfile(selectedPost.user.id)}
                   >
-                    <Image source={{ uri: selectedPost.user.avatar }} style={styles.modalAvatar} />
+                    <Image source={{ uri: selectedPost.user.avatar || undefined }} style={styles.modalAvatar} />
                     <View style={styles.modalUserInfo}>
                       <Text style={styles.modalUserName}>{selectedPost.user.name}</Text>
                       <Text style={styles.modalCategory}>{selectedPost.category}</Text>
@@ -843,7 +842,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                           setSelectedPost(post);
                         }}
                       >
-                        <Image source={{ uri: post.media }} style={[styles.relatedImage, { height: 100 }]} />
+                        <Image source={{ uri: post.media || undefined }} style={[styles.relatedImage, { height: 100 }]} />
                         <View style={styles.relatedOverlay}>
                           <SmuppyHeartIcon size={10} color="#fff" filled={post.isLiked} />
                           <Text style={styles.relatedLikes}>{formatNumber(post.likes)}</Text>

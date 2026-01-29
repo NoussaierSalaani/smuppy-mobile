@@ -199,21 +199,8 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
         setExtractedActivities(activities);
         setStep('review');
       } else {
-        // Demo data for testing
-        const demoActivities: ExtractedActivity[] = [
-          { id: '1', name: 'Morning Yoga', day: 'Monday', startTime: '07:00', endTime: '08:00', instructor: 'Sarah', category: 'yoga', confidence: 0.95, selected: true },
-          { id: '2', name: 'HIIT Training', day: 'Monday', startTime: '09:00', endTime: '10:00', instructor: 'Mike', category: 'cardio', confidence: 0.92, selected: true },
-          { id: '3', name: 'Strength Training', day: 'Monday', startTime: '11:00', endTime: '12:00', category: 'strength', confidence: 0.88, selected: true },
-          { id: '4', name: 'Pilates', day: 'Tuesday', startTime: '08:00', endTime: '09:00', instructor: 'Lisa', category: 'fitness', confidence: 0.91, selected: true },
-          { id: '5', name: 'Spinning Class', day: 'Tuesday', startTime: '10:00', endTime: '11:00', category: 'cardio', confidence: 0.89, selected: true },
-          { id: '6', name: 'Evening Yoga', day: 'Tuesday', startTime: '18:00', endTime: '19:00', instructor: 'Sarah', category: 'yoga', confidence: 0.94, selected: true },
-          { id: '7', name: 'CrossFit', day: 'Wednesday', startTime: '06:00', endTime: '07:00', instructor: 'John', category: 'fitness', confidence: 0.87, selected: true },
-          { id: '8', name: 'Zumba', day: 'Wednesday', startTime: '17:00', endTime: '18:00', category: 'dance', confidence: 0.90, selected: true },
-          { id: '9', name: 'Boxing', day: 'Thursday', startTime: '12:00', endTime: '13:00', instructor: 'Tom', category: 'martial_arts', confidence: 0.86, selected: true },
-          { id: '10', name: 'Pool Aquagym', day: 'Friday', startTime: '09:00', endTime: '10:00', category: 'swimming', confidence: 0.93, selected: true },
-        ];
-        setExtractedActivities(demoActivities);
-        setStep('review');
+        setExtractedActivities([]);
+        Alert.alert('No Data', 'Could not extract activities from the document. Please try a different file.');
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

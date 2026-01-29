@@ -22,7 +22,7 @@ import { COLORS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
-import { MOCK_POSTS, MOCK_PEAKS, MOCK_COLLECTIONS, MOCK_VIDEOS, MOCK_LIVES, MOCK_SESSIONS } from '../../mocks';
+
 import { AccountBadge, PremiumBadge } from '../../components/Badge';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -39,7 +39,6 @@ const INITIAL_USER = INITIAL_USER_PROFILE;
 const BIO_MAX_LINES = 2;
 const BIO_EXPANDED_MAX_LINES = 6;
 
-// Mock data is now imported from ../../mocks
 
 interface ProfileScreenProps {
   navigation: {
@@ -78,12 +77,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // Use mock data if no real data
   const posts = useMemo(() => {
     const realPosts = allUserPosts.filter(post => !post.is_peak);
-    return realPosts.length > 0 ? realPosts : MOCK_POSTS;
+    return realPosts;
   }, [allUserPosts]);
 
   const peaks = useMemo(() => {
     const realPeaks = allUserPosts.filter(post => post.is_peak && post.save_to_profile !== false);
-    return realPeaks.length > 0 ? realPeaks : MOCK_PEAKS;
+    return realPeaks;
   }, [allUserPosts]);
 
   // Get saved posts (collections) - only for own profile
@@ -93,9 +92,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   } = useSavedPosts();
 
   const collections = useMemo(() => {
-    if (!savedPostsData?.pages) return MOCK_COLLECTIONS;
+    if (!savedPostsData?.pages) return [];
     const realCollections = savedPostsData.pages.flatMap(page => page.posts);
-    return realCollections.length > 0 ? realCollections : MOCK_COLLECTIONS;
+    return realCollections;
   }, [savedPostsData]);
 
   // Check if user has peaks (for avatar border indicator)
@@ -748,7 +747,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   ), []);
 
   // ==================== RENDER VIDEO ITEM ====================
-  const renderVideoItem = useCallback((video: typeof MOCK_VIDEOS[0]) => {
+  const renderVideoItem = useCallback((video: { id: string; thumbnail: string; title: string; duration: string; views: number; visibility: string; scheduledAt?: string }) => {
     const getVisibilityIcon = (): 'globe-outline' | 'lock-closed-outline' | 'eye-off-outline' | 'star-outline' | 'people-outline' => {
       switch (video.visibility) {
         case 'public': return 'globe-outline';
@@ -821,9 +820,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     // In production, this would check:
     // - fans: user is following this creator
     // - subscribers: user has active channel subscription
-    const visibleVideos = isOwnProfile
-      ? MOCK_VIDEOS
-      : MOCK_VIDEOS.filter(v => v.visibility === 'public');
+    const visibleVideos: { id: string; thumbnail: string; title: string; duration: string; views: number; visibility: string; scheduledAt?: string }[] = [];
 
     if (visibleVideos.length === 0) {
       return (
@@ -869,66 +866,32 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER LIVES ====================
   const renderLives = () => {
-    // For fan viewing a pro_creator's profile - show all Lives (they're all for fans)
     if (!isOwnProfile) {
-      if (MOCK_LIVES.length === 0) {
-        return (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
-            <Text style={styles.emptyTitle}>No lives yet</Text>
-            <Text style={styles.emptyDesc}>
-              This creator hasn't shared any recorded lives yet
-            </Text>
-          </View>
-        );
-      }
-      return (
-        <View style={styles.livesGrid}>
-          {MOCK_LIVES.map(renderLiveItem)}
-        </View>
-      );
-    }
-
-    // For pro_creator viewing their own profile
-    if (MOCK_LIVES.length === 0) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No lives yet</Text>
           <Text style={styles.emptyDesc}>
-            Go live to connect with your fans in real-time
+            This creator hasn't shared any recorded lives yet
           </Text>
-          <TouchableOpacity
-            style={styles.createBtn}
-            onPress={() => navigation.navigate('GoLive')}
-          >
-            <Text style={styles.createBtnText}>Go Live</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFF" />
-          </TouchableOpacity>
         </View>
       );
     }
 
     return (
-      <View>
-        {/* Schedule button for creator */}
+      <View style={styles.emptyContainer}>
+        <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+        <Text style={styles.emptyTitle}>No lives yet</Text>
+        <Text style={styles.emptyDesc}>
+          Go live to connect with your fans in real-time
+        </Text>
         <TouchableOpacity
-          style={styles.scheduleLiveBtn}
+          style={styles.createBtn}
           onPress={() => navigation.navigate('GoLive')}
         >
-          <LinearGradient
-            colors={['#0EBF8A', '#00B5C1']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.scheduleLiveBtnGradient}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-            <Text style={styles.scheduleLiveBtnText}>Go Live Now</Text>
-          </LinearGradient>
+          <Text style={styles.createBtnText}>Go Live</Text>
+          <Ionicons name="arrow-forward" size={16} color="#FFF" />
         </TouchableOpacity>
-        <View style={styles.livesGrid}>
-          {MOCK_LIVES.map(renderLiveItem)}
-        </View>
       </View>
     );
   };
@@ -996,35 +959,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       );
     }
 
-    const upcomingSessions = MOCK_SESSIONS.filter(s => s.status === 'upcoming');
-    const pastSessions = MOCK_SESSIONS.filter(s => s.status === 'completed');
-
-    if (MOCK_SESSIONS.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
-          <Text style={styles.emptyTitle}>No sessions yet</Text>
-          <Text style={styles.emptyDesc}>
-            Your 1:1 sessions with fans will appear here
-          </Text>
-        </View>
-      );
-    }
-
     return (
-      <View style={styles.sessionsContainer}>
-        {upcomingSessions.length > 0 && (
-          <>
-            <Text style={styles.sessionsSection}>Upcoming</Text>
-            {upcomingSessions.map(renderSessionItem)}
-          </>
-        )}
-        {pastSessions.length > 0 && (
-          <>
-            <Text style={styles.sessionsSection}>Past Sessions</Text>
-            {pastSessions.map(renderSessionItem)}
-          </>
-        )}
+      <View style={styles.emptyContainer}>
+        <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+        <Text style={styles.emptyTitle}>No sessions yet</Text>
+        <Text style={styles.emptyDesc}>
+          Your 1:1 sessions with fans will appear here
+        </Text>
       </View>
     );
   };

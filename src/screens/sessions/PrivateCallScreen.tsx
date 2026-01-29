@@ -47,7 +47,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
 
   const {
     sessionId,
-    creator = { id: 'creator_123', name: 'Apte Fitness', avatar: 'https://i.pravatar.cc/100?img=33' },
+    creator = { id: 'creator_123', name: 'Apte Fitness', avatar: null },
     myUserId = 'user_123',
     isIncoming = false,
   } = route.params || {};

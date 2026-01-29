@@ -135,7 +135,7 @@ describe('Media Utilities', () => {
 
     it('should return fallback if no media URL exists', () => {
       const post: Post = { ...basePost };
-      expect(getMediaUrl(post)).toBe('https://via.placeholder.com/400x500');
+      expect(getMediaUrl(post)).toBeNull();
     });
 
     it('should use custom fallback when provided', () => {

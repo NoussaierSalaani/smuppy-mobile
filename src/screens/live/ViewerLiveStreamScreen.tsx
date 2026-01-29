@@ -58,7 +58,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   const {
     channelName,
     creatorName = 'Pro Creator',
-    creatorAvatar = 'https://i.pravatar.cc/100?img=10',
+    creatorAvatar = null,
     liveTitle = 'Live Session',
   } = params;
 

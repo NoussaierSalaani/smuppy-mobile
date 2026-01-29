@@ -29,7 +29,7 @@ import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
-import { MOCK_FAN_POSTS } from '../../mocks';
+
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +38,7 @@ interface UISuggestion {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   isVerified: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
 }
@@ -109,7 +109,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         // On error, use mock data as fallback
         if (refresh || pageNum === 0) {
           console.log('[FanFeed] Using mock data as fallback');
-          setPosts(MOCK_FAN_POSTS);
+          setPosts([]);
           setHasMore(false);
         }
         return;
@@ -117,10 +117,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       // Handle null or undefined data
       if (!data || data.length === 0) {
-        console.warn('[FanFeed] No data returned, using mock data');
         if (refresh || pageNum === 0) {
-          // Use mock data as fallback when API returns empty
-          setPosts(MOCK_FAN_POSTS);
+          setPosts([]);
           setHasMore(false);
         }
         return;
@@ -149,7 +147,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       } else {
         // This shouldn't be reached due to the check above, but as fallback
         if (refresh || pageNum === 0) {
-          setPosts(MOCK_FAN_POSTS);
+          setPosts([]);
           setLikedPostIds(new Set());
         }
         setHasMore(false);
@@ -188,7 +186,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           id: p.id,
           name: p.full_name || p.username || 'User',
           username: p.username || 'user',
-          avatar: p.avatar_url || 'https://via.placeholder.com/100',
+          avatar: p.avatar_url || null,
           isVerified: p.is_verified || false,
           accountType: p.account_type || 'personal',
         }));

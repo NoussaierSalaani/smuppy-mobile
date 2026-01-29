@@ -70,40 +70,9 @@ const DEFAULT_PROFILE = {
   accountType: 'personal' as const,
 };
 
-// Cover images by interest/category
-const COVER_IMAGES_BY_INTEREST: Record<string, string> = {
-  'Fitness': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
-  'Gym': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
-  'Yoga': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800',
-  'Running': 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800',
-  'Cardio': 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=800',
-  'Wellness': 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800',
-  'Meditation': 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800',
-  'Nutrition': 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800',
-  'CrossFit': 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=800',
-  'Swimming': 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
-  'Cycling': 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800',
-  'Basketball': 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800',
-  'Football': 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800',
-  'Tennis': 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800',
-  'Boxing': 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=800',
-  'Martial Arts': 'https://images.unsplash.com/photo-1555597673-b21d5c935865?w=800',
-  'Hiking': 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800',
-  'Climbing': 'https://images.unsplash.com/photo-1522163182402-834f871fd851?w=800',
-  'Dance': 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=800',
-  'Pilates': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800',
-};
-
-const DEFAULT_COVER = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800';
-
 // Get cover image based on interests
-const getCoverImage = (interests: string[] = []): string => {
-  for (const interest of interests) {
-    if (COVER_IMAGES_BY_INTEREST[interest]) {
-      return COVER_IMAGES_BY_INTEREST[interest];
-    }
-  }
-  return DEFAULT_COVER;
+const getCoverImage = (_interests: string[] = []): string | null => {
+  return null;
 };
 
 

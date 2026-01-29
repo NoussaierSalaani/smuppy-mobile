@@ -666,7 +666,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <Text style={styles.seeAllText}>See all</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ flexDirection: 'row' }}>
+      <View style={styles.suggestionsRow}>
         {/* Invite Friends Button - fixed, non-scrollable */}
         <View style={styles.suggestionItem}>
           <TouchableOpacity
@@ -864,6 +864,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Poppins-Medium',
     color: COLORS.primary,
+  },
+  suggestionsRow: {
+    flexDirection: 'row',
   },
   suggestionsScrollContent: {
     paddingHorizontal: SPACING.sm,

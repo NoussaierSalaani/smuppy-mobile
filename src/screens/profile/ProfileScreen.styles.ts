@@ -1006,4 +1006,24 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFF',
   },
+
+  // ===== INLINE STYLE EXTRACTIONS =====
+  postThumbEmpty: {
+    backgroundColor: '#2C2C2E',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  emptyIconMargin: {
+    marginBottom: 16,
+  },
+  loadingCenter: {
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  loadingMargin: {
+    marginTop: 12,
+  },
+  bottomSpacer: {
+    height: 120,
+  },
 });

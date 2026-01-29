@@ -8,7 +8,6 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Linking,
   ScrollView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -208,67 +207,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       ...prev,
       [type === 'avatar' ? 'avatar' : 'coverImage']: uri,
     }));
-  };
-
-  // ==================== BIO ====================
-  // Render bio with clickable links (URLs, emails, phone numbers)
-  const _renderBioWithLinks = (text: string) => {
-    if (!text) return null;
-
-    // Regex patterns
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
-    const phoneRegex = /(\+?[\d\s\-().]{10,})/g;
-
-    // Combined regex to split text
-    const combinedRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+|\+?[\d\s\-().]{10,})/g;
-
-    const parts = text.split(combinedRegex);
-    const _matches = text.match(combinedRegex) || [];
-
-    const elements: React.ReactNode[] = [];
-    let _matchIndex = 0;
-
-    parts.forEach((part, index) => {
-      if (part) {
-        // Check if this part is a link
-        if (urlRegex.test(part)) {
-          elements.push(
-            <Text
-              key={`link-${index}`}
-              style={styles.bioLink}
-              onPress={() => Linking.openURL(part)}
-            >
-              {part}
-            </Text>
-          );
-        } else if (emailRegex.test(part)) {
-          elements.push(
-            <Text
-              key={`email-${index}`}
-              style={styles.bioLink}
-              onPress={() => Linking.openURL(`mailto:${part}`)}
-            >
-              {part}
-            </Text>
-          );
-        } else if (phoneRegex.test(part) && part.replace(/\D/g, '').length >= 10) {
-          elements.push(
-            <Text
-              key={`phone-${index}`}
-              style={styles.bioLink}
-              onPress={() => Linking.openURL(`tel:${part.replace(/\D/g, '')}`)}
-            >
-              {part}
-            </Text>
-          );
-        } else {
-          elements.push(<Text key={`text-${index}`}>{part}</Text>);
-        }
-      }
-    });
-
-    return <Text style={styles.bioText}>{elements}</Text>;
   };
 
   // ==================== COPY PROFILE LINK ====================
@@ -488,9 +426,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return tabs;
   }, [isProCreator, isOwnProfile]) as { key: string; label: string; icon: string }[];
 
-  // Combined for backward compatibility
-  const _TABS = useMemo(() => [...PRIMARY_TABS, ...EXTRA_TABS], [PRIMARY_TABS, EXTRA_TABS]);
-
   const renderTabs = () => {
     return (
       <View style={styles.tabsContainer}>
@@ -559,7 +494,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER EMPTY STATE ====================
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="images-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+      <Ionicons name="images-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
       <Text style={styles.emptyTitle}>No posts yet</Text>
       <Text style={styles.emptyDesc}>
         You're one click away from your{'\n'}first post
@@ -589,7 +524,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
-          <View style={[styles.postThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.postThumb, styles.postThumbEmpty]}>
             <Ionicons name="image-outline" size={24} color="#6E6E73" />
           </View>
         )}
@@ -609,8 +544,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     );
   }, [navigation]);
 
-  const _keyExtractor = useCallback((item: { id: string }) => item.id, []);
-
   // ==================== RENDER PEAK ITEM ====================
   const renderPeakItem = useCallback((peak: { id: string; media_urls?: string[]; likes_count?: number; views_count?: number; replies_count?: number; peak_duration?: number; tags_count?: number }) => {
     const thumbnail = peak.media_urls?.[0] || null;
@@ -628,7 +561,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.peakThumb} />
         ) : (
-          <View style={[styles.peakThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.peakThumb, styles.postThumbEmpty]}>
             <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
           </View>
         )}
@@ -668,7 +601,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (peaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No peaks yet</Text>
           <Text style={styles.emptyDesc}>
             Share your best moments as Peaks
@@ -708,7 +641,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.collectionThumb} />
         ) : (
-          <View style={[styles.collectionThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.collectionThumb, styles.postThumbEmpty]}>
             <Ionicons name="image-outline" size={32} color="#6E6E73" />
           </View>
         )}
@@ -745,7 +678,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>Private</Text>
           <Text style={styles.emptyDesc}>
             Collections are only visible to the account owner
@@ -757,7 +690,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (collections.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No collections yet</Text>
           <Text style={styles.emptyDesc}>
             Save posts to find them easily later
@@ -895,7 +828,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (visibleVideos.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="film-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="film-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No videos yet</Text>
           <Text style={styles.emptyDesc}>
             {isOwnProfile
@@ -941,7 +874,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (MOCK_LIVES.length === 0) {
         return (
           <View style={styles.emptyContainer}>
-            <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+            <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
             <Text style={styles.emptyTitle}>No lives yet</Text>
             <Text style={styles.emptyDesc}>
               This creator hasn't shared any recorded lives yet
@@ -960,7 +893,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (MOCK_LIVES.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No lives yet</Text>
           <Text style={styles.emptyDesc}>
             Go live to connect with your fans in real-time
@@ -1054,7 +987,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>Private</Text>
           <Text style={styles.emptyDesc}>
             Sessions are only visible to the creator
@@ -1069,7 +1002,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (MOCK_SESSIONS.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={{ marginBottom: 16 }} />
+          <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No sessions yet</Text>
           <Text style={styles.emptyDesc}>
             Your 1:1 sessions with fans will appear here
@@ -1177,9 +1110,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // Show loading only on initial load when we have no data at all
   if (isProfileLoading && !profileData && !user.displayName) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.loadingCenter]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
+        <Text style={[styles.bioText, styles.loadingMargin]}>Loading profile...</Text>
       </View>
     );
   }
@@ -1222,7 +1155,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
         {/* Tab Content */}
         {renderTabContent()}
-        <View style={{ height: 120 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {renderQRModal()}

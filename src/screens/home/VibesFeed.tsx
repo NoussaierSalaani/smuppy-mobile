@@ -236,11 +236,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }, [accountType])
   );
 
-  // Fetch posts from API - fetches ALL posts, filtering is done locally for speed
+  // Fetch posts from API - backend filters by user interests, local sorting refines
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
     try {
-      // Fetch without interest filtering - we'll filter locally
-      const { data, error } = await getDiscoveryFeed([], [], pageNum, 40);
+      // Pass active chip filters as selectedInterests, user profile preferences as fallback
+      const selectedArr = activeInterests.size > 0 ? Array.from(activeInterests) : [];
+      const { data, error } = await getDiscoveryFeed(selectedArr, userInterests, pageNum, 40);
 
       if (error) {
         console.error('[VibesFeed] Error fetching posts:', error);
@@ -294,15 +295,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setHasMore(false);
       }
     }
-  }, []);
+  }, [activeInterests, userInterests]);
 
-  // Initial load - only once when component mounts
+  // Reload when interests change (initial load + preference/filter changes)
   useEffect(() => {
     setIsLoading(true);
-    fetchPosts(0).finally(() => setIsLoading(false));
+    setPage(0);
+    fetchPosts(0, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
-
-  // NO reload on activeInterests change - filtering is instant/local
 
   // Navigate to user profile
   const goToUserProfile = useCallback((userId: string) => {

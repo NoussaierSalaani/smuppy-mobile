@@ -37,8 +37,8 @@ interface User {
   displayName?: string;
   username?: string;
   email?: string;
-  avatar?: string;
-  coverImage?: string;
+  avatar?: string | null;
+  coverImage?: string | null;
   bio?: string;
   location?: string;
   // Personal info

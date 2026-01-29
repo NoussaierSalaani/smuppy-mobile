@@ -125,7 +125,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         email: currentUser.email || '',
         dateOfBirth: dateOfBirth || '',
         gender: gender || '',
-        avatar: undefined as string | undefined,
+        avatar: null as string | null,
         bio: bio || '',
         username: generatedUsername,
         accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_business',

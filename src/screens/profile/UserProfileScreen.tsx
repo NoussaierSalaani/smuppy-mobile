@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -142,6 +142,7 @@ const UserProfileScreen = () => {
   const [isFan, setIsFan] = useState(false);
   const [isRequested, setIsRequested] = useState(false); // For private account follow requests
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
+  const hasUserInteracted = useRef(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -195,17 +196,21 @@ const UserProfileScreen = () => {
     const checkFollowStatus = async () => {
       if (userId) {
         const { following } = await isFollowing(userId);
+        // Skip if user already tapped fan/unfan while we were loading
+        if (hasUserInteracted.current) return;
         setIsFan(following);
 
         // If not following and profile is private, check for pending request
         if (!following) {
           const { pending } = await hasPendingFollowRequest(userId);
+          if (hasUserInteracted.current) return;
           setIsRequested(pending);
         } else {
           setIsRequested(false);
         }
       }
     };
+    hasUserInteracted.current = false;
     checkFollowStatus();
   }, [userId]);
 
@@ -325,6 +330,7 @@ const UserProfileScreen = () => {
   // Cancel follow request
   const handleCancelRequest = async () => {
     if (!userId || isLoadingFollow) return;
+    hasUserInteracted.current = true;
 
     setShowCancelRequestModal(false);
     setIsLoadingFollow(true);
@@ -340,6 +346,7 @@ const UserProfileScreen = () => {
   
   const becomeFan = async () => {
     if (!userId || isLoadingFollow) return;
+    hasUserInteracted.current = true;
 
     const newCount = fanToggleCount + 1;
     setFanToggleCount(newCount);
@@ -376,6 +383,7 @@ const UserProfileScreen = () => {
 
   const confirmUnfan = async () => {
     if (!userId || isLoadingFollow) return;
+    hasUserInteracted.current = true;
 
     setShowUnfanModal(false);
 

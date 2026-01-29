@@ -39,6 +39,8 @@ const TIP_RATE_LIMIT = 10;
 const TIP_RATE_WINDOW = 60_000;
 // Max single tip amount in cents (500 EUR)
 const MAX_TIP_AMOUNT = 50000;
+// Platform fee percentage (Smuppy takes 20%, Creator gets 80%)
+const PLATFORM_FEE_PERCENT = 20;
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
@@ -182,7 +184,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Calculate fees (80% creator, 20% platform)
     const amountInCents = amount;
     const amountDecimal = amount / 100;
-    const platformFee = Math.round(amount * 0.20) / 100; // 20%
+    const platformFee = Math.round(amount * (PLATFORM_FEE_PERCENT / 100)) / 100;
     const creatorAmount = amountDecimal - platformFee;
 
     // Get or create Stripe customer

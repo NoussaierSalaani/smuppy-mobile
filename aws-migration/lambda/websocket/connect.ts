@@ -22,7 +22,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const tokenIndex = protocolParts.indexOf('access-token');
     const token = tokenIndex >= 0 && tokenIndex + 1 < protocolParts.length
       ? protocolParts[tokenIndex + 1]
-      : event.queryStringParameters?.token; // fallback for older clients
+      : event.queryStringParameters?.token; // DEPRECATED: token in query string is logged by API Gateway
+
+    // SECURITY: Warn when token comes via query string (visible in CloudWatch/access logs)
+    if (!protocolParts.includes('access-token') && event.queryStringParameters?.token) {
+      log.warn('WebSocket connected via deprecated query string token — migrate to Sec-WebSocket-Protocol');
+    }
 
     if (!token) {
       log.info('No token provided');

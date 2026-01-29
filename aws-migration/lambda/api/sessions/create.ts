@@ -112,11 +112,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         };
       }
 
-      // Decrement sessions remaining
-      await pool.query(
-        `UPDATE user_session_packs SET sessions_remaining = sessions_remaining - 1 WHERE id = $1`,
+      // SECURITY: Atomic decrement with WHERE guard to prevent race conditions
+      const decrementResult = await pool.query(
+        `UPDATE user_session_packs SET sessions_remaining = sessions_remaining - 1
+         WHERE id = $1 AND sessions_remaining > 0
+         RETURNING sessions_remaining`,
         [fromPackId]
       );
+
+      if (decrementResult.rowCount === 0) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: 'No sessions remaining in pack' }),
+        };
+      }
       packUsed = true;
     }
 

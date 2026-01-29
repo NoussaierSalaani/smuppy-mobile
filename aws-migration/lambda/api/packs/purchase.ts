@@ -11,6 +11,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2024-06-20',
 });
 
+// Platform fee percentage (Smuppy takes 20%, Creator gets 80%)
+const PLATFORM_FEE_PERCENT = 20;
+
 interface PurchaseBody {
   packId: string;
 }
@@ -86,7 +89,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Calculate amounts (80% to creator, 20% platform fee)
     const totalAmount = Math.round(parseFloat(pack.price) * 100); // cents
-    const platformFee = Math.round(totalAmount * 0.20);
+    const platformFee = Math.round(totalAmount * (PLATFORM_FEE_PERCENT / 100));
 
     // Create payment intent with transfer to creator
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {

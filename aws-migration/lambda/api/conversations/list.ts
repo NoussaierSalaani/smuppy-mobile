@@ -108,7 +108,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({
         conversations,
-        nextCursor: hasMore ? conversations[conversations.length - 1].updated_at : null,
+        nextCursor: hasMore ? (conversations[conversations.length - 1].last_message_at || conversations[conversations.length - 1].created_at) : null,
         hasMore,
       }),
     };

@@ -1,9 +1,12 @@
 /**
  * IdentityVerificationScreen - Creator Identity Verification
- * Premium verification flow with $14.90 payment
+ * Premium verification flow with payment
  * Inspired by Stripe Identity, Airbnb verification
  */
 import React, { useState, useEffect, useCallback } from 'react';
+
+// TODO: Fetch from backend config API so price changes don't require app update
+const VERIFICATION_FEE = '$14.90';
 import {
   View,
   Text,
@@ -71,7 +74,7 @@ const VERIFICATION_STEPS = [
   {
     icon: 'card',
     title: 'Pay verification fee',
-    subtitle: 'One-time $14.90 fee',
+    subtitle: `One-time ${VERIFICATION_FEE} fee`,
   },
   {
     icon: 'camera',
@@ -312,7 +315,7 @@ export default function IdentityVerificationScreen() {
               <View style={styles.priceHeader}>
                 <Text style={styles.priceLabel}>Verification Fee</Text>
                 <View style={styles.priceTag}>
-                  <Text style={styles.priceAmount}>$14.90</Text>
+                  <Text style={styles.priceAmount}>{VERIFICATION_FEE}</Text>
                   <Text style={styles.priceOnce}>one-time</Text>
                 </View>
               </View>
@@ -401,7 +404,7 @@ export default function IdentityVerificationScreen() {
                     color="white"
                   />
                   <Text style={styles.ctaText}>
-                    {status === 'requires_input' ? 'Continue Verification' : 'Get Verified for $14.90'}
+                    {status === 'requires_input' ? 'Continue Verification' : `Get Verified for ${VERIFICATION_FEE}`}
                   </Text>
                 </>
               )}

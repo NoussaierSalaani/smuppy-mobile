@@ -12,6 +12,13 @@ export interface Storage {
   clear: (keys: string[]) => Promise<boolean>;
 }
 
+// Log SecureStore errors in dev so failures are visible
+function logStorageError(op: string, key: string, e: unknown): void {
+  if (__DEV__) {
+    console.warn(`[SecureStorage] ${op} failed for key "${key}":`, (e as Error).message);
+  }
+}
+
 export const storage: Storage = {
   set: async (key: string, value: string | Record<string, unknown>): Promise<boolean> => {
     try {
@@ -19,7 +26,7 @@ export const storage: Storage = {
       await SecureStore.setItemAsync(key, data);
       return true;
     } catch (e) {
-      // Silent on simulator (no keychain access)
+      logStorageError('set', key, e);
       return false;
     }
   },
@@ -30,7 +37,7 @@ export const storage: Storage = {
       if (!value) return null;
       return parse ? JSON.parse(value) : (value as unknown as T);
     } catch (e) {
-      // Silent on simulator (no keychain access)
+      logStorageError('get', key, e);
       return null;
     }
   },
@@ -40,7 +47,7 @@ export const storage: Storage = {
       await SecureStore.deleteItemAsync(key);
       return true;
     } catch (e) {
-      // Silent on simulator (no keychain access)
+      logStorageError('delete', key, e);
       return false;
     }
   },
@@ -50,7 +57,7 @@ export const storage: Storage = {
       await Promise.all(keys.map(k => SecureStore.deleteItemAsync(k)));
       return true;
     } catch (e) {
-      // Silent on simulator (no keychain access)
+      logStorageError('clear', keys.join(','), e);
       return false;
     }
   },

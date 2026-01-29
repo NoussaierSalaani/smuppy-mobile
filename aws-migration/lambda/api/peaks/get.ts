@@ -103,11 +103,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = result.rows[0];
 
-    // Increment view count (fire and forget)
-    db.query(
-      'UPDATE peaks SET views_count = views_count + 1 WHERE id = $1',
-      [peakId]
-    ).catch(err => log.error('Error incrementing view count', err));
+    // Increment view count with user dedup (fire and forget)
+    // Only count one view per user per peak using INSERT ON CONFLICT
+    if (userId) {
+      db.query(
+        `INSERT INTO peak_views (peak_id, user_id) VALUES ($1, $2)
+         ON CONFLICT (peak_id, user_id) DO NOTHING`,
+        [peakId, userId]
+      ).then(result => {
+        // Only increment if this is a new view (row was inserted)
+        if (result.rowCount && result.rowCount > 0) {
+          return db.query('UPDATE peaks SET views_count = views_count + 1 WHERE id = $1', [peakId]);
+        }
+      }).catch(err => log.error('Error incrementing view count', err));
+    }
 
     return {
       statusCode: 200,

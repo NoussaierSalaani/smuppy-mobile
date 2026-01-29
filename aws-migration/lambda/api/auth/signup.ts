@@ -315,8 +315,12 @@ export const handler = async (
         const usernameToDelete = emailCheck.username || cognitoUsername;
         log.info('User exists by email but is unconfirmed - will delete and recreate', { usernameToDelete });
         await deleteUnconfirmedUser(usernameToDelete);
-        // Small delay to ensure deletion is processed
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for Cognito eventual consistency (retry-based instead of fixed delay)
+        for (let i = 0; i < 3; i++) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const recheck = await checkUserByEmail(normalizedEmail);
+          if (!recheck.exists) break;
+        }
       }
     } else {
       // SECOND: Also check by generated username (fallback)
@@ -344,8 +348,12 @@ export const handler = async (
           // User exists but is UNCONFIRMED - delete and recreate with new password
           log.info('User exists by username but is unconfirmed - will delete and recreate');
           await deleteUnconfirmedUser(cognitoUsername);
-          // Small delay to ensure deletion is processed
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Wait for Cognito eventual consistency (retry-based)
+          for (let i = 0; i < 3; i++) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            const recheck = await checkUserStatus(cognitoUsername);
+            if (!recheck.exists) break;
+          }
         }
       }
     }

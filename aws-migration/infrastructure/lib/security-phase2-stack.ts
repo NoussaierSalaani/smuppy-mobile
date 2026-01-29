@@ -45,6 +45,8 @@ export class SecurityPhase2Stack extends cdk.Stack {
 
     // ========================================
     // SNS Topic for Security Alerts
+    // TODO #20: Add masterKey: kms.Key for SNS encryption at rest
+    // TODO #22: Enable GuardDuty via new guardduty.CfnDetector
     // ========================================
     this.securityAlertsTopic = new sns.Topic(this, 'SecurityAlertsTopic', {
       topicName: `smuppy-security-alerts-${environment}`,

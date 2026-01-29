@@ -845,6 +845,9 @@ export class SmuppyStack extends cdk.Stack {
       atRestEncryptionEnabled: true,
       transitEncryptionEnabled: true,
       // SECURITY: Auth token for Redis authentication
+      // NOTE: unsafeUnwrap() is required by CDK for CfnReplicationGroup.
+      // The secret is stored in Secrets Manager and only exposed at deploy time
+      // in the CloudFormation template. It is NOT logged or returned in outputs.
       authToken: redisAuthToken.secretValue.unsafeUnwrap(),
       transitEncryptionMode: 'required',
       // Auto minor version upgrade

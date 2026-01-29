@@ -9,6 +9,16 @@ import { createHeaders } from '../utils/cors';
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
+  // SECURITY: Verify admin API key
+  const adminKey = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
+  if (!adminKey || adminKey !== process.env.ADMIN_API_KEY) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ message: 'Forbidden' }),
+    };
+  }
+
   try {
     const db = await getPool();
 
@@ -21,9 +31,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       FROM profiles
     `);
 
-    // Get sample profiles
+    // Get sample profiles (masked for security)
     const sampleResult = await db.query(`
-      SELECT id, username, cognito_sub
+      SELECT id, LEFT(username, 2) || '***' as username, LEFT(cognito_sub, 8) || '***' as cognito_sub
       FROM profiles
       ORDER BY created_at DESC
       LIMIT 5
@@ -38,6 +48,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
   }
 }

@@ -703,7 +703,8 @@ export class LambdaStack extends cdk.NestedStack {
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 2048,
-      timeout: cdk.Duration.minutes(15),
+      // SECURITY: 10min max for admin migration — protected by admin API key auth
+      timeout: cdk.Duration.minutes(10),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [lambdaSecurityGroup],
@@ -742,7 +743,8 @@ export class LambdaStack extends cdk.NestedStack {
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 1024,
-      timeout: cdk.Duration.minutes(15),
+      // SECURITY: 10min max for admin migration — protected by admin API key auth
+      timeout: cdk.Duration.minutes(10),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [lambdaSecurityGroup],

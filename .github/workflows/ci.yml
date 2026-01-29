@@ -356,9 +356,9 @@ jobs:
 
       - name: Run database migrations
         run: |
-          echo "Running database migrations for staging..."
-          # Migrations are handled by Lambda on first request or via migration script
-        continue-on-error: true
+          echo "Database migrations are handled by Lambda admin endpoint post-deploy."
+          echo "Run manually: curl -X POST <admin-url>/migrate -H 'x-admin-key: <key>'"
+          # SECURITY: Do not use continue-on-error when actual migration commands are added
 
       - name: Notify deployment success
         if: success()

@@ -65,36 +65,52 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = userResult.rows[0].id;
     const postId = uuidv4();
 
-    // Insert post
-    const result = await db.query(
-      `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       RETURNING *`,
-      [
-        postId,
-        userId,
-        body.content || '',
-        body.mediaUrls || [],
-        body.mediaType || null,
-        body.visibility || 'public',
-      ]
-    );
+    // Insert post + update count in a single transaction
+    const client = await db.connect();
+    let post: any;
+    let author: any;
 
-    // Get author data
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(
+        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         RETURNING *`,
+        [
+          postId,
+          userId,
+          body.content || '',
+          body.mediaUrls || [],
+          body.mediaType || null,
+          body.visibility || 'public',
+        ]
+      );
+
+      post = result.rows[0];
+
+      // Update user's post count within the same transaction
+      await client.query(
+        `UPDATE profiles SET post_count = COALESCE(post_count, 0) + 1 WHERE id = $1`,
+        [userId]
+      );
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+
+    // Get author data (read-only, outside transaction)
     const authorResult = await db.query(
       `SELECT id, username, full_name, avatar_url, is_verified, account_type
        FROM profiles WHERE id = $1`,
       [userId]
     );
 
-    const post = result.rows[0];
-    const author = authorResult.rows[0] || null;
-
-    // Update user's post count
-    await db.query(
-      `UPDATE profiles SET post_count = COALESCE(post_count, 0) + 1 WHERE id = $1`,
-      [userId]
-    );
+    author = authorResult.rows[0] || null;
 
     return {
       statusCode: 201,

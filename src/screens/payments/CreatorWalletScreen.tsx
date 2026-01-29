@@ -94,7 +94,7 @@ export default function CreatorWalletScreen() {
         setDashboard(response.dashboard);
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard:', error);
+      if (__DEV__) console.error('Failed to fetch dashboard:', (error as Error).message);
     }
   }, []);
 
@@ -108,7 +108,7 @@ export default function CreatorWalletScreen() {
         setTransactions(response.transactions);
       }
     } catch (error) {
-      console.error('Failed to fetch transactions:', error);
+      if (__DEV__) console.error('Failed to fetch transactions:', (error as Error).message);
     }
   }, []);
 
@@ -151,7 +151,7 @@ export default function CreatorWalletScreen() {
         navigation.navigate('WebView', { url: response.url, title: 'Stripe Dashboard' });
       }
     } catch (error) {
-      console.error('Failed to get Stripe dashboard link:', error);
+      if (__DEV__) console.error('Failed to get Stripe dashboard link:', (error as Error).message);
     }
   };
 

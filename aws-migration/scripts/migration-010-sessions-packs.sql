@@ -46,33 +46,22 @@ CREATE INDEX idx_user_session_packs_active ON user_session_packs(expires_at) WHE
 -- PRIVATE SESSIONS
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS private_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  creator_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  fan_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  pack_id UUID REFERENCES user_session_packs(id) ON DELETE SET NULL,
-  scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  duration INTEGER NOT NULL DEFAULT 30, -- minutes
-  price DECIMAL(10,2) NOT NULL DEFAULT 0,
-  status VARCHAR(20) NOT NULL DEFAULT 'pending',
-  -- pending, confirmed, in_progress, completed, cancelled, no_show
-  notes TEXT,
-  cancellation_reason TEXT,
-  agora_channel VARCHAR(100),
-  started_at TIMESTAMP WITH TIME ZONE,
-  ended_at TIMESTAMP WITH TIME ZONE,
-  recording_url TEXT,
-  creator_rating INTEGER CHECK (creator_rating >= 1 AND creator_rating <= 5),
-  fan_rating INTEGER CHECK (fan_rating >= 1 AND fan_rating <= 5),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- private_sessions already created in migration-008-payments.sql
+-- Add columns that migration-008 didn't have (fan_id alias, pack_id, ratings, etc.)
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS fan_id UUID REFERENCES profiles(id) ON DELETE CASCADE;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS pack_id UUID REFERENCES user_session_packs(id) ON DELETE SET NULL;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS agora_channel VARCHAR(100);
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS recording_url TEXT;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS creator_rating INTEGER CHECK (creator_rating >= 1 AND creator_rating <= 5);
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS fan_rating INTEGER CHECK (fan_rating >= 1 AND fan_rating <= 5);
 
-CREATE INDEX idx_private_sessions_creator ON private_sessions(creator_id);
-CREATE INDEX idx_private_sessions_fan ON private_sessions(fan_id);
-CREATE INDEX idx_private_sessions_scheduled ON private_sessions(scheduled_at);
-CREATE INDEX idx_private_sessions_status ON private_sessions(status);
-CREATE INDEX idx_private_sessions_upcoming ON private_sessions(scheduled_at, status)
+-- Backfill fan_id from buyer_id for existing rows
+UPDATE private_sessions SET fan_id = buyer_id WHERE fan_id IS NULL AND buyer_id IS NOT NULL;
+
+-- Indexes (IF NOT EXISTS to avoid conflicts with migration-008)
+CREATE INDEX IF NOT EXISTS idx_private_sessions_fan ON private_sessions(fan_id);
+CREATE INDEX IF NOT EXISTS idx_private_sessions_upcoming ON private_sessions(scheduled_at, status)
   WHERE status IN ('pending', 'confirmed');
 
 -- ============================================

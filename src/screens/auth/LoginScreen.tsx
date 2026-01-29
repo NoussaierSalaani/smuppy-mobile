@@ -228,7 +228,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   }, [isFaceId]);
 
   const handleLogin = useCallback(async () => {
-    console.log('[Login] handleLogin called', { email, password: password ? '***' : 'empty', loading });
+    if (__DEV__) console.log('[Login] handleLogin called', { email: email.replace(/^(.).*@/, '$1***@'), loading });
 
     if (!email || !password) {
       console.log('[Login] Missing email or password');

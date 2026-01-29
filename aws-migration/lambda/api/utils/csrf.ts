@@ -22,8 +22,11 @@ const log = createLogger('csrf');
 // CSRF token expiration (15 minutes)
 const CSRF_TOKEN_EXPIRY_MS = 15 * 60 * 1000;
 
-// Secret key for HMAC - should come from environment in production
-const CSRF_SECRET = process.env.CSRF_SECRET || 'smuppy-csrf-secret-change-in-production';
+// Secret key for HMAC — MUST be set in environment. No insecure fallback.
+const CSRF_SECRET = process.env.CSRF_SECRET || '';
+if (!CSRF_SECRET) {
+  console.warn('[CSRF] CSRF_SECRET not set — CSRF validation will reject all tokens');
+}
 
 interface CsrfTokenData {
   token: string;

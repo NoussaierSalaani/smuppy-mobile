@@ -20,14 +20,16 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
   const buttonsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
+    const animation = Animated.sequence([
       Animated.parallel([
         Animated.timing(scaleAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
         Animated.timing(fadeAnim, { toValue: 1, duration: 800, delay: 200, useNativeDriver: true }),
         Animated.timing(slideAnim, { toValue: 0, duration: 1000, delay: 200, useNativeDriver: true }),
       ]),
       Animated.timing(buttonsAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-    ]).start();
+    ]);
+    animation.start();
+    return () => animation.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('follows-create');
 
@@ -23,6 +24,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    const rateLimit = await checkRateLimit({
+      prefix: 'follow-create',
+      identifier: cognitoSub,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

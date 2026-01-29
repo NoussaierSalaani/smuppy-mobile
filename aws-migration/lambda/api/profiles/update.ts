@@ -10,6 +10,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/security';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('profiles-update');
 
@@ -134,6 +135,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    const rateLimit = await checkRateLimit({
+      prefix: 'profile-update',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

@@ -41,15 +41,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Use reader pool for read operations
     const db = await getReaderPool();
 
+    const PROFILE_COLUMNS = `id, username, full_name, display_name, avatar_url, cover_url,
+      bio, website, is_verified, is_private, account_type, gender, date_of_birth,
+      interests, expertise, social_links, business_name, business_category,
+      business_address, business_phone, locations_mode, onboarding_completed,
+      fan_count, following_count, post_count`;
+
     let result;
     if (username) {
       result = await db.query(
-        `SELECT * FROM profiles WHERE username = $1`,
+        `SELECT ${PROFILE_COLUMNS} FROM profiles WHERE username = $1`,
         [username]
       );
     } else {
       result = await db.query(
-        `SELECT * FROM profiles WHERE id = $1`,
+        `SELECT ${PROFILE_COLUMNS} FROM profiles WHERE id = $1`,
         [profileId]
       );
     }

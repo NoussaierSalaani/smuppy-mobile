@@ -335,7 +335,7 @@ export class SmuppyStack extends cdk.Stack {
     const preSignupFn = new NodejsFunction(this, 'PreSignupFunction', {
       entry: path.join(__dirname, '../../lambda/triggers/pre-signup.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 128,
       timeout: cdk.Duration.seconds(5),
       // No VPC needed for this trigger
@@ -355,7 +355,7 @@ export class SmuppyStack extends cdk.Stack {
     const customMessageFn = new NodejsFunction(this, 'CustomMessageFunction', {
       entry: path.join(__dirname, '../../lambda/triggers/custom-message.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 128,
       timeout: cdk.Duration.seconds(5),
       // No VPC needed for this trigger

@@ -6,6 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('events-create');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -293,7 +296,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Create event error:', error);
+    log.error('Create event error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

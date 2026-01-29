@@ -263,7 +263,8 @@ async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResul
   try {
     // Get creator's subscription tiers
     const result = await client.query(
-      `SELECT * FROM subscription_tiers
+      `SELECT id, creator_id, name, description, price_cents, currency, stripe_price_id, is_active, created_at
+       FROM subscription_tiers
        WHERE creator_id = $1 AND is_active = true
        ORDER BY price_cents ASC`,
       [creatorId]

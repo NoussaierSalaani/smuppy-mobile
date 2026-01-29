@@ -6,6 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('events-join');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -51,7 +54,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get event details
     const eventResult = await client.query(
-      `SELECT e.*, p.username as creator_username, p.display_name as creator_display_name
+      `SELECT e.id, e.title, e.starts_at, e.status, e.is_fans_only, e.creator_id,
+              e.is_free, e.price, e.currency, e.max_participants, e.current_participants,
+              p.username as creator_username, p.display_name as creator_display_name
        FROM events e
        JOIN profiles p ON e.creator_id = p.id
        WHERE e.id = $1`,
@@ -110,7 +115,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get existing participation
     const existingResult = await client.query(
-      `SELECT * FROM event_participants
+      `SELECT id FROM event_participants
        WHERE event_id = $1 AND user_id = $2`,
       [eventId, userId]
     );
@@ -252,7 +257,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Join event error:', error);
+    log.error('Join event error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

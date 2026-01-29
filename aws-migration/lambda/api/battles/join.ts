@@ -7,6 +7,9 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('battles-join');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -54,7 +57,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get battle details
     const battleResult = await client.query(
-      `SELECT * FROM live_battles WHERE id = $1`,
+      `SELECT id, host_id, agora_channel_name, status
+       FROM live_battles WHERE id = $1`,
       [battleId]
     );
 
@@ -69,7 +73,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get participant record
     const participantResult = await client.query(
-      `SELECT * FROM battle_participants
+      `SELECT id, status
+       FROM battle_participants
        WHERE battle_id = $1 AND user_id = $2`,
       [battleId, userId]
     );
@@ -256,7 +261,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Join battle error:', error);
+    log.error('Join battle error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

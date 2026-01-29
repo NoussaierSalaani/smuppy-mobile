@@ -13,6 +13,9 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('tips-send');
 import { getStripeKey } from '../../shared/secrets';
 
 let stripeInstance: Stripe | null = null;
@@ -285,7 +288,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     });
   } catch (error: any) {
-    console.error('Send tip error:', error);
+    log.error('Send tip error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

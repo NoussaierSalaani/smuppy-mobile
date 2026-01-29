@@ -38,7 +38,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get session and verify user is participant
     const sessionResult = await pool.query(
-      `SELECT * FROM private_sessions
+      `SELECT id, creator_id, fan_id, scheduled_at, duration, agora_channel, started_at
+       FROM private_sessions
        WHERE id = $1 AND (creator_id = $2 OR fan_id = $2)
        AND status = 'confirmed'`,
       [sessionId, userId]

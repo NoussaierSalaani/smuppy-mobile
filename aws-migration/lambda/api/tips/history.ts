@@ -6,6 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('tips-history');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -157,7 +160,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     });
   } catch (error: any) {
-    console.error('Tips history error:', error);
+    log.error('Tips history error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

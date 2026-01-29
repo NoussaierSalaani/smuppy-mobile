@@ -12,6 +12,11 @@ jest.mock('../../../shared/db', () => ({
   }),
 }));
 
+// Mock rate limiter to always allow in tests
+jest.mock('../../utils/rate-limit', () => ({
+  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+}));
+
 // Helper to create mock event
 const createMockEvent = (body: any, userId = 'test-user-id'): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),

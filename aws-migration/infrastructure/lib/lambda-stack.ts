@@ -228,7 +228,7 @@ export class LambdaStack extends cdk.NestedStack {
       const fn = new NodejsFunction(this, name, {
         entry: path.join(__dirname, `../../lambda/api/${entryFile}.ts`),
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_22_X,
         memorySize: options?.memory || 512,
         timeout: cdk.Duration.seconds(options?.timeout || 30),
         vpc,
@@ -410,7 +410,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.mediaUploadUrlFn = new NodejsFunction(this, 'MediaUploadUrlFunction', {
       entry: path.join(__dirname, '../../lambda/api/media/upload-url.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -435,7 +435,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentCreateIntentFn = new NodejsFunction(this, 'PaymentCreateIntentFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/create-intent.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -457,7 +457,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentWebhookFn = new NodejsFunction(this, 'PaymentWebhookFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/webhook.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -482,7 +482,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentSubscriptionsFn = new NodejsFunction(this, 'PaymentSubscriptionsFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/subscriptions.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -504,7 +504,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentConnectFn = new NodejsFunction(this, 'PaymentConnectFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/connect.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -526,7 +526,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentIdentityFn = new NodejsFunction(this, 'PaymentIdentityFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/identity.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -548,7 +548,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentPlatformSubFn = new NodejsFunction(this, 'PaymentPlatformSubFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/platform-subscription.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -570,7 +570,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentChannelSubFn = new NodejsFunction(this, 'PaymentChannelSubFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/channel-subscription.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -592,7 +592,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentWalletFn = new NodejsFunction(this, 'PaymentWalletFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/wallet.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -614,7 +614,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentRefundsFn = new NodejsFunction(this, 'PaymentRefundsFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/refunds.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -636,7 +636,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentMethodsFn = new NodejsFunction(this, 'PaymentMethodsFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/payment-methods.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -658,7 +658,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.paymentWebCheckoutFn = new NodejsFunction(this, 'PaymentWebCheckoutFunction', {
       entry: path.join(__dirname, '../../lambda/api/payments/web-checkout.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -722,7 +722,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.adminMigrationFn = new NodejsFunction(this, 'AdminMigrationFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/run-migration.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 512,
       timeout: cdk.Duration.minutes(5),
       vpc,
@@ -744,7 +744,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.dataMigrationFn = new NodejsFunction(this, 'DataMigrationFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/migrate-data.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 2048,
       // SECURITY: 10min max for admin migration — protected by admin API key auth
       timeout: cdk.Duration.minutes(10),
@@ -767,7 +767,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.checkProfilesFn = new NodejsFunction(this, 'CheckProfilesFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/check-profiles.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -784,7 +784,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.userMigrationFn = new NodejsFunction(this, 'UserMigrationFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/migrate-users.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 1024,
       // SECURITY: 10min max for admin migration — protected by admin API key auth
       timeout: cdk.Duration.minutes(10),
@@ -819,7 +819,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.appleAuthFn = new NodejsFunction(this, 'AppleAuthFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/apple.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       reservedConcurrentExecutions: 20,
@@ -856,7 +856,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.googleAuthFn = new NodejsFunction(this, 'GoogleAuthFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/google.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       reservedConcurrentExecutions: 20,
@@ -889,7 +889,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.signupAuthFn = new NodejsFunction(this, 'SignupAuthFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/signup.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       reservedConcurrentExecutions: 20,
@@ -928,7 +928,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.validateEmailFn = new NodejsFunction(this, 'ValidateEmailFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/validate-email.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -952,7 +952,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.confirmSignupFn = new NodejsFunction(this, 'ConfirmSignupFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/confirm-signup.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -980,7 +980,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.resendCodeFn = new NodejsFunction(this, 'ResendCodeFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/resend-code.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -1008,7 +1008,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.forgotPasswordFn = new NodejsFunction(this, 'ForgotPasswordFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/forgot-password.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -1036,7 +1036,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.confirmForgotPasswordFn = new NodejsFunction(this, 'ConfirmForgotPasswordFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/confirm-forgot-password.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -1059,7 +1059,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.checkUserFn = new NodejsFunction(this, 'CheckUserFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/check-user.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -1094,7 +1094,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.wsConnectFn = new NodejsFunction(this, 'WsConnectFunction', {
       entry: path.join(__dirname, '../../lambda/websocket/connect.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -1115,7 +1115,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.wsDisconnectFn = new NodejsFunction(this, 'WsDisconnectFunction', {
       entry: path.join(__dirname, '../../lambda/websocket/disconnect.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,
@@ -1133,7 +1133,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.wsSendMessageFn = new NodejsFunction(this, 'WsSendMessageFunction', {
       entry: path.join(__dirname, '../../lambda/websocket/send-message.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       vpc,
@@ -1151,7 +1151,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.wsDefaultFn = new NodejsFunction(this, 'WsDefaultFunction', {
       entry: path.join(__dirname, '../../lambda/websocket/default.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 128,
       timeout: cdk.Duration.seconds(5),
       vpc,
@@ -1169,7 +1169,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.wsLiveStreamFn = new NodejsFunction(this, 'WsLiveStreamFunction', {
       entry: path.join(__dirname, '../../lambda/websocket/live-stream.ts'),
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       vpc,

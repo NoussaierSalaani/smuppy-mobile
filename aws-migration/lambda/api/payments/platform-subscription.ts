@@ -279,7 +279,8 @@ async function getSubscriptionStatus(userId: string): Promise<APIGatewayProxyRes
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT * FROM platform_subscriptions
+      `SELECT id, plan_type, status, current_period_start, current_period_end, cancel_at
+       FROM platform_subscriptions
        WHERE user_id = $1
        ORDER BY created_at DESC LIMIT 1`,
       [userId]

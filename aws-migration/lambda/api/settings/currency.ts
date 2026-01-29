@@ -6,6 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('settings-currency');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -178,7 +181,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     });
   } catch (error: any) {
-    console.error('Currency settings error:', error);
+    log.error('Currency settings error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

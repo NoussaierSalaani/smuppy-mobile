@@ -86,7 +86,12 @@ export class DatabaseStack extends cdk.NestedStack {
           instanceType: ec2.InstanceType.of(ec2.InstanceClass.R6G, ec2.InstanceSize.LARGE),
           publiclyAccessible: false,
         }),
-      ] : [],
+      ] : [
+        rds.ClusterInstance.provisioned('Reader', {
+          instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MEDIUM),
+          publiclyAccessible: false,
+        }),
+      ],
     });
 
     // RDS Proxy for connection pooling

@@ -6,6 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('challenges-respond');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -221,7 +224,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Respond challenge error:', error);
+    log.error('Respond challenge error', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

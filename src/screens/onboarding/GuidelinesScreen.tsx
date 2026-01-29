@@ -11,6 +11,7 @@ import { createProfile } from '../../services/database';
 import { uploadProfileImage } from '../../services/imageUpload';
 import { useUserStore } from '../../stores';
 import * as backend from '../../services/backend';
+import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 
 interface GuidelinesScreenProps {
   navigation: {
@@ -20,20 +21,24 @@ interface GuidelinesScreenProps {
     replace: (screen: string, params?: Record<string, unknown>) => void;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-  route: { params?: { accountType?: string; onProfileCreated?: () => void } & Record<string, unknown> };
+  route: { params?: { accountType?: string } & Record<string, unknown> };
 }
 
 export default function GuidelinesScreen({ navigation, route }: GuidelinesScreenProps) {
   const params = useMemo(() => route?.params || {}, [route?.params]);
-  const { accountType, onProfileCreated } = params;
+  const { accountType } = params;
+  const { onProfileCreated } = useAuthCallbacks();
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const setZustandUser = useUserStore((state) => state.setUser);
 
   const { currentStep, totalSteps } = useMemo(() => {
-    return { currentStep: 3, totalSteps: 4 };
-  }, []);
+    if (accountType === 'pro_creator') {
+      return { currentStep: 4, totalSteps: 4 };
+    }
+    return { currentStep: 3, totalSteps: 3 };
+  }, [accountType]);
 
   const handleAccept = useCallback(async () => {
     if (isCreating) return;
@@ -51,15 +56,16 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       // Build profile data from accumulated route params
       const {
         name, gender, dateOfBirth, interests, profileImage,
-        displayName, username, bio, website, socialLinks, expertise,
+        displayName, bio, website, socialLinks, expertise,
         businessCategory, businessCategoryCustom, locationsMode,
-        businessName, businessAddress, businessPhone,
+        businessName, businessAddress,
       } = params as Record<string, any>;
 
-      const generatedUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+      const generatedUsername = `${baseUsername}_${Math.floor(Math.random() * 1000000)}`;
       const profileData: Record<string, unknown> = {
         full_name: name || displayName || generatedUsername,
-        username: username || generatedUsername,
+        username: generatedUsername,
         account_type: accountType || 'personal',
       };
 
@@ -74,7 +80,6 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       if (businessName) profileData.business_name = businessName;
       if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;
-      if (businessPhone) profileData.business_phone = businessPhone;
       if (locationsMode) profileData.locations_mode = locationsMode;
 
       // Create profile with retries
@@ -86,6 +91,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         try {
           const { error: profileError } = await createProfile(profileData);
           if (profileError) {
+            console.error('[Guidelines] Profile creation error:', profileError);
             retryCount++;
             if (retryCount < maxRetries) {
               await new Promise(resolve => setTimeout(resolve, 1000));
@@ -93,7 +99,8 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           } else {
             profileCreated = true;
           }
-        } catch {
+        } catch (retryErr) {
+          console.error('[Guidelines] Profile creation exception:', retryErr);
           retryCount++;
           if (retryCount < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -110,24 +117,24 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       // Update Zustand store
       const userData = {
         id: currentUser.id,
-        fullName: (name || displayName || generatedUsername) as string,
-        displayName: (displayName || name || generatedUsername) as string,
+        fullName: name || displayName || generatedUsername,
+        displayName: displayName || name || generatedUsername,
         email: currentUser.email || '',
-        dateOfBirth: (dateOfBirth || '') as string,
-        gender: (gender || '') as string,
+        dateOfBirth: dateOfBirth || '',
+        gender: gender || '',
         avatar: undefined as string | undefined,
-        bio: (bio || '') as string,
-        username: (username || generatedUsername) as string,
+        bio: bio || '',
+        username: generatedUsername,
         accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_business',
-        interests: (interests || []) as string[],
-        expertise: (expertise || []) as string[],
-        website: (website || '') as string,
-        socialLinks: (socialLinks || {}) as Record<string, string>,
-        businessName: (businessName || '') as string,
-        businessCategory: (businessCategory === 'Other' ? (businessCategoryCustom || '') : (businessCategory || '')) as string,
-        businessAddress: (businessAddress || '') as string,
-        businessPhone: (businessPhone || '') as string,
-        locationsMode: (locationsMode || '') as string,
+        interests: interests || [],
+        expertise: expertise || [],
+        website: website || '',
+        socialLinks: socialLinks || {},
+        businessName: businessName || '',
+        businessCategory: businessCategory === 'other' ? (businessCategoryCustom || '') : (businessCategory || ''),
+        businessAddress: businessAddress || '',
+        businessPhone: '',
+        locationsMode: locationsMode || '',
       };
       setZustandUser(userData);
 
@@ -144,16 +151,16 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         }
       }
 
-      // Navigate to Success with onProfileCreated callback
+      // Navigate to Success (onProfileCreated comes from context)
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Success', params: { onProfileCreated } }],
+        routes: [{ name: 'Success' }],
       });
     } catch {
       setError('An unexpected error occurred. Please try again.');
       setIsCreating(false);
     }
-  }, [isCreating, params, accountType, onProfileCreated, navigation, setZustandUser]);
+  }, [isCreating, params, accountType, navigation, setZustandUser]);
 
   return (
     <SafeAreaView style={styles.container}>

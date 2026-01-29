@@ -39,8 +39,8 @@ const USER_POOL_ID = process.env.USER_POOL_ID;
  * - Cognito also has built-in rate limiting (LimitExceededException)
  * - This in-memory check provides additional defense-in-depth per instance
  *
- * For stricter rate limiting, implement Redis-based rate limiting using
- * the existing ElastiCache Redis cluster.
+ * TODO: Migrate to Redis-based rate limiting using the existing ElastiCache cluster
+ * for distributed rate limiting across Lambda instances.
  */
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
@@ -58,7 +58,7 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
     const response = await cognitoClient.send(
       new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase()}"`,
+        Filter: `email = "${email.toLowerCase().replace(/["\\]/g, '')}"`,
         Limit: 1,
       })
     );

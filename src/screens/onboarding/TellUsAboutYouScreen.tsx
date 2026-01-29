@@ -100,7 +100,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         {/* Header with Progress Bar - Personal flow step 1/4 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={3} />
 
         <View style={styles.content}>
           <View style={styles.header}>

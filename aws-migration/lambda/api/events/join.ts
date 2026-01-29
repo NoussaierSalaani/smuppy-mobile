@@ -93,7 +93,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (eventData.is_fans_only && eventData.creator_id !== userId) {
       const followCheck = await client.query(
         `SELECT id FROM follows
-         WHERE follower_id = $1 AND following_id = $2`,
+         WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
         [userId, eventData.creator_id]
       );
 

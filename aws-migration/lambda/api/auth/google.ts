@@ -96,7 +96,8 @@ const getOrCreateCognitoUser = async (
         Username: username,
       })
     );
-    // For existing users, reset password since we don't store it
+    // ADMIN_NO_SRP_AUTH requires a known password. Since social-auth users
+    // don't have a user-facing password, we set a transient one each login.
     const newPassword = generateSecurePassword();
     await cognitoClient.send(
       new AdminSetUserPasswordCommand({

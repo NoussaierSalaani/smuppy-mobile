@@ -67,7 +67,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with Progress Bar - 100% for AccountType */}
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={1} />
+      <OnboardingHeader onBack={goBack} disabled={disabled} showProgress={false} />
 
       <View style={styles.inner}>
         {/* Title */}

@@ -39,7 +39,7 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
     const response = await cognitoClient.send(
       new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase()}"`,
+        Filter: `email = "${email.toLowerCase().replace(/["\\]/g, '')}"`,
         Limit: 1,
       })
     );
@@ -97,7 +97,7 @@ export const handler = async (
       }
     }
 
-    log.info('Confirming user', { username: cognitoUsername, code: code.substring(0, 2) + '****' });
+    log.info('Confirming user', { username: cognitoUsername.substring(0, 2) + '***', code: code.substring(0, 2) + '****' });
 
     await cognitoClient.send(
       new ConfirmSignUpCommand({
@@ -107,7 +107,7 @@ export const handler = async (
       })
     );
 
-    log.info('User confirmed successfully', { username: cognitoUsername });
+    log.info('User confirmed successfully', { username: cognitoUsername.substring(0, 2) + '***' });
 
     return {
       statusCode: 200,

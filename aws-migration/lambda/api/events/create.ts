@@ -272,7 +272,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to create event',
+        message: 'Failed to create event',
       }),
     });
   } finally {

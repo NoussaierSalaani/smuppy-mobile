@@ -63,7 +63,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Check if user is participant in this conversation
     const conversationResult = await db.query(
       `SELECT id FROM conversations
-       WHERE id = $1 AND (participant1_id = $2 OR participant2_id = $2)`,
+       WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
       [conversationId, profileId]
     );
 

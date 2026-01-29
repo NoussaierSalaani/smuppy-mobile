@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import ErrorModal from '../../components/ErrorModal';
+import { getCurrentProfile } from '../../services/database';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
 import {
   isAppleSignInAvailable,
@@ -36,6 +37,7 @@ interface SignupScreenProps {
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     replace: (screen: string, params?: Record<string, unknown>) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
 }
 
@@ -48,12 +50,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
-  const [deletedAccountModal, setDeletedAccountModal] = useState({
-    visible: false,
-    daysRemaining: 0,
-    canReactivate: false,
-    fullName: '',
-  });
   const [rememberMe, setRememberMe] = useState(false);
 
   // Social auth state
@@ -80,9 +76,17 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const result = await handleGoogleSignIn(googleResponse);
 
     if (result.success) {
-      // Auth state change will handle navigation:
-      // - New user without profile → Onboarding (AccountType)
-      // - Existing user with profile → Main
+      try {
+        const { data: profile } = await getCurrentProfile(false);
+        if (!profile) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AccountType' }],
+          });
+        }
+      } catch {
+        // Let onAuthStateChange handle it
+      }
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -99,9 +103,17 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const result = await signInWithApple();
 
     if (result.success) {
-      // Auth state change will handle navigation:
-      // - New user without profile → Onboarding (AccountType)
-      // - Existing user with profile → Main
+      try {
+        const { data: profile } = await getCurrentProfile(false);
+        if (!profile) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AccountType' }],
+          });
+        }
+      } catch {
+        // Let onAuthStateChange handle it
+      }
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -110,7 +122,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       });
     }
     setSocialLoading(null);
-  }, []);
+  }, [navigation]);
 
   // Handle Google Sign-In button press
   const handleGoogleSignInPress = useCallback(async () => {
@@ -126,10 +138,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     await googlePromptAsync();
     // Response will be handled by the useEffect
   }, [googleRequest, googlePromptAsync]);
-
-  const closeDeletedAccountModal = useCallback(() => {
-    setDeletedAccountModal(prev => ({ ...prev, visible: false }));
-  }, []);
 
   const passwordValid = isPasswordValid(password);
   const strengthLevel = getPasswordStrengthLevel(password);
@@ -469,43 +477,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
         <ErrorModal visible={errorModal.visible} onClose={() => setErrorModal({ ...errorModal, visible: false })} title={errorModal.title} message={errorModal.message} />
 
-        {/* Deleted Account Modal */}
-        <Modal visible={deletedAccountModal.visible} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <TouchableOpacity style={styles.modalClose} onPress={closeDeletedAccountModal}>
-                <Ionicons name="close" size={24} color={COLORS.gray} />
-              </TouchableOpacity>
-              <View style={styles.modalIconWarning}>
-                <Ionicons name="warning" size={40} color="#F59E0B" />
-              </View>
-              <Text style={styles.modalTitle}>Account Deleted</Text>
-              <Text style={styles.modalMessage}>
-                {deletedAccountModal.fullName ? `Hi ${deletedAccountModal.fullName}, ` : ''}
-                This email was recently used for an account that has been deleted.
-                {'\n\n'}
-                {deletedAccountModal.canReactivate ? (
-                  <>
-                    This email will be available for a new account in <Text style={styles.modalHighlight}>{deletedAccountModal.daysRemaining} days</Text>.
-                    {'\n\n'}
-                    To reactivate your previous account, contact us at:
-                  </>
-                ) : (
-                  'This email is now available. Please try again.'
-                )}
-              </Text>
-              {deletedAccountModal.canReactivate && (
-                <View style={styles.supportEmailBtn}>
-                  <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
-                  <Text style={styles.supportEmailText}>support@smuppy.com</Text>
-                </View>
-              )}
-              <TouchableOpacity style={styles.modalBtnWarning} onPress={closeDeletedAccountModal}>
-                <Text style={styles.modalBtnText}>Got it</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -582,16 +553,4 @@ const styles = StyleSheet.create({
   termsText: { flex: 1, fontSize: 12, color: '#676C75', lineHeight: 18 },
   termsLink: { color: '#0EBF8A', fontWeight: '500' },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalBox: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },
-  modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
-  modalIconWarning: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#0a252f', marginBottom: 12, textAlign: 'center' },
-  modalMessage: { fontSize: 14, color: '#676C75', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  modalHighlight: { fontWeight: '700', color: '#0EBF8A' },
-  supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E6FAF8', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
-  supportEmailText: { fontSize: 15, fontWeight: '600', color: '#0EBF8A' },
-  modalBtnWarning: { width: '100%', height: 56, borderRadius: 28, backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center' },
-  modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
 });

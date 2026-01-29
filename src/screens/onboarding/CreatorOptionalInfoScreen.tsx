@@ -105,7 +105,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         {/* Header with Progress Bar - Pro Creator flow step 2/6 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={6} />
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={4} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Skip button */}

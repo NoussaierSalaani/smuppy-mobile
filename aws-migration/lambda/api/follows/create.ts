@@ -64,6 +64,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Check if target user exists and if they're private
+    // NOTE: FOR UPDATE lock is taken inside the transaction below to prevent
+    // privacy race condition (user toggles private between check and insert)
     const targetResult = await db.query(
       `SELECT id, is_private FROM profiles WHERE id = $1`,
       [followingId]
@@ -79,9 +81,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const targetUser = targetResult.rows[0];
 
-    // Check if already following or pending
+    // Check if already following, pending, or recently unfollowed (anti-spam)
     const existingResult = await db.query(
-      `SELECT id, status FROM follows WHERE follower_id = $1 AND following_id = $2`,
+      `SELECT id, status, created_at FROM follows WHERE follower_id = $1 AND following_id = $2`,
       [followerId, followingId]
     );
 
@@ -108,44 +110,71 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           }),
         };
       }
+      // For other statuses (e.g. rejected/canceled), check cooldown
+      const createdAt = new Date(existing.created_at).getTime();
+      const cooldownMs = 60 * 1000; // 1 minute cooldown
+      if (Date.now() - createdAt < cooldownMs) {
+        return {
+          statusCode: 429,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            message: 'Please wait before sending another follow request.',
+          }),
+        };
+      }
+      // Remove stale record before creating new one
+      await db.query('DELETE FROM follows WHERE id = $1', [existing.id]);
     }
 
     const followId = uuidv4();
-    const status = targetUser.is_private ? 'pending' : 'accepted';
 
-    // Create follow record
-    await db.query(
-      `INSERT INTO follows (id, follower_id, following_id, status, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [followId, followerId, followingId, status]
-    );
+    // Create follow + update counts in a single transaction
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Update follower counts if accepted
-    if (status === 'accepted') {
-      await Promise.all([
-        db.query(
+      // Re-check privacy inside transaction with row lock to prevent TOCTOU race
+      const lockedTarget = await client.query(
+        `SELECT is_private FROM profiles WHERE id = $1 FOR UPDATE`,
+        [followingId]
+      );
+      const status = lockedTarget.rows[0]?.is_private ? 'pending' : 'accepted';
+
+      await client.query(
+        `INSERT INTO follows (id, follower_id, following_id, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        [followId, followerId, followingId, status]
+      );
+
+      if (status === 'accepted') {
+        await client.query(
           `UPDATE profiles SET fan_count = COALESCE(fan_count, 0) + 1 WHERE id = $1`,
           [followingId]
-        ),
-        db.query(
+        );
+        await client.query(
           `UPDATE profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = $1`,
           [followerId]
-        ),
-      ]);
+        );
+        await client.query(
+          `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
+           VALUES ($1, $2, 'new_follower', 'New Follower', 'Someone started following you', $3, NOW())`,
+          [uuidv4(), followingId, JSON.stringify({ followerId })]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
+           VALUES ($1, $2, 'follow_request', 'Follow Request', 'Someone wants to follow you', $3, NOW())`,
+          [uuidv4(), followingId, JSON.stringify({ requesterId: followerId })]
+        );
+      }
 
-      // Create notification for new follower
-      await db.query(
-        `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-         VALUES ($1, $2, 'new_follower', 'New Follower', 'Someone started following you', $3, NOW())`,
-        [uuidv4(), followingId, JSON.stringify({ followerId })]
-      );
-    } else {
-      // Create notification for follow request
-      await db.query(
-        `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-         VALUES ($1, $2, 'follow_request', 'Follow Request', 'Someone wants to follow you', $3, NOW())`,
-        [uuidv4(), followingId, JSON.stringify({ requesterId: followerId })]
-      );
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
     }
 
     return {

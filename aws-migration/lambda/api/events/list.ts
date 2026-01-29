@@ -36,9 +36,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const limitNum = Math.min(parseInt(limit), 50);
     const offsetNum = parseInt(offset);
 
-    let query: string;
-    let params: any[] = [];
-    let paramIndex = 1;
+    // All params are pushed in order — never use unshift
+    const params: any[] = [];
+    const p = () => `$${params.length}`; // returns $N for the last pushed param
+
+    const hasCoords = latitude && longitude;
+    let latIdx = 0;
+    let lonIdx = 0;
+
+    if (hasCoords) {
+      params.push(parseFloat(latitude));
+      latIdx = params.length; // $1
+      params.push(parseFloat(longitude));
+      lonIdx = params.length; // $2
+    }
+
+    const distanceExpr = hasCoords
+      ? `,
+        (6371 * acos(cos(radians($${latIdx})) * cos(radians(e.latitude))
+        * cos(radians(e.longitude) - radians($${lonIdx}))
+        + sin(radians($${latIdx})) * sin(radians(e.latitude)))) AS distance_km`
+      : '';
 
     const baseSelect = `
       SELECT
@@ -78,24 +96,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         creator.display_name as creator_display_name,
         creator.avatar_url as creator_avatar,
         creator.is_verified as creator_verified
-        ${latitude && longitude ? `,
-          (6371 * acos(cos(radians($${paramIndex})) * cos(radians(e.latitude))
-          * cos(radians(e.longitude) - radians($${paramIndex + 1}))
-          + sin(radians($${paramIndex})) * sin(radians(e.latitude)))) AS distance_km
-        ` : ''}
+        ${distanceExpr}
       FROM events e
       JOIN event_categories ec ON e.category_id = ec.id
       JOIN profiles creator ON e.creator_id = creator.id
     `;
 
-    // Build WHERE clause
-    let whereConditions: string[] = ['e.status != $' + (latitude && longitude ? paramIndex + 2 : paramIndex)];
-    params.push('cancelled');
+    // Build WHERE conditions
+    const whereConditions: string[] = [];
 
-    if (latitude && longitude) {
-      params.unshift(parseFloat(latitude), parseFloat(longitude));
-      paramIndex += 2;
-    }
+    params.push('cancelled');
+    whereConditions.push(`e.status != $${params.length}`);
 
     // Filter: upcoming (default)
     if (filter === 'upcoming' || filter === 'nearby') {
@@ -104,80 +115,76 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Filter: nearby (within radius)
-    if (filter === 'nearby' && latitude && longitude) {
+    if (filter === 'nearby' && hasCoords) {
       const radiusNum = parseFloat(radiusKm);
-      whereConditions.push(`
-        (6371 * acos(cos(radians($1)) * cos(radians(e.latitude))
-        * cos(radians(e.longitude) - radians($2))
-        + sin(radians($1)) * sin(radians(e.latitude)))) < $${++paramIndex}
-      `);
       params.push(radiusNum);
+      whereConditions.push(`
+        (6371 * acos(cos(radians($${latIdx})) * cos(radians(e.latitude))
+        * cos(radians(e.longitude) - radians($${lonIdx}))
+        + sin(radians($${latIdx})) * sin(radians(e.latitude)))) < $${params.length}
+      `);
     }
 
     // Filter: category
     if (category) {
-      whereConditions.push(`ec.slug = $${++paramIndex}`);
       params.push(category);
+      whereConditions.push(`ec.slug = $${params.length}`);
     }
 
     // Filter: my-events (created by user)
     if (filter === 'my-events' && userId) {
-      whereConditions.push(`e.creator_id = $${++paramIndex}`);
       params.push(userId);
+      whereConditions.push(`e.creator_id = $${params.length}`);
     }
 
-    // Filter: joined (user is participant)
+    // Build query
+    let query: string;
+
     if (filter === 'joined' && userId) {
+      params.push(userId);
       query = `
         ${baseSelect}
         JOIN event_participants ep ON e.id = ep.event_id
-        WHERE ep.user_id = $${++paramIndex}
+        WHERE ep.user_id = $${params.length}
         AND ep.status IN ('registered', 'confirmed', 'attended')
+        ${whereConditions.length > 0 ? ' AND ' + whereConditions.join(' AND ') : ''}
       `;
-      params.push(userId);
-    }
-
-    // Date range filter
-    if (startDate) {
-      whereConditions.push(`e.starts_at >= $${++paramIndex}`);
-      params.push(new Date(startDate));
-    }
-
-    if (endDate) {
-      whereConditions.push(`e.starts_at <= $${++paramIndex}`);
-      params.push(new Date(endDate));
-    }
-
-    // Free events only
-    if (isFree === 'true') {
-      whereConditions.push(`e.is_free = TRUE`);
-    }
-
-    // Events with routes only
-    if (hasRoute === 'true') {
-      whereConditions.push(`e.has_route = TRUE`);
-    }
-
-    // Build final query
-    if (filter !== 'joined') {
+    } else {
       query = `
         ${baseSelect}
         WHERE ${whereConditions.join(' AND ')}
       `;
-    } else {
-      query += ` AND ${whereConditions.join(' AND ')}`;
+    }
+
+    // Date range filter
+    if (startDate) {
+      params.push(new Date(startDate));
+      query += ` AND e.starts_at >= $${params.length}`;
+    }
+
+    if (endDate) {
+      params.push(new Date(endDate));
+      query += ` AND e.starts_at <= $${params.length}`;
+    }
+
+    // Free events only
+    if (isFree === 'true') {
+      query += ` AND e.is_free = TRUE`;
+    }
+
+    // Events with routes only
+    if (hasRoute === 'true') {
+      query += ` AND e.has_route = TRUE`;
     }
 
     // Order by
-    let orderBy: string;
-    if (filter === 'nearby' && latitude && longitude) {
-      orderBy = 'distance_km ASC';
-    } else {
-      orderBy = 'e.starts_at ASC';
-    }
+    const orderBy = (filter === 'nearby' && hasCoords) ? 'distance_km ASC' : 'e.starts_at ASC';
 
-    query += ` ORDER BY ${orderBy} LIMIT $${++paramIndex} OFFSET $${++paramIndex}`;
-    params.push(limitNum, offsetNum);
+    params.push(limitNum);
+    const limitIdx = params.length;
+    params.push(offsetNum);
+    const offsetIdx = params.length;
+    query += ` ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
 
     const result = await client.query(query, params);
 
@@ -272,7 +279,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to fetch events',
+        message: 'Failed to fetch events',
       }),
     });
   } finally {

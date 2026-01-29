@@ -7,6 +7,7 @@ import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import * as backend from '../../services/backend';
+import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 
 interface NewPasswordScreenProps {
   navigation: {
@@ -20,7 +21,6 @@ interface NewPasswordScreenProps {
     params?: {
       email?: string;
       code?: string;
-      onRecoveryComplete?: () => void;
     };
   };
 }
@@ -53,8 +53,8 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
     );
   }, [goBack]);
 
-  // Callback from AppNavigator to signal recovery is complete
-  const onRecoveryComplete = route?.params?.onRecoveryComplete;
+  // Callback from context to signal recovery is complete
+  const { onRecoveryComplete } = useAuthCallbacks();
 
   // Validation avec PASSWORD_RULES centralisées
   const passwordChecks = useMemo(() => PASSWORD_RULES.map(rule => ({
@@ -88,21 +88,9 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
       // Success - show inline success UI
       setShowSuccess(true);
 
-      // Brief delay to show success, then navigate to login
+      // Brief delay to show success, then signal recovery complete
       setTimeout(() => {
-        try {
-          if (onRecoveryComplete) {
-            onRecoveryComplete();
-          } else {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
-          }
-        } catch (navError) {
-          console.warn('[NewPassword] Navigation error, using replace:', navError);
-          navigation.replace('Login');
-        }
+        onRecoveryComplete();
       }, 1500);
     } catch (err: any) {
       console.error('[NewPassword] Update error:', err);
@@ -157,7 +145,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={COLORS.primary} />
             <Text style={styles.loadingText}>
-              {onRecoveryComplete ? 'Entering the app...' : 'Redirecting to login...'}
+              {'Entering the app...'}
             </Text>
           </View>
         </View>

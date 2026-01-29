@@ -139,7 +139,9 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     min: 0, // Allow pool to shrink to 0 when idle
     idleTimeoutMillis: 10000, // 10 seconds - release idle connections faster
     connectionTimeoutMillis: 10000, // 10 seconds - reduced for Lambda cold starts
-    // Note: statement_timeout not supported by RDS Proxy, using query-level timeouts instead
+    // Query timeout: abort queries running longer than 30 seconds
+    // Prevents a slow query from blocking the entire connection pool
+    statement_timeout: 30000,
   };
 
   const pool = new Pool(poolConfig);

@@ -1,64 +1,45 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
-import OnboardingHeader from '../../components/OnboardingHeader';
-import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { awsAPI } from '../../services/aws-api';
+import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 
 interface FindFriendsScreenProps {
   navigation: {
-    canGoBack: () => boolean;
     goBack: () => void;
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-    replace: (screen: string, params?: Record<string, unknown>) => void;
-    reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-  route: { params?: { accountType?: string } & Record<string, unknown> };
 }
 
-export default function FindFriendsScreen({ navigation, route }: FindFriendsScreenProps) {
-  const params = route?.params || {};
-  const { accountType } = params;
-  const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
-
-  // Determine step based on account type
-  // Personal: step 3/5, Pro Creator: step 4/6, Pro Business: step 3/5
-  const { currentStep, totalSteps } = useMemo(() => {
-    if (accountType === 'pro_creator') {
-      return { currentStep: 4, totalSteps: 6 };
-    }
-    // Personal and Pro Business both have 5 steps, FindFriends is step 3
-    return { currentStep: 3, totalSteps: 5 };
-  }, [accountType]);
-
+export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps) {
   const [loading, setLoading] = useState(false);
   const [friendsFound, setFriendsFound] = useState<number | null>(null);
 
-  const handleSkip = () => navigate('Guidelines', params);
+  const handleClose = () => {
+    storage.set(STORAGE_KEYS.FIND_FRIENDS_SHOWN, 'true');
+    navigation.goBack();
+  };
 
   const handleFindFriends = useCallback(async () => {
     if (loading) return;
     setLoading(true);
 
     try {
-      // Request permission
       const { status } = await Contacts.requestPermissionsAsync();
 
       if (status !== 'granted') {
         Alert.alert(
           'Permission Required',
           'To find your friends on Smuppy, we need access to your contacts. You can enable this later in Settings.',
-          [{ text: 'OK', onPress: () => navigate('Guidelines', params) }]
+          [{ text: 'OK', onPress: handleClose }]
         );
         setLoading(false);
         return;
       }
 
-      // Get contacts
       const { data: contactsData } = await Contacts.getContactsAsync({
         fields: [
           Contacts.Fields.Emails,
@@ -70,11 +51,10 @@ export default function FindFriendsScreen({ navigation, route }: FindFriendsScre
       if (!contactsData || contactsData.length === 0) {
         Alert.alert('No Contacts', 'We couldn\'t find any contacts on your device.');
         setLoading(false);
-        navigate('Guidelines', params);
+        handleClose();
         return;
       }
 
-      // Format contacts for the API
       const formattedContacts = contactsData
         .filter(c => c.emails?.length || c.phoneNumbers?.length)
         .map(contact => ({
@@ -83,36 +63,38 @@ export default function FindFriendsScreen({ navigation, route }: FindFriendsScre
           phones: contact.phoneNumbers?.map(p => p.number).filter(Boolean) as string[],
         }));
 
-      // Send to AWS Lambda
       const result = await awsAPI.storeContacts(formattedContacts);
 
       if (result.success) {
         setFriendsFound(result.friendsOnApp || 0);
+        await storage.set(STORAGE_KEYS.FIND_FRIENDS_SHOWN, 'true');
 
-        // Show result for 2 seconds then navigate
         setTimeout(() => {
-          navigate('Guidelines', params);
+          navigation.goBack();
         }, 2500);
       } else {
         throw new Error('Failed to sync contacts');
       }
-
     } catch (error) {
       console.error('[FindFriends] Error:', error);
       Alert.alert(
         'Error',
         'Something went wrong. You can try again later from Settings.',
-        [{ text: 'Continue', onPress: () => navigate('Guidelines', params) }]
+        [{ text: 'Continue', onPress: handleClose }]
       );
     } finally {
       setLoading(false);
     }
-  }, [navigate, params]);
+  }, [loading, navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Progress Bar */}
-      <OnboardingHeader onBack={goBack} disabled={disabled || loading} currentStep={currentStep} totalSteps={totalSteps} />
+      {/* Header with close button */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleClose} style={styles.closeBtn} disabled={loading}>
+          <Ionicons name="close" size={28} color={COLORS.dark} />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.content}>
         {/* Icon */}
@@ -181,7 +163,7 @@ export default function FindFriendsScreen({ navigation, route }: FindFriendsScre
               size="lg"
               icon="people"
               iconPosition="left"
-              disabled={disabled || loading}
+              disabled={loading}
               onPress={handleFindFriends}
             >
               Find My Friends
@@ -189,8 +171,8 @@ export default function FindFriendsScreen({ navigation, route }: FindFriendsScre
 
             <TouchableOpacity
               style={styles.skipBtn}
-              onPress={handleSkip}
-              disabled={disabled || loading}
+              onPress={handleClose}
+              disabled={loading}
             >
               <Text style={styles.skipText}>Skip for now</Text>
             </TouchableOpacity>
@@ -203,6 +185,8 @@ export default function FindFriendsScreen({ navigation, route }: FindFriendsScre
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
+  header: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm },
+  closeBtn: { padding: SPACING.xs },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
 
   iconContainer: { alignItems: 'center', marginBottom: SPACING.xl },

@@ -87,10 +87,13 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
   }
 
   // Account type validation
+  // NOTE: Upgrade to pro_creator/pro_business is enforced server-side via
+  // Stripe webhook (checkout.session.completed). Direct API changes only allow
+  // downgrade to 'personal' or setting initial 'personal'/'xplorer' type.
   if (field === 'accountType') {
-    const validTypes = ['personal', 'pro_creator', 'pro_business'];
+    const validTypes = ['personal', 'xplorer'];
     if (!validTypes.includes(value as string)) {
-      return { valid: false, sanitized: null, error: `${field} must be one of: ${validTypes.join(', ')}` };
+      return { valid: false, sanitized: null, error: `Cannot set account type to '${value}'. Pro upgrades require an active subscription.` };
     }
     return { valid: true, sanitized: value };
   }

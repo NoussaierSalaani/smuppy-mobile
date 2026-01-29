@@ -302,14 +302,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   } catch (error) {
     log.error('Error creating payment intent', error);
 
-    // Handle Stripe-specific errors
+    // Handle Stripe-specific errors — don't leak internal details
     if (error instanceof Stripe.errors.StripeError) {
+      log.error('Stripe error', { code: error.code, message: error.message });
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({
-          message: error.message,
-          code: error.code,
+          message: 'Payment processing failed. Please try again.',
         }),
       };
     }

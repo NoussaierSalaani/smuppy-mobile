@@ -86,12 +86,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     );
     const sender = senderResult.rows[0];
 
+    // Sanitize message content: strip HTML tags and control characters
+    const sanitizedContent = content
+      .substring(0, 5000)
+      .replace(/<[^>]*>/g, '')  // Strip HTML tags
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Strip control chars
+
+    if (!sanitizedContent.trim()) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Message content cannot be empty' }),
+      };
+    }
+
     // Insert message
     const messageResult = await db.query(
       `INSERT INTO messages (conversation_id, sender_id, content, read, created_at)
        VALUES ($1, $2, $3, false, NOW())
        RETURNING id, content, sender_id, read, created_at`,
-      [conversationId, senderId, content.substring(0, 5000)]
+      [conversationId, senderId, sanitizedContent]
     );
 
     const message = {

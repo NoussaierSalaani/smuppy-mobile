@@ -66,6 +66,8 @@ class WebSocketService {
 
       // Pass token via Sec-WebSocket-Protocol header instead of query string
       // to avoid token exposure in server logs and browser history
+      // TODO: Use a short-lived ephemeral token via /auth/ws-token endpoint
+      // instead of the main access token (reduces exposure window)
       const wsUrl = AWS_CONFIG.api.websocketEndpoint;
 
       console.log('[WebSocket] Connecting to:', wsUrl);

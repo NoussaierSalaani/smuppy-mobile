@@ -3,6 +3,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -208,6 +209,13 @@ export class LambdaStack extends cdk.NestedStack {
         );
       }
     }
+
+    // Dead-letter queue for critical Lambda invocations (payments, messages)
+    const criticalDlq = new sqs.Queue(this, 'CriticalLambdaDLQ', {
+      queueName: `smuppy-critical-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
 
     // Create optimized Lambda function helper
     const createLambda = (name: string, entryFile: string, options?: {
@@ -430,6 +438,7 @@ export class LambdaStack extends cdk.NestedStack {
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
         STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
       },
+      reservedConcurrentExecutions: 20,
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
       logGroup: apiLogGroup,
@@ -450,10 +459,12 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
-        // Webhook secret for signature verification (staging)
-        // TODO: Move to Secrets Manager for production
-        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_sO8zjvpdgpf0TEPHCoTFN3V4xlER7T7N',
+        // SECURITY: Webhook secret MUST come from environment variable or Secrets Manager
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
       },
+      deadLetterQueue: criticalDlq,
+      retryAttempts: 2,
+      reservedConcurrentExecutions: 10,
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
       logGroup: apiLogGroup,
@@ -1100,5 +1111,44 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/websocket'),
     });
     dbCredentials.grantRead(this.wsLiveStreamFn);
+
+    // ========== CloudWatch Alarms for critical Lambdas ==========
+    const cloudwatch = cdk.aws_cloudwatch;
+
+    // Payment webhook errors
+    new cloudwatch.Alarm(this, 'PaymentWebhookErrorsAlarm', {
+      metric: this.paymentWebhookFn.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Payment webhook Lambda is erroring',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // Payment webhook throttles
+    new cloudwatch.Alarm(this, 'PaymentWebhookThrottlesAlarm', {
+      metric: this.paymentWebhookFn.metricThrottles({ period: cdk.Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Payment webhook Lambda is being throttled',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // Payment create-intent errors
+    new cloudwatch.Alarm(this, 'PaymentCreateIntentErrorsAlarm', {
+      metric: this.paymentCreateIntentFn.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 3,
+      evaluationPeriods: 1,
+      alarmDescription: 'Payment create-intent Lambda is erroring',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // DLQ messages alarm
+    new cloudwatch.Alarm(this, 'CriticalDLQAlarm', {
+      metric: criticalDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Messages in critical DLQ — failed Lambda invocations',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
   }
 }

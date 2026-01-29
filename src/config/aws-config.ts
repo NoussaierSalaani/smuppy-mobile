@@ -38,8 +38,9 @@ export interface AWSConfig {
   };
 }
 
-// Staging defaults — used only when EXPO_PUBLIC_* vars are not set (local dev).
-// In EAS builds these are overridden by EAS Secrets / .env.
+// SECURITY: Staging defaults — used ONLY in local dev when EXPO_PUBLIC_* vars are missing.
+// In production (EAS builds), resolve() throws if any value is missing.
+// These IDs are for the staging environment only and have no access to production data.
 const STAGING_DEFAULTS = {
   region: 'us-east-1',
   userPoolId: 'us-east-1_mvBH1S3yX',

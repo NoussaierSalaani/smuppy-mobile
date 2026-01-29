@@ -152,7 +152,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const challenge = challengeResult.rows[0];
 
-    // Tag users if provided
+    // Tag users if provided (limit to 50 to prevent abuse)
+    if (taggedUserIds.length > 50) {
+      await client.query('ROLLBACK');
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Cannot tag more than 50 users' }),
+      });
+    }
     if (taggedUserIds.length > 0) {
       const tagValues = taggedUserIds
         .map((_, i) => `($1, $${i + 2})`)
@@ -234,7 +241,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to create challenge',
+        message: 'Failed to create challenge',
       }),
     });
   } finally {

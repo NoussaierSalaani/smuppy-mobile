@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
+import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
@@ -121,11 +122,10 @@ const Firework = ({ x, y, delay, color }: FireworkProps) => (
 );
 
 interface SuccessScreenProps {
-  route: { params?: { onProfileCreated?: () => void } };
   navigation: { reset: (state: { index: number; routes: Array<{ name: string }> }) => void };
 }
 
-export default function SuccessScreen({ route, navigation: _navigation }: SuccessScreenProps) {
+export default function SuccessScreen({ navigation: _navigation }: SuccessScreenProps) {
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslate = useRef(new Animated.Value(20)).current;
@@ -134,7 +134,7 @@ export default function SuccessScreen({ route, navigation: _navigation }: Succes
   const ringScale = useRef(new Animated.Value(0.5)).current;
   const ringOpacity = useRef(new Animated.Value(0)).current;
 
-  const { onProfileCreated } = route?.params || {};
+  const { onProfileCreated } = useAuthCallbacks();
 
   useEffect(() => {
     // Logo and text appear together quickly
@@ -159,9 +159,7 @@ export default function SuccessScreen({ route, navigation: _navigation }: Succes
 
     // After 3s, call onProfileCreated → AppNavigator sets hasProfile = true → shows Main
     const redirectTimer = setTimeout(() => {
-      if (onProfileCreated) {
-        onProfileCreated();
-      }
+      onProfileCreated();
     }, 3000);
 
     return () => {

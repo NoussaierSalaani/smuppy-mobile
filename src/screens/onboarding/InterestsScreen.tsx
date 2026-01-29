@@ -325,7 +325,7 @@ export default function InterestsScreen({ navigation, route }: InterestsScreenPr
 
   return (
     <SafeAreaView style={styles.container}>
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={4} />
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={3} />
 
       {/* Header */}
       <View style={styles.header}>

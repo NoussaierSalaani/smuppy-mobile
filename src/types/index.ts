@@ -658,7 +658,6 @@ export type MainStackParamList = {
   CreatorOptionalInfo: { [key: string]: unknown };
   BusinessCategory: { [key: string]: unknown };
   BusinessInfo: { [key: string]: unknown };
-  Profession: undefined;
   Interests: { [key: string]: unknown } | undefined;
   Expertise: { [key: string]: unknown } | undefined;
   Guidelines: { [key: string]: unknown } | undefined;
@@ -773,6 +772,9 @@ export type MainStackParamList = {
 
   // Tips
   TipLeaderboard: { creatorId: string; creatorUsername: string };
+
+  // Find Friends (standalone popup)
+  FindFriends: undefined;
 
   // Account Upgrade
   UpgradeToPro: undefined;

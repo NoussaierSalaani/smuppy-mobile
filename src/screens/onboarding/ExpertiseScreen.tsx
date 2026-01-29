@@ -433,7 +433,7 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
 
   return (
     <SafeAreaView style={styles.container}>
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={4} />
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={3} totalSteps={4} />
 
       {/* Header */}
       <View style={styles.header}>

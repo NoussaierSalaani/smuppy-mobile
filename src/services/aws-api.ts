@@ -64,6 +64,39 @@ class AWSAPIService {
 
       clearTimeout(timeoutId);
 
+      if (response.status === 401 && authenticated) {
+        // Token may have expired between getIdToken() and server receipt.
+        // getIdToken() auto-refreshes, so calling it again forces a new token.
+        const newToken = await awsAuth.getIdToken();
+        if (newToken && newToken !== requestHeaders['Authorization']?.replace('Bearer ', '')) {
+          requestHeaders['Authorization'] = `Bearer ${newToken}`;
+          const retryController = new AbortController();
+          const retryTimeoutId = setTimeout(() => retryController.abort(), timeout);
+          try {
+            const retryResponse = await fetch(url, {
+              method,
+              headers: requestHeaders,
+              body: body ? JSON.stringify(body) : undefined,
+              signal: retryController.signal,
+            });
+            clearTimeout(retryTimeoutId);
+            if (!retryResponse.ok) {
+              const retryError = await retryResponse.json().catch(() => ({}));
+              throw new APIError(
+                retryError.message || `Request failed with status ${retryResponse.status}`,
+                retryResponse.status,
+                retryError
+              );
+            }
+            return await retryResponse.json() as T;
+          } catch (retryErr: any) {
+            clearTimeout(retryTimeoutId);
+            if (retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
+            throw retryErr;
+          }
+        }
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new APIError(

@@ -91,9 +91,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    // Skip CreatorOptionalInfo - go directly to Expertise
-    // Bio, website, social links can be added later in Settings
-    navigate('Expertise', {
+    navigate('CreatorOptionalInfo', {
       ...params,
       profileImage,
       displayName: displayName.trim(),
@@ -245,11 +243,6 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
             </View>
           )}
 
-          {/* Info note */}
-          <View style={styles.infoNote}>
-            <Ionicons name="information-circle-outline" size={16} color={COLORS.grayMuted} />
-            <Text style={styles.infoText}>You can add bio, website and social links later in Settings</Text>
-          </View>
         </View>
 
         {/* Fixed Footer */}
@@ -323,8 +316,6 @@ const styles = StyleSheet.create({
   genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: '#E8FAF7', justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
-  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
-  infoText: { flex: 1, fontSize: 13, color: COLORS.grayMuted, lineHeight: 18 },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },

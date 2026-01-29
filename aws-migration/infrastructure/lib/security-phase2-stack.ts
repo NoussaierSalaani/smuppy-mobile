@@ -322,9 +322,10 @@ def handler(event, context):
             print(f"Failed to tag object: {e}")
         return {'statusCode': 200, 'body': 'Media file - basic validation passed'}
 
-    # For other files, perform scan (placeholder - integrate ClamAV here)
-    # In production: download file, run clamscan, check result
-    scan_result = 'CLEAN'  # Placeholder - replace with actual ClamAV scan
+    # For non-media files, quarantine by default until ClamAV is integrated
+    # TODO: Integrate ClamAV Lambda Layer for production scanning
+    print(f"Non-media file detected, quarantining until scanner is integrated: {key}")
+    scan_result = 'INFECTED'  # Default-deny: quarantine unknown files
 
     if scan_result == 'INFECTED':
         # Move to quarantine

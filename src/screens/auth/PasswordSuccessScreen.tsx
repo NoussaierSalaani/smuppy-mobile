@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 
 interface PasswordSuccessScreenProps {
   navigation: {
@@ -13,28 +14,17 @@ interface PasswordSuccessScreenProps {
     canGoBack: () => boolean;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-  route?: {
-    params?: {
-      onRecoveryComplete?: () => void;
-    };
-  };
 }
 
-export default function PasswordSuccessScreen({ navigation, route }: PasswordSuccessScreenProps) {
-  const onRecoveryComplete = route?.params?.onRecoveryComplete;
+export default function PasswordSuccessScreen({ navigation }: PasswordSuccessScreenProps) {
+  const { onRecoveryComplete } = useAuthCallbacks();
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      // If we have a recovery callback, use it (AppNavigator handles Main transition)
-      // Otherwise fallback to Login (for non-recovery password changes)
-      if (onRecoveryComplete) {
-        onRecoveryComplete();
-      } else {
-        navigation.navigate('Login');
-      }
+      onRecoveryComplete();
     }, 3000);
     return () => clearTimeout(timer);
-  }, [navigation, onRecoveryComplete]);
+  }, [onRecoveryComplete]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -61,7 +51,7 @@ export default function PasswordSuccessScreen({ navigation, route }: PasswordSuc
         <View style={styles.redirectContainer}>
           <View style={styles.loadingDot} />
           <Text style={styles.redirect}>
-            {onRecoveryComplete ? 'Entering the app...' : 'Redirecting to login...'}
+            {'Entering the app...'}
           </Text>
         </View>
       </View>

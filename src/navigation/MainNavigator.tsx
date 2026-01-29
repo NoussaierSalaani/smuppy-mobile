@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserStore } from '../stores';
 import { getCurrentProfile } from '../services/database';
+import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
 
 // Type helper to cast screen components for React Navigation compatibility
@@ -127,6 +128,9 @@ import {
   IdentityVerificationScreen,
 } from '../screens/payments';
 
+// Find Friends (standalone popup)
+import FindFriendsScreen from '../screens/onboarding/FindFriendsScreen';
+
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
 import BottomNav from '../components/BottomNav';
@@ -144,6 +148,21 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+
+  // Auto-trigger FindFriends popup ~30s after first mount
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const shown = await storage.get(STORAGE_KEYS.FIND_FRIENDS_SHOWN);
+        if (!shown) {
+          navigation.navigate('FindFriends' as any);
+        }
+      } catch {
+        // Silent fail
+      }
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, [navigation]);
 
   return (
     <>
@@ -329,6 +348,9 @@ export default function MainNavigator() {
       <Stack.Screen name="PlatformSubscription" component={PlatformSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="ChannelSubscription" component={ChannelSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Find Friends (standalone popup) */}
+      <Stack.Screen name="FindFriends" component={FindFriendsScreen} options={{ animation: 'slide_from_bottom' }} />
     </Stack.Navigator>
   );
 }

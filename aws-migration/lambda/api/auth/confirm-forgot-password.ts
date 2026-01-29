@@ -39,7 +39,7 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
     const response = await cognitoClient.send(
       new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase()}"`,
+        Filter: `email = "${email.toLowerCase().replace(/["\\]/g, '')}"`,
         Limit: 1,
       })
     );
@@ -110,7 +110,7 @@ export const handler = async (
       }
     }
 
-    log.info('Resetting password for user', { username: cognitoUsername });
+    log.info('Resetting password for user', { username: cognitoUsername.substring(0, 2) + '***' });
 
     await cognitoClient.send(
       new ConfirmForgotPasswordCommand({

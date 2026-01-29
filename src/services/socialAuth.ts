@@ -8,7 +8,6 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthSessionResult } from 'expo-auth-session';
 import { awsAuth } from './aws-auth';
-import { awsAPI } from './aws-api';
 import { ENV } from '../config/env';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 
@@ -41,7 +40,6 @@ interface SocialAuthResult {
     email?: string;
     fullName?: string;
   };
-  isNewUser?: boolean;
 }
 
 // =====================================================
@@ -126,14 +124,6 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
           .join(' ')
       : undefined;
 
-    // Check if this is a new user (no profile yet)
-    let isNewUser = false;
-    try {
-      await awsAPI.getProfile(user.id);
-    } catch {
-      isNewUser = true;
-    }
-
     return {
       success: true,
       user: {
@@ -141,7 +131,6 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
         email: user.email || credential.email || undefined,
         fullName,
       },
-      isNewUser,
     };
   } catch (error: any) {
     // Handle user cancellation
@@ -202,14 +191,6 @@ export const handleGoogleSignIn = async (
     // Store remember me
     await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
 
-    // Check if this is a new user
-    let isNewUser = false;
-    try {
-      await awsAPI.getProfile(user.id);
-    } catch {
-      isNewUser = true;
-    }
-
     return {
       success: true,
       user: {
@@ -217,7 +198,6 @@ export const handleGoogleSignIn = async (
         email: user.email || undefined,
         fullName: user.attributes?.name,
       },
-      isNewUser,
     };
   } catch (error: any) {
     console.error('[GoogleAuth] Error:', error);
@@ -225,45 +205,3 @@ export const handleGoogleSignIn = async (
   }
 };
 
-/**
- * Alternative: Sign in with Google using OAuth flow
- * This opens a browser for authentication
- */
-export const signInWithGoogleOAuth = async (): Promise<SocialAuthResult> => {
-  // Not implemented for AWS - use the handleGoogleSignIn flow instead
-  return { success: false, error: 'Use Google Auth Session instead' };
-};
-
-// =====================================================
-// PROFILE MANAGEMENT FOR SOCIAL AUTH USERS
-// =====================================================
-
-/**
- * Create or update profile for social auth user
- * Called after successful social sign-in for new users
- */
-export const createSocialAuthProfile = async (
-  userId: string,
-  email?: string,
-  fullName?: string,
-  _accountType: 'personal' | 'pro_creator' | 'pro_business' = 'personal'
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // Generate username from email or name
-    const baseUsername = email
-      ? email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
-      : fullName?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
-
-    const uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
-
-    await awsAPI.updateProfile({
-      username: uniqueUsername,
-      fullName: fullName || baseUsername,
-    });
-
-    return { success: true };
-  } catch (error: any) {
-    console.error('[SocialAuth] Profile creation error:', error);
-    return { success: false, error: error.message };
-  }
-};

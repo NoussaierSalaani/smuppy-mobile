@@ -17,7 +17,8 @@ function sanitizeText(text: string): string {
     .slice(0, 2000) // Max 2000 characters
     .replace(/\0/g, '') // Remove null bytes
     // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars
+    .replace(/<[^>]*>/g, ''); // Strip HTML tags (XSS prevention)
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

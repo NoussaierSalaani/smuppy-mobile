@@ -3,6 +3,15 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
+/**
+ * SECURITY TODOs (audit issues 36-40):
+ * - #36: Enable automatic secrets rotation (30-day cycle) for DB credentials and Stripe keys
+ * - #37: Enable GuardDuty for runtime threat detection
+ * - #38: Enable CloudTrail with S3 log archiving for API audit trail
+ * - #39: Add VPC endpoints for SQS and CloudWatch to reduce NAT traffic
+ * - #40: Schedule quarterly backup restoration tests (RDS point-in-time recovery)
+ */
+
 export interface NetworkStackProps extends cdk.NestedStackProps {
   environment: string;
   isProduction: boolean;
@@ -25,7 +34,8 @@ export class NetworkStack extends cdk.NestedStack {
 
     // Flow Logs log group with short retention to control CloudWatch costs
     const flowLogGroup = new logs.LogGroup(this, 'VPCFlowLogGroup', {
-      retention: isProduction ? logs.RetentionDays.TWO_WEEKS : logs.RetentionDays.ONE_WEEK,
+      // SECURITY: 90 days minimum for compliance; TWO_WEEKS for staging cost savings
+      retention: isProduction ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.TWO_WEEKS,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -75,6 +85,8 @@ export class NetworkStack extends cdk.NestedStack {
     this.lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSG', {
       vpc: this.vpc,
       description: 'Security group for Lambda functions',
+      // TODO: Restrict outbound to specific CIDR ranges (RDS, Secrets Manager, S3, Stripe API)
+      // For now, allowAllOutbound is needed for Stripe API calls and other integrations
       allowAllOutbound: true,
     });
 

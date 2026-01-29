@@ -21,6 +21,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
+// Event deduplication: reject replayed events
+const MAX_EVENT_AGE_SECONDS = 300; // 5 minutes
+const processedEvents = new Map<string, number>();
+
+// Cleanup old entries every 60s
+setInterval(() => {
+  const cutoff = Date.now() - MAX_EVENT_AGE_SECONDS * 2 * 1000;
+  for (const [id, ts] of processedEvents.entries()) {
+    if (ts < cutoff) processedEvents.delete(id);
+  }
+}, 60_000);
+
 // UUID validation helper for metadata fields
 const isValidUUID = (value: string | undefined): boolean => {
   if (!value) return false;
@@ -70,6 +82,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Invalid signature' }),
       };
     }
+
+    // Replay protection: reject old or duplicate events
+    const eventAge = Math.floor(Date.now() / 1000) - stripeEvent.created;
+    if (eventAge > MAX_EVENT_AGE_SECONDS) {
+      log.warn('Rejected stale webhook event', { eventId: stripeEvent.id, ageSeconds: eventAge });
+      return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'stale' }) };
+    }
+    if (processedEvents.has(stripeEvent.id)) {
+      log.info('Duplicate event ignored', { eventId: stripeEvent.id });
+      return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
+    }
+    processedEvents.set(stripeEvent.id, Date.now());
 
     const db = await getPool();
 
@@ -290,38 +314,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const subscriptionType = subscription.metadata?.subscriptionType;
 
         if (subscriptionType === 'platform') {
+          const hasCancelAt = subscription.cancel_at != null;
           await db.query(
             `UPDATE platform_subscriptions
              SET status = $1,
                  current_period_start = to_timestamp($2),
                  current_period_end = to_timestamp($3),
-                 cancel_at = ${subscription.cancel_at ? 'to_timestamp($4)' : 'NULL'},
+                 cancel_at = ${hasCancelAt ? 'to_timestamp($4)' : 'NULL'},
                  updated_at = NOW()
-             WHERE stripe_subscription_id = $5`,
-            [
-              subscription.cancel_at_period_end ? 'canceling' : subscription.status,
-              subscription.current_period_start,
-              subscription.current_period_end,
-              subscription.cancel_at,
-              subscription.id,
-            ].filter(Boolean)
+             WHERE stripe_subscription_id = $${hasCancelAt ? 5 : 4}`,
+            hasCancelAt
+              ? [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.cancel_at, subscription.id]
+              : [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.id]
           );
         } else if (subscriptionType === 'channel') {
+          const hasCancelAt = subscription.cancel_at != null;
           await db.query(
             `UPDATE channel_subscriptions
              SET status = $1,
                  current_period_start = to_timestamp($2),
                  current_period_end = to_timestamp($3),
-                 cancel_at = ${subscription.cancel_at ? 'to_timestamp($4)' : 'NULL'},
+                 cancel_at = ${hasCancelAt ? 'to_timestamp($4)' : 'NULL'},
                  updated_at = NOW()
-             WHERE stripe_subscription_id = $5`,
-            [
-              subscription.cancel_at_period_end ? 'canceling' : subscription.status,
-              subscription.current_period_start,
-              subscription.current_period_end,
-              subscription.cancel_at,
-              subscription.id,
-            ].filter(Boolean)
+             WHERE stripe_subscription_id = $${hasCancelAt ? 5 : 4}`,
+            hasCancelAt
+              ? [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.cancel_at, subscription.id]
+              : [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.id]
           );
         }
         break;

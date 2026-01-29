@@ -30,7 +30,6 @@ interface VerifyCodeScreenProps {
       email?: string;
       password?: string;
       rememberMe?: boolean;
-      accountCreated?: boolean;
     };
   };
 }
@@ -50,7 +49,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   const {
     email, password,
     rememberMe = false,
-    accountCreated: accountAlreadyCreated = false,
   } = route?.params || {};
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
@@ -124,10 +122,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       setError('Missing credentials. Please go back and try again.');
       return;
     }
-    if (accountAlreadyCreated) {
-      setAccountCreated(true);
-      return;
-    }
     if (!accountCreated) {
       createAccountAndSendOTP();
     }
@@ -161,7 +155,11 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       // Persist session preference
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
-      // Done — onAuthStateChange fires, AppNavigator detects user + no profile → Onboarding
+      // Navigate directly to onboarding (new user always needs profile)
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountType' }],
+      });
     } catch (err: any) {
       const msg = err?.message || '';
 

@@ -47,6 +47,26 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
   'trash-mail.com',
   'anonymbox.com',
   'burnermail.io',
+  // Additional disposable domains
+  'mailnator.com',
+  'discard.email',
+  'grr.la',
+  'guerrillamailblock.com',
+  'pokemail.net',
+  'spam4.me',
+  'trashmail.net',
+  'trashmail.me',
+  'wegwerfemail.de',
+  'einrot.com',
+  'mintemail.com',
+  'mailcatch.com',
+  'tempr.email',
+  'throwam.com',
+  'mailsac.com',
+  'harakirimail.com',
+  'tmail.ws',
+  'spamgourmet.com',
+  'bouncr.com',
 ]);
 
 // Blocked TLDs commonly used for spam

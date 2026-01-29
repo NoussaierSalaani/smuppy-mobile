@@ -62,6 +62,7 @@ export const STORAGE_KEYS = {
   USER_ID: 'user_id',
   BIOMETRIC_ENABLED: 'biometric_enabled',
   REMEMBER_ME: 'remember_me',
+  FIND_FRIENDS_SHOWN: 'find_friends_shown',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

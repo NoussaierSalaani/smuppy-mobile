@@ -86,11 +86,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       connect();
     }
 
-    // Cleanup
+    // Cleanup: unsubscribe listeners and disconnect to prevent leaked connections
     return () => {
       unsubConnection();
       unsubMessage();
       unsubError();
+      websocketService.disconnect();
     };
   }, [autoConnect, connect]);
 

@@ -35,8 +35,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: CreatePostInput = JSON.parse(event.body || '{}');
 
-    // Validate input
-    if (!body.content && (!body.mediaUrls || body.mediaUrls.length === 0)) {
+    // Validate input — require meaningful content or media
+    const hasContent = body.content && body.content.trim().length > 0;
+    const hasMedia = body.mediaUrls && body.mediaUrls.length > 0;
+    if (!hasContent && !hasMedia) {
       return {
         statusCode: 400,
         headers,

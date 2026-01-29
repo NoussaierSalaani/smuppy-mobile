@@ -111,8 +111,7 @@ export const biometrics: Biometrics = {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage,
         cancelLabel: 'Cancel',
-        disableDeviceFallback: false,
-        fallbackLabel: 'Use password',
+        disableDeviceFallback: true,
       });
 
       if (result.success) {

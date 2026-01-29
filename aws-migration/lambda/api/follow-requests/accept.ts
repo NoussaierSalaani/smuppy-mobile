@@ -107,11 +107,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         ['accepted', requestId]
       );
 
-      // Create the follow relationship
+      // Create the follow relationship with accepted status
       await client.query(
-        `INSERT INTO follows (follower_id, following_id)
-         VALUES ($1, $2)
-         ON CONFLICT (follower_id, following_id) DO NOTHING`,
+        `INSERT INTO follows (follower_id, following_id, status)
+         VALUES ($1, $2, 'accepted')
+         ON CONFLICT (follower_id, following_id) DO UPDATE SET status = 'accepted'`,
         [request.requester_id, profileId]
       );
 

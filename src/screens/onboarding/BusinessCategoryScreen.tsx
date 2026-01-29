@@ -81,7 +81,7 @@ export default function BusinessCategoryScreen({ navigation, route }: BusinessCa
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with Progress Bar - Pro Business flow step 1/4 */}
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={3} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Title */}

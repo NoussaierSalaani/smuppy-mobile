@@ -9,6 +9,7 @@ import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
+import { getCurrentProfile } from '../../services/database';
 import {
   isAppleSignInAvailable,
   signInWithApple,
@@ -49,13 +50,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [biometricBlocked, setBiometricBlocked] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
   const [successModal, setSuccessModal] = useState({ visible: false, title: '', message: '' });
-  const [deletedAccountModal, setDeletedAccountModal] = useState({
-    visible: false,
-    daysRemaining: 0,
-    canReactivate: false,
-    fullName: '',
-  });
-
   // Social auth state
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
@@ -83,9 +77,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await handleGoogleSignIn(googleResponse);
 
     if (result.success) {
-      // Auth state change will handle navigation:
-      // - Existing user with profile → Main
-      // - New user without profile → Onboarding (AccountType)
+      try {
+        const { data: profile } = await getCurrentProfile(false);
+        if (!profile) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AccountType' }],
+          });
+        }
+      } catch {
+        // Let onAuthStateChange handle it
+      }
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -95,9 +97,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
     setSocialLoading(null);
   };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { checkBiometrics(); }, []);
 
   const checkBiometrics = useCallback(async () => {
     const available = await biometrics.isAvailable();
@@ -252,13 +251,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      // Check if account was deleted
-      const isDeleted = await checkDeletedAccount(normalizedEmail);
-      if (isDeleted) {
-        setLoading(false);
-        return;
-      }
-
       // Check AWS rate limit
       const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-login');
       if (!awsCheck.allowed) {
@@ -293,6 +285,20 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
+
+      // Check if user has a profile - if not, navigate to onboarding
+      // (onAuthStateChange handles Main navigation for users WITH profiles)
+      try {
+        const { data: profile } = await getCurrentProfile(false);
+        if (!profile) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AccountType' }],
+          });
+        }
+      } catch {
+        // If profile check fails, let onAuthStateChange handle it
+      }
     } catch (error: any) {
       const errorMessage = error?.message || '';
 
@@ -334,17 +340,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setSuccessModal(prev => ({ ...prev, visible: false }));
   }, []);
 
-  const closeDeletedAccountModal = useCallback(() => {
-    setDeletedAccountModal(prev => ({ ...prev, visible: false }));
-  }, []);
-
-  // Note: checkDeletedAccount is skipped for AWS - Cognito handles user state
-  const checkDeletedAccount = useCallback(async (_emailToCheck: string): Promise<boolean> => {
-    // AWS Cognito handles deleted/disabled accounts internally
-    // Cognito will return appropriate errors for disabled users
-    return false;
-  }, []);
-
   const isFormValid = email.length > 0 && password.length > 0;
 
   // Handle Apple Sign-In
@@ -353,9 +348,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await signInWithApple();
 
     if (result.success) {
-      // Auth state change will handle navigation:
-      // - Existing user with profile → Main
-      // - New user without profile → Onboarding (AccountType)
+      try {
+        const { data: profile } = await getCurrentProfile(false);
+        if (!profile) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AccountType' }],
+          });
+        }
+      } catch {
+        // Let onAuthStateChange handle it
+      }
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -364,7 +367,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       });
     }
     setSocialLoading(null);
-  }, []);
+  }, [navigation]);
 
   // Handle Google Sign-In
   const handleGoogleSignInPress = useCallback(async () => {
@@ -640,51 +643,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           </View>
         </Modal>
 
-        {/* Deleted Account Modal */}
-        <Modal visible={deletedAccountModal.visible} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <TouchableOpacity style={styles.modalClose} onPress={closeDeletedAccountModal}>
-                <Ionicons name="close" size={24} color={COLORS.gray} />
-              </TouchableOpacity>
-              <View style={[styles.modalIconBox, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="warning" size={40} color="#F59E0B" />
-              </View>
-              <Text style={styles.modalTitle}>Account Deleted</Text>
-              <Text style={styles.modalMessage}>
-                {deletedAccountModal.fullName ? `Hi ${deletedAccountModal.fullName}, ` : ''}
-                The account linked to this email has been deleted.
-                {'\n\n'}
-                {deletedAccountModal.canReactivate ? (
-                  <>
-                    This email will be available again in <Text style={styles.modalHighlight}>{deletedAccountModal.daysRemaining} days</Text>.
-                    {'\n\n'}
-                    To reactivate your account, please contact us at:
-                  </>
-                ) : (
-                  'This email is now available for a new account.'
-                )}
-              </Text>
-              {deletedAccountModal.canReactivate && (
-                <TouchableOpacity
-                  style={styles.supportEmailBtn}
-                  onPress={() => {
-                    closeDeletedAccountModal();
-                  }}
-                >
-                  <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
-                  <Text style={styles.supportEmailText}>support@smuppy.com</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: '#F59E0B' }]}
-                onPress={closeDeletedAccountModal}
-              >
-                <Text style={styles.modalBtnText}>Got it</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -769,7 +727,4 @@ const styles = StyleSheet.create({
   modalBtnGradient: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius },
   modalBtnInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
-  modalHighlight: { fontWeight: '700', color: COLORS.primary },
-  supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.backgroundValid, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
-  supportEmailText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
 });

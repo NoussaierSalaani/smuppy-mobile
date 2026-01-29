@@ -116,7 +116,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         {/* Header with Progress Bar - Pro Business flow step 2/4 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={4} />
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={3} />
 
         <View style={styles.content}>
           <View style={styles.header}>

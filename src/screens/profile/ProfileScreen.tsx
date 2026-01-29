@@ -387,8 +387,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </TouchableOpacity>
             <View style={styles.statGlassDivider} />
             <View style={styles.statGlassItem}>
-              <Text style={styles.statGlassValue}>{user.stats.posts || 24}</Text>
-              <Text style={styles.statGlassLabel}>Posts</Text>
+              <Text style={styles.statGlassValue}>{user.stats.peaks || 0}</Text>
+              <Text style={styles.statGlassLabel}>Peaks</Text>
             </View>
           </BlurView>
         </View>

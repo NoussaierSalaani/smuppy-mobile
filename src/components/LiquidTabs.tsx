@@ -8,7 +8,7 @@
  * - Scale bounce on selection
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Dimensions,
   ViewStyle,
+  LayoutChangeEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -63,10 +64,18 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
   size = 'medium',
   fullWidth = true,
 }) => {
+  const [measuredWidth, setMeasuredWidth] = useState<number>(0);
   const activeIndex = tabs.findIndex((t) => t.key === activeTab);
   const translateX = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0 && w !== measuredWidth) {
+      setMeasuredWidth(w);
+    }
+  };
 
   // Size configurations
   const sizeConfig = {
@@ -81,7 +90,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
   // For non-fullWidth: use smaller tabs for small size (compact header)
   const nonFullWidthTabSize = size === 'small' ? 66 : 90;
   // Full width = entire screen width (no margins)
-  const containerWidth = fullWidth ? SCREEN_WIDTH : tabs.length * nonFullWidthTabSize;
+  const containerWidth = fullWidth ? (measuredWidth || SCREEN_WIDTH) : tabs.length * nonFullWidthTabSize;
   const tabWidth = (containerWidth - containerPadding * 2) / tabs.length;
   const indicatorWidth = tabWidth - 4;
 
@@ -123,6 +132,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
 
   return (
     <View
+      onLayout={fullWidth ? handleLayout : undefined}
       style={[
         styles.container,
         {

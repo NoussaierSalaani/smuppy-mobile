@@ -41,7 +41,7 @@ export interface ProfileDataSource {
   fans?: number;
   post_count?: number;
   posts?: number;
-  stats?: { fans?: number; posts?: number; following?: number };
+  stats?: { fans?: number; posts?: number; peaks?: number; following?: number };
 }
 
 // Normalized user profile for UI display

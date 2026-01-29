@@ -21,6 +21,7 @@ import { COLORS } from '../../config/theme';
 import { useProfile } from '../../hooks';
 import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
+import { LiquidTabs } from '../../components/LiquidTabs';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -663,31 +664,12 @@ const UserProfileScreen = () => {
 
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
-      <View style={styles.pillsContainer}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            activeOpacity={0.8}
-            style={{ flex: 1 }}
-          >
-            {activeTab === tab.key ? (
-              <LinearGradient
-                colors={['#0EBF8A', '#00B5C1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.pillActive}
-              >
-                <Text style={styles.pillTextActive}>{tab.label}</Text>
-              </LinearGradient>
-            ) : (
-              <View style={styles.pill}>
-                <Text style={styles.pillText}>{tab.label}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
+      <LiquidTabs
+        tabs={TABS as unknown as { key: string; label: string }[]}
+        activeTab={activeTab}
+        onTabChange={(key) => setActiveTab(key as typeof activeTab)}
+        fullWidth
+      />
     </View>
   );
 
@@ -803,40 +785,50 @@ const UserProfileScreen = () => {
       ) : null}
 
       {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[
-            styles.fanButton,
-            isFan && styles.fanButtonActive,
-            isRequested && styles.fanButtonRequested
-          ]}
-          onPress={handleFanPress}
-          disabled={isLoadingFollow}
-        >
-          {isLoadingFollow ? (
-            <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
-          ) : (
-            <Text style={[
-              styles.fanButtonText,
-              isFan && styles.fanButtonTextActive,
-              isRequested && styles.fanButtonTextRequested
-            ]}>
-              {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {isFan && (
-          <TouchableOpacity style={styles.messageButton} onPress={handleMessagePress}>
-            <Ionicons name="chatbubble-outline" size={18} color="#0A0A0F" />
-            <Text style={styles.messageText}>Message</Text>
+      <View style={styles.actionButtonsContainer}>
+        {/* Row 1: Fan + Message */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={[
+              styles.fanButton,
+              isFan && styles.fanButtonActive,
+              isRequested && styles.fanButtonRequested
+            ]}
+            onPress={handleFanPress}
+            disabled={isLoadingFollow}
+          >
+            {isLoadingFollow ? (
+              <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
+            ) : (
+              <Text style={[
+                styles.fanButtonText,
+                isFan && styles.fanButtonTextActive,
+                isRequested && styles.fanButtonTextRequested
+              ]}>
+                {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
+              </Text>
+            )}
           </TouchableOpacity>
-        )}
 
-        {/* Pro Creator Action Buttons */}
+          {(isFan || profile.accountType === 'pro_creator') && (
+            <TouchableOpacity
+              style={[styles.messageButton, !isFan && styles.messageButtonDisabled]}
+              onPress={handleMessagePress}
+              disabled={!isFan}
+            >
+              <Ionicons
+                name={isFan ? 'chatbubble-outline' : 'lock-closed-outline'}
+                size={18}
+                color="#0A0A0F"
+              />
+              <Text style={styles.messageText}>Message</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Row 2: Monetization buttons (pro_creator only) */}
         {profile.accountType === 'pro_creator' && (
-          <>
-            {/* Subscribe Button */}
+          <View style={styles.actionButtonsRow}>
             <TouchableOpacity
               style={styles.subscribeButton}
               onPress={() => setShowSubscribeModal(true)}
@@ -852,7 +844,6 @@ const UserProfileScreen = () => {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Book 1:1 Session Button */}
             <TouchableOpacity
               style={styles.sessionButton}
               onPress={() => (navigation as any).navigate('BookSession', {
@@ -875,7 +866,6 @@ const UserProfileScreen = () => {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Send Tip Button */}
             <TipButton
               recipient={{
                 id: profile.id,
@@ -886,7 +876,7 @@ const UserProfileScreen = () => {
               contextType="profile"
               variant="compact"
             />
-          </>
+          </View>
         )}
       </View>
 
@@ -1398,13 +1388,16 @@ const styles = StyleSheet.create({
   },
 
   // ===== ACTION BUTTONS =====
-  actionButtons: {
-    flexDirection: 'row',
+  actionButtonsContainer: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
     marginTop: 12,
     marginBottom: 8,
     zIndex: 2,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   fanButton: {
     flex: 1,
@@ -1447,6 +1440,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0A252F',
+  },
+  messageButtonDisabled: {
+    opacity: 0.5,
   },
   sessionButton: {
     flex: 1,

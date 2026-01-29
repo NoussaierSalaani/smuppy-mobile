@@ -28,6 +28,7 @@ import { useShareModal } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
+import { LiquidButton } from '../../components/LiquidButton';
 import { MOCK_FAN_POSTS } from '../../mocks';
 
 const { width } = Dimensions.get('window');
@@ -485,13 +486,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         <Text style={styles.suggestionName} numberOfLines={1}>
           {suggestion.name.split(' ')[0]}
         </Text>
-        <TouchableOpacity
-          style={[styles.trackButton, isTracking && styles.trackButtonDisabled]}
+        <LiquidButton
+          label={isTracking ? '...' : 'Track'}
           onPress={() => handleTrackUser(suggestion.id)}
           disabled={isTracking}
-        >
-          <Text style={styles.trackButtonText}>{isTracking ? '...' : 'Track'}</Text>
-        </TouchableOpacity>
+          size="xs"
+        />
       </View>
     );
   }, [goToUserProfile, handleTrackUser, trackingUserIds]);
@@ -666,13 +666,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <Text style={styles.seeAllText}>See all</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.suggestionsScrollContent}
-      >
-        {suggestions.map(renderSuggestion)}
-        {/* Invite Friends Button - always visible */}
+      <View style={{ flexDirection: 'row' }}>
+        {/* Invite Friends Button - fixed, non-scrollable */}
         <View style={styles.suggestionItem}>
           <TouchableOpacity
             style={styles.inviteButton}
@@ -688,14 +683,21 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <Text style={styles.suggestionName} numberOfLines={1}>
             Invite
           </Text>
-          <TouchableOpacity
-            style={styles.inviteTextButton}
+          <LiquidButton
+            label="Friends"
             onPress={inviteFriends}
-          >
-            <Text style={styles.inviteTextButtonText}>Friends</Text>
-          </TouchableOpacity>
+            size="xs"
+            variant="outline"
+          />
         </View>
-      </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.suggestionsScrollContent}
+        >
+          {suggestions.map(renderSuggestion)}
+        </ScrollView>
+      </View>
     </View>
   ), [suggestions, renderSuggestion, navigation, inviteFriends]);
 

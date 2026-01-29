@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { LiquidButton } from '../../components/LiquidButton';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUserStore } from '../../stores';
 
@@ -349,12 +350,13 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             <Text style={styles.popupBio} numberOfLines={2}>{selectedMarker.bio}</Text>
           </View>
         </View>
-        <TouchableOpacity activeOpacity={0.85} onPress={() => goToProfile(selectedMarker)}>
-          <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.popupButton}>
-            <Text style={styles.popupButtonText}>See Profile</Text>
-            <Ionicons name="arrow-forward" size={normalize(16)} color={COLORS.white} />
-          </LinearGradient>
-        </TouchableOpacity>
+        <LiquidButton
+          label="See Profile"
+          onPress={() => goToProfile(selectedMarker)}
+          size="md"
+          style={styles.popupButton}
+          icon={<Ionicons name="arrow-forward" size={normalize(16)} color={COLORS.white} />}
+        />
       </View>
     );
   };
@@ -384,12 +386,13 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               </View>
             ))}
           </View>
-          <TouchableOpacity activeOpacity={0.85} onPress={() => goToProfile(selectedMarker)}>
-            <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.popupButton}>
-              <Text style={styles.popupButtonText}>See Profile</Text>
-              <Ionicons name="arrow-forward" size={normalize(16)} color={COLORS.white} />
-            </LinearGradient>
-          </TouchableOpacity>
+          <LiquidButton
+            label="See Profile"
+            onPress={() => goToProfile(selectedMarker)}
+            size="md"
+            style={styles.popupButton}
+            icon={<Ionicons name="arrow-forward" size={normalize(16)} color={COLORS.white} />}
+          />
         </View>
       </View>
     );
@@ -440,11 +443,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                 );
               })}
             </View>
-            <TouchableOpacity activeOpacity={0.85} onPress={() => setSubFilterSheet(null)}>
-              <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetApplyButton}>
-                <Text style={styles.sheetApplyText}>Done</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            <LiquidButton
+              label="Done"
+              onPress={() => setSubFilterSheet(null)}
+              size="md"
+              style={styles.sheetApplyButton}
+            />
           </View>
         </TouchableOpacity>
       </Modal>
@@ -464,17 +468,18 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           </LinearGradient>
           <Text style={styles.permissionTitle}>Enable your location</Text>
           <Text style={styles.permissionText}>Discover what your friends nearby are up to</Text>
-          <TouchableOpacity activeOpacity={0.85} onPress={async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status === 'granted') {
-              setShowPermissionModal(false);
-              requestLocation();
-            }
-          }}>
-            <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.permissionButton}>
-              <Text style={styles.permissionButtonText}>Activate</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <LiquidButton
+            label="Activate"
+            onPress={async () => {
+              const { status } = await Location.requestForegroundPermissionsAsync();
+              if (status === 'granted') {
+                setShowPermissionModal(false);
+                requestLocation();
+              }
+            }}
+            size="md"
+            style={styles.permissionButton}
+          />
         </View>
       </View>
     </Modal>
@@ -886,8 +891,8 @@ const styles = StyleSheet.create({
   popupStatDot: { marginHorizontal: wp(1.5), color: COLORS.grayMuted },
   popupBio: { fontSize: normalize(13), color: COLORS.gray, lineHeight: normalize(18) },
   popupButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: hp(1.5), borderRadius: normalize(14), marginTop: hp(1.8),
+    marginTop: hp(1.8),
+    alignSelf: 'stretch',
   },
   popupButtonText: { fontSize: normalize(15), fontWeight: '600', color: COLORS.white, marginRight: wp(1.5) },
 
@@ -950,8 +955,8 @@ const styles = StyleSheet.create({
   },
   sheetChipText: { fontSize: normalize(14), fontWeight: '500', color: COLORS.dark },
   sheetApplyButton: {
-    paddingVertical: hp(1.8), borderRadius: normalize(14),
-    alignItems: 'center', marginTop: hp(3),
+    marginTop: hp(3),
+    alignSelf: 'stretch',
   },
   sheetApplyText: { fontSize: normalize(16), fontWeight: '600', color: COLORS.white },
 
@@ -968,6 +973,6 @@ const styles = StyleSheet.create({
   },
   permissionTitle: { fontSize: normalize(20), fontWeight: '700', color: COLORS.dark, marginBottom: hp(1), textAlign: 'center' },
   permissionText: { fontSize: normalize(14), color: COLORS.gray, textAlign: 'center', marginBottom: hp(2.5), lineHeight: normalize(20) },
-  permissionButton: { paddingVertical: hp(1.5), paddingHorizontal: wp(10), borderRadius: normalize(25) },
+  permissionButton: { alignSelf: 'center' },
   permissionButtonText: { fontSize: normalize(15), fontWeight: '600', color: COLORS.white },
 });

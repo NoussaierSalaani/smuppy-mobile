@@ -124,7 +124,7 @@ async function migratePosts(db: Pool, posts: PostToMigrate[]): Promise<{ importe
       );
       imported++;
     } catch (error: any) {
-      errors.push(`Post failed: ${error.message}`);
+      errors.push('Post migration failed');
       failed++;
     }
   }
@@ -172,7 +172,7 @@ async function migrateFollows(db: Pool, follows: FollowToMigrate[]): Promise<{ i
       );
       imported++;
     } catch (error: any) {
-      errors.push(`Follow failed: ${error.message}`);
+      errors.push('Follow migration failed');
       failed++;
     }
   }

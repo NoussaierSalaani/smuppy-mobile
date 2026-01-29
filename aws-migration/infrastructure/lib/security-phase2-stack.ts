@@ -44,8 +44,23 @@ export class SecurityPhase2Stack extends cdk.Stack {
     const isProduction = environment === 'production';
 
     // ========================================
+    // GuardDuty — Runtime Threat Detection (#22 / #37)
+    // ========================================
+    new cdk.aws_guardduty.CfnDetector(this, 'GuardDutyDetector', {
+      enable: true,
+      findingPublishingFrequency: 'FIFTEEN_MINUTES',
+      dataSources: {
+        s3Logs: { enable: true },
+        malwareProtection: {
+          scanEc2InstanceWithFindings: {
+            ebsVolumes: true,
+          },
+        },
+      },
+    });
+
+    // ========================================
     // SNS Topic for Security Alerts
-    // TODO #22: Enable GuardDuty via new guardduty.CfnDetector
     // ========================================
     const securitySnsKey = new kms.Key(this, 'SecuritySnsKey', {
       alias: `smuppy-security-sns-${environment}`,

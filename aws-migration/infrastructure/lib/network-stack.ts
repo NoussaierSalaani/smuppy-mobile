@@ -4,12 +4,12 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 /**
- * SECURITY TODOs (audit issues 36-40):
- * - #36: Enable automatic secrets rotation (30-day cycle) for DB credentials and Stripe keys
- * - #37: Enable GuardDuty for runtime threat detection
+ * Remaining SECURITY TODOs:
  * - #38: Enable CloudTrail with S3 log archiving for API audit trail
- * - #39: Add VPC endpoints for SQS and CloudWatch to reduce NAT traffic
  * - #40: Schedule quarterly backup restoration tests (RDS point-in-time recovery)
+ *
+ * DONE: #36 (secrets rotation — smuppy-stack.ts), #37/#22 (GuardDuty — security-phase2-stack.ts),
+ *       #39 (VPC endpoints SQS + CloudWatch — below)
  */
 
 export interface NetworkStackProps extends cdk.NestedStackProps {
@@ -77,6 +77,20 @@ export class NetworkStack extends cdk.NestedStack {
     // Secrets Manager Interface Endpoint
     this.vpc.addInterfaceEndpoint('SecretsManagerEndpoint', {
       service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      privateDnsEnabled: true,
+    });
+
+    // SQS Interface Endpoint (#39) — reduces NAT traffic for DLQ operations
+    this.vpc.addInterfaceEndpoint('SQSEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SQS,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      privateDnsEnabled: true,
+    });
+
+    // CloudWatch Logs Interface Endpoint (#39) — reduces NAT traffic for Lambda logging
+    this.vpc.addInterfaceEndpoint('CloudWatchLogsEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
       subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       privateDnsEnabled: true,
     });

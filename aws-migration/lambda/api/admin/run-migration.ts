@@ -696,7 +696,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         await db.query(statement);
         results.push('OK');
       } catch (error: any) {
-        results.push(`Error: ${error.message}`);
+        results.push('Error: migration statement failed');
       }
     }
 
@@ -724,7 +724,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ message: 'Migration failed', error: error.message }),
+      body: JSON.stringify({ message: 'Migration failed' }),
     };
   }
 }

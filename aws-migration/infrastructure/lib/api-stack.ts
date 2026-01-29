@@ -45,9 +45,12 @@ export class ApiStack extends cdk.NestedStack {
         throttlingBurstLimit: isProduction ? 5000 : 500,
       },
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+        allowOrigins: isProduction
+          ? ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com']
+          : ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com', 'http://localhost:8081', 'http://localhost:19006'],
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key', 'X-Amz-Date', 'X-Amz-Security-Token'],
+        allowCredentials: true,
       },
     });
 

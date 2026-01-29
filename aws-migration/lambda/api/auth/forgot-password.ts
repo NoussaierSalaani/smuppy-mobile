@@ -14,11 +14,13 @@ import {
   LimitExceededException,
   InvalidParameterException,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
 const log = createLogger('auth-forgot-password');
 const cognitoClient = new CognitoIdentityProviderClient({});
+const dynamoClient = new DynamoDBClient({});
 
 // Validate required environment variables at module load
 if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
@@ -26,25 +28,15 @@ if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variabl
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const USER_POOL_ID = process.env.USER_POOL_ID;
+const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE || 'smuppy-rate-limit-staging';
 
 /**
- * Rate Limiting
- *
- * IMPORTANT: This in-memory rate limiting only works per Lambda instance.
- * In a distributed Lambda environment, different requests may hit different instances.
- *
- * PRODUCTION MITIGATION:
- * - Primary rate limiting is handled by WAF (see smuppy-stack.ts AuthRateLimitRule)
- *   which limits to 100 requests per 5 minutes per IP for /auth/ endpoints
- * - Cognito also has built-in rate limiting (LimitExceededException)
- * - This in-memory check provides additional defense-in-depth per instance
- *
- * TODO: Migrate to Redis-based rate limiting using the existing ElastiCache cluster
- * for distributed rate limiting across Lambda instances.
+ * Distributed Rate Limiting via DynamoDB
+ * 3 attempts per IP per 5-minute window, shared across all Lambda instances.
+ * Uses DynamoDB atomic counters with TTL for automatic cleanup.
  */
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_REQUESTS_PER_WINDOW = 3; // Max 3 requests per 5 minutes
+const RATE_LIMIT_WINDOW_S = 5 * 60; // 5 minutes
+const MAX_REQUESTS_PER_WINDOW = 3;
 
 // Generate username from email - fallback if lookup fails
 // Example: john@gmail.com -> johngmailcom (no special chars)
@@ -73,34 +65,38 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
   }
 };
 
-const checkRateLimit = (email: string): { allowed: boolean; retryAfter?: number } => {
-  const now = Date.now();
-  const key = email.toLowerCase();
-  const record = rateLimitMap.get(key);
+const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfter?: number }> => {
+  const now = Math.floor(Date.now() / 1000);
+  const windowKey = `forgot-password#${ip}#${Math.floor(now / RATE_LIMIT_WINDOW_S)}`;
+  const windowEnd = (Math.floor(now / RATE_LIMIT_WINDOW_S) + 1) * RATE_LIMIT_WINDOW_S;
 
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
+  try {
+    const result = await dynamoClient.send(new UpdateItemCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Key: { pk: { S: windowKey } },
+      UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :one, #ttl = :ttl',
+      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':zero': { N: '0' },
+        ':one': { N: '1' },
+        ':ttl': { N: String(windowEnd + 60) },
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
 
-  if (record.count >= MAX_REQUESTS_PER_WINDOW) {
-    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
-    return { allowed: false, retryAfter };
-  }
+    const count = parseInt(result.Attributes?.count?.N || '1', 10);
 
-  record.count++;
-  return { allowed: true };
-};
-
-// Clean up old entries
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key);
+    if (count > MAX_REQUESTS_PER_WINDOW) {
+      const retryAfter = windowEnd - now;
+      return { allowed: false, retryAfter };
     }
+
+    return { allowed: true };
+  } catch (error) {
+    log.error('Rate limit check failed, blocking request', error);
+    return { allowed: false, retryAfter: 60 };
   }
-}, 60 * 1000);
+};
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -132,8 +128,11 @@ export const handler = async (
       };
     }
 
-    // Check rate limit
-    const rateLimit = checkRateLimit(email);
+    // Check rate limit (distributed via DynamoDB, keyed by IP)
+    const clientIp = event.requestContext.identity?.sourceIp ||
+                     event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
+                     'unknown';
+    const rateLimit = await checkRateLimit(clientIp);
     if (!rateLimit.allowed) {
       return {
         statusCode: 429,

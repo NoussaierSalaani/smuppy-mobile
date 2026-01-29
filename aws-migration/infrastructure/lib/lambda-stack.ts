@@ -928,13 +928,20 @@ export class LambdaStack extends cdk.NestedStack {
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [lambdaSecurityGroup],
-      environment: { NODE_ENV: environment },
+      environment: {
+        NODE_ENV: environment,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
+      },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
       logGroup: authLogGroup,
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
+    this.validateEmailFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.confirmSignupFn = new NodejsFunction(this, 'ConfirmSignupFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/confirm-signup.ts'),
@@ -949,6 +956,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
         USER_POOL_ID: userPool.userPoolId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -958,6 +966,10 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant ListUsers permission to lookup user by email
     userPool.grant(this.confirmSignupFn, 'cognito-idp:ListUsers');
+    this.confirmSignupFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.resendCodeFn = new NodejsFunction(this, 'ResendCodeFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/resend-code.ts'),
@@ -972,6 +984,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
         USER_POOL_ID: userPool.userPoolId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -981,6 +994,10 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant ListUsers permission to lookup user by email
     userPool.grant(this.resendCodeFn, 'cognito-idp:ListUsers');
+    this.resendCodeFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.forgotPasswordFn = new NodejsFunction(this, 'ForgotPasswordFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/forgot-password.ts'),
@@ -995,6 +1012,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
         USER_POOL_ID: userPool.userPoolId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -1004,6 +1022,10 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant ListUsers permission to lookup user by email
     userPool.grant(this.forgotPasswordFn, 'cognito-idp:ListUsers');
+    this.forgotPasswordFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.confirmForgotPasswordFn = new NodejsFunction(this, 'ConfirmForgotPasswordFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/confirm-forgot-password.ts'),
@@ -1040,6 +1062,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         USER_POOL_ID: userPool.userPoolId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -1048,6 +1071,10 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
     userPool.grant(this.checkUserFn, 'cognito-idp:AdminGetUser', 'cognito-idp:ListUsers');
+    this.checkUserFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+    }));
 
     // ========================================
     // WebSocket Lambda Functions

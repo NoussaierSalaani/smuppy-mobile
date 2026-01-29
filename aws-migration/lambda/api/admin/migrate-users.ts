@@ -147,7 +147,7 @@ async function migrateUser(db: Pool, user: UserToMigrate): Promise<MigrationResu
     return {
       email: user.email,
       success: false,
-      error: error.message,
+      error: 'Migration failed for this user',
     };
   }
 }

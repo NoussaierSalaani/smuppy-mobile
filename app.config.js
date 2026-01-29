@@ -63,6 +63,7 @@ foregroundImage: './assets/icon.png',
 backgroundColor: '#11E3A3',
       },
 edgeToEdgeEnabled: true,
+allowBackup: false,
 permissions: [
 'android.permission.RECORD_AUDIO',
 'android.permission.MODIFY_AUDIO_SETTINGS',

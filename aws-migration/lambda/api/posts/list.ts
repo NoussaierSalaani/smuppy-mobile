@@ -157,6 +157,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return response(200, { ...responseData, cached: false, latency: Date.now() - startTime });
   } catch (error: any) {
     log.error('Error fetching posts', error);
-    return response(500, { error: 'Internal server error', message: ENVIRONMENT === 'staging' ? error.message : undefined });
+    return response(500, { error: 'Internal server error' });
   }
 };

@@ -67,6 +67,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         };
       }
 
+      // Input validation bounds
+      if (name.length > 100) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Name too long (max 100)' }) };
+      }
+      if (sessionsIncluded < 1 || sessionsIncluded > 100) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Sessions must be between 1 and 100' }) };
+      }
+      if (sessionDuration < 15 || sessionDuration > 480) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Duration must be between 15 and 480 minutes' }) };
+      }
+      if (validityDays < 1 || validityDays > 365) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Validity must be between 1 and 365 days' }) };
+      }
+      if (price <= 0 || price > 50000) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Price must be between 0 and 50000' }) };
+      }
+
       const result = await pool.query(
         `INSERT INTO session_packs (
           creator_id, name, description, sessions_included, session_duration,

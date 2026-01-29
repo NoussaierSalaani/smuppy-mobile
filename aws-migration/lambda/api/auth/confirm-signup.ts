@@ -14,11 +14,47 @@ import {
   NotAuthorizedException,
   AliasExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
 const log = createLogger('auth-confirm-signup');
 const cognitoClient = new CognitoIdentityProviderClient({});
+const dynamoClient = new DynamoDBClient({});
+const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE || 'smuppy-rate-limit-staging';
+
+const RATE_LIMIT_WINDOW_S = 5 * 60; // 5 minutes
+const MAX_ATTEMPTS = 10; // 10 confirm attempts per 5 min per IP
+
+const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfter?: number }> => {
+  const now = Math.floor(Date.now() / 1000);
+  const windowKey = `confirm-signup#${ip}#${Math.floor(now / RATE_LIMIT_WINDOW_S)}`;
+  const windowEnd = (Math.floor(now / RATE_LIMIT_WINDOW_S) + 1) * RATE_LIMIT_WINDOW_S;
+
+  try {
+    const result = await dynamoClient.send(new UpdateItemCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Key: { pk: { S: windowKey } },
+      UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :one, #ttl = :ttl',
+      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':zero': { N: '0' },
+        ':one': { N: '1' },
+        ':ttl': { N: String(windowEnd + 60) },
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
+
+    const count = parseInt(result.Attributes?.count?.N || '1', 10);
+    if (count > MAX_ATTEMPTS) {
+      return { allowed: false, retryAfter: windowEnd - now };
+    }
+    return { allowed: true };
+  } catch (error) {
+    log.error('Rate limit check failed', error);
+    return { allowed: true }; // Fail-open
+  }
+};
 
 // Validate required environment variables at module load
 if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
@@ -58,6 +94,27 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+
+  // Rate limit check
+  const clientIp = event.requestContext.identity?.sourceIp ||
+                   event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
+                   'unknown';
+  const rateLimit = await checkRateLimit(clientIp);
+  if (!rateLimit.allowed) {
+    return {
+      statusCode: 429,
+      headers: {
+        ...headers,
+        'Retry-After': rateLimit.retryAfter?.toString() || '300',
+      },
+      body: JSON.stringify({
+        success: false,
+        code: 'RATE_LIMITED',
+        message: 'Too many attempts. Please try again later.',
+        retryAfter: rateLimit.retryAfter,
+      }),
+    };
+  }
 
   try {
     if (!event.body) {

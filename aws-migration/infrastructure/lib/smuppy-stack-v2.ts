@@ -151,7 +151,7 @@ export class SmuppyStackV2 extends cdk.Stack {
     // Lambda Environment Variables
     // ========================================
     const lambdaEnvironment = {
-      NODE_ENV: isProduction ? 'production' : 'development',
+      NODE_ENV: isProduction ? 'production' : 'staging',
       DB_HOST: databaseStack.rdsProxy.endpoint,
       DB_PORT: '5432',
       DB_NAME: 'smuppy',

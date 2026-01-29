@@ -763,7 +763,7 @@ export class SmuppyStack extends cdk.Stack {
       // Connection pool configuration
       idleClientTimeout: cdk.Duration.minutes(30),
       maxConnectionsPercent: 90, // Use up to 90% of available connections
-      maxIdleConnectionsPercent: 50, // Keep 50% of connections idle for burst capacity
+      maxIdleConnectionsPercent: 10, // Keep 10% idle — reduces wasted connections for higher throughput
 
       // Require TLS for all connections
       requireTLS: true,

@@ -851,7 +851,7 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
   useFeedStore.getState().clearFeed();
 
   try {
-    await awsAPI.followUser(userIdToFollow);
+    const result = await awsAPI.followUser(userIdToFollow);
     return {
       data: {
         id: '',
@@ -860,6 +860,7 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
         created_at: new Date().toISOString(),
       },
       error: null,
+      requestCreated: result.type === 'request_created',
     };
   } catch (error: any) {
     return { data: null, error: error.message };

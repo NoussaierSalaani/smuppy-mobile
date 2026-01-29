@@ -117,8 +117,9 @@ export default function TipButton({
             onPress={handlePress}
             disabled={disabled || isProcessing}
             size="sm"
+            variant="outline"
             colorScheme="gold"
-            icon={<Ionicons name="gift" size={14} color="#000" />}
+            icon={<Ionicons name="gift" size={14} color="#FFA500" />}
             iconPosition="left"
           />
         )}

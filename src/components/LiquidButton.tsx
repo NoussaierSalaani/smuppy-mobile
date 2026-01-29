@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-type ColorScheme = 'green' | 'dark' | 'gold';
+type ColorScheme = 'green' | 'dark' | 'gold' | 'red' | 'blue';
 
 const COLOR_SCHEMES: Record<ColorScheme, {
   gradient: readonly [string, string, string];
@@ -45,6 +45,18 @@ const COLOR_SCHEMES: Record<ColorScheme, {
     shadow: '#FFA500',
     outlineBorder: '#FFA500',
     outlineText: '#FFA500',
+  },
+  red: {
+    gradient: ['#FF4757', '#E74C3C', '#C0392B'],
+    shadow: '#E74C3C',
+    outlineBorder: '#E74C3C',
+    outlineText: '#E74C3C',
+  },
+  blue: {
+    gradient: ['#3B82F6', '#2563EB', '#1D4ED8'],
+    shadow: '#2563EB',
+    outlineBorder: '#2563EB',
+    outlineText: '#2563EB',
   },
 };
 
@@ -84,6 +96,15 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   const colors = COLOR_SCHEMES[colorScheme];
   const labelColor = colorScheme === 'gold' ? '#000000' : '#FFFFFF';
 
+  // Tinted transparent background for outline
+  const outlineBgMap: Record<ColorScheme, string> = {
+    green: 'rgba(14, 191, 138, 0.08)',
+    dark: 'rgba(10, 10, 15, 0.05)',
+    gold: 'rgba(255, 165, 0, 0.08)',
+    red: 'rgba(231, 76, 60, 0.08)',
+    blue: 'rgba(37, 99, 235, 0.08)',
+  };
+
   if (variant === 'outline') {
     return (
       <TouchableOpacity
@@ -99,6 +120,7 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
             opacity: disabled ? 0.5 : 1,
             borderColor: colors.outlineBorder,
             shadowColor: colors.shadow,
+            backgroundColor: outlineBgMap[colorScheme],
           },
           style,
         ]}

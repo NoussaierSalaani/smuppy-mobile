@@ -41,6 +41,8 @@ export interface ProfileDataSource {
   fans?: number;
   post_count?: number;
   posts?: number;
+  peak_count?: number;
+  peaks?: number;
   stats?: { fans?: number; posts?: number; peaks?: number; following?: number };
 }
 
@@ -65,6 +67,7 @@ export interface UserProfile {
   stats: {
     fans: number;
     posts: number;
+    peaks: number;
     following?: number;
   };
 }
@@ -90,6 +93,7 @@ export const INITIAL_USER_PROFILE: UserProfile = {
   stats: {
     fans: 0,
     posts: 0,
+    peaks: 0,
   },
 };
 
@@ -151,6 +155,7 @@ export const resolveProfile = (
     stats: {
       fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? 0,
       posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? 0,
+      peaks: base.peak_count ?? base.peaks ?? fallback.stats?.peaks ?? 0,
     },
   };
 };

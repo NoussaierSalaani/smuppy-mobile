@@ -842,11 +842,10 @@ const UserProfileScreen = () => {
               label="Subscribe"
               onPress={() => setShowSubscribeModal(true)}
               size="sm"
-              variant="outline"
               style={{ flex: 1 }}
-              icon={<Ionicons name="star" size={14} color="#E74C3C" />}
+              icon={<Ionicons name="star" size={14} color="#FFFFFF" />}
               iconPosition="left"
-              colorScheme="red"
+              colorScheme="dark"
             />
 
             <LiquidButton
@@ -860,11 +859,10 @@ const UserProfileScreen = () => {
                 }
               })}
               size="sm"
-              variant="outline"
               style={{ flex: 1 }}
-              icon={<Ionicons name="videocam" size={14} color="#2563EB" />}
+              icon={<Ionicons name="videocam" size={14} color="#FFFFFF" />}
               iconPosition="left"
-              colorScheme="blue"
+              colorScheme="dark"
             />
 
             <TipButton

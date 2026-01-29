@@ -432,15 +432,6 @@ const UserProfileScreen = () => {
     }
   };
 
-  // ✅ CORRIGÉ - Gestion des commentaires avec bonne route
-  const _handleCommentPress = (postId: string) => {
-    if (!isFan && !isOwnProfile) {
-      setShowFanRequiredModal(true);
-    } else {
-      navigation.navigate('PostDetailFanFeed', { postId });
-    }
-  };
-  
   // Formater la date de déblocage
   const formatBlockDate = () => {
     if (!blockEndDate) return '';
@@ -453,7 +444,6 @@ const UserProfileScreen = () => {
     // Support both media_urls array and legacy media_url string
     const thumbnail = post.media_urls?.[0] || (post as any).media_url || null;
     const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
-    const _caption = post.content || (post as any).caption || '';
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
     const transformedPosts = allPosts.map(p => ({
@@ -483,7 +473,7 @@ const UserProfileScreen = () => {
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
-          <View style={[styles.postThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.postThumb, styles.postThumbEmpty]}>
             <Ionicons name="image-outline" size={28} color="#6E6E73" />
           </View>
         )}
@@ -636,7 +626,7 @@ const UserProfileScreen = () => {
               {peak.media_urls?.[0] ? (
                 <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
               ) : (
-                <View style={[styles.peakThumb, { backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' }]}>
+                <View style={[styles.peakThumb, styles.postThumbEmpty]}>
                   <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
                 </View>
               )}
@@ -842,10 +832,11 @@ const UserProfileScreen = () => {
               label="Subscribe"
               onPress={() => setShowSubscribeModal(true)}
               size="sm"
+              variant="outline"
               style={{ flex: 1 }}
               icon={<Ionicons name="star" size={14} color="#E74C3C" />}
               iconPosition="left"
-              colorScheme="dark"
+              colorScheme="green"
               textStyle={{ color: '#E74C3C' }}
             />
 
@@ -860,10 +851,11 @@ const UserProfileScreen = () => {
                 }
               })}
               size="sm"
+              variant="outline"
               style={{ flex: 1 }}
               icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
               iconPosition="left"
-              colorScheme="dark"
+              colorScheme="green"
               textStyle={{ color: '#3B82F6' }}
             />
 
@@ -923,8 +915,8 @@ const UserProfileScreen = () => {
             </View>
           )}
 
-          {/* Next Live Session Section */}
-          {!creatorLiveStatus.isLive && creatorLiveStatus.nextLiveDate && (
+          {/* Next Live Session Section - hidden once reminder is set */}
+          {!creatorLiveStatus.isLive && creatorLiveStatus.nextLiveDate && !creatorLiveStatus.hasReminder && (
             <View style={styles.nextLiveSection}>
               <View style={styles.nextLiveHeader}>
                 <View style={styles.nextLiveIconContainer}>
@@ -1679,6 +1671,11 @@ const styles = StyleSheet.create({
   postThumb: {
     width: '100%',
     height: '100%',
+  },
+  postThumbEmpty: {
+    backgroundColor: '#2C2C2E',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   postStatsOverlay: {
     position: 'absolute',

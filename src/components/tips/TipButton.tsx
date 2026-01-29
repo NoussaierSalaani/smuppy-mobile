@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { LiquidButton } from '../LiquidButton';
 import * as Haptics from 'expo-haptics';
 import TipModal from './TipModal';
 import { useTipPayment } from '../../hooks/useTipPayment';
@@ -106,28 +107,21 @@ export default function TipButton({
   if (variant === 'compact') {
     return (
       <>
-        <TouchableOpacity
-          style={[styles.compactButton, disabled && styles.buttonDisabled]}
-          onPress={handlePress}
-          disabled={disabled || isProcessing}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#FFD700', '#FFA500']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.compactGradient}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#000" size="small" />
-            ) : (
-              <>
-                <Ionicons name="gift" size={16} color="#000" />
-                <Text style={styles.compactText}>Tip</Text>
-              </>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+        {isProcessing ? (
+          <View style={[styles.compactLoading, disabled && styles.buttonDisabled]}>
+            <ActivityIndicator color="#FFA500" size="small" />
+          </View>
+        ) : (
+          <LiquidButton
+            label="Tip"
+            onPress={handlePress}
+            disabled={disabled || isProcessing}
+            size="sm"
+            colorScheme="gold"
+            icon={<Ionicons name="gift" size={14} color="#000" />}
+            iconPosition="left"
+          />
+        )}
 
         <TipModal
           visible={showModal}
@@ -224,6 +218,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#000',
+  },
+  compactLoading: {
+    height: 34,
+    paddingHorizontal: 18,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Default variant

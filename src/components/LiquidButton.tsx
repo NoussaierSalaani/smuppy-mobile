@@ -20,6 +20,34 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+type ColorScheme = 'green' | 'dark' | 'gold';
+
+const COLOR_SCHEMES: Record<ColorScheme, {
+  gradient: readonly [string, string, string];
+  shadow: string;
+  outlineBorder: string;
+  outlineText: string;
+}> = {
+  green: {
+    gradient: ['#10D99A', '#0EBF8A', '#00B5C1'],
+    shadow: '#0EBF8A',
+    outlineBorder: '#0EBF8A',
+    outlineText: '#0EBF8A',
+  },
+  dark: {
+    gradient: ['#1C1C1E', '#0A0A0F', '#1A1A2E'],
+    shadow: '#000000',
+    outlineBorder: '#0A0A0F',
+    outlineText: '#0A0A0F',
+  },
+  gold: {
+    gradient: ['#FFD700', '#FFA500', '#FF8C00'],
+    shadow: '#FFA500',
+    outlineBorder: '#FFA500',
+    outlineText: '#FFA500',
+  },
+};
+
 interface LiquidButtonProps {
   label: string;
   onPress: () => void;
@@ -30,6 +58,7 @@ interface LiquidButtonProps {
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
   variant?: 'filled' | 'outline';
+  colorScheme?: ColorScheme;
 }
 
 const SIZE_CONFIG = {
@@ -49,8 +78,11 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   icon,
   iconPosition = 'right',
   variant = 'filled',
+  colorScheme = 'green',
 }) => {
   const config = SIZE_CONFIG[size];
+  const colors = COLOR_SCHEMES[colorScheme];
+  const labelColor = colorScheme === 'gold' ? '#000000' : '#FFFFFF';
 
   if (variant === 'outline') {
     return (
@@ -65,12 +97,14 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
             paddingHorizontal: config.paddingH,
             borderRadius: config.radius,
             opacity: disabled ? 0.5 : 1,
+            borderColor: colors.outlineBorder,
+            shadowColor: colors.shadow,
           },
           style,
         ]}
       >
         {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-        <Text style={[styles.outlineText, { fontSize: config.fontSize }, textStyle]}>
+        <Text style={[styles.outlineText, { fontSize: config.fontSize, color: colors.outlineText }, textStyle]}>
           {label}
         </Text>
         {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
@@ -85,12 +119,12 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
       activeOpacity={0.8}
       style={[
         styles.container,
-        { borderRadius: config.radius, opacity: disabled ? 0.5 : 1 },
+        { borderRadius: config.radius, opacity: disabled ? 0.5 : 1, shadowColor: colors.shadow },
         style,
       ]}
     >
       <LinearGradient
-        colors={['#10D99A', '#0EBF8A', '#00B5C1']}
+        colors={colors.gradient as unknown as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -112,7 +146,7 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
         {/* Content */}
         <View style={styles.content}>
           {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-          <Text style={[styles.label, { fontSize: config.fontSize }, textStyle]}>
+          <Text style={[styles.label, { fontSize: config.fontSize, color: labelColor }, textStyle]}>
             {label}
           </Text>
           {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}

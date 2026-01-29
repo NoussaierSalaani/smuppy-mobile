@@ -845,6 +845,7 @@ const UserProfileScreen = () => {
               style={{ flex: 1 }}
               icon={<Ionicons name="star" size={14} color="#FFFFFF" />}
               iconPosition="left"
+              colorScheme="dark"
             />
 
             <LiquidButton
@@ -861,6 +862,7 @@ const UserProfileScreen = () => {
               style={{ flex: 1 }}
               icon={<Ionicons name="videocam" size={14} color="#FFFFFF" />}
               iconPosition="left"
+              colorScheme="dark"
             />
 
             <TipButton

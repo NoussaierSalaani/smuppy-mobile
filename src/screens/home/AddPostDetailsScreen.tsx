@@ -19,6 +19,8 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -929,7 +931,11 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // ============================================
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -950,7 +956,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Media Preview */}
         <View style={styles.mediaContainer}>
           <OptimizedImage
@@ -980,7 +986,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         {/* User Info + Description */}
         <View style={styles.userSection}>
           <AvatarImage
-            source={currentUser.avatar || 'https://i.pravatar.cc/100?img=33'}
+            source={currentUser.avatar || null}
             size={44}
           />
           <View style={styles.userDetails}>
@@ -1063,7 +1069,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       {renderVisibilityModal()}
       {renderLocationModal()}
       {renderTagModal()}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -12,6 +12,8 @@ import {
   StatusBar,
   Image,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,7 +107,7 @@ export default function GoLiveScreen(): React.JSX.Element {
         <StatusBar barStyle="light-content" />
         <View style={styles.cameraBackground}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }}
+            source={{ uri: undefined }}
             style={styles.cameraBackgroundImage}
             blurRadius={3}
           />
@@ -152,7 +154,7 @@ export default function GoLiveScreen(): React.JSX.Element {
       {/* Camera preview background */}
       <View style={styles.cameraBackground}>
         <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }}
+          source={{ uri: undefined }}
           style={styles.cameraBackgroundImage}
         />
         <View style={styles.cameraOverlay} />
@@ -246,7 +248,10 @@ export default function GoLiveScreen(): React.JSX.Element {
           activeOpacity={1}
           onPress={() => setShowTitleInput(false)}
         >
-          <View style={styles.titleInputSheet}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.titleInputSheet}
+          >
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Add a title</Text>
             <TextInput
@@ -269,7 +274,7 @@ export default function GoLiveScreen(): React.JSX.Element {
                 <Text style={styles.titleSaveText}>Save</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </TouchableOpacity>
       )}
     </View>

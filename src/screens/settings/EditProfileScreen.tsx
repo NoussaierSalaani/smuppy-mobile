@@ -7,6 +7,8 @@ import {
   TextInput,
   ScrollView,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -253,7 +255,11 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
@@ -408,7 +414,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
 
       {/* Alert Modal */}
       <SmuppyAlert {...alert.alertProps} />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

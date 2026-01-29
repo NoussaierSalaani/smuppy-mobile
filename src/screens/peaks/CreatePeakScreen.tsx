@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   StatusBar,
   Modal,
   Dimensions,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -77,13 +79,40 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const [permissionsReady, setPermissionsReady] = useState(false);
+  const [permissionsChecked, setPermissionsChecked] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
   const [selectedDuration, setSelectedDuration] = useState(10);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<RecordedVideo | null>(null);
   const [cameraKey, setCameraKey] = useState(1);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+
+  // Request both camera + microphone permissions for video mode
+  useEffect(() => {
+    const requestAllPermissions = async () => {
+      try {
+        // Request camera permission
+        const camResult = await requestCameraPermission();
+        const camGranted = camResult?.granted ?? false;
+
+        // Request microphone permission (required for mode="video")
+        const micResult = await Audio.requestPermissionsAsync();
+        const micGranted = micResult?.granted ?? false;
+        setMicPermissionGranted(micGranted);
+
+        setPermissionsReady(camGranted && micGranted);
+      } catch (error) {
+        console.error('Permission request error:', error);
+      } finally {
+        setPermissionsChecked(true);
+      }
+    };
+
+    requestAllPermissions();
+  }, []);
 
   // Custom alert state (for errors)
   const [showAlert, setShowAlert] = useState(false);
@@ -312,24 +341,41 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   );
 
   // Permissions loading
-  if (!permission) {
+  if (!permissionsChecked) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.permissionText}>Loading...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.permissionText, { marginTop: 16 }]}>Setting up camera...</Text>
       </View>
     );
   }
 
-  // Permissions denied
-  if (!permission.granted) {
+  // Permissions denied — show which is missing + open settings
+  if (!permissionsReady) {
+    const cameraDenied = !cameraPermission?.granted;
+    const micDenied = !micPermissionGranted;
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.permissionText}>Camera access required</Text>
+        <Ionicons name="camera-outline" size={48} color={COLORS.primary} style={{ marginBottom: 16 }} />
+        <Text style={styles.permissionTitle}>Permissions Required</Text>
+        <Text style={styles.permissionText}>
+          {cameraDenied && micDenied
+            ? 'Camera and microphone access are needed to record Peaks.'
+            : cameraDenied
+            ? 'Camera access is needed to record Peaks.'
+            : 'Microphone access is needed to record video with audio.'}
+        </Text>
         <TouchableOpacity
           style={styles.permissionButton}
-          onPress={requestPermission}
+          onPress={() => Linking.openSettings()}
         >
-          <Text style={styles.permissionButtonText}>Allow</Text>
+          <Text style={styles.permissionButtonText}>Open Settings</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.permissionSecondaryButton}
+          onPress={handleClose}
+        >
+          <Text style={styles.permissionSecondaryText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -341,13 +387,17 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
       {/* CAMERA VIEW (quand pas de vidéo enregistrée) */}
       {!recordedVideo && (
-        <CameraView
-          key={cameraKey}
-          ref={cameraRef}
-          style={styles.camera}
-          facing={facing}
-          mode="video"
-        >
+        <>
+          <CameraView
+            key={cameraKey}
+            ref={cameraRef}
+            style={styles.camera}
+            facing={facing}
+            mode="video"
+          />
+
+          {/* UI overlays rendered OUTSIDE CameraView for reliability */}
+
           {/* Header - Minimal */}
           <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
             <TouchableOpacity
@@ -506,7 +556,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               <Text style={styles.instructions}>Hold to record</Text>
             )}
           </View>
-        </CameraView>
+        </>
       )}
 
       {/* VIDEO PREVIEW (après enregistrement) */}
@@ -615,25 +665,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  permissionText: {
-    fontSize: 16,
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     color: COLORS.white,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
+  },
+  permissionText: {
+    fontSize: 15,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 32,
+    lineHeight: 22,
   },
   permissionButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 24,
+    marginBottom: 12,
   },
   permissionButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.dark,
   },
+  permissionSecondaryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  permissionSecondaryText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.gray,
+  },
   camera: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
 
   // Header

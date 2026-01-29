@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -552,6 +554,11 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
       {/* Activity Modal */}
       <Modal visible={showActivityModal} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
@@ -564,7 +571,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Activity Name *</Text>
                   <TextInput
@@ -664,10 +671,16 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
             </BlurView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Schedule Slot Modal */}
       <Modal visible={showScheduleModal} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
@@ -678,7 +691,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Activity *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -756,6 +769,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
             </BlurView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

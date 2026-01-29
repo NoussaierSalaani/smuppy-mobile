@@ -15,6 +15,8 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +34,7 @@ interface SessionRequest {
   id: string;
   fan: {
     name: string;
-    avatar: string;
+    avatar: string | null;
     memberSince: string; // e.g., "Jan 2024"
   };
   date: string;
@@ -141,7 +143,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
           id: session.id,
           fan: {
             name: session.fan?.name || 'Unknown',
-            avatar: session.fan?.avatar || 'https://i.pravatar.cc/100',
+            avatar: session.fan?.avatar || null,
             memberSince: 'Member',
           },
           date: new Date(session.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -726,6 +728,11 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
       {/* Add Session Modal */}
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowAddModal(false)}>
@@ -735,7 +742,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <View style={{ width: 24 }} />
           </View>
 
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Mode Toggle */}
             <View style={styles.modeToggle}>
               <TouchableOpacity
@@ -869,10 +876,16 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             </TouchableOpacity>
           </View>
         </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Add Pack Modal */}
       <Modal visible={showAddPackModal} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
@@ -882,7 +895,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <View style={{ width: 24 }} />
           </View>
 
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={styles.inputLabel}>Pack Name</Text>
             <TextInput
               style={styles.textInput}
@@ -987,6 +1000,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             </TouchableOpacity>
           </View>
         </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Date Slots Modal */}

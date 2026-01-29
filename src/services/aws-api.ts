@@ -47,7 +47,7 @@ class AWSAPIService {
       if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
       } else {
-        console.warn('[AWS API] No ID token available for authenticated request');
+        throw new APIError('Not authenticated', 401);
       }
     }
 

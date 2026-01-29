@@ -160,9 +160,8 @@ export default function NotificationsScreen(): React.JSX.Element {
 
       setCursor((response as any).cursor || null);
       setHasMore((response as any).hasMore || false);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      // Keep existing notifications on error
+    } catch (error: any) {
+      console.error('Error fetching notifications:', error?.message || error, 'status:', error?.statusCode);
     }
   }, [cursor]);
 
@@ -172,22 +171,14 @@ export default function NotificationsScreen(): React.JSX.Element {
     setFollowRequestsCount(count);
   }, []);
 
-  // Initial load
-  useEffect(() => {
-    const loadInitial = async () => {
-      setLoading(true);
-      await fetchNotifications(true);
-      setLoading(false);
-    };
-    loadInitial();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Reload when screen comes into focus
+  // Load on first focus + reload on subsequent focus
   useFocusEffect(
     useCallback(() => {
-      loadFollowRequestsCount();
-      fetchNotifications(true);
+      setLoading(true);
+      Promise.all([
+        loadFollowRequestsCount(),
+        fetchNotifications(true),
+      ]).finally(() => setLoading(false));
     }, [loadFollowRequestsCount, fetchNotifications])
   );
 

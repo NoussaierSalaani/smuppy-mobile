@@ -520,4 +520,60 @@ export const INTEREST_DATA: Record<string, { icon: string; color: string }> = {
   'golf': { icon: 'golf', color: '#228B22' },
   'cycling': { icon: 'bicycle', color: '#795548' },
   'mma': { icon: 'fitness', color: '#E64A19' },
+
+  // ── Personal Interests (additional categories from onboarding) ──
+  // Team Sports
+  'Rugby': { icon: 'american-football', color: '#8D6E63' },
+  'Hockey': { icon: 'disc', color: '#607D8B' },
+  'Handball': { icon: 'basketball', color: '#FF7043' },
+  'Cricket': { icon: 'baseball', color: '#8BC34A' },
+  'Baseball': { icon: 'baseball', color: '#D32F2F' },
+  'Softball': { icon: 'baseball', color: '#FF9800' },
+  'Lacrosse': { icon: 'disc', color: '#9C27B0' },
+  'Futsal': { icon: 'football', color: '#4CAF50' },
+  // Racket Sports
+  'Badminton': { icon: 'tennisball', color: '#4CAF50' },
+  'Squash': { icon: 'tennisball', color: '#2196F3' },
+  'Table Tennis': { icon: 'disc', color: '#FF5722' },
+  'Padel': { icon: 'tennisball', color: '#9C27B0' },
+  'Pickleball': { icon: 'tennisball', color: '#00BCD4' },
+  'Racquetball': { icon: 'tennisball', color: '#FF9800' },
+  // Dance (Contemporary already defined in expertise section)
+  'Salsa': { icon: 'musical-notes', color: '#E91E63' },
+  'Breakdance': { icon: 'flash', color: '#F44336' },
+  // Mind & Body (Relaxation already defined in expertise section)
+  'Stress Relief': { icon: 'heart', color: '#F44336' },
+  'Self-Care': { icon: 'sunny', color: '#FFC107' },
+  'Holistic Health': { icon: 'globe', color: '#00BCD4' },
+  // Extreme Sports
+  'BMX': { icon: 'bicycle', color: '#FF5722' },
+  'Skydiving': { icon: 'airplane', color: '#2196F3' },
+  'Bungee Jumping': { icon: 'arrow-down', color: '#E91E63' },
+  'Motocross': { icon: 'speedometer', color: '#F44336' },
+  'Paragliding': { icon: 'airplane', color: '#9C27B0' },
+  // Lifestyle
+  'Healthy Eating': { icon: 'restaurant', color: '#4CAF50' },
+  'Active Living': { icon: 'walk', color: '#2196F3' },
+  'Personal Growth': { icon: 'trending-up', color: '#9C27B0' },
+  // Winter Sports
+  'Alpine Skiing': { icon: 'snow', color: '#42A5F5' },
+  'Cross-Country Ski': { icon: 'walk', color: '#0288D1' },
+  'Ice Skating': { icon: 'snow', color: '#00BCD4' },
+  'Ice Hockey': { icon: 'disc', color: '#607D8B' },
+  'Curling': { icon: 'disc', color: '#795548' },
+  'Bobsled': { icon: 'speedometer', color: '#F44336' },
+  // Athletics
+  'Sprinting': { icon: 'flash', color: '#F44336' },
+  'Long Distance': { icon: 'walk', color: '#4CAF50' },
+  'Hurdles': { icon: 'trending-up', color: '#FF9800' },
+  'High Jump': { icon: 'arrow-up', color: '#2196F3' },
+  'Long Jump': { icon: 'arrow-forward', color: '#9C27B0' },
+  'Pole Vault': { icon: 'trending-up', color: '#795548' },
+  'Shot Put': { icon: 'disc', color: '#607D8B' },
+  'Javelin': { icon: 'arrow-forward', color: '#FF5722' },
+  // Equestrian
+  'Horse Riding': { icon: 'paw', color: '#8D6E63' },
+  'Dressage': { icon: 'ribbon', color: '#FFD700' },
+  'Show Jumping': { icon: 'trending-up', color: '#4CAF50' },
+  'Polo': { icon: 'disc', color: '#1976D2' },
 };

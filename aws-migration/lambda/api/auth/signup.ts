@@ -324,14 +324,20 @@ export const handler = async (
 
       if (userStatus.exists) {
         if (userStatus.confirmed) {
-          // User exists and is confirmed - cannot sign up again
-          log.info('User exists by username and is confirmed');
+          // Username taken by a CONFIRMED account with a different email
+          // Generate a unique username instead of blocking
+          log.info('Username taken by different email - generating unique username');
+          const uniqueSuffix = Date.now().toString(36).slice(-4);
+          const uniqueUsername = `${cognitoUsername}${uniqueSuffix}`;
+          const { userSub } = await createUser(uniqueUsername, normalizedEmail, password, fullName);
           return {
-            statusCode: 409,
+            statusCode: 200,
             headers,
             body: JSON.stringify({
-              success: false,
-              message: 'Unable to create account. Please try again or login.'
+              success: true,
+              userSub,
+              confirmationRequired: true,
+              message: 'Account created. Please check your email for verification code.',
             }),
           };
         } else {

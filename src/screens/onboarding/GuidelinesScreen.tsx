@@ -34,9 +34,6 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
   const setZustandUser = useUserStore((state) => state.setUser);
 
   const { currentStep, totalSteps } = useMemo(() => {
-    if (accountType === 'pro_creator') {
-      return { currentStep: 4, totalSteps: 4 };
-    }
     return { currentStep: 3, totalSteps: 3 };
   }, [accountType]);
 

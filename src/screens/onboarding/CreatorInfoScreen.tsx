@@ -91,7 +91,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    navigate('CreatorOptionalInfo', {
+    navigate('Expertise', {
       ...params,
       profileImage,
       displayName: displayName.trim(),
@@ -104,8 +104,8 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Pro Creator flow step 1/4 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
+        {/* Header with Progress Bar - Pro Creator flow step 1/3 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={3} />
 
         <View style={styles.content}>
           <View style={styles.header}>

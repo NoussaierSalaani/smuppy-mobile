@@ -655,7 +655,6 @@ export type MainStackParamList = {
   AccountType: { email: string; password: string; name?: string };
   TellUsAboutYou: { accountType: 'personal' | 'pro_creator' | 'pro_business'; [key: string]: unknown };
   CreatorInfo: { [key: string]: unknown };
-  CreatorOptionalInfo: { [key: string]: unknown };
   BusinessCategory: { [key: string]: unknown };
   BusinessInfo: { [key: string]: unknown };
   Interests: { [key: string]: unknown } | undefined;

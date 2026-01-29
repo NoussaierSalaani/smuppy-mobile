@@ -433,12 +433,13 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
 
   return (
     <SafeAreaView style={styles.container}>
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={3} totalSteps={4} />
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={3} />
 
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Your Expertise</Text>
         <Text style={styles.subtitle}>What do you specialize in?</Text>
+        <Text style={styles.infoText}>You can add your bio, website and social links later in Settings.</Text>
       </View>
 
       {/* Scrollable content */}
@@ -511,6 +512,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: SPACING.xl, marginBottom: SPACING.md },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, marginBottom: 4 },
   subtitle: { fontSize: 14, color: COLORS.grayMuted },
+  infoText: { fontSize: 13, color: COLORS.primary, marginTop: 8, fontWeight: '500' },
 
   // Scroll
   scrollView: { flex: 1 },

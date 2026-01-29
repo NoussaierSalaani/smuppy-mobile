@@ -87,13 +87,12 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
   }
 
   // Account type validation
-  // NOTE: Upgrade to pro_creator/pro_business is enforced server-side via
-  // Stripe webhook (checkout.session.completed). Direct API changes only allow
-  // downgrade to 'personal' or setting initial 'personal'/'xplorer' type.
+  // All types are allowed during initial profile creation (onboarding).
+  // Pro upgrades on existing accounts are enforced server-side via Stripe webhook.
   if (field === 'accountType') {
-    const validTypes = ['personal', 'xplorer'];
+    const validTypes = ['personal', 'pro_creator', 'pro_business'];
     if (!validTypes.includes(value as string)) {
-      return { valid: false, sanitized: null, error: `Cannot set account type to '${value}'. Pro upgrades require an active subscription.` };
+      return { valid: false, sanitized: null, error: `Invalid account type '${value}'.` };
     }
     return { valid: true, sanitized: value };
   }
@@ -205,10 +204,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       onboardingCompleted: 'onboarding_completed',
     };
 
+    // JSONB fields need JSON.stringify for pg driver
+    const jsonbFields = new Set(['social_links']);
+
     for (const [apiField, dbField] of Object.entries(fieldMapping)) {
       if (body[apiField] !== undefined) {
         updateFields.push(`${dbField} = $${paramIndex}`);
-        values.push(body[apiField]);
+        const val = jsonbFields.has(dbField) ? JSON.stringify(body[apiField]) : body[apiField];
+        values.push(val);
         paramIndex++;
       }
     }
@@ -242,7 +245,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       for (const [apiField, dbField] of Object.entries(fieldMapping)) {
         if (body[apiField] !== undefined) {
           insertFields.push(dbField);
-          insertValues.push(body[apiField]);
+          const val = jsonbFields.has(dbField) ? JSON.stringify(body[apiField]) : body[apiField];
+          insertValues.push(val);
           insertParams.push(`$${insertIndex}`);
           insertIndex++;
         }
@@ -313,7 +317,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    log.error('Error updating profile', error);
+    log.error('Error updating profile', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      stack: error.stack,
+    });
     return {
       statusCode: 500,
       headers,

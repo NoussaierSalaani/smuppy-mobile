@@ -100,13 +100,33 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       log.warn('Rejected stale webhook event', { eventId: stripeEvent.id, ageSeconds: eventAge });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'stale' }) };
     }
+    // In-memory dedup (fast path for same Lambda instance)
     if (processedEvents.has(stripeEvent.id)) {
       log.info('Duplicate event ignored', { eventId: stripeEvent.id });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
     }
     processedEvents.set(stripeEvent.id, Date.now());
 
+    // DB-backed dedup (cross-instance protection)
     const db = await getPool();
+    try {
+      await db.query(
+        `INSERT INTO processed_webhook_events (event_id, created_at) VALUES ($1, NOW())`,
+        [stripeEvent.id]
+      );
+    } catch (dedupErr: any) {
+      if (dedupErr.code === '23505') { // unique_violation
+        log.info('Duplicate event (DB)', { eventId: stripeEvent.id });
+        return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
+      }
+      // Table may not exist yet — log and continue (dedup is best-effort)
+      if (dedupErr.code === '42P01') {
+        log.warn('processed_webhook_events table not found, skipping DB dedup');
+      } else {
+        log.error('Webhook dedup insert failed', dedupErr);
+      }
+    }
+
     const client = await db.connect();
     try {
     await client.query('BEGIN');

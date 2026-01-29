@@ -264,9 +264,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // SECURITY: Check for existing active payment before creating a new one
+    const existingPayment = await db.query(
+      `SELECT stripe_payment_intent_id FROM payments
+       WHERE buyer_id = $1 AND ${sessionId ? 'session_id = $2' : 'pack_id = $2'}
+       AND status IN ('pending', 'processing')
+       AND created_at > NOW() - INTERVAL '1 hour'
+       LIMIT 1`,
+      [buyer.id, sessionId || packId]
+    );
+    if (existingPayment.rows.length > 0 && (sessionId || packId)) {
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({ message: 'A payment is already in progress for this item.' }),
+      };
+    }
+
     // SECURITY: Idempotency key prevents duplicate PaymentIntents from double-clicks
-    // Key is unique per buyer + type + target (session or pack)
-    const idempotencyKey = `pi_${buyer.id}_${type}_${sessionId || packId || 'direct'}_${verifiedAmount}`;
+    // Key excludes amount to prevent creating new intents on amount change
+    const idempotencyKey = `pi_${buyer.id}_${type}_${sessionId || packId || 'direct'}`;
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, {
       idempotencyKey,
     });

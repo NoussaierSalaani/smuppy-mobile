@@ -92,13 +92,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         };
       }
 
-      // SECURITY: Check conflicts with FOR UPDATE lock to prevent double-booking race condition
+      // SECURITY: Advisory lock on creator prevents concurrent inserts for the same creator
+      // FOR UPDATE alone doesn't help when no conflicting rows exist yet
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        [creatorId]
+      );
+
       const conflictResult = await client.query(
         `SELECT id FROM private_sessions
          WHERE creator_id = $1
          AND status IN ('pending', 'confirmed')
-         AND scheduled_at BETWEEN $2::timestamp - make_interval(mins => $3) AND $2::timestamp + make_interval(mins => $3)
-         FOR UPDATE`,
+         AND scheduled_at BETWEEN $2::timestamp - make_interval(mins => $3) AND $2::timestamp + make_interval(mins => $3)`,
         [creatorId, scheduledAt, safeDuration]
       );
 

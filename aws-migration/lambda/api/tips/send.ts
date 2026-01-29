@@ -33,6 +33,13 @@ interface SendTipRequest {
   isAnonymous?: boolean;
 }
 
+// SECURITY: Rate limit tips per user (max 10/min)
+const tipRateLimits = new Map<string, { count: number; resetAt: number }>();
+const TIP_RATE_LIMIT = 10;
+const TIP_RATE_WINDOW = 60_000;
+// Max single tip amount in cents (500 EUR)
+const MAX_TIP_AMOUNT = 50000;
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
@@ -48,6 +55,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    // Rate limit check
+    const now = Date.now();
+    const userLimit = tipRateLimits.get(userId);
+    if (userLimit && now < userLimit.resetAt) {
+      if (userLimit.count >= TIP_RATE_LIMIT) {
+        return cors({
+          statusCode: 429,
+          body: JSON.stringify({ success: false, message: 'Too many tips. Please wait.' }),
+        });
+      }
+      userLimit.count++;
+    } else {
+      tipRateLimits.set(userId, { count: 1, resetAt: now + TIP_RATE_WINDOW });
+    }
+
     const body: SendTipRequest = JSON.parse(event.body || '{}');
     const {
       receiverId,
@@ -60,12 +82,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } = body;
 
     // Validation
-    if (!receiverId || !amount || amount < 100) {
+    if (!receiverId || !amount || amount < 100 || amount > MAX_TIP_AMOUNT) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
           success: false,
-          message: 'Invalid tip amount. Minimum is 1.00',
+          message: `Invalid tip amount. Min 1.00, max ${MAX_TIP_AMOUNT / 100}.00`,
         }),
       });
     }
@@ -259,7 +281,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to process tip',
+        message: 'Failed to process tip',
       }),
     });
   } finally {

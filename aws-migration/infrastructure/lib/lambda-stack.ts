@@ -673,6 +673,26 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.paymentWebCheckoutFn);
 
+    // SECURITY: Apply DLQ and reserved concurrency to all payment lambdas
+    const paymentLambdas = [
+      this.paymentSubscriptionsFn,
+      this.paymentConnectFn,
+      this.paymentIdentityFn,
+      this.paymentPlatformSubFn,
+      this.paymentChannelSubFn,
+      this.paymentWalletFn,
+      this.paymentRefundsFn,
+      this.paymentMethodsFn,
+      this.paymentWebCheckoutFn,
+    ];
+    for (const fn of paymentLambdas) {
+      const cfnFn = fn.node.defaultChild as lambda.CfnFunction;
+      cfnFn.addPropertyOverride('DeadLetterConfig', {
+        TargetArn: criticalDlq.queueArn,
+      });
+      criticalDlq.grantSendMessages(fn);
+    }
+
     // ========================================
     // Admin Lambda Functions
     // ========================================

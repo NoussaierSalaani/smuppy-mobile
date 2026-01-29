@@ -13,7 +13,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 interface PurchaseBody {
   packId: string;
-  creatorId: string;
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -32,25 +31,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     const body: PurchaseBody = JSON.parse(event.body || '{}');
-    const { packId, creatorId } = body;
+    const { packId } = body;
 
-    if (!packId || !creatorId) {
+    if (!packId) {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Pack ID and creator ID required' }),
+        body: JSON.stringify({ success: false, message: 'Pack ID required' }),
       };
     }
 
     const pool = await getPool();
 
-    // Get pack details
+    // SECURITY: Derive creatorId from pack (never trust client-provided creatorId)
     const packResult = await pool.query(
-      `SELECT sp.*, p.stripe_account_id as creator_stripe_id, p.full_name as creator_name
+      `SELECT sp.*, p.id as creator_id, p.stripe_account_id as creator_stripe_id, p.full_name as creator_name
        FROM session_packs sp
        JOIN profiles p ON sp.creator_id = p.id
-       WHERE sp.id = $1 AND sp.creator_id = $2 AND sp.is_active = true`,
-      [packId, creatorId]
+       WHERE sp.id = $1 AND sp.is_active = true`,
+      [packId]
     );
 
     if (packResult.rows.length === 0) {
@@ -97,7 +96,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       metadata: {
         type: 'session_pack',
         packId,
-        creatorId,
+        creatorId: pack.creator_id,
         userId,
         packName: pack.name,
       },
@@ -118,7 +117,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     await pool.query(
       `INSERT INTO pending_pack_purchases (user_id, pack_id, creator_id, payment_intent_id, amount, status)
        VALUES ($1, $2, $3, $4, $5, 'pending')`,
-      [userId, packId, creatorId, paymentIntent.id, pack.price]
+      [userId, packId, pack.creator_id, paymentIntent.id, pack.price]
     );
 
     return {

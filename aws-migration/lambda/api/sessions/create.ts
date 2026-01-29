@@ -41,6 +41,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
+    // SECURITY: Validate duration is a safe integer (prevent SQL injection)
+    const safeDuration = Math.min(Math.max(Math.round(Number(duration)), 15), 480);
+    if (isNaN(safeDuration)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Invalid duration' }),
+      };
+    }
+
     const pool = await getPool();
 
     // Check if creator exists and accepts sessions
@@ -67,13 +77,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Check for scheduling conflicts
+    // Check for scheduling conflicts — use parameterized interval via make_interval()
     const conflictResult = await pool.query(
       `SELECT id FROM private_sessions
        WHERE creator_id = $1
        AND status IN ('pending', 'confirmed')
-       AND scheduled_at BETWEEN $2::timestamp - interval '${duration} minutes' AND $2::timestamp + interval '${duration} minutes'`,
-      [creatorId, scheduledAt]
+       AND scheduled_at BETWEEN $2::timestamp - make_interval(mins => $3) AND $2::timestamp + make_interval(mins => $3)`,
+      [creatorId, scheduledAt, safeDuration]
     );
 
     if (conflictResult.rows.length > 0) {

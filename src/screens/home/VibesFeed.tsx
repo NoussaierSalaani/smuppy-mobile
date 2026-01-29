@@ -913,60 +913,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         </View>
 
         {/* Filters with animated chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersContainer}
-          contentContainerStyle={styles.filtersContent}
-        >
-          {interests.map((interest) => (
-            <Animated.View
-              key={interest.id}
-              style={{ transform: [{ scale: getChipAnimation(interest.id) }] }}
-            >
-              {interest.active ? (
-                <TouchableOpacity
-                  onPress={() => toggleInterest(interest.id)}
-                  activeOpacity={0.7}
-                >
-                  <LinearGradient
-                    colors={GRADIENTS.button}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.filterChipGradientBorder}
-                  >
-                    <View style={styles.filterChipSelectedInner}>
-                      <Ionicons
-                        name={interest.icon}
-                        size={14}
-                        color={interest.color}
-                      />
-                      <Text style={styles.filterChipText}>{interest.name}</Text>
-                      <Ionicons name="close" size={12} color={COLORS.dark} style={{ marginLeft: 2 }} />
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.filterChip}
-                  onPress={() => toggleInterest(interest.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={interest.icon}
-                    size={14}
-                    color={interest.color}
-                  />
-                  <Text style={styles.filterChipText}>{interest.name}</Text>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-          ))}
-          {/* Add interests/expertise button - navigates based on account type */}
+        <View style={styles.filtersRow}>
+          {/* Fixed add button */}
           <TouchableOpacity
             style={styles.addInterestButton}
             onPress={() => {
-              // Personal → EditInterests, Pro creator & Business → EditExpertise
               const screen = accountType === 'personal' ? 'EditInterests' : 'EditExpertise';
               navigation.navigate(screen, { returnTo: 'VibesFeed' });
             }}
@@ -974,7 +925,57 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           >
             <Ionicons name="add" size={16} color={COLORS.primary} />
           </TouchableOpacity>
-        </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtersContainer}
+            contentContainerStyle={styles.filtersContent}
+          >
+            {interests.map((interest) => (
+              <Animated.View
+                key={interest.id}
+                style={{ transform: [{ scale: getChipAnimation(interest.id) }] }}
+              >
+                {interest.active ? (
+                  <TouchableOpacity
+                    onPress={() => toggleInterest(interest.id)}
+                    activeOpacity={0.7}
+                  >
+                    <LinearGradient
+                      colors={GRADIENTS.button}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.filterChipGradientBorder}
+                    >
+                      <View style={styles.filterChipSelectedInner}>
+                        <Ionicons
+                          name={interest.icon}
+                          size={14}
+                          color={interest.color}
+                        />
+                        <Text style={styles.filterChipText}>{interest.name}</Text>
+                        <Ionicons name="close" size={12} color={COLORS.dark} style={{ marginLeft: 2 }} />
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.filterChip}
+                    onPress={() => toggleInterest(interest.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={interest.icon}
+                      size={14}
+                      color={interest.color}
+                    />
+                    <Text style={styles.filterChipText}>{interest.name}</Text>
+                  </TouchableOpacity>
+                )}
+              </Animated.View>
+            ))}
+          </ScrollView>
+        </View>
 
         {/* Grid */}
         <View style={styles.gridContainer}>
@@ -1201,12 +1202,18 @@ const styles = StyleSheet.create({
   },
 
   // Filters
+  filtersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SECTION_GAP,
+    paddingLeft: SPACING.base,
+  },
   filtersContainer: {
     maxHeight: 36,
-    marginBottom: SECTION_GAP,
+    flex: 1,
   },
   filtersContent: {
-    paddingHorizontal: SPACING.base,
+    paddingRight: SPACING.base,
     alignItems: 'center',
   },
   filterChip: {
@@ -1251,7 +1258,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+    marginRight: 8,
   },
 
   // Grid

@@ -22,6 +22,7 @@ import { useProfile } from '../../hooks';
 import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LiquidTabs } from '../../components/LiquidTabs';
+import { LiquidButton } from '../../components/LiquidButton';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -829,23 +830,17 @@ const UserProfileScreen = () => {
         {/* Row 2: Monetization buttons (pro_creator only) */}
         {profile.accountType === 'pro_creator' && (
           <View style={styles.actionButtonsRow}>
-            <TouchableOpacity
-              style={styles.subscribeButton}
+            <LiquidButton
+              label="Subscribe"
               onPress={() => setShowSubscribeModal(true)}
-            >
-              <LinearGradient
-                colors={['#0EBF8A', '#01B6C5']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.subscribeButtonGradient}
-              >
-                <Ionicons name="star" size={16} color="#FFFFFF" />
-                <Text style={styles.subscribeButtonText}>Subscribe</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              size="sm"
+              style={{ flex: 1 }}
+              icon={<Ionicons name="star" size={14} color="#FFFFFF" />}
+              iconPosition="left"
+            />
 
-            <TouchableOpacity
-              style={styles.sessionButton}
+            <LiquidButton
+              label="Book 1:1"
               onPress={() => (navigation as any).navigate('BookSession', {
                 creator: {
                   id: profile.id,
@@ -854,17 +849,11 @@ const UserProfileScreen = () => {
                   specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
                 }
               })}
-            >
-              <LinearGradient
-                colors={['#0081BE', '#00B5C1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.sessionButtonGradient}
-              >
-                <Ionicons name="videocam" size={16} color="#FFFFFF" />
-                <Text style={styles.sessionButtonText}>Book 1:1</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              size="sm"
+              style={{ flex: 1 }}
+              icon={<Ionicons name="videocam" size={14} color="#FFFFFF" />}
+              iconPosition="left"
+            />
 
             <TipButton
               recipient={{

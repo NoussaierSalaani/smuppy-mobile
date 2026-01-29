@@ -44,6 +44,7 @@ interface ProfileApiData {
   bio?: string;
   fan_count?: number;
   post_count?: number;
+  peak_count?: number;
   is_verified?: boolean;
   is_bot?: boolean;
   is_team?: boolean;
@@ -129,6 +130,7 @@ const UserProfileScreen = () => {
       bio: data.bio || DEFAULT_PROFILE.bio,
       fanCount: data.fan_count ?? DEFAULT_PROFILE.fanCount,
       postCount: data.post_count ?? DEFAULT_PROFILE.postCount,
+      peakCount: data.peak_count ?? 0,
       isVerified: data.is_verified ?? DEFAULT_PROFILE.isVerified,
       isBot: data.is_bot ?? DEFAULT_PROFILE.isBot,
       isTeam: data.is_team ?? DEFAULT_PROFILE.isTeam,
@@ -726,8 +728,8 @@ const UserProfileScreen = () => {
             </View>
             <View style={styles.statGlassDivider} />
             <View style={styles.statGlassItem}>
-              <Text style={styles.statGlassValue}>{profile.postCount}</Text>
-              <Text style={styles.statGlassLabel}>Posts</Text>
+              <Text style={styles.statGlassValue}>{profile.peakCount}</Text>
+              <Text style={styles.statGlassLabel}>Peaks</Text>
             </View>
           </BlurView>
         </View>

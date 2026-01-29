@@ -41,6 +41,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
+    // Validate scheduledAt is a valid ISO 8601 date
+    const scheduledDate = new Date(scheduledAt);
+    if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Invalid or past scheduled date' }),
+      };
+    }
+
     // SECURITY: Validate duration is a safe integer (prevent SQL injection)
     const safeDuration = Math.min(Math.max(Math.round(Number(duration)), 15), 480);
     if (isNaN(safeDuration)) {

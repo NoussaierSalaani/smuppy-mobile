@@ -9,6 +9,8 @@ import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
 import ErrorModal from '../../components/ErrorModal';
 import { getCurrentProfile } from '../../services/database';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
+import { awsAPI } from '../../services/aws-api';
+import * as backend from '../../services/backend';
 import {
   isAppleSignInAvailable,
   signInWithApple,
@@ -182,9 +184,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
-      // Server-side validation (parallelized for speed)
-      const { awsAPI } = await import('../../services/aws-api');
-
       // Run email validation and user existence check in parallel
       const [validationResult, userCheckResult] = await Promise.allSettled([
         awsAPI.validateEmail(normalizedEmail),
@@ -226,12 +225,29 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       }
       // If user check fails, let user continue (will fail later if needed)
 
-      // Email validated and user doesn't exist - go to VerifyCode
-      // Account creation and verification code will be sent in VerifyCodeScreen
+      // Create account before navigating — sends OTP as a side effect
+      const signUpResult = await backend.signUp({
+        email: normalizedEmail,
+        password,
+        username: normalizedEmail.split('@')[0],
+        fullName: '',
+      });
+
+      if (!signUpResult.confirmationRequired && !signUpResult.user) {
+        setErrorModal({
+          visible: true,
+          title: 'Error',
+          message: 'Unable to create account. Please try again.',
+        });
+        return;
+      }
+
+      // Navigate with accountCreated flag so VerifyCode skips signUp
       navigation.navigate('VerifyCode', {
         email: normalizedEmail,
         password,
         rememberMe,
+        accountCreated: true,
       });
     } catch {
       setErrorModal({

@@ -280,24 +280,21 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Save "Remember Me" preference
-      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
-
-      await biometrics.resetAttempts();
+      // Parallelize post-login operations
+      const [, , profileResult] = await Promise.all([
+        storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false'),
+        biometrics.resetAttempts(),
+        getCurrentProfile(false).catch(() => ({ data: null })),
+      ]);
       setBiometricBlocked(false);
 
       // Check if user has a profile - if not, navigate to onboarding
       // (onAuthStateChange handles Main navigation for users WITH profiles)
-      try {
-        const { data: profile } = await getCurrentProfile(false);
-        if (!profile) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'AccountType' }],
-          });
-        }
-      } catch {
-        // If profile check fails, let onAuthStateChange handle it
+      if (!profileResult.data) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AccountType' }],
+        });
       }
     } catch (error: any) {
       const errorMessage = error?.message || '';

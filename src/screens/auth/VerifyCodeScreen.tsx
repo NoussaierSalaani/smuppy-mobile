@@ -30,6 +30,7 @@ interface VerifyCodeScreenProps {
       email?: string;
       password?: string;
       rememberMe?: boolean;
+      accountCreated?: boolean;
     };
   };
 }
@@ -39,7 +40,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [accountCreated, setAccountCreated] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(route?.params?.accountCreated ?? false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
   const inputs = useRef<(TextInput | null)[]>([]);
@@ -152,8 +153,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         return;
       }
 
-      // Persist session preference
-      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+      // Persist session preference (fire-and-forget)
+      storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
       // Navigate directly to onboarding (new user always needs profile)
       navigation.reset({

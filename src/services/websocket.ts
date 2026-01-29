@@ -84,8 +84,15 @@ class WebSocketService {
 
       this.socket.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data) as WebSocketMessage;
-          console.log('[WebSocket] Received message:', message.type);
+          const parsed = JSON.parse(event.data);
+          // Validate message has required shape before dispatching
+          const validTypes = ['message', 'typing', 'read', 'online', 'offline', 'error'];
+          if (!parsed || typeof parsed !== 'object' || !validTypes.includes(parsed.type)) {
+            console.warn('[WebSocket] Ignoring malformed message');
+            return;
+          }
+          const message = parsed as WebSocketMessage;
+          if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Received message:', message.type);
           this.notifyMessageHandlers(message);
         } catch (error) {
           console.error('[WebSocket] Failed to parse message:', error);

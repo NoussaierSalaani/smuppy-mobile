@@ -19,9 +19,9 @@ const VALIDATION_RULES: Record<string, { maxLength: number; pattern?: RegExp; re
   fullName: { maxLength: 100 },
   displayName: { maxLength: 50 },
   bio: { maxLength: 500 },
-  avatarUrl: { maxLength: 2048, pattern: /^https?:\/\/.+/ },
-  coverUrl: { maxLength: 2048, pattern: /^https?:\/\/.+/ },
-  website: { maxLength: 200, pattern: /^https?:\/\/.+/ },
+  avatarUrl: { maxLength: 500, pattern: /^https?:\/\/.+/ },
+  coverUrl: { maxLength: 500, pattern: /^https?:\/\/.+/ },
+  website: { maxLength: 255, pattern: /^https?:\/\/.+/ },
   gender: { maxLength: 20 },
   businessName: { maxLength: 100 },
   businessCategory: { maxLength: 50 },
@@ -320,10 +320,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     log.error('Error updating profile', {
       message: error.message,
       code: error.code,
-      detail: error.detail,
-      constraint: error.constraint,
-      stack: error.stack,
     });
+
+    // Handle unique constraint violations without leaking schema details
+    if (error.code === '23505') {
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({ message: 'This value is already taken.' }),
+      };
+    }
+
     return {
       statusCode: 500,
       headers,

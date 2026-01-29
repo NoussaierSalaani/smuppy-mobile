@@ -24,6 +24,7 @@ import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
 
 import { AccountBadge, PremiumBadge } from '../../components/Badge';
+import { FEATURES } from '../../config/featureFlags';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { unsavePost } from '../../services/database';
@@ -414,12 +415,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     ];
 
     if (isOwnProfile) {
-      tabs.push(
-        { key: 'sessions', label: 'Sessions', icon: 'calendar-outline' },
-        { key: 'lives', label: 'Lives', icon: 'radio-outline' },
-      );
+      if (FEATURES.PRIVATE_SESSIONS) tabs.push({ key: 'sessions', label: 'Sessions', icon: 'calendar-outline' });
+      if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
     } else {
-      tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+      if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
     }
 
     return tabs;

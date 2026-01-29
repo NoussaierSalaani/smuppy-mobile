@@ -29,6 +29,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import SubscribeChannelModal from '../../components/SubscribeChannelModal';
 import { TipButton } from '../../components/tips';
+import { FEATURES } from '../../config/featureFlags';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -797,55 +798,61 @@ const UserProfileScreen = () => {
         </View>
 
         {/* Row 2: Monetization buttons (pro_creator only) */}
-        {profile.accountType === 'pro_creator' && (
+        {profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
           <View style={styles.actionButtonsRow}>
-            <LiquidButton
-              label="Subscribe"
-              onPress={() => setShowSubscribeModal(true)}
-              size="sm"
-              variant="outline"
-              style={{ flex: 1 }}
-              icon={<Ionicons name="star" size={14} color="#E74C3C" />}
-              iconPosition="left"
-              colorScheme="green"
-              textStyle={{ color: '#E74C3C' }}
-            />
+            {FEATURES.CHANNEL_SUBSCRIBE && (
+              <LiquidButton
+                label="Subscribe"
+                onPress={() => setShowSubscribeModal(true)}
+                size="sm"
+                variant="outline"
+                style={{ flex: 1 }}
+                icon={<Ionicons name="star" size={14} color="#E74C3C" />}
+                iconPosition="left"
+                colorScheme="green"
+                textStyle={{ color: '#E74C3C' }}
+              />
+            )}
 
-            <LiquidButton
-              label="Book 1:1"
-              onPress={() => (navigation as any).navigate('BookSession', {
-                creator: {
+            {FEATURES.PRIVATE_SESSIONS && (
+              <LiquidButton
+                label="Book 1:1"
+                onPress={() => (navigation as any).navigate('BookSession', {
+                  creator: {
+                    id: profile.id,
+                    name: profile.displayName,
+                    avatar: profile.avatar || '',
+                    specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
+                  }
+                })}
+                size="sm"
+                variant="outline"
+                style={{ flex: 1 }}
+                icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
+                iconPosition="left"
+                colorScheme="green"
+                textStyle={{ color: '#3B82F6' }}
+              />
+            )}
+
+            {FEATURES.TIPPING && (
+              <TipButton
+                recipient={{
                   id: profile.id,
-                  name: profile.displayName,
-                  avatar: profile.avatar || '',
-                  specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
-                }
-              })}
-              size="sm"
-              variant="outline"
-              style={{ flex: 1 }}
-              icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
-              iconPosition="left"
-              colorScheme="green"
-              textStyle={{ color: '#3B82F6' }}
-            />
-
-            <TipButton
-              recipient={{
-                id: profile.id,
-                username: profile.username,
-                displayName: profile.displayName,
-                avatarUrl: profile.avatar || undefined,
-              }}
-              contextType="profile"
-              variant="compact"
-            />
+                  username: profile.username,
+                  displayName: profile.displayName,
+                  avatarUrl: profile.avatar || undefined,
+                }}
+                contextType="profile"
+                variant="compact"
+              />
+            )}
           </View>
         )}
       </View>
 
       {/* Pro Creator Live Section */}
-      {profile.accountType === 'pro_creator' && (
+      {FEATURES.VIEWER_LIVE_STREAM && profile.accountType === 'pro_creator' && (
         <>
           {/* LIVE NOW Section */}
           {creatorLiveStatus.isLive && (

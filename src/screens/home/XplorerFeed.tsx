@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { FEATURES } from '../../config/featureFlags';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUserStore } from '../../stores';
@@ -83,7 +84,7 @@ const VERIFIED_ACTIONS: FabAction[] = [
 // Pro Creator Premium: + Share Live on Map
 const CREATOR_PREMIUM_ACTIONS: FabAction[] = [
   ...VERIFIED_ACTIONS,
-  { label: 'Share Live', icon: 'videocam-outline', action: 'share_live' },
+  ...(FEATURES.GO_LIVE ? [{ label: 'Share Live', icon: 'videocam-outline' as const, action: 'share_live' }] : []),
 ];
 
 // Pro Business: Create Event, Create Group (locked to business location)

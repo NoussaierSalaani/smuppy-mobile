@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SmuppyPeaksIcon from './icons/SmuppyPeaksIcon';
+import { FEATURES } from '../config/featureFlags';
 
 const { height } = Dimensions.get('window');
 
@@ -258,7 +259,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
             </Animated.View>
 
             {/* Challenge Option */}
-            {onSelectChallenge && (
+            {FEATURES.CHALLENGES && onSelectChallenge && (
               <Animated.View style={{ transform: [{ translateY: postSlideAnim }] }}>
                 <TouchableOpacity
                   style={styles.option}

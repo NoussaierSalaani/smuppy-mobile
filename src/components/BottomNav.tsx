@@ -11,6 +11,7 @@ import {
   Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { FEATURES } from '../config/featureFlags';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -234,13 +235,12 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
   const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions') => {
     closeProMenu();
-    // Navigate based on option
-    if (option === 'live') {
+    // Navigate based on option — gated by feature flags
+    if (option === 'live' && FEATURES.GO_LIVE) {
       navigation.navigate('GoLive');
     } else if (option === 'peaks') {
       navigation.navigate('CreatePeak');
-    } else if (option === 'sessions') {
-      // Go to Private Sessions management screen
+    } else if (option === 'sessions' && FEATURES.PRIVATE_SESSIONS) {
       navigation.navigate('PrivateSessionsManage');
     } else {
       navigation.navigate('CreatePost');
@@ -404,6 +404,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
             >
               <BlurView intensity={90} tint="light" style={styles.menuBlur}>
                 {/* Live Option */}
+                {FEATURES.GO_LIVE && (
                 <TouchableOpacity
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('live')}
@@ -419,8 +420,10 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   </LinearGradient>
                   <Text style={styles.menuOptionText}>Live</Text>
                 </TouchableOpacity>
+                )}
 
                 {/* Sessions Option */}
+                {FEATURES.PRIVATE_SESSIONS && (
                 <TouchableOpacity
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('sessions')}
@@ -436,6 +439,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   </LinearGradient>
                   <Text style={styles.menuOptionText}>Sessions</Text>
                 </TouchableOpacity>
+                )}
 
                 {/* Peaks Option */}
                 <TouchableOpacity

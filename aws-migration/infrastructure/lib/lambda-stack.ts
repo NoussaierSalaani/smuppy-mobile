@@ -237,7 +237,7 @@ export class LambdaStack extends cdk.NestedStack {
         environment: lambdaEnvironment,
         bundling: {
           minify: true,
-          sourceMap: true,
+          sourceMap: !isProduction,
           externalModules: [],
         },
         reservedConcurrentExecutions: options?.reservedConcurrency,

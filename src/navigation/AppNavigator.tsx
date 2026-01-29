@@ -89,25 +89,37 @@ const linking = {
           PeakView: {
             path: 'peak/:peakId',
             parse: {
-              peakId: (peakId: string) => peakId,
+              peakId: (peakId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(peakId) ? peakId : '';
+              },
             },
           },
           EventDetail: {
             path: 'event/:eventId',
             parse: {
-              eventId: (eventId: string) => eventId,
+              eventId: (eventId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(eventId) ? eventId : '';
+              },
             },
           },
           ChallengeDetail: {
             path: 'challenge/:challengeId',
             parse: {
-              challengeId: (challengeId: string) => challengeId,
+              challengeId: (challengeId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(challengeId) ? challengeId : '';
+              },
             },
           },
           BusinessProfile: {
             path: 'business/:businessId',
             parse: {
-              businessId: (businessId: string) => businessId,
+              businessId: (businessId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(businessId) ? businessId : '';
+              },
             },
           },
         },

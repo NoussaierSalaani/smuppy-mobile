@@ -384,7 +384,7 @@ export const selectFeedCache = (state: FeedState) => state.feedCache;
 // RESET ALL STORES (for logout)
 // ============================================
 
-export const resetAllStores = () => {
+export const resetAllStores = async () => {
   // Reset Zustand stores
   useUserStore.getState().logout();
   useFeedStore.getState().clearFeed();
@@ -401,4 +401,14 @@ export const resetAllStores = () => {
   userSafetyStore.reset();
   filterStore.reset();
   tabBarStore.reset();
+
+  // Clear persisted AsyncStorage data to prevent cross-user data leaks
+  try {
+    await AsyncStorage.multiRemove([
+      '@smuppy_user_store',
+      '@smuppy_analytics_queue',
+    ]);
+  } catch {
+    // Best-effort cleanup
+  }
 };

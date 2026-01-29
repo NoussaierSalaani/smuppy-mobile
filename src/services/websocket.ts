@@ -46,12 +46,12 @@ class WebSocketService {
    */
   async connect(): Promise<void> {
     if (this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] Already connected');
+      if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Already connected');
       return;
     }
 
     if (this.isConnecting) {
-      console.log('[WebSocket] Connection already in progress');
+      if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connection already in progress');
       return;
     }
 
@@ -70,12 +70,12 @@ class WebSocketService {
       // instead of the main access token (reduces exposure window)
       const wsUrl = AWS_CONFIG.api.websocketEndpoint;
 
-      console.log('[WebSocket] Connecting to:', wsUrl);
+      if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connecting to:', wsUrl);
 
       this.socket = new WebSocket(wsUrl, ['access-token', token]);
 
       this.socket.onopen = () => {
-        console.log('[WebSocket] Connected successfully');
+        if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connected successfully');
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.notifyConnectionHandlers(true);
@@ -100,7 +100,7 @@ class WebSocketService {
       };
 
       this.socket.onclose = (event) => {
-        console.log('[WebSocket] Connection closed:', event.code, event.reason);
+        if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connection closed:', event.code, event.reason);
         this.isConnecting = false;
         this.stopPingInterval();
         this.notifyConnectionHandlers(false);
@@ -148,7 +148,7 @@ class WebSocketService {
     }
 
     const message = JSON.stringify(payload);
-    console.log('[WebSocket] Sending message to conversation:', payload.conversationId);
+    if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Sending message to conversation:', payload.conversationId);
     this.socket.send(message);
   }
 
@@ -253,7 +253,7 @@ class WebSocketService {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
-    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    if (process.env.NODE_ENV === 'development') console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(async () => {
       try {

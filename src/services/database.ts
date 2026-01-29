@@ -288,7 +288,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (updates.business_phone) updateData.businessPhone = updates.business_phone;
     if (updates.locations_mode) updateData.locationsMode = updates.locations_mode;
 
-    console.log('[Database] updateProfile data:', JSON.stringify(updateData));
+    if (process.env.NODE_ENV === 'development') console.log('[Database] updateProfile');
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
   } catch (error: any) {
@@ -1862,7 +1862,7 @@ export const subscribeToMessages = (
 ): (() => void) => {
   // Real-time subscriptions would need WebSocket implementation
   // For now, return a no-op unsubscribe function
-  console.log('[Database] subscribeToMessages called - WebSocket not implemented');
+  if (process.env.NODE_ENV === 'development') console.log('[Database] subscribeToMessages called - WebSocket not implemented');
   return () => {};
 };
 
@@ -1874,6 +1874,6 @@ export const subscribeToConversations = (
   _callback: (conversations: Conversation[]) => void
 ): (() => void) => {
   // Real-time subscriptions would need WebSocket implementation
-  console.log('[Database] subscribeToConversations called - WebSocket not implemented');
+  if (process.env.NODE_ENV === 'development') console.log('[Database] subscribeToConversations called - WebSocket not implemented');
   return () => {}
 };

@@ -12,6 +12,7 @@ import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
+import { resetAllStores } from '../stores';
 import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
 import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
@@ -237,6 +238,9 @@ export default function AppNavigator(): React.JSX.Element {
           resolvingRef.current = false;
         }
       } else {
+        // SECURITY: Reset all cached stores on logout to prevent data leaking
+        // between user sessions (User A's data visible to User B)
+        resetAllStores();
         setAppState('auth');
         setUserEmail('');
         lastHandledUrl.current = null;

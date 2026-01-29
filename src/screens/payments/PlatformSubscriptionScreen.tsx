@@ -43,6 +43,7 @@ interface SubscriptionPlan {
   features: PlanFeature[];
 }
 
+// Display-only prices — actual amounts are enforced server-side via Stripe price IDs
 const PLANS: SubscriptionPlan[] = [
   {
     id: 'pro_creator',

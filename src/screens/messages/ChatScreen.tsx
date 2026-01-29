@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
   Keyboard,
+  AppState,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -29,7 +30,6 @@ import {
   sendMessage as sendMessageToDb,
   uploadVoiceMessage,
   markConversationAsRead,
-  subscribeToMessages,
   getOrCreateConversation,
   getCurrentUserId,
   blockUser,
@@ -139,17 +139,41 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [conversationId, loadMessages]);
 
-  // Subscribe to new messages
+  // Poll for new messages every 3s when app is active
   useEffect(() => {
     if (!conversationId) return;
-    const unsubscribe = subscribeToMessages(conversationId, (newMessage) => {
-      setMessages(prev => [...prev, newMessage]);
-      if (newMessage.sender_id !== currentUserId) {
-        markConversationAsRead(conversationId);
+    const POLL_INTERVAL_MS = 3000;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      intervalId = setInterval(() => {
+        loadMessages();
+      }, POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    startPolling();
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        loadMessages();
+        startPolling();
+      } else {
+        stopPolling();
       }
     });
-    return unsubscribe;
-  }, [conversationId, currentUserId]);
+
+    return () => {
+      stopPolling();
+      subscription.remove();
+    };
+  }, [conversationId, loadMessages]);
 
   const goToUserProfile = useCallback((profileUserId: string) => {
     navigation.navigate('UserProfile', { userId: profileUserId });
@@ -174,14 +198,31 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setInputText('');
     setSending(true);
 
+    // Optimistic: add message locally immediately
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      sender_id: currentUserId || '',
+      content: messageText,
+      created_at: new Date().toISOString(),
+      is_deleted: false,
+      media_url: undefined,
+      media_type: undefined,
+      shared_post_id: undefined,
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+
     const { error } = await sendMessageToDb(conversationId, messageText);
 
     if (error) {
-      Alert.alert('Error', `Failed to send message: ${error}`);
+      // Remove optimistic message and restore input
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      Alert.alert('Error', 'Failed to send message. Please try again.');
       setInputText(messageText);
     }
     setSending(false);
-  }, [conversationId, inputText, sending]);
+  }, [conversationId, inputText, sending, currentUserId]);
 
   // Handle voice message send
   const handleVoiceSend = useCallback(async (uri: string, duration: number) => {
@@ -337,7 +378,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 accountType={otherUserProfile?.account_type}
               />
             </View>
-            <Text style={styles.headerStatus}>Online</Text>
+            {otherUserProfile?.username && (
+              <Text style={styles.headerStatus}>@{otherUserProfile.username}</Text>
+            )}
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerIcon} onPress={() => setChatMenuVisible(true)}>
@@ -475,16 +518,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             >
               <Ionicons name="person-outline" size={22} color={COLORS.dark} />
               <Text style={styles.menuItemText}>View Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setChatMenuVisible(false);
-                Alert.alert('Mute', 'Notifications for this conversation are now muted.');
-              }}
-            >
-              <Ionicons name="notifications-off-outline" size={22} color={COLORS.dark} />
-              <Text style={styles.menuItemText}>Mute Notifications</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}

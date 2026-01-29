@@ -7,6 +7,7 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
@@ -17,7 +18,6 @@ import { AccountBadge } from '../../components/Badge';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import {
   getConversations,
-  subscribeToConversations,
   Conversation,
 } from '../../services/database';
 
@@ -51,12 +51,39 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     loadConversations();
   }, [loadConversations]);
 
-  // Subscribe to real-time updates
+  // Poll for conversation updates every 5s when app is active
   useEffect(() => {
-    const unsubscribe = subscribeToConversations(() => {
-      loadConversations();
+    const POLL_INTERVAL_MS = 5000;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      intervalId = setInterval(() => {
+        loadConversations();
+      }, POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    startPolling();
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        loadConversations();
+        startPolling();
+      } else {
+        stopPolling();
+      }
     });
-    return unsubscribe;
+
+    return () => {
+      stopPolling();
+      subscription.remove();
+    };
   }, [loadConversations]);
 
   // Pull to refresh

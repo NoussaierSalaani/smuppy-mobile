@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { websocketService, WebSocketMessage, SendMessagePayload } from '../services/websocket';
+import { awsAuth } from '../services/aws-auth';
 
 interface UseWebSocketOptions {
   autoConnect?: boolean;
@@ -99,15 +100,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   useEffect(() => {
     if (!reconnectOnForeground) return;
 
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
-        // App has come to the foreground
+        // App has come to the foreground — only reconnect if still authenticated
         if (!websocketService.isConnected()) {
-          console.log('[useWebSocket] App foregrounded, reconnecting...');
-          connect();
+          const user = await awsAuth.getCurrentUser();
+          if (user) {
+            console.log('[useWebSocket] App foregrounded, reconnecting...');
+            connect();
+          }
         }
       }
       appStateRef.current = nextAppState;

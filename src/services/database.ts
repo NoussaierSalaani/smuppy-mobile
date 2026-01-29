@@ -5,6 +5,7 @@
 
 import { awsAuth } from './aws-auth';
 import { awsAPI, Profile as AWSProfile, Post as AWSPost } from './aws-api';
+import { useFeedStore } from '../stores';
 import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
@@ -838,6 +839,8 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
   if (!user) return { data: null, error: 'Not authenticated' };
 
   clearFollowCache();
+  // Invalidate feed cache so new follow's posts appear on next load
+  useFeedStore.getState().clearFeed();
 
   try {
     await awsAPI.followUser(userIdToFollow);
@@ -863,6 +866,8 @@ export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: s
   if (!user) return { error: 'Not authenticated' };
 
   clearFollowCache();
+  // Invalidate feed cache so unfollowed user's posts are removed on next load
+  useFeedStore.getState().clearFeed();
 
   try {
     await awsAPI.unfollowUser(userIdToUnfollow);

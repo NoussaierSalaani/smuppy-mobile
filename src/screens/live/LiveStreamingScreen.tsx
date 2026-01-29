@@ -181,7 +181,13 @@ export default function LiveStreamingScreen(): React.JSX.Element {
           { opacity: fadeAnims[item.id] },
         ]}
       >
-        <Image source={{ uri: item.avatar }} style={styles.commentAvatar} />
+        {item.avatar ? (
+          <Image source={{ uri: item.avatar }} style={styles.commentAvatar} />
+        ) : (
+          <View style={[styles.commentAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#374151' }]}>
+            <Ionicons name="person" size={14} color="#9CA3AF" />
+          </View>
+        )}
         <View style={styles.commentContent}>
           <Text style={styles.commentUser}>{item.user}</Text>
           <Text style={styles.commentMessage}>{item.message}</Text>
@@ -210,10 +216,16 @@ export default function LiveStreamingScreen(): React.JSX.Element {
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
         <View style={styles.creatorInfo}>
-          <Image
-            source={{ uri: hostAvatar }}
-            style={styles.creatorAvatar}
-          />
+          {hostAvatar ? (
+            <Image
+              source={{ uri: hostAvatar }}
+              style={styles.creatorAvatar}
+            />
+          ) : (
+            <View style={[styles.creatorAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#374151' }]}>
+              <Ionicons name="person" size={18} color="#9CA3AF" />
+            </View>
+          )}
           <View>
             <Text style={styles.creatorName}>{hostName}</Text>
             <Text style={styles.viewerCount}>{viewerCount} {viewerCount === 1 ? 'Viewer' : 'Viewers'}</Text>

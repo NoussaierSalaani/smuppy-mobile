@@ -82,6 +82,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       // Create profile with retries
       let profileCreated = false;
       let retryCount = 0;
+      let lastError = '';
       const maxRetries = 2;
 
       while (!profileCreated && retryCount < maxRetries) {
@@ -89,6 +90,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           const { error: profileError } = await createProfile(profileData);
           if (profileError) {
             console.error('[Guidelines] Profile creation error:', profileError);
+            lastError = profileError;
             retryCount++;
             if (retryCount < maxRetries) {
               await new Promise(resolve => setTimeout(resolve, 1000));
@@ -96,8 +98,9 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           } else {
             profileCreated = true;
           }
-        } catch (retryErr) {
+        } catch (retryErr: any) {
           console.error('[Guidelines] Profile creation exception:', retryErr);
+          lastError = retryErr?.message || String(retryErr);
           retryCount++;
           if (retryCount < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -106,7 +109,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       }
 
       if (!profileCreated) {
-        setError('Failed to create profile. Please try again.');
+        setError(lastError || 'Failed to create profile. Please try again.');
         setIsCreating(false);
         return;
       }

@@ -332,10 +332,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (error: any) {
-    log.error('Error updating profile', {
-      message: error.message,
-      code: error.code,
-    });
+    log.error('Error updating profile', error);
 
     // Handle unique constraint violations without leaking schema details
     if (error.code === '23505') {

@@ -100,6 +100,15 @@ function formatError(error: unknown): LogEntry['error'] | undefined {
     };
   }
 
+  if (typeof error === 'object' && error !== null) {
+    const err = error as Record<string, unknown>;
+    return {
+      name: String(err.name || 'UnknownError'),
+      message: String(err.message || JSON.stringify(error)),
+      stack: isProduction ? undefined : String(err.stack || ''),
+    };
+  }
+
   return {
     name: 'UnknownError',
     message: String(error),

@@ -161,6 +161,7 @@ export class SmuppyStackV2 extends cdk.Stack {
       USER_POOL_ID: authStack.userPool.userPoolId,
       USER_POOL_CLIENT_ID: authStack.userPoolClient.userPoolClientId,
       STRIPE_SECRET_ARN: stripeSecret.secretArn,
+      RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       // Note: AWS_REGION is automatically set by Lambda runtime
     };
 

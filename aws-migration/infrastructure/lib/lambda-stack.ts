@@ -254,6 +254,12 @@ export class LambdaStack extends cdk.NestedStack {
         props.redisAuthSecret.grantRead(fn);
       }
 
+      // Grant DynamoDB rate limit table access
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['dynamodb:UpdateItem'],
+        resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+      }));
+
       // Grant RDS Proxy IAM authentication permissions
       // This allows Lambda to connect to RDS Proxy using IAM auth instead of username/password
       if (props.rdsProxyArn) {

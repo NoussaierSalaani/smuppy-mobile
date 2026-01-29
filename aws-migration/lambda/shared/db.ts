@@ -13,7 +13,6 @@ import { Pool, PoolConfig } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Signer } from '@aws-sdk/rds-signer';
 import { createLogger } from '../api/utils/logger';
-import { RDS_CA_BUNDLE } from './rds-ca-bundle';
 
 const log = createLogger('db');
 
@@ -127,11 +126,10 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     database,
     user: credentials.username,
     password,
-    // Secure SSL configuration for AWS Aurora PostgreSQL
-    // RDS CA bundle is embedded at build time via rds-ca-bundle.ts
+    // SSL configuration for AWS Aurora PostgreSQL
+    // TODO: re-enable rejectUnauthorized once RDS Proxy CA is verified
     ssl: {
-      rejectUnauthorized: true,
-      ca: RDS_CA_BUNDLE,
+      rejectUnauthorized: false,
     },
     // Connection pool settings optimized for Lambda with RDS Proxy
     // RDS Proxy handles connection pooling, so Lambda can use fewer connections
@@ -139,9 +137,8 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     min: 0, // Allow pool to shrink to 0 when idle
     idleTimeoutMillis: 10000, // 10 seconds - release idle connections faster
     connectionTimeoutMillis: 10000, // 10 seconds - reduced for Lambda cold starts
-    // Query timeout: abort queries running longer than 30 seconds
-    // Prevents a slow query from blocking the entire connection pool
-    statement_timeout: 30000,
+    // Note: statement_timeout is not supported by RDS Proxy
+    // Query timeout is enforced by Lambda function timeout instead
   };
 
   const pool = new Pool(poolConfig);

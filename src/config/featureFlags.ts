@@ -1,11 +1,17 @@
+declare const __DEV__: boolean;
+
 /**
  * Feature Flags — Toggle features on/off before production launch.
  *
  * Set a flag to `false` to hide the feature from the UI entirely.
  * The code stays in place, only entry points are gated.
+ *
+ * In __DEV__ (Expo Go / dev builds), ALL features are enabled for testing.
+ * In production builds, only flags set to `true` below are enabled.
  */
 
-export const FEATURES = {
+/** Production flags — only these matter in release builds */
+const PROD_FEATURES = {
   // ─── Content Creation ────────────────────────────
   CREATE_POST: true,
   CREATE_PEAK: true,
@@ -49,7 +55,12 @@ export const FEATURES = {
   PLATFORM_SUBSCRIPTION: false,
 } as const;
 
-export type FeatureKey = keyof typeof FEATURES;
+export type FeatureKey = keyof typeof PROD_FEATURES;
+
+/** In dev/staging all features are enabled; in prod use the flags above */
+export const FEATURES: Record<FeatureKey, boolean> = __DEV__
+  ? (Object.fromEntries(Object.keys(PROD_FEATURES).map(k => [k, true])) as Record<FeatureKey, boolean>)
+  : { ...PROD_FEATURES };
 
 /** Check if a feature is enabled */
 export const isFeatureEnabled = (key: FeatureKey): boolean => FEATURES[key];

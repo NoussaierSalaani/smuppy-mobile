@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('follows-delete');
 
@@ -21,6 +22,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    const rateLimit = await checkRateLimit({
+      prefix: 'follow-delete',
+      identifier: cognitoSub,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 
@@ -52,43 +67,54 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const followerId = followerResult.rows[0].id;
 
-    // Check if follow relationship exists
-    const existingResult = await db.query(
-      `SELECT id, status FROM follows WHERE follower_id = $1 AND following_id = $2`,
-      [followerId, followingId]
-    );
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
 
-    if (existingResult.rows.length === 0) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Not following this user',
-        }),
-      };
-    }
+      // Check if follow relationship exists
+      const existingResult = await client.query(
+        `SELECT id, status FROM follows WHERE follower_id = $1 AND following_id = $2 FOR UPDATE`,
+        [followerId, followingId]
+      );
 
-    const existingFollow = existingResult.rows[0];
+      if (existingResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: 'Not following this user',
+          }),
+        };
+      }
 
-    // Delete follow record
-    await db.query(
-      `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
-      [followerId, followingId]
-    );
+      const existingFollow = existingResult.rows[0];
 
-    // Update follower counts only if was accepted
-    if (existingFollow.status === 'accepted') {
-      await Promise.all([
-        db.query(
+      // Delete follow record
+      await client.query(
+        `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
+        [followerId, followingId]
+      );
+
+      // Update follower counts only if was accepted
+      if (existingFollow.status === 'accepted') {
+        await client.query(
           `UPDATE profiles SET fan_count = GREATEST(COALESCE(fan_count, 0) - 1, 0) WHERE id = $1`,
           [followingId]
-        ),
-        db.query(
+        );
+        await client.query(
           `UPDATE profiles SET following_count = GREATEST(COALESCE(following_count, 0) - 1, 0) WHERE id = $1`,
           [followerId]
-        ),
-      ]);
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
     }
 
     return {

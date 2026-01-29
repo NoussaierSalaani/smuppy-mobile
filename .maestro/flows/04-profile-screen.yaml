@@ -7,6 +7,11 @@ tags:
 
 - launchApp
 
+# Handle Expo Dev Launcher
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
 # Wait for app to load
 - extendedWaitUntil:
     visible: "Fan"

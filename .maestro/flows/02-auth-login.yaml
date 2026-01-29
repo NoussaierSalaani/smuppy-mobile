@@ -9,6 +9,11 @@ tags:
 - launchApp:
     clearState: true
 
+# Handle Expo Dev Launcher
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
 # Wait for welcome screen
 - extendedWaitUntil:
     visible:

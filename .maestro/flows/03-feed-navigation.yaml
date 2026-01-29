@@ -9,6 +9,11 @@ tags:
 # Launch app (assumes already logged in)
 - launchApp
 
+# Handle Expo Dev Launcher
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
 # Wait for feed to load
 - extendedWaitUntil:
     visible: "Fan"

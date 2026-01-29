@@ -320,7 +320,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <View style={styles.statsGlass}>
           <BlurView intensity={80} tint="light" style={styles.statsBlurContainer}>
             <TouchableOpacity style={styles.statGlassItem} onPress={handleFansPress}>
-              <Text style={styles.statGlassValue}>{user.stats.fans || 128}</Text>
+              <Text style={styles.statGlassValue}>{user.stats.fans}</Text>
               <Text style={styles.statGlassLabel}>Fans</Text>
             </TouchableOpacity>
             <View style={styles.statGlassDivider} />

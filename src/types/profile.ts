@@ -39,6 +39,8 @@ export interface ProfileDataSource {
   isPremium?: boolean;
   fan_count?: number;
   fans?: number;
+  following_count?: number;
+  following?: number;
   post_count?: number;
   posts?: number;
   peak_count?: number;
@@ -156,6 +158,7 @@ export const resolveProfile = (
       fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? 0,
       posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? 0,
       peaks: base.peak_count ?? base.peaks ?? fallback.stats?.peaks ?? 0,
+      following: base.following_count ?? base.following ?? fallback.stats?.following ?? 0,
     },
   };
 };

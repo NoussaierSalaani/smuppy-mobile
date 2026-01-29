@@ -52,6 +52,7 @@ export interface Profile {
   updated_at?: string;
   // Stats
   fan_count?: number;
+  following_count?: number;
   post_count?: number;
   // Bot/Team flags
   is_bot?: boolean;
@@ -175,6 +176,7 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     business_phone: p.businessPhone,
     locations_mode: p.locationsMode,
     fan_count: p.followersCount,
+    following_count: p.followingCount,
     post_count: p.postsCount,
   };
 };

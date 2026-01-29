@@ -99,10 +99,14 @@ export class NetworkStack extends cdk.NestedStack {
     this.lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSG', {
       vpc: this.vpc,
       description: 'Security group for Lambda functions',
-      // TODO: Restrict outbound to specific CIDR ranges (RDS, Secrets Manager, S3, Stripe API)
-      // For now, allowAllOutbound is needed for Stripe API calls and other integrations
-      allowAllOutbound: true,
+      allowAllOutbound: false,
     });
+    // Allow HTTPS outbound only (Stripe, Google, AWS services, etc.)
+    this.lambdaSecurityGroup.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS outbound');
+    // Allow PostgreSQL to RDS via private subnets
+    this.lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(this.vpc.vpcCidrBlock), ec2.Port.tcp(5432), 'RDS PostgreSQL');
+    // Allow Redis to ElastiCache via private subnets
+    this.lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(this.vpc.vpcCidrBlock), ec2.Port.tcp(6379), 'ElastiCache Redis');
 
     this.rdsSecurityGroup = new ec2.SecurityGroup(this, 'RDSSG', {
       vpc: this.vpc,

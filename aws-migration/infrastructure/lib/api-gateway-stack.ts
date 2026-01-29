@@ -73,7 +73,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
       restApi: this.api,
       requestValidatorName: `smuppy-body-validator-${environment}`,
       validateRequestBody: true,
-      validateRequestParameters: false,
+      validateRequestParameters: true,
     });
 
     // Create all API routes

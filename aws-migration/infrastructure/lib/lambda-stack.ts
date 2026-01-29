@@ -940,7 +940,7 @@ export class LambdaStack extends cdk.NestedStack {
     });
     this.validateEmailFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
-      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     this.confirmSignupFn = new NodejsFunction(this, 'ConfirmSignupFunction', {
@@ -968,7 +968,7 @@ export class LambdaStack extends cdk.NestedStack {
     userPool.grant(this.confirmSignupFn, 'cognito-idp:ListUsers');
     this.confirmSignupFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
-      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     this.resendCodeFn = new NodejsFunction(this, 'ResendCodeFunction', {
@@ -996,7 +996,7 @@ export class LambdaStack extends cdk.NestedStack {
     userPool.grant(this.resendCodeFn, 'cognito-idp:ListUsers');
     this.resendCodeFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
-      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     this.forgotPasswordFn = new NodejsFunction(this, 'ForgotPasswordFunction', {
@@ -1024,7 +1024,7 @@ export class LambdaStack extends cdk.NestedStack {
     userPool.grant(this.forgotPasswordFn, 'cognito-idp:ListUsers');
     this.forgotPasswordFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
-      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     this.confirmForgotPasswordFn = new NodejsFunction(this, 'ConfirmForgotPasswordFunction', {
@@ -1073,7 +1073,7 @@ export class LambdaStack extends cdk.NestedStack {
     userPool.grant(this.checkUserFn, 'cognito-idp:AdminGetUser', 'cognito-idp:ListUsers');
     this.checkUserFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
-      resources: [`arn:aws:dynamodb:*:*:table/smuppy-rate-limit-${environment}`],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     // ========================================

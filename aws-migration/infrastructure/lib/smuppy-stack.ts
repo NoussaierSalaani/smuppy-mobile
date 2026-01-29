@@ -540,8 +540,11 @@ export class SmuppyStack extends cdk.Stack {
     const lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSecurityGroup', {
       vpc,
       description: 'Security group for Lambda functions',
-      allowAllOutbound: true,
+      allowAllOutbound: false,
     });
+    lambdaSecurityGroup.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS outbound');
+    lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(vpc.vpcCidrBlock), ec2.Port.tcp(5432), 'RDS PostgreSQL');
+    lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(vpc.vpcCidrBlock), ec2.Port.tcp(6379), 'ElastiCache Redis');
 
     // DB accepts connections from RDS Proxy and Lambda (for direct access if needed)
     dbSecurityGroup.addIngressRule(

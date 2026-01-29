@@ -235,7 +235,7 @@ class AWSAPIService {
   // Follows API
   // ==========================================
 
-  async followUser(userId: string): Promise<void> {
+  async followUser(userId: string): Promise<{ success: boolean; type: string; message: string }> {
     return this.request('/follows', {
       method: 'POST',
       body: { followingId: userId },

@@ -264,7 +264,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+    // SECURITY: Idempotency key prevents duplicate PaymentIntents from double-clicks
+    // Key is unique per buyer + type + target (session or pack)
+    const idempotencyKey = `pi_${buyer.id}_${type}_${sessionId || packId || 'direct'}_${verifiedAmount}`;
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, {
+      idempotencyKey,
+    });
 
     log.info('Payment intent created', {
       paymentIntentId: paymentIntent.id,

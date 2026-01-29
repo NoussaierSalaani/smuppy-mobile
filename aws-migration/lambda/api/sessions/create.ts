@@ -61,135 +61,154 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const pool = await getPool();
+    const client = await pool.connect();
 
-    // Check if creator exists and accepts sessions
-    const creatorResult = await pool.query(
-      `SELECT id, full_name, username, sessions_enabled, session_price, session_duration
-       FROM profiles WHERE id = $1`,
-      [creatorId]
-    );
+    try {
+      await client.query('BEGIN');
 
-    if (creatorResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Creator not found' }),
-      };
-    }
-
-    const creator = creatorResult.rows[0];
-    if (!creator.sessions_enabled) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Creator does not accept sessions' }),
-      };
-    }
-
-    // Check for scheduling conflicts — use parameterized interval via make_interval()
-    const conflictResult = await pool.query(
-      `SELECT id FROM private_sessions
-       WHERE creator_id = $1
-       AND status IN ('pending', 'confirmed')
-       AND scheduled_at BETWEEN $2::timestamp - make_interval(mins => $3) AND $2::timestamp + make_interval(mins => $3)`,
-      [creatorId, scheduledAt, safeDuration]
-    );
-
-    if (conflictResult.rows.length > 0) {
-      return {
-        statusCode: 409,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Time slot not available' }),
-      };
-    }
-
-    // If using a pack, verify and decrement
-    let packUsed = false;
-    if (fromPackId) {
-      const packResult = await pool.query(
-        `SELECT id, sessions_remaining FROM user_session_packs
-         WHERE id = $1 AND user_id = $2 AND creator_id = $3 AND sessions_remaining > 0
-         AND expires_at > NOW()`,
-        [fromPackId, userId, creatorId]
+      // Check if creator exists and accepts sessions
+      const creatorResult = await client.query(
+        `SELECT id, full_name, username, sessions_enabled, session_price, session_duration
+         FROM profiles WHERE id = $1`,
+        [creatorId]
       );
 
-      if (packResult.rows.length === 0) {
+      if (creatorResult.rows.length === 0) {
+        await client.query('ROLLBACK');
         return {
-          statusCode: 400,
+          statusCode: 404,
           headers: corsHeaders,
-          body: JSON.stringify({ success: false, message: 'Invalid or expired pack' }),
+          body: JSON.stringify({ success: false, message: 'Creator not found' }),
         };
       }
 
-      // SECURITY: Atomic decrement with WHERE guard to prevent race conditions
-      const decrementResult = await pool.query(
-        `UPDATE user_session_packs SET sessions_remaining = sessions_remaining - 1
-         WHERE id = $1 AND sessions_remaining > 0
-         RETURNING sessions_remaining`,
-        [fromPackId]
-      );
-
-      if (decrementResult.rowCount === 0) {
+      const creator = creatorResult.rows[0];
+      if (!creator.sessions_enabled) {
+        await client.query('ROLLBACK');
         return {
           statusCode: 400,
           headers: corsHeaders,
-          body: JSON.stringify({ success: false, message: 'No sessions remaining in pack' }),
+          body: JSON.stringify({ success: false, message: 'Creator does not accept sessions' }),
         };
       }
-      packUsed = true;
-    }
 
-    // Create the session
-    const sessionResult = await pool.query(
-      `INSERT INTO private_sessions (
-        creator_id, fan_id, scheduled_at, duration, price, notes, status, pack_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *`,
-      [
-        creatorId,
-        userId,
-        scheduledAt,
-        duration,
-        packUsed ? 0 : creator.session_price,
-        notes || null,
-        'pending', // Creator needs to accept
-        fromPackId || null,
-      ]
-    );
+      // SECURITY: Check conflicts with FOR UPDATE lock to prevent double-booking race condition
+      const conflictResult = await client.query(
+        `SELECT id FROM private_sessions
+         WHERE creator_id = $1
+         AND status IN ('pending', 'confirmed')
+         AND scheduled_at BETWEEN $2::timestamp - make_interval(mins => $3) AND $2::timestamp + make_interval(mins => $3)
+         FOR UPDATE`,
+        [creatorId, scheduledAt, safeDuration]
+      );
 
-    const session = sessionResult.rows[0];
+      if (conflictResult.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 409,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: 'Time slot not available' }),
+        };
+      }
 
-    // Send notification to creator
-    await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body, data)
-       VALUES ($1, 'session_request', 'Nouvelle demande de session', $2, $3)`,
-      [
-        creatorId,
-        `Vous avez une nouvelle demande de session`,
-        JSON.stringify({
-          sessionId: session.id,
-          fanId: userId,
+      // If using a pack, verify and decrement
+      let packUsed = false;
+      if (fromPackId) {
+        const packResult = await client.query(
+          `SELECT id, sessions_remaining FROM user_session_packs
+           WHERE id = $1 AND user_id = $2 AND creator_id = $3 AND sessions_remaining > 0
+           AND expires_at > NOW()
+           FOR UPDATE`,
+          [fromPackId, userId, creatorId]
+        );
+
+        if (packResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, message: 'Invalid or expired pack' }),
+          };
+        }
+
+        // SECURITY: Atomic decrement with WHERE guard to prevent race conditions
+        const decrementResult = await client.query(
+          `UPDATE user_session_packs SET sessions_remaining = sessions_remaining - 1
+           WHERE id = $1 AND sessions_remaining > 0
+           RETURNING sessions_remaining`,
+          [fromPackId]
+        );
+
+        if (decrementResult.rowCount === 0) {
+          await client.query('ROLLBACK');
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, message: 'No sessions remaining in pack' }),
+          };
+        }
+        packUsed = true;
+      }
+
+      // Create the session
+      const sessionResult = await client.query(
+        `INSERT INTO private_sessions (
+          creator_id, fan_id, scheduled_at, duration, price, notes, status, pack_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *`,
+        [
+          creatorId,
+          userId,
           scheduledAt,
-        }),
-      ]
-    );
+          duration,
+          packUsed ? 0 : creator.session_price,
+          notes || null,
+          'pending',
+          fromPackId || null,
+        ]
+      );
 
-    return {
-      statusCode: 201,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        success: true,
-        session: {
-          id: session.id,
-          status: session.status,
-          scheduledAt: session.scheduled_at,
-          duration: session.duration,
-          price: parseFloat(session.price),
-          creatorId: session.creator_id,
-          creatorName: creator.full_name,
-        },
-      }),
-    };
+      const session = sessionResult.rows[0];
+
+      // Send notification to creator
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'session_request', 'Nouvelle demande de session', $2, $3)`,
+        [
+          creatorId,
+          `Vous avez une nouvelle demande de session`,
+          JSON.stringify({
+            sessionId: session.id,
+            fanId: userId,
+            scheduledAt,
+          }),
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        statusCode: 201,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          success: true,
+          session: {
+            id: session.id,
+            status: session.status,
+            scheduledAt: session.scheduled_at,
+            duration: session.duration,
+            price: parseFloat(session.price),
+            creatorId: session.creator_id,
+            creatorName: creator.full_name,
+          },
+        }),
+      };
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Create session error:', error);
     return {

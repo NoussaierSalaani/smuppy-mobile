@@ -107,6 +107,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     processedEvents.set(stripeEvent.id, Date.now());
 
     const db = await getPool();
+    const client = await db.connect();
+    try {
+    await client.query('BEGIN');
 
     // Handle different event types
     switch (stripeEvent.type) {
@@ -126,7 +129,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             log.warn('Invalid userId in identity verification metadata', { userId });
             break;
           }
-          await db.query(
+          await client.query(
             `UPDATE profiles
              SET verification_payment_status = 'paid',
                  verification_payment_date = NOW(),
@@ -139,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
 
         // Handle session/pack payments
-        await db.query(
+        await client.query(
           `UPDATE payments
            SET status = 'succeeded',
                updated_at = NOW(),
@@ -151,7 +154,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // If there's a session, update its status
         const sessionId = paymentIntent.metadata?.session_id;
         if (sessionId && isValidUUID(sessionId)) {
-          await db.query(
+          await client.query(
             `UPDATE private_sessions
              SET payment_status = 'paid',
                  status = 'confirmed',
@@ -164,7 +167,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // If there's a pack, update its status
         const packId = paymentIntent.metadata?.pack_id;
         if (packId && isValidUUID(packId)) {
-          await db.query(
+          await client.query(
             `UPDATE monthly_packs
              SET payment_status = 'paid',
                  status = 'active',
@@ -178,7 +181,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const creatorId = paymentIntent.metadata?.creator_id;
         const buyerId = paymentIntent.metadata?.buyer_id;
         if (creatorId && buyerId && isValidUUID(creatorId) && isValidUUID(buyerId)) {
-          const buyerResult = await db.query(
+          const buyerResult = await client.query(
             'SELECT full_name, username FROM profiles WHERE id = $1',
             [buyerId]
           );
@@ -190,7 +193,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             ? `${buyerName} purchased a monthly pack`
             : `${buyerName} booked a session with you`;
 
-          await db.query(
+          await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)
              VALUES ($1, $2, $3, $4, $5)`,
             [
@@ -218,7 +221,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           error: paymentIntent.last_payment_error?.message,
         });
 
-        await db.query(
+        await client.query(
           `UPDATE payments
            SET status = 'failed',
                error_message = $2,
@@ -248,7 +251,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             break;
           }
 
-          await db.query(
+          await client.query(
             `INSERT INTO platform_subscriptions (
                user_id, stripe_subscription_id, plan_type, status, created_at
              ) VALUES ($1, $2, $3, 'active', NOW())
@@ -259,7 +262,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
           // Update account type
           const accountType = planType === 'pro_creator' ? 'pro_creator' : 'pro_business';
-          await db.query(
+          await client.query(
             'UPDATE profiles SET account_type = $1, updated_at = NOW() WHERE id = $2',
             [accountType, userId]
           );
@@ -278,7 +281,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           // Get current period from subscription
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
 
-          await db.query(
+          await client.query(
             `INSERT INTO channel_subscriptions (
                fan_id, creator_id, stripe_subscription_id, price_cents, status,
                current_period_start, current_period_end, created_at
@@ -294,13 +297,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           );
 
           // Create notification for creator
-          const fanResult = await db.query(
+          const fanResult = await client.query(
             'SELECT full_name, username FROM profiles WHERE id = $1',
             [fanId]
           );
           const fanName = fanResult.rows[0]?.full_name || fanResult.rows[0]?.username || 'Someone';
 
-          await db.query(
+          await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)
              VALUES ($1, 'new_subscriber', 'New Channel Subscriber!', $2, $3)`,
             [
@@ -326,7 +329,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         if (subscriptionType === 'platform') {
           const hasCancelAt = subscription.cancel_at != null;
-          await db.query(
+          await client.query(
             `UPDATE platform_subscriptions
              SET status = $1,
                  current_period_start = to_timestamp($2),
@@ -340,7 +343,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           );
         } else if (subscriptionType === 'channel') {
           const hasCancelAt = subscription.cancel_at != null;
-          await db.query(
+          await client.query(
             `UPDATE channel_subscriptions
              SET status = $1,
                  current_period_start = to_timestamp($2),
@@ -363,7 +366,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const subscriptionType = subscription.metadata?.subscriptionType;
 
         if (subscriptionType === 'platform') {
-          await db.query(
+          await client.query(
             `UPDATE platform_subscriptions
              SET status = 'canceled', canceled_at = NOW(), updated_at = NOW()
              WHERE stripe_subscription_id = $1`,
@@ -373,13 +376,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           // Downgrade account type
           const userId = subscription.metadata?.userId;
           if (userId) {
-            await db.query(
+            await client.query(
               "UPDATE profiles SET account_type = 'xplorer', updated_at = NOW() WHERE id = $1",
               [userId]
             );
           }
         } else if (subscriptionType === 'channel') {
-          await db.query(
+          await client.query(
             `UPDATE channel_subscriptions
              SET status = 'canceled', canceled_at = NOW(), updated_at = NOW()
              WHERE stripe_subscription_id = $1`,
@@ -389,7 +392,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           // Notify creator
           const creatorId = subscription.metadata?.creatorId;
           if (creatorId) {
-            await db.query(
+            await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'subscriber_canceled', 'Subscriber Left', 'A subscriber has canceled their channel subscription', '{}')`,
               [creatorId]
@@ -417,7 +420,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const platformFee = Math.round(totalAmount * (platformFeePercent / 100));
           const creatorAmount = totalAmount - platformFee;
 
-          await db.query(
+          await client.query(
             `INSERT INTO channel_subscription_payments (
                stripe_invoice_id, creator_id, fan_id, amount_cents, platform_fee_cents, creator_amount_cents, status
              ) VALUES ($1, $2, $3, $4, $5, $6, 'succeeded')`,
@@ -446,7 +449,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const chargesEnabled = account.charges_enabled;
         const payoutsEnabled = account.payouts_enabled;
 
-        await db.query(
+        await client.query(
           `UPDATE profiles
            SET stripe_charges_enabled = $1,
                stripe_payouts_enabled = $2,
@@ -464,7 +467,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const session = stripeEvent.data.object as Stripe.Identity.VerificationSession;
         log.info('Identity verified', { sessionId: session.id });
 
-        await db.query(
+        await client.query(
           `UPDATE profiles
            SET is_verified = true,
                verified_at = NOW(),
@@ -491,7 +494,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const charge = stripeEvent.data.object as Stripe.Charge;
         log.info('Charge refunded', { chargeId: charge.id });
 
-        await db.query(
+        await client.query(
           `UPDATE payments
            SET status = 'refunded',
                updated_at = NOW()
@@ -517,7 +520,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
 
         // Record dispute
-        await db.query(
+        await client.query(
           `INSERT INTO disputes (
             stripe_dispute_id, stripe_charge_id, amount_cents, reason, status, created_at
           ) VALUES ($1, $2, $3, $4, $5, NOW())
@@ -527,7 +530,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
 
         // Update payment status
-        await db.query(
+        await client.query(
           `UPDATE payments
            SET status = 'disputed',
                dispute_status = $2,
@@ -537,7 +540,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
 
         // Get payment details for notification
-        const paymentResult = await db.query(
+        const paymentResult = await client.query(
           'SELECT creator_id, buyer_id, amount_cents FROM payments WHERE stripe_charge_id = $1',
           [chargeId]
         );
@@ -546,7 +549,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const payment = paymentResult.rows[0];
 
           // Notify creator about the dispute
-          await db.query(
+          await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)
              VALUES ($1, 'dispute_created', 'Payment Disputed', $2, $3)`,
             [
@@ -581,7 +584,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
 
         // Update dispute record
-        await db.query(
+        await client.query(
           `UPDATE disputes
            SET status = $1, updated_at = NOW()
            WHERE stripe_dispute_id = $2`,
@@ -589,7 +592,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
 
         // Update payment dispute status
-        await db.query(
+        await client.query(
           `UPDATE payments
            SET dispute_status = $1, updated_at = NOW()
            WHERE stripe_charge_id = $2`,
@@ -608,7 +611,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
 
         // Update dispute record
-        await db.query(
+        await client.query(
           `UPDATE disputes
            SET status = $1, closed_at = NOW(), updated_at = NOW()
            WHERE stripe_dispute_id = $2`,
@@ -617,7 +620,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         // Update payment based on dispute outcome
         const newPaymentStatus = dispute.status === 'won' ? 'succeeded' : 'disputed_lost';
-        await db.query(
+        await client.query(
           `UPDATE payments
            SET status = $1, dispute_status = $2, updated_at = NOW()
            WHERE stripe_charge_id = $3`,
@@ -625,14 +628,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
 
         // Notify creator about outcome
-        const paymentResult = await db.query(
+        const paymentResult = await client.query(
           'SELECT creator_id FROM payments WHERE stripe_charge_id = $1',
           [chargeId]
         );
 
         if (paymentResult.rows.length > 0) {
           const won = dispute.status === 'won';
-          await db.query(
+          await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)
              VALUES ($1, 'dispute_closed', $2, $3, $4)`,
             [
@@ -658,13 +661,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Find creator by Stripe account
         const accountId = (stripeEvent.account as string) || null;
         if (accountId) {
-          const creatorResult = await db.query(
+          const creatorResult = await client.query(
             'SELECT id FROM profiles WHERE stripe_account_id = $1',
             [accountId]
           );
 
           if (creatorResult.rows.length > 0) {
-            await db.query(
+            await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'payout_received', 'Payout Received!', $2, $3)`,
               [
@@ -688,13 +691,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         const accountId = (stripeEvent.account as string) || null;
         if (accountId) {
-          const creatorResult = await db.query(
+          const creatorResult = await client.query(
             'SELECT id FROM profiles WHERE stripe_account_id = $1',
             [accountId]
           );
 
           if (creatorResult.rows.length > 0) {
-            await db.query(
+            await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'payout_failed', 'Payout Failed', $2, $3)`,
               [
@@ -714,6 +717,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       default:
         log.info('Unhandled event type', { type: stripeEvent.type });
+    }
+
+    await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
     }
 
     return {

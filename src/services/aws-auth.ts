@@ -865,7 +865,10 @@ class AWSAuthService {
         return true;
       }
       return false;
-    } catch {
+    } catch (error) {
+      // Token refresh failed — clear session to prevent stale auth state
+      console.warn('[AWS Auth] Token refresh failed, clearing session');
+      await this.clearSession();
       return false;
     }
   }

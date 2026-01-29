@@ -144,16 +144,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
-  // Pro creators and pro_business only have expertise (no separate interests)
-  // Personal users have both interests and expertise
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  // Personal accounts use interests, pro accounts use expertise
+  const isPro = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
   const MENU_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
-    // Only show Interests for non-pro_creator accounts
-    ...(!isProCreator ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
-    // Expertise for everyone (but especially important for pro_creator)
-    { id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } },
+    // Personal → Interests only, Pro → Expertise only
+    ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
+    ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },

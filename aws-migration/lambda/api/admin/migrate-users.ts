@@ -141,7 +141,7 @@ async function migrateUser(db: Pool, user: UserToMigrate): Promise<MigrationResu
       cognitoSub,
       profileId,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // SECURITY: Log only masked email to prevent PII in logs
     const maskedEmail = user.email.substring(0, 2) + '***@' + user.email.split('@')[1];
     log.error('Failed to migrate user', error, { maskedEmail });
@@ -236,7 +236,7 @@ export const handler = async (
         results,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Migration error', error);
     return {
       statusCode: 500,

@@ -5,6 +5,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
+import { SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -30,7 +31,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const offset = parseInt(event.queryStringParameters?.offset || '0');
 
     let query: string;
-    let params: any[] = [];
+    let params: SqlParam[] = [];
     let paramIndex = 1;
 
     const baseSelect = `
@@ -198,7 +199,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('List challenges error', error);
     return cors({
       statusCode: 500,

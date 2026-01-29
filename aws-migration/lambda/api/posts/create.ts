@@ -82,8 +82,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Insert post + update count in a single transaction
     const client = await db.connect();
-    let post: any;
-    let author: any;
+    let post: Record<string, unknown>;
+    let author: Record<string, unknown> | null;
 
     try {
       await client.query('BEGIN');
@@ -142,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         author,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error creating post', error);
     return {
       statusCode: 500,

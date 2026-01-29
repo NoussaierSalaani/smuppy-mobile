@@ -157,7 +157,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error liking post', error);
     return {
       statusCode: 500,

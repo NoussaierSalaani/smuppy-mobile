@@ -201,7 +201,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: status === 'accepted' ? 'Successfully followed user' : 'Follow request sent',
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error creating follow', error);
     return {
       statusCode: 500,

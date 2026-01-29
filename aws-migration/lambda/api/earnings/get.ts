@@ -124,7 +124,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get buyer info for transactions
     const buyerIds = [...new Set(transactions.rows.map(t => t.buyer_id))];
-    let buyersMap: Record<string, any> = {};
+    let buyersMap: Record<string, { name: string; avatar: string }> = {};
 
     if (buyerIds.length > 0) {
       const buyersResult = await pool.query(
@@ -134,7 +134,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       buyersMap = buyersResult.rows.reduce((acc, row) => {
         acc[row.id] = { name: row.full_name, avatar: row.avatar_url };
         return acc;
-      }, {} as Record<string, any>);
+      }, {} as Record<string, { name: string; avatar: string }>);
     }
 
     const sessionsTotal = parseFloat(sessionsEarnings.rows[0]?.sessions_total || 0);

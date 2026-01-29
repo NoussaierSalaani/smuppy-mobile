@@ -118,7 +118,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Leaderboard error', error);
     return cors({
       statusCode: 500,

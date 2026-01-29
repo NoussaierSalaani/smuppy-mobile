@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -98,7 +98,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       WHERE m.conversation_id = $1
     `;
 
-    const params: any[] = [conversationId];
+    const params: SqlParam[] = [conversationId];
 
     if (cursor) {
       query += ` AND m.created_at < $${params.length + 1}`;
@@ -130,7 +130,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting messages', error);
     return {
       statusCode: 500,

@@ -6,11 +6,12 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/security';
 import { createLogger, getRequestId } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { hasErrorCode } from '../utils/error-handler';
 
 const log = createLogger('profiles-update');
 
@@ -192,7 +193,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Build update fields dynamically
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
     let paramIndex = 1;
 
     // Map of allowed fields (camelCase from API to snake_case in DB)
@@ -226,7 +227,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (body[apiField] !== undefined) {
         updateFields.push(`${dbField} = $${paramIndex}`);
         const val = jsonbFields.has(dbField) ? JSON.stringify(body[apiField]) : body[apiField];
-        values.push(val);
+        values.push(val as SqlParam);
         paramIndex++;
       }
     }
@@ -331,11 +332,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         postsCount: profile.post_count || 0,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error updating profile', error);
 
     // Handle unique constraint violations without leaking schema details
-    if (error.code === '23505') {
+    if (hasErrorCode(error) && error.code === '23505') {
       return {
         statusCode: 409,
         headers,

@@ -85,7 +85,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: 'Notification marked as read',
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error marking notification read', error);
     return {
       statusCode: 500,

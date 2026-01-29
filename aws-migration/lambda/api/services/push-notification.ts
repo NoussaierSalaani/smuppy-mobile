@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-sns';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import * as admin from 'firebase-admin';
+import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('push-notification');
@@ -90,7 +91,7 @@ async function sendToiOS(
     await snsClient.send(command);
     log.info('iOS notification sent successfully');
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Failed to send iOS notification', error);
     return false;
   }
@@ -130,7 +131,7 @@ async function sendToAndroid(
     const response = await admin.messaging().send(message);
     log.info('Android notification sent', { response });
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Failed to send Android notification', error);
     return false;
   }
@@ -214,7 +215,7 @@ export async function sendPushNotificationBatch(
  * Send push notification to a user (all their devices)
  */
 export async function sendPushToUser(
-  db: any,
+  db: Pool,
   userId: string,
   payload: PushNotificationPayload
 ): Promise<{ success: number; failed: number }> {
@@ -231,7 +232,7 @@ export async function sendPushToUser(
     return { success: 0, failed: 0 };
   }
 
-  const targets: PushTarget[] = result.rows.map((row: any) => ({
+  const targets: PushTarget[] = result.rows.map((row: Record<string, unknown>) => ({
     platform: row.platform as 'ios' | 'android',
     token: row.token,
     snsEndpointArn: row.sns_endpoint_arn,

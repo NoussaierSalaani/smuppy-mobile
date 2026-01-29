@@ -230,7 +230,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     await client.query('ROLLBACK');
     console.error('Create battle error:', error);
     return cors({

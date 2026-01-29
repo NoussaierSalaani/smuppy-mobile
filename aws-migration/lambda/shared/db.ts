@@ -10,6 +10,9 @@
  */
 
 import { Pool, PoolConfig } from 'pg';
+
+/** Type-safe SQL query parameter value */
+export type SqlParam = string | number | boolean | null | Date | string[] | number[];
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Signer } from '@aws-sdk/rds-signer';
 import { createLogger } from '../api/utils/logger';
@@ -205,7 +208,7 @@ export async function getReaderPool(): Promise<Pool> {
  * @param text SQL query string
  * @param params Query parameters
  */
-export async function query(text: string, params?: any[]) {
+export async function query(text: string, params?: SqlParam[]) {
   const db = await getPool();
   return db.query(text, params);
 }
@@ -216,7 +219,7 @@ export async function query(text: string, params?: any[]) {
  * @param text SQL query string
  * @param params Query parameters
  */
-export async function readQuery(text: string, params?: any[]) {
+export async function readQuery(text: string, params?: SqlParam[]) {
   const db = await getReaderPool();
   return db.query(text, params);
 }

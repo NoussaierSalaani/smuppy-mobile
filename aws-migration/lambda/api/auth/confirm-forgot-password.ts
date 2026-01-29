@@ -132,8 +132,8 @@ export const handler = async (
       }),
     };
 
-  } catch (error: any) {
-    log.error('ConfirmForgotPassword error', error, { errorName: error.name });
+  } catch (error: unknown) {
+    log.error('ConfirmForgotPassword error', error, { errorName: error instanceof Error ? error.name : String(error) });
 
     if (error instanceof CodeMismatchException) {
       return {

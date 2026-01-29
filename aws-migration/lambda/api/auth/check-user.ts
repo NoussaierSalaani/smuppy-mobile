@@ -258,8 +258,8 @@ export const handler = async (
       throw error;
     }
 
-  } catch (error: any) {
-    log.error('CheckUser error', error, { errorName: error.name });
+  } catch (error: unknown) {
+    log.error('CheckUser error', error, { errorName: error instanceof Error ? error.name : String(error) });
 
     // Generic error - allow signup to continue (will fail later if needed)
     return {

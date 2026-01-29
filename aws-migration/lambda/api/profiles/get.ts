@@ -159,7 +159,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         isFollowedBy,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting profile', error);
     return {
       statusCode: 500,

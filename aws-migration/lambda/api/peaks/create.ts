@@ -148,7 +148,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error creating peak', error);
     return {
       statusCode: 500,

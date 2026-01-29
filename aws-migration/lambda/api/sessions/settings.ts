@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 
 interface SessionAvailability {
   [day: string]: { start: string; end: string }[];
@@ -51,7 +51,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const body: UpdateSettingsBody = JSON.parse(event.body || '{}');
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
     let paramIndex = 1;
 
     if (body.sessionsEnabled !== undefined) {

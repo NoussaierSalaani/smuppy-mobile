@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
 import { getPool } from '../shared/db';
 import { createLogger } from '../api/utils/logger';
+import { hasStatusCode } from '../api/utils/error-handler';
 
 const log = createLogger('websocket-send-message');
 
@@ -147,9 +148,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           ConnectionId: conn.connection_id,
           Data: Buffer.from(messagePayload),
         }));
-      } catch (err: any) {
+      } catch (err: unknown) {
         // If connection is stale, remove it
-        if (err.statusCode === 410) {
+        if (hasStatusCode(err) && err.statusCode === 410) {
           await db.query(
             'DELETE FROM websocket_connections WHERE connection_id = $1',
             [conn.connection_id]
@@ -169,7 +170,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error in WebSocket sendMessage', error);
     return {
       statusCode: 500,

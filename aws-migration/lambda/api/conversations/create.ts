@@ -158,7 +158,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         created: true,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error creating conversation', error);
     return {
       statusCode: 500,

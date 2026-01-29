@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -70,7 +70,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.account_type as author_account_type
     `;
 
-    const params: any[] = [];
+    const params: SqlParam[] = [];
     let paramIndex = 1;
 
     if (currentProfileId) {
@@ -144,7 +144,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting peak', error);
     return {
       statusCode: 500,

@@ -124,7 +124,7 @@ async function migratePosts(db: Pool, posts: PostToMigrate[]): Promise<{ importe
         ]
       );
       imported++;
-    } catch (error: any) {
+    } catch (error: unknown) {
       errors.push('Post migration failed');
       failed++;
     }
@@ -172,7 +172,7 @@ async function migrateFollows(db: Pool, follows: FollowToMigrate[]): Promise<{ i
         ]
       );
       imported++;
-    } catch (error: any) {
+    } catch (error: unknown) {
       errors.push('Follow migration failed');
       failed++;
     }
@@ -313,7 +313,7 @@ export const handler = async (
         },
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Migration error', error);
     return {
       statusCode: 500,

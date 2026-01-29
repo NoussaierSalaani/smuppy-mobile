@@ -112,7 +112,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         author: post.author,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting post', error);
     return {
       statusCode: 500,

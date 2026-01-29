@@ -127,7 +127,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error sending message', error);
     return {
       statusCode: 500,

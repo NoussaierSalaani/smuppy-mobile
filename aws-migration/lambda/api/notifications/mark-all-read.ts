@@ -58,7 +58,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         count: result.rowCount,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error marking all notifications read', error);
     return {
       statusCode: 500,

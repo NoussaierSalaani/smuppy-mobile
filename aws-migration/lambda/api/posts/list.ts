@@ -5,7 +5,7 @@
 
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
-import { getReaderPool } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -40,7 +40,7 @@ async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-function response(statusCode: number, body: any): APIGatewayProxyResult {
+function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
   return {
     statusCode,
     headers: {
@@ -91,7 +91,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     let query: string;
-    let params: any[];
+    let params: SqlParam[];
 
     if (type === 'following' && requesterId) {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
@@ -155,7 +155,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     return response(200, { ...responseData, cached: false, latency: Date.now() - startTime });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error fetching posts', error);
     return response(500, { error: 'Internal server error' });
   }

@@ -20,54 +20,110 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // SECURITY: Escape ILIKE special characters to prevent pattern matching bypass
     const query = rawQuery.replace(/[%_\\]/g, '\\$&');
 
+    // Exclude current user from search results
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+
     // Use reader pool for read-heavy search operations
     const db = await getReaderPool();
+
+    // Resolve current user ID to exclude from results
+    let currentUserId: string | null = null;
+    if (cognitoSub) {
+      const userResult = await db.query(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        [cognitoSub]
+      );
+      currentUserId = userResult.rows[0]?.id || null;
+    }
 
     let result;
 
     if (!query || query.length < 1) {
       // No query - return popular/recent profiles
-      result = await db.query(
-        `SELECT
-          id, username, full_name, avatar_url, bio,
-          is_verified, is_private, account_type,
-          fan_count as followers_count, following_count, post_count as posts_count
-        FROM profiles
-        WHERE is_private = false
-        ORDER BY
-          CASE WHEN is_verified THEN 0 ELSE 1 END,
-          CASE WHEN account_type = 'pro_creator' THEN 0
-               WHEN account_type = 'pro_business' THEN 1
-               ELSE 2 END,
-          fan_count DESC NULLS LAST,
-          created_at DESC
-        LIMIT $1`,
-        [limit]
-      );
+      if (currentUserId) {
+        result = await db.query(
+          `SELECT
+            id, username, full_name, display_name, avatar_url, bio,
+            is_verified, is_private, account_type,
+            fan_count as followers_count, following_count, post_count as posts_count
+          FROM profiles
+          WHERE is_private = false AND onboarding_completed = true AND id != $1
+          ORDER BY
+            CASE WHEN is_verified THEN 0 ELSE 1 END,
+            CASE WHEN account_type = 'pro_creator' THEN 0
+                 WHEN account_type = 'pro_business' THEN 1
+                 ELSE 2 END,
+            fan_count DESC NULLS LAST,
+            created_at DESC
+          LIMIT $2`,
+          [currentUserId, limit]
+        );
+      } else {
+        result = await db.query(
+          `SELECT
+            id, username, full_name, display_name, avatar_url, bio,
+            is_verified, is_private, account_type,
+            fan_count as followers_count, following_count, post_count as posts_count
+          FROM profiles
+          WHERE is_private = false AND onboarding_completed = true
+          ORDER BY
+            CASE WHEN is_verified THEN 0 ELSE 1 END,
+            CASE WHEN account_type = 'pro_creator' THEN 0
+                 WHEN account_type = 'pro_business' THEN 1
+                 ELSE 2 END,
+            fan_count DESC NULLS LAST,
+            created_at DESC
+          LIMIT $1`,
+          [limit]
+        );
+      }
     } else {
-      // Search using ILIKE for partial matching
-      result = await db.query(
-        `SELECT
-          id, username, full_name, avatar_url, bio,
-          is_verified, is_private, account_type,
-          fan_count as followers_count, following_count, post_count as posts_count
-        FROM profiles
-        WHERE username ILIKE $1 OR full_name ILIKE $1
-        ORDER BY
-          CASE WHEN username = $2 THEN 0
-               WHEN username ILIKE $3 THEN 1
-               ELSE 2
-          END,
-          fan_count DESC NULLS LAST
-        LIMIT $4`,
-        [`%${query}%`, query, `${query}%`, limit]
-      );
+      // Search using ILIKE for partial matching (also match display_name)
+      if (currentUserId) {
+        result = await db.query(
+          `SELECT
+            id, username, full_name, display_name, avatar_url, bio,
+            is_verified, is_private, account_type,
+            fan_count as followers_count, following_count, post_count as posts_count
+          FROM profiles
+          WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
+            AND is_private = false AND onboarding_completed = true
+            AND id != $5
+          ORDER BY
+            CASE WHEN username = $2 THEN 0
+                 WHEN username ILIKE $3 THEN 1
+                 ELSE 2
+            END,
+            fan_count DESC NULLS LAST
+          LIMIT $4`,
+          [`%${query}%`, query, `${query}%`, limit, currentUserId]
+        );
+      } else {
+        result = await db.query(
+          `SELECT
+            id, username, full_name, display_name, avatar_url, bio,
+            is_verified, is_private, account_type,
+            fan_count as followers_count, following_count, post_count as posts_count
+          FROM profiles
+          WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
+            AND is_private = false AND onboarding_completed = true
+          ORDER BY
+            CASE WHEN username = $2 THEN 0
+                 WHEN username ILIKE $3 THEN 1
+                 ELSE 2
+            END,
+            fan_count DESC NULLS LAST
+          LIMIT $4`,
+          [`%${query}%`, query, `${query}%`, limit]
+        );
+      }
     }
 
     const profiles = result.rows.map(profile => ({
       id: profile.id,
       username: profile.username,
       fullName: profile.full_name,
+      displayName: profile.display_name || null,
       avatarUrl: profile.avatar_url,
       bio: profile.bio,
       isVerified: profile.is_verified || false,
@@ -83,7 +139,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify(profiles),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error searching profiles', error);
     return {
       statusCode: 500,

@@ -10,10 +10,11 @@
  * 4. Webhook confirms payment and updates database
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent, corsHeaders } from '../utils/auth';
 
@@ -96,10 +97,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
  * Create a Stripe Checkout Session for web payment
  */
 async function createCheckoutSession(
-  db: any,
+  db: Pool,
   user: { sub: string },
-  event: any,
-  headers: any
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>
 ) {
   const stripe = await getStripe();
   const body = JSON.parse(event.body || '{}') as CheckoutRequest;
@@ -591,7 +592,7 @@ async function createCheckoutSession(
 /**
  * Check the status of a checkout session
  */
-async function checkSessionStatus(sessionId: string, headers: any) {
+async function checkSessionStatus(sessionId: string, headers: Record<string, string>) {
   const stripe = await getStripe();
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
@@ -610,7 +611,7 @@ async function checkSessionStatus(sessionId: string, headers: any) {
         currency: session.currency,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       statusCode: 404,
       headers,

@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -45,7 +45,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       WHERE (s.creator_id = $1 OR s.fan_id = $1)
     `;
 
-    const params: any[] = [userId];
+    const params: SqlParam[] = [userId];
     let paramIndex = 2;
 
     // Filter by role if specified

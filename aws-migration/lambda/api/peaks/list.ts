@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -72,7 +72,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       WHERE 1=1
     `;
 
-    const params: any[] = currentProfileId ? [currentProfileId] : [];
+    const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
     let paramIndex = currentProfileId ? 2 : 1;
 
     // Filter by author if provided
@@ -137,7 +137,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error listing peaks', error);
     return {
       statusCode: 500,

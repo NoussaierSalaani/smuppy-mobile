@@ -133,7 +133,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error deleting comment', error);
     return {
       statusCode: 500,

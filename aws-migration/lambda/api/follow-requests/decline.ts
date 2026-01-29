@@ -108,7 +108,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: 'Follow request declined',
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error declining follow request', error);
     return {
       statusCode: 500,

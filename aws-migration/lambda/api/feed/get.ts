@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
-import { getReaderPool } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -102,7 +102,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Build cursor condition
     let cursorCondition = '';
-    const queryParams: any[] = [allAuthorIds];
+    const queryParams: SqlParam[] = [allAuthorIds];
 
     if (cursor) {
       cursorCondition = 'AND p.created_at < $2';
@@ -186,7 +186,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify(response),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting feed', error);
     return {
       statusCode: 500,

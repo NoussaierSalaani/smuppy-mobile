@@ -97,7 +97,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       body: JSON.stringify({ message: 'Connected' }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error in WebSocket connect', error);
     return {
       statusCode: 500,

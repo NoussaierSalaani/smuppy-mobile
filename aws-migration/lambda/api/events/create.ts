@@ -294,7 +294,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Create event error', error);
     return cors({

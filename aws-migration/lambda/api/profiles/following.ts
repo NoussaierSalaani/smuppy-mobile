@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -69,7 +69,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       WHERE f.follower_id = $1
     `;
 
-    const params: any[] = [profileId];
+    const params: SqlParam[] = [profileId];
     let paramIndex = 2;
 
     // Cursor pagination
@@ -115,7 +115,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         totalCount: result.rowCount,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting following', error);
     return {
       statusCode: 500,

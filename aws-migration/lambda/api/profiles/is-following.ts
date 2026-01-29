@@ -54,7 +54,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         status: result.rows.length > 0 ? result.rows[0].status : null,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error checking follow status', error);
     return {
       statusCode: 500,

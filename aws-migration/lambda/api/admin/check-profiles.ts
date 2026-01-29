@@ -49,7 +49,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         samples: sampleResult.rows,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
   }
 }

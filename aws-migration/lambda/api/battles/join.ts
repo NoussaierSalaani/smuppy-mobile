@@ -94,7 +94,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     await client.query('BEGIN');
 
     let agoraToken: string | null = null;
-    let response: any = { success: true };
+    let response: Record<string, unknown> = { success: true };
 
     switch (action) {
       case 'accept':
@@ -259,7 +259,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 200,
       body: JSON.stringify(response),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Join battle error', error);
     return cors({

@@ -27,6 +27,7 @@ import {
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { isNamedError } from '../utils/error-handler';
 
 const log = createLogger('auth-signup');
 const cognitoClient = new CognitoIdentityProviderClient({});
@@ -253,7 +254,7 @@ export const handler = async (
       }
 
       parsedBody = JSON.parse(bodyStr) as SignupRequest;
-    } catch (parseError: any) {
+    } catch (parseError: unknown) {
       log.error('JSON parse error', parseError, {
         bodyLength: event.body?.length,
         isBase64: event.isBase64Encoded,
@@ -372,7 +373,7 @@ export const handler = async (
       }),
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Signup error', error);
 
     // Handle specific Cognito errors
@@ -388,7 +389,7 @@ export const handler = async (
       };
     }
 
-    if (error.name === 'InvalidPasswordException' || error.message?.includes('Password')) {
+    if (isNamedError(error) && (error.name === 'InvalidPasswordException' || error.message?.includes('Password'))) {
       return {
         statusCode: 400,
         headers,
@@ -399,7 +400,7 @@ export const handler = async (
       };
     }
 
-    if (error.name === 'InvalidParameterException') {
+    if (isNamedError(error) && error.name === 'InvalidParameterException') {
       return {
         statusCode: 400,
         headers,

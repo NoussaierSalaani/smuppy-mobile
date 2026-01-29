@@ -204,7 +204,7 @@ export async function handler(
         maxSize,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error generating upload URL', error);
     return {
       statusCode: 500,

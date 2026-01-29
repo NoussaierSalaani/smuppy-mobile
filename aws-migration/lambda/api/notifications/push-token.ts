@@ -14,6 +14,7 @@ import {
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { isNamedError } from '../utils/error-handler';
 
 const log = createLogger('notifications-push-token');
 const snsClient = new SNSClient({});
@@ -66,9 +67,9 @@ async function createOrUpdateEndpoint(
     }
 
     return endpointArn || null;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If endpoint already exists, update it
-    if (error.name === 'InvalidParameterException' && error.message?.includes('already exists')) {
+    if (isNamedError(error) && error.name === 'InvalidParameterException' && error.message?.includes('already exists')) {
       // Extract the endpoint ARN from the error message
       const match = error.message.match(/Endpoint (arn:aws:sns:[^:]+:\d+:endpoint\/[^\s]+)/);
       if (match) {
@@ -251,7 +252,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         snsEnabled: !!snsEndpointArn,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error registering push token', error);
     return {
       statusCode: 500,

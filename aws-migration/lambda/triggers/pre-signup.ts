@@ -158,7 +158,7 @@ export const handler: PreSignUpTriggerHandler = async (event) => {
     }
 
     return event;
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('PreSignup error', error);
     throw error;
   }

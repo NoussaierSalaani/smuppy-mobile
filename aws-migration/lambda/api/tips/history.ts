@@ -5,6 +5,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
+import { SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -35,7 +36,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const contextType = event.queryStringParameters?.contextType;
 
     let query: string;
-    let params: any[];
+    let params: SqlParam[];
 
     if (type === 'sent') {
       query = `
@@ -159,7 +160,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Tips history error', error);
     return cors({
       statusCode: 500,

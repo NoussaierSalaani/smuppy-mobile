@@ -96,7 +96,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: 'Peak deleted successfully',
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error deleting peak', error);
     return {
       statusCode: 500,

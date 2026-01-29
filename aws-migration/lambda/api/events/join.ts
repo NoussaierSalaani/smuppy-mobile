@@ -255,7 +255,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           : null,
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Join event error', error);
     return cors({

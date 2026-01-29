@@ -7,6 +7,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getPool } from '../../shared/db';
+import type { Pool } from 'pg';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -411,7 +412,21 @@ ON CONFLICT (name) DO NOTHING;
 `;
 
 // Demo profiles for seeding - Comprehensive mix of all account types and categories
-const DEMO_PROFILES = [
+interface DemoProfile {
+  username: string;
+  full_name: string;
+  account_type: string;
+  bio: string;
+  expertise: string[];
+  interests: string[];
+  avatar_url: string;
+  location: string;
+  is_verified: boolean;
+  business_name?: string;
+  business_category?: string;
+}
+
+const DEMO_PROFILES: DemoProfile[] = [
   // ========== PRO CREATORS - FITNESS & TRAINING ==========
   { username: 'alex_fitness_pro', full_name: 'Alex Martin', account_type: 'pro_creator', bio: 'Certified Personal Trainer | 10+ years experience | Transform your body', expertise: ['Personal Training', 'HIIT', 'Nutrition', 'Weight Loss'], interests: ['Fitness', 'Healthy Living', 'Motivation'], avatar_url: 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=200', location: 'Los Angeles, CA', is_verified: true },
   { username: 'sarah_yoga_master', full_name: 'Sarah Johnson', account_type: 'pro_creator', bio: 'RYT-500 Yoga Instructor | Mindfulness Coach | Find your inner peace', expertise: ['Yoga', 'Meditation', 'Breathwork', 'Flexibility'], interests: ['Wellness', 'Mindfulness', 'Nature'], avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200', location: 'San Diego, CA', is_verified: true },
@@ -536,7 +551,7 @@ END $$;
 `;
 
 // Seed demo data function
-async function seedDemoData(db: any): Promise<{ profiles: number; posts: number; peaks: number; follows: number }> {
+async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number; peaks: number; follows: number }> {
   // Clean existing demo data
   const existingDemo = await db.query("SELECT COUNT(*) FROM profiles WHERE is_bot = true");
   if (parseInt(existingDemo.rows[0].count) > 0) {
@@ -554,7 +569,7 @@ async function seedDemoData(db: any): Promise<{ profiles: number; posts: number;
       `INSERT INTO profiles (username, full_name, account_type, bio, expertise, interests, avatar_url, location, is_verified, business_name, business_category, is_bot, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
        RETURNING id`,
-      [profile.username, profile.full_name, profile.account_type, profile.bio, profile.expertise, profile.interests, profile.avatar_url, profile.location, profile.is_verified, (profile as any).business_name || null, (profile as any).business_category || null]
+      [profile.username, profile.full_name, profile.account_type, profile.bio, profile.expertise, profile.interests, profile.avatar_url, profile.location, profile.is_verified, profile.business_name || null, profile.business_category || null]
     );
     profileIds.push({ id: result.rows[0].id, accountType: profile.account_type });
   }
@@ -695,7 +710,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       try {
         await db.query(statement);
         results.push('OK');
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.push('Error: migration statement failed');
       }
     }
@@ -719,7 +734,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statementResults: results.length,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Migration error', error);
     return {
       statusCode: 500,

@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -88,7 +88,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       WHERE c.participant_1_id = $1 OR c.participant_2_id = $1
     `;
 
-    const params: any[] = [profileId];
+    const params: SqlParam[] = [profileId];
 
     if (cursor) {
       query += ` AND COALESCE(c.last_message_at, c.created_at) < $${params.length + 1}`;
@@ -112,7 +112,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error listing conversations', error);
     return {
       statusCode: 500,

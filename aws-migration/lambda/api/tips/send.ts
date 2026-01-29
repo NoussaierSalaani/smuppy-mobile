@@ -287,7 +287,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Send tip error', error);
     return cors({
       statusCode: 500,

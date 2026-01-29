@@ -175,8 +175,8 @@ export const handler = async (
       }),
     };
 
-  } catch (error: any) {
-    log.error('ConfirmSignup error', error, { errorName: error.name });
+  } catch (error: unknown) {
+    log.error('ConfirmSignup error', error, { errorName: error instanceof Error ? error.name : String(error) });
 
     // Handle specific Cognito errors with user-friendly messages
     if (error instanceof CodeMismatchException) {

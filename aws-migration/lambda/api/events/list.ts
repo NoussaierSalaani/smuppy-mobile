@@ -5,6 +5,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { Pool } from 'pg';
+import { SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -40,7 +41,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const offsetNum = parseInt(offset);
 
     // All params are pushed in order — never use unshift
-    const params: any[] = [];
+    const params: SqlParam[] = [];
     const p = () => `$${params.length}`; // returns $N for the last pushed param
 
     const hasCoords = latitude && longitude;
@@ -276,7 +277,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('List events error', error);
     return cors({
       statusCode: 500,

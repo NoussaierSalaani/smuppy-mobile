@@ -76,7 +76,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         savedAt: isSaved ? savedResult.rows[0].created_at : null,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error checking saved status', error);
     return {
       statusCode: 500,

@@ -125,7 +125,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: 'Successfully unfollowed user',
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error deleting follow', error);
     return {
       statusCode: 500,

@@ -6,7 +6,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 
 interface CreatePackBody {
   name: string;
@@ -133,7 +133,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       const body: UpdatePackBody = JSON.parse(event.body || '{}');
       const updates: string[] = [];
-      const values: any[] = [];
+      const values: SqlParam[] = [];
       let paramIndex = 1;
 
       if (body.name !== undefined) {

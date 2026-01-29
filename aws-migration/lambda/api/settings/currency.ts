@@ -180,7 +180,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 405,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Currency settings error', error);
     return cors({
       statusCode: 500,

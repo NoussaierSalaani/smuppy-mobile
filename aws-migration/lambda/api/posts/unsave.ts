@@ -75,7 +75,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         saved: false,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error unsaving post', error);
     return {
       statusCode: 500,

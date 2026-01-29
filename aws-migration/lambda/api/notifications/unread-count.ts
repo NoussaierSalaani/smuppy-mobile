@@ -56,7 +56,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         unreadCount: parseInt(result.rows[0].count),
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting unread count', error);
     return {
       statusCode: 500,

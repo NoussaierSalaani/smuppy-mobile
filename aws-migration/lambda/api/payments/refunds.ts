@@ -6,10 +6,11 @@
  * - GET /payments/refunds/{refundId} - Get refund details
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
+import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent, corsHeaders } from '../utils/auth';
 
@@ -91,10 +92,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
  * List refunds for a user
  */
 async function listRefunds(
-  db: any,
+  db: Pool,
   user: { sub: string },
-  event: any,
-  headers: any
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>
 ) {
   const { limit = '20', offset = '0', status } = event.queryStringParameters || {};
 
@@ -119,7 +120,7 @@ async function listRefunds(
     JOIN profiles creator ON p.creator_id = creator.id
     WHERE 1=1
   `;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
   let paramIndex = 1;
 
   // Non-admins can only see their own refunds
@@ -145,7 +146,7 @@ async function listRefunds(
     headers,
     body: JSON.stringify({
       success: true,
-      refunds: result.rows.map((r: any) => ({
+      refunds: result.rows.map((r: Record<string, unknown>) => ({
         id: r.id,
         paymentId: r.payment_id,
         stripeRefundId: r.stripe_refund_id,
@@ -173,10 +174,10 @@ async function listRefunds(
  * Get refund details
  */
 async function getRefund(
-  db: any,
+  db: Pool,
   user: { sub: string },
   refundId: string,
-  headers: any
+  headers: Record<string, string>
 ) {
   const stripe = await getStripe();
   const result = await db.query(
@@ -272,10 +273,10 @@ async function getRefund(
  * Create a refund
  */
 async function createRefund(
-  db: any,
+  db: Pool,
   user: { sub: string },
-  event: any,
-  headers: any
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>
 ) {
   const stripe = await getStripe();
   const body = JSON.parse(event.body || '{}');
@@ -456,7 +457,7 @@ async function createRefund(
         },
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Stripe refund failed', error);
 
     // Store failed refund attempt

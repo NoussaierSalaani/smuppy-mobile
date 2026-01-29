@@ -84,7 +84,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: 'Message deleted successfully',
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error deleting message', error);
     return {
       statusCode: 500,

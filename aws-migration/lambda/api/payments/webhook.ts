@@ -114,7 +114,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO processed_webhook_events (event_id, created_at) VALUES ($1, NOW())`,
         [stripeEvent.id]
       );
-    } catch (dedupErr: any) {
+    } catch (dedupErr: unknown) {
       if (dedupErr.code === '23505') { // unique_violation
         log.info('Duplicate event (DB)', { eventId: stripeEvent.id });
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };

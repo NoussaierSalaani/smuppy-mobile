@@ -6,7 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
 import { getPool } from '../shared/db';
+import type { Pool } from 'pg';
 import { createLogger } from '../api/utils/logger';
+import { hasStatusCode } from '../api/utils/error-handler';
 
 const log = createLogger('websocket-live-stream');
 
@@ -204,7 +206,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'Invalid action' }),
         };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error in WebSocket live stream handler', error);
     return {
       statusCode: 500,
@@ -217,7 +219,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
  * Broadcast a message to all viewers in a live stream channel
  */
 async function broadcastToChannel(
-  db: any,
+  db: Pool,
   apiClient: ApiGatewayManagementApiClient,
   channelName: string,
   payload: object
@@ -237,9 +239,9 @@ async function broadcastToChannel(
         ConnectionId: viewer.connection_id,
         Data: Buffer.from(messagePayload),
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       // If connection is stale, remove it
-      if (err.statusCode === 410) {
+      if (hasStatusCode(err) && err.statusCode === 410) {
         await db.query(
           'DELETE FROM live_stream_viewers WHERE connection_id = $1',
           [viewer.connection_id]

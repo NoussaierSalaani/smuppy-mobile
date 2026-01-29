@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -29,7 +29,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // 4. Prioritize verified accounts and pro creators
 
     let query: string;
-    let params: any[];
+    let params: SqlParam[];
 
     // Get offset for pagination (to get fresh results each time)
     const offset = parseInt(event.queryStringParameters?.offset || '0');
@@ -50,6 +50,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.id,
             p.username,
             p.full_name,
+            p.display_name,
             p.avatar_url,
             p.cover_url,
             p.bio,
@@ -60,7 +61,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.following_count,
             p.post_count
           FROM profiles p
-          WHERE p.is_private = false
+          WHERE p.is_private = false AND p.onboarding_completed = true
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
             p.fan_count DESC,
@@ -75,6 +76,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.id,
             p.username,
             p.full_name,
+            p.display_name,
             p.avatar_url,
             p.cover_url,
             p.bio,
@@ -87,6 +89,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           FROM profiles p
           WHERE p.id != $1
             AND p.is_private = false
+            AND p.onboarding_completed = true
             -- Exclude people I follow
             AND p.id NOT IN (
               SELECT following_id FROM follows
@@ -115,6 +118,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           p.id,
           p.username,
           p.full_name,
+          p.display_name,
           p.avatar_url,
           p.cover_url,
           p.bio,
@@ -125,7 +129,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           p.following_count,
           p.post_count
         FROM profiles p
-        WHERE p.is_private = false
+        WHERE p.is_private = false AND p.onboarding_completed = true
         ORDER BY
           CASE WHEN p.is_verified THEN 0 ELSE 1 END,
           p.fan_count DESC,
@@ -141,6 +145,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       id: profile.id,
       username: profile.username,
       fullName: profile.full_name,
+      displayName: profile.display_name || null,
       avatarUrl: profile.avatar_url,
       coverUrl: profile.cover_url,
       bio: profile.bio,
@@ -160,7 +165,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         total: profiles.length,
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error getting suggested profiles', error);
     return {
       statusCode: 500,

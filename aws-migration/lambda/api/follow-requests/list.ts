@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -62,7 +62,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       WHERE fr.target_id = $1 AND fr.status = 'pending'
     `;
 
-    const params: any[] = [profileId];
+    const params: SqlParam[] = [profileId];
     let paramIndex = 2;
 
     // Cursor pagination
@@ -117,7 +117,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         totalPending: parseInt(countResult.rows[0].count),
       }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error listing follow requests', error);
     return {
       statusCode: 500,

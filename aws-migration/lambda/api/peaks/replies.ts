@@ -76,7 +76,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const repliesResult = await db.query(query, queryParams);
 
       const hasMore = repliesResult.rows.length > limit;
-      const replies = repliesResult.rows.slice(0, limit).map((row: any) => ({
+      const replies = repliesResult.rows.slice(0, limit).map((row: Record<string, unknown>) => ({
         id: row.id,
         authorId: row.author_id,
         videoUrl: row.media_url || row.media_urls?.[0],
@@ -198,7 +198,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return createCorsResponse(405, { error: 'Method not allowed' });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error in peak replies handler', error);
     return createCorsResponse(500, { error: 'Internal server error' });
   }

@@ -13,6 +13,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { Pool } from 'pg';
+import { SqlParam } from '../../shared/db';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -257,7 +258,7 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
     const type = options.type || 'all';
 
     let typeFilter = '';
-    const params: any[] = [userId, limit, offset];
+    const params: SqlParam[] = [userId, limit, offset];
 
     if (type !== 'all') {
       typeFilter = 'AND type = $4';

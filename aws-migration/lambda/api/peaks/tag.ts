@@ -174,7 +174,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return createCorsResponse(405, { error: 'Method not allowed' });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('Error in peak tag handler', error);
     return createCorsResponse(500, { error: 'Internal server error' });
   }

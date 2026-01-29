@@ -328,7 +328,7 @@ export const handler = async (
       }),
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error('ValidateEmail error', error);
 
     return {

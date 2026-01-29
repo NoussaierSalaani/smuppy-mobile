@@ -183,8 +183,8 @@ export const handler = async (
       }),
     };
 
-  } catch (error: any) {
-    log.error('ResendCode error', error, { errorName: error.name });
+  } catch (error: unknown) {
+    log.error('ResendCode error', error, { errorName: error instanceof Error ? error.name : String(error) });
 
     // Handle specific Cognito errors
     if (error instanceof UserNotFoundException) {

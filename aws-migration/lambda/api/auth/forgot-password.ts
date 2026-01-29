@@ -183,8 +183,8 @@ export const handler = async (
       }),
     };
 
-  } catch (error: any) {
-    log.error('ForgotPassword error', error, { errorName: error.name });
+  } catch (error: unknown) {
+    log.error('ForgotPassword error', error, { errorName: error instanceof Error ? error.name : String(error) });
 
     // Always return success message to prevent email enumeration
     if (error instanceof UserNotFoundException) {

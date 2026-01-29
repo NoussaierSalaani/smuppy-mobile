@@ -199,6 +199,27 @@ export function createForbiddenError(
 }
 
 /**
+ * Type guard: check if an unknown error has a string `code` property (e.g. PostgreSQL error codes)
+ */
+export function hasErrorCode(error: unknown): error is { code: string } {
+  return typeof error === 'object' && error !== null && 'code' in error && typeof (error as Record<string, unknown>).code === 'string';
+}
+
+/**
+ * Type guard: check if an unknown error has `name` and optional `message` (AWS SDK errors, etc.)
+ */
+export function isNamedError(error: unknown): error is { name: string; message: string } {
+  return typeof error === 'object' && error !== null && 'name' in error && typeof (error as Record<string, unknown>).name === 'string';
+}
+
+/**
+ * Type guard: check if an unknown error has a numeric `statusCode` (AWS API Gateway errors)
+ */
+export function hasStatusCode(error: unknown): error is { statusCode: number } {
+  return typeof error === 'object' && error !== null && 'statusCode' in error && typeof (error as Record<string, unknown>).statusCode === 'number';
+}
+
+/**
  * Create rate limit error response
  */
 export function createRateLimitError(

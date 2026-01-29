@@ -118,8 +118,9 @@ export default function TipButton({
             disabled={disabled || isProcessing}
             size="sm"
             colorScheme="dark"
-            icon={<Ionicons name="gift" size={14} color="#FFFFFF" />}
+            icon={<Ionicons name="gift" size={14} color="#FFD700" />}
             iconPosition="left"
+            textStyle={{ color: '#FFD700' }}
           />
         )}
 

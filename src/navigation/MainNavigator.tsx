@@ -5,6 +5,7 @@ import { useUserStore } from '../stores';
 import { getCurrentProfile } from '../services/database';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
+import { FEATURES } from '../config/featureFlags';
 
 // Type helper to cast screen components for React Navigation compatibility
  
@@ -179,8 +180,8 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onClose={() => setShowCreatePopup(false)}
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
-        onSelectChallenge={isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateChallenge'); } : undefined}
-        onSelectEvent={isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateEvent'); } : undefined}
+        onSelectChallenge={FEATURES.CHALLENGES && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateChallenge'); } : undefined}
+        onSelectEvent={FEATURES.CREATE_EVENT && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateEvent'); } : undefined}
       />
     </>
   );

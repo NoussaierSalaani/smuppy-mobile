@@ -70,8 +70,8 @@ type FabAction = { label: string; icon: keyof typeof Ionicons.glyphMap; action: 
 
 // Personal: Create Event, Create Group (ephemeral on map)
 const PERSONAL_ACTIONS: FabAction[] = [
-  { label: 'Create Event', icon: 'calendar-outline', action: 'create_event' },
-  { label: 'Create Group', icon: 'people-outline', action: 'create_group' },
+  ...(FEATURES.CREATE_EVENT ? [{ label: 'Create Event', icon: 'calendar-outline' as const, action: 'create_event' }] : []),
+  ...(FEATURES.CREATE_GROUP ? [{ label: 'Create Group', icon: 'people-outline' as const, action: 'create_group' }] : []),
 ];
 
 // Personal verified / Pro Creator: + Suggest Spot, Add Review (interact with map)
@@ -89,8 +89,8 @@ const CREATOR_PREMIUM_ACTIONS: FabAction[] = [
 
 // Pro Business: Create Event, Create Group (locked to business location)
 const BUSINESS_ACTIONS: FabAction[] = [
-  { label: 'Create Event', icon: 'calendar-outline', action: 'create_event' },
-  { label: 'Create Group', icon: 'people-outline', action: 'create_group' },
+  ...(FEATURES.CREATE_EVENT ? [{ label: 'Create Event', icon: 'calendar-outline' as const, action: 'create_event' }] : []),
+  ...(FEATURES.CREATE_GROUP ? [{ label: 'Create Group', icon: 'people-outline' as const, action: 'create_group' }] : []),
 ];
 
 // Pro Business Premium: All of Pro Creator + event/group anywhere + planning indexed

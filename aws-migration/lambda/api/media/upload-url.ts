@@ -61,8 +61,8 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
 
 interface UploadRequest {
   contentType: string;
-  fileSize: number;
-  uploadType: 'avatar' | 'post' | 'peak' | 'message';
+  fileSize?: number;
+  uploadType?: 'avatar' | 'post' | 'peak' | 'message';
   filename?: string;
 }
 
@@ -122,7 +122,15 @@ export async function handler(
     }
 
     const request: UploadRequest = JSON.parse(event.body);
-    const { contentType, fileSize, uploadType } = request;
+    const { contentType, fileSize, filename } = request;
+    // Default uploadType to 'post', also infer from filename prefix
+    let uploadType = request.uploadType || 'post';
+    if (!request.uploadType && filename) {
+      if (filename.startsWith('avatars/')) uploadType = 'avatar';
+      else if (filename.startsWith('peaks/')) uploadType = 'peak';
+      else if (filename.startsWith('messages/')) uploadType = 'message';
+      else if (filename.startsWith('covers/')) uploadType = 'avatar';
+    }
 
     // Validate content type
     const mediaType = getMediaType(contentType);
@@ -137,9 +145,9 @@ export async function handler(
       };
     }
 
-    // Validate file size
+    // Validate file size (skip if not provided — size enforced by S3 presigned URL)
     const maxSize = MAX_FILE_SIZES[mediaType];
-    if (fileSize > maxSize) {
+    if (fileSize && fileSize > maxSize) {
       return {
         statusCode: 400,
         headers,
@@ -165,22 +173,31 @@ export async function handler(
     }
 
     // Generate secure filename and path
-    const filename = generateSecureFilename(contentType);
-    const key = getUploadPath(userId, uploadType, filename);
+    const secureFilename = generateSecureFilename(contentType);
+    const key = getUploadPath(userId, uploadType, secureFilename);
 
     // Create presigned URL
-    const command = new PutObjectCommand({
+    const putObjectParams: {
+      Bucket: string;
+      Key: string;
+      ContentType: string;
+      ContentLength?: number;
+      Metadata: Record<string, string>;
+    } = {
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: contentType,
-      ContentLength: fileSize,
-      // SECURITY: Add metadata for tracking
       Metadata: {
         'uploaded-by': userId,
         'upload-type': uploadType,
         'original-filename': (request.filename || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
       },
-    });
+    };
+    // Only set ContentLength if fileSize is provided — otherwise S3 rejects mismatched sizes
+    if (fileSize && fileSize > 0) {
+      putObjectParams.ContentLength = fileSize;
+    }
+    const command = new PutObjectCommand(putObjectParams);
 
     // SECURITY: Short-lived presigned URL (5 minutes)
     const uploadUrl = await getSignedUrl(s3Client, command, {
@@ -199,6 +216,7 @@ export async function handler(
       body: JSON.stringify({
         uploadUrl,
         publicUrl,
+        fileUrl: key,
         key,
         expiresIn: 300,
         maxSize,

@@ -692,7 +692,7 @@ class AWSAPIService {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res: any) => res.data || res);
+    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res: any) => res.following || res.data || []);
   }
 
   // ==========================================
@@ -700,9 +700,15 @@ class AWSAPIService {
   // ==========================================
 
   async getUploadUrl(filename: string, contentType: string): Promise<{ uploadUrl: string; fileUrl: string }> {
+    // Determine uploadType from the folder prefix in filename
+    let uploadType = 'post';
+    if (filename.startsWith('avatars/')) uploadType = 'avatar';
+    else if (filename.startsWith('peaks/')) uploadType = 'peak';
+    else if (filename.startsWith('messages/')) uploadType = 'message';
+
     return this.request('/media/upload-url', {
       method: 'POST',
-      body: { filename, contentType },
+      body: { filename, contentType, uploadType, fileSize: 0 },
     });
   }
 

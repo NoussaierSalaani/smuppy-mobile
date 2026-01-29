@@ -78,6 +78,7 @@ export interface Post {
   peak_duration?: number;
   peak_expires_at?: string;
   save_to_profile?: boolean;
+  tagged_users?: string[];
   created_at: string;
   author?: Profile;
   [key: string]: unknown; // Allow additional properties for store compatibility
@@ -646,6 +647,10 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
 
     if (postData.tags) {
       createData.tags = postData.tags;
+    }
+
+    if (postData.tagged_users) {
+      createData.taggedUsers = postData.tagged_users;
     }
 
     const post = await awsAPI.createPost(createData);

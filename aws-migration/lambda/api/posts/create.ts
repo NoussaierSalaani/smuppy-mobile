@@ -17,6 +17,7 @@ interface CreatePostInput {
   mediaUrls?: string[];
   mediaType?: 'image' | 'video';
   visibility?: 'public' | 'followers' | 'fans' | 'private' | 'subscribers';
+  taggedUsers?: string[];
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -91,7 +92,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const result = await client.query(
         `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW())
-         RETURNING *`,
+         RETURNING id, author_id, content, media_urls, media_type, visibility, likes_count, comments_count, created_at`,
         [
           postId,
           userId,
@@ -109,6 +110,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `UPDATE profiles SET post_count = COALESCE(post_count, 0) + 1 WHERE id = $1`,
         [userId]
       );
+
+      // Save tagged users
+      const taggedUsers = body.taggedUsers || [];
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      for (const taggedUserId of taggedUsers) {
+        if (!uuidRegex.test(taggedUserId) || taggedUserId === userId) continue;
+        await client.query(
+          `INSERT INTO post_tags (post_id, tagged_user_id, tagged_by_user_id, created_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (post_id, tagged_user_id) DO NOTHING`,
+          [postId, taggedUserId, userId]
+        );
+        // Create notification for tagged user
+        await client.query(
+          `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
+           VALUES ($1, 'post_tag', $2, $3, 'tagged you in a post', NOW())`,
+          [taggedUserId, userId, postId]
+        );
+      }
 
       await client.query('COMMIT');
     } catch (txErr) {

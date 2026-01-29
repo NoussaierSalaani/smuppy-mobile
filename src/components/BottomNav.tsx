@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { FEATURES } from '../config/featureFlags';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -178,10 +179,16 @@ const ProfileIcon = ({ imageUri, isActive, size = 26 }: ProfileIconProps): React
     { width: size, height: size, borderRadius: size / 2 },
     isActive && styles.profileActive
   ]}>
-    <Image
-      source={{ uri: imageUri || undefined }}
-      style={styles.profileImage}
-    />
+    {imageUri ? (
+      <Image
+        source={{ uri: imageUri }}
+        style={styles.profileImage}
+      />
+    ) : (
+      <View style={[styles.profileImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E7EB' }]}>
+        <Ionicons name="person" size={size * 0.6} color="#9CA3AF" />
+      </View>
+    )}
   </View>
 );
 
@@ -346,7 +353,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                   testID="profile-tab"
                 >
-                  <ProfileIcon isActive={isActive} size={26} />
+                  <ProfileIcon imageUri={user?.avatar || undefined} isActive={isActive} size={26} />
                   {isActive ? <View style={styles.underline} /> : null}
                 </TouchableOpacity>
               );

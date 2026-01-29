@@ -865,6 +865,7 @@ const UserProfileScreen = () => {
                 <TouchableOpacity
                   style={styles.joinLiveButton}
                   onPress={() => (navigation as any).navigate('ViewerLiveStream', {
+                    channelName: `live_${profile.id}`,
                     creatorId: profile.id,
                     creatorName: profile.displayName,
                     creatorAvatar: profile.avatar,

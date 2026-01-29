@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useUserStore } from '../../stores';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
@@ -41,12 +42,15 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
 
+  // Get current user as fallback for host info
+  const currentUser = useUserStore((state) => state.user);
+
   const {
     title: _title = 'Live Session',
     audience: _audience = 'public',
-    hostId = 'host_123', // Should come from auth
-    hostName = 'Apte Fitness',
-    hostAvatar = null,
+    hostId = currentUser?.id || 'unknown',
+    hostName = currentUser?.displayName || currentUser?.username || 'Creator',
+    hostAvatar = currentUser?.avatar || null,
   } = route.params || {};
 
   // Generate channel name

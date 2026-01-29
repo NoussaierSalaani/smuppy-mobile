@@ -88,6 +88,9 @@ export default function GoLiveScreen(): React.JSX.Element {
         title: title || 'Live Session',
         audience: 'public',
         isPrivate: false,
+        hostId: user?.id,
+        hostName: user?.displayName || user?.username || 'Creator',
+        hostAvatar: user?.avatar || null,
       });
     }
   }, [isCountdown, countdownValue]);

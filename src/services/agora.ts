@@ -316,9 +316,10 @@ export function generatePrivateChannelName(userId1: string, userId2: string): st
 }
 
 /**
- * Generate a channel name for live streams
+ * Generate a deterministic channel name for live streams.
+ * Uses only hostUserId so viewers can reconstruct the same name.
+ * In production, the backend should manage active stream channels.
  */
 export function generateLiveChannelName(hostUserId: string): string {
-  const timestamp = Date.now();
-  return `live_${hostUserId}_${timestamp}`;
+  return `live_${hostUserId}`;
 }

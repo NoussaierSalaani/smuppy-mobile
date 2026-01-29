@@ -40,7 +40,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
@@ -78,6 +78,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
     if (result.success) {
       try {
+        await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
         const { data: profile } = await getCurrentProfile(false);
         if (!profile) {
           navigation.reset({
@@ -346,6 +347,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
     if (result.success) {
       try {
+        await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
         const { data: profile } = await getCurrentProfile(false);
         if (!profile) {
           navigation.reset({

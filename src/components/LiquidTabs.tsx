@@ -124,7 +124,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
     };
   });
 
-  const handleTabPress = (key: string, _index: number) => {
+  const handleTabPress = (key: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Always call onTabChange - parent handles scroll-to-top for same tab
     onTabChange(key);
@@ -180,12 +180,12 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
         </Animated.View>
 
         {/* Tab Labels */}
-        {tabs.map((tab, index) => {
+        {tabs.map((tab, _index) => {
           const isActive = tab.key === activeTab;
           return (
             <TouchableOpacity
               key={tab.key}
-              onPress={() => handleTabPress(tab.key, index)}
+              onPress={() => handleTabPress(tab.key)}
               activeOpacity={0.7}
               style={[
                 styles.tab,

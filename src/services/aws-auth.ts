@@ -3,11 +3,10 @@
  * Using @aws-sdk/client-cognito-identity-provider for better React Native compatibility
  *
  * SECURITY: Sensitive tokens (access, refresh, id) stored in SecureStore (encrypted keychain)
- * Non-sensitive user profile data stored in AsyncStorage for performance
+ * All auth data (tokens + user profile) stored in SecureStore (encrypted keychain)
  */
 
 // IMPORTANT: crypto polyfill is loaded in index.js before this file
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { AWS_CONFIG } from '../config/aws-config';
 
@@ -35,12 +34,12 @@ const getCognitoCommands = async () => {
 const CLIENT_ID = AWS_CONFIG.cognito.userPoolClientId;
 
 // Token storage keys
-// SECURITY: Tokens use SecureStore (encrypted keychain), user profile uses AsyncStorage
+// SECURITY: All auth data uses SecureStore (encrypted keychain)
 const TOKEN_KEYS = {
   ACCESS_TOKEN: 'smuppy_access_token',  // SecureStore (no @ prefix, alphanumeric only)
   REFRESH_TOKEN: 'smuppy_refresh_token', // SecureStore
   ID_TOKEN: 'smuppy_id_token',           // SecureStore
-  USER: '@smuppy/user',                  // AsyncStorage (non-sensitive)
+  USER: '@smuppy/user',                  // SecureStore (encrypted)
 };
 
 // SecureStore helpers with error handling
@@ -127,6 +126,7 @@ class AWSAuthService {
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private idToken: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
   private authStateListeners: ((user: AuthUser | null) => void)[] = [];
 
   /**
@@ -136,12 +136,12 @@ class AWSAuthService {
     try {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Initializing...');
 
-      // Load tokens from secure storage, user from async storage
+      // Load tokens and user profile from secure storage
       const [accessToken, refreshToken, idToken, userJson] = await Promise.all([
         secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN),
         secureStore.getItem(TOKEN_KEYS.REFRESH_TOKEN),
         secureStore.getItem(TOKEN_KEYS.ID_TOKEN),
-        AsyncStorage.getItem(TOKEN_KEYS.USER),
+        secureStore.getItem(TOKEN_KEYS.USER),
       ]);
 
       if (!accessToken || !userJson) {
@@ -420,12 +420,12 @@ class AWSAuthService {
     const user = this.decodeIdToken(IdToken);
     this.user = user;
 
-    // Store tokens in SecureStore, user in AsyncStorage
+    // Store tokens and user profile in SecureStore (encrypted)
     await Promise.all([
       secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken),
       RefreshToken && secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken),
       secureStore.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
-      AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
+      secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
     ]);
 
     this.notifyAuthStateChange(user);
@@ -615,7 +615,7 @@ class AWSAuthService {
     }
     if (this.accessToken && this.isTokenExpired(this.accessToken)) {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Access token expired, refreshing...');
-      await this.refreshSession();
+      await this.refreshSessionOnce();
     }
     return this.accessToken;
   }
@@ -630,7 +630,7 @@ class AWSAuthService {
     }
     if (this.idToken && this.isTokenExpired(this.idToken)) {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] ID token expired, refreshing...');
-      await this.refreshSession();
+      await this.refreshSessionOnce();
     }
     return this.idToken;
   }
@@ -727,7 +727,7 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
-        AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
+        secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
       this.notifyAuthStateChange(result.user);
@@ -765,7 +765,7 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
-        AsyncStorage.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
+        secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
       this.notifyAuthStateChange(result.user);
@@ -836,6 +836,14 @@ class AWSAuthService {
     }
   }
 
+  private async refreshSessionOnce(): Promise<boolean> {
+    if (this.refreshPromise) return this.refreshPromise;
+    this.refreshPromise = this.refreshSession().finally(() => {
+      this.refreshPromise = null;
+    });
+    return this.refreshPromise;
+  }
+
   private async refreshSession(): Promise<boolean> {
     if (!this.refreshToken) return false;
 
@@ -883,7 +891,7 @@ class AWSAuthService {
       secureStore.removeItem(TOKEN_KEYS.ACCESS_TOKEN),
       secureStore.removeItem(TOKEN_KEYS.REFRESH_TOKEN),
       secureStore.removeItem(TOKEN_KEYS.ID_TOKEN),
-      AsyncStorage.removeItem(TOKEN_KEYS.USER),
+      secureStore.removeItem(TOKEN_KEYS.USER),
     ]);
   }
 

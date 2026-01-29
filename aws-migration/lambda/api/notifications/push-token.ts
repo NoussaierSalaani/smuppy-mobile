@@ -144,7 +144,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Get the endpoint ARN before deleting
       const tokenResult = await db.query(
         `SELECT sns_endpoint_arn FROM push_tokens
-         WHERE user_id = (SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1)
+         WHERE user_id = (SELECT id FROM profiles WHERE cognito_sub = $1)
          AND device_id = $2`,
         [userId, deviceId]
       );
@@ -164,7 +164,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Delete from database
       await db.query(
         `DELETE FROM push_tokens
-         WHERE user_id = (SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1)
+         WHERE user_id = (SELECT id FROM profiles WHERE cognito_sub = $1)
          AND device_id = $2`,
         [userId, deviceId]
       );
@@ -211,7 +211,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Get user's profile ID (check both id and cognito_sub for consistency)
     const userResult = await db.query(
-      'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
 

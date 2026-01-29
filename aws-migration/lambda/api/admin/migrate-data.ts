@@ -6,6 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { timingSafeEqual } from 'crypto';
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
@@ -199,7 +200,7 @@ export const handler = async (
     const providedKey = body.adminKey || event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
     const adminKey = await getAdminKey();
 
-    if (!providedKey || providedKey !== adminKey) {
+    if (!providedKey || providedKey.length !== adminKey.length || !timingSafeEqual(Buffer.from(providedKey), Buffer.from(adminKey))) {
       log.warn('Unauthorized admin access attempt');
       return {
         statusCode: 401,

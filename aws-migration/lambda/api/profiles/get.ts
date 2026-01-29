@@ -73,7 +73,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (currentUserId) {
       // Resolve the current user's profile ID from cognito_sub
       const userResult = await db.query(
-        'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
         [currentUserId]
       );
       resolvedUserId = userResult.rows[0]?.id || null;

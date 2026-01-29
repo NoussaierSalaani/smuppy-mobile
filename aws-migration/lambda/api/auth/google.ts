@@ -34,6 +34,10 @@ const GOOGLE_CLIENT_IDS = [
   process.env.GOOGLE_WEB_CLIENT_ID,
 ].filter(Boolean) as string[];
 
+if (GOOGLE_CLIENT_IDS.length === 0) {
+  throw new Error('At least one GOOGLE_CLIENT_ID must be configured');
+}
+
 const googleClient = new OAuth2Client();
 
 interface GoogleTokenPayload {

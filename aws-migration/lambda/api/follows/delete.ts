@@ -38,7 +38,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Resolve the follower's profile ID from cognito_sub
     const followerResult = await db.query(
-      'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
       [cognitoSub]
     );
 

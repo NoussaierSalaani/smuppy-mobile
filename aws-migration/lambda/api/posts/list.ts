@@ -84,7 +84,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let requesterId: string | null = null;
     if (cognitoSub) {
       const userResult = await pool.query(
-        'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
         [cognitoSub]
       );
       requesterId = userResult.rows[0]?.id || null;

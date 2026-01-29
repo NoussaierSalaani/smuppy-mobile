@@ -3,6 +3,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { timingSafeEqual } from 'crypto';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 
@@ -11,7 +12,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   // SECURITY: Verify admin API key
   const adminKey = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
-  if (!adminKey || adminKey !== process.env.ADMIN_API_KEY) {
+  const expectedKey = process.env.ADMIN_API_KEY;
+  if (!adminKey || !expectedKey || adminKey.length !== expectedKey.length || !timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))) {
     return {
       statusCode: 403,
       headers,

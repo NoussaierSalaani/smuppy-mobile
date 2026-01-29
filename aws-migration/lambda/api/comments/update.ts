@@ -78,7 +78,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Get user's profile ID (check both id and cognito_sub for consistency)
     const userResult = await db.query(
-      'SELECT id FROM profiles WHERE id = $1 OR cognito_sub = $1',
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
 

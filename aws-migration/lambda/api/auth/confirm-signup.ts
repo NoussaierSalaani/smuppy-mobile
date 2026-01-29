@@ -75,7 +75,7 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
     const response = await cognitoClient.send(
       new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase().replace(/["\\]/g, '')}"`,
+        Filter: `email = "${email.toLowerCase().replace(/[^a-z0-9@.+_-]/g, '')}"`,
         Limit: 1,
       })
     );

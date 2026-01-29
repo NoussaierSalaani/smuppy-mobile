@@ -7,30 +7,30 @@ tags:
 
 - launchApp
 
+# Wait for app to load
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 20000
+
 # Navigate to profile then settings
 - tapOn:
     id: "profile-tab"
+- waitForAnimationToEnd
 - tapOn:
     id: "settings-button"
+- waitForAnimationToEnd
 
-# Verify all settings options
-- assertVisible: "Paramètres"
-- assertVisible: "Compte"
-- assertVisible: "Confidentialité"
+# Verify settings options
+- assertVisible: "Edit Profile"
+- assertVisible: "Password"
 - assertVisible: "Notifications"
-- assertVisible: "Aide"
 
-# Test each section
-- tapOn: "Compte"
-- assertVisible: "Modifier le profil"
-- tapOn:
-    id: "back-button"
+# Test Edit Profile section
+- tapOn: "Edit Profile"
+- waitForAnimationToEnd
+- back
 
-- tapOn: "Confidentialité"
-- tapOn:
-    id: "back-button"
-
-# Test logout
-- scroll:
+# Scroll to see more options
+- scrollUntilVisible:
+    element: "Log out"
     direction: DOWN
-- assertVisible: "Déconnexion"

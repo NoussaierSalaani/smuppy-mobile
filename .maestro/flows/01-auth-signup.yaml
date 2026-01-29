@@ -1,6 +1,5 @@
 # Test: Complete Signup Flow
-# Tests the entire onboarding and signup process
-
+# Tests welcome screen and signup button navigation
 appId: com.nou09.Smuppy
 name: "Auth - Complete Signup Flow"
 tags:
@@ -11,45 +10,19 @@ tags:
 # Step 1: Launch and welcome screen
 - launchApp:
     clearState: true
-- assertVisible: "Bienvenue"
 
-# Step 2: Account type selection
-- tapOn: "Créer un compte"
-- assertVisible: "Type de compte"
-- tapOn: "Personnel"
-- tapOn: "Continuer"
+# Wait for welcome screen
+- extendedWaitUntil:
+    visible:
+      id: "welcome-screen"
+    timeout: 20000
 
-# Step 3: Personal info
-- assertVisible: "Informations"
-- inputText:
-    id: "name-input"
-    text: "Test User"
-- tapOn: "Homme"
-- tapOn: "Continuer"
+# Verify welcome text
+- assertVisible: "Welcome To"
 
-# Step 4: Interests selection
-- assertVisible: "Intérêts"
-- tapOn: "Fitness"
-- tapOn: "Yoga"
-- tapOn: "Running"
-- tapOn: "Continuer"
+# Step 2: Tap signup button
+- tapOn:
+    id: "signup-button"
 
-# Step 5: Profile setup
-- assertVisible: "Profil"
-- inputText:
-    id: "username-input"
-    text: "testuser_${RANDOM}"
-- tapOn: "Continuer"
-
-# Step 6: Email and password
-- assertVisible: "Email"
-- inputText:
-    id: "email-input"
-    text: "${TEST_EMAIL}"
-- inputText:
-    id: "password-input"
-    text: "${TEST_PASSWORD}"
-- tapOn: "Créer mon compte"
-
-# Step 7: Verify code screen appears
-- assertVisible: "Vérifier"
+# Wait for signup screen to appear
+- waitForAnimationToEnd

@@ -109,7 +109,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).errors).toContain('accountType must be one of: personal, pro_creator, pro_business');
+      expect(JSON.parse(response.body).errors).toContain("Invalid account type 'invalid'.");
     });
 
     it('should reject non-boolean isPrivate', async () => {

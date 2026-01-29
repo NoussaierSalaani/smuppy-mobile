@@ -134,9 +134,11 @@ describe('Google Auth Handler', () => {
         }),
       });
 
-      // Mock user exists
+      // Mock user exists (AdminGetUser)
       mockSend.mockResolvedValueOnce({ Username: 'google_google-user-456' });
-      // Mock auth success
+      // Mock password set (AdminSetUserPassword)
+      mockSend.mockResolvedValueOnce({});
+      // Mock auth success (AdminInitiateAuth)
       mockSend.mockResolvedValueOnce({
         AuthenticationResult: {
           AccessToken: 'access-token',
@@ -250,6 +252,8 @@ describe('Google Auth Handler', () => {
       });
 
       mockSend.mockResolvedValueOnce({ Username: 'existing' });
+      // Mock password set (AdminSetUserPassword)
+      mockSend.mockResolvedValueOnce({});
       mockSend.mockResolvedValueOnce({
         AuthenticationResult: {
           AccessToken: 'access',

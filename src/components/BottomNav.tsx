@@ -313,6 +313,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                     style={styles.tab}
                     onPress={openProMenu}
                     activeOpacity={0.8}
+                    testID="create-tab"
                   >
                     <View style={styles.proSmuppyButton}>
                       <SmuppyIcon size={46} variant="dark" />
@@ -327,6 +328,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.tab}
                   onPress={() => handlePress(tab, index)}
                   activeOpacity={0.7}
+                  testID="create-tab"
                 >
                   <View style={styles.createButton}>
                     <CreateIcon size={22} />
@@ -342,6 +344,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.tab}
                   onPress={() => handlePress(tab, index)}
                   activeOpacity={0.7}
+                  testID="profile-tab"
                 >
                   <ProfileIcon isActive={isActive} size={26} />
                   {isActive ? <View style={styles.underline} /> : null}
@@ -357,6 +360,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 style={styles.tab}
                 onPress={() => handlePress(tab, index)}
                 activeOpacity={0.7}
+                testID={`${tab.name.toLowerCase()}-tab`}
               >
                 <IconComponent size={22} />
                 {isActive ? <View style={styles.underline} /> : null}

@@ -11,18 +11,13 @@ tags:
 # Launch app
 - launchApp
 
-# Handle Expo dev launcher
-- tapOn:
-    id: ".*localhost.*"
-    optional: true
-
-# Wait for welcome screen using testID
+# Wait for welcome screen
 - extendedWaitUntil:
     visible:
       id: "welcome-screen"
     timeout: 20000
 
-# Tap login button using testID
+# Tap login button
 - tapOn:
     id: "login-button"
 
@@ -32,60 +27,46 @@ tags:
       id: "login-screen"
     timeout: 10000
 
-# Wait a moment for form to be ready
 - waitForAnimationToEnd
 
-# Try to tap login submit button
+# Submit empty login to verify we stay on login screen
 - tapOn:
     id: "submit-login-button"
     optional: true
 
-# Fallback: tap by approximate position of login button
-- tapOn:
-    point: 50%, 57%
-    optional: true
-
-# Wait for home feed
+# Wait for feed (assumes already logged in or auto-login)
 - extendedWaitUntil:
-    visible:
-      id: "feed-screen"
+    visible: "Fan"
     timeout: 30000
 
-# ========== TEST TAB NAVIGATION ==========
+# ========== TEST FEED TAB NAVIGATION ==========
 
 # Test Fan tab
-- tapOn:
-    id: "tab-Fan"
-- assertVisible:
-    id: "tab-Fan"
+- tapOn: "Fan"
+- assertVisible: "Fan"
 
 # Test Vibes tab
-- tapOn:
-    id: "tab-Vibes"
-- assertVisible:
-    id: "tab-Vibes"
+- tapOn: "Vibes"
+- assertVisible: "Vibes"
 
-# Test Xplorer tab (fullscreen mode - no tabs visible after)
-- tapOn:
-    id: "tab-Xplorer"
-
-# Wait for map to load
+# Test Xplorer tab
+- tapOn: "Xplorer"
 - waitForAnimationToEnd
 
 # ========== TEST BOTTOM NAVIGATION ==========
 
-# Use bottom nav to go to Peaks (gets us out of fullscreen map)
+# Go to Peaks tab
 - tapOn:
-    id: "nav-peaks"
+    id: "peaks-tab"
+- waitForAnimationToEnd
 
-# Use bottom nav to go back to Home
+# Go back to Home
 - tapOn:
-    id: "nav-home"
+    id: "home-tab"
 
-# Verify we're back on feed with tabs visible
+# Verify we're back on feed
 - extendedWaitUntil:
-    visible:
-      id: "tab-Fan"
+    visible: "Fan"
     timeout: 5000
 
 # ========== TEST HEADER BUTTONS ==========
@@ -106,7 +87,5 @@ tags:
 
 # Navigate to profile
 - tapOn:
-    id: "nav-profile"
-
-# ========== SUCCESS ==========
-# All main navigation flows working!
+    id: "profile-tab"
+- waitForAnimationToEnd

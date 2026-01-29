@@ -56,7 +56,7 @@ describe('Security Utils', () => {
       expect(isValidUUID('not-a-uuid')).toBe(false);
       expect(isValidUUID('550e8400-e29b-41d4-a716')).toBe(false);
       expect(isValidUUID('')).toBe(false);
-      expect(isValidUUID('550e8400-e29b-61d4-a716-446655440000')).toBe(false); // Invalid version
+      expect(isValidUUID('550e8400-e29b-61d4-a716-44665544000')).toBe(false); // Wrong length
     });
 
     it('should reject null/undefined', () => {

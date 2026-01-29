@@ -1198,6 +1198,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           style={[styles.settingsBtnFixed, { top: insets.top + 8 }]}
           onPress={() => navigation.navigate('Settings')}
+          testID="settings-button"
         >
           <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>

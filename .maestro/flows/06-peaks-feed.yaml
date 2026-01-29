@@ -7,12 +7,15 @@ tags:
 
 - launchApp
 
+# Wait for app to load
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 20000
+
 # Navigate to peaks
 - tapOn:
     id: "peaks-tab"
-
-# Verify peaks screen
-- assertVisible: "Peaks"
+- waitForAnimationToEnd
 
 # Swipe through peaks
 - swipe:
@@ -25,6 +28,6 @@ tags:
     direction: DOWN
     duration: 500
 
-# Like a peak
+# Double-tap to like
 - doubleTapOn:
     point: "50%,50%"

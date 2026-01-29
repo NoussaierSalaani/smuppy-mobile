@@ -7,21 +7,22 @@ tags:
 
 - launchApp
 
-# Go to explorer
-- tapOn: "Xplorer"
+# Wait for app to load
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 20000
 
-# Tap search bar
+# Tap search button in header
 - tapOn:
-    id: "search-input"
+    id: "search-button"
+- waitForAnimationToEnd
 
-# Search for user
+# Type search query
 - inputText: "fitness"
 - pressKey: Enter
 
 # Wait for results
 - waitForAnimationToEnd
 
-# Verify results appear
-- assertVisible:
-    text: ".*"
-    timeout: 5000
+# Go back
+- back

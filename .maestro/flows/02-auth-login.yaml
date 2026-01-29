@@ -8,18 +8,37 @@ tags:
 
 - launchApp:
     clearState: true
-- assertVisible: "Bienvenue"
-- tapOn: "Se connecter"
-- assertVisible: "Connexion"
-- inputText:
-    id: "email-input"
-    text: "${TEST_EMAIL}"
-- tapOn: "Continuer"
-- assertVisible: "Mot de passe"
-- inputText:
-    id: "password-input"
-    text: "${TEST_PASSWORD}"
-- tapOn: "Se connecter"
-- assertVisible:
-    text: "Fan"
+
+# Wait for welcome screen
+- extendedWaitUntil:
+    visible:
+      id: "welcome-screen"
+    timeout: 20000
+
+# Tap login
+- tapOn:
+    id: "login-button"
+
+# Wait for login screen
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
     timeout: 10000
+
+# Enter credentials
+- tapOn:
+    id: "email-input"
+- inputText: "${TEST_EMAIL}"
+
+- tapOn:
+    id: "password-input"
+- inputText: "${TEST_PASSWORD}"
+
+# Submit login
+- tapOn:
+    id: "submit-login-button"
+
+# Wait for feed
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 15000

@@ -6,30 +6,25 @@ tags:
   - navigation
 ---
 
-# Launch app
+# Launch app (assumes already logged in)
 - launchApp
 
-# Handle Expo dev launcher - tap on localhost to load bundle
-- tapOn:
-    text: "http://localhost:8081"
-    optional: true
-
-# Wait for bundle to load
+# Wait for feed to load
 - extendedWaitUntil:
     visible: "Fan"
     timeout: 20000
 
-# Test FanFeed tab
+# Test Fan tab
 - tapOn: "Fan"
 - assertVisible: "Fan"
 
-# Test VibesFeed tab
+# Test Vibes tab
 - tapOn: "Vibes"
 - assertVisible: "Vibes"
 
-# Test Explorer tab
+# Test Xplorer tab
 - tapOn: "Xplorer"
-- assertVisible: "Xplorer"
+- waitForAnimationToEnd
 
 # Navigate back to Fan and scroll
 - tapOn: "Fan"

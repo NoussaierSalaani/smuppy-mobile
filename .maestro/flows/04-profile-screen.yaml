@@ -7,24 +7,28 @@ tags:
 
 - launchApp
 
+# Wait for app to load
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 20000
+
 # Navigate to profile
 - tapOn:
     id: "profile-tab"
+- waitForAnimationToEnd
 
 # Verify profile screen elements
-- assertVisible: "Posts"
 - assertVisible: "Fans"
-- assertVisible: "Following"
+- assertVisible: "Posts"
 
-# Test edit profile button
-- tapOn: "Modifier"
-- assertVisible: "Modifier le profil"
-
-# Go back
-- tapOn:
-    id: "back-button"
-    
-# Test settings
+# Test settings button
 - tapOn:
     id: "settings-button"
-- assertVisible: "Paramètres"
+- waitForAnimationToEnd
+
+# Verify settings screen
+- assertVisible: "Edit Profile"
+- assertVisible: "Notifications"
+
+# Go back
+- back

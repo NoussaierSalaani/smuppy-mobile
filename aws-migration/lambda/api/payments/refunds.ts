@@ -8,15 +8,21 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent, corsHeaders } from '../utils/auth';
 
 const log = createLogger('payments/refunds');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 // Refund reason types
 type RefundReason =
@@ -37,6 +43,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
+    const stripe = await getStripe();
     const user = await getUserFromEvent(event);
     if (!user) {
       return {
@@ -171,6 +178,7 @@ async function getRefund(
   refundId: string,
   headers: any
 ) {
+  const stripe = await getStripe();
   const result = await db.query(
     `SELECT
       r.*,
@@ -269,6 +277,7 @@ async function createRefund(
   event: any,
   headers: any
 ) {
+  const stripe = await getStripe();
   const body = JSON.parse(event.body || '{}');
   const { paymentId, amount, reason, notes } = body as {
     paymentId: string;
@@ -463,7 +472,7 @@ async function createRefund(
       headers,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to process refund',
+        message: 'Failed to process refund',
       }),
     };
   }

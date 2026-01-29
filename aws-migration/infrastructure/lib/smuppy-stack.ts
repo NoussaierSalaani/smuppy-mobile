@@ -167,14 +167,23 @@ export class SmuppyStack extends cdk.Stack {
     // SES Bounce/Complaint Handling Topics
     // SECURITY: Required for email deliverability and abuse prevention
     // ========================================
+    // KMS key for SNS topic encryption at rest
+    const snsEncryptionKey = new kms.Key(this, 'SnsEncryptionKey', {
+      alias: `smuppy-sns-${environment}`,
+      description: `KMS key for Smuppy SNS topic encryption - ${environment}`,
+      enableKeyRotation: true,
+    });
+
     const sesBouncesTopic = new sns.Topic(this, 'SESBouncesTopic', {
       topicName: `smuppy-ses-bounces-${environment}`,
       displayName: 'Smuppy SES Bounces',
+      masterKey: snsEncryptionKey,
     });
 
     const sesComplaintsTopic = new sns.Topic(this, 'SESComplaintsTopic', {
       topicName: `smuppy-ses-complaints-${environment}`,
       displayName: 'Smuppy SES Complaints',
+      masterKey: snsEncryptionKey,
     });
 
     // Output SES topics for manual SES configuration
@@ -917,12 +926,28 @@ export class SmuppyStack extends cdk.Stack {
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
+    // SECURITY: Stripe secrets stored in Secrets Manager (not env vars)
+    // Contains JSON: { STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET }
+    const stripeSecret = new secretsmanager.Secret(this, 'StripeSecrets', {
+      secretName: `smuppy/${environment}/stripe-secrets`,
+      description: 'Stripe API keys for payment processing',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          STRIPE_SECRET_KEY: '',
+          STRIPE_PUBLISHABLE_KEY: '',
+          STRIPE_WEBHOOK_SECRET: '',
+        }),
+        generateStringKey: 'placeholder',
+      },
+    });
+
     // Create nested Lambda stack to stay under CloudFormation's 500 resource limit
     const lambdaStack = new LambdaStack(this, 'LambdaStack', {
       vpc,
       lambdaSecurityGroup,
       dbCredentials,
       adminApiKeySecret,
+      stripeSecret,
       redisAuthSecret: redisAuthToken,
       mediaBucket,
       userPool,
@@ -1429,6 +1454,7 @@ export class SmuppyStack extends cdk.Stack {
     const pushNotificationsTopic = new sns.Topic(this, 'PushNotificationsTopic', {
       topicName: `smuppy-push-notifications-${environment}`,
       displayName: 'Smuppy Push Notifications',
+      masterKey: snsEncryptionKey,
     });
 
     // Create secrets for push notification credentials (to be filled manually)
@@ -1500,6 +1526,7 @@ export class SmuppyStack extends cdk.Stack {
     const alertsTopic = new sns.Topic(this, 'AlertsTopic', {
       topicName: `smuppy-alerts-${environment}`,
       displayName: `Smuppy ${environment} Alerts`,
+      masterKey: snsEncryptionKey,
     });
 
     // API Gateway 5xx errors alarm

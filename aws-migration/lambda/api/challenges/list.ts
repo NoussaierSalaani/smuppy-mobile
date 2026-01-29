@@ -9,7 +9,7 @@ import { cors, handleOptions } from '../utils/cors';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -201,7 +201,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to fetch challenges',
+        message: 'Failed to fetch challenges',
       }),
     });
   } finally {

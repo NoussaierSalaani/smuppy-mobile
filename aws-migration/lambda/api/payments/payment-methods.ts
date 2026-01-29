@@ -10,15 +10,21 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent, corsHeaders } from '../utils/auth';
 
 const log = createLogger('payments/payment-methods');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = corsHeaders(event);
@@ -29,6 +35,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
+    const stripe = await getStripe();
     const user = await getUserFromEvent(event);
     if (!user) {
       return {
@@ -87,6 +94,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
  * Get or create Stripe customer for user
  */
 async function getOrCreateStripeCustomer(db: any, userId: string): Promise<string> {
+  const stripe = await getStripe();
   // Check if user has a Stripe customer ID
   const result = await db.query(
     'SELECT stripe_customer_id, email, full_name, username FROM profiles WHERE id = $1',
@@ -128,6 +136,7 @@ async function getOrCreateStripeCustomer(db: any, userId: string): Promise<strin
  * Create a SetupIntent for adding payment methods
  */
 async function createSetupIntent(db: any, user: { sub: string }, headers: any) {
+  const stripe = await getStripe();
   const customerId = await getOrCreateStripeCustomer(db, user.sub);
 
   const setupIntent = await stripe.setupIntents.create({
@@ -158,6 +167,7 @@ async function createSetupIntent(db: any, user: { sub: string }, headers: any) {
  * List all payment methods for a user
  */
 async function listPaymentMethods(db: any, user: { sub: string }, headers: any) {
+  const stripe = await getStripe();
   const customerId = await getOrCreateStripeCustomer(db, user.sub);
 
   // Get payment methods from Stripe
@@ -207,6 +217,7 @@ async function attachPaymentMethod(
   event: any,
   headers: any
 ) {
+  const stripe = await getStripe();
   const body = JSON.parse(event.body || '{}');
   const { paymentMethodId, setAsDefault } = body as {
     paymentMethodId: string;
@@ -275,6 +286,7 @@ async function detachPaymentMethod(
   paymentMethodId: string,
   headers: any
 ) {
+  const stripe = await getStripe();
   const customerId = await getOrCreateStripeCustomer(db, user.sub);
 
   // Verify the payment method belongs to this customer
@@ -315,6 +327,7 @@ async function setDefaultPaymentMethod(
   paymentMethodId: string,
   headers: any
 ) {
+  const stripe = await getStripe();
   const customerId = await getOrCreateStripeCustomer(db, user.sub);
 
   // Verify the payment method belongs to this customer

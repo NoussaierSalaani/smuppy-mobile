@@ -9,7 +9,7 @@ import { cors, handleOptions } from '../utils/cors';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 interface CreateEventRequest {
@@ -92,6 +92,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           success: false,
           message: 'Title, category, location, and start date are required',
         }),
+      });
+    }
+
+    // Validate coordinates
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid coordinates' }),
+      });
+    }
+
+    // Validate participants bounds
+    if (maxParticipants !== undefined && (maxParticipants < 2 || maxParticipants > 10000)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
+      });
+    }
+
+    // Validate title length
+    if (title.length > 200) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
       });
     }
 

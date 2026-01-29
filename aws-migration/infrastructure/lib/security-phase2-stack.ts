@@ -45,12 +45,18 @@ export class SecurityPhase2Stack extends cdk.Stack {
 
     // ========================================
     // SNS Topic for Security Alerts
-    // TODO #20: Add masterKey: kms.Key for SNS encryption at rest
     // TODO #22: Enable GuardDuty via new guardduty.CfnDetector
     // ========================================
+    const securitySnsKey = new kms.Key(this, 'SecuritySnsKey', {
+      alias: `smuppy-security-sns-${environment}`,
+      description: `KMS key for security SNS topic encryption - ${environment}`,
+      enableKeyRotation: true,
+    });
+
     this.securityAlertsTopic = new sns.Topic(this, 'SecurityAlertsTopic', {
       topicName: `smuppy-security-alerts-${environment}`,
       displayName: 'Smuppy Security Alerts',
+      masterKey: securitySnsKey,
     });
 
     // Add email subscription if provided

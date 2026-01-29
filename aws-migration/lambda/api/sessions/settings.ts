@@ -60,13 +60,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     if (body.sessionPrice !== undefined) {
+      const price = Number(body.sessionPrice);
+      if (isNaN(price) || price < 0 || price > 10000) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: 'Price must be between 0 and 10000' }),
+        };
+      }
       updates.push(`session_price = $${paramIndex++}`);
-      values.push(body.sessionPrice);
+      values.push(price);
     }
 
     if (body.sessionDuration !== undefined) {
+      const duration = Math.round(Number(body.sessionDuration));
+      if (isNaN(duration) || duration < 15 || duration > 480) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: 'Duration must be between 15 and 480 minutes' }),
+        };
+      }
       updates.push(`session_duration = $${paramIndex++}`);
-      values.push(body.sessionDuration);
+      values.push(duration);
     }
 
     if (body.sessionAvailability !== undefined) {

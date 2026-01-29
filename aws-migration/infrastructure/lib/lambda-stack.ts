@@ -16,6 +16,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   lambdaSecurityGroup: ec2.ISecurityGroup;
   dbCredentials: secretsmanager.ISecret;
   adminApiKeySecret: secretsmanager.ISecret;
+  stripeSecret: secretsmanager.ISecret;
   redisAuthSecret?: secretsmanager.ISecret; // Optional: Redis auth token secret
   mediaBucket: s3.IBucket;
   userPool: cognito.IUserPool;
@@ -185,6 +186,7 @@ export class LambdaStack extends cdk.NestedStack {
       lambdaSecurityGroup,
       dbCredentials,
       adminApiKeySecret,
+      stripeSecret,
       mediaBucket,
       userPool,
       userPoolClientId,
@@ -435,8 +437,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
-        STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       reservedConcurrentExecutions: 20,
       bundling: { minify: true, sourceMap: true, externalModules: [] },
@@ -458,9 +459,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
-        // SECURITY: Webhook secret MUST come from environment variable or Secrets Manager
-        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       deadLetterQueue: criticalDlq,
       retryAttempts: 2,
@@ -485,7 +484,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -507,7 +506,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -529,7 +528,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -551,7 +550,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -573,7 +572,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -595,7 +594,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -617,7 +616,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -639,7 +638,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
       },
       bundling: { minify: true, sourceMap: true, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -661,7 +660,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
         APP_SCHEME: 'smuppy',
         WEB_DOMAIN: process.env.WEB_DOMAIN || 'https://smuppy.com',
       },
@@ -673,8 +672,10 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.paymentWebCheckoutFn);
 
-    // SECURITY: Apply DLQ and reserved concurrency to all payment lambdas
-    const paymentLambdas = [
+    // SECURITY: Apply DLQ, Stripe secret access, and reserved concurrency to all payment lambdas
+    const allPaymentLambdas = [
+      this.paymentCreateIntentFn,
+      this.paymentWebhookFn,
       this.paymentSubscriptionsFn,
       this.paymentConnectFn,
       this.paymentIdentityFn,
@@ -685,7 +686,23 @@ export class LambdaStack extends cdk.NestedStack {
       this.paymentMethodsFn,
       this.paymentWebCheckoutFn,
     ];
-    for (const fn of paymentLambdas) {
+    for (const fn of allPaymentLambdas) {
+      stripeSecret.grantRead(fn);
+    }
+
+    // DLQ for non-intent/webhook payment lambdas (intent & webhook have their own config)
+    const paymentLambdasForDlq = [
+      this.paymentSubscriptionsFn,
+      this.paymentConnectFn,
+      this.paymentIdentityFn,
+      this.paymentPlatformSubFn,
+      this.paymentChannelSubFn,
+      this.paymentWalletFn,
+      this.paymentRefundsFn,
+      this.paymentMethodsFn,
+      this.paymentWebCheckoutFn,
+    ];
+    for (const fn of paymentLambdasForDlq) {
       const cfnFn = fn.node.defaultChild as lambda.CfnFunction;
       cfnFn.addPropertyOverride('DeadLetterConfig', {
         TargetArn: criticalDlq.queueArn,

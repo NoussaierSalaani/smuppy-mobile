@@ -10,7 +10,6 @@ interface CreateSessionBody {
   creatorId: string;
   scheduledAt: string;
   duration: number;
-  price: number;
   notes?: string;
   fromPackId?: string; // If using a session pack
 }
@@ -31,7 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     const body: CreateSessionBody = JSON.parse(event.body || '{}');
-    const { creatorId, scheduledAt, duration, price, notes, fromPackId } = body;
+    const { creatorId, scheduledAt, duration, notes, fromPackId } = body;
 
     if (!creatorId || !scheduledAt || !duration) {
       return {
@@ -151,7 +150,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         userId,
         scheduledAt,
         duration,
-        packUsed ? 0 : price,
+        packUsed ? 0 : creator.session_price,
         notes || null,
         'pending', // Creator needs to accept
         fromPackId || null,

@@ -10,16 +10,23 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey, getStripeWebhookSecret } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('payments/webhook');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+// Webhook secret loaded from Secrets Manager at runtime
+let webhookSecret: string | null = null;
 
 // Event deduplication: reject replayed events
 const MAX_EVENT_AGE_SECONDS = 300; // 5 minutes
@@ -55,6 +62,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   };
 
   try {
+    const stripe = await getStripe();
     const signature = event.headers['Stripe-Signature'] || event.headers['stripe-signature'];
 
     if (!signature) {
@@ -67,6 +75,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Verify webhook signature
+    if (!webhookSecret) {
+      webhookSecret = await getStripeWebhookSecret();
+    }
     let stripeEvent: Stripe.Event;
     try {
       stripeEvent = stripe.webhooks.constructEvent(

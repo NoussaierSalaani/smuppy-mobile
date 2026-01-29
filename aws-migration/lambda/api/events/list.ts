@@ -9,7 +9,7 @@ import { cors, handleOptions } from '../utils/cors';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 export const handler: APIGatewayProxyHandler = async (event) => {

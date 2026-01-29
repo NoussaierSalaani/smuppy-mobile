@@ -11,11 +11,17 @@
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 import { Pool } from 'pg';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -23,7 +29,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
   max: 1,
 });
 
@@ -55,6 +61,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    const stripe = await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -102,6 +109,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
  * Get comprehensive creator dashboard data
  */
 async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Verify user is a creator
@@ -441,6 +449,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
  * Get Stripe Connect balance
  */
 async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -490,6 +499,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
  * Get payout history
  */
 async function getPayouts(userId: string, limit: number): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -536,6 +546,7 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
  * Request a payout (if instant payouts are available)
  */
 async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -601,6 +612,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
  * This allows creators to manage their account, bank details, and view detailed reports
  */
 async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(

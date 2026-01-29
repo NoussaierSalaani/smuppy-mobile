@@ -9,7 +9,7 @@ import { cors, handleOptions } from '../utils/cors';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -36,33 +36,47 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Get period start date
-    let periodStart: string | null = null;
-    if (period === 'monthly') {
-      periodStart = "DATE_TRUNC('month', NOW())";
-    } else if (period === 'weekly') {
-      periodStart = "DATE_TRUNC('week', NOW())";
+    // Get period start date using parameterized SQL (no string interpolation)
+    const usePeriodStart = period === 'monthly' || period === 'weekly';
+
+    const query = usePeriodStart
+      ? `SELECT
+          tl.tipper_id,
+          tl.total_amount,
+          tl.tip_count,
+          ROW_NUMBER() OVER (ORDER BY tl.total_amount DESC) as rank,
+          p.username,
+          p.display_name,
+          p.avatar_url
+        FROM tip_leaderboard tl
+        JOIN profiles p ON tl.tipper_id = p.id
+        WHERE tl.creator_id = $1
+        AND tl.period_type = $2
+        AND tl.period_start = DATE_TRUNC($4, NOW())
+        ORDER BY tl.total_amount DESC
+        LIMIT $3`
+      : `SELECT
+          tl.tipper_id,
+          tl.total_amount,
+          tl.tip_count,
+          ROW_NUMBER() OVER (ORDER BY tl.total_amount DESC) as rank,
+          p.username,
+          p.display_name,
+          p.avatar_url
+        FROM tip_leaderboard tl
+        JOIN profiles p ON tl.tipper_id = p.id
+        WHERE tl.creator_id = $1
+        AND tl.period_type = $2
+        AND tl.period_start IS NULL
+        ORDER BY tl.total_amount DESC
+        LIMIT $3`;
+
+    const params: (string | number)[] = [creatorId, period, limit];
+    if (usePeriodStart) {
+      params.push(period === 'monthly' ? 'month' : 'week');
     }
 
-    const query = `
-      SELECT
-        tl.tipper_id,
-        tl.total_amount,
-        tl.tip_count,
-        ROW_NUMBER() OVER (ORDER BY tl.total_amount DESC) as rank,
-        p.username,
-        p.display_name,
-        p.avatar_url
-      FROM tip_leaderboard tl
-      JOIN profiles p ON tl.tipper_id = p.id
-      WHERE tl.creator_id = $1
-      AND tl.period_type = $2
-      ${periodStart ? `AND tl.period_start = ${periodStart}` : 'AND tl.period_start IS NULL'}
-      ORDER BY tl.total_amount DESC
-      LIMIT $3
-    `;
-
-    const result = await client.query(query, [creatorId, period, limit]);
+    const result = await client.query(query, params);
 
     // Get total tips stats for this creator
     const statsResult = await client.query(
@@ -107,7 +121,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to fetch leaderboard',
+        message: 'Failed to fetch leaderboard',
       }),
     });
   } finally {

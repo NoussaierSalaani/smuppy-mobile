@@ -13,14 +13,20 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
 import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
+import { getStripeKey } from '../../shared/secrets';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2023-10-16' });
+  }
+  return stripeInstance;
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 interface SendTipRequest {
@@ -48,6 +54,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const client = await pool.connect();
 
   try {
+    const stripe = await getStripe();
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {

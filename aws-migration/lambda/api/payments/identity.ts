@@ -9,11 +9,17 @@
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { Pool } from 'pg';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 // Verification fee: $14.90 (1490 cents) - 100% goes to Smuppy
 const VERIFICATION_FEE_CENTS = 1490;
@@ -24,7 +30,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
   max: 1,
 });
 
@@ -47,6 +53,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    const stripe = await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -94,6 +101,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
  * This must be completed before starting verification
  */
 async function createVerificationPaymentIntent(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Get user info
@@ -203,7 +211,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
           amount: paymentIntent.amount,
         },
         priceFormatted: '$14.90',
-        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+        publishableKey: await getStripePublishableKey(),
       }),
     };
   } finally {
@@ -219,6 +227,7 @@ async function confirmPaymentAndStartVerification(
   paymentIntentId: string,
   returnUrl: string
 ): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Verify payment intent
@@ -261,6 +270,7 @@ async function createVerificationSession(
   userId: string,
   returnUrl: string
 ): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Get user info
@@ -362,6 +372,7 @@ async function createVerificationSession(
 }
 
 async function getVerificationStatus(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -422,6 +433,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
 }
 
 async function getVerificationReport(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(

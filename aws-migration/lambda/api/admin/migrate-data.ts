@@ -317,7 +317,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error', message: error.message }),
+      body: JSON.stringify({ error: 'Internal server error', message: 'Internal server error' }),
     };
   }
 };

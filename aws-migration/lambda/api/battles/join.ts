@@ -10,7 +10,7 @@ import { cors, handleOptions } from '../utils/cors';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID!;
@@ -171,8 +171,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           });
         }
 
-        // Generate unique UID for Agora
-        const agoraUid = Math.floor(Math.random() * 100000) + 1;
+        // Generate cryptographically random UID for Agora
+        const agoraUid = require('crypto').randomInt(1, 2147483647);
 
         // Generate Agora token
         const expirationTimeInSeconds = 3600 * 2; // 2 hours
@@ -261,7 +261,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to process action',
+        message: 'Failed to process action',
       }),
     });
   } finally {

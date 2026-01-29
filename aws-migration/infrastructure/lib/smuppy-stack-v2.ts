@@ -112,6 +112,20 @@ export class SmuppyStackV2 extends cdk.Stack {
       },
     });
 
+    // Stripe secrets — store in Secrets Manager, NOT env vars
+    const stripeSecret = new secretsmanager.Secret(this, 'StripeSecrets', {
+      secretName: `smuppy/${environment}/stripe`,
+      description: 'Stripe API keys for payment processing',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          STRIPE_SECRET_KEY: '',
+          STRIPE_PUBLISHABLE_KEY: '',
+          STRIPE_WEBHOOK_SECRET: '',
+        }),
+        generateStringKey: '_placeholder',
+      },
+    });
+
     // ========================================
     // Log Groups
     // ========================================
@@ -146,6 +160,7 @@ export class SmuppyStackV2 extends cdk.Stack {
       CLOUDFRONT_URL: `https://${distribution.distributionDomainName}`,
       USER_POOL_ID: authStack.userPool.userPoolId,
       USER_POOL_CLIENT_ID: authStack.userPoolClient.userPoolClientId,
+      STRIPE_SECRET_ARN: stripeSecret.secretArn,
       // Note: AWS_REGION is automatically set by Lambda runtime
     };
 
@@ -157,6 +172,7 @@ export class SmuppyStackV2 extends cdk.Stack {
       lambdaSecurityGroup: networkStack.lambdaSecurityGroup,
       dbCredentials: databaseStack.dbCredentials,
       adminApiKeySecret,
+      stripeSecret,
       mediaBucket,
       userPool: authStack.userPool,
       userPoolClientId: authStack.userPoolClient.userPoolClientId,

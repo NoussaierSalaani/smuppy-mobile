@@ -9,7 +9,7 @@ import { cors, handleOptions } from '../utils/cors';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
 });
 
 interface JoinEventRequest {
@@ -122,23 +122,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     switch (action) {
       case 'register':
-        // Check capacity
-        if (
-          eventData.max_participants &&
-          eventData.current_participants >= eventData.max_participants
-        ) {
-          return cors({
-            statusCode: 400,
-            body: JSON.stringify({
-              success: false,
-              message: 'Event is full',
-            }),
-          });
-        }
-
-        // Check if paid event
+        // Check if paid event (before capacity to avoid holding spots)
         if (!eventData.is_free && eventData.price > 0) {
-          // For paid events, redirect to payment flow
           return cors({
             statusCode: 200,
             body: JSON.stringify({
@@ -151,8 +136,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           });
         }
 
+        // SECURITY: Atomic capacity check + increment to prevent race conditions
+        if (eventData.max_participants) {
+          const capacityResult = await client.query(
+            `UPDATE events SET current_participants = current_participants + 1
+             WHERE id = $1 AND current_participants < max_participants
+             RETURNING current_participants`,
+            [eventId]
+          );
+          if (capacityResult.rowCount === 0) {
+            return cors({
+              statusCode: 400,
+              body: JSON.stringify({ success: false, message: 'Event is full' }),
+            });
+          }
+        }
+
         if (existingResult.rows.length > 0) {
-          // Update existing
           await client.query(
             `UPDATE event_participants
              SET status = 'registered', notes = $1
@@ -160,7 +160,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             [notes, eventId, userId]
           );
         } else {
-          // Create new
           await client.query(
             `INSERT INTO event_participants (event_id, user_id, status, notes)
              VALUES ($1, $2, 'registered', $3)`,
@@ -258,7 +257,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         success: false,
-        message: error.message || 'Failed to process request',
+        message: 'Failed to process request',
       }),
     });
   } finally {

@@ -405,7 +405,7 @@ export const handler = async (
         headers,
         body: JSON.stringify({
           success: false,
-          message: error.message || 'Invalid input. Please check your information.'
+          message: 'Invalid input. Please check your information.'
         }),
       };
     }

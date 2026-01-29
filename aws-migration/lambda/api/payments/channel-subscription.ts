@@ -12,11 +12,17 @@
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 import { Pool } from 'pg';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -24,7 +30,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
   max: 1,
 });
 
@@ -77,6 +83,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    const stripe = await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -122,6 +129,7 @@ async function subscribeToChannel(
   fanUserId: string,
   creatorId: string
 ): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Check if already subscribed
@@ -273,6 +281,7 @@ async function getOrCreateChannelPrice(
   creatorName: string,
   priceCents: number
 ): Promise<string> {
+  const stripe = await getStripe();
   const productName = `${creatorName}'s Channel`;
 
   // Search for existing product for this creator
@@ -327,6 +336,7 @@ async function cancelChannelSubscription(
   userId: string,
   subscriptionId: string
 ): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Verify ownership

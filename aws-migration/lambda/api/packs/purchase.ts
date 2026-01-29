@@ -6,10 +6,16 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-06-20',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-06-20' });
+  }
+  return stripeInstance;
+}
 
 // Platform fee percentage (Smuppy takes 20%, Creator gets 80%)
 const PLATFORM_FEE_PERCENT = 20;
@@ -33,6 +39,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
+    const stripe = await getStripe();
     const body: PurchaseBody = JSON.parse(event.body || '{}');
     const { packId } = body;
 

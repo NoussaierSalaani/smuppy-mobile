@@ -5,11 +5,17 @@
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 import { Pool } from 'pg';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -17,7 +23,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
   max: 1,
 });
 
@@ -45,6 +51,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    const stripe = await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -86,6 +93,7 @@ async function createPlatformSubscription(
   userId: string,
   planType: 'pro_creator' | 'pro_business'
 ): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     // Get user info
@@ -173,6 +181,7 @@ async function createPlatformSubscription(
 }
 
 async function getOrCreatePlatformPrice(planType: 'pro_creator' | 'pro_business'): Promise<string> {
+  const stripe = await getStripe();
   const productName = planType === 'pro_creator' ? 'Smuppy Pro Creator' : 'Smuppy Pro Business';
   const amount = PLATFORM_PRICES[planType];
 
@@ -221,6 +230,7 @@ async function getOrCreatePlatformPrice(planType: 'pro_creator' | 'pro_business'
 }
 
 async function cancelPlatformSubscription(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -311,6 +321,7 @@ async function getSubscriptionStatus(userId: string): Promise<APIGatewayProxyRes
 }
 
 async function getCustomerPortalLink(userId: string): Promise<APIGatewayProxyResult> {
+  const stripe = await getStripe();
   const client = await pool.connect();
   try {
     const result = await client.query(

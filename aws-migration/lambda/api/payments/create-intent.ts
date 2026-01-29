@@ -10,15 +10,21 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getPool } from '../../shared/db';
+import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('payments/create-intent');
 
-// Initialize Stripe with secret key from environment
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+// Lazy-initialized Stripe client (secret fetched from Secrets Manager)
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+  }
+  return stripeInstance;
+}
 
 // Revenue split constants
 const PLATFORM_FEE_PERCENT = 20; // Smuppy takes 20%, Creator gets 80%
@@ -61,6 +67,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
+    const stripe = await getStripe();
+
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
@@ -84,16 +92,41 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Validate amount (minimum $1.00 = 100 cents)
-    if (amount < 100) {
+    const db = await getPool();
+
+    // SECURITY: Derive amount server-side from session or pack records
+    let verifiedAmount: number;
+
+    if (type === 'session' && sessionId) {
+      const sessionResult = await db.query(
+        'SELECT price FROM private_sessions WHERE id = $1 AND fan_id = (SELECT id FROM profiles WHERE cognito_sub = $2)',
+        [sessionId, userId]
+      );
+      if (sessionResult.rows.length === 0) {
+        return { statusCode: 404, headers, body: JSON.stringify({ message: 'Session not found' }) };
+      }
+      verifiedAmount = Math.round(parseFloat(sessionResult.rows[0].price) * 100);
+    } else if (type === 'pack' && packId) {
+      const packResult = await db.query(
+        'SELECT price FROM session_packs WHERE id = $1 AND creator_id = $2',
+        [packId, creatorId]
+      );
+      if (packResult.rows.length === 0) {
+        return { statusCode: 404, headers, body: JSON.stringify({ message: 'Pack not found' }) };
+      }
+      verifiedAmount = Math.round(parseFloat(packResult.rows[0].price) * 100);
+    } else {
+      verifiedAmount = amount;
+    }
+
+    // Validate verified amount (minimum $1.00 = 100 cents, maximum $50,000)
+    if (!verifiedAmount || verifiedAmount < 100 || verifiedAmount > 5000000) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'Minimum amount is $1.00' }),
+        body: JSON.stringify({ message: 'Invalid amount' }),
       };
     }
-
-    const db = await getPool();
 
     // Get buyer's profile
     const buyerResult = await db.query(
@@ -139,6 +172,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       customerId = customerResult.rows[0].stripe_customer_id;
     } else {
       // Create new Stripe customer
+      const stripe = await getStripe();
       const customer = await stripe.customers.create({
         email: buyer.email,
         name: buyer.full_name,
@@ -158,7 +192,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Calculate amounts considering app store fees
     // For in-app purchases, Apple/Google takes 30% first
     // Then Smuppy takes 20% of the remaining amount, Creator gets 80%
-    const netAmount = calculateNetAmount(amount, source as PurchaseSource);
+    const netAmount = calculateNetAmount(verifiedAmount, source as PurchaseSource);
     const platformFee = Math.round(netAmount * (PLATFORM_FEE_PERCENT / 100));
     const creatorAmount = netAmount - platformFee;
 
@@ -184,8 +218,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           source,
           requiresInAppPurchase: true,
           priceBreakdown: {
-            grossAmount: amount,
-            appStoreFee: amount - netAmount,
+            grossAmount: verifiedAmount,
+            appStoreFee: verifiedAmount - netAmount,
             netAmount,
             platformFee,
             creatorAmount,
@@ -198,7 +232,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Create PaymentIntent for web purchases via Stripe
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
-      amount,
+      amount: verifiedAmount,
       currency,
       customer: customerId,
       description: description || defaultDescription,
@@ -210,7 +244,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         type: type,
         source: source,
         platform: 'smuppy',
-        gross_amount: amount.toString(),
+        gross_amount: verifiedAmount.toString(),
         net_amount: netAmount.toString(),
         platform_fee: platformFee.toString(),
         creator_amount: creatorAmount.toString(),
@@ -236,7 +270,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       paymentIntentId: paymentIntent.id,
       buyerId: buyer.id,
       creatorId,
-      amount,
+      amount: verifiedAmount,
       type,
       source,
       netAmount,
@@ -269,7 +303,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         packId || null,
         type,
         source,
-        amount,
+        verifiedAmount,
         netAmount,
         platformFee,
         creatorAmount,
@@ -291,12 +325,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           currency: paymentIntent.currency,
         },
         priceBreakdown: {
-          grossAmount: amount,
+          grossAmount: verifiedAmount,
           netAmount,
           platformFee,
           creatorAmount,
         },
-        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+        publishableKey: await getStripePublishableKey(),
       }),
     };
   } catch (error) {

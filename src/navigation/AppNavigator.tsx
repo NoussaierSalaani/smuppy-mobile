@@ -7,6 +7,7 @@ import * as Linking from 'expo-linking';
 import * as backend from '../services/backend';
 import { awsAuth } from '../services/aws-auth';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
+import { getCurrentProfile } from '../services/database';
 import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -23,7 +24,7 @@ export type RootStackParamList = {
   Auth: {
     initialRouteName?: string;
     onRecoveryComplete?: () => void;
-    onSignupComplete?: () => void;
+    onProfileCreated?: () => void;
   };
   EmailVerificationPending: { email?: string };
   Main: undefined;
@@ -32,14 +33,6 @@ export type RootStackParamList = {
 const RootStack = createStackNavigator<RootStackParamList>();
 
 // Deep linking configuration for React Navigation
-// Supports URLs like:
-// - smuppy://profile/123 - User profile
-// - smuppy://post/123 - Post detail
-// - smuppy://peak/123 - Peak detail
-// - smuppy://event/123 - Event detail
-// - smuppy://messages - Messages screen
-// - smuppy://reset-password - Password reset
-// - https://smuppy.com/profile/123 - Web URL
 const linking = {
   prefixes: [
     Linking.createURL('/'),
@@ -129,38 +122,38 @@ interface AppUser {
 export default function AppNavigator(): React.JSX.Element {
   const [user, setUser] = useState<AppUser | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [hideSplash, setHideSplash] = useState(false);
   const [pendingRecovery, setPendingRecovery] = useState(false);
-  const [justSignedUp, setJustSignedUp] = useState(false);
-  const [isCheckingSignup, setIsCheckingSignup] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const lastHandledUrl = useRef<string | null>(null);
 
-  /**
-   * Callback passed to NewPasswordScreen to signal recovery flow is complete
-   */
   const handleRecoveryComplete = useCallback(() => {
     setPendingRecovery(false);
   }, []);
 
+  const handleProfileCreated = useCallback(() => {
+    setHasProfile(true);
+  }, []);
+
   /**
-   * Handle deep link URLs for password recovery
-   * AWS Cognito: smuppy://reset-password?code=xxx&email=xxx
+   * Check if the current user has a profile (without auto-creating one)
    */
+  const checkProfile = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data } = await getCurrentProfile(false);
+      return !!data;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const handleDeepLink = useCallback(async (url: string | null) => {
     if (!url) return;
-
-    // Skip if we already handled this exact URL
     if (lastHandledUrl.current === url) return;
-
-    // Only handle reset-password deep links
     if (!url.includes('reset-password')) return;
-
-    // Mark this URL as handled
     lastHandledUrl.current = url;
-
-    // Set pending recovery to show NewPasswordScreen
     setPendingRecovery(true);
   }, []);
 
@@ -183,20 +176,15 @@ export default function AppNavigator(): React.JSX.Element {
     const loadSession = async () => {
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
 
-      const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
-      if (signedUp === 'true') {
-        setJustSignedUp(true);
-      }
-
       if (rememberMe === 'false') {
         await backend.signOut();
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setUser(null);
         setEmailVerified(false);
+        setHasProfile(null);
       } else {
         const currentUser = await backend.getCurrentUser();
         if (currentUser) {
-          // Check if email is verified via Cognito
           const isVerified = await awsAuth.isEmailVerified();
           setUser({
             id: currentUser.id,
@@ -205,9 +193,18 @@ export default function AppNavigator(): React.JSX.Element {
             emailVerified: isVerified,
           });
           setEmailVerified(isVerified);
+
+          // Check profile existence
+          if (isVerified) {
+            const profileExists = await checkProfile();
+            setHasProfile(profileExists);
+          } else {
+            setHasProfile(null);
+          }
         } else {
           setUser(null);
           setEmailVerified(false);
+          setHasProfile(null);
         }
       }
 
@@ -221,13 +218,6 @@ export default function AppNavigator(): React.JSX.Element {
     // Listen for auth state changes
     const unsubscribe = backend.onAuthStateChange(async (authUser) => {
       if (authUser) {
-        setIsCheckingSignup(true);
-
-        const signedUp = await storage.get(STORAGE_KEYS.JUST_SIGNED_UP);
-        if (signedUp === 'true') {
-          setJustSignedUp(true);
-        }
-
         const isVerified = await awsAuth.isEmailVerified();
         setUser({
           id: authUser.id,
@@ -236,16 +226,22 @@ export default function AppNavigator(): React.JSX.Element {
           emailVerified: isVerified,
         });
         setEmailVerified(isVerified);
-        setIsCheckingSignup(false);
+
+        // Check profile existence
+        if (isVerified) {
+          const profileExists = await checkProfile();
+          setHasProfile(profileExists);
+        } else {
+          setHasProfile(null);
+        }
 
         registerDeviceSession().catch(() => {});
       } else {
         setUser(null);
         setEmailVerified(false);
+        setHasProfile(null);
         lastHandledUrl.current = null;
         setPendingRecovery(false);
-        setJustSignedUp(false);
-        setIsCheckingSignup(false);
       }
     });
 
@@ -264,7 +260,14 @@ export default function AppNavigator(): React.JSX.Element {
       unsubscribe();
       linkingSubscription.remove();
     };
-  }, [handleDeepLink, fadeAnim]);
+  }, [handleDeepLink, fadeAnim, checkProfile]);
+
+  // Determine which screen to show
+  const showAuth = !user || pendingRecovery;
+  const showEmailPending = user && !emailVerified && !pendingRecovery;
+  const showOnboarding = user && emailVerified && hasProfile === false && !pendingRecovery;
+  const showMain = user && emailVerified && hasProfile === true && !pendingRecovery;
+  // hasProfile === null while loading → keep showing splash/current state
 
   return (
     <View style={styles.container}>
@@ -287,39 +290,36 @@ export default function AppNavigator(): React.JSX.Element {
                   }),
                 }}
               >
-                {(!user || pendingRecovery || justSignedUp || isCheckingSignup) && (
+                {/* No user, or pending recovery → Auth (Login/Signup/VerifyCode) */}
+                {(showAuth || showOnboarding) && (
                   <RootStack.Screen
                     name="Auth"
                     component={AuthNavigator}
                     initialParams={{
                       initialRouteName: pendingRecovery
                         ? 'NewPassword'
-                        : justSignedUp
-                        ? 'Success'
+                        : showOnboarding
+                        ? 'AccountType'
                         : undefined,
                       onRecoveryComplete: handleRecoveryComplete,
-                      onSignupComplete: () => setJustSignedUp(false),
+                      onProfileCreated: handleProfileCreated,
                     }}
                   />
                 )}
 
-                {user &&
-                  !emailVerified &&
-                  !pendingRecovery &&
-                  !justSignedUp &&
-                  !isCheckingSignup && (
-                    <RootStack.Screen
-                      name="EmailVerificationPending"
-                      component={EmailVerificationPendingScreen}
-                      initialParams={{ email: user?.email }}
-                    />
-                  )}
+                {/* User authenticated but email not verified */}
+                {showEmailPending && (
+                  <RootStack.Screen
+                    name="EmailVerificationPending"
+                    component={EmailVerificationPendingScreen}
+                    initialParams={{ email: user?.email }}
+                  />
+                )}
 
-                {user &&
-                  emailVerified &&
-                  !pendingRecovery &&
-                  !justSignedUp &&
-                  !isCheckingSignup && <RootStack.Screen name="Main" component={MainNavigator} />}
+                {/* User authenticated, email verified, has profile → Main */}
+                {showMain && (
+                  <RootStack.Screen name="Main" component={MainNavigator} />
+                )}
             </RootStack.Navigator>
           </NavigationContainer>
         </TabBarProvider>

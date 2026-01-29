@@ -38,8 +38,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Extract all params including auth-related ones for VerifyCodeScreen
-  const { email, password, accountType, rememberMe, accountCreated } = route?.params || {};
+  const { accountType } = route?.params || {};
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
 
   const pickImage = useCallback(async () => {
@@ -87,18 +86,14 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
     if (!isFormValid || loading) return;
     setLoading(true);
     navigation.navigate('Interests', {
-      email,
-      password,
       accountType,
-      rememberMe,
-      accountCreated,
       name: name.trim(),
       gender,
       dateOfBirth: date.toISOString(),
       profileImage,
     });
     setLoading(false);
-  }, [navigation, email, password, accountType, rememberMe, accountCreated, name, gender, date, profileImage, isFormValid, loading]);
+  }, [navigation, accountType, name, gender, date, profileImage, isFormValid, loading]);
 
 
   return (

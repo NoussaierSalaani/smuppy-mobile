@@ -13,7 +13,6 @@ import {
   signInWithApple,
   useGoogleAuth,
   handleGoogleSignIn,
-  createSocialAuthProfile,
 } from '../../services/socialAuth';
 
 // Style unifié Smuppy (même que LoginScreen)
@@ -81,12 +80,9 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const result = await handleGoogleSignIn(googleResponse);
 
     if (result.success) {
-      if (result.isNewUser && result.user) {
-        // New user - create profile and navigate to account type selection
-        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
-        navigation.navigate('AccountType', { socialAuth: true, userId: result.user.id });
-      }
-      // Existing user - AWS auth state change will handle navigation
+      // Auth state change will handle navigation:
+      // - New user without profile → Onboarding (AccountType)
+      // - Existing user with profile → Main
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -103,12 +99,9 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const result = await signInWithApple();
 
     if (result.success) {
-      if (result.isNewUser && result.user) {
-        // New user - create profile and navigate to account type selection
-        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
-        navigation.navigate('AccountType', { socialAuth: true, userId: result.user.id });
-      }
-      // Existing user - AWS auth state change will handle navigation
+      // Auth state change will handle navigation:
+      // - New user without profile → Onboarding (AccountType)
+      // - Existing user with profile → Main
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -117,7 +110,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       });
     }
     setSocialLoading(null);
-  }, [navigation]);
+  }, []);
 
   // Handle Google Sign-In button press
   const handleGoogleSignInPress = useCallback(async () => {
@@ -225,13 +218,12 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       }
       // If user check fails, let user continue (will fail later if needed)
 
-      // Email validated and user doesn't exist - continue to onboarding
+      // Email validated and user doesn't exist - go to VerifyCode
       // Account creation and verification code will be sent in VerifyCodeScreen
-      navigation.navigate('AccountType', {
+      navigation.navigate('VerifyCode', {
         email: normalizedEmail,
         password,
         rememberMe,
-        accountCreated: false, // Account will be created in VerifyCodeScreen
       });
     } catch {
       setErrorModal({

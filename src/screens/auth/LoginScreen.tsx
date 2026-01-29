@@ -14,7 +14,6 @@ import {
   signInWithApple,
   useGoogleAuth,
   handleGoogleSignIn,
-  createSocialAuthProfile,
 } from '../../services/socialAuth';
 
 const GoogleLogo = ({ size = 20 }) => (
@@ -84,15 +83,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await handleGoogleSignIn(googleResponse);
 
     if (result.success) {
-      if (result.isNewUser && result.user) {
-        // New user - create profile and navigate to onboarding
-        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'AccountType', params: { socialAuth: true, userId: result.user.id } }],
-        });
-      }
-      // Existing user - AWS auth state change will handle navigation
+      // Auth state change will handle navigation:
+      // - Existing user with profile → Main
+      // - New user without profile → Onboarding (AccountType)
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -298,9 +291,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       // Save "Remember Me" preference
       await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
-      // Clear any leftover signup flag (login = not new signup)
-      await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
-
       await biometrics.resetAttempts();
       setBiometricBlocked(false);
     } catch (error: any) {
@@ -363,15 +353,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await signInWithApple();
 
     if (result.success) {
-      if (result.isNewUser && result.user) {
-        // New user - create profile and navigate to onboarding
-        await createSocialAuthProfile(result.user.id, result.user.email, result.user.fullName);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'AccountType', params: { socialAuth: true, userId: result.user.id } }],
-        });
-      }
-      // Existing user - AWS auth state change will handle navigation
+      // Auth state change will handle navigation:
+      // - Existing user with profile → Main
+      // - New user without profile → Onboarding (AccountType)
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -380,7 +364,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       });
     }
     setSocialLoading(null);
-  }, [navigation]);
+  }, []);
 
   // Handle Google Sign-In
   const handleGoogleSignInPress = useCallback(async () => {

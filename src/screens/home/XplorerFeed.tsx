@@ -324,12 +324,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const renderCustomMarker = useCallback((marker: MockMarker) => {
     const pinColor = PIN_COLORS[marker.type] || COLORS.primary;
     return (
-      <View style={styles.markerContainer}>
-        <View style={styles.markerShadow} />
-        <View style={[styles.markerPin, { backgroundColor: pinColor }]}>
-          <Image source={{ uri: marker.avatar }} style={styles.markerAvatar} />
-        </View>
-        <View style={[styles.markerPointer, { borderTopColor: pinColor }]} />
+      <View style={[styles.markerPin, { backgroundColor: pinColor }]}>
+        <Image source={{ uri: marker.avatar }} style={styles.markerAvatar} />
       </View>
     );
   }, []);

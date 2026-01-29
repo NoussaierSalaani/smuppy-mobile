@@ -21,16 +21,14 @@ interface AccountTypeScreenProps {
     replace: (screen: string, params?: Record<string, unknown>) => void;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-  route: { params?: { email?: string; password?: string; rememberMe?: boolean; accountCreated?: boolean } };
+  route: { params?: Record<string, unknown> };
 }
 
-export default function AccountTypeScreen({ navigation, route }: AccountTypeScreenProps) {
+export default function AccountTypeScreen({ navigation, route: _route }: AccountTypeScreenProps) {
   const [selected, setSelected] = useState<AccountType>(null);
   const [proType, setProType] = useState<ProType>(null);
   const proSubAnim = useRef(new Animated.Value(0)).current;
 
-  // Extract all params from previous screen (SignupScreen)
-  const { email, password, rememberMe, accountCreated } = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const handleSelectMain = useCallback((type: AccountType) => {
@@ -52,17 +50,14 @@ export default function AccountTypeScreen({ navigation, route }: AccountTypeScre
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
 
-    // Pass all params through the navigation flow
-    const baseParams = { email, password, rememberMe, accountCreated };
-
     if (selected === 'personal') {
-      navigate('TellUsAboutYou', { ...baseParams, accountType: 'personal' });
+      navigate('TellUsAboutYou', { accountType: 'personal' });
     } else if (proType === 'creator') {
-      navigate('CreatorInfo', { ...baseParams, accountType: 'pro_creator' });
+      navigate('CreatorInfo', { accountType: 'pro_creator' });
     } else if (proType === 'business') {
-      navigate('BusinessCategory', { ...baseParams, accountType: 'pro_business' });
+      navigate('BusinessCategory', { accountType: 'pro_business' });
     }
-  }, [isFormValid, selected, proType, email, password, rememberMe, accountCreated, navigate]);
+  }, [isFormValid, selected, proType, navigate]);
 
   const proSubTranslateY = proSubAnim.interpolate({
     inputRange: [0, 1],

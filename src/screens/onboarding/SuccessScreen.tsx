@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
-import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
@@ -122,7 +121,7 @@ const Firework = ({ x, y, delay, color }: FireworkProps) => (
 );
 
 interface SuccessScreenProps {
-  route: { params?: { name?: string; onSignupComplete?: () => void } };
+  route: { params?: { onProfileCreated?: () => void } };
   navigation: { reset: (state: { index: number; routes: Array<{ name: string }> }) => void };
 }
 
@@ -135,7 +134,7 @@ export default function SuccessScreen({ route, navigation: _navigation }: Succes
   const ringScale = useRef(new Animated.Value(0.5)).current;
   const ringOpacity = useRef(new Animated.Value(0)).current;
 
-  const { name: _name, onSignupComplete } = route?.params || {};
+  const { onProfileCreated } = route?.params || {};
 
   useEffect(() => {
     // Logo and text appear together quickly
@@ -158,14 +157,10 @@ export default function SuccessScreen({ route, navigation: _navigation }: Succes
       });
     }, 400);
 
-    // After 3s, clear signup flag and trigger navigation to Main
-    const redirectTimer = setTimeout(async () => {
-      // Clear the signup flag
-      await storage.delete(STORAGE_KEYS.JUST_SIGNED_UP);
-
-      // Call the callback to update AppNavigator state
-      if (onSignupComplete) {
-        onSignupComplete();
+    // After 3s, call onProfileCreated → AppNavigator sets hasProfile = true → shows Main
+    const redirectTimer = setTimeout(() => {
+      if (onProfileCreated) {
+        onProfileCreated();
       }
     }, 3000);
 
@@ -173,7 +168,7 @@ export default function SuccessScreen({ route, navigation: _navigation }: Succes
       clearTimeout(circleTimer);
       clearTimeout(redirectTimer);
     };
-  }, [onSignupComplete]);
+  }, [onProfileCreated]);
 
   const confettis = Array.from({ length: 50 }, (_, i) => (
     <Confetti

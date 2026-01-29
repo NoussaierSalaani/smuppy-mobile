@@ -9,9 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
-import { createProfile } from '../../services/database';
-import { uploadProfileImage } from '../../services/imageUpload';
-import { useUserStore } from '../../stores';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
@@ -32,24 +29,6 @@ interface VerifyCodeScreenProps {
     params?: {
       email?: string;
       password?: string;
-      name?: string;
-      gender?: string;
-      dateOfBirth?: string;
-      accountType?: 'personal' | 'pro_creator' | 'pro_business';
-      interests?: string[];
-      profileImage?: string;
-      displayName?: string;
-      username?: string;
-      bio?: string;
-      website?: string;
-      socialLinks?: Record<string, string>;
-      expertise?: string[];
-      businessCategory?: string;
-      businessCategoryCustom?: string;
-      locationsMode?: string;
-      businessName?: string;
-      businessAddress?: string;
-      businessPhone?: string;
       rememberMe?: boolean;
       accountCreated?: boolean;
     };
@@ -61,7 +40,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
@@ -69,18 +47,14 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const isCreatingRef = useRef(false);
 
-  // Extract params
   const {
-    email, password, name, gender, dateOfBirth, accountType, interests, profileImage,
-    displayName, username, bio, website, socialLinks, expertise,
-    businessCategory, businessCategoryCustom, locationsMode, businessName, businessAddress, businessPhone,
+    email, password,
     rememberMe = false,
     accountCreated: accountAlreadyCreated = false,
   } = route?.params || {};
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
-  const setZustandUser = useUserStore((state) => state.setUser);
 
   // Shake animation
   const triggerShake = useCallback(() => {
@@ -114,8 +88,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       const result = await backend.signUp({
         email: email || '',
         password: password || '',
-        username: username || (email ? email.split('@')[0] : ''),
-        fullName: name || '',
+        username: email ? email.split('@')[0] : '',
+        fullName: '',
       });
 
       if (result.confirmationRequired || result.user) {
@@ -142,7 +116,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       isCreatingRef.current = false;
       setIsCreatingAccount(false);
     }
-  }, [email, password, username, name, accountCreated]);
+  }, [email, password, accountCreated]);
 
   // Create account on mount
   useEffect(() => {
@@ -160,14 +134,14 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Verify code
+  // Verify code: confirm OTP, sign in, persist REMEMBER_ME — that's it.
+  // onAuthStateChange in AppNavigator will detect user + no profile → Onboarding
   const verifyCode = useCallback(async (fullCode: string) => {
     setIsVerifying(true);
     setError('');
     Keyboard.dismiss();
 
     try {
-      // Confirm signup FIRST (don't set flag yet)
       const confirmed = await awsAuth.confirmSignUp(email || '', fullCode);
       if (!confirmed) {
         setError('Verification failed. Please try again.');
@@ -184,126 +158,11 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         return;
       }
 
-      // NOTE: JUST_SIGNED_UP flag is set AFTER profile creation succeeds (see below)
+      // Persist session preference
+      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
 
-      // Create profile data (without avatar first for speed)
-      const generatedUsername = email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
-      const profileData: Record<string, unknown> = {
-        full_name: name || generatedUsername,
-        username: username || generatedUsername,
-        account_type: accountType || 'personal',
-      };
-
-      if (gender) profileData.gender = gender;
-      if (dateOfBirth) profileData.date_of_birth = dateOfBirth;
-      if (displayName) profileData.display_name = displayName;
-      if (bio) profileData.bio = bio;
-      if (website) profileData.website = website;
-      if (socialLinks && Object.keys(socialLinks).length > 0) profileData.social_links = socialLinks;
-      if (interests && interests.length > 0) profileData.interests = interests;
-      if (expertise && expertise.length > 0) profileData.expertise = expertise;
-      if (businessName) profileData.business_name = businessName;
-      if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
-      if (businessAddress) profileData.business_address = businessAddress;
-      if (businessPhone) profileData.business_phone = businessPhone;
-      if (locationsMode) profileData.locations_mode = locationsMode;
-
-      // Update contexts immediately (for faster UI)
-      const userData = {
-        id: user.id,
-        fullName: name || generatedUsername,
-        displayName: displayName || name || generatedUsername,
-        email: email || '',
-        dateOfBirth: dateOfBirth || '',
-        gender: gender || '',
-        avatar: undefined,
-        bio: bio || '',
-        username: username || generatedUsername,
-        accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_business',
-        interests: interests || [],
-        expertise: expertise || [],
-        website: website || '',
-        socialLinks: socialLinks || {},
-        businessName: businessName || '',
-        businessCategory: businessCategory === 'Other' ? (businessCategoryCustom || '') : (businessCategory || ''),
-        businessAddress: businessAddress || '',
-        businessPhone: businessPhone || '',
-        locationsMode: locationsMode || '',
-      };
-      setZustandUser(userData);
-
-      // Persist session
-      storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
-
-      // OPTION A: BLOCKING - Create profile BEFORE navigating (reliable at scale)
-      // This ensures profile data is saved before showing success
-      setIsSavingProfile(true);
-
-      let profileCreated = false;
-      let retryCount = 0;
-      const maxRetries = 2;
-
-      while (!profileCreated && retryCount < maxRetries) {
-        try {
-          const { error: profileError } = await createProfile(profileData);
-          if (profileError) {
-            console.warn(`[VerifyCode] Profile creation attempt ${retryCount + 1} failed:`, profileError);
-            retryCount++;
-            if (retryCount < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-            }
-          } else {
-            profileCreated = true;
-          }
-        } catch (profileErr) {
-          console.warn(`[VerifyCode] Profile creation attempt ${retryCount + 1} error:`, profileErr);
-          retryCount++;
-          if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-          }
-        }
-      }
-
-      if (!profileCreated) {
-        // Profile creation failed after retries - show error but still allow navigation
-        // The user is authenticated, just profile data wasn't saved
-        console.error('[VerifyCode] Profile creation failed after retries');
-        // Don't block user - they can update profile later from Settings
-        // DON'T set JUST_SIGNED_UP flag - user should go to Main, not SuccessScreen
-      } else {
-        // Profile created successfully - now set the flag to show SuccessScreen
-        storage.set(STORAGE_KEYS.JUST_SIGNED_UP, 'true');
-      }
-
-      // Upload profile image (blocking with timeout for reliability)
-      if (profileImage && user.id) {
-        try {
-          const { url, error: uploadError } = await uploadProfileImage(profileImage, user.id);
-          if (url && !uploadError) {
-            // Update profile with avatar URL
-            await createProfile({ avatar_url: url });
-            // Update local state
-            setZustandUser({ ...userData, avatar: url });
-          } else {
-            console.warn('[VerifyCode] Image upload failed:', uploadError);
-          }
-        } catch (imgErr) {
-          console.warn('[VerifyCode] Image upload error:', imgErr);
-          // Don't block navigation for image upload failure
-        }
-      }
-
-      setIsSavingProfile(false);
-
-      // Navigate to success AFTER profile is created
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Success', params: { name } }],
-      });
-
+      // Done — onAuthStateChange fires, AppNavigator detects user + no profile → Onboarding
     } catch (err: any) {
-      // Only delete flag if it was already set (during profile creation phase)
-      // This won't affect anything since we only set it after successful confirmation now
       const msg = err?.message || '';
 
       if (msg.includes('expired') || msg.includes('ExpiredCode')) {
@@ -320,7 +179,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     } finally {
       setIsVerifying(false);
     }
-  }, [email, password, name, username, gender, dateOfBirth, accountType, profileImage, displayName, bio, website, socialLinks, interests, expertise, businessName, businessCategory, businessCategoryCustom, businessAddress, businessPhone, locationsMode, rememberMe, navigation, triggerShake, clearCode, setZustandUser]);
+  }, [email, password, rememberMe, triggerShake, clearCode]);
 
   // Handle code input
   const handleChange = useCallback((text: string, index: number) => {
@@ -369,9 +228,6 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     }
   }, [canAction, tryAction, clearCode, setShowModal, email]);
 
-  // Show UI immediately - don't block on account creation
-  // The code input will be disabled until account is created
-
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
@@ -399,15 +255,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
             </View>
           )}
 
-          {/* Profile Saving Progress */}
-          {isSavingProfile && (
-            <View style={styles.creatingAccountBox}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={styles.creatingAccountText}>Saving your profile...</Text>
-            </View>
-          )}
-
-          {/* Code Input - show immediately but disabled while creating account */}
+          {/* Code Input */}
           {(accountCreated || isCreatingAccount) && (
             <>
               <Text style={styles.label}>Enter code</Text>
@@ -431,7 +279,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                         onFocus={() => setFocusedIndex(i)}
                         onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
-                        editable={!isVerifying && !isCreatingAccount && !isSavingProfile}
+                        editable={!isVerifying && !isCreatingAccount}
                       />
                     );
                   }
@@ -455,7 +303,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                         onFocus={() => setFocusedIndex(i)}
                         onBlur={() => setFocusedIndex(-1)}
                         selectTextOnFocus
-                        editable={!isVerifying && !isCreatingAccount && !isSavingProfile}
+                        editable={!isVerifying && !isCreatingAccount}
                       />
                     </LinearGradient>
                   );
@@ -522,10 +370,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
-
-  // Loading
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
-  loadingText: { fontSize: 16, color: COLORS.primary, fontWeight: '500' },
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },

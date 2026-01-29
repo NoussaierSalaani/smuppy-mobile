@@ -48,7 +48,8 @@ export type AuthStackParamList = {
   VerifyCode: {
     email: string;
     password: string;
-    [key: string]: unknown;
+    rememberMe?: boolean;
+    accountCreated?: boolean;
   };
   ForgotPassword: undefined;
   CheckEmail: { email: string };
@@ -59,19 +60,19 @@ export type AuthStackParamList = {
   EnableBiometric: undefined;
   BiometricSuccess: undefined;
   BiometricLogin: undefined;
-  AccountType: { email: string; password: string };
-  TellUsAboutYou: { email: string; password: string; accountType: string };
+  AccountType: undefined;
+  TellUsAboutYou: { accountType: string; [key: string]: unknown };
   Interests: { [key: string]: unknown };
-  CreatorInfo: { email: string; password: string; accountType: string };
+  CreatorInfo: { accountType: string; [key: string]: unknown };
   CreatorOptionalInfo: { [key: string]: unknown };
   Expertise: { [key: string]: unknown };
-  BusinessCategory: { email: string; password: string; accountType: string };
+  BusinessCategory: { accountType: string; [key: string]: unknown };
   BusinessInfo: { [key: string]: unknown };
-  Guidelines: { [key: string]: unknown };
+  Guidelines: { onProfileCreated?: () => void; [key: string]: unknown };
   Profession: undefined;
   BusinessDetails: undefined;
   FindFriends: undefined;
-  Success: { name?: string; onSignupComplete?: () => void };
+  Success: { onProfileCreated?: () => void };
 };
 
 const Stack = createStackNavigator<AuthStackParamList>();
@@ -94,7 +95,7 @@ const fadeTransition: StackNavigationOptions = {
 interface AuthNavigatorRouteParams {
   initialRouteName?: keyof AuthStackParamList;
   onRecoveryComplete?: () => void;
-  onSignupComplete?: () => void;
+  onProfileCreated?: () => void;
 }
 
 interface AuthNavigatorProps {
@@ -102,14 +103,9 @@ interface AuthNavigatorProps {
 }
 
 export default function AuthNavigator({ route }: AuthNavigatorProps): React.JSX.Element {
-  // Support dynamic initialRouteName from parent (for recovery flow)
   const initialRouteName = route?.params?.initialRouteName || 'Splash';
-
-  // Callback to signal recovery is complete (passed to NewPasswordScreen)
   const onRecoveryComplete = route?.params?.onRecoveryComplete;
-
-  // Callback to signal signup is complete (passed to SuccessScreen)
-  const onSignupComplete = route?.params?.onSignupComplete;
+  const onProfileCreated = route?.params?.onProfileCreated;
 
   return (
     <Stack.Navigator
@@ -169,7 +165,11 @@ export default function AuthNavigator({ route }: AuthNavigatorProps): React.JSX.
       <Stack.Screen name="Expertise" component={ExpertiseScreen} />
       <Stack.Screen name="BusinessCategory" component={BusinessCategoryScreen} />
       <Stack.Screen name="BusinessInfo" component={BusinessInfoScreen} />
-      <Stack.Screen name="Guidelines" component={GuidelinesScreen} />
+      <Stack.Screen
+        name="Guidelines"
+        component={GuidelinesScreen}
+        initialParams={{ onProfileCreated }}
+      />
       {/* Legacy screens - kept for compatibility */}
       <Stack.Screen name="Profession" component={ProfessionScreen} />
       <Stack.Screen name="BusinessDetails" component={BusinessDetailsScreen} />
@@ -177,7 +177,7 @@ export default function AuthNavigator({ route }: AuthNavigatorProps): React.JSX.
       <Stack.Screen
         name="Success"
         component={SuccessScreen}
-        initialParams={{ onSignupComplete }}
+        initialParams={{ onProfileCreated }}
         options={{ gestureEnabled: false }}
       />
     </Stack.Navigator>

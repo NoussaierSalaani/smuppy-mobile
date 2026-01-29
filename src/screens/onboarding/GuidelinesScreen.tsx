@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
@@ -7,6 +7,10 @@ import Button from '../../components/Button';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { createProfile } from '../../services/database';
+import { uploadProfileImage } from '../../services/imageUpload';
+import { useUserStore } from '../../stores';
+import * as backend from '../../services/backend';
 
 interface GuidelinesScreenProps {
   navigation: {
@@ -16,26 +20,145 @@ interface GuidelinesScreenProps {
     replace: (screen: string, params?: Record<string, unknown>) => void;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-  route: { params?: { accountType?: string } & Record<string, unknown> };
+  route: { params?: { accountType?: string; onProfileCreated?: () => void } & Record<string, unknown> };
 }
 
 export default function GuidelinesScreen({ navigation, route }: GuidelinesScreenProps) {
-  const params = route?.params || {};
-  const { accountType } = params;
-  const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+  const params = useMemo(() => route?.params || {}, [route?.params]);
+  const { accountType, onProfileCreated } = params;
+  const { goBack, disabled } = usePreventDoubleNavigation(navigation);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState('');
+  const setZustandUser = useUserStore((state) => state.setUser);
 
-  // Determine step based on account type
-  // All account types now have 4 steps, Guidelines is step 3
   const { currentStep, totalSteps } = useMemo(() => {
     return { currentStep: 3, totalSteps: 4 };
-  }, [accountType]);
+  }, []);
 
-  const handleAccept = () => navigate('VerifyCode', params);
+  const handleAccept = useCallback(async () => {
+    if (isCreating) return;
+    setIsCreating(true);
+    setError('');
+
+    try {
+      const currentUser = await backend.getCurrentUser();
+      if (!currentUser) {
+        setError('Not authenticated. Please try again.');
+        setIsCreating(false);
+        return;
+      }
+
+      // Build profile data from accumulated route params
+      const {
+        name, gender, dateOfBirth, interests, profileImage,
+        displayName, username, bio, website, socialLinks, expertise,
+        businessCategory, businessCategoryCustom, locationsMode,
+        businessName, businessAddress, businessPhone,
+      } = params as Record<string, any>;
+
+      const generatedUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      const profileData: Record<string, unknown> = {
+        full_name: name || displayName || generatedUsername,
+        username: username || generatedUsername,
+        account_type: accountType || 'personal',
+      };
+
+      if (gender) profileData.gender = gender;
+      if (dateOfBirth) profileData.date_of_birth = dateOfBirth;
+      if (displayName) profileData.display_name = displayName;
+      if (bio) profileData.bio = bio;
+      if (website) profileData.website = website;
+      if (socialLinks && Object.keys(socialLinks).length > 0) profileData.social_links = socialLinks;
+      if (interests && interests.length > 0) profileData.interests = interests;
+      if (expertise && expertise.length > 0) profileData.expertise = expertise;
+      if (businessName) profileData.business_name = businessName;
+      if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
+      if (businessAddress) profileData.business_address = businessAddress;
+      if (businessPhone) profileData.business_phone = businessPhone;
+      if (locationsMode) profileData.locations_mode = locationsMode;
+
+      // Create profile with retries
+      let profileCreated = false;
+      let retryCount = 0;
+      const maxRetries = 2;
+
+      while (!profileCreated && retryCount < maxRetries) {
+        try {
+          const { error: profileError } = await createProfile(profileData);
+          if (profileError) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } else {
+            profileCreated = true;
+          }
+        } catch {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      if (!profileCreated) {
+        setError('Failed to create profile. Please try again.');
+        setIsCreating(false);
+        return;
+      }
+
+      // Update Zustand store
+      const userData = {
+        id: currentUser.id,
+        fullName: (name || displayName || generatedUsername) as string,
+        displayName: (displayName || name || generatedUsername) as string,
+        email: currentUser.email || '',
+        dateOfBirth: (dateOfBirth || '') as string,
+        gender: (gender || '') as string,
+        avatar: undefined as string | undefined,
+        bio: (bio || '') as string,
+        username: (username || generatedUsername) as string,
+        accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_business',
+        interests: (interests || []) as string[],
+        expertise: (expertise || []) as string[],
+        website: (website || '') as string,
+        socialLinks: (socialLinks || {}) as Record<string, string>,
+        businessName: (businessName || '') as string,
+        businessCategory: (businessCategory === 'Other' ? (businessCategoryCustom || '') : (businessCategory || '')) as string,
+        businessAddress: (businessAddress || '') as string,
+        businessPhone: (businessPhone || '') as string,
+        locationsMode: (locationsMode || '') as string,
+      };
+      setZustandUser(userData);
+
+      // Upload profile image if present
+      if (profileImage && currentUser.id) {
+        try {
+          const { url, error: uploadError } = await uploadProfileImage(profileImage as string, currentUser.id);
+          if (url && !uploadError) {
+            await createProfile({ avatar_url: url });
+            setZustandUser({ ...userData, avatar: url });
+          }
+        } catch {
+          // Don't block for image upload failure
+        }
+      }
+
+      // Navigate to Success with onProfileCreated callback
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Success', params: { onProfileCreated } }],
+      });
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
+      setIsCreating(false);
+    }
+  }, [isCreating, params, accountType, onProfileCreated, navigation, setZustandUser]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with Progress Bar */}
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={currentStep} totalSteps={totalSteps} />
+      <OnboardingHeader onBack={goBack} disabled={disabled || isCreating} currentStep={currentStep} totalSteps={totalSteps} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -141,11 +264,26 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.conclusionHighlight}>By joining Smuppy, you become an ambassador for well-being, culture, and positivity! 🌟</Text>
         </View>
 
-        {/* Accept Button - dans le scroll, juste après la conclusion */}
+        {/* Error */}
+        {error ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={20} color={COLORS.error} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        {/* Accept Button */}
         <View style={styles.btnContainer}>
-          <Button variant="primary" size="lg" icon="checkmark" iconPosition="right" disabled={disabled} onPress={handleAccept}>
-            Accept
-          </Button>
+          {isCreating ? (
+            <View style={styles.creatingBox}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.creatingText}>Creating your profile...</Text>
+            </View>
+          ) : (
+            <Button variant="primary" size="lg" icon="checkmark" iconPosition="right" disabled={disabled || isCreating} onPress={handleAccept}>
+              Accept
+            </Button>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -174,4 +312,8 @@ const styles = StyleSheet.create({
   conclusionText: { ...TYPOGRAPHY.bodySmall, color: COLORS.dark, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.sm },
   conclusionHighlight: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '700', textAlign: 'center' },
   btnContainer: { marginTop: SPACING.md, marginBottom: SPACING.xl },
+  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#FECACA', gap: 10 },
+  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: COLORS.error },
+  creatingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: SPACING.md },
+  creatingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
 });

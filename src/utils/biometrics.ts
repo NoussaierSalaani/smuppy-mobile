@@ -3,7 +3,7 @@ import { storage, STORAGE_KEYS } from './secureStorage';
 
 const MAX_ATTEMPTS = 3;
 const BLOCK_DURATION = 5 * 60 * 1000; // 5 minutes
-const SESSION_TIMEOUT_DAYS = 30; // Session expires after 30 days of inactivity
+const SESSION_TIMEOUT_DAYS = 14; // Session expires after 14 days of inactivity
 
 /**
  * Biometric authentication types

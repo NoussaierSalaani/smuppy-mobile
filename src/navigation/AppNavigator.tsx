@@ -69,13 +69,20 @@ const linking = {
           UserProfile: {
             path: 'profile/:userId',
             parse: {
-              userId: (userId: string) => userId,
+              userId: (userId: string) => {
+                // Validate UUID format to prevent navigation injection
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(userId) ? userId : '';
+              },
             },
           },
           PostDetailFanFeed: {
             path: 'post/:postId',
             parse: {
-              postId: (postId: string) => postId,
+              postId: (postId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(postId) ? postId : '';
+              },
             },
           },
           PeakView: {

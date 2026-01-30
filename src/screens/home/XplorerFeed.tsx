@@ -156,7 +156,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const businessLocation = useUserStore((s) => {
     const u = s.user;
     if (u?.accountType !== 'pro_business') return null;
-    return u.businessAddress ? {
+    return (u.businessLatitude != null && u.businessLongitude != null) ? {
       address: u.businessAddress,
       latitude: u.businessLatitude,
       longitude: u.businessLongitude,
@@ -182,7 +182,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const businessMarker = useMemo((): MockMarker | null => {
     if (accountType !== 'pro_business' || !isPremium) return null;
     if (!businessLocation?.latitude || !businessLocation?.longitude) return null;
-    if (!businessMarkerData) return null;
+    if (!businessMarkerData?.id) return null;
     return {
       id: `business_${businessMarkerData.id}`,
       type: 'business',

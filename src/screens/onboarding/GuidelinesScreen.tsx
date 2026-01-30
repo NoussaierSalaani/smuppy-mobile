@@ -80,8 +80,10 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       if (businessName) profileData.business_name = businessName;
       if (businessCategory) profileData.business_category = businessCategory === 'other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;
-      if (businessLatitude != null) profileData.business_latitude = businessLatitude;
-      if (businessLongitude != null) profileData.business_longitude = businessLongitude;
+      const lat = typeof businessLatitude === 'number' && isFinite(businessLatitude) && Math.abs(businessLatitude) <= 90 ? businessLatitude : undefined;
+      const lon = typeof businessLongitude === 'number' && isFinite(businessLongitude) && Math.abs(businessLongitude) <= 180 ? businessLongitude : undefined;
+      if (lat != null) profileData.business_latitude = lat;
+      if (lon != null) profileData.business_longitude = lon;
       if (locationsMode) profileData.locations_mode = locationsMode;
 
       // Create profile with retries

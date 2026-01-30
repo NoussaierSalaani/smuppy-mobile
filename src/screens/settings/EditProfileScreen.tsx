@@ -122,6 +122,8 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   // Business address handlers
   const handleBusinessAddressChange = (text: string) => {
     setBusinessAddress(text);
+    setBusinessLatitude(undefined);
+    setBusinessLongitude(undefined);
     setHasChanges(true);
     if (addressSearchTimeout.current) clearTimeout(addressSearchTimeout.current);
     if (text.length < 3) { setAddressSuggestions([]); return; }

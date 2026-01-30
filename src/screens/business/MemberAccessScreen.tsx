@@ -52,6 +52,7 @@ interface AccessPass {
 export default function MemberAccessScreen({ route, navigation }: Props) {
   const { subscriptionId, businessId, businessName } = route.params;
   const user = useUserStore((state) => state.user);
+  const getFullName = useUserStore((state) => state.getFullName);
 
   const [accessPass, setAccessPass] = useState<AccessPass | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +116,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
             userId: user?.id,
             timestamp: Date.now(),
           }),
-          memberName: user?.fullName || user?.displayName || 'Member',
+          memberName: getFullName() || 'Member',
           membershipType: 'Premium',
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           status: 'active',
@@ -134,7 +135,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           userId: user?.id,
           timestamp: Date.now(),
         }),
-        memberName: user?.fullName || user?.displayName || 'Member',
+        memberName: getFullName() || 'Member',
         membershipType: 'Premium',
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'active',

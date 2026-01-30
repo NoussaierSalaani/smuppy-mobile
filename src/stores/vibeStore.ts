@@ -79,8 +79,13 @@ export interface VibeState {
   // ── Prescriptions ──
   prescriptionPreferences: PrescriptionPreferences;
   completedToday: string[];
+  completedTodayDate: string | null;
+  prescriptionStartedAt: number | null;
+  rushedToday: number;
   updatePreferences: (prefs: Partial<PrescriptionPreferences>) => void;
-  completePrescription: (id: string, reward: number) => void;
+  startPrescription: () => void;
+  completePrescription: (id: string, reward: number, durationMinutes: number) => void;
+  checkDailyReset: () => void;
 
   // ── Reset ──
   reset: () => void;
@@ -279,19 +284,50 @@ export const useVibeStore = create<VibeState>()(
       // ── Prescriptions ──
       prescriptionPreferences: { ...INITIAL_PREFERENCES },
       completedToday: [],
+      completedTodayDate: null,
+      prescriptionStartedAt: null,
+      rushedToday: 0,
 
       updatePreferences: (prefs: Partial<PrescriptionPreferences>) =>
         set((state) => {
           state.prescriptionPreferences = { ...state.prescriptionPreferences, ...prefs };
         }),
 
-      completePrescription: (id: string, reward: number) =>
+      startPrescription: () =>
+        set((state) => {
+          state.prescriptionStartedAt = Date.now();
+        }),
+
+      completePrescription: (id: string, reward: number, durationMinutes: number) =>
         set((state) => {
           if (!state.completedToday.includes(id)) {
             state.completedToday.push(id);
           }
-          state.vibeScore += reward;
+          state.completedTodayDate = getTodayKey();
+
+          let finalReward = reward;
+          if (state.prescriptionStartedAt !== null) {
+            const elapsed = Date.now() - state.prescriptionStartedAt;
+            const minRequired = durationMinutes * 60 * 1000 * 0.3;
+            if (elapsed < minRequired) {
+              finalReward = Math.ceil(reward * 0.5);
+              state.rushedToday += 1;
+            }
+          }
+
+          state.vibeScore += finalReward;
           state.vibeLevel = resolveLevel(state.vibeScore);
+          state.prescriptionStartedAt = null;
+        }),
+
+      checkDailyReset: () =>
+        set((state) => {
+          const today = getTodayKey();
+          if (state.completedTodayDate !== today) {
+            state.completedToday = [];
+            state.rushedToday = 0;
+            state.completedTodayDate = today;
+          }
         }),
 
       // ── Reset ──
@@ -308,6 +344,9 @@ export const useVibeStore = create<VibeState>()(
           state.rippleHistory = [];
           state.prescriptionPreferences = { ...INITIAL_PREFERENCES };
           state.completedToday = [];
+          state.completedTodayDate = null;
+          state.prescriptionStartedAt = null;
+          state.rushedToday = 0;
         }),
     })),
     {
@@ -325,6 +364,8 @@ export const useVibeStore = create<VibeState>()(
         rippleHistory: state.rippleHistory,
         prescriptionPreferences: state.prescriptionPreferences,
         completedToday: state.completedToday,
+        completedTodayDate: state.completedTodayDate,
+        rushedToday: state.rushedToday,
       }),
     },
   ),

@@ -28,9 +28,16 @@ export function useVibePrescriptions(): UseVibePrescriptionsReturn {
   const completedToday = useVibeStore((s) => s.completedToday);
   const storeComplete = useVibeStore((s) => s.completePrescription);
   const storeUpdatePrefs = useVibeStore((s) => s.updatePreferences);
+  const storeStartPrescription = useVibeStore((s) => s.startPrescription);
+  const checkDailyReset = useVibeStore((s) => s.checkDailyReset);
+
+  // Reset completedToday & rushedToday if the day changed
+  useEffect(() => {
+    checkDailyReset();
+  }, [checkDailyReset]);
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [activePrescription, setActivePrescription] = useState<Prescription | null>(null);
+  const [activePrescription, setActivePrescriptionRaw] = useState<Prescription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -69,12 +76,20 @@ export function useVibePrescriptions(): UseVibePrescriptionsReturn {
     return generatePrescriptions(currentMood, weather, preferences, completedToday);
   }, [enabled, weather, currentMood, preferences, completedToday]);
 
+  const setActivePrescription = useCallback(
+    (rx: Prescription | null) => {
+      setActivePrescriptionRaw(rx);
+      if (rx) storeStartPrescription();
+    },
+    [storeStartPrescription],
+  );
+
   const completePrescription = useCallback(
     (id: string) => {
       const rx = prescriptions.find((p) => p.id === id);
       if (rx) {
-        storeComplete(id, rx.vibeScoreReward);
-        setActivePrescription(null);
+        storeComplete(id, rx.vibeScoreReward, rx.durationMinutes);
+        setActivePrescriptionRaw(null);
       }
     },
     [prescriptions, storeComplete],

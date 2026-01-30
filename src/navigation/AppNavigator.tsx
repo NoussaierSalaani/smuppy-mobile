@@ -223,7 +223,17 @@ export default function AppNavigator(): React.JSX.Element {
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setAppState('auth');
       } else {
-        const { state, email } = await resolveAppState();
+        let { state, email } = await resolveAppState();
+
+        // If Remember Me is set but session resolution failed (e.g. network not ready),
+        // retry once after a short delay
+        if (state === 'auth' && rememberMe === 'true') {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const retry = await resolveAppState();
+          state = retry.state;
+          email = retry.email;
+        }
+
         setAppState(state);
         setUserEmail(email);
       }

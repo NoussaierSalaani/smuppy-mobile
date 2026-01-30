@@ -21,7 +21,7 @@ import { awsAuth } from '../../services/aws-auth';
 import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
-import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -38,7 +38,8 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const [avatarChanged, setAvatarChanged] = useState(false);
   const [showImageSheet, setShowImageSheet] = useState(false);
   const [userEmail, setUserEmail] = useState('');
-  const alert = useSmuppyAlert();
+  const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
+  const alert = { error: errorAlert, warning: warningAlert };
 
   // Load user email from auth
   useEffect(() => {
@@ -411,9 +412,6 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         subtitle="Choose how to update your photo"
         options={getImageSheetOptions()}
       />
-
-      {/* Alert Modal */}
-      <SmuppyAlert {...alert.alertProps} />
     </KeyboardAvoidingView>
   );
 };

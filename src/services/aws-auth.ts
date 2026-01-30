@@ -157,15 +157,19 @@ class AWSAuthService {
         this.user = JSON.parse(userJson);
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Restored session');
 
-        // Verify token is still valid
-        const isValid = await this.verifyToken();
-        if (!isValid) {
-          if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token expired, trying refresh...');
-          const refreshed = await this.refreshSession();
-          if (!refreshed) {
-            await this.clearSession();
-            return null;
-          }
+        // Check token expiry locally (no network call) to avoid failing on cold start
+        if (!this.isTokenExpired(accessToken)) {
+          if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token still valid (local check)');
+          return this.user;
+        }
+
+        // Token expired locally — try refresh
+        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token expired, trying refresh...');
+        const refreshed = await this.refreshSession();
+        if (!refreshed && !this.user) {
+          // refreshSession only clears session on auth errors, not network errors.
+          // If user is still set, it was a network error — keep session alive.
+          return null;
         }
 
         return this.user;
@@ -788,54 +792,6 @@ class AWSAuthService {
 
   // Private methods
 
-  private async fetchUserAttributes(): Promise<AuthUser> {
-    if (!this.accessToken) {
-      throw new Error('No access token');
-    }
-
-    const client = await getCognitoClient();
-    const { GetUserCommand } = await getCognitoCommands();
-
-    const command = new GetUserCommand({
-      AccessToken: this.accessToken,
-    });
-
-    const response = await client.send(command);
-
-    const attrs: Record<string, string> = {};
-    response.UserAttributes?.forEach((attr: { Name?: string; Value?: string }) => {
-      if (attr.Name && attr.Value) {
-        attrs[attr.Name] = attr.Value;
-      }
-    });
-
-    return {
-      id: attrs['sub'] || '',
-      email: attrs['email'] || '',
-      username: attrs['preferred_username'] || attrs['email'],
-      emailVerified: attrs['email_verified'] === 'true',
-      phoneNumber: attrs['phone_number'],
-      attributes: attrs,
-    };
-  }
-
-  private async verifyToken(): Promise<boolean> {
-    if (!this.accessToken) return false;
-
-    try {
-      const client = await getCognitoClient();
-      const { GetUserCommand } = await getCognitoCommands();
-
-      const command = new GetUserCommand({
-        AccessToken: this.accessToken,
-      });
-      await client.send(command);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   private async refreshSessionOnce(): Promise<boolean> {
     if (this.refreshPromise) return this.refreshPromise;
     this.refreshPromise = this.refreshSession().finally(() => {
@@ -873,9 +829,25 @@ class AWSAuthService {
         return true;
       }
       return false;
-    } catch (error) {
-      // Token refresh failed — clear session to prevent stale auth state
-      console.warn('[AWS Auth] Token refresh failed, clearing session');
+    } catch (error: unknown) {
+      // Distinguish network errors from auth errors
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('Network') ||
+        error.message.includes('network') ||
+        error.message.includes('fetch') ||
+        error.message.includes('ECONNREFUSED') ||
+        error.message.includes('timeout') ||
+        error.name === 'TypeError' // fetch failures in RN
+      );
+
+      if (isNetworkError) {
+        // Network error — keep session alive so Remember Me works on cold start
+        console.warn('[AWS Auth] Token refresh failed due to network, keeping session');
+        return false;
+      }
+
+      // Auth error (token revoked, invalid, etc.) — clear session
+      console.warn('[AWS Auth] Token refresh failed (auth error), clearing session');
       await this.clearSession();
       return false;
     }

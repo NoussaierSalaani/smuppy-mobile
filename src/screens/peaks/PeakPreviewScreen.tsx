@@ -25,7 +25,7 @@ import { DARK_COLORS as COLORS } from '../../config/theme';
 import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import { createPost } from '../../services/database';
-import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -75,7 +75,8 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakPreview'>>();
-  const alert = useSmuppyAlert();
+  const { showError: errorAlert } = useSmuppyAlert();
+  const alert = { error: errorAlert };
 
   const { videoUri, duration, replyTo, originalPeak } = route.params || {};
 
@@ -481,9 +482,6 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           </View>
         </View>
       )}
-
-      {/* Alert Modal */}
-      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 };

@@ -16,7 +16,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
-import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -53,7 +53,8 @@ interface CreatePostScreenProps {
 
 export default function CreatePostScreen({ navigation, route: _route }: CreatePostScreenProps) {
   const insets = useSafeAreaInsets();
-  const alert = useSmuppyAlert();
+  const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
+  const alert = { error: errorAlert, warning: warningAlert };
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
   const [selectedPreview, setSelectedPreview] = useState<MediaItem | MediaLibrary.Asset | null>(null);
@@ -433,9 +434,6 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         subtitle="What do you want to capture?"
         options={getCameraSheetOptions()}
       />
-
-      {/* Alert Modal */}
-      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 }

@@ -26,6 +26,7 @@ import { initializeBackend } from './src/services/backend';
 
 // UI Components
 import OfflineBanner from './src/components/OfflineBanner';
+import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
 
 /**
  * Network Monitor Component
@@ -186,10 +187,12 @@ export default function App() {
             <UserContextSync />
             <CachePersistence />
             <PushNotificationHandler />
-            <View style={{ flex: 1 }}>
-              <AppNavigator />
-              <OfflineBanner />
-            </View>
+            <SmuppyAlertProvider>
+              <View style={{ flex: 1 }}>
+                <AppNavigator />
+                <OfflineBanner />
+              </View>
+            </SmuppyAlertProvider>
           </QueryClientProvider>
         </StripeProvider>
       </ErrorBoundary>

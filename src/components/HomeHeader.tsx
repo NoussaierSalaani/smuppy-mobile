@@ -134,7 +134,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                     tabs={tabs.map(t => ({ key: t.id, label: t.label }))}
                     activeTab={activeTab}
                     onTabChange={(key) => handleTabPress(key as TabId)}
-                    size="small"
+                    size="medium"
                     fullWidth={false}
                     style={styles.liquidTabsCompact}
                   />
@@ -284,8 +284,8 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   compactRow: {
     flexDirection: 'row',

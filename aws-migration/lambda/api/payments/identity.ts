@@ -3,9 +3,9 @@
  * Handles identity verification for creators
  *
  * Pricing:
- * - Verification fee: $14.90 (100% to Smuppy, minus Stripe fees)
- * - Stripe Identity charges ~$1.50 per verification
- * - Net revenue to Smuppy: ~$13.40 per verification
+ * - Verification subscription: $14.90/month (recurring, 100% to Smuppy minus Stripe fees)
+ * - Stripe Identity charges ~$1.50 per verification (first time only)
+ * - If subscription lapses, is_verified is set to false via webhook
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
@@ -21,8 +21,12 @@ async function getStripe(): Promise<Stripe> {
   return stripeInstance;
 }
 
-// Verification fee: $14.90 (1490 cents) - 100% goes to Smuppy
+// Verification subscription: $14.90/month (1490 cents) - 100% goes to Smuppy
 const VERIFICATION_FEE_CENTS = 1490;
+
+// Stripe Price ID for the verification subscription product
+// Must be created in Stripe Dashboard: Product "Smuppy Verified Account" → Price $14.90/month recurring
+const VERIFICATION_PRICE_ID = process.env.STRIPE_VERIFICATION_PRICE_ID || '';
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -42,7 +46,9 @@ const corsHeaders = {
 };
 
 interface IdentityBody {
-  action: 'create-session' | 'get-status' | 'get-report' | 'create-payment-intent' | 'confirm-payment';
+  action: 'create-session' | 'get-status' | 'get-report' | 'create-subscription' | 'confirm-subscription' | 'cancel-subscription'
+    // Legacy one-time (kept for backward compat)
+    | 'create-payment-intent' | 'confirm-payment';
   returnUrl?: string;
   paymentIntentId?: string;
 }
@@ -66,14 +72,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const body: IdentityBody = JSON.parse(event.body || '{}');
 
     switch (body.action) {
+      case 'create-subscription':
+        return await createVerificationSubscription(stripe, userId);
+      case 'confirm-subscription':
+        return await confirmSubscriptionAndStartVerification(stripe, userId, body.returnUrl!);
+      case 'cancel-subscription':
+        return await cancelVerificationSubscription(stripe, userId);
+      // Legacy one-time payment (backward compat)
       case 'create-payment-intent':
-        // Step 1: Create payment intent for verification fee
         return await createVerificationPaymentIntent(userId);
       case 'confirm-payment':
-        // Step 2: Confirm payment and proceed to verification
         return await confirmPaymentAndStartVerification(userId, body.paymentIntentId!, body.returnUrl!);
       case 'create-session':
-        // Legacy: Direct session creation (requires prior payment)
         return await createVerificationSession(userId, body.returnUrl!);
       case 'get-status':
         return await getVerificationStatus(userId);
@@ -95,6 +105,193 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     };
   }
 };
+
+// ============================================
+// SUBSCRIPTION-BASED VERIFICATION
+// ============================================
+
+/**
+ * Create a monthly subscription for verification ($14.90/month).
+ * Returns the clientSecret for the first invoice's PaymentIntent
+ * so the frontend can present PaymentSheet.
+ */
+async function createVerificationSubscription(stripe: Stripe, userId: string): Promise<APIGatewayProxyResult> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT id, email, full_name, stripe_customer_id, is_verified,
+              verification_subscription_id
+       FROM profiles WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'User not found' }) };
+    }
+
+    const { email, full_name, stripe_customer_id, is_verified, verification_subscription_id } = result.rows[0];
+
+    if (is_verified) {
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+    }
+
+    // Check existing subscription
+    if (verification_subscription_id) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
+        if (sub.status === 'active' || sub.status === 'trialing') {
+          return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+        }
+        // incomplete — return the pending invoice client secret
+        if (sub.status === 'incomplete' && sub.latest_invoice) {
+          const invoice = await stripe.invoices.retrieve(sub.latest_invoice as string, { expand: ['payment_intent'] });
+          const pi = invoice.payment_intent as Stripe.PaymentIntent | null;
+          if (pi?.client_secret) {
+            return {
+              statusCode: 200,
+              headers: corsHeaders,
+              body: JSON.stringify({ success: true, clientSecret: pi.client_secret }),
+            };
+          }
+        }
+      } catch {
+        // Subscription invalid, create new one
+      }
+    }
+
+    // Ensure Stripe customer exists
+    let customerId = stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email,
+        name: full_name,
+        metadata: { userId, platform: 'smuppy' },
+      });
+      customerId = customer.id;
+      await client.query('UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2', [customerId, userId]);
+    }
+
+    // Create subscription (payment_behavior: 'default_incomplete' so we get clientSecret)
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: VERIFICATION_PRICE_ID }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
+      metadata: { userId, platform: 'smuppy', type: 'identity_verification' },
+    });
+
+    // Save subscription ID
+    await client.query(
+      `UPDATE profiles
+       SET verification_subscription_id = $1,
+           verification_payment_status = 'pending',
+           updated_at = NOW()
+       WHERE id = $2`,
+      [subscription.id, userId]
+    );
+
+    const invoice = subscription.latest_invoice as Stripe.Invoice;
+    const pi = invoice.payment_intent as Stripe.PaymentIntent;
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        success: true,
+        subscriptionId: subscription.id,
+        clientSecret: pi.client_secret,
+      }),
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Confirm that the subscription is active and start the identity verification session.
+ */
+async function confirmSubscriptionAndStartVerification(
+  stripe: Stripe,
+  userId: string,
+  returnUrl: string
+): Promise<APIGatewayProxyResult> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT verification_subscription_id FROM profiles WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'User not found' }) };
+    }
+
+    const { verification_subscription_id } = result.rows[0];
+    if (!verification_subscription_id) {
+      return { statusCode: 402, headers: corsHeaders, body: JSON.stringify({ error: 'No subscription found' }) };
+    }
+
+    const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
+    if (sub.status !== 'active' && sub.status !== 'trialing') {
+      return {
+        statusCode: 402,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Subscription not active', status: sub.status }),
+      };
+    }
+
+    // Subscription is active — update payment status and start identity verification
+    await client.query(
+      `UPDATE profiles SET verification_payment_status = 'paid', verification_payment_date = NOW() WHERE id = $1`,
+      [userId]
+    );
+
+    return await createVerificationSession(userId, returnUrl);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Cancel the verification subscription.
+ * Verification badge will be removed at period end via webhook.
+ */
+async function cancelVerificationSubscription(stripe: Stripe, userId: string): Promise<APIGatewayProxyResult> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT verification_subscription_id FROM profiles WHERE id = $1',
+      [userId]
+    );
+
+    if (!result.rows[0]?.verification_subscription_id) {
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'No active subscription' }) };
+    }
+
+    // Cancel at period end so user keeps verified status until billing period expires
+    const sub = await stripe.subscriptions.update(result.rows[0].verification_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        success: true,
+        cancelAt: sub.cancel_at,
+        currentPeriodEnd: sub.current_period_end,
+        message: 'Subscription will cancel at end of billing period',
+      }),
+    };
+  } finally {
+    client.release();
+  }
+}
+
+// ============================================
+// LEGACY ONE-TIME PAYMENT (backward compat)
+// ============================================
 
 /**
  * Create a payment intent for the verification fee ($14.90)

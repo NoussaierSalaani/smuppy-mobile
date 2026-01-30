@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 // TODO: Fetch from backend config API so price changes don't require app update
 const VERIFICATION_FEE = '$14.90';
+const VERIFICATION_PERIOD = '/month';
 import {
   View,
   Text,
@@ -73,8 +74,8 @@ const STATUS_INFO: Record<VerificationStatus, StatusInfo> = {
 const VERIFICATION_STEPS = [
   {
     icon: 'card',
-    title: 'Pay verification fee',
-    subtitle: `One-time ${VERIFICATION_FEE} fee`,
+    title: 'Subscribe to verification',
+    subtitle: `${VERIFICATION_FEE}${VERIFICATION_PERIOD} subscription`,
   },
   {
     icon: 'camera',
@@ -150,27 +151,27 @@ export default function IdentityVerificationScreen() {
   const initializePayment = async () => {
     setProcessing(true);
     try {
-      // Create payment intent
+      // Create subscription
       const response = await awsAPI.request<{
         success: boolean;
-        paymentCompleted?: boolean;
-        paymentIntent?: { clientSecret: string };
+        subscriptionActive?: boolean;
+        clientSecret?: string;
         error?: string;
       }>('/payments/identity', {
         method: 'POST',
-        body: { action: 'create-payment-intent' },
+        body: { action: 'create-subscription' },
       });
 
-      if (response.success && response.paymentCompleted) {
-        // Payment already done, proceed to verification
+      if (response.success && response.subscriptionActive) {
+        // Already subscribed, proceed to verification
         await startVerification();
         return;
       }
 
-      if (response.success && response.paymentIntent) {
-        // Initialize payment sheet
+      if (response.success && response.clientSecret) {
+        // Initialize payment sheet with subscription secret
         const { error } = await initPaymentSheet({
-          paymentIntentClientSecret: response.paymentIntent.clientSecret,
+          paymentIntentClientSecret: response.clientSecret,
           merchantDisplayName: 'Smuppy',
           style: 'automatic',
           returnURL: 'smuppy://verification-complete',
@@ -180,11 +181,10 @@ export default function IdentityVerificationScreen() {
           showError('Error', error.message);
         } else {
           setPaymentReady(true);
-          // Present payment sheet
           await handlePayment();
         }
       } else {
-        showError('Error', response.error || 'Failed to initialize payment');
+        showError('Error', response.error || 'Failed to initialize subscription');
       }
     } catch (error: any) {
       showError('Error', error.message || 'Something went wrong');
@@ -203,9 +203,9 @@ export default function IdentityVerificationScreen() {
           showError('Payment Failed', error.message);
         }
       } else {
-        // Payment successful, start verification
+        // Subscription activated, start verification
         showAlert({
-          title: 'Payment Successful',
+          title: 'Subscription Active',
           message: 'Now let\'s verify your identity',
           type: 'success',
           buttons: [{ text: 'Continue', onPress: startVerification }],
@@ -224,7 +224,7 @@ export default function IdentityVerificationScreen() {
       const response = await awsAPI.request<{ success: boolean; url?: string; error?: string }>('/payments/identity', {
         method: 'POST',
         body: {
-          action: 'confirm-payment',
+          action: 'confirm-subscription',
           returnUrl: 'smuppy://verification-complete',
         },
       });
@@ -317,17 +317,17 @@ export default function IdentityVerificationScreen() {
             {/* Price Card */}
             <View style={styles.priceCard}>
               <View style={styles.priceHeader}>
-                <Text style={styles.priceLabel}>Verification Fee</Text>
+                <Text style={styles.priceLabel}>Verified Account</Text>
                 <View style={styles.priceTag}>
                   <Text style={styles.priceAmount}>{VERIFICATION_FEE}</Text>
-                  <Text style={styles.priceOnce}>one-time</Text>
+                  <Text style={styles.priceOnce}>{VERIFICATION_PERIOD}</Text>
                 </View>
               </View>
               <View style={styles.priceDivider} />
               <View style={styles.priceInfo}>
                 <Ionicons name="information-circle" size={18} color={COLORS.gray500} />
                 <Text style={styles.priceInfoText}>
-                  This is a one-time fee. You won't be charged again.
+                  Monthly subscription. Cancel anytime from your profile settings.
                 </Text>
               </View>
             </View>
@@ -408,7 +408,7 @@ export default function IdentityVerificationScreen() {
                     color="white"
                   />
                   <Text style={styles.ctaText}>
-                    {status === 'requires_input' ? 'Continue Verification' : `Get Verified for ${VERIFICATION_FEE}`}
+                    {status === 'requires_input' ? 'Continue Verification' : `Get Verified — ${VERIFICATION_FEE}${VERIFICATION_PERIOD}`}
                   </Text>
                 </>
               )}

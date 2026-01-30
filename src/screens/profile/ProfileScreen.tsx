@@ -123,7 +123,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const [imageSheetType, setImageSheetType] = useState<'avatar' | 'cover'>('avatar');
   const [collectionMenuVisible, setCollectionMenuVisible] = useState(false);
   const [selectedCollectionPost, setSelectedCollectionPost] = useState<any>(null);
-  const [groupEventMode, setGroupEventMode] = useState<'group' | 'event'>('event');
+  const [groupEventMode, setGroupEventMode] = useState<'all' | 'group' | 'event'>('all');
   const [menuItem, setMenuItem] = useState<{ type: 'event' | 'group'; id: string } | null>(null);
 
   const isOwnProfile = route?.params?.userId === undefined;
@@ -1079,43 +1079,59 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, [menuItem, navigation]);
 
   const handleNewEventGroup = useCallback(() => {
-    if (groupEventMode === 'event') {
-      navigation.navigate('CreateEvent');
-    } else {
-      navigation.navigate('CreateGroup');
-    }
+    navigation.navigate('CreateEvent', {
+      initialMode: groupEventMode === 'group' ? 'group' : 'event',
+    });
   }, [groupEventMode, navigation]);
 
   // ==================== RENDER GROUP/EVENT ====================
   const renderGroupEvent = () => {
-    const items = groupEventMode === 'event' ? events : groups;
+    // Build merged + filtered list
+    const taggedEvents = events.map(e => ({ ...e, _type: 'event' as const, _title: e.title }));
+    const taggedGroups = groups.map(g => ({ ...g, _type: 'group' as const, _title: g.name }));
+    const allItems = [...taggedEvents, ...taggedGroups].sort(
+      (a, b) => new Date(b.starts_at || 0).getTime() - new Date(a.starts_at || 0).getTime()
+    );
+    const items = groupEventMode === 'all'
+      ? allItems
+      : allItems.filter(i => i._type === groupEventMode);
 
     return (
       <View style={styles.groupEventContainer}>
-        {/* Header: Toggle + New button */}
+        {/* Header: Toggle chips + New button */}
         <View style={styles.groupEventHeader}>
           <View style={styles.toggleChipsRow}>
             <TouchableOpacity
-              style={[styles.toggleChip, groupEventMode === 'event' && styles.toggleChipActive]}
-              onPress={() => setGroupEventMode('event')}
+              style={[styles.toggleChip, groupEventMode === 'group' && styles.toggleChipActive]}
+              onPress={() => setGroupEventMode(groupEventMode === 'group' ? 'all' : 'group')}
             >
-              <Text style={[styles.toggleChipText, groupEventMode === 'event' && styles.toggleChipTextActive]}>
-                Event
+              <Ionicons
+                name="people-outline"
+                size={16}
+                color={groupEventMode === 'group' ? COLORS.white : COLORS.dark}
+              />
+              <Text style={[styles.toggleChipText, groupEventMode === 'group' && styles.toggleChipTextActive]}>
+                Group
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.toggleChip, groupEventMode === 'group' && styles.toggleChipActive]}
-              onPress={() => setGroupEventMode('group')}
+              style={[styles.toggleChip, groupEventMode === 'event' && styles.toggleChipActive]}
+              onPress={() => setGroupEventMode(groupEventMode === 'event' ? 'all' : 'event')}
             >
-              <Text style={[styles.toggleChipText, groupEventMode === 'group' && styles.toggleChipTextActive]}>
-                Group
+              <Ionicons
+                name="calendar-outline"
+                size={16}
+                color={groupEventMode === 'event' ? COLORS.white : COLORS.dark}
+              />
+              <Text style={[styles.toggleChipText, groupEventMode === 'event' && styles.toggleChipTextActive]}>
+                Event
               </Text>
             </TouchableOpacity>
           </View>
 
           {isOwnProfile && (
             <TouchableOpacity style={styles.newButton} onPress={handleNewEventGroup}>
-              <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="add-circle" size={20} color={COLORS.primary} />
               <Text style={styles.newButtonText}>New</Text>
             </TouchableOpacity>
           )}
@@ -1134,45 +1150,33 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               color={COLORS.grayMuted}
               style={styles.emptyIconMargin}
             />
-            <Text style={styles.emptyTitle}>
-              {groupEventMode === 'event' ? 'No events yet' : 'No groups yet'}
-            </Text>
-            <Text style={styles.emptyDesc}>
-              {groupEventMode === 'event'
-                ? 'Create your first event to gather people'
-                : 'Create your first group activity'}
-            </Text>
+            <Text style={styles.emptyTitle}>No events or groups yet</Text>
+            <Text style={styles.emptyDesc}>Create your first event or group to get started</Text>
             {isOwnProfile && (
               <TouchableOpacity style={styles.createBtn} onPress={handleNewEventGroup}>
-                <Text style={styles.createBtnText}>
-                  {groupEventMode === 'event' ? 'Create an Event' : 'Create a Group'}
-                </Text>
+                <Text style={styles.createBtnText}>Create New</Text>
                 <Ionicons name="arrow-forward" size={16} color="#FFF" />
               </TouchableOpacity>
             )}
           </View>
         ) : (
           <View style={styles.groupEventList}>
-            {items.map((item) => {
-              const isEvent = groupEventMode === 'event';
-              const itemTitle = isEvent ? (item as typeof events[0]).title : (item as typeof groups[0]).name;
-              return (
-                <EventGroupCard
-                  key={item.id}
-                  type={groupEventMode}
-                  id={item.id}
-                  title={itemTitle}
-                  location={item.address || ''}
-                  coverImage={item.cover_image_url}
-                  startDate={item.starts_at}
-                  participantCount={item.current_participants}
-                  maxParticipants={item.max_participants}
-                  isOwner={isOwnProfile}
-                  onPress={() => handleEventGroupCardPress(groupEventMode, item.id)}
-                  onMenuPress={() => handleEventGroupMenuPress(groupEventMode, item.id)}
-                />
-              );
-            })}
+            {items.map((item) => (
+              <EventGroupCard
+                key={`${item._type}-${item.id}`}
+                type={item._type}
+                id={item.id}
+                title={item._title}
+                location={item.address || ''}
+                coverImage={item.cover_image_url}
+                startDate={item.starts_at}
+                participantCount={item.current_participants}
+                maxParticipants={item.max_participants}
+                isOwner={isOwnProfile}
+                onPress={() => handleEventGroupCardPress(item._type, item.id)}
+                onMenuPress={() => handleEventGroupMenuPress(item._type, item.id)}
+              />
+            ))}
           </View>
         )}
       </View>

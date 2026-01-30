@@ -349,9 +349,30 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const subscription = stripeEvent.data.object as Stripe.Subscription;
         log.info('Subscription updated', { subscriptionId: subscription.id });
 
-        const subscriptionType = subscription.metadata?.subscriptionType;
+        const subscriptionType = subscription.metadata?.subscriptionType || subscription.metadata?.type;
 
-        if (subscriptionType === 'platform') {
+        if (subscriptionType === 'identity_verification') {
+          const userId = subscription.metadata?.userId;
+          if (userId && isValidUUID(userId)) {
+            // If subscription went past_due or unpaid, remove verification
+            if (subscription.status === 'past_due' || subscription.status === 'unpaid' || subscription.status === 'canceled') {
+              await client.query(
+                `UPDATE profiles SET is_verified = false, updated_at = NOW() WHERE id = $1`,
+                [userId]
+              );
+              log.warn('Verification sub degraded, badge removed', { userId, status: subscription.status });
+            }
+            // If reactivated, restore verification (only if identity was already verified)
+            if (subscription.status === 'active') {
+              await client.query(
+                `UPDATE profiles SET is_verified = true, updated_at = NOW()
+                 WHERE id = $1 AND identity_verification_session_id IS NOT NULL AND verified_at IS NOT NULL`,
+                [userId]
+              );
+              log.info('Verification sub reactivated', { userId });
+            }
+          }
+        } else if (subscriptionType === 'platform') {
           const hasCancelAt = subscription.cancel_at != null;
           await client.query(
             `UPDATE platform_subscriptions
@@ -387,9 +408,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const subscription = stripeEvent.data.object as Stripe.Subscription;
         log.info('Subscription canceled', { subscriptionId: subscription.id });
 
-        const subscriptionType = subscription.metadata?.subscriptionType;
+        const subscriptionType = subscription.metadata?.subscriptionType || subscription.metadata?.type;
 
-        if (subscriptionType === 'platform') {
+        if (subscriptionType === 'identity_verification') {
+          // Verification subscription canceled → remove verified badge
+          const userId = subscription.metadata?.userId;
+          if (userId && isValidUUID(userId)) {
+            await client.query(
+              `UPDATE profiles
+               SET is_verified = false,
+                   verification_subscription_id = NULL,
+                   verification_payment_status = 'canceled',
+                   updated_at = NOW()
+               WHERE id = $1`,
+              [userId]
+            );
+
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'verification_expired', 'Verified Status Removed',
+                       'Your verification subscription has expired. Renew to keep your verified badge and access paid events.', '{}')`,
+              [userId]
+            );
+
+            log.info('Verification subscription canceled, badge removed', { userId });
+          }
+        } else if (subscriptionType === 'platform') {
           await client.query(
             `UPDATE platform_subscriptions
              SET status = 'canceled', canceled_at = NOW(), updated_at = NOW()
@@ -458,7 +502,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const invoice = stripeEvent.data.object as Stripe.Invoice;
         log.warn('Invoice payment failed', { invoiceId: invoice.id });
 
-        // Could notify user about failed payment
+        const subMeta = invoice.subscription_details?.metadata;
+        const invoiceType = subMeta?.type || subMeta?.subscriptionType;
+
+        if (invoiceType === 'identity_verification') {
+          const userId = subMeta?.userId;
+          if (userId && isValidUUID(userId)) {
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'verification_payment_failed', 'Verification Payment Failed',
+                       'Your verified account payment failed. Please update your payment method to keep your verified badge.', $2)`,
+              [userId, JSON.stringify({ invoiceId: invoice.id })]
+            );
+            log.warn('Verification invoice payment failed', { userId, invoiceId: invoice.id });
+          }
+        }
         break;
       }
 

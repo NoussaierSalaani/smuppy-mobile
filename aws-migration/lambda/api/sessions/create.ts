@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-create');
 
 interface CreateSessionBody {
   creatorId: string;
@@ -215,7 +218,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       client.release();
     }
   } catch (error) {
-    console.error('Create session error:', error);
+    log.error('Create session error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

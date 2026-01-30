@@ -38,7 +38,6 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   const [hasSelectedDate, setHasSelectedDate] = useState(false);
   const [ageError, setAgeError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const { accountType } = route?.params || {};
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
@@ -85,8 +84,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   }, []);
 
   const handleNext = useCallback(() => {
-    if (!isFormValid || loading) return;
-    setLoading(true);
+    if (!isFormValid) return;
     navigation.navigate('Interests', {
       accountType,
       name: name.trim(),
@@ -94,8 +92,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
       dateOfBirth: date.toISOString(),
       profileImage,
     });
-    setLoading(false);
-  }, [navigation, accountType, name, gender, date, profileImage, isFormValid, loading]);
+  }, [navigation, accountType, name, gender, date, profileImage, isFormValid]);
 
 
   return (
@@ -114,7 +111,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
           <View style={styles.photoSection}>
             <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
               <LinearGradient
-                colors={profileImage ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={profileImage ? GRADIENTS.button : GRADIENTS.buttonDisabled}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.photoGradient}
@@ -137,7 +134,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
           {/* Name Input */}
           <Text style={styles.label}>Full name <Text style={styles.required}>*</Text></Text>
           <LinearGradient
-            colors={(hasName || focusedField === 'name') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(hasName || focusedField === 'name') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
@@ -217,7 +214,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
             </TouchableOpacity>
           ) : (
             <LinearGradient
-              colors={hasSelectedDate ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              colors={hasSelectedDate ? GRADIENTS.button : GRADIENTS.buttonDisabled}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
@@ -256,7 +253,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
             size="lg"
             icon="arrow-forward"
             iconPosition="right"
-            disabled={!isFormValid || loading}
+            disabled={!isFormValid}
             onPress={handleNext}
           >
             Next
@@ -319,7 +316,7 @@ const styles = StyleSheet.create({
   photoSection: { alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.lg },
   photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
   photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  photoContainerFilled: { backgroundColor: '#E8FAF7' },
+  photoContainerFilled: { backgroundColor: COLORS.backgroundValid },
   profileImage: { width: '100%', height: '100%', borderRadius: 52 },
   photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: COLORS.white },
   photoLabel: { fontSize: 12, color: COLORS.grayMuted, marginTop: 4 },
@@ -330,7 +327,7 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
   greetingName: { fontWeight: '700', color: COLORS.dark },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E8FAF7' },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   inputError: { borderColor: COLORS.error, backgroundColor: '#FEE' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -2, marginBottom: SPACING.xs, gap: 4 },
@@ -338,7 +335,7 @@ const styles = StyleSheet.create({
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
   genderBox: { width: 80, height: 80, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, justifyContent: 'center', alignItems: 'center' },
   genderGradientBorder: { width: 80, height: 80, borderRadius: SIZES.radiusMd, padding: 2 },
-  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: '#E8FAF7', justifyContent: 'center', alignItems: 'center' },
+  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: COLORS.backgroundValid, justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
   dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.sm, fontSize: 14 },

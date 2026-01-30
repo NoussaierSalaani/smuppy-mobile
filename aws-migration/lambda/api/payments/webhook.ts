@@ -105,9 +105,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       log.info('Duplicate event ignored', { eventId: stripeEvent.id });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
     }
-    processedEvents.set(stripeEvent.id, Date.now());
 
-    // DB-backed dedup (cross-instance protection)
+    // DB-backed dedup FIRST (source of truth, cross-instance protection)
     const db = await getPool();
     try {
       await db.query(
@@ -115,17 +114,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [stripeEvent.id]
       );
     } catch (dedupErr: unknown) {
-      if (dedupErr.code === '23505') { // unique_violation
+      const errCode = (dedupErr as { code?: string }).code;
+      if (errCode === '23505') { // unique_violation
         log.info('Duplicate event (DB)', { eventId: stripeEvent.id });
+        processedEvents.set(stripeEvent.id, Date.now());
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
       }
       // Table may not exist yet — log and continue (dedup is best-effort)
-      if (dedupErr.code === '42P01') {
+      if (errCode === '42P01') {
         log.warn('processed_webhook_events table not found, skipping DB dedup');
       } else {
         log.error('Webhook dedup insert failed', dedupErr);
       }
     }
+
+    // Mark in-memory after successful DB insert
+    processedEvents.set(stripeEvent.id, Date.now());
 
     const client = await db.connect();
     try {

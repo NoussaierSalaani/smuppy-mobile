@@ -69,113 +69,90 @@ interface TabBarAnimations {
   handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
 
+// Pre-compute interpolations once (they never change since globalHideAnim is a singleton)
+const _topBarTranslate = globalHideAnim.interpolate({
+  inputRange: [0, 1],
+  outputRange: [0, -80],
+  extrapolate: 'clamp',
+});
+const _bottomBarTranslate = globalHideAnim.interpolate({
+  inputRange: [0, 1],
+  outputRange: [0, 100],
+  extrapolate: 'clamp',
+});
+const _barsOpacity = globalHideAnim.interpolate({
+  inputRange: [0, 0.5, 1],
+  outputRange: [1, 0.8, 0],
+  extrapolate: 'clamp',
+});
+
+// Stable global functions (no hook dependencies needed)
+function _showBars() {
+  if (!globalIsVisible) {
+    globalIsVisible = true;
+    useTabBarStore.getState().setIsVisible(true);
+    Animated.spring(globalHideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 12,
+    }).start();
+  }
+}
+
+function _hideBars() {
+  if (globalIsVisible) {
+    globalIsVisible = false;
+    useTabBarStore.getState().setIsVisible(false);
+    Animated.spring(globalHideAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 12,
+    }).start();
+  }
+}
+
+function _handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+  const currentY = event.nativeEvent.contentOffset.y;
+  const diff = currentY - globalLastScrollY;
+  const threshold = 10;
+
+  if (currentY <= 0) {
+    _showBars();
+    globalLastScrollY = currentY;
+    return;
+  }
+
+  if (Math.abs(diff) < threshold) {
+    return;
+  }
+
+  if (diff > 0) {
+    _hideBars();
+  } else {
+    _showBars();
+  }
+
+  globalLastScrollY = currentY;
+}
+
+// Single stable object — never changes identity
+const STABLE_ANIMATIONS: TabBarAnimations = {
+  topBarTranslate: _topBarTranslate,
+  bottomBarTranslate: _bottomBarTranslate,
+  barsOpacity: _barsOpacity,
+  showBars: _showBars,
+  hideBars: _hideBars,
+  handleScroll: _handleScroll,
+};
+
 /**
  * Hook that provides animated values for tab bar hide/show
- * Uses global singleton Animated.Value to share across all components
+ * Returns a stable reference — no re-renders caused by this hook
  */
 export function useTabBarAnimations(): TabBarAnimations {
-  const { setIsVisible } = useTabBarStore();
-
-  // Use GLOBAL animation value (shared across all components)
-  const hideAnim = globalHideAnim;
-
-  // TopBar translate (scroll animation)
-  const topBarTranslate = useMemo(
-    () =>
-      hideAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, -80],
-        extrapolate: 'clamp',
-      }),
-    [hideAnim]
-  );
-
-  // BottomBar translate (scroll animation)
-  const bottomBarTranslate = useMemo(
-    () =>
-      hideAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 100],
-        extrapolate: 'clamp',
-      }),
-    [hideAnim]
-  );
-
-  // Opacity (scroll animation)
-  const barsOpacity = useMemo(
-    () =>
-      hideAnim.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [1, 0.8, 0],
-        extrapolate: 'clamp',
-      }),
-    [hideAnim]
-  );
-
-  // Show bars
-  const showBars = useCallback(() => {
-    if (!globalIsVisible) {
-      globalIsVisible = true;
-      setIsVisible(true);
-      Animated.spring(hideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 12,
-      }).start();
-    }
-  }, [hideAnim, setIsVisible]);
-
-  // Hide bars
-  const hideBars = useCallback(() => {
-    if (globalIsVisible) {
-      globalIsVisible = false;
-      setIsVisible(false);
-      Animated.spring(hideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 12,
-      }).start();
-    }
-  }, [hideAnim, setIsVisible]);
-
-  // Scroll handler
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const currentY = event.nativeEvent.contentOffset.y;
-      const diff = currentY - globalLastScrollY;
-      const threshold = 10;
-
-      if (currentY <= 0) {
-        showBars();
-        globalLastScrollY = currentY;
-        return;
-      }
-
-      if (Math.abs(diff) < threshold) {
-        return;
-      }
-
-      if (diff > 0) {
-        hideBars();
-      } else {
-        showBars();
-      }
-
-      globalLastScrollY = currentY;
-    },
-    [showBars, hideBars]
-  );
-
-  return {
-    topBarTranslate,
-    bottomBarTranslate,
-    barsOpacity,
-    showBars,
-    hideBars,
-    handleScroll,
-  };
+  return STABLE_ANIMATIONS;
 }
 
 // ============================================
@@ -203,24 +180,34 @@ export interface TabBarContextValue {
   setTabBarVisible: (visible: boolean) => void;
 }
 
+// Stable setTabBarVisible
+function _setTabBarVisible(v: boolean) {
+  if (v) _showBars();
+  else _hideBars();
+}
+
 /**
  * Combined hook that provides both store state and animations
  * This is the main hook to use in components (replaces useTabBar from Context)
  */
 export function useTabBar(): TabBarContextValue {
-  const { bottomBarHidden, setBottomBarHidden, isVisible, xplorerFullscreen, setXplorerFullscreen, toggleXplorerFullscreen } = useTabBarStore();
-  const animations = useTabBarAnimations();
+  const bottomBarHidden = useTabBarStore((s) => s.bottomBarHidden);
+  const setBottomBarHidden = useTabBarStore((s) => s.setBottomBarHidden);
+  const isVisible = useTabBarStore((s) => s.isVisible);
+  const xplorerFullscreen = useTabBarStore((s) => s.xplorerFullscreen);
+  const setXplorerFullscreen = useTabBarStore((s) => s.setXplorerFullscreen);
+  const toggleXplorerFullscreen = useTabBarStore((s) => s.toggleXplorerFullscreen);
 
-  return {
-    ...animations,
+  return useMemo(() => ({
+    ...STABLE_ANIMATIONS,
     bottomBarHidden,
     setBottomBarHidden,
     xplorerFullscreen,
     setXplorerFullscreen,
     toggleXplorerFullscreen,
     tabBarVisible: isVisible,
-    setTabBarVisible: (v: boolean) => (v ? animations.showBars() : animations.hideBars()),
-  };
+    setTabBarVisible: _setTabBarVisible,
+  }), [bottomBarHidden, setBottomBarHidden, isVisible, xplorerFullscreen, setXplorerFullscreen, toggleXplorerFullscreen]);
 }
 
 // Legacy export for backward compatibility

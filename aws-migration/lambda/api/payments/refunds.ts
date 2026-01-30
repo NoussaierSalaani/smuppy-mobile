@@ -465,7 +465,7 @@ async function createRefund(
       `INSERT INTO refunds (
         payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
       ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
-      [paymentId, refundAmountCents, reason, notes || null, user.sub, error.message]
+      [paymentId, refundAmountCents, reason, notes || null, user.sub, 'Refund processing failed']
     );
 
     return {

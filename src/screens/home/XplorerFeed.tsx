@@ -152,51 +152,37 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [subFilterSheet, setSubFilterSheet] = useState<string | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
 
-  // Determine if business has a locked location
-  const businessLocation = useUserStore((s) => {
-    const u = s.user;
-    if (u?.accountType !== 'pro_business') return null;
-    return (u.businessLatitude != null && u.businessLongitude != null) ? {
-      address: u.businessAddress,
-      latitude: u.businessLatitude,
-      longitude: u.businessLongitude,
-    } : null;
-  });
-
-  // Business marker data from store (reactive)
-  const businessMarkerData = useUserStore((s) => {
-    const u = s.user;
-    if (!u) return null;
-    return {
-      id: u.id,
-      businessCategory: u.businessCategory || 'Business',
-      businessName: u.businessName || 'My Business',
-      avatar: u.avatar || '',
-      bio: u.bio || '',
-      fans: u.stats?.fans || 0,
-      posts: u.stats?.posts || 0,
-    };
-  });
+  // Business location fields (individual selectors for stable references)
+  const businessAddress = useUserStore((s) => s.user?.businessAddress);
+  const businessLatitude = useUserStore((s) => s.user?.businessLatitude);
+  const businessLongitude = useUserStore((s) => s.user?.businessLongitude);
+  const userId = useUserStore((s) => s.user?.id);
+  const businessCategory = useUserStore((s) => s.user?.businessCategory);
+  const businessName = useUserStore((s) => s.user?.businessName);
+  const userAvatar = useUserStore((s) => s.user?.avatar);
+  const userBio = useUserStore((s) => s.user?.bio);
+  const userFans = useUserStore((s) => s.user?.stats?.fans);
+  const userPosts = useUserStore((s) => s.user?.stats?.posts);
 
   // Business marker: only visible for premium business accounts with coordinates
   const businessMarker = useMemo((): MockMarker | null => {
     if (accountType !== 'pro_business' || !isPremium) return null;
-    if (!businessLocation?.latitude || !businessLocation?.longitude) return null;
-    if (!businessMarkerData?.id) return null;
+    if (businessLatitude == null || businessLongitude == null) return null;
+    if (!userId) return null;
     return {
-      id: `business_${businessMarkerData.id}`,
+      id: `business_${userId}`,
       type: 'business',
-      subcategory: businessMarkerData.businessCategory,
+      subcategory: businessCategory || 'Business',
       category: 'business',
-      name: businessMarkerData.businessName,
-      avatar: businessMarkerData.avatar,
-      bio: businessMarkerData.bio,
-      fans: businessMarkerData.fans,
-      posts: businessMarkerData.posts,
-      coordinate: { latitude: businessLocation.latitude, longitude: businessLocation.longitude },
-      address: businessLocation.address,
+      name: businessName || 'My Business',
+      avatar: userAvatar || '',
+      bio: userBio || '',
+      fans: userFans || 0,
+      posts: userPosts || 0,
+      coordinate: { latitude: businessLatitude, longitude: businessLongitude },
+      address: businessAddress,
     };
-  }, [accountType, isPremium, businessLocation, businessMarkerData]);
+  }, [accountType, isPremium, businessLatitude, businessLongitude, userId, businessCategory, businessName, userAvatar, userBio, userFans, userPosts, businessAddress]);
 
   // FAB visibility & actions based on account type
   const fabActions = useMemo((): FabAction[] => {
@@ -257,7 +243,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       setXplorerFullscreen(false);
       showBars();
     }
-  }, [isActive, xplorerFullscreen, setBottomBarHidden, setXplorerFullscreen, showBars, requestLocation]);
+  }, [isActive, setBottomBarHidden, setXplorerFullscreen, showBars, requestLocation]);
 
   // ============================================
   // ACTIONS
@@ -320,8 +306,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     setFabOpen(false);
     switch (action) {
       case 'create_activity':
-        if (accountType === 'pro_business' && !isPremium && businessLocation) {
-          navigation.navigate('CreateActivity', { lockedLocation: businessLocation });
+        if (accountType === 'pro_business' && !isPremium && businessLatitude != null && businessLongitude != null) {
+          navigation.navigate('CreateActivity', { lockedLocation: { address: businessAddress, latitude: businessLatitude, longitude: businessLongitude } });
         } else {
           navigation.navigate('CreateActivity');
         }
@@ -338,7 +324,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         navigation.navigate('GoLiveIntro');
         break;
     }
-  }, [navigation, accountType, isPremium, businessLocation]);
+  }, [navigation, accountType, isPremium, businessLatitude, businessLongitude, businessAddress]);
 
   const filteredMarkers = useMemo(() => {
     if (activeFilters.length === 0) return MOCK_MARKERS; // Show all when no filter

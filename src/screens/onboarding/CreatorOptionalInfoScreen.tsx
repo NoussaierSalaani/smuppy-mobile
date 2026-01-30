@@ -123,7 +123,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
           {/* Bio */}
           <Text style={styles.label}>Bio</Text>
           <LinearGradient
-            colors={(bio.length > 0 || focusedField === 'bio') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(bio.length > 0 || focusedField === 'bio') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.inputGradientBorder, styles.bioGradientBorder]}
@@ -147,7 +147,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
           {/* Website */}
           <Text style={styles.label}>Website</Text>
           <LinearGradient
-            colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
@@ -208,7 +208,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
                 return (
                   <View key={field.id} style={styles.socialFieldRow}>
                     <LinearGradient
-                      colors={(hasValue || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                      colors={(hasValue || isFocused) ? GRADIENTS.button : GRADIENTS.buttonDisabled}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={[styles.inputGradientBorder, styles.socialInputFlex]}
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   addBtn: { padding: 4 },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.md },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight - 4, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E8FAF7' },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14 },
   bioGradientBorder: { height: 110, marginBottom: SPACING.sm },
   bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm, backgroundColor: COLORS.white },

@@ -52,3 +52,6 @@ supabase/.branches/
 # CDK output
 aws-migration/infrastructure/cdk.out/
 aws-migration/lambda/shared/node_modules
+
+# Infrastructure env files
+aws-migration/infrastructure/.env

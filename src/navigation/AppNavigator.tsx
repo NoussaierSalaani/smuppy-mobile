@@ -147,26 +147,27 @@ export default function AppNavigator(): React.JSX.Element {
    */
   const resolveAppState = useCallback(async (): Promise<{ state: AppState; email: string }> => {
     const currentUser = await backend.getCurrentUser();
+    if (__DEV__) console.log('[Session] getCurrentUser →', currentUser ? currentUser.email : 'null');
     if (!currentUser) {
       return { state: 'auth', email: '' };
     }
 
     const isVerified = await awsAuth.isEmailVerified();
+    if (__DEV__) console.log('[Session] isEmailVerified →', isVerified);
     if (!isVerified) {
       return { state: 'emailPending', email: currentUser.email };
     }
 
     try {
       const { data } = await getCurrentProfile(false);
+      if (__DEV__) console.log('[Session] getCurrentProfile →', data ? 'has profile' : 'no profile');
       if (data) {
         return { state: 'main', email: currentUser.email };
       }
-    } catch {
-      // Profile check failed - treat as no profile
+    } catch (err) {
+      if (__DEV__) console.log('[Session] getCurrentProfile error:', err);
     }
 
-    // User exists + verified but no profile → still 'auth'
-    // (Login/Signup screens navigate to AccountType internally)
     return { state: 'auth', email: currentUser.email };
   }, []);
 
@@ -175,11 +176,16 @@ export default function AppNavigator(): React.JSX.Element {
     if (lastHandledUrl.current === url) return;
     if (!url.includes('reset-password')) return;
     // Validate origin: only accept deep links from Smuppy domains or scheme
-    const isSmuppyOrigin = url.startsWith('smuppy://') ||
-      url.startsWith('https://smuppy.com') ||
-      url.startsWith('https://www.smuppy.com') ||
-      url.startsWith('https://app.smuppy.com') ||
-      url.startsWith('exp://'); // Expo dev
+    const ALLOWED_HOSTNAMES = ['smuppy.com', 'www.smuppy.com', 'app.smuppy.com'];
+    let isSmuppyOrigin = url.startsWith('smuppy://') || url.startsWith('exp://');
+    if (!isSmuppyOrigin) {
+      try {
+        const parsed = new URL(url);
+        isSmuppyOrigin = parsed.protocol === 'https:' && ALLOWED_HOSTNAMES.includes(parsed.hostname);
+      } catch {
+        isSmuppyOrigin = false;
+      }
+    }
     if (!isSmuppyOrigin) return;
     lastHandledUrl.current = url;
     setPendingRecovery(true);
@@ -188,21 +194,26 @@ export default function AppNavigator(): React.JSX.Element {
   useEffect(() => {
     const loadSession = async () => {
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
+      if (__DEV__) console.log('[Session] rememberMe flag:', rememberMe);
 
       if (rememberMe === 'false') {
+        if (__DEV__) console.log('[Session] rememberMe=false → signing out');
         await backend.signOut();
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setAppState('auth');
       } else {
         let { state, email } = await resolveAppState();
+        if (__DEV__) console.log('[Session] resolveAppState →', state, email);
 
         // If Remember Me is set but session resolution failed (e.g. network not ready),
         // retry once after a short delay
         if (state === 'auth' && rememberMe === 'true') {
+          if (__DEV__) console.log('[Session] Retrying after 2s...');
           await new Promise(resolve => setTimeout(resolve, 2000));
           const retry = await resolveAppState();
           state = retry.state;
           email = retry.email;
+          if (__DEV__) console.log('[Session] Retry result →', state, email);
         }
 
         setAppState(state);

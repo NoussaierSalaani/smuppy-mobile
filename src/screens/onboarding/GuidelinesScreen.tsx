@@ -66,7 +66,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       const profileData: Record<string, unknown> = {
         full_name: name || displayName || generatedUsername,
         username: generatedUsername,
-        account_type: accountType || 'personal',
+        account_type: (accountType && ['personal', 'pro_creator', 'pro_business'].includes(accountType)) ? accountType : 'personal',
       };
 
       if (gender) profileData.gender = gender;

@@ -32,6 +32,7 @@ import SubscribeChannelModal from '../../components/SubscribeChannelModal';
 import { TipButton } from '../../components/tips';
 import { FEATURES } from '../../config/featureFlags';
 import GradeFrame from '../../components/GradeFrame';
+import EventGroupCard from '../../components/EventGroupCard';
 import { getGrade } from '../../utils/gradeSystem';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -130,6 +131,7 @@ const UserProfileScreen = () => {
   const [showFanRequiredModal, setShowFanRequiredModal] = useState(false);
   const [showCancelRequestModal, setShowCancelRequestModal] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const [groupEventMode, setGroupEventMode] = useState<'group' | 'event'>('event');
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
@@ -621,6 +623,39 @@ const UserProfileScreen = () => {
         </View>
       );
     }
+    if (activeTab === 'groupevent') {
+      // V1: API my-events/my-groups returns current user's data only.
+      // For other users, show a placeholder until backend supports userId param.
+      return (
+        <View style={styles.emptyContainer}>
+          <View style={geStyles.header}>
+            <View style={geStyles.toggleRow}>
+              <TouchableOpacity
+                style={[geStyles.chip, groupEventMode === 'event' && geStyles.chipActive]}
+                onPress={() => setGroupEventMode('event')}
+              >
+                <Text style={[geStyles.chipText, groupEventMode === 'event' && geStyles.chipTextActive]}>Event</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[geStyles.chip, groupEventMode === 'group' && geStyles.chipActive]}
+                onPress={() => setGroupEventMode('group')}
+              >
+                <Text style={[geStyles.chipText, groupEventMode === 'group' && geStyles.chipTextActive]}>Group</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <Ionicons name="calendar-outline" size={48} color="#8E8E93" style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>
+            {groupEventMode === 'event' ? 'No events yet' : 'No groups yet'}
+          </Text>
+          <Text style={styles.emptyDesc}>
+            {groupEventMode === 'event'
+              ? "This user hasn't created any events yet"
+              : "This user hasn't created any groups yet"}
+          </Text>
+        </View>
+      );
+    }
     if (activeTab === 'collections') {
       return renderEmpty('collections');
     }
@@ -631,6 +666,7 @@ const UserProfileScreen = () => {
   const TABS = [
     { key: 'posts', label: 'Posts' },
     { key: 'peaks', label: 'Peaks' },
+    { key: 'groupevent', label: 'Group/Event' },
     { key: 'collections', label: 'Collections' },
   ] as const;
 
@@ -1959,6 +1995,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#0A0A0F',
+  },
+});
+
+const geStyles = StyleSheet.create({
+  header: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    padding: 3,
+    alignSelf: 'center',
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  chipActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  chipTextActive: {
+    color: '#0A252F',
   },
 });
 

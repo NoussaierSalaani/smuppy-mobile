@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,8 +57,10 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
     try {
       const results = await searchNominatim(query, { limit: 4 });
       setAddressSuggestions(results);
-    } catch {
+    } catch (error) {
+      console.error('[BusinessInfoScreen] Address search failed:', error);
       setAddressSuggestions([]);
+      Alert.alert('Search failed', 'Could not search for addresses. Please type your address manually.');
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -135,7 +137,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
           {/* Business Name */}
           <Text style={styles.label}>Business Name <Text style={styles.required}>*</Text></Text>
           <LinearGradient
-            colors={(businessName.length > 0 || focusedField === 'businessName') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(businessName.length > 0 || focusedField === 'businessName') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
@@ -163,7 +165,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
           {/* Address */}
           <Text style={styles.label}>Address <Text style={styles.required}>*</Text></Text>
           <LinearGradient
-            colors={(address.length > 0 || focusedField === 'address') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(address.length > 0 || focusedField === 'address') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
@@ -236,7 +238,7 @@ const styles = StyleSheet.create({
   required: { color: COLORS.error },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E8FAF7' },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
   locationBtn: { padding: 2 },
   suggestions: { backgroundColor: COLORS.white, borderRadius: 12, marginTop: -SPACING.sm, marginBottom: SPACING.md, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },

@@ -106,8 +106,8 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Pro Creator flow step 1/3 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={3} />
+        {/* Header with Progress Bar - Pro Creator flow step 1/4 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
 
         <View style={styles.content}>
           <View style={styles.header}>
@@ -119,7 +119,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
           <View style={styles.photoSection}>
             <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
               <LinearGradient
-                colors={profileImage ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={profileImage ? GRADIENTS.button : GRADIENTS.buttonDisabled}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.photoGradient}
@@ -142,7 +142,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
           {/* Display Name */}
           <Text style={styles.label}>Display Name <Text style={styles.required}>*</Text></Text>
           <LinearGradient
-            colors={(hasDisplayName || focusedField === 'displayName') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(hasDisplayName || focusedField === 'displayName') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
@@ -221,7 +221,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
             </TouchableOpacity>
           ) : (
             <LinearGradient
-              colors={hasSelectedDate ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              colors={hasSelectedDate ? GRADIENTS.button : GRADIENTS.buttonDisabled}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   photoSection: { alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.lg },
   photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
   photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  photoContainerFilled: { backgroundColor: '#E8FAF7' },
+  photoContainerFilled: { backgroundColor: COLORS.backgroundValid },
   profileImage: { width: '100%', height: '100%', borderRadius: 52 },
   photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: COLORS.white },
   photoLabel: { fontSize: 12, color: COLORS.grayMuted, marginTop: 4 },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E8FAF7' },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   inputError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEE' },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
   greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
   genderBox: { width: 80, height: 80, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, justifyContent: 'center', alignItems: 'center' },
   genderGradientBorder: { width: 80, height: 80, borderRadius: SIZES.radiusMd, padding: 2 },
-  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: '#E8FAF7', justifyContent: 'center', alignItems: 'center' },
+  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: COLORS.backgroundValid, justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
   genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },

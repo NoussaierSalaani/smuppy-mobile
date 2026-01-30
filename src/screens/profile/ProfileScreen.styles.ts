@@ -1026,4 +1026,56 @@ export const styles = StyleSheet.create({
   bottomSpacer: {
     height: 120,
   },
+
+  // ===== GROUP/EVENT TAB =====
+  groupEventContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  groupEventHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  toggleChipsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    padding: 3,
+  },
+  toggleChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  toggleChipActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  toggleChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  toggleChipTextActive: {
+    color: '#0A252F',
+  },
+  newButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  newButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0EBF8A',
+  },
+  groupEventList: {
+    gap: 0,
+  },
 });

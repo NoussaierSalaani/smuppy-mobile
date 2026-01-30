@@ -11,9 +11,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
-import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { getPool } from '../../shared/db';
 
 const log = createLogger('tips-send');
 import { getStripeKey } from '../../shared/secrets';
@@ -26,11 +26,6 @@ async function getStripe(): Promise<Stripe> {
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 interface SendTipRequest {
   receiverId: string;
@@ -54,7 +49,8 @@ const PLATFORM_FEE_PERCENT = 20;
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
-  const client = await pool.connect();
+  const db = await getPool();
+  const client = await db.connect();
 
   try {
     const stripe = await getStripe();

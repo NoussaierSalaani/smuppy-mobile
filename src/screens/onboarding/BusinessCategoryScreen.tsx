@@ -190,7 +190,7 @@ export default function BusinessCategoryScreen({ navigation, route }: BusinessCa
         {selectedCategory === 'other' && (
           <View style={styles.customInputBox}>
             <LinearGradient
-              colors={(customCategory.length > 0 || focusedField === 'customCategory') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              colors={(customCategory.length > 0 || focusedField === 'customCategory') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xs,
     borderRadius: SIZES.radiusLg - 2,
     alignItems: 'center',
-    backgroundColor: '#E8FAF7',
+    backgroundColor: COLORS.backgroundValid,
   },
   categoryIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xs },
   categoryLabel: { fontSize: 11, fontWeight: '600', color: COLORS.dark, textAlign: 'center' },
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   customInputBox: { marginBottom: SPACING.md },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2 },
   inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E8FAF7' },
+  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
   input: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14 },
 
   // Locations
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md - 2,
     paddingHorizontal: SPACING.base - 2,
     borderRadius: SIZES.radiusLg - 2,
-    backgroundColor: '#E8FAF7',
+    backgroundColor: COLORS.backgroundValid,
   },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
   radioActive: { borderColor: COLORS.primary },

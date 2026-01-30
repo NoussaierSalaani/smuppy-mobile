@@ -264,10 +264,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         await new Promise(resolve => setTimeout(resolve, awsCheck.delayMs));
       }
 
+      // Persist remember me BEFORE signIn so the flag is guaranteed to
+      // exist when AppNavigator.loadSession runs on next app launch,
+      // even if the app is killed right after signIn fires onAuthStateChange.
+      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+
       // Use backend service which routes to AWS Cognito
       const user = await backend.signIn({ email: normalizedEmail, password });
 
       if (!user) {
+        // signIn failed — clean up the flag we just wrote
+        await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setErrorModal({
           visible: true,
           title: 'Login Failed',
@@ -277,8 +284,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
 
       // Parallelize post-login operations
-      const [, , profileResult] = await Promise.all([
-        storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false'),
+      const [, profileResult] = await Promise.all([
         biometrics.resetAttempts(),
         getCurrentProfile(false).catch(() => ({ data: null })),
       ]);

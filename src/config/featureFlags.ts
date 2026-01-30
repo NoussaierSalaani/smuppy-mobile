@@ -33,7 +33,7 @@ const PROD_FEATURES = {
   VIEWER_LIVE_STREAM: false,
 
   // ─── Challenges & Battles ────────────────────────
-  CHALLENGES: false,        // Needs backend: scoring, voting, moderation
+  CHALLENGES: true,         // Merged into Peaks — challenge toggle on peak creation
   BATTLES: false,
 
   // ─── Monetization / Sessions ─────────────────────

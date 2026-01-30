@@ -67,10 +67,6 @@ import PeakPreviewScreen from '../screens/peaks/PeakPreviewScreen';
 // Live Streaming Screens
 import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen, ViewerLiveStreamScreen } from '../screens/live';
 
-// Challenges Screens
-import ChallengeListScreen from '../screens/challenges/ChallengeListScreen';
-import CreateChallengeScreen from '../screens/challenges/CreateChallengeScreen';
-import ChallengeDetailScreen from '../screens/challenges/ChallengeDetailScreen';
 
 // Battles Screens
 import BattleLobbyScreen from '../screens/battles/BattleLobbyScreen';
@@ -188,7 +184,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onClose={() => setShowCreatePopup(false)}
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
-        onSelectChallenge={FEATURES.CHALLENGES && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateChallenge'); } : undefined}
+        onSelectChallenge={undefined}
         onSelectEvent={FEATURES.CREATE_EVENT && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateEvent'); } : undefined}
       />
     </>
@@ -295,11 +291,6 @@ export default function MainNavigator() {
       <Stack.Screen name="LiveStreaming" component={LiveStreamingScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="LiveEnded" component={LiveEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="ViewerLiveStream" component={ViewerLiveStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
-
-      {/* Challenges */}
-      <Stack.Screen name="ChallengeList" component={ChallengeListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="ChallengeDetail" component={ChallengeDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="CreateChallenge" component={CreateChallengeScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Live Battles */}
       <Stack.Screen name="BattleLobby" component={BattleLobbyScreen} options={{ animation: 'slide_from_bottom' }} />

@@ -18,6 +18,7 @@ import { moodDetection, MoodAnalysisResult, MoodType } from '../services/moodDet
 import { moodRecommendation, Post, UserProfile, RecommendationResult } from '../services/moodRecommendation';
 import { addPositiveAction } from '../services/rippleTracker';
 import { isFeatureEnabled } from '../config/featureFlags';
+import { useVibeStore } from '../stores/vibeStore';
 
 // ============================================================================
 // ADAPTIVE REFRESH CONFIGURATION
@@ -267,6 +268,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const trackLike = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('like');
     if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('like');
+    useVibeStore.getState().addVibeAction('like');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
@@ -281,6 +283,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const trackShare = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('share');
     if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('share');
+    useVibeStore.getState().addVibeAction('share');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
@@ -288,6 +291,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const trackSave = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('save');
     if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('save');
+    useVibeStore.getState().addVibeAction('save');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);

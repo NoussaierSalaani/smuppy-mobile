@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
   FlatList,
   Modal,
@@ -26,6 +25,7 @@ import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface EventManageScreenProps {
   route: { params: { eventId: string } };
@@ -59,6 +59,7 @@ interface EventData {
 }
 
 export default function EventManageScreen({ route, navigation }: EventManageScreenProps) {
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { eventId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
@@ -101,7 +102,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
       }
     } catch (error) {
       console.error('Load event data error:', error);
-      Alert.alert('Error', 'Failed to load event data');
+      showError('Error', 'Failed to load event data');
     } finally {
       setIsLoading(false);
     }
@@ -125,72 +126,59 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
 
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Saved', 'Event updated successfully!');
+        showSuccess('Saved', 'Event updated successfully!');
         setShowEditModal(false);
         loadEventData();
       } else {
         throw new Error(response.message || 'Failed to update event');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save changes');
+      showError('Error', error.message || 'Failed to save changes');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCancelEvent = () => {
-    Alert.alert(
-      '⚠️ Cancel Event',
+    showDestructiveConfirm(
+      'Cancel Event',
       'Are you sure you want to cancel this event?\n\nAll participants will be notified and refunded if applicable.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel Event',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.cancelEvent(eventId);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Event Cancelled', 'All participants have been notified.', [
-                  { text: 'OK', onPress: () => navigation.goBack() },
-                ]);
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel event');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.cancelEvent(eventId);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            showSuccess('Event Cancelled', 'All participants have been notified.');
+            navigation.goBack();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: any) {
+          showError('Error', error.message || 'Failed to cancel event');
+        }
+      },
+      'Yes, Cancel Event'
     );
   };
 
   const handleRemoveParticipant = (participant: Participant) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Remove Participant',
       `Remove @${participant.username} from this event?${participant.payment_status === 'paid' ? '\n\nThey will be refunded.' : ''}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.removeEventParticipant(eventId, participant.user_id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadEventData();
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to remove participant');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.removeEventParticipant(eventId, participant.user_id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadEventData();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: any) {
+          showError('Error', error.message || 'Failed to remove participant');
+        }
+      },
+      'Remove'
     );
   };
 

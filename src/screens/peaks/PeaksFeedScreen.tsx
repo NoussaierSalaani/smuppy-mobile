@@ -34,6 +34,8 @@ interface Peak {
   reactions: number;
   repliesCount?: number;
   createdAt: string; // ISO string for React Navigation serialization
+  isChallenge?: boolean;
+  challengeTitle?: string;
 }
 
 type RootStackParamList = {
@@ -93,11 +95,17 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const renderColumn = (columnPeaks: Peak[]): React.JSX.Element => (
     <View style={styles.column}>
       {columnPeaks.map((peak) => (
-        <PeakCard
-          key={peak.id}
-          peak={peak}
-          onPress={handlePeakPress}
-        />
+        <View key={peak.id} style={{ position: 'relative' }}>
+          <PeakCard
+            peak={peak}
+            onPress={handlePeakPress}
+          />
+          {peak.isChallenge && (
+            <View style={styles.challengeBadge}>
+              <Ionicons name="trophy" size={12} color="#FFD700" />
+            </View>
+          )}
+        </View>
       ))}
     </View>
   );
@@ -190,6 +198,17 @@ const styles = StyleSheet.create({
   },
   column: {
     width: COLUMN_WIDTH,
+  },
+  challengeBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

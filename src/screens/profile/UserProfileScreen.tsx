@@ -11,13 +11,14 @@ import {
   ActivityIndicator,
   Share,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useUserSafetyStore } from '../../stores';
+import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
 import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -83,6 +84,7 @@ const UserProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { showAlert, showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
   
   // Déterminer si c'est notre profil ou celui d'un autre
   const params = route?.params as { userId?: string } || {};
@@ -233,24 +235,21 @@ const UserProfileScreen = () => {
   // Report user
   const handleReportUser = () => {
     setShowMenuModal(false);
-    Alert.alert(
-      'Report User',
-      'Why are you reporting this user?',
-      [
+    showAlert({
+      title: 'Report User',
+      message: 'Why are you reporting this user?',
+      type: 'warning',
+      buttons: [
         { text: 'Spam', onPress: () => submitUserReport('spam') },
         { text: 'Harassment', onPress: () => submitUserReport('harassment') },
         { text: 'Inappropriate', onPress: () => submitUserReport('inappropriate') },
         { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+      ],
+    });
   };
 
   const submitUserReport = (_reason: string) => {
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for your report. We will review this user.',
-      [{ text: 'OK' }]
-    );
+    showSuccess('Report Submitted', 'Thank you for your report. We will review this user.');
   };
 
   // Block user
@@ -259,31 +258,24 @@ const UserProfileScreen = () => {
 
     if (isUserBlocked(userId)) {
       setShowMenuModal(false);
-      Alert.alert('Already Blocked', 'This user is already blocked.', [{ text: 'OK' }]);
+      showError('Already Blocked', 'This user is already blocked.');
       return;
     }
 
     setShowMenuModal(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Block User?',
       `You won't see ${profile.displayName}'s posts and they won't be able to interact with you.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await block(userId);
-            if (error) {
-              Alert.alert('Error', 'Failed to block user. Please try again.', [{ text: 'OK' }]);
-            } else {
-              Alert.alert('User Blocked', 'You will no longer see their content.', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-              ]);
-            }
-          },
-        },
-      ]
+      async () => {
+        const { error } = await block(userId);
+        if (error) {
+          showError('Error', 'Failed to block user. Please try again.');
+        } else {
+          showSuccess('User Blocked', 'You will no longer see their content.');
+          navigation.goBack();
+        }
+      },
+      'Block'
     );
   };
 
@@ -355,6 +347,7 @@ const UserProfileScreen = () => {
       // Direct follow was successful
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
+      useVibeStore.getState().addVibeAction('follow_user');
     }
   };
 
@@ -943,12 +936,11 @@ const UserProfileScreen = () => {
                       ...prev,
                       hasReminder: !prev.hasReminder,
                     }));
-                    Alert.alert(
+                    showSuccess(
                       creatorLiveStatus.hasReminder ? 'Reminder Removed' : 'Reminder Set',
                       creatorLiveStatus.hasReminder
                         ? "You won't be notified about this live."
-                        : "We'll notify you when this live starts.",
-                      [{ text: 'OK' }]
+                        : "We'll notify you when this live starts."
                     );
                   }}
                 >

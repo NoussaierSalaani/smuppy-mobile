@@ -91,6 +91,9 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isChallenge, setIsChallenge] = useState(false);
+  const [challengeTitle, setChallengeTitle] = useState('');
+  const [challengeRules, setChallengeRules] = useState('');
 
   // Listen to keyboard
   useEffect(() => {
@@ -178,6 +181,9 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         peak_expires_at: expiryDate.toISOString(),
         save_to_profile: saveToProfile,
         reply_to_peak_id: replyTo || null,
+        is_challenge: isChallenge,
+        challenge_title: isChallenge ? challengeTitle : null,
+        challenge_rules: isChallenge ? challengeRules : null,
       };
 
       const { error } = await createPost(peakData);
@@ -421,6 +427,45 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 ios_backgroundColor="#3A3A3C"
               />
             </View>
+
+            {/* Challenge Toggle */}
+            <View style={styles.optionRow}>
+              <View style={styles.optionLeft}>
+                <Ionicons name="trophy-outline" size={18} color="#FFD700" />
+                <Text style={styles.optionLabel}>Challenge</Text>
+              </View>
+              <Switch
+                value={isChallenge}
+                onValueChange={setIsChallenge}
+                trackColor={{ false: '#3A3A3C', true: '#FFD700' }}
+                thumbColor={COLORS.white}
+                ios_backgroundColor="#3A3A3C"
+              />
+            </View>
+
+            {isChallenge && (
+              <View style={styles.challengeFields}>
+                <TextInput
+                  style={styles.challengeInput}
+                  placeholder="Challenge title"
+                  placeholderTextColor={COLORS.gray}
+                  value={challengeTitle}
+                  onChangeText={setChallengeTitle}
+                  maxLength={80}
+                  returnKeyType="next"
+                />
+                <TextInput
+                  style={[styles.challengeInput, { height: 60 }]}
+                  placeholder="Rules (optional)"
+                  placeholderTextColor={COLORS.gray}
+                  value={challengeRules}
+                  onChangeText={setChallengeRules}
+                  maxLength={200}
+                  multiline
+                  returnKeyType="done"
+                />
+              </View>
+            )}
           </ScrollView>
 
           {/* Publish button */}
@@ -720,6 +765,21 @@ const styles = StyleSheet.create({
   },
   visibilityOptionTextActive: {
     color: COLORS.dark,
+  },
+
+  // Challenge fields
+  challengeFields: {
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 8,
+  },
+  challengeInput: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: COLORS.white,
+    fontSize: 14,
   },
 
   // Publish button

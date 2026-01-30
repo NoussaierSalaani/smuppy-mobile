@@ -14,7 +14,6 @@ import {
   PanResponderGestureState,
   Modal,
   Pressable,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
@@ -26,6 +25,7 @@ import TagFriendModal from '../../components/TagFriendModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { reportPost } from '../../services/database';
 import { useContentStore } from '../../stores';
@@ -62,6 +62,12 @@ interface Peak {
   isLiked?: boolean;
   isSaved?: boolean;
   isOwnPeak?: boolean; // To show tag count only to creator
+  // Challenge fields
+  isChallenge?: boolean;
+  challengeTitle?: string;
+  challengeRules?: string;
+  challengeEndsAt?: string;
+  challengeResponseCount?: number;
 }
 
 type RootStackParamList = {
@@ -72,6 +78,7 @@ type RootStackParamList = {
 };
 
 const PeakViewScreen = (): React.JSX.Element => {
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
@@ -313,7 +320,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         newMap.set(currentPeak.id, currentTags.filter(id => id !== friend.id));
         return newMap;
       });
-      Alert.alert('Error', 'Failed to tag friend. Please try again.');
+      showError('Error', 'Failed to tag friend. Please try again.');
     }
   }, [currentPeak.id]);
 
@@ -433,28 +440,20 @@ const PeakViewScreen = (): React.JSX.Element => {
     closeMenu();
     switch (action) {
       case 'report':
-        Alert.alert(
+        showDestructiveConfirm(
           'Report Peak',
           'Are you sure you want to report this Peak?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Report',
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  // Use the content store or direct API call
-                  await submitPostReport(currentPeak.id, 'inappropriate', 'Reported from Peak view');
-                  // Also call the database service for server-side
-                  await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
-                  Alert.alert('Reported', 'Thank you for your report. We will review this content.');
-                } catch (error) {
-                  console.error('[Peak] Failed to report:', error);
-                  Alert.alert('Error', 'Failed to submit report. Please try again.');
-                }
-              },
-            },
-          ]
+          async () => {
+            try {
+              await submitPostReport(currentPeak.id, 'inappropriate', 'Reported from Peak view');
+              await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
+              showSuccess('Reported', 'Thank you for your report. We will review this content.');
+            } catch (error) {
+              console.error('[Peak] Failed to report:', error);
+              showError('Error', 'Failed to submit report. Please try again.');
+            }
+          },
+          'Report'
         );
         break;
       case 'not_interested':
@@ -471,7 +470,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         // Call API to persist the hide
         try {
           await awsAPI.hidePeak(currentPeak.id, 'not_interested');
-          Alert.alert('Got it', "We won't show you similar content.");
+          showSuccess('Got it', "We won't show you similar content.");
         } catch (error) {
           console.error('[Peak] Failed to hide peak:', error);
           // Rollback on error
@@ -485,7 +484,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       case 'copy_link': {
         const copied = await copyPeakLink(currentPeak.id);
         if (copied) {
-          Alert.alert('Copied!', 'Link copied to clipboard');
+          showSuccess('Copied!', 'Link copied to clipboard');
         }
         break;
       }
@@ -752,6 +751,30 @@ const PeakViewScreen = (): React.JSX.Element => {
 
           {currentPeak.textOverlay && (
             <Text style={styles.captionText}>{currentPeak.textOverlay}</Text>
+          )}
+
+          {/* Challenge Info */}
+          {currentPeak.isChallenge && (
+            <View style={styles.challengeBanner}>
+              <View style={styles.challengeBannerHeader}>
+                <Ionicons name="trophy" size={16} color="#FFD700" />
+                <Text style={styles.challengeBannerTitle}>
+                  {currentPeak.challengeTitle || 'Challenge'}
+                </Text>
+              </View>
+              {currentPeak.challengeRules ? (
+                <Text style={styles.challengeBannerRules} numberOfLines={2}>
+                  {currentPeak.challengeRules}
+                </Text>
+              ) : null}
+              <TouchableOpacity
+                style={styles.acceptChallengeButton}
+                onPress={handleCreatePeak}
+              >
+                <Ionicons name="flame" size={16} color={COLORS.dark} />
+                <Text style={styles.acceptChallengeText}>Accept Challenge</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Progress Bar at Bottom */}
@@ -1070,6 +1093,47 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  challengeBanner: {
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.25)',
+  },
+  challengeBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  challengeBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFD700',
+  },
+  challengeBannerRules: {
+    fontSize: 13,
+    color: COLORS.white,
+    opacity: 0.8,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  acceptChallengeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFD700',
+    borderRadius: 8,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  acceptChallengeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.dark,
   },
   bottomProgressBar: {
     marginTop: 12,

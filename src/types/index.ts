@@ -624,6 +624,12 @@ export interface Peak {
     avatar_url?: string | null;
     is_verified?: boolean;
   };
+  // Challenge fields (a Peak can optionally be a Challenge)
+  isChallenge?: boolean;
+  challengeTitle?: string;
+  challengeRules?: string;
+  challengeEndsAt?: string;
+  challengeResponseCount?: number;
 }
 
 // ============================================
@@ -742,12 +748,6 @@ export type MainStackParamList = {
 
   // WebView (for Stripe checkout)
   WebView: { url: string; title?: string };
-
-  // Challenges
-  ChallengeList: undefined;
-  ChallengeDetail: { challengeId: string };
-  CreateChallenge: { peakId?: string } | undefined;
-  CreateChallengeResponse: { challengeId: string };
 
   // Live Battles
   BattleLobby: { battleId: string };

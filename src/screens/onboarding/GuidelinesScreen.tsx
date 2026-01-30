@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
@@ -12,6 +11,7 @@ import { uploadProfileImage } from '../../services/imageUpload';
 import { useUserStore } from '../../stores';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface GuidelinesScreenProps {
   navigation: {
@@ -28,24 +28,25 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
   const params = useMemo(() => route?.params || {}, [route?.params]);
   const { accountType } = params;
   const { onProfileCreated } = useAuthCallbacks();
+  const { showError } = useSmuppyAlert();
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState('');
   const setZustandUser = useUserStore((state) => state.setUser);
 
   const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') return { currentStep: 4, totalSteps: 4 };
+    // personal (3/3) and pro_business (3/3)
     return { currentStep: 3, totalSteps: 3 };
   }, [accountType]);
 
   const handleAccept = useCallback(async () => {
     if (isCreating) return;
     setIsCreating(true);
-    setError('');
 
     try {
       const currentUser = await backend.getCurrentUser();
       if (!currentUser) {
-        setError('Not authenticated. Please try again.');
+        showError('Error', 'Not authenticated. Please try again.');
         setIsCreating(false);
         return;
       }
@@ -55,7 +56,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         name, gender, dateOfBirth, interests, profileImage,
         displayName, bio, website, socialLinks, expertise,
         businessCategory, businessCategoryCustom, locationsMode,
-        businessName, businessAddress,
+        businessName, businessAddress, businessLatitude, businessLongitude,
       } = params as Record<string, any>;
 
       const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
@@ -75,8 +76,10 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       if (interests && interests.length > 0) profileData.interests = interests;
       if (expertise && expertise.length > 0) profileData.expertise = expertise;
       if (businessName) profileData.business_name = businessName;
-      if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
+      if (businessCategory) profileData.business_category = businessCategory === 'other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;
+      if (businessLatitude != null) profileData.business_latitude = businessLatitude;
+      if (businessLongitude != null) profileData.business_longitude = businessLongitude;
       if (locationsMode) profileData.locations_mode = locationsMode;
 
       // Create profile with retries
@@ -109,7 +112,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       }
 
       if (!profileCreated) {
-        setError(lastError || 'Failed to create profile. Please try again.');
+        showError('Error', 'Failed to create profile. Please try again.');
         setIsCreating(false);
         return;
       }
@@ -136,6 +139,8 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         businessName: businessName || '',
         businessCategory: businessCategory === 'other' ? (businessCategoryCustom || '') : (businessCategory || ''),
         businessAddress: businessAddress || '',
+        businessLatitude: businessLatitude || undefined,
+        businessLongitude: businessLongitude || undefined,
         businessPhone: '',
         locationsMode: locationsMode || '',
       };
@@ -160,10 +165,10 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         routes: [{ name: 'Success' }],
       });
     } catch {
-      setError('An unexpected error occurred. Please try again.');
+      showError('Error', 'An unexpected error occurred. Please try again.');
       setIsCreating(false);
     }
-  }, [isCreating, params, accountType, navigation, setZustandUser]);
+  }, [isCreating, params, accountType, navigation, setZustandUser, showError]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -274,14 +279,6 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.conclusionHighlight}>By joining Smuppy, you become an ambassador for well-being, culture, and positivity! 🌟</Text>
         </View>
 
-        {/* Error */}
-        {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color={COLORS.error} />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
         {/* Accept Button */}
         <View style={styles.btnContainer}>
           {isCreating ? (
@@ -322,8 +319,6 @@ const styles = StyleSheet.create({
   conclusionText: { ...TYPOGRAPHY.bodySmall, color: COLORS.dark, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.sm },
   conclusionHighlight: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '700', textAlign: 'center' },
   btnContainer: { marginTop: SPACING.md, marginBottom: SPACING.xl },
-  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#FECACA', gap: 10 },
-  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: COLORS.error },
   creatingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: SPACING.md },
   creatingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
 });

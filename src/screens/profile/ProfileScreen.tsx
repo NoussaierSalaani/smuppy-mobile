@@ -32,6 +32,7 @@ import { LiquidTabsWithMore } from '../../components/LiquidTabs';
 import RippleVisualization from '../../components/RippleVisualization';
 import GradeFrame from '../../components/GradeFrame';
 import { getGrade } from '../../utils/gradeSystem';
+import { useVibeStore } from '../../stores/vibeStore';
 import { styles, AVATAR_SIZE } from './ProfileScreen.styles';
 
 // ProfileDataSource is now imported from ../../types/profile
@@ -106,6 +107,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // Grade system — decorative frame for 1M+ fans
   const gradeInfo = useMemo(() => getGrade(user.stats.fans), [user.stats.fans]);
+
+  // Vibe score
+  const vibeScore = useVibeStore((s) => s.vibeScore);
 
   // Modal states
   const [showQRModal, setShowQRModal] = useState(false);
@@ -352,6 +356,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               <Text style={styles.statGlassValue}>{user.stats.peaks || 0}</Text>
               <Text style={styles.statGlassLabel}>Peaks</Text>
             </View>
+            <View style={styles.statGlassDivider} />
+            <TouchableOpacity style={styles.statGlassItem} onPress={() => navigation.navigate('Prescriptions')}>
+              <Text style={styles.statGlassValue}>{vibeScore}</Text>
+              <Text style={styles.statGlassLabel}>Vibe</Text>
+            </TouchableOpacity>
           </BlurView>
         </View>
       </View>

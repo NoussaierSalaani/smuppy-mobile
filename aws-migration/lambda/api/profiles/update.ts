@@ -99,9 +99,23 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
     return { valid: true, sanitized: value };
   }
 
+  // Numeric coordinate fields
+  if (field === 'businessLatitude' || field === 'businessLongitude') {
+    if (typeof value !== 'number' || !isFinite(value)) {
+      return { valid: false, sanitized: null, error: `${field} must be a valid number` };
+    }
+    if (field === 'businessLatitude' && (value < -90 || value > 90)) {
+      return { valid: false, sanitized: null, error: `${field} must be between -90 and 90` };
+    }
+    if (field === 'businessLongitude' && (value < -180 || value > 180)) {
+      return { valid: false, sanitized: null, error: `${field} must be between -180 and 180` };
+    }
+    return { valid: true, sanitized: value };
+  }
+
   // Locations mode validation
   if (field === 'locationsMode') {
-    const validModes = ['all', 'followers', 'none'];
+    const validModes = ['all', 'followers', 'none', 'single', 'multiple'];
     if (!validModes.includes(value as string)) {
       return { valid: false, sanitized: null, error: `${field} must be one of: ${validModes.join(', ')}` };
     }
@@ -215,6 +229,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       businessName: 'business_name',
       businessCategory: 'business_category',
       businessAddress: 'business_address',
+      businessLatitude: 'business_latitude',
+      businessLongitude: 'business_longitude',
       businessPhone: 'business_phone',
       locationsMode: 'locations_mode',
       onboardingCompleted: 'onboarding_completed',
@@ -314,6 +330,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         bio: profile.bio,
         website: profile.website,
         isVerified: profile.is_verified || false,
+        isPremium: profile.is_premium || false,
         isPrivate: profile.is_private || false,
         accountType: profile.account_type || 'personal',
         gender: profile.gender,
@@ -324,6 +341,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         businessName: profile.business_name,
         businessCategory: profile.business_category,
         businessAddress: profile.business_address,
+        businessLatitude: profile.business_latitude ? parseFloat(profile.business_latitude) : null,
+        businessLongitude: profile.business_longitude ? parseFloat(profile.business_longitude) : null,
         businessPhone: profile.business_phone,
         locationsMode: profile.locations_mode,
         onboardingCompleted: profile.onboarding_completed,

@@ -56,8 +56,10 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         name, gender, dateOfBirth, interests, profileImage,
         displayName, bio, website, socialLinks, expertise,
         businessCategory, businessCategoryCustom, locationsMode,
-        businessName, businessAddress, businessLatitude, businessLongitude,
+        businessName, businessAddress,
       } = params as Record<string, any>;
+      const businessLatitude = (params as Record<string, any>).businessLatitude;
+      const businessLongitude = (params as Record<string, any>).businessLongitude;
 
       const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
       const generatedUsername = `${baseUsername}_${Math.floor(Math.random() * 1000000)}`;
@@ -139,8 +141,8 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         businessName: businessName || '',
         businessCategory: businessCategory === 'other' ? (businessCategoryCustom || '') : (businessCategory || ''),
         businessAddress: businessAddress || '',
-        businessLatitude: businessLatitude || undefined,
-        businessLongitude: businessLongitude || undefined,
+        businessLatitude: businessLatitude ?? undefined,
+        businessLongitude: businessLongitude ?? undefined,
         businessPhone: '',
         locationsMode: locationsMode || '',
       };

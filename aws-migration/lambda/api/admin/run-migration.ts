@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS profiles (
     business_name VARCHAR(255),
     business_category VARCHAR(100),
     business_address TEXT,
+    business_latitude DECIMAL(10, 8),
+    business_longitude DECIMAL(11, 8),
     business_phone VARCHAR(50),
     locations_mode VARCHAR(20) DEFAULT 'nearby',
     onboarding_completed BOOLEAN DEFAULT FALSE,

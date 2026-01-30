@@ -12,7 +12,7 @@ const { width } = Dimensions.get('window');
 const TABS = ['Fan', 'Vibes', 'Xplorer'] as const;
 
 const HEADER_HEIGHT = 44;
-const TABBAR_HEIGHT = 38;
+const TABBAR_HEIGHT = 46;
 
 // Ref type for feed components
 export interface FeedRef {

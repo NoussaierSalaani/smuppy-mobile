@@ -69,13 +69,12 @@ const MAX_ACTIVE_FILTERS = 3;
 // ============================================
 type FabAction = { label: string; icon: keyof typeof Ionicons.glyphMap; action: string };
 
-// Personal: Create Event, Create Group (ephemeral on map)
+// Personal: Create Activity (unified event + group)
 const PERSONAL_ACTIONS: FabAction[] = [
-  ...(FEATURES.CREATE_EVENT ? [{ label: 'Create Event', icon: 'calendar-outline' as const, action: 'create_event' }] : []),
-  ...(FEATURES.CREATE_GROUP ? [{ label: 'Create Group', icon: 'people-outline' as const, action: 'create_group' }] : []),
+  { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
 ];
 
-// Personal verified / Pro Creator: + Suggest Spot, Add Review (interact with map)
+// Personal verified / Pro Creator: + Suggest Spot, Add Review
 const VERIFIED_ACTIONS: FabAction[] = [
   ...PERSONAL_ACTIONS,
   { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
@@ -88,13 +87,12 @@ const CREATOR_PREMIUM_ACTIONS: FabAction[] = [
   ...(FEATURES.GO_LIVE ? [{ label: 'Share Live', icon: 'videocam-outline' as const, action: 'share_live' }] : []),
 ];
 
-// Pro Business: Create Event, Create Group (locked to business location)
+// Pro Business: Create Activity (locked to business location)
 const BUSINESS_ACTIONS: FabAction[] = [
-  ...(FEATURES.CREATE_EVENT ? [{ label: 'Create Event', icon: 'calendar-outline' as const, action: 'create_event' }] : []),
-  ...(FEATURES.CREATE_GROUP ? [{ label: 'Create Group', icon: 'people-outline' as const, action: 'create_group' }] : []),
+  { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
 ];
 
-// Pro Business Premium: All of Pro Creator + event/group anywhere + planning indexed
+// Pro Business Premium: All of Pro Creator + activity anywhere + planning indexed
 const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
   ...CREATOR_PREMIUM_ACTIONS,
 ];
@@ -283,19 +281,11 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const handleFabAction = useCallback((action: string) => {
     setFabOpen(false);
     switch (action) {
-      case 'create_event':
-        // Pro Business non-premium: lock location to business address
+      case 'create_activity':
         if (accountType === 'pro_business' && !isPremium && businessLocation) {
-          navigation.navigate('CreateEvent', { lockedLocation: businessLocation });
+          navigation.navigate('CreateActivity', { lockedLocation: businessLocation });
         } else {
-          navigation.navigate('CreateEvent');
-        }
-        break;
-      case 'create_group':
-        if (accountType === 'pro_business' && !isPremium && businessLocation) {
-          navigation.navigate('CreateGroup', { lockedLocation: businessLocation });
-        } else {
-          navigation.navigate('CreateGroup');
+          navigation.navigate('CreateActivity');
         }
         break;
       case 'suggest_spot':
@@ -581,7 +571,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               >
                 {isActive ? (
                   <View style={styles.chipActive}>
-                    <Ionicons name={filter.icon} size={normalize(16)} color={filter.color} />
+                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.dark} />
                     <Text style={styles.chipText}>{filter.label}</Text>
                     {subCount > 0 && (
                       <View style={styles.chipSubBadge}>
@@ -591,7 +581,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                   </View>
                 ) : (
                   <View style={styles.chipInactive}>
-                    <Ionicons name={filter.icon} size={normalize(16)} color={filter.color} />
+                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.dark} />
                     <Text style={styles.chipText}>{filter.label}</Text>
                   </View>
                 )}

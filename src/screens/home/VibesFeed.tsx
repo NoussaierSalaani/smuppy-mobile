@@ -902,7 +902,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          headerHeight > 0 && { paddingTop: headerHeight + 4 }
+          headerHeight > 0 && { paddingTop: headerHeight }
         ]}
         onScroll={(event) => {
           handleScroll(event);

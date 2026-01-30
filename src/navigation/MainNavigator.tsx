@@ -86,6 +86,9 @@ import EventManageScreen from '../screens/events/EventManageScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
 import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
 
+// Activity Screens (unified)
+import CreateActivityScreen from '../screens/activities/CreateActivityScreen';
+
 // Spot Screens
 import SuggestSpotScreen from '../screens/spots/SuggestSpotScreen';
 import SpotDetailScreen from '../screens/spots/SpotDetailScreen';
@@ -311,6 +314,9 @@ export default function MainNavigator() {
       {/* Groups */}
       <Stack.Screen name="CreateGroup" component={asScreen(CreateGroupScreen)} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="GroupDetail" component={asScreen(GroupDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Activities (unified) */}
+      <Stack.Screen name="CreateActivity" component={asScreen(CreateActivityScreen)} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Spots */}
       <Stack.Screen name="SuggestSpot" component={asScreen(SuggestSpotScreen)} options={{ animation: 'slide_from_bottom' }} />

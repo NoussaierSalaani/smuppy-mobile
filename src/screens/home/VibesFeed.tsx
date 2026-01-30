@@ -366,44 +366,39 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     });
   }, [navigation]);
 
-  // Filter + sort posts by interests and engagement
+  // Sort posts by interests + engagement — feed always stays full, chips boost matching posts
   const filteredPosts = useMemo(() => {
-    // Safety filters (hide under_review and muted/blocked users)
-    let result = allPosts.filter(post => {
+    // Safety filters only (hide under_review and muted/blocked users)
+    const result = allPosts.filter(post => {
       if (isUnderReview(String(post.id))) return false;
       const authorId = post.user?.id;
       if (authorId && isHidden(authorId)) return false;
       return true;
     });
 
-    const hasActiveFilters = activeInterests.size > 0;
+    // Use active chips if any, otherwise profile interests
+    const interestsToUse = activeInterests.size > 0
+      ? Array.from(activeInterests)
+      : userInterests;
 
-    // When chips are actively selected, strictly filter to matching posts only
-    if (hasActiveFilters) {
-      const activeArr = Array.from(activeInterests).map(i => i.toLowerCase());
-      result = result.filter(post => {
-        const postTags = post.tags?.map(t => t.toLowerCase()) || [];
-        const postCategory = post.category?.toLowerCase() || '';
-        return activeArr.some(interest =>
-          postTags.includes(interest) || postCategory === interest
-        );
-      });
+    if (interestsToUse.length === 0) {
+      return [...result].sort((a, b) => b.likes - a.likes);
     }
 
-    // Sort: profile interests boost relevance, then by likes
-    const profileInterestsLower = userInterests.map(i => i.toLowerCase());
+    const interestsLower = interestsToUse.map(i => i.toLowerCase());
+    const weight = activeInterests.size > 0 ? 1000 : 500;
 
     return [...result].sort((a, b) => {
-      // Boost posts matching profile interests
-      const aMatch = profileInterestsLower.some(i =>
-        a.tags?.some(t => t.toLowerCase() === i) || a.category?.toLowerCase() === i
-      ) ? 500 : 0;
-      const bMatch = profileInterestsLower.some(i =>
-        b.tags?.some(t => t.toLowerCase() === i) || b.category?.toLowerCase() === i
-      ) ? 500 : 0;
+      const postTagsA = a.tags?.map(t => t.toLowerCase()) || [];
+      const postTagsB = b.tags?.map(t => t.toLowerCase()) || [];
+      const catA = a.category?.toLowerCase() || '';
+      const catB = b.category?.toLowerCase() || '';
 
-      const scoreA = aMatch + Math.min(a.likes, 500);
-      const scoreB = bMatch + Math.min(b.likes, 500);
+      const matchA = interestsLower.filter(i => postTagsA.includes(i) || catA === i).length;
+      const matchB = interestsLower.filter(i => postTagsB.includes(i) || catB === i).length;
+
+      const scoreA = matchA * weight + Math.min(a.likes, 500);
+      const scoreB = matchB * weight + Math.min(b.likes, 500);
       return scoreB - scoreA;
     });
   }, [allPosts, activeInterests, userInterests, isUnderReview, isHidden]);

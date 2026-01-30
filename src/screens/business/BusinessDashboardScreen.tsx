@@ -165,7 +165,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.businessName}>{user?.fullName || 'Business'}</Text>
+            <Text style={styles.businessName}>{user?.businessName || user?.fullName || 'Business'}</Text>
           </View>
           <TouchableOpacity
             style={styles.settingsButton}

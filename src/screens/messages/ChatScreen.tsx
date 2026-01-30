@@ -18,6 +18,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { resolveDisplayName } from '../../types/profile';
 import EmojiPicker from 'rn-emoji-keyboard';
 import { AccountBadge } from '../../components/Badge';
 import VoiceRecorder from '../../components/VoiceRecorder';
@@ -311,7 +312,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     );
   }, [currentUserId, messages, goToUserProfile, formatTime]);
 
-  const displayName = otherUserProfile?.full_name || otherUserProfile?.username || 'User';
+  const displayName = resolveDisplayName(otherUserProfile);
 
   if (loading && !conversationId) {
     return (

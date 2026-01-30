@@ -162,3 +162,25 @@ export const resolveProfile = (
     },
   };
 };
+
+/**
+ * Resolve display name for any user object from the API.
+ * Business accounts use business_name; others use full_name/display_name.
+ */
+export const resolveDisplayName = (user: {
+  account_type?: string;
+  accountType?: string;
+  business_name?: string;
+  businessName?: string;
+  full_name?: string;
+  fullName?: string;
+  display_name?: string;
+  displayName?: string;
+  username?: string;
+} | null | undefined, fallback = 'User'): string => {
+  if (!user) return fallback;
+  const isBusiness = (user.account_type || user.accountType) === 'pro_business';
+  const bName = user.business_name || user.businessName;
+  if (isBusiness && bName) return bName;
+  return user.full_name || user.fullName || user.display_name || user.displayName || user.username || fallback;
+};

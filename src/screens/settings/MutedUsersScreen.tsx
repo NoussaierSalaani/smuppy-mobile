@@ -15,6 +15,7 @@ import { useUserSafetyStore } from '../../stores';
 import { MutedUser } from '../../services/database';
 import { COLORS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { resolveDisplayName } from '../../types/profile';
 
 interface MutedUsersScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -77,14 +78,14 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
         >
           <AvatarImage source={user.avatar_url} size={50} style={styles.avatar} />
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{user.full_name || user.username}</Text>
+            <Text style={styles.userName}>{resolveDisplayName(user)}</Text>
             {user.username && <Text style={styles.userHandle}>@{user.username}</Text>}
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.unmuteBtn, isUnmuting && styles.unmuteBtnDisabled]}
-          onPress={() => handleUnmute(item.muted_user_id, user.full_name || user.username || 'this user')}
+          onPress={() => handleUnmute(item.muted_user_id, resolveDisplayName(user, 'this user'))}
           disabled={isUnmuting}
         >
           {isUnmuting ? (

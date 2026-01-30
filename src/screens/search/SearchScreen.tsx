@@ -24,6 +24,7 @@ import { AccountBadge } from '../../components/Badge';
 import OptimizedImage from '../../components/OptimizedImage';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { LiquidTabs } from '../../components/LiquidTabs';
+import { resolveDisplayName } from '../../types/profile';
 import {
   searchProfiles,
   searchPosts,
@@ -408,7 +409,7 @@ const SearchScreen = (): React.JSX.Element => {
       comments: p.comments_count || 0,
       user: {
         id: p.author?.id || p.author_id,
-        name: p.author?.full_name || 'User',
+        name: resolveDisplayName(p.author),
         avatar: p.author?.avatar_url || DEFAULT_AVATAR,
         followsMe: false,
       },
@@ -423,7 +424,7 @@ const SearchScreen = (): React.JSX.Element => {
       duration: p.peak_duration || 15,
       user: {
         id: p.author?.id || p.author_id,
-        name: p.author?.full_name || 'User',
+        name: resolveDisplayName(p.author),
         avatar: p.author?.avatar_url || DEFAULT_AVATAR,
       },
       views: p.views_count || 0,
@@ -454,7 +455,7 @@ const SearchScreen = (): React.JSX.Element => {
       />
       <View style={styles.resultInfo}>
         <View style={styles.usernameRow}>
-          <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
+          <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
           <AccountBadge
             size={16}
             style={{ marginLeft: 4 }}
@@ -657,7 +658,7 @@ const SearchScreen = (): React.JSX.Element => {
             />
             <View style={styles.resultInfo}>
               <View style={styles.usernameRow}>
-                <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
+                <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
                 <AccountBadge
                   size={16}
                   style={{ marginLeft: 4 }}
@@ -702,7 +703,7 @@ const SearchScreen = (): React.JSX.Element => {
               />
               <View style={styles.resultInfo}>
                 <View style={styles.usernameRow}>
-                  <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
+                  <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
                   <AccountBadge
                     size={16}
                     style={{ marginLeft: 4 }}

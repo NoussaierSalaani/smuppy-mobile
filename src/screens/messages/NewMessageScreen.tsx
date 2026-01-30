@@ -14,6 +14,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { AccountBadge } from '../../components/Badge';
 import { COLORS, SPACING } from '../../config/theme';
+import { resolveDisplayName } from '../../types/profile';
 import {
   searchProfiles,
   getOrCreateConversation,
@@ -84,7 +85,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
       <AvatarImage source={item.avatar_url} size={50} />
       <View style={styles.userInfo}>
         <View style={styles.userNameRow}>
-          <Text style={styles.userName}>{item.full_name || item.username}</Text>
+          <Text style={styles.userName}>{resolveDisplayName(item)}</Text>
           <AccountBadge
             size={14}
             isVerified={item.is_verified}

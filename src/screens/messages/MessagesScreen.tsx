@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../config/theme';
 import { AccountBadge } from '../../components/Badge';
 import { LiquidTabs } from '../../components/LiquidTabs';
+import { resolveDisplayName } from '../../types/profile';
 import {
   getConversations,
   Conversation,
@@ -99,7 +100,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
 
   // Filter conversations
   const filteredConversations = conversations.filter(conv => {
-    const otherUserName = conv.other_user?.full_name || conv.other_user?.username || '';
+    const otherUserName = resolveDisplayName(conv.other_user, '');
     const matchesSearch = otherUserName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' && (conv.unread_count || 0) > 0);
     return matchesSearch && matchesFilter;
@@ -154,7 +155,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
                 styles.userName,
                 (item.unread_count || 0) > 0 && styles.userNameUnread
               ]}>
-                {otherUser.full_name || otherUser.username}
+                {resolveDisplayName(otherUser)}
               </Text>
               <AccountBadge
                 size={16}

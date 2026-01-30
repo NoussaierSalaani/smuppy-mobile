@@ -190,6 +190,8 @@ export const useUserStore = create<UserState>()(
       getFullName: () => {
         const { user } = get();
         if (!user) return '';
+        // Business accounts use businessName as their display name
+        if (user.accountType === 'pro_business' && user.businessName) return user.businessName;
         // Try fullName first, then construct from firstName + lastName
         if (user.fullName) return user.fullName;
         if (user.displayName) return user.displayName;

@@ -154,11 +154,14 @@ interface DbResponseWithCreated<T> extends DbResponse<T> {
 // Helper to convert AWS API Profile to local Profile format
 const convertProfile = (p: AWSProfile | null): Profile | null => {
   if (!p) return null;
+  // Business accounts use businessName as their display name
+  const isBusiness = p.accountType === 'pro_business';
+  const businessDisplayName = isBusiness && p.businessName ? p.businessName : null;
   return {
     id: p.id,
     username: p.username,
-    full_name: p.fullName || '',
-    display_name: p.displayName || undefined,
+    full_name: businessDisplayName || p.fullName || '',
+    display_name: businessDisplayName || p.displayName || undefined,
     avatar_url: p.avatarUrl,
     cover_url: p.coverUrl || undefined,
     bio: p.bio || undefined,

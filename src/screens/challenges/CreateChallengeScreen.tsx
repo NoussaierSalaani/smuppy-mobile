@@ -13,7 +13,6 @@ import {
   TextInput,
   Animated,
   Dimensions,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -26,6 +25,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width } = Dimensions.get('window');
 
@@ -125,6 +125,7 @@ export default function CreateChallengeScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { formatAmount } = useCurrency();
+  const { showError, showAlert } = useSmuppyAlert();
 
   // If creating from an existing Peak
   const existingPeakId = route.params?.peakId;
@@ -155,12 +156,12 @@ export default function CreateChallengeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (step === 1 && !selectedType) {
-      Alert.alert('Select Type', 'Please select a challenge type');
+      showError('Select Type', 'Please select a challenge type');
       return;
     }
 
     if (step === 2 && !title.trim()) {
-      Alert.alert('Add Title', 'Please give your challenge a title');
+      showError('Add Title', 'Please give your challenge a title');
       return;
     }
 
@@ -204,26 +205,31 @@ export default function CreateChallengeScreen() {
       });
 
       if (response.success) {
-        Alert.alert('Challenge Created!', 'Your challenge is now live', [
-          {
-            text: 'View Challenge',
-            onPress: () => {
-              navigation.replace('ChallengeDetail', { challengeId: response.challenge.id });
+        showAlert({
+          title: 'Challenge Created!',
+          message: 'Your challenge is now live',
+          type: 'success',
+          buttons: [
+            {
+              text: 'View Challenge',
+              onPress: () => {
+                navigation.replace('ChallengeDetail', { challengeId: response.challenge.id });
+              },
             },
-          },
-          {
-            text: 'Record Peak',
-            onPress: () => {
-              navigation.replace('RecordPeak', { challengeId: response.challenge.id });
+            {
+              text: 'Record Peak',
+              onPress: () => {
+                navigation.replace('RecordPeak', { challengeId: response.challenge.id });
+              },
             },
-          },
-        ]);
+          ],
+        });
       } else {
-        Alert.alert('Error', response.message || 'Failed to create challenge');
+        showError('Error', response.message || 'Failed to create challenge');
       }
     } catch (error) {
       console.error('Create challenge error:', error);
-      Alert.alert('Error', 'Failed to create challenge. Please try again.');
+      showError('Error', 'Failed to create challenge. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

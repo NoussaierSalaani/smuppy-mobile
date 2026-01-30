@@ -15,7 +15,6 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-  Alert,
   ActivityIndicator,
   Share,
 } from 'react-native';
@@ -31,6 +30,7 @@ import { useUserStore } from '../../stores';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult, Coordinate } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -67,6 +67,7 @@ const CATEGORIES: ActivityCategory[] = [
 
 const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
   const { currency } = useCurrency();
+  const { showError, showSuccess, showConfirm, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
   const lockedLocation = route?.params?.lockedLocation || null;
@@ -153,11 +154,11 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
 
   const handleSubmit = useCallback(async () => {
     if (!selectedCategory || !title.trim() || !coordinates) {
-      Alert.alert('Missing info', 'Please fill in all required fields.');
+      showError('Missing info', 'Please fill in all required fields.');
       return;
     }
     if (!saveToProfile && !shareOnMap) {
-      Alert.alert('Choose an option', 'Please select Save, Share, or both.');
+      showError('Choose an option', 'Please select Save, Share, or both.');
       return;
     }
 
@@ -211,12 +212,13 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
 
         if (shareOnMap) {
           const shareUrl = `https://smuppy.app/activities/${activityId}`;
-          Alert.alert(
-            'Activity Created!',
-            saveToProfile
+          showAlert({
+            title: 'Activity Created!',
+            message: saveToProfile
               ? 'Saved to your profile and visible on the map.'
               : 'Your activity is now visible on the map.',
-            [
+            type: 'success',
+            buttons: [
               {
                 text: 'Share Link',
                 onPress: async () => {
@@ -234,19 +236,24 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
                 text: 'View',
                 onPress: () => navigation.replace('GroupDetail', { groupId: activityId }),
               },
-            ]
-          );
+            ],
+          });
         } else {
-          Alert.alert('Activity Saved!', 'You can share it on the map later from your profile.', [
-            { text: 'Done', onPress: () => navigation.goBack() },
-          ]);
+          showAlert({
+            title: 'Activity Saved!',
+            message: 'You can share it on the map later from your profile.',
+            type: 'success',
+            buttons: [
+              { text: 'Done', onPress: () => navigation.goBack() },
+            ],
+          });
         }
       } else {
-        Alert.alert('Error', response.message || 'Failed to create activity');
+        showError('Error', response.message || 'Failed to create activity');
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Something went wrong';
-      Alert.alert('Error', message);
+      showError('Error', message);
     } finally {
       setIsLoading(false);
     }
@@ -254,7 +261,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
     selectedCategory, title, coordinates, saveToProfile, shareOnMap,
     selectedSubcategory, customSubcategory, description, locationName,
     startDate, maxParticipants, isFree, price, currency.code, isPublic,
-    routeData, navigation,
+    routeData, navigation, showError, showSuccess, showAlert,
   ]);
 
   // ============================================
@@ -423,14 +430,15 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
               if (isProCreator) {
                 setIsFree(false);
               } else {
-                Alert.alert(
-                  'Monetize Your Activities',
-                  'Upgrade to Pro Creator to create paid activities.',
-                  [
+                showAlert({
+                  title: 'Monetize Your Activities',
+                  message: 'Upgrade to Pro Creator to create paid activities.',
+                  type: 'info',
+                  buttons: [
                     { text: 'Maybe Later', style: 'cancel' },
                     { text: 'Upgrade to Pro', onPress: () => navigation.navigate('UpgradeToPro') },
-                  ]
-                );
+                  ],
+                });
               }
             }}
           >

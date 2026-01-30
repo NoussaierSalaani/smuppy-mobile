@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Modal,
   Dimensions,
   Linking,
   ActivityIndicator,
@@ -26,6 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   FilterProvider,
   useFilters,
@@ -76,6 +76,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RootStackParamList, 'CreatePeak'>>();
 
   const { replyTo, originalPeak } = route.params || {};
+  const { showAlert: showSmuppyAlert } = useSmuppyAlert();
 
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
@@ -113,10 +114,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
     requestAllPermissions();
   }, []);
-
-  // Custom alert state (for errors)
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
 
   // Toast state (for quick messages like "too short")
   const [showToast, setShowToast] = useState(false);
@@ -172,15 +169,12 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Show custom alert (for errors)
   const showCustomAlert = (message: string): void => {
-    setAlertMessage(message);
-    setShowAlert(true);
-  };
-
-  // Close alert and reset
-  const closeAlert = (): void => {
-    setShowAlert(false);
-    setAlertMessage('');
-    resetCamera();
+    showSmuppyAlert({
+      title: 'Peak too short',
+      message,
+      type: 'warning',
+      buttons: [{ text: 'Try Again', onPress: resetCamera }],
+    });
   };
 
   // Show toast (auto-dismiss after 2s)
@@ -308,37 +302,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
       setIsPreviewPlaying(false);
     }
   };
-
-  // Custom Alert Component
-  const CustomAlert = (): React.JSX.Element => (
-    <Modal
-      visible={showAlert}
-      transparent
-      animationType="fade"
-      onRequestClose={closeAlert}
-    >
-      <View style={styles.alertOverlay}>
-        <View style={styles.alertContainer}>
-          <LinearGradient
-            colors={[COLORS.darkCard, COLORS.dark]}
-            style={styles.alertGradient}
-          >
-            <View style={styles.alertIconContainer}>
-              <Ionicons name="time-outline" size={40} color={COLORS.primary} />
-            </View>
-            <Text style={styles.alertTitle}>Peak too short</Text>
-            <Text style={styles.alertMessage}>{alertMessage}</Text>
-            <TouchableOpacity
-              style={styles.alertButton}
-              onPress={closeAlert}
-            >
-              <Text style={styles.alertButtonText}>Try Again</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </View>
-    </Modal>
-  );
 
   // Permissions loading
   if (!permissionsChecked) {
@@ -624,9 +587,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
           </View>
         </View>
       )}
-
-      {/* Custom Alert */}
-      <CustomAlert />
 
       {/* Toast (quick non-invasive message) */}
       {showToast && (
@@ -968,59 +928,6 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.dark,
-  },
-
-  // Alert
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  alertContainer: {
-    width: '100%',
-    maxWidth: 300,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  alertGradient: {
-    padding: 28,
-    alignItems: 'center',
-  },
-  alertIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(17, 227, 163, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  alertMessage: {
-    fontSize: 14,
-    color: COLORS.gray,
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  alertButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 36,
-    paddingVertical: 12,
-    borderRadius: 22,
-  },
-  alertButtonText: {
-    fontSize: 15,
     fontWeight: '700',
     color: COLORS.dark,
   },

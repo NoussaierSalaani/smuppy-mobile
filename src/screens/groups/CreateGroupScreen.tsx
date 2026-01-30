@@ -18,7 +18,6 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +31,7 @@ import { useUserStore } from '../../stores';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -66,6 +66,7 @@ const CATEGORIES: GroupCategory[] = [
 // ============================================
 
 const CreateGroupScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
+  const { showError, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
@@ -147,7 +148,7 @@ const CreateGroupScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
 
   const handleSubmit = async () => {
     if (!selectedCategory || !title.trim() || !coordinates) {
-      Alert.alert('Missing info', 'Please fill in all required fields.');
+      showError('Missing info', 'Please fill in all required fields.');
       return;
     }
 
@@ -193,15 +194,20 @@ const CreateGroupScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Group Created!', 'Your group activity is now visible on the map.', [
-          { text: 'View', onPress: () => navigation.replace('GroupDetail', { groupId: response.group?.id }) },
-          { text: 'Done', onPress: () => navigation.goBack() },
-        ]);
+        showAlert({
+          title: 'Group Created!',
+          message: 'Your group activity is now visible on the map.',
+          type: 'success',
+          buttons: [
+            { text: 'View', onPress: () => navigation.replace('GroupDetail', { groupId: response.group?.id }) },
+            { text: 'Done', onPress: () => navigation.goBack() },
+          ],
+        });
       } else {
-        Alert.alert('Error', response.message || 'Failed to create group');
+        showError('Error', response.message || 'Failed to create group');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+      showError('Error', error.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }

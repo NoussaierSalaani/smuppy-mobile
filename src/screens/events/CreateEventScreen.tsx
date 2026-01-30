@@ -14,7 +14,6 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-  Alert,
   ActivityIndicator,
   Share,
 } from 'react-native';
@@ -34,6 +33,7 @@ import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -64,6 +64,7 @@ const ROUTE_CATEGORIES = ['running', 'hiking', 'cycling'];
 
 const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { currency, formatAmount: _formatAmount } = useCurrency();
+  const { showError, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
 
@@ -220,15 +221,15 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const handleNextStep = () => {
     if (step === 1 && !selectedCategory) {
-      Alert.alert('Error', 'Please select a category');
+      showError('Error', 'Please select a category');
       return;
     }
     if (step === 2 && !title.trim()) {
-      Alert.alert('Error', 'Please enter a title');
+      showError('Error', 'Please enter a title');
       return;
     }
     if (step === 3 && !coordinates) {
-      Alert.alert('Error', 'Please select a location on the map');
+      showError('Error', 'Please select a location on the map');
       return;
     }
 
@@ -248,7 +249,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const handleCreate = async () => {
     if (!selectedCategory || !title || !coordinates) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      showError('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -303,31 +304,28 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           navigation.replace('EventDetail', { eventId });
         };
 
-        Alert.alert(
-          '🎉 Event Created!',
-          'Your event is now live. How would you like to share it?',
-          [
+        showAlert({
+          title: 'Event Created!',
+          message: 'Your event is now live. How would you like to share it?',
+          type: 'success',
+          buttons: [
             {
               text: 'View Event',
               style: 'cancel',
               onPress: () => navigation.replace('EventDetail', { eventId }),
             },
             {
-              text: '🔒 Share with Fans',
-              onPress: () => shareEvent('fans'),
-            },
-            {
-              text: '🌍 Share Publicly',
+              text: 'Share Publicly',
               onPress: () => shareEvent('public'),
             },
-          ]
-        );
+          ],
+        });
       } else {
         throw new Error(response.message || 'Failed to create event');
       }
     } catch (error: any) {
       console.error('Create event error:', error);
-      Alert.alert('Error', error.message || 'Failed to create event');
+      showError('Error', error.message || 'Failed to create event');
     } finally {
       setIsLoading(false);
     }
@@ -445,17 +443,18 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 setIsFree(false);
               } else {
                 // Show upgrade popup for non-pro creators
-                Alert.alert(
-                  '💎 Monetize Your Events',
-                  'Unlock paid events and start earning from your community!\n\nPro Creator benefits:\n• Create unlimited paid events\n• Receive tips from fans\n• 80% revenue share\n• Priority support',
-                  [
+                showAlert({
+                  title: 'Monetize Your Events',
+                  message: 'Unlock paid events and start earning from your community!\n\nPro Creator benefits:\n- Create unlimited paid events\n- Receive tips from fans\n- 80% revenue share\n- Priority support',
+                  type: 'info',
+                  buttons: [
                     { text: 'Maybe Later', style: 'cancel' },
                     {
                       text: 'Upgrade to Pro',
                       onPress: () => navigation.navigate('UpgradeToPro'),
                     },
-                  ]
-                );
+                  ],
+                });
               }
             }}
           >

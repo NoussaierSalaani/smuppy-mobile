@@ -3,7 +3,7 @@
  * Create sports/fitness events with route planning
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
   ActivityIndicator,
   Share,
 } from 'react-native';
@@ -34,6 +35,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 
 const { width: SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -97,6 +99,11 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [routeDistance, setRouteDistance] = useState(0);
   const [routeDifficulty, setRouteDifficulty] = useState<'easy' | 'moderate' | 'hard' | 'expert'>('moderate');
 
+  // Location autocomplete state
+  const [locationSuggestions, setLocationSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [isLoadingLocationSearch, setIsLoadingLocationSearch] = useState(false);
+  const locationSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // UI state
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -156,6 +163,40 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       console.log('Location error:', error);
     }
   };
+
+  // Location name autocomplete
+  const searchLocationName = useCallback(async (query: string) => {
+    if (query.length < 3) { setLocationSuggestions([]); return; }
+    setIsLoadingLocationSearch(true);
+    try {
+      const results = await searchNominatim(query, { limit: 5 });
+      setLocationSuggestions(results);
+    } catch {
+      setLocationSuggestions([]);
+    } finally {
+      setIsLoadingLocationSearch(false);
+    }
+  }, []);
+
+  const handleLocationNameChange = useCallback((text: string) => {
+    setLocationName(text);
+    if (locationSearchTimeout.current) clearTimeout(locationSearchTimeout.current);
+    locationSearchTimeout.current = setTimeout(() => searchLocationName(text), 300);
+  }, [searchLocationName]);
+
+  const selectLocationSuggestion = useCallback((result: NominatimSearchResult) => {
+    const formatted = formatNominatimResult(result);
+    setLocationName(formatted.fullAddress);
+    setLocationSuggestions([]);
+    if (result.lat && result.lon) {
+      setCoordinates({ lat: parseFloat(result.lat), lng: parseFloat(result.lon) });
+    }
+    Keyboard.dismiss();
+  }, []);
+
+  useEffect(() => {
+    return () => { if (locationSearchTimeout.current) clearTimeout(locationSearchTimeout.current); };
+  }, []);
 
   const handleMapPress = (e: any) => {
     const [longitude, latitude] = e.geometry.coordinates;
@@ -579,13 +620,38 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Location Name</Text>
-        <TextInput
-          style={styles.input}
-          value={locationName}
-          onChangeText={setLocationName}
-          placeholder="e.g., Central Park"
-          placeholderTextColor={COLORS.gray}
-        />
+        <View style={styles.locationInputRow}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            value={locationName}
+            onChangeText={handleLocationNameChange}
+            placeholder="Search address or place..."
+            placeholderTextColor={COLORS.gray}
+          />
+          {isLoadingLocationSearch && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
+        </View>
+        {locationSuggestions.length > 0 && (
+          <View style={styles.locationSuggestions}>
+            {locationSuggestions.map((result) => {
+              const formatted = formatNominatimResult(result);
+              return (
+                <TouchableOpacity
+                  key={result.place_id.toString()}
+                  style={styles.locationSuggestionItem}
+                  onPress={() => selectLocationSuggestion(result)}
+                >
+                  <Ionicons name="location" size={16} color={COLORS.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.locationSuggestionMain} numberOfLines={1}>{formatted.mainText}</Text>
+                    {formatted.secondaryText ? (
+                      <Text style={styles.locationSuggestionSecondary} numberOfLines={1}>{formatted.secondaryText}</Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {hasRoute && (
@@ -1120,6 +1186,36 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  locationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationSuggestions: {
+    backgroundColor: COLORS.darkGray,
+    borderRadius: 12,
+    marginTop: 6,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  locationSuggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  locationSuggestionMain: {
+    fontSize: 14,
+    color: COLORS.white,
+  },
+  locationSuggestionSecondary: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 2,
   },
   textArea: {
     minHeight: 100,

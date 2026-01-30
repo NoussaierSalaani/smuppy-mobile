@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { DARK_COLORS as COLORS } from '../../config/theme';
 import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import { createPost } from '../../services/database';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -39,15 +41,6 @@ const VISIBILITY_OPTIONS: VisibilityOption[] = [
   { value: 48, label: '48h' },
 ];
 
-// Sample location suggestions
-const LOCATION_SUGGESTIONS: string[] = [
-  'Gym Iron Paradise',
-  'Central Park, NYC',
-  'CrossFit Box',
-  'Home Gym',
-  'Beach Workout',
-  'Mountain Trail',
-];
 
 interface OriginalPeakUser {
   id: string;
@@ -94,6 +87,9 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const [isChallenge, setIsChallenge] = useState(false);
   const [challengeTitle, setChallengeTitle] = useState('');
   const [challengeRules, setChallengeRules] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Listen to keyboard
   useEffect(() => {
@@ -202,21 +198,58 @@ const PeakPreviewScreen = (): React.JSX.Element => {
     }
   };
 
-  // Select location
+  // Nominatim search
+  const searchPlaces = useCallback(async (query: string) => {
+    if (query.length < 3) { setLocationSuggestions([]); return; }
+    setIsLoadingLocation(true);
+    try {
+      const results = await searchNominatim(query, { limit: 5 });
+      setLocationSuggestions(results);
+    } catch {
+      setLocationSuggestions([]);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }, []);
+
+  const handleLocationSearchChange = useCallback((text: string) => {
+    setLocationSearch(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => searchPlaces(text), 300);
+  }, [searchPlaces]);
+
+  useEffect(() => {
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+  }, []);
+
   const selectLocation = (loc: string): void => {
     setLocation(loc);
     setShowLocationInput(false);
     setLocationSearch('');
+    setLocationSuggestions([]);
     Keyboard.dismiss();
   };
 
-  // Filter locations
-  const filteredLocations =
-    locationSearch.length > 0
-      ? LOCATION_SUGGESTIONS.filter((loc) =>
-          loc.toLowerCase().includes(locationSearch.toLowerCase())
-        )
-      : LOCATION_SUGGESTIONS;
+  const detectCurrentLocation = useCallback(async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setIsLoadingLocation(false); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [reverseResult] = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+      if (reverseResult) {
+        const parts = [reverseResult.street, reverseResult.city, reverseResult.country].filter(Boolean);
+        selectLocation(parts.join(', '));
+      }
+    } catch (error) {
+      console.error('Location detection error:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }, []);
 
   // Dismiss keyboard
   const handleCaptionDone = (): void => {
@@ -297,19 +330,27 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {showLocationInput ? (
               <View style={styles.locationInputContainer}>
                 <View style={styles.locationInputHeader}>
-                  <Ionicons name="location" size={18} color={COLORS.primary} />
+                  <TouchableOpacity onPress={detectCurrentLocation} disabled={isLoadingLocation}>
+                    {isLoadingLocation ? (
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                    ) : (
+                      <Ionicons name="locate" size={18} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
                   <TextInput
                     style={styles.locationInput}
                     placeholder="Search location..."
                     placeholderTextColor={COLORS.gray}
                     value={locationSearch}
-                    onChangeText={setLocationSearch}
+                    onChangeText={handleLocationSearchChange}
                     autoFocus
                   />
+                  {isLoadingLocation && <ActivityIndicator size="small" color={COLORS.primary} />}
                   <TouchableOpacity
                     onPress={() => {
                       setShowLocationInput(false);
                       setLocationSearch('');
+                      setLocationSuggestions([]);
                       Keyboard.dismiss();
                     }}
                   >
@@ -317,17 +358,25 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.locationSuggestions}>
-                  {filteredLocations.slice(0, 4).map((loc, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.locationSuggestion}
-                      onPress={() => selectLocation(loc)}
-                    >
-                      <Ionicons name="location-outline" size={14} color={COLORS.gray} />
-                      <Text style={styles.locationSuggestionText}>{loc}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  {locationSearch.length > 0 && !filteredLocations.includes(locationSearch) && (
+                  {locationSuggestions.map((result) => {
+                    const formatted = formatNominatimResult(result);
+                    return (
+                      <TouchableOpacity
+                        key={result.place_id.toString()}
+                        style={styles.locationSuggestion}
+                        onPress={() => selectLocation(formatted.fullAddress)}
+                      >
+                        <Ionicons name="location-outline" size={14} color={COLORS.gray} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.locationSuggestionText} numberOfLines={1}>{formatted.mainText}</Text>
+                          {formatted.secondaryText ? (
+                            <Text style={styles.locationSecondaryText} numberOfLines={1}>{formatted.secondaryText}</Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {locationSearch.length > 0 && locationSuggestions.length === 0 && !isLoadingLocation && (
                     <TouchableOpacity
                       style={styles.locationSuggestion}
                       onPress={() => selectLocation(locationSearch)}
@@ -694,6 +743,11 @@ const styles = StyleSheet.create({
   locationSuggestionText: {
     fontSize: 13,
     color: COLORS.white,
+  },
+  locationSecondaryText: {
+    fontSize: 11,
+    color: COLORS.gray,
+    marginTop: 2,
   },
 
   // Caption

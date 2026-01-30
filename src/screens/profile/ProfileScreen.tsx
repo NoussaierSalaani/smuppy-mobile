@@ -357,11 +357,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               <Text style={styles.statGlassValue}>{user.stats.peaks || 0}</Text>
               <Text style={styles.statGlassLabel}>Peaks</Text>
             </View>
-            <View style={styles.statGlassDivider} />
-            <TouchableOpacity style={styles.statGlassItem} onPress={() => navigation.navigate('Prescriptions')}>
-              <Text style={styles.statGlassValue}>{vibeScore}</Text>
-              <Text style={styles.statGlassLabel}>Vibe</Text>
-            </TouchableOpacity>
+            {user.accountType !== 'pro_business' && (
+              <>
+                <View style={styles.statGlassDivider} />
+                <TouchableOpacity style={styles.statGlassItem} onPress={() => navigation.navigate('Prescriptions')}>
+                  <Text style={styles.statGlassValue}>{vibeScore}</Text>
+                  <Text style={styles.statGlassLabel}>Vibe</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </BlurView>
         </View>
       </View>
@@ -424,7 +428,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER TABS ====================
   // Dynamic tabs based on account type
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business' || resolvedProfile?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
 
   // Primary tabs (always visible) - max 4
   const PRIMARY_TABS = useMemo(() => {

@@ -265,6 +265,28 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
 
+    // SECURITY: Prevent account type changes on existing profiles
+    // Account type upgrades can ONLY happen via Stripe webhook
+    if (existingProfile.rows.length > 0 && body.accountType !== undefined) {
+      const currentType = await db.query(
+        `SELECT account_type FROM profiles WHERE cognito_sub = $1`,
+        [userId]
+      );
+      if (currentType.rows.length > 0 && currentType.rows[0].account_type !== body.accountType) {
+        logSecurityEvent('account_type_change_blocked', {
+          userId,
+          currentType: currentType.rows[0].account_type,
+          requestedType: body.accountType,
+          ip: event.requestContext.identity?.sourceIp,
+        });
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Account type cannot be changed directly.' }),
+        };
+      }
+    }
+
     let result;
     if (existingProfile.rows.length === 0) {
       // Create new profile - use cognito_sub as the primary id for simplicity

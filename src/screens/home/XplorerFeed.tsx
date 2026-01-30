@@ -163,26 +163,40 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     } : null;
   });
 
-  // Business marker: only visible for premium business accounts with coordinates
-  const businessMarker = useMemo((): MockMarker | null => {
-    if (accountType !== 'pro_business' || !isPremium) return null;
-    if (!businessLocation?.latitude || !businessLocation?.longitude) return null;
-    const u = useUserStore.getState().user;
+  // Business marker data from store (reactive)
+  const businessMarkerData = useUserStore((s) => {
+    const u = s.user;
     if (!u) return null;
     return {
-      id: `business_${u.id}`,
-      type: 'business',
-      subcategory: u.businessCategory || 'Business',
-      category: 'business',
-      name: u.businessName || 'My Business',
+      id: u.id,
+      businessCategory: u.businessCategory || 'Business',
+      businessName: u.businessName || 'My Business',
       avatar: u.avatar || '',
       bio: u.bio || '',
       fans: u.stats?.fans || 0,
       posts: u.stats?.posts || 0,
+    };
+  });
+
+  // Business marker: only visible for premium business accounts with coordinates
+  const businessMarker = useMemo((): MockMarker | null => {
+    if (accountType !== 'pro_business' || !isPremium) return null;
+    if (!businessLocation?.latitude || !businessLocation?.longitude) return null;
+    if (!businessMarkerData) return null;
+    return {
+      id: `business_${businessMarkerData.id}`,
+      type: 'business',
+      subcategory: businessMarkerData.businessCategory,
+      category: 'business',
+      name: businessMarkerData.businessName,
+      avatar: businessMarkerData.avatar,
+      bio: businessMarkerData.bio,
+      fans: businessMarkerData.fans,
+      posts: businessMarkerData.posts,
       coordinate: { latitude: businessLocation.latitude, longitude: businessLocation.longitude },
       address: businessLocation.address,
     };
-  }, [accountType, isPremium, businessLocation]);
+  }, [accountType, isPremium, businessLocation, businessMarkerData]);
 
   // FAB visibility & actions based on account type
   const fabActions = useMemo((): FabAction[] => {

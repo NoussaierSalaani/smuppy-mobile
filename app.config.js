@@ -11,9 +11,9 @@ icon: './assets/icon.png',
 userInterfaceStyle: 'light',
 newArchEnabled: true,
 splash: {
-  image: './assets/icon.png',
-  backgroundColor: '#0A252F',
-  resizeMode: 'contain',
+  image: './assets/Splashscreen.png',
+  backgroundColor: '#0EBF8A',
+  resizeMode: 'cover',
 },
 ios: {
 supportsTablet: true,

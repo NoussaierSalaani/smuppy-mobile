@@ -42,9 +42,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getReaderPool();
 
     const PROFILE_COLUMNS = `id, username, full_name, display_name, avatar_url, cover_url,
-      bio, website, is_verified, is_private, account_type, gender, date_of_birth,
+      bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth,
       interests, expertise, social_links, business_name, business_category,
-      business_address, business_phone, locations_mode, onboarding_completed,
+      business_address, business_latitude, business_longitude, business_phone,
+      locations_mode, onboarding_completed,
       fan_count, following_count, post_count`;
 
     let result;

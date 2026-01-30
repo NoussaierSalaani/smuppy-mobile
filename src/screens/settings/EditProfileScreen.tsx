@@ -86,6 +86,13 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const addressSearchTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cleanup address search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (addressSearchTimeout.current) clearTimeout(addressSearchTimeout.current);
+    };
+  }, []);
+
   // Modals
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);

@@ -44,9 +44,6 @@ const PEAK_CARD_HEIGHT = 140;
 const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 const INTEREST_DATA: Record<string, { icon: string; color: string }> = {};
 
-// UIVibePost and transformToVibePost are now imported from utils/postTransformers
-
-
 // Advanced Smuppy Mood Indicator Component
 interface MoodIndicatorProps {
   mood: ReturnType<typeof useMoodAI>['mood'];
@@ -287,32 +284,24 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         return;
       }
 
-      if (data.length > 0) {
-        const postIds = data.map(post => post.id);
-        const likedMap = await hasLikedPostsBatch(postIds);
+      const postIds = data.map(post => post.id);
+      const likedMap = await hasLikedPostsBatch(postIds);
 
-        const likedIds = new Set<string>(
-          postIds.filter(id => likedMap.get(id))
-        );
+      const likedIds = new Set<string>(
+        postIds.filter(id => likedMap.get(id))
+      );
 
-        const transformedPosts = data.map(post => transformToVibePost(post, likedIds));
+      const transformedPosts = data.map(post => transformToVibePost(post, likedIds));
 
-        if (refresh || pageNum === 0) {
-          setAllPosts(transformedPosts);
-          setLikedPostIds(likedIds);
-        } else {
-          setAllPosts(prev => [...prev, ...transformedPosts]);
-          setLikedPostIds(prev => new Set([...prev, ...likedIds]));
-        }
-
-        setHasMore(data.length >= 40);
+      if (refresh || pageNum === 0) {
+        setAllPosts(transformedPosts);
+        setLikedPostIds(likedIds);
       } else {
-        if (refresh || pageNum === 0) {
-          setAllPosts([]);
-          setLikedPostIds(new Set());
-        }
-        setHasMore(false);
+        setAllPosts(prev => [...prev, ...transformedPosts]);
+        setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
+
+      setHasMore(data.length >= 40);
     } catch (err) {
       console.error('[VibesFeed] Error:', err);
       if (refresh) {
@@ -1347,14 +1336,6 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     paddingTop: SPACING.md,
     backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  vibeOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: SPACING.sm,
-    paddingTop: 30,
   },
   vibeTitle: {
     fontFamily: 'Poppins-SemiBold',

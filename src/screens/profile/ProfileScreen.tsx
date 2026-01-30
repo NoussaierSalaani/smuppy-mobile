@@ -442,7 +442,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     const tabs = [
       { key: 'posts', label: 'Posts', icon: 'grid-outline' },
       { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
-      { key: 'groupevent', label: 'Group/Event', icon: 'people-outline' },
+      { key: 'groupevent', label: 'Community', icon: 'people-outline' },
     ];
 
     if (isOwnProfile) {

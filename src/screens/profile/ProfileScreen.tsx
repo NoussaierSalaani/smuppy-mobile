@@ -437,34 +437,31 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // Dynamic tabs based on account type
   const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
 
-  // Primary tabs (always visible) - max 4
+  // Primary tabs (always visible) - max 3 to keep labels readable
   const PRIMARY_TABS = useMemo(() => {
-    const tabs = [
+    return [
       { key: 'posts', label: 'Posts', icon: 'grid-outline' },
       { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
       { key: 'groupevent', label: 'Community', icon: 'people-outline' },
     ];
+  }, []) as { key: string; label: string; icon: string }[];
+
+  // Extra tabs (shown in "•••" menu)
+  const EXTRA_TABS = useMemo(() => {
+    const tabs: { key: string; label: string; icon: string }[] = [];
 
     if (isOwnProfile) {
       tabs.push({ key: 'collections', label: 'Saved', icon: 'bookmark-outline' });
     }
 
-    return tabs;
-  }, [isOwnProfile]) as { key: string; label: string; icon: string }[];
-
-  // Extra tabs (shown in "+" menu) - for pro_creator
-  const EXTRA_TABS = useMemo(() => {
-    if (!isProCreator) return [];
-
-    const tabs = [
-      { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
-    ];
-
-    if (isOwnProfile) {
-      if (FEATURES.PRIVATE_SESSIONS) tabs.push({ key: 'sessions', label: 'Sessions', icon: 'calendar-outline' });
-      if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
-    } else {
-      if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+    if (isProCreator) {
+      tabs.push({ key: 'videos', label: 'Videos', icon: 'videocam-outline' });
+      if (isOwnProfile) {
+        if (FEATURES.PRIVATE_SESSIONS) tabs.push({ key: 'sessions', label: 'Sessions', icon: 'calendar-outline' });
+        if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+      } else {
+        if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+      }
     }
 
     return tabs;

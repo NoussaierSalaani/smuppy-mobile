@@ -44,10 +44,10 @@ const PROD_FEATURES = {
   GIFTING: false,
 
   // ─── Business Features ───────────────────────────
-  BUSINESS_DISCOVERY: false,
-  BUSINESS_DASHBOARD: false,
-  BUSINESS_BOOKING: false,
-  BUSINESS_SCANNER: false,
+  BUSINESS_DISCOVERY: true,
+  BUSINESS_DASHBOARD: true,
+  BUSINESS_BOOKING: false,   // Needs backend: Stripe Connect verified
+  BUSINESS_SCANNER: true,
 
   // ─── Account / Settings ──────────────────────────
   UPGRADE_TO_PRO: false,    // Needs backend: Stripe webhook for account upgrade

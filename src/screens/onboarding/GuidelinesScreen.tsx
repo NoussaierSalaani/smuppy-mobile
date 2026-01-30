@@ -205,7 +205,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.listItem}>✅ Sports and well-being – Fitness, nutrition, relaxation, life balance...</Text>
           <Text style={styles.listItem}>✅ Culture and education – Artistic, historical, heritage, educational discoveries, learning...</Text>
           <Text style={styles.listItem}>✅ Entertainment and leisure – Enriching activities, sports challenges, creative content...</Text>
-          <Text style={styles.listItem}>✅ Science and innovation – Sharing scientific and technological knowledge.</Text>
+          <Text style={styles.listItem}>✅ Sports science and health innovation – Sharing knowledge on performance, recovery, and wellness technology.</Text>
           <Text style={styles.listItem}>✅ Intellectual growth and motivation – Inspiring content, positive mindset, and personal development...</Text>
           <Text style={styles.textBold}>We strictly prohibit any content that promotes negativity, incites hatred, and/or creates anxiety.</Text>
         </View>
@@ -217,11 +217,11 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.subTitle}>🔹 Allowed professional content:</Text>
           <Text style={styles.listItem}>✅ Promotion of services, products, or events related to Sports, Health, fitness, wellness, education, culture, science, and/or personal growth.</Text>
           <Text style={styles.listItem}>✅ Collaborations with brands, sponsorships, or ambassador programs in the authorized domains.</Text>
-          <Text style={styles.listItem}>✅ Educational and informative content that enhances the Smuppy community's knowledge and experience. And provides real values to users.</Text>
+          <Text style={styles.listItem}>✅ Educational and informative content that enhances the Smuppy community's knowledge and experience, providing real value to users.</Text>
           <Text style={styles.subTitle}>🔹 Prohibited professional content:</Text>
           <Text style={styles.listItem}>🚫 Aggressive or deceptive advertising like "This program guarantees weight loss in 7 days"</Text>
           <Text style={styles.listItem}>🚫 Unverified or misleading information on health, fitness, nutrition...</Text>
-          <Text style={styles.listItem}>🚫 Promotion of products or services outside the authorized fields (politics, finance, crypto, etc.).</Text>
+          <Text style={styles.listItem}>🚫 Promotion of speculative financial products, gambling, cryptocurrency trading, or any content unrelated to wellness, sports, culture, or education.</Text>
           <Text style={styles.textUnderline}>All professional content must remain informative, ethical, and aligned with Smuppy's mission.</Text>
         </View>
 
@@ -233,7 +233,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.listItem}>🚫 Politics and conflicts – No political news, international conflicts, or partisan debates.</Text>
           <Text style={styles.listItem}>🚫 Anxiety-inducing content – No alarming information, fake news, or conspiracy theories.</Text>
           <Text style={styles.listItem}>🚫 Discrimination, intolerance and prejudice – No racism, sexism, homophobia, intolerance or exclusionary content.</Text>
-          <Text style={styles.listItem}>🚫 Misinformation and pseudoscience – Prohibited from sharing unproven medical, sports, or scientific advice.</Text>
+          <Text style={styles.listItem}>🚫 Misinformation and pseudoscience – Sharing unproven medical, sports, or scientific advice is prohibited.</Text>
           <Text style={styles.listItem}>🚫 Illegal content – Defamation, fraud, child exploitation, identity theft, hacking.</Text>
           <Text style={styles.textBold}>Smuppy is a positive digital safe space, dedicated to physical, mental, and cultural well-being.</Text>
         </View>
@@ -258,7 +258,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.bulletItem}>• A warning.</Text>
           <Text style={styles.bulletItem}>• A temporary suspension of the account.</Text>
           <Text style={styles.bulletItem}>• A permanent ban from the platform.</Text>
-          <Text style={styles.text}>Any sanctioned user has 7 days to contest a decision by emailing [contact support]. Smuppy commits to reviewing each request within 10 business days.</Text>
+          <Text style={styles.text}>Any sanctioned user has 7 days to contest a decision by emailing support@smuppy.com. Smuppy commits to reviewing each request within 5 business days.</Text>
           <Text style={styles.text}>Professional accounts found to repeatedly violate content guidelines may also be demonetized or restricted from promoting their services on Smuppy.</Text>
         </View>
 
@@ -278,7 +278,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         <View style={styles.conclusionBox}>
           <Text style={styles.conclusionTitle}>CONCLUSION</Text>
           <Text style={styles.conclusionText}>Smuppy is a space for motivation, well-being, and positive exchanges. Whether you are an individual user or a professional, you contribute to building an inspiring, uplifting, and valuable community.</Text>
-          <Text style={styles.conclusionHighlight}>By joining Smuppy, you become an ambassador for well-being, culture, and positivity! 🌟</Text>
+          <Text style={styles.conclusionHighlight}>By joining Smuppy, you become an ambassador for well-being, culture, and positivity.</Text>
         </View>
 
         {/* Accept Button */}

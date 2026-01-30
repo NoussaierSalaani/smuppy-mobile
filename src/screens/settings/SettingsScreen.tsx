@@ -20,6 +20,7 @@ import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
 import { biometrics } from '../../utils/biometrics';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
+import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../config/theme';
 import { resetAllStores, useUserStore } from '../../stores';
@@ -145,14 +146,15 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
-  // Personal accounts use interests, pro accounts use expertise
-  const isPro = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  // Separate checks for creator-only vs all pro features
+  const isProCreator = user?.accountType === 'pro_creator';
+  const isPro = isProCreator || user?.accountType === 'pro_business';
 
   const MENU_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
     // Personal → Interests only, Pro → Expertise only
     ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
-    ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
+    ...(isProCreator ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
@@ -166,9 +168,15 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      // Clear ALL user data from all storage systems
+      // Clear SecureStore auth keys (remember me, tokens, etc.)
+      await storage.clear([
+        STORAGE_KEYS.REMEMBER_ME,
+        STORAGE_KEYS.ACCESS_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_ID,
+      ]);
+      // Clear AsyncStorage (Zustand persisted store, cached profile data)
       await AsyncStorage.multiRemove([
-        '@smuppy_remember_me',
         '@smuppy_saved_email',
         '@smuppy_user_profile',
         '@smuppy_user_store', // Zustand persisted store - CRITICAL!
@@ -200,9 +208,15 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // Delete account via AWS Lambda
       await awsAPI.deleteAccount();
 
-      // Clear ALL user data from all storage systems
+      // Clear SecureStore auth keys
+      await storage.clear([
+        STORAGE_KEYS.REMEMBER_ME,
+        STORAGE_KEYS.ACCESS_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_ID,
+      ]);
+      // Clear AsyncStorage (Zustand persisted store, cached profile data)
       await AsyncStorage.multiRemove([
-        '@smuppy_remember_me',
         '@smuppy_saved_email',
         '@smuppy_user_profile',
         '@smuppy_user_store', // Zustand persisted store - CRITICAL!
@@ -389,7 +403,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <Text style={styles.sectionTitle}>Payments & Monetization</Text>
           <View style={styles.menuCard}>
             {/* Upgrade to Pro Creator - Only for personal accounts */}
-            {user?.accountType !== 'pro_creator' && (
+            {user?.accountType === 'personal' && (
               <TouchableOpacity
                 style={[styles.menuItem, styles.menuItemFirst, styles.upgradeItem]}
                 onPress={() => navigation.navigate('UpgradeToPro')}
@@ -416,7 +430,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             )}
 
             <TouchableOpacity
-              style={[styles.menuItem, user?.accountType === 'pro_creator' ? styles.menuItemFirst : undefined]}
+              style={[styles.menuItem, user?.accountType !== 'personal' ? styles.menuItemFirst : undefined]}
               onPress={() => navigation.navigate('CreatorWallet')}
               activeOpacity={0.7}
             >
@@ -451,6 +465,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
             </TouchableOpacity>
 
+            {/* Private Sessions - Creator only */}
+            {isProCreator && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('PrivateSessionsManage')}
@@ -462,6 +478,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Text style={styles.menuItemLabel}>Private Sessions</Text>
               <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
             </TouchableOpacity>
+            )}
           </View>
         </View>
 

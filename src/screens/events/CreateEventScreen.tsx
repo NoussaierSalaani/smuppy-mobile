@@ -129,6 +129,9 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
   const isVerified = user?.isVerified === true;
+  const isBusinessNonPremium = user?.accountType === 'pro_business' && !user?.isPremium;
+  // Paid access: verified + not business non-premium
+  const canUsePaid = isVerified && !isBusinessNonPremium;
 
   // Mode toggle — 'event' or 'group', no navigation needed
   const [mode, setMode] = useState<CreateMode>(route?.params?.initialMode || 'event');
@@ -613,7 +616,19 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         <TouchableOpacity
           style={[s.radioChip, !isFree && s.radioChipActive]}
           onPress={() => {
-            if (isVerified) { setIsFree(false); } else {
+            if (canUsePaid) {
+              setIsFree(false);
+            } else if (isBusinessNonPremium) {
+              showAlert({
+                title: 'Business Premium Required',
+                message: 'Upgrade to Business Premium to create paid events, receive payments, and access revenue tools.',
+                type: 'info',
+                buttons: [
+                  { text: 'Maybe Later', style: 'cancel' },
+                  { text: 'Upgrade', onPress: () => navigation.navigate('UpgradeToPro') },
+                ],
+              });
+            } else {
               showAlert({
                 title: 'Verified Account Required',
                 message: 'Only verified accounts can create paid events and groups.\n\nGet verified to unlock:\n- Paid events & groups\n- Receive tips from fans\n- 80% revenue share\n- Trust badge on your profile',
@@ -627,15 +642,17 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
           }}
         >
           <Text style={[s.radioChipText, !isFree && s.radioChipTextActive]}>Paid</Text>
-          {!isVerified && (
-            <View style={s.proBadge}><Text style={s.proBadgeText}>VERIFIED</Text></View>
+          {!canUsePaid && (
+            <View style={s.proBadge}>
+              <Text style={s.proBadgeText}>{isBusinessNonPremium ? 'PREMIUM' : 'VERIFIED'}</Text>
+            </View>
           )}
           <View style={[s.radioCircle, !isFree && s.radioCircleFilled]}>
             {!isFree && <View style={s.radioInner} />}
           </View>
         </TouchableOpacity>
       </View>
-      {!isFree && isVerified && (
+      {!isFree && canUsePaid && (
         <TextInput
           style={s.capsuleInput}
           value={price}

@@ -1,15 +1,14 @@
 /**
  * RouteMapPicker
  * Reusable map component for selecting locations and drawing routes.
- * Used in: CreateEventScreen, CreateGroupScreen, SuggestSpotScreen
+ * Used in: CreateEventScreen (event + group modes)
  *
- * Features:
- * - Tap to set single location OR start/end points
- * - Mapbox Directions API for intelligent route calculation
- * - Walking/cycling profile based on activity type
- * - Distance, duration, difficulty display
- * - Waypoint support (tap to add intermediate points)
- * - Undo / clear controls
+ * UX:
+ * - Map on top, address fields below
+ * - Route mode: "Departure" + "Arrival" fields, auto-calculate route when both set
+ * - Location mode: single "Location" field
+ * - User can type address (Nominatim search) OR tap on map (reverse geocode fills active field)
+ * - Stats card: distance, duration, difficulty, elevation (route mode only)
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -21,6 +20,7 @@ import {
   Dimensions,
   ActivityIndicator,
   TextInput,
+  Keyboard,
 } from 'react-native';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
@@ -28,6 +28,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { COLORS, GRADIENTS } from '../config/theme';
+import {
+  searchNominatim,
+  reverseGeocodeNominatim,
+  formatNominatimResult,
+  type NominatimSearchResult,
+} from '../config/api';
 import {
   calculateRoute,
   formatDistance,
@@ -80,6 +86,11 @@ const DIFFICULTY_COLORS: Record<DifficultyLevel, string> = {
   expert: '#9B59B6',
 };
 
+type ActiveField = 'departure' | 'arrival' | 'location';
+
+// Debounce timer ref
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -98,14 +109,37 @@ export default function RouteMapPicker({
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
+  // Active field for map tap → determines which field gets filled
+  const [activeField, setActiveField] = useState<ActiveField>(
+    mode === 'route' ? 'departure' : 'location'
+  );
+
   // Single location mode
   const [selectedPoint, setSelectedPoint] = useState<Coordinate | null>(
     lockedLocation ? { lat: lockedLocation.latitude, lng: lockedLocation.longitude } : null
   );
+  const [locationAddress, setLocationAddress] = useState(lockedLocation?.address || locationName || '');
 
-  // Route mode
-  const [routeStart, setRouteStart] = useState<Coordinate | null>(null);
-  const [routeEnd, setRouteEnd] = useState<Coordinate | null>(null);
+  // Route mode — departure
+  const [departureCoord, setDepartureCoord] = useState<Coordinate | null>(null);
+  const [departureAddress, setDepartureAddress] = useState('');
+  const [departureSearch, setDepartureSearch] = useState('');
+  const [departureSuggestions, setDepartureSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [searchingDeparture, setSearchingDeparture] = useState(false);
+
+  // Route mode — arrival
+  const [arrivalCoord, setArrivalCoord] = useState<Coordinate | null>(null);
+  const [arrivalAddress, setArrivalAddress] = useState('');
+  const [arrivalSearch, setArrivalSearch] = useState('');
+  const [arrivalSuggestions, setArrivalSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [searchingArrival, setSearchingArrival] = useState(false);
+
+  // Location mode — search
+  const [locationSearch, setLocationSearch] = useState(locationName || '');
+  const [locationSuggestions, setLocationSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [searchingLocation, setSearchingLocation] = useState(false);
+
+  // Route data
   const [waypoints, setWaypoints] = useState<Coordinate[]>([]);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
@@ -137,6 +171,55 @@ export default function RouteMapPicker({
   }, [lockedLocation, getUserLocation]);
 
   // ============================================
+  // NOMINATIM SEARCH (debounced)
+  // ============================================
+
+  const searchAddress = useCallback((query: string, field: ActiveField) => {
+    if (searchTimer) clearTimeout(searchTimer);
+
+    if (query.length < 3) {
+      if (field === 'departure') setDepartureSuggestions([]);
+      else if (field === 'arrival') setArrivalSuggestions([]);
+      else setLocationSuggestions([]);
+      return;
+    }
+
+    const setSearching = field === 'departure' ? setSearchingDeparture
+      : field === 'arrival' ? setSearchingArrival
+      : setSearchingLocation;
+
+    setSearching(true);
+
+    searchTimer = setTimeout(async () => {
+      try {
+        const results = await searchNominatim(query, { limit: 5 });
+        if (field === 'departure') setDepartureSuggestions(results);
+        else if (field === 'arrival') setArrivalSuggestions(results);
+        else setLocationSuggestions(results);
+      } catch (_e) {
+        // Search failed silently
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+  }, []);
+
+  // ============================================
+  // REVERSE GEOCODE (map tap → address)
+  // ============================================
+
+  const reverseGeocode = useCallback(async (coord: Coordinate): Promise<string> => {
+    try {
+      const result = await reverseGeocodeNominatim(coord.lat, coord.lng);
+      if (result) {
+        const formatted = formatNominatimResult(result);
+        return formatted.mainText + (formatted.secondaryText ? ', ' + formatted.secondaryText : '');
+      }
+    } catch (_e) { /* Reverse geocode failed */ }
+    return `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}`;
+  }, []);
+
+  // ============================================
   // ROUTE CALCULATION
   // ============================================
 
@@ -150,7 +233,6 @@ export default function RouteMapPicker({
       const result = await calculateRoute(start, end, wp, profile);
       setRouteResult(result);
 
-      // Build GeoJSON for map display
       setRouteGeoJSON({
         type: 'FeatureCollection',
         features: [{
@@ -177,12 +259,19 @@ export default function RouteMapPicker({
     }
   }, [profile, onRouteCalculated]);
 
+  // Auto-calculate when both departure and arrival are set
+  useEffect(() => {
+    if (mode === 'route' && departureCoord && arrivalCoord) {
+      computeRoute(departureCoord, arrivalCoord, waypoints);
+    }
+  }, [mode, departureCoord, arrivalCoord, waypoints, computeRoute]);
+
   // ============================================
   // MAP INTERACTION
   // ============================================
 
-  const handleMapPress = useCallback((event: any) => {
-    if (lockedLocation) return; // Location is locked
+  const handleMapPress = useCallback(async (event: any) => {
+    if (lockedLocation) return;
 
     const { geometry } = event;
     if (!geometry?.coordinates) return;
@@ -195,52 +284,143 @@ export default function RouteMapPicker({
     if (mode === 'location') {
       setSelectedPoint(coord);
       onCoordinateSelect?.(coord);
+      // Reverse geocode to fill address
+      const address = await reverseGeocode(coord);
+      setLocationAddress(address);
+      setLocationSearch(address);
+      onLocationNameChange(address);
+      setLocationSuggestions([]);
       return;
     }
 
-    // Route mode
-    if (!routeStart) {
-      setRouteStart(coord);
-    } else if (!routeEnd) {
-      setRouteEnd(coord);
-      computeRoute(routeStart, coord, waypoints);
+    // Route mode — fill active field
+    if (activeField === 'departure' || (!departureCoord && !arrivalCoord)) {
+      setDepartureCoord(coord);
+      const address = await reverseGeocode(coord);
+      setDepartureAddress(address);
+      setDepartureSearch(address);
+      setDepartureSuggestions([]);
+      // Auto-advance to arrival
+      setActiveField('arrival');
+      // Move camera to show both points if arrival already exists
+      if (arrivalCoord) {
+        fitMapToPoints([coord, arrivalCoord]);
+      }
+    } else if (activeField === 'arrival' || (departureCoord && !arrivalCoord)) {
+      setArrivalCoord(coord);
+      const address = await reverseGeocode(coord);
+      setArrivalAddress(address);
+      setArrivalSearch(address);
+      setArrivalSuggestions([]);
+      // Fit map to show full route
+      if (departureCoord) {
+        fitMapToPoints([departureCoord, coord]);
+      }
     } else {
-      // Add waypoint and recalculate
+      // Both set — add waypoint
       const newWaypoints = [...waypoints, coord];
       setWaypoints(newWaypoints);
-      computeRoute(routeStart, routeEnd, newWaypoints);
     }
-  }, [mode, lockedLocation, routeStart, routeEnd, waypoints, computeRoute, onCoordinateSelect]);
+  }, [mode, lockedLocation, activeField, departureCoord, arrivalCoord, waypoints, reverseGeocode, onCoordinateSelect, onLocationNameChange]);
+
+  const fitMapToPoints = useCallback((points: Coordinate[]) => {
+    if (!cameraRef.current || points.length < 2) return;
+    const lngs = points.map(p => p.lng);
+    const lats = points.map(p => p.lat);
+    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+    cameraRef.current.fitBounds(ne, sw, [60, 60, 60, 60], 600);
+  }, []);
+
+  // ============================================
+  // SUGGESTION SELECT
+  // ============================================
+
+  const selectSuggestion = useCallback((result: NominatimSearchResult, field: ActiveField) => {
+    const formatted = formatNominatimResult(result);
+    const address = formatted.mainText + (formatted.secondaryText ? ', ' + formatted.secondaryText : '');
+    const coord: Coordinate = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Keyboard.dismiss();
+
+    if (field === 'location') {
+      setSelectedPoint(coord);
+      setLocationAddress(address);
+      setLocationSearch(address);
+      setLocationSuggestions([]);
+      onCoordinateSelect?.(coord);
+      onLocationNameChange(address);
+      // Fly camera to selected point
+      cameraRef.current?.setCamera({
+        centerCoordinate: [coord.lng, coord.lat],
+        zoomLevel: 15,
+        animationDuration: 600,
+      });
+    } else if (field === 'departure') {
+      setDepartureCoord(coord);
+      setDepartureAddress(address);
+      setDepartureSearch(address);
+      setDepartureSuggestions([]);
+      setActiveField('arrival');
+      cameraRef.current?.setCamera({
+        centerCoordinate: [coord.lng, coord.lat],
+        zoomLevel: 14,
+        animationDuration: 600,
+      });
+      if (arrivalCoord) fitMapToPoints([coord, arrivalCoord]);
+    } else {
+      setArrivalCoord(coord);
+      setArrivalAddress(address);
+      setArrivalSearch(address);
+      setArrivalSuggestions([]);
+      if (departureCoord) fitMapToPoints([departureCoord, coord]);
+    }
+  }, [departureCoord, arrivalCoord, onCoordinateSelect, onLocationNameChange, fitMapToPoints]);
+
+  // ============================================
+  // CLEAR / UNDO
+  // ============================================
 
   const undoLastPoint = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (waypoints.length > 0) {
-      const newWaypoints = waypoints.slice(0, -1);
-      setWaypoints(newWaypoints);
-      if (routeStart && routeEnd) {
-        computeRoute(routeStart, routeEnd, newWaypoints);
-      }
-    } else if (routeEnd) {
-      setRouteEnd(null);
+      setWaypoints(prev => prev.slice(0, -1));
+    } else if (arrivalCoord) {
+      setArrivalCoord(null);
+      setArrivalAddress('');
+      setArrivalSearch('');
       setRouteResult(null);
       setRouteGeoJSON(null);
+      setActiveField('arrival');
       onRouteClear?.();
-    } else if (routeStart) {
-      setRouteStart(null);
+    } else if (departureCoord) {
+      setDepartureCoord(null);
+      setDepartureAddress('');
+      setDepartureSearch('');
+      setActiveField('departure');
     }
-  }, [waypoints, routeStart, routeEnd, computeRoute, onRouteClear]);
+  }, [waypoints, arrivalCoord, departureCoord, onRouteClear]);
 
   const clearAll = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setRouteStart(null);
-    setRouteEnd(null);
+    setDepartureCoord(null);
+    setDepartureAddress('');
+    setDepartureSearch('');
+    setArrivalCoord(null);
+    setArrivalAddress('');
+    setArrivalSearch('');
     setWaypoints([]);
     setRouteResult(null);
     setRouteGeoJSON(null);
     setSelectedPoint(null);
+    setLocationAddress('');
+    setLocationSearch('');
+    setActiveField(mode === 'route' ? 'departure' : 'location');
     onRouteClear?.();
-  }, [onRouteClear]);
+    onLocationNameChange('');
+  }, [mode, onRouteClear, onLocationNameChange]);
 
   const centerOnUser = useCallback(() => {
     const center = lockedLocation
@@ -266,10 +446,43 @@ export default function RouteMapPicker({
     : [-73.5673, 45.5017]; // Montreal fallback
 
   // ============================================
-  // RENDER
+  // RENDER HELPERS
   // ============================================
 
-  const hasPoints = mode === 'route' ? !!routeStart : !!selectedPoint;
+  const hasPoints = mode === 'route' ? !!departureCoord : !!selectedPoint;
+
+  const renderSuggestionList = (
+    suggestions: NominatimSearchResult[],
+    field: ActiveField,
+  ) => {
+    if (suggestions.length === 0) return null;
+    return (
+      <View style={styles.suggestionsContainer}>
+        {suggestions.map((result) => {
+          const formatted = formatNominatimResult(result);
+          return (
+            <TouchableOpacity
+              key={result.place_id.toString()}
+              style={styles.suggestionItem}
+              onPress={() => selectSuggestion(result, field)}
+            >
+              <Ionicons name="location" size={16} color={COLORS.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.suggestionMain} numberOfLines={1}>{formatted.mainText}</Text>
+                {formatted.secondaryText ? (
+                  <Text style={styles.suggestionSub} numberOfLines={1}>{formatted.secondaryText}</Text>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <View style={styles.container}>
@@ -304,8 +517,8 @@ export default function RouteMapPicker({
           )}
 
           {/* Route start pin */}
-          {mode === 'route' && routeStart && (
-            <MarkerView coordinate={[routeStart.lng, routeStart.lat]}>
+          {mode === 'route' && departureCoord && (
+            <MarkerView coordinate={[departureCoord.lng, departureCoord.lat]}>
               <View style={styles.routePinContainer}>
                 <View style={[styles.routePin, { backgroundColor: '#4ECDC4' }]}>
                   <Text style={styles.routePinText}>S</Text>
@@ -315,8 +528,8 @@ export default function RouteMapPicker({
           )}
 
           {/* Route end pin */}
-          {mode === 'route' && routeEnd && (
-            <MarkerView coordinate={[routeEnd.lng, routeEnd.lat]}>
+          {mode === 'route' && arrivalCoord && (
+            <MarkerView coordinate={[arrivalCoord.lng, arrivalCoord.lat]}>
               <View style={styles.routePinContainer}>
                 <View style={[styles.routePin, { backgroundColor: '#FF6B6B' }]}>
                   <Text style={styles.routePinText}>E</Text>
@@ -379,67 +592,198 @@ export default function RouteMapPicker({
         )}
 
         {/* Hint text */}
-        {!hasPoints && (
+        {mode === 'route' && !departureCoord && !arrivalCoord && (
           <View style={styles.hintContainer}>
-            <Text style={styles.hintText}>
-              {lockedLocation
-                ? 'Location is set to your business address'
-                : mode === 'route'
-                ? 'Tap to set the start point'
-                : 'Tap to set the location'}
-            </Text>
+            <Text style={styles.hintText}>Tap map or search an address for departure</Text>
           </View>
         )}
-
-        {mode === 'route' && routeStart && !routeEnd && (
+        {mode === 'route' && departureCoord && !arrivalCoord && (
           <View style={styles.hintContainer}>
-            <Text style={styles.hintText}>Tap to set the end point</Text>
+            <Text style={styles.hintText}>Now set the arrival point</Text>
           </View>
         )}
-
-        {mode === 'route' && routeEnd && !isCalculating && (
+        {mode === 'route' && departureCoord && arrivalCoord && !isCalculating && (
           <View style={styles.hintContainer}>
             <Text style={styles.hintText}>Tap to add waypoints</Text>
           </View>
         )}
+        {mode === 'location' && !selectedPoint && !lockedLocation && (
+          <View style={styles.hintContainer}>
+            <Text style={styles.hintText}>Tap map or search an address</Text>
+          </View>
+        )}
+        {lockedLocation && (
+          <View style={styles.hintContainer}>
+            <Text style={styles.hintText}>Location is set to your business address</Text>
+          </View>
+        )}
       </View>
 
-      {/* Location name input */}
-      <View style={styles.locationInput}>
-        <Ionicons name="location-outline" size={normalize(18)} color={COLORS.gray} />
-        <TextInput
-          style={styles.locationTextInput}
-          placeholder="Location name (e.g. Parc Lafontaine)"
-          placeholderTextColor={COLORS.gray400}
-          value={locationName}
-          onChangeText={onLocationNameChange}
-          editable={!lockedLocation}
-        />
-      </View>
+      {/* ============================================ */}
+      {/* ADDRESS FIELDS — below the map               */}
+      {/* ============================================ */}
 
-      {/* Route info card */}
+      {mode === 'route' ? (
+        <View style={styles.fieldsContainer}>
+          {/* Departure field */}
+          <View style={styles.fieldRow}>
+            <View style={[styles.fieldDot, { backgroundColor: '#4ECDC4' }]} />
+            <View style={styles.fieldConnector} />
+            <View style={styles.fieldInputWrapper}>
+              <TextInput
+                style={[
+                  styles.fieldInput,
+                  activeField === 'departure' && styles.fieldInputActive,
+                ]}
+                placeholder="Departure address"
+                placeholderTextColor={COLORS.gray400}
+                value={departureSearch}
+                onChangeText={(text) => {
+                  setDepartureSearch(text);
+                  setActiveField('departure');
+                  searchAddress(text, 'departure');
+                }}
+                onFocus={() => setActiveField('departure')}
+              />
+              {searchingDeparture && <ActivityIndicator size="small" color={COLORS.primary} style={styles.fieldSpinner} />}
+              {departureAddress && !searchingDeparture && (
+                <TouchableOpacity
+                  style={styles.fieldClear}
+                  onPress={() => {
+                    setDepartureCoord(null);
+                    setDepartureAddress('');
+                    setDepartureSearch('');
+                    setDepartureSuggestions([]);
+                    setRouteResult(null);
+                    setRouteGeoJSON(null);
+                    setActiveField('departure');
+                    onRouteClear?.();
+                  }}
+                >
+                  <Ionicons name="close-circle" size={18} color={COLORS.grayMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          {renderSuggestionList(departureSuggestions, 'departure')}
+
+          {/* Arrival field */}
+          <View style={styles.fieldRow}>
+            <View style={[styles.fieldDot, { backgroundColor: '#FF6B6B' }]} />
+            <View style={{ width: 12 }} />
+            <View style={styles.fieldInputWrapper}>
+              <TextInput
+                style={[
+                  styles.fieldInput,
+                  activeField === 'arrival' && styles.fieldInputActive,
+                ]}
+                placeholder="Arrival address"
+                placeholderTextColor={COLORS.gray400}
+                value={arrivalSearch}
+                onChangeText={(text) => {
+                  setArrivalSearch(text);
+                  setActiveField('arrival');
+                  searchAddress(text, 'arrival');
+                }}
+                onFocus={() => setActiveField('arrival')}
+              />
+              {searchingArrival && <ActivityIndicator size="small" color={COLORS.primary} style={styles.fieldSpinner} />}
+              {arrivalAddress && !searchingArrival && (
+                <TouchableOpacity
+                  style={styles.fieldClear}
+                  onPress={() => {
+                    setArrivalCoord(null);
+                    setArrivalAddress('');
+                    setArrivalSearch('');
+                    setArrivalSuggestions([]);
+                    setRouteResult(null);
+                    setRouteGeoJSON(null);
+                    setActiveField('arrival');
+                    onRouteClear?.();
+                  }}
+                >
+                  <Ionicons name="close-circle" size={18} color={COLORS.grayMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          {renderSuggestionList(arrivalSuggestions, 'arrival')}
+        </View>
+      ) : (
+        <View style={styles.fieldsContainer}>
+          {/* Single location field */}
+          <View style={styles.fieldRow}>
+            <Ionicons name="location-outline" size={normalize(18)} color={COLORS.primary} />
+            <View style={{ width: 10 }} />
+            <View style={styles.fieldInputWrapper}>
+              <TextInput
+                style={[styles.fieldInput, styles.fieldInputActive]}
+                placeholder="Search address or place..."
+                placeholderTextColor={COLORS.gray400}
+                value={locationSearch}
+                onChangeText={(text) => {
+                  setLocationSearch(text);
+                  searchAddress(text, 'location');
+                }}
+                editable={!lockedLocation}
+              />
+              {searchingLocation && <ActivityIndicator size="small" color={COLORS.primary} style={styles.fieldSpinner} />}
+              {locationAddress && !searchingLocation && !lockedLocation && (
+                <TouchableOpacity
+                  style={styles.fieldClear}
+                  onPress={() => {
+                    setSelectedPoint(null);
+                    setLocationAddress('');
+                    setLocationSearch('');
+                    setLocationSuggestions([]);
+                    onLocationNameChange('');
+                  }}
+                >
+                  <Ionicons name="close-circle" size={18} color={COLORS.grayMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          {renderSuggestionList(locationSuggestions, 'location')}
+        </View>
+      )}
+
+      {/* ============================================ */}
+      {/* ROUTE STATS CARD                             */}
+      {/* ============================================ */}
+
       {routeResult && (
         <View style={styles.routeInfoCard}>
           <View style={styles.routeInfoRow}>
             <View style={styles.routeInfoItem}>
-              <Ionicons name="map-outline" size={normalize(16)} color={COLORS.primary} />
+              <Ionicons name="map-outline" size={normalize(18)} color={COLORS.primary} />
               <Text style={styles.routeInfoValue}>{formatDistance(routeResult.distanceKm)}</Text>
               <Text style={styles.routeInfoLabel}>Distance</Text>
             </View>
             <View style={styles.routeInfoDivider} />
             <View style={styles.routeInfoItem}>
-              <Ionicons name="time-outline" size={normalize(16)} color={COLORS.primary} />
+              <Ionicons name="time-outline" size={normalize(18)} color={COLORS.primary} />
               <Text style={styles.routeInfoValue}>{formatDuration(routeResult.durationMin)}</Text>
               <Text style={styles.routeInfoLabel}>Est. time</Text>
             </View>
             <View style={styles.routeInfoDivider} />
             <View style={styles.routeInfoItem}>
-              <Ionicons name="trending-up" size={normalize(16)} color={DIFFICULTY_COLORS[routeResult.difficulty]} />
+              <Ionicons name="trending-up" size={normalize(18)} color={DIFFICULTY_COLORS[routeResult.difficulty]} />
               <Text style={[styles.routeInfoValue, { color: DIFFICULTY_COLORS[routeResult.difficulty] }]}>
                 {routeResult.difficulty.charAt(0).toUpperCase() + routeResult.difficulty.slice(1)}
               </Text>
               <Text style={styles.routeInfoLabel}>Difficulty</Text>
             </View>
+            {routeResult.elevationGain > 0 && (
+              <>
+                <View style={styles.routeInfoDivider} />
+                <View style={styles.routeInfoItem}>
+                  <Ionicons name="arrow-up" size={normalize(18)} color="#FF9800" />
+                  <Text style={styles.routeInfoValue}>{Math.round(routeResult.elevationGain)}m</Text>
+                  <Text style={styles.routeInfoLabel}>Elevation</Text>
+                </View>
+              </>
+            )}
           </View>
           <Text style={styles.routeInfoProfile}>
             Route optimized for {profile === 'cycling' ? 'cycling paths' : 'pedestrian paths'}
@@ -459,7 +803,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapContainer: {
-    height: 300,
+    height: 280,
     borderRadius: normalize(16),
     overflow: 'hidden',
     backgroundColor: COLORS.gray100,
@@ -573,21 +917,87 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Location input
-  locationInput: {
+  // Address fields
+  fieldsContainer: {
+    marginTop: 14,
+  },
+  fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 4,
+  },
+  fieldDot: {
+    width: normalize(12),
+    height: normalize(12),
+    borderRadius: normalize(6),
+    borderWidth: 2,
+    borderColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  fieldConnector: {
+    width: 12,
+  },
+  fieldInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fieldInput: {
+    flex: 1,
     backgroundColor: COLORS.gray100,
     borderRadius: normalize(12),
     paddingHorizontal: 14,
     height: normalize(44),
-    marginTop: 12,
-    gap: 10,
-  },
-  locationTextInput: {
-    flex: 1,
     fontSize: normalize(14),
     color: COLORS.dark,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  fieldInputActive: {
+    borderColor: COLORS.primary + '40',
+    backgroundColor: COLORS.white,
+  },
+  fieldSpinner: {
+    position: 'absolute',
+    right: 14,
+  },
+  fieldClear: {
+    position: 'absolute',
+    right: 12,
+  },
+
+  // Suggestions
+  suggestionsContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: normalize(12),
+    marginBottom: 8,
+    marginLeft: 24,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder || '#E5E7EB',
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.grayBorder || '#E5E7EB',
+  },
+  suggestionMain: {
+    fontSize: normalize(14),
+    fontWeight: '500',
+    color: COLORS.dark,
+  },
+  suggestionSub: {
+    fontSize: normalize(12),
+    color: COLORS.gray,
+    marginTop: 2,
   },
 
   // Route info card
@@ -595,9 +1005,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderRadius: normalize(14),
     padding: 16,
-    marginTop: 12,
+    marginTop: 14,
     borderWidth: 1,
-    borderColor: COLORS.grayBorder,
+    borderColor: COLORS.grayBorder || '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   routeInfoRow: {
     flexDirection: 'row',
@@ -620,7 +1035,7 @@ const styles = StyleSheet.create({
   routeInfoDivider: {
     width: 1,
     height: 40,
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: COLORS.grayBorder || '#E5E7EB',
   },
   routeInfoProfile: {
     fontSize: normalize(11),

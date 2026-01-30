@@ -12,6 +12,7 @@ import { LiquidButton } from '../../components/LiquidButton';
 import { BlurView } from 'expo-blur';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 
 // Initialize Mapbox with access token
@@ -72,32 +73,39 @@ const MAX_ACTIVE_FILTERS = 3;
 // ============================================
 type FabAction = { label: string; icon: keyof typeof Ionicons.glyphMap; action: string };
 
-// Personal: Create Activity (unified event + group)
+// Personal (non-verified): Create Activity only (1/week limit enforced at action time)
 const PERSONAL_ACTIONS: FabAction[] = [
   { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
 ];
 
-// Personal verified / Pro Creator: + Suggest Spot, Add Review
-const VERIFIED_ACTIONS: FabAction[] = [
+// Personal verified: + Suggest Spot, Add Review
+const PERSONAL_VERIFIED_ACTIONS: FabAction[] = [
   ...PERSONAL_ACTIONS,
   { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
   { label: 'Add Review', icon: 'star-outline', action: 'add_review' },
 ];
 
+// Pro Creator: same as personal verified
+const CREATOR_ACTIONS: FabAction[] = [
+  ...PERSONAL_VERIFIED_ACTIONS,
+];
+
 // Pro Creator Premium: + Share Live on Map
 const CREATOR_PREMIUM_ACTIONS: FabAction[] = [
-  ...VERIFIED_ACTIONS,
+  ...CREATOR_ACTIONS,
   ...(FEATURES.GO_LIVE ? [{ label: 'Share Live', icon: 'videocam-outline' as const, action: 'share_live' }] : []),
 ];
 
-// Pro Business: Create Activity (locked to business location)
+// Pro Business (non-premium): Create Activity only (locked to business location, no paid, no revenue)
 const BUSINESS_ACTIONS: FabAction[] = [
   { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
 ];
 
-// Pro Business Premium: All of Pro Creator + activity anywhere + planning indexed
+// Pro Business Premium: Create Activity + Upload Planning + Recommend (NO live)
 const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
-  ...CREATOR_PREMIUM_ACTIONS,
+  { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
+  { label: 'Upload Planning', icon: 'calendar-outline', action: 'upload_planning' },
+  { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
 ];
 
 // ============================================
@@ -136,6 +144,7 @@ interface XplorerFeedProps {
 
 export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) {
   const insets = useSafeAreaInsets();
+  const { showAlert } = useSmuppyAlert();
   const cameraRef = useRef<Camera>(null);
   const hasRequestedPermission = useRef(false);
   const { setBottomBarHidden, showBars, xplorerFullscreen, toggleXplorerFullscreen, setXplorerFullscreen } = useTabBar();
@@ -278,9 +287,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     if (accountType === 'pro_business' && isPremium) return BUSINESS_PREMIUM_ACTIONS;
     if (accountType === 'pro_business') return BUSINESS_ACTIONS;
     if (accountType === 'pro_creator' && isPremium) return CREATOR_PREMIUM_ACTIONS;
-    if (accountType === 'pro_creator') return VERIFIED_ACTIONS;
-    if (isVerified) return VERIFIED_ACTIONS;
-    // Personal (non-verified) still gets basic actions
+    if (accountType === 'pro_creator') return CREATOR_ACTIONS;
+    if (isVerified) return PERSONAL_VERIFIED_ACTIONS;
     return PERSONAL_ACTIONS;
   }, [accountType, isVerified, isPremium]);
 
@@ -411,16 +419,41 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     navigation.navigate('UserProfile', { userId: marker.id });
   }, [closePopup, navigation]);
 
-  const handleFabAction = useCallback((action: string) => {
+  const handleFabAction = useCallback(async (action: string) => {
     setFabOpen(false);
     switch (action) {
-      case 'create_activity':
-        if (accountType === 'pro_business' && !isPremium && businessLatitude != null && businessLongitude != null) {
-          navigation.navigate('CreateActivity', { lockedLocation: { address: businessAddress, latitude: businessLatitude, longitude: businessLongitude } });
+      case 'create_activity': {
+        // Personal non-verified: 1 creation per week, then must verify
+        if (accountType === 'personal' && !isVerified) {
+          try {
+            const limits = await awsAPI.checkCreationLimits();
+            if (!limits.canCreateEvent) {
+              showAlert({
+                title: 'Weekly Limit Reached',
+                message: 'Free accounts can create 1 event per week. Verify your identity to create unlimited events and groups.',
+                type: 'info',
+                buttons: [
+                  { text: 'OK', style: 'cancel' },
+                  { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
+                ],
+              });
+              return;
+            }
+          } catch (_e) { /* Allow on error */ }
+        }
+
+        if (accountType === 'pro_business' && businessLatitude != null && businessLongitude != null) {
+          // Pro Business: locked to business address + business category
+          navigation.navigate('CreateEvent', {
+            lockedLocation: { address: businessAddress, latitude: businessLatitude, longitude: businessLongitude },
+            businessName: useUserStore.getState().user?.businessName,
+            businessCategory: useUserStore.getState().user?.businessCategory,
+          });
         } else {
-          navigation.navigate('CreateActivity');
+          navigation.navigate('CreateEvent');
         }
         break;
+      }
       case 'suggest_spot':
         navigation.navigate('SuggestSpot');
         break;
@@ -429,11 +462,26 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         // For FAB, open spot suggestion which includes initial review
         navigation.navigate('SuggestSpot');
         break;
+      case 'upload_planning':
+        navigation.navigate('UploadPlanning');
+        break;
       case 'share_live':
+        if (!isVerified) {
+          showAlert({
+            title: 'Verified Account Required',
+            message: 'You need to verify your identity to go live and access channel features.',
+            type: 'info',
+            buttons: [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
+            ],
+          });
+          return;
+        }
         navigation.navigate('GoLiveIntro');
         break;
     }
-  }, [navigation, accountType, isPremium, businessLatitude, businessLongitude, businessAddress]);
+  }, [navigation, accountType, isPremium, isVerified, businessLatitude, businessLongitude, businessAddress, showAlert]);
 
   const allMarkers = useMemo(() => {
     return [...MOCK_MARKERS, ...eventGroupMarkers];
@@ -894,7 +942,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               >
                 {isActive ? (
                   <View style={styles.chipActive}>
-                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.dark} />
+                    <Ionicons name={filter.icon} size={normalize(16)} color={filter.color} />
                     <Text style={styles.chipText}>{filter.label}</Text>
                     {subCount > 0 && (
                       <View style={styles.chipSubBadge}>
@@ -904,7 +952,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                   </View>
                 ) : (
                   <View style={styles.chipInactive}>
-                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.dark} />
+                    <Ionicons name={filter.icon} size={normalize(16)} color={filter.color} />
                     <Text style={styles.chipText}>{filter.label}</Text>
                   </View>
                 )}
@@ -916,13 +964,21 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
       {/* MAP BUTTONS - Bottom right */}
       <View style={[styles.mapButtonsRight, { bottom: insets.bottom + hp(2) }]}>
-        <GradientMapButton
+        <LiquidButton
+          label=""
           onPress={toggleXplorerFullscreen}
-          iconName={xplorerFullscreen ? 'contract-outline' : 'expand-outline'}
+          size="md"
+          icon={<Ionicons name={xplorerFullscreen ? 'contract-outline' : 'expand-outline'} size={normalize(20)} color="#fff" />}
+          iconPosition="left"
+          style={styles.liquidMapButton}
         />
-        <GradientMapButton
+        <LiquidButton
+          label=""
           onPress={centerOnUser}
-          iconName="navigate"
+          size="md"
+          icon={<Ionicons name="navigate" size={normalize(20)} color="#fff" />}
+          iconPosition="left"
+          style={styles.liquidMapButton}
         />
       </View>
 
@@ -962,24 +1018,22 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             </View>
           ) : null}
 
-          {/* Main FAB pill */}
-          <TouchableOpacity activeOpacity={0.85} onPress={() => {
-            if (fabActions.length === 1) {
-              handleFabAction(fabActions[0].action);
-            } else {
-              setFabOpen(prev => !prev);
-            }
-          }}>
-            <LinearGradient
-              colors={GRADIENTS.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.fab}
-            >
-              <Ionicons name={fabOpen ? 'close' : 'add'} size={normalize(22)} color={COLORS.white} />
-              {!fabOpen && <Text style={styles.fabLabel}>Create</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
+          {/* Main FAB — LiquidButton */}
+          <LiquidButton
+            label={fabOpen ? '' : 'Create'}
+            onPress={() => {
+              if (fabActions.length === 1) {
+                handleFabAction(fabActions[0].action);
+              } else {
+                setFabOpen(prev => !prev);
+              }
+            }}
+            size="md"
+            colorScheme="green"
+            icon={<Ionicons name={fabOpen ? 'close' : 'add'} size={normalize(20)} color={COLORS.white} />}
+            iconPosition="left"
+            style={styles.fab}
+          />
         </View>
       )}
 
@@ -1112,6 +1166,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  liquidMapButton: {
+    width: normalize(46),
+    height: normalize(46),
+    borderRadius: normalize(23),
+    paddingHorizontal: 0,
+  },
 
   // FAB
   fabContainer: {
@@ -1121,18 +1181,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   fab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: normalize(48),
-    paddingHorizontal: wp(5),
-    borderRadius: normalize(24),
-    gap: wp(2),
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    // LiquidButton handles internal styling; only position/shadow overrides here
   },
   fabLabel: {
     fontSize: normalize(15),

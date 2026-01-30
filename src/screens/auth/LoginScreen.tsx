@@ -232,7 +232,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     if (__DEV__) console.log('[Login] handleLogin called', { email: email.replace(/^(.).*@/, '$1***@'), loading });
 
     if (!email || !password) {
-      console.log('[Login] Missing email or password');
       setErrorModal({
         visible: true,
         title: 'Missing Information',
@@ -242,11 +241,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
 
     // Prevent double-tap: set loading BEFORE any async operation
-    if (loading) {
-      console.log('[Login] Already loading, skipping');
-      return;
-    }
-    console.log('[Login] Setting loading to true');
+    if (loading) return;
     setLoading(true);
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -527,7 +522,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             {/* Login Button */}
             <TouchableOpacity
               onPress={() => {
-                console.log('[Login] Button pressed!', { isFormValid, loading, disabled: !isFormValid || loading });
                 handleLogin();
               }}
               disabled={!isFormValid || loading}

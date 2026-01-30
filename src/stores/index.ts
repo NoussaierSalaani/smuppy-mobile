@@ -19,7 +19,6 @@ import { vibeStore } from './vibeStore';
 // Re-export all stores
 export { useContentStore, contentStore } from './contentStore';
 export { useUserSafetyStore, userSafetyStore } from './userSafetyStore';
-export { useEngagementStore } from './engagementStore';
 export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS } from './filterStore';
 export { useTabBarStore, useTabBar, useTabBarAnimations, tabBarStore } from './tabBarStore';
 export { useVibeStore, vibeStore } from './vibeStore';
@@ -371,17 +370,6 @@ export const useAuthStore = create<AuthState>()(
       }),
   }))
 );
-
-// ============================================
-// SELECTORS (for performance)
-// ============================================
-
-// Use these selectors to avoid unnecessary re-renders
-export const selectUser = (state: UserState) => state.user;
-export const selectIsAuthenticated = (state: UserState) => state.isAuthenticated;
-export const selectIsLoading = (state: UserState) => state.isLoading;
-export const selectIsOnline = (state: AppState) => state.isOnline;
-export const selectFeedCache = (state: FeedState) => state.feedCache;
 
 // ============================================
 // RESET ALL STORES (for logout)

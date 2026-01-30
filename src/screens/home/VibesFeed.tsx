@@ -920,8 +920,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           />
         )}
 
-        {/* PEAKS SECTION */}
-        <View style={styles.peaksSection}>
+        {/* PEAKS SECTION — hidden for business accounts */}
+        {!isBusiness && <View style={styles.peaksSection}>
           <View style={styles.peaksSectionHeader}>
             <Text style={styles.peaksSectionTitle}>Peaks</Text>
             <TouchableOpacity
@@ -939,7 +939,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           >
             {PEAKS_DATA.map((peak, index) => renderPeakCard(peak, index))}
           </ScrollView>
-        </View>
+        </View>}
 
         {/* Filters with animated chips */}
         <View style={styles.filtersRow}>

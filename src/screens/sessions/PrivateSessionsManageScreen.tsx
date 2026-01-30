@@ -12,7 +12,6 @@ import {
   Modal,
   TextInput,
   Switch,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   KeyboardAvoidingView,
@@ -25,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI, Session, SessionPack as APISessionPack } from '../../services/aws-api';
 
 type TabType = 'calendar' | 'requests' | 'packs';
@@ -105,6 +105,7 @@ const DURATIONS = [30, 45, 60, 90];
 export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const _insets = useSafeAreaInsets();
+  const { showAlert, showSuccess, showError, showDestructiveConfirm, showConfirm } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
 
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
@@ -125,13 +126,14 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   // Protect route - only pro_creator can manage sessions
   useEffect(() => {
     if (user?.accountType !== 'pro_creator') {
-      Alert.alert(
-        'Pro Creator Feature',
-        'Managing private sessions is only available for Pro Creator accounts.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      showAlert({
+        title: 'Pro Creator Feature',
+        message: 'Managing private sessions is only available for Pro Creator accounts.',
+        type: 'warning',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
-  }, [user?.accountType, navigation]);
+  }, [user?.accountType, navigation, showAlert]);
 
   // Fetch data from API
   const fetchData = useCallback(async () => {
@@ -269,19 +271,19 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
       if (response.success) {
         setShowAddModal(false);
-        Alert.alert('Success', 'Session availability saved!');
+        showSuccess('Success', 'Session availability saved!');
       } else {
-        Alert.alert('Error', response.message || 'Failed to save session settings');
+        showError('Error', response.message || 'Failed to save session settings');
       }
     } catch (error) {
       console.error('Failed to save session:', error);
-      Alert.alert('Error', 'Failed to save session settings. Please try again.');
+      showError('Error', 'Failed to save session settings. Please try again.');
     }
   };
 
   const handleSavePack = async () => {
     if (!packName.trim() || !packPrice) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      showError('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -298,7 +300,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
       if (response.success) {
         setShowAddPackModal(false);
-        Alert.alert('Success', 'Pack created successfully!');
+        showSuccess('Success', 'Pack created successfully!');
         // Reset form
         setPackName('');
         setPackSessions('8');
@@ -309,11 +311,11 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         // Refresh data
         fetchData();
       } else {
-        Alert.alert('Error', response.message || 'Failed to create pack');
+        showError('Error', response.message || 'Failed to create pack');
       }
     } catch (error) {
       console.error('Failed to create pack:', error);
-      Alert.alert('Error', 'Failed to create pack. Please try again.');
+      showError('Error', 'Failed to create pack. Please try again.');
     }
   };
 
@@ -328,69 +330,68 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       }
     } catch (error) {
       console.error('Failed to update pack:', error);
-      Alert.alert('Error', 'Failed to update pack');
+      showError('Error', 'Failed to update pack');
     }
   };
 
   const handleDeletePack = async (packId: string) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Delete Pack',
       'Are you sure you want to delete this pack?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.deletePack(packId);
-              if (response.success) {
-                setCreatorPacks(prev => prev.filter(p => p.id !== packId));
-                Alert.alert('Success', 'Pack deleted');
-              } else {
-                Alert.alert('Error', response.message || 'Failed to delete pack');
-              }
-            } catch (error) {
-              console.error('Failed to delete pack:', error);
-              Alert.alert('Error', 'Failed to delete pack');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.deletePack(packId);
+          if (response.success) {
+            setCreatorPacks(prev => prev.filter(p => p.id !== packId));
+            showSuccess('Success', 'Pack deleted');
+          } else {
+            showError('Error', response.message || 'Failed to delete pack');
+          }
+        } catch (error) {
+          console.error('Failed to delete pack:', error);
+          showError('Error', 'Failed to delete pack');
+        }
+      },
+      'Delete',
     );
   };
 
   const handleRequestAction = async (id: string, action: 'accept' | 'reject') => {
-    Alert.alert(
-      action === 'accept' ? 'Accept Request' : 'Reject Request',
-      `Are you sure you want to ${action} this booking request?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: action === 'accept' ? 'Accept' : 'Reject',
-          onPress: async () => {
-            try {
-              const response = action === 'accept'
-                ? await awsAPI.acceptSession(id)
-                : await awsAPI.declineSession(id);
+    const onConfirm = async () => {
+      try {
+        const response = action === 'accept'
+          ? await awsAPI.acceptSession(id)
+          : await awsAPI.declineSession(id);
 
-              if (response.success) {
-                // Update local state
-                setSessionRequests(prev => prev.map(r =>
-                  r.id === id ? { ...r, status: action === 'accept' ? 'confirmed' : 'rejected' } : r
-                ));
-                Alert.alert('Success', `Request ${action === 'accept' ? 'accepted' : 'rejected'}`);
-              } else {
-                Alert.alert('Error', response.message || `Failed to ${action} request`);
-              }
-            } catch (error) {
-              console.error(`Failed to ${action} request:`, error);
-              Alert.alert('Error', `Failed to ${action} request`);
-            }
-          },
-        },
-      ]
-    );
+        if (response.success) {
+          setSessionRequests(prev => prev.map(r =>
+            r.id === id ? { ...r, status: action === 'accept' ? 'confirmed' : 'rejected' } : r
+          ));
+          showSuccess('Success', `Request ${action === 'accept' ? 'accepted' : 'rejected'}`);
+        } else {
+          showError('Error', response.message || `Failed to ${action} request`);
+        }
+      } catch (error) {
+        console.error(`Failed to ${action} request:`, error);
+        showError('Error', `Failed to ${action} request`);
+      }
+    };
+
+    if (action === 'reject') {
+      showDestructiveConfirm(
+        'Reject Request',
+        `Are you sure you want to ${action} this booking request?`,
+        onConfirm,
+        'Reject',
+      );
+    } else {
+      showConfirm(
+        'Accept Request',
+        `Are you sure you want to ${action} this booking request?`,
+        onConfirm,
+        'Accept',
+      );
+    }
   };
 
   const handleDateClick = (day: number) => {
@@ -404,7 +405,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
   const handleAddOffering = () => {
     if (!newOfferingTitle.trim()) {
-      Alert.alert('Error', 'Please enter a title for the offering');
+      showError('Error', 'Please enter a title for the offering');
       return;
     }
     const newOffering: PackOffering = {

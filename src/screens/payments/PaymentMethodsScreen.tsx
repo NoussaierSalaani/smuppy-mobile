@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Animated,
@@ -23,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
@@ -85,6 +85,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,16 +176,16 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
 
       if (presentError) {
         if (presentError.code !== 'Canceled') {
-          Alert.alert('Erreur', presentError.message);
+          showError('Erreur', presentError.message);
         }
         return;
       }
 
-      Alert.alert('Succes', 'Carte ajoutee avec succes');
+      showSuccess('Succes', 'Carte ajoutee avec succes');
       fetchPaymentMethods();
     } catch (error: any) {
       console.error('Failed to add card:', error);
-      Alert.alert('Erreur', error.message || 'Impossible d\'ajouter la carte');
+      showError('Erreur', error.message || 'Impossible d\'ajouter la carte');
     } finally {
       setAddingCard(false);
     }
@@ -202,41 +203,34 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         );
         setSelectedCard(methodId);
       } else {
-        Alert.alert('Erreur', response.message || 'Impossible de definir comme defaut');
+        showError('Erreur', response.message || 'Impossible de definir comme defaut');
       }
     } catch (error) {
       console.error('Failed to set default:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      showError('Erreur', 'Une erreur est survenue');
     }
   };
 
   const handleRemove = (method: PaymentMethod) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Supprimer la carte',
       `Voulez-vous supprimer la carte **** ${method.card?.last4} ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.removePaymentMethod(method.id);
-              if (response.success) {
-                setPaymentMethods((prev) => prev.filter((pm) => pm.id !== method.id));
-                if (selectedCard === method.id) {
-                  setSelectedCard(null);
-                }
-              } else {
-                Alert.alert('Erreur', response.message || 'Impossible de supprimer');
-              }
-            } catch (error) {
-              console.error('Failed to remove card:', error);
-              Alert.alert('Erreur', 'Une erreur est survenue');
+      async () => {
+        try {
+          const response = await awsAPI.removePaymentMethod(method.id);
+          if (response.success) {
+            setPaymentMethods((prev) => prev.filter((pm) => pm.id !== method.id));
+            if (selectedCard === method.id) {
+              setSelectedCard(null);
             }
-          },
-        },
-      ]
+          } else {
+            showError('Erreur', response.message || 'Impossible de supprimer');
+          }
+        } catch (error) {
+          console.error('Failed to remove card:', error);
+          showError('Erreur', 'Une erreur est survenue');
+        }
+      }
     );
   };
 

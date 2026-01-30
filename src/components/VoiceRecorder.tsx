@@ -5,11 +5,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Alert,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../config/theme';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 interface VoiceRecorderProps {
   onSend: (uri: string, duration: number) => void;
@@ -17,6 +17,7 @@ interface VoiceRecorderProps {
 }
 
 export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
+  const { showError } = useSmuppyAlert();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -31,7 +32,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
       const { granted } = await Audio.requestPermissionsAsync();
       setPermissionGranted(granted);
       if (!granted) {
-        Alert.alert('Permission Required', 'Microphone access is needed to record voice messages.');
+        showError('Permission Required', 'Microphone access is needed to record voice messages.');
       }
     })();
 
@@ -72,7 +73,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
   const startRecording = async () => {
     if (!permissionGranted) {
-      Alert.alert('Permission Denied', 'Please enable microphone access in settings.');
+      showError('Permission Denied', 'Please enable microphone access in settings.');
       return;
     }
 
@@ -96,7 +97,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
       }, 1000);
     } catch (err) {
       console.error('Failed to start recording:', err);
-      Alert.alert('Error', 'Failed to start recording');
+      showError('Error', 'Failed to start recording');
     }
   };
 
@@ -120,7 +121,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
       if (uri && duration >= 1) {
         onSend(uri, duration);
       } else if (duration < 1) {
-        Alert.alert('Too Short', 'Voice message must be at least 1 second');
+        showError('Too Short', 'Voice message must be at least 1 second');
         onCancel();
       }
     } catch (err) {

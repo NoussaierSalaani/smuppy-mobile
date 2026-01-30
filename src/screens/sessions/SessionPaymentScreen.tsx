@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
-  Alert,
   StyleProp,
   ImageStyle,
 } from 'react-native';
@@ -19,11 +18,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { usePaymentSheet, PaymentSheetError } from '@stripe/stripe-react-native';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 export default function SessionPaymentScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
+
+  const { showError, showWarning } = useSmuppyAlert();
 
   const { creator, date, time, duration, price, sessionId } = route.params || {
     creator: { id: '', name: 'Creator', avatar: null },
@@ -101,7 +103,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
 
   const handlePayment = async () => {
     if (!paymentReady) {
-      Alert.alert('Please wait', 'Payment is still loading...');
+      showWarning('Please wait', 'Payment is still loading...');
       return;
     }
 
@@ -115,7 +117,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
           // User cancelled - do nothing
           console.log('Payment cancelled by user');
         } else {
-          Alert.alert('Payment Failed', paymentError.message);
+          showError('Payment Failed', paymentError.message);
         }
       } else {
         // Payment successful - now create the booking
@@ -140,16 +142,16 @@ export default function SessionPaymentScreen(): React.JSX.Element {
             });
           } else {
             // Payment succeeded but booking failed - rare edge case
-            Alert.alert('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
+            showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
           }
         } catch (bookingError) {
           console.error('Booking error:', bookingError);
-          Alert.alert('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
+          showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
         }
       }
     } catch (err: any) {
       console.error('Payment error:', err);
-      Alert.alert('Error', err.message || 'Something went wrong');
+      showError('Error', err.message || 'Something went wrong');
     } finally {
       setIsProcessing(false);
     }

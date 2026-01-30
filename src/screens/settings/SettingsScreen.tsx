@@ -7,7 +7,6 @@ import {
   Modal,
   StatusBar,
   ActivityIndicator,
-  Alert,
   Switch,
   ScrollView,
 } from 'react-native';
@@ -24,6 +23,7 @@ import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../config/theme';
 import { resetAllStores, useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const COVER_HEIGHT = 160;
 
@@ -38,6 +38,7 @@ interface SettingsScreenProps {
 
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showError } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const getFullName = useUserStore((state) => state.getFullName);
   const { data: profileData, refetch } = useCurrentProfile();
@@ -129,7 +130,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       await refetch();
     } catch (error) {
       console.error('Toggle privacy error:', error);
-      Alert.alert('Error', 'Failed to update privacy setting.');
+      showError('Error', 'Failed to update privacy setting.');
     } finally {
       setTogglingPrivacy(false);
     }
@@ -192,7 +193,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     try {
       const currentUser = await backend.getCurrentUser();
       if (!currentUser) {
-        Alert.alert('Error', 'User not found');
+        showError('Error', 'User not found');
         return;
       }
 
@@ -215,7 +216,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       await backend.signOut();
     } catch (error) {
       console.error('Delete account error:', error);
-      Alert.alert('Error', 'Failed to delete account. Please try again.');
+      showError('Error', 'Failed to delete account. Please try again.');
     } finally {
       setDeleting(false);
     }

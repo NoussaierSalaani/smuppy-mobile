@@ -7,11 +7,11 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { AvatarImage } from './OptimizedImage';
 import OptimizedImage from './OptimizedImage';
 import { AccountBadge } from './Badge';
@@ -39,6 +39,7 @@ interface SharePostModalProps {
 }
 
 export default function SharePostModal({ visible, post, onClose }: SharePostModalProps) {
+  const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -93,9 +94,9 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     const { error } = await sharePostToConversation(post.id, conv.other_user.id);
 
     if (error) {
-      Alert.alert('Error', 'Failed to share post');
+      showError('Error', 'Failed to share post');
     } else {
-      Alert.alert('Sent!', `Post shared with ${conv.other_user.full_name || conv.other_user.username}`);
+      showSuccess('Sent!', `Post shared with ${conv.other_user.full_name || conv.other_user.username}`);
       onClose();
     }
     setSending(null);
@@ -109,9 +110,9 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     const { error } = await sharePostToConversation(post.id, user.id);
 
     if (error) {
-      Alert.alert('Error', 'Failed to share post');
+      showError('Error', 'Failed to share post');
     } else {
-      Alert.alert('Sent!', `Post shared with ${user.full_name || user.username}`);
+      showSuccess('Sent!', `Post shared with ${user.full_name || user.username}`);
       onClose();
     }
     setSending(null);

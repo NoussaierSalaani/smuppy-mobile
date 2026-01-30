@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
-  Alert,
   ActivityIndicator,
   Animated,
   StyleProp,
@@ -24,6 +23,7 @@ import { COLORS } from '../../config/theme';
 import { usePrivateCall } from '../../hooks/useAgora';
 import { LocalVideoView, RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -44,6 +44,8 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+
+  const { showAlert } = useSmuppyAlert();
 
   const {
     sessionId,
@@ -162,9 +164,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
     // First fetch the Agora token from backend
     const tokenFetched = await fetchAgoraToken();
     if (!tokenFetched) {
-      Alert.alert('Error', 'Failed to initialize video call. Please try again.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: 'Failed to initialize video call. Please try again.',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
       return;
     }
 
@@ -173,9 +178,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
     if (success) {
       setCallState('ringing');
     } else {
-      Alert.alert('Error', error || 'Failed to start call', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: error || 'Failed to start call',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
   };
 
@@ -185,17 +193,23 @@ export default function PrivateCallScreen(): React.JSX.Element {
     // First fetch the Agora token from backend
     const tokenFetched = await fetchAgoraToken();
     if (!tokenFetched) {
-      Alert.alert('Error', 'Failed to initialize video call. Please try again.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: 'Failed to initialize video call. Please try again.',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
       return;
     }
 
     const success = await joinChannel(agoraToken || undefined);
     if (!success) {
-      Alert.alert('Error', error || 'Failed to join call', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: error || 'Failed to join call',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
   };
 

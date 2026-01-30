@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
@@ -62,6 +62,7 @@ const PERIOD_LABELS = {
 };
 
 export default function BusinessSubscriptionScreen({ route, navigation }: BusinessSubscriptionScreenProps) {
+  const { showError, showConfirm } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
@@ -113,7 +114,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
       }
     } catch (error) {
       console.error('Load subscription data error:', error);
-      Alert.alert('Error', 'Failed to load subscription plans');
+      showError('Error', 'Failed to load subscription plans');
     } finally {
       setIsLoading(false);
     }
@@ -129,16 +130,11 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
 
     // Already subscribed warning
     if (existingSubscription) {
-      Alert.alert(
+      showConfirm(
         'Already Subscribed',
         `You already have an active subscription to ${business?.name}.\n\nWould you like to change your plan?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Change Plan',
-            onPress: () => processSubscription(),
-          },
-        ]
+        () => processSubscription(),
+        'Change Plan'
       );
       return;
     }
@@ -212,7 +208,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
     } catch (error: any) {
       console.error('Subscription error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Subscription Failed', error.message || 'Please try again');
+      showError('Subscription Failed', error.message || 'Please try again');
     } finally {
       setIsSubscribing(false);
     }

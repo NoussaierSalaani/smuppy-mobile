@@ -15,7 +15,6 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useStripe } from '@stripe/stripe-react-native';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
@@ -110,6 +110,7 @@ export default function IdentityVerificationScreen() {
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<VerificationStatus>('not_started');
   const [_paymentReady, setPaymentReady] = useState(false);
+  const { showError, showAlert } = useSmuppyAlert();
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -176,17 +177,17 @@ export default function IdentityVerificationScreen() {
         });
 
         if (error) {
-          Alert.alert('Error', error.message);
+          showError('Error', error.message);
         } else {
           setPaymentReady(true);
           // Present payment sheet
           await handlePayment();
         }
       } else {
-        Alert.alert('Error', response.error || 'Failed to initialize payment');
+        showError('Error', response.error || 'Failed to initialize payment');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+      showError('Error', error.message || 'Something went wrong');
     } finally {
       setProcessing(false);
     }
@@ -199,16 +200,19 @@ export default function IdentityVerificationScreen() {
 
       if (error) {
         if (error.code !== 'Canceled') {
-          Alert.alert('Payment Failed', error.message);
+          showError('Payment Failed', error.message);
         }
       } else {
         // Payment successful, start verification
-        Alert.alert('Payment Successful', 'Now let\'s verify your identity', [
-          { text: 'Continue', onPress: startVerification },
-        ]);
+        showAlert({
+          title: 'Payment Successful',
+          message: 'Now let\'s verify your identity',
+          type: 'success',
+          buttons: [{ text: 'Continue', onPress: startVerification }],
+        });
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Payment failed');
+      showError('Error', error.message || 'Payment failed');
     } finally {
       setProcessing(false);
     }
@@ -251,11 +255,11 @@ export default function IdentityVerificationScreen() {
             navigation.navigate('WebView', { url: sessionResponse.url, title: 'Verify Identity' });
           }
         } else {
-          Alert.alert('Error', sessionResponse.error || 'Failed to start verification');
+          showError('Error', sessionResponse.error || 'Failed to start verification');
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+      showError('Error', error.message || 'Something went wrong');
     } finally {
       setProcessing(false);
     }

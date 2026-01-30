@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { COLORS, GRADIENTS } from '../../config/theme';
 import { ALL_INTERESTS } from '../../config/interests';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface EditInterestsScreenProps {
   navigation: { goBack: () => void };
@@ -15,6 +16,7 @@ interface EditInterestsScreenProps {
 
 export default function EditInterestsScreen({ navigation, route }: EditInterestsScreenProps) {
   const insets = useSafeAreaInsets();
+  const { showError } = useSmuppyAlert();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const { data: profileData, refetch } = useCurrentProfile();
   const user = useUserStore((state) => state.user);
@@ -66,7 +68,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
 
       navigation.goBack();
     } catch (error: any) {
-      Alert.alert('Error', `Failed to save interests: ${error?.message || error}`);
+      showError('Error', 'Failed to save interests. Please try again.');
     } finally {
       setIsSaving(false);
     }

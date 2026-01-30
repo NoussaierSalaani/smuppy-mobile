@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   StyleProp,
   ImageStyle,
@@ -23,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useStripe } from '@stripe/stripe-react-native';
 import { DARK_COLORS as COLORS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface ChannelTier {
   id: string;
@@ -60,6 +60,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RouteParams, 'ChannelSubscribe'>>();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
+  const { showError } = useSmuppyAlert();
   const { creatorId, tier } = route.params;
   const creator = getCreator(creatorId);
 
@@ -121,7 +122,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       }
     } catch (error) {
       console.error('Payment init error:', error);
-      Alert.alert('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
+      showError('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -139,7 +140,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
       if (error) {
         if (error.code !== 'Canceled') {
-          Alert.alert('Erreur de paiement', error.message);
+          showError('Erreur de paiement', error.message);
         }
       } else {
         // Payment successful
@@ -150,7 +151,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       }
     } catch (error) {
       console.error('Payment error:', error);
-      Alert.alert('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
+      showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }

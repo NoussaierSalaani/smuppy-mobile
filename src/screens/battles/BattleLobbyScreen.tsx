@@ -12,7 +12,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: _width } = Dimensions.get('window');
 
@@ -48,6 +48,7 @@ interface Battle {
 }
 
 export default function BattleLobbyScreen() {
+  const { showError, showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const user = useUserStore((state: any) => state.user);
@@ -202,26 +203,19 @@ export default function BattleLobbyScreen() {
       }
     } catch (error) {
       console.error('Start battle error:', error);
-      Alert.alert('Error', 'Failed to start battle');
+      showError('Error', 'Failed to start battle');
     }
   };
 
   const handleLeaveBattle = async () => {
-    Alert.alert('Leave Battle?', 'Are you sure you want to leave this battle?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await awsAPI.battleAction(battleId, 'leave');
-            navigation.goBack();
-          } catch (error) {
-            console.error('Leave battle error:', error);
-          }
-        },
-      },
-    ]);
+    showDestructiveConfirm('Leave Battle?', 'Are you sure you want to leave this battle?', async () => {
+      try {
+        await awsAPI.battleAction(battleId, 'leave');
+        navigation.goBack();
+      } catch (error) {
+        console.error('Leave battle error:', error);
+      }
+    }, 'Leave');
   };
 
   const handleInvite = () => {

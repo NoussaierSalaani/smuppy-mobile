@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
@@ -7,6 +7,7 @@ import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { awsAPI } from '../../services/aws-api';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface FindFriendsScreenProps {
   navigation: {
@@ -15,6 +16,7 @@ interface FindFriendsScreenProps {
 }
 
 export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps) {
+  const { showError, showAlert } = useSmuppyAlert();
   const [loading, setLoading] = useState(false);
   const [friendsFound, setFriendsFound] = useState<number | null>(null);
 
@@ -31,11 +33,12 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
       const { status } = await Contacts.requestPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'To find your friends on Smuppy, we need access to your contacts. You can enable this later in Settings.',
-          [{ text: 'OK', onPress: handleClose }]
-        );
+        showAlert({
+          title: 'Permission Required',
+          message: 'To find your friends on Smuppy, we need access to your contacts. You can enable this later in Settings.',
+          type: 'warning',
+          buttons: [{ text: 'OK', onPress: handleClose }],
+        });
         setLoading(false);
         return;
       }
@@ -49,7 +52,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
       });
 
       if (!contactsData || contactsData.length === 0) {
-        Alert.alert('No Contacts', 'We couldn\'t find any contacts on your device.');
+        showError('No Contacts', 'We couldn\'t find any contacts on your device.');
         setLoading(false);
         handleClose();
         return;
@@ -77,11 +80,12 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
       }
     } catch (error) {
       console.error('[FindFriends] Error:', error);
-      Alert.alert(
-        'Error',
-        'Something went wrong. You can try again later from Settings.',
-        [{ text: 'Continue', onPress: handleClose }]
-      );
+      showAlert({
+        title: 'Error',
+        message: 'Something went wrong. You can try again later from Settings.',
+        type: 'error',
+        buttons: [{ text: 'Continue', onPress: handleClose }],
+      });
     } finally {
       setLoading(false);
     }

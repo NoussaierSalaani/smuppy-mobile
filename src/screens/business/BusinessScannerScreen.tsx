@@ -9,7 +9,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Animated,
   Dimensions,
   ActivityIndicator,
@@ -21,6 +20,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
@@ -43,6 +43,7 @@ interface ValidationResult {
 }
 
 export default function BusinessScannerScreen({ navigation }: Props) {
+  const { showAlert } = useSmuppyAlert();
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
@@ -275,7 +276,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
         <Text style={styles.headerTitle}>Scan Access Code</Text>
         <TouchableOpacity
           style={styles.historyButton}
-          onPress={() => Alert.alert('Scan History', `${scanHistory.length} entries today`)}
+          onPress={() => showAlert({ title: 'Scan History', message: `${scanHistory.length} entries today`, buttons: [{ text: 'OK' }] })}
         >
           <Ionicons name="time-outline" size={22} color="#fff" />
         </TouchableOpacity>

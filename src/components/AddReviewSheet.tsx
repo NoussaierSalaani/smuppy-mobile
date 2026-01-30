@@ -16,13 +16,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { COLORS, GRADIENTS } from '../config/theme';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import QualityPicker from './QualityPicker';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -68,6 +68,7 @@ export default function AddReviewSheet({
   showQualities = true,
   isSubmitting = false,
 }: AddReviewSheetProps) {
+  const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -80,7 +81,7 @@ export default function AddReviewSheet({
 
   const handleSubmit = useCallback(() => {
     if (rating === 0) {
-      Alert.alert('Rating required', 'Please select a star rating');
+      showError('Rating required', 'Please select a star rating');
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
@@ -31,6 +31,7 @@ export default function EmailVerificationPendingScreen({
 }: {
   route: RouteProp<EmailVerificationRouteParams, 'EmailVerificationPending'>
 }): React.ReactNode {
+  const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -71,7 +72,7 @@ export default function EmailVerificationPendingScreen({
     const normalizedEmail = email.trim().toLowerCase();
     const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
     if (!awsCheck.allowed) {
-      Alert.alert('Too many attempts', `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+      showError('Too many attempts', `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
       return;
     }
 
@@ -81,15 +82,15 @@ export default function EmailVerificationPendingScreen({
       // Use AWS Cognito to resend confirmation code
       await awsAuth.resendConfirmationCode(normalizedEmail);
       setResendCooldown(60);
-      Alert.alert('Code Sent', 'A new verification code has been sent to your inbox.');
+      showSuccess('Code Sent', 'A new verification code has been sent to your inbox.');
     } catch (err: any) {
       console.error('[EmailPending] Resend error:', err);
       const errorMessage = err?.message || '';
 
       if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
-        Alert.alert('Too many attempts', 'Please try again in a few moments.');
+        showError('Too many attempts', 'Please try again in a few moments.');
       } else {
-        Alert.alert('Error', 'Unable to resend verification code. Please try again.');
+        showError('Error', 'Unable to resend verification code. Please try again.');
       }
     } finally {
       setIsResending(false);
@@ -106,10 +107,12 @@ export default function EmailVerificationPendingScreen({
         // User is verified, navigation will handle it
         return;
       } else {
-        Alert.alert(
-          'Not Verified Yet',
-          'Your email has not been verified yet. Please check your inbox and enter the verification code.'
-        );
+        showAlert({
+          title: 'Not Verified Yet',
+          message: 'Your email has not been verified yet. Please check your inbox and enter the verification code.',
+          type: 'warning',
+          buttons: [{ text: 'OK' }],
+        });
       }
     } catch (err) {
       console.error('[EmailPending] Check status error:', err);
@@ -119,28 +122,22 @@ export default function EmailVerificationPendingScreen({
   }, []);
 
   const handleSignOut = useCallback(async () => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Sign Out',
       'Are you sure you want to sign out and use a different email?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await storage.clear([
-                STORAGE_KEYS.ACCESS_TOKEN,
-                STORAGE_KEYS.REFRESH_TOKEN,
-                STORAGE_KEYS.USER_ID,
-              ]);
-              await backend.signOut();
-            } catch (err) {
-              console.error('[EmailPending] Sign out error:', err);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await storage.clear([
+            STORAGE_KEYS.ACCESS_TOKEN,
+            STORAGE_KEYS.REFRESH_TOKEN,
+            STORAGE_KEYS.USER_ID,
+          ]);
+          await backend.signOut();
+        } catch (err) {
+          console.error('[EmailPending] Sign out error:', err);
+        }
+      },
+      'Sign Out'
     );
   }, []);
 

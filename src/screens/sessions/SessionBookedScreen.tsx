@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StatusBar,
   Image,
-  Alert,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,10 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Calendar from 'expo-calendar';
 import { COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 export default function SessionBookedScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+
+  const { showError, showSuccess } = useSmuppyAlert();
 
   const { creator, date, time, duration } = route.params || {
     creator: { name: 'Apte Fitness', avatar: null },
@@ -38,11 +40,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please allow calendar access to add this event.',
-          [{ text: 'OK' }]
-        );
+        showError('Permission Required', 'Please allow calendar access to add this event.');
         return;
       }
 
@@ -57,7 +55,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
       ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
 
       if (!defaultCalendar) {
-        Alert.alert('Error', 'No writable calendar found on this device.');
+        showError('Error', 'No writable calendar found on this device.');
         return;
       }
 
@@ -83,14 +81,10 @@ export default function SessionBookedScreen(): React.JSX.Element {
         ],
       });
 
-      Alert.alert(
-        'Added to Calendar',
-        `Your session with ${creator.name} has been added to your calendar.`,
-        [{ text: 'OK' }]
-      );
+      showSuccess('Added to Calendar', `Your session with ${creator.name} has been added to your calendar.`);
     } catch (error) {
       console.error('[Calendar] Error adding event:', error);
-      Alert.alert('Error', 'Failed to add event to calendar. Please try again.');
+      showError('Error', 'Failed to add event to calendar. Please try again.');
     }
   };
 

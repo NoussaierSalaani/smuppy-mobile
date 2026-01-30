@@ -17,7 +17,6 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import QualityPicker from '../../components/QualityPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
@@ -60,6 +60,7 @@ const SPOT_CATEGORIES: SpotCategoryDef[] = [
 const ROUTE_SUBCATEGORIES = ['Trails', 'Running Path', 'Cycling Path'];
 
 const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
+  const { showError, showAlert } = useSmuppyAlert();
   const [step, setStep] = useState(1);
   const TOTAL_STEPS = 5;
 
@@ -99,7 +100,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const handleSubmit = async () => {
     if (!selectedCategory || !name.trim() || !coordinates) {
-      Alert.alert('Missing info', 'Please fill in all required fields.');
+      showError('Missing info', 'Please fill in all required fields.');
       return;
     }
 
@@ -139,15 +140,20 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Spot Suggested!', 'Your spot is now on the map.', [
-          { text: 'View', onPress: () => navigation.replace('SpotDetail', { spotId: response.spot?.id }) },
-          { text: 'Done', onPress: () => navigation.goBack() },
-        ]);
+        showAlert({
+          title: 'Spot Suggested!',
+          message: 'Your spot is now on the map.',
+          type: 'success',
+          buttons: [
+            { text: 'View', onPress: () => navigation.replace('SpotDetail', { spotId: response.spot?.id }) },
+            { text: 'Done', onPress: () => navigation.goBack() },
+          ],
+        });
       } else {
-        Alert.alert('Error', response.message || 'Failed to suggest spot');
+        showError('Error', response.message || 'Failed to suggest spot');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+      showError('Error', error.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }

@@ -4,8 +4,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { awsAPI } from '../services/aws-api';
 import * as Haptics from 'expo-haptics';
 
@@ -33,6 +33,7 @@ interface UseTipPaymentReturn {
 }
 
 export function useTipPayment(): UseTipPaymentReturn {
+  const { showSuccess, showError } = useSmuppyAlert();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,11 +109,7 @@ export function useTipPayment(): UseTipPaymentReturn {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
         // Show success feedback
-        Alert.alert(
-          'Tip Sent! 🎉',
-          `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`,
-          [{ text: 'OK' }]
-        );
+        showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
 
         setIsProcessing(false);
         return true;
@@ -121,7 +118,7 @@ export function useTipPayment(): UseTipPaymentReturn {
         setError(err.message || 'Payment failed');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
-        Alert.alert('Payment Failed', err.message || 'Could not process your tip. Please try again.');
+        showError('Payment Failed', err.message || 'Could not process your tip. Please try again.');
 
         setIsProcessing(false);
         return false;

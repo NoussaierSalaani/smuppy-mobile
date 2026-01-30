@@ -10,7 +10,6 @@ import {
   Modal,
   Animated,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -20,6 +19,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { useContentStore } from '../../stores';
@@ -73,6 +73,7 @@ const PostDetailProfileScreen = () => {
 
   // Content store for reports
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+  const { showSuccess, showError, showWarning } = useSmuppyAlert();
 
   // Refs
   const videoRef = useRef(null);
@@ -222,7 +223,7 @@ const PostDetailProfileScreen = () => {
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
-      Alert.alert('Copied!', 'Post link copied to clipboard');
+      showSuccess('Copied!', 'Post link copied to clipboard');
     }
   };
 
@@ -230,19 +231,11 @@ const PostDetailProfileScreen = () => {
   const handleReport = () => {
     setShowMenu(false);
     if (hasUserReported(currentPost.id)) {
-      Alert.alert(
-        'Already reported',
-        'You have already reported this content. It is under review.',
-        [{ text: 'OK' }]
-      );
+      showWarning('Already reported', 'You have already reported this content. It is under review.');
       return;
     }
     if (isUnderReview(currentPost.id)) {
-      Alert.alert(
-        'Under review',
-        'This content is already being reviewed by our team.',
-        [{ text: 'OK' }]
-      );
+      showWarning('Under review', 'This content is already being reviewed by our team.');
       return;
     }
     setShowReportModal(true);
@@ -253,11 +246,11 @@ const PostDetailProfileScreen = () => {
     setShowReportModal(false);
     const result = storeSubmitReport(currentPost.id, reason);
     if (result.alreadyReported) {
-      Alert.alert('Already reported', result.message, [{ text: 'OK' }]);
+      showWarning('Already reported', result.message);
     } else if (result.success) {
-      Alert.alert('Reported', result.message, [{ text: 'OK' }]);
+      showSuccess('Reported', result.message);
     } else {
-      Alert.alert('Error', 'An error occurred. Please try again.', [{ text: 'OK' }]);
+      showError('Error', 'An error occurred. Please try again.');
     }
   };
 

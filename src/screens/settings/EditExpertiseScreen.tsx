@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { COLORS, GRADIENTS } from '../../config/theme';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface EditExpertiseScreenProps {
   navigation: { goBack: () => void };
@@ -15,6 +16,7 @@ interface EditExpertiseScreenProps {
 
 export default function EditExpertiseScreen({ navigation, route }: EditExpertiseScreenProps) {
   const insets = useSafeAreaInsets();
+  const { showError } = useSmuppyAlert();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const { data: profileData, refetch } = useCurrentProfile();
   const user = useUserStore((state) => state.user);
@@ -66,7 +68,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
 
       navigation.goBack();
     } catch (error: any) {
-      Alert.alert('Error', `Failed to save expertise: ${error?.message || error}`);
+      showError('Error', 'Failed to save expertise. Please try again.');
     } finally {
       setIsSaving(false);
     }

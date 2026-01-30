@@ -17,7 +17,6 @@ import {
   ScrollView,
   Dimensions,
   Modal,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -48,6 +47,7 @@ import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
 import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
 import { useVibeStore } from '../../stores/vibeStore';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width } = Dimensions.get('window');
 
@@ -138,6 +138,7 @@ interface AddPostDetailsScreenProps {
 // ============================================
 
 export default function AddPostDetailsScreen({ route, navigation }: AddPostDetailsScreenProps) {
+  const { showError } = useSmuppyAlert();
   const { media, postType } = route.params;
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
@@ -366,7 +367,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow location access to use this feature.');
+        showError('Permission needed', 'Please allow location access to use this feature.');
         return;
       }
 
@@ -398,7 +399,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       }
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location.');
+      showError('Error', 'Could not get your current location.');
     }
   };
 
@@ -464,7 +465,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       // Get current user
       const user = await awsAuth.getCurrentUser();
       if (!user) {
-        Alert.alert('Error', 'You must be logged in to create a post');
+        showError('Error', 'You must be logged in to create a post');
         setIsPosting(false);
         return;
       }
@@ -563,11 +564,11 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       });
     } catch (error) {
       console.error('Post creation error:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
+      showError('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
       setIsPosting(false);
       setUploadProgress(0);
     }
-  }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople]);
+  }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople, showError]);
 
   const handleBack = useCallback(() => {
     navigation.goBack();

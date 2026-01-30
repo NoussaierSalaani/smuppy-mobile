@@ -7,7 +7,6 @@ import {
   FlatList,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { useUserSafetyStore } from '../../stores';
 import { BlockedUser } from '../../services/database';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface BlockedUsersScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -22,6 +22,7 @@ interface BlockedUsersScreenProps {
 
 const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showConfirm, showError } = useSmuppyAlert();
   const {
     getBlockedUsers,
     unblock,
@@ -43,30 +44,24 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
   };
 
   const handleUnblock = useCallback(async (userId: string, userName: string) => {
-    Alert.alert(
+    showConfirm(
       'Unblock User',
       `Are you sure you want to unblock ${userName}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            setUnblocking(prev => ({ ...prev, [userId]: true }));
-            try {
-              const { error } = await unblock(userId);
-              if (!error) {
-                setBlockedUsers(prev => prev.filter(u => u.blocked_user_id !== userId));
-              } else {
-                Alert.alert('Error', 'Failed to unblock user. Please try again.');
-              }
-            } finally {
-              setUnblocking(prev => ({ ...prev, [userId]: false }));
-            }
-          },
-        },
-      ]
+      async () => {
+        setUnblocking(prev => ({ ...prev, [userId]: true }));
+        try {
+          const { error } = await unblock(userId);
+          if (!error) {
+            setBlockedUsers(prev => prev.filter(u => u.blocked_user_id !== userId));
+          } else {
+            showError('Error', 'Failed to unblock user. Please try again.');
+          }
+        } finally {
+          setUnblocking(prev => ({ ...prev, [userId]: false }));
+        }
+      }
     );
-  }, [unblock]);
+  }, [unblock, showConfirm, showError]);
 
   const renderBlockedUser = useCallback(({ item }: { item: BlockedUser }) => {
     const user = item.blocked_user;

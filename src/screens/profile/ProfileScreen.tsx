@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StatusBar,
   Modal,
-  Alert,
   RefreshControl,
   ActivityIndicator,
   ScrollView,
@@ -19,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
@@ -55,6 +55,7 @@ interface ProfileScreenProps {
 
 const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showSuccess, showError } = useSmuppyAlert();
   const storeUser = useUserStore((state) => state.user);
   const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
   const [activeTab, setActiveTab] = useState('posts');
@@ -152,7 +153,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access is required');
+      showError('Permission needed', 'Camera access is required');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -168,7 +169,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleChooseLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Photo library access is required');
+      showError('Permission needed', 'Photo library access is required');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -228,9 +229,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleCopyLink = async () => {
     try {
       await Clipboard.setStringAsync(getProfileUrl());
-      Alert.alert('Copied!', 'Profile link copied to clipboard');
+      showSuccess('Copied!', 'Profile link copied to clipboard');
     } catch (_error) {
-      Alert.alert('Error', 'Failed to copy link');
+      showError('Error', 'Failed to copy link');
     }
   };
 
@@ -253,7 +254,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     const { error } = await unsavePost(selectedCollectionPost.id);
     if (error) {
-      Alert.alert('Error', 'Failed to remove from collection');
+      showError('Error', 'Failed to remove from collection');
     } else {
       refetchSavedPosts();
     }

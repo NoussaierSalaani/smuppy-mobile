@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
   FlatList,
@@ -23,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -75,6 +75,7 @@ const RECOMMENDED_TAGS = [
 ];
 
 export default function BusinessProgramScreen({ navigation }: { navigation: any }) {
+  const { showError, showDestructiveConfirm, showWarning } = useSmuppyAlert();
   const { formatAmount: _formatAmount, currency: _currency } = useCurrency();
   const _user = useUserStore((state) => state.user);
 
@@ -126,7 +127,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
   const handleSaveActivity = async () => {
     if (!activityName.trim()) {
-      Alert.alert('Error', 'Please enter an activity name');
+      showError('Error', 'Please enter an activity name');
       return;
     }
 
@@ -161,34 +162,28 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         throw new Error(response.message);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save activity');
+      showError('Error', error.message || 'Failed to save activity');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteActivity = (activity: Activity) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Delete Activity',
       `Are you sure you want to delete "${activity.name}"?\n\nThis will also remove all scheduled slots for this activity.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.deleteBusinessActivity(activity.id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadProgramData();
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.deleteBusinessActivity(activity.id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadProgramData();
+          }
+        } catch (error: any) {
+          showError('Error', error.message);
+        }
+      },
+      'Delete'
     );
   };
 
@@ -215,7 +210,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
   const handleSaveSlot = async () => {
     if (!slotActivityId) {
-      Alert.alert('Error', 'Please select an activity');
+      showError('Error', 'Please select an activity');
       return;
     }
 
@@ -242,34 +237,28 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         throw new Error(response.message);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add slot');
+      showError('Error', error.message || 'Failed to add slot');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteSlot = (slot: ScheduleSlot) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Remove Slot',
       `Remove "${slot.activity_name}" from ${DAYS[slot.day_of_week]}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.deleteBusinessScheduleSlot(slot.id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadProgramData();
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.deleteBusinessScheduleSlot(slot.id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadProgramData();
+          }
+        } catch (error: any) {
+          showError('Error', error.message);
+        }
+      },
+      'Remove'
     );
   };
 
@@ -481,7 +470,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     style={[styles.addButton, activities.length === 0 && styles.addButtonDisabled]}
                     onPress={() => {
                       if (activities.length === 0) {
-                        Alert.alert('No Activities', 'Please add activities first before creating a schedule.');
+                        showWarning('No Activities', 'Please add activities first before creating a schedule.');
                         return;
                       }
                       resetSlotForm();

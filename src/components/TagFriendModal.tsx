@@ -11,11 +11,11 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { AvatarImage } from './OptimizedImage';
 import * as Haptics from 'expo-haptics';
 import {
@@ -68,6 +68,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
   peakId: _peakId,
   existingTags = [],
 }) => {
+  const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -111,7 +112,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
       setFriends(transformedFriends);
     } catch (error) {
       console.error('[TagFriendModal] Error loading friends:', error);
-      Alert.alert('Error', 'Failed to load friends. Please try again.');
+      showError('Error', 'Failed to load friends. Please try again.');
     } finally {
       setLoading(false);
     }

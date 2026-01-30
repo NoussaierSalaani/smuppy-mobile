@@ -13,7 +13,6 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -36,6 +36,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 };
 
 const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
+  const { showError } = useSmuppyAlert();
   const { groupId } = route.params;
   const userId = useUserStore((s) => s.user?.id);
 
@@ -74,10 +75,10 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
         setHasJoined(!hasJoined);
         loadGroup();
       } else {
-        Alert.alert('Error', response.message || 'Something went wrong');
+        showError('Error', response.message || 'Something went wrong');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Something went wrong');
+      showError('Error', err.message || 'Something went wrong');
     } finally {
       setIsJoining(false);
     }

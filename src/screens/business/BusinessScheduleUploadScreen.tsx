@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   Animated,
   Modal,
@@ -22,6 +21,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import type { IconName } from '../../types';
@@ -64,6 +64,7 @@ const ACTIVITY_CATEGORIES = [
 ];
 
 export default function BusinessScheduleUploadScreen({ navigation }: Props) {
+  const { showError, showAlert, showSuccess } = useSmuppyAlert();
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -97,7 +98,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      showError('Permission Required', 'Please allow access to your photo library');
       return;
     }
 
@@ -123,7 +124,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your camera');
+      showError('Permission Required', 'Please allow access to your camera');
       return;
     }
 
@@ -147,15 +148,15 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // PDF support requires additional setup
     // For now, suggest using image instead
-    Alert.alert(
-      'PDF Support Coming Soon',
-      'For now, please take a photo or select an image of your schedule. PDF support will be available in a future update.',
-      [
+    showAlert({
+      title: 'PDF Support Coming Soon',
+      message: 'For now, please take a photo or select an image of your schedule. PDF support will be available in a future update.',
+      buttons: [
         { text: 'Take Photo', onPress: handleTakePhoto },
         { text: 'Select Image', onPress: handlePickImage },
         { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+      ],
+    });
   };
 
   const handleAnalyze = async () => {
@@ -200,13 +201,13 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
         setStep('review');
       } else {
         setExtractedActivities([]);
-        Alert.alert('No Data', 'Could not extract activities from the document. Please try a different file.');
+        showError('No Data', 'Could not extract activities from the document. Please try a different file.');
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Analysis error:', error);
-      Alert.alert('Analysis Failed', 'Could not analyze the document. Please try again.');
+      showError('Analysis Failed', 'Could not analyze the document. Please try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsAnalyzing(false);
@@ -234,7 +235,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   const handleSaveSchedule = async () => {
     const selectedActivities = extractedActivities.filter((a) => a.selected);
     if (selectedActivities.length === 0) {
-      Alert.alert('No Activities Selected', 'Please select at least one activity to save');
+      showError('No Activities Selected', 'Please select at least one activity to save');
       return;
     }
 
@@ -256,23 +257,25 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Schedule Imported',
-          `Successfully imported ${selectedActivities.length} activities to your schedule.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
+        showAlert({
+          title: 'Schedule Imported',
+          message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
+          type: 'success',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+        });
       } else {
         // Demo success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Schedule Imported',
-          `Successfully imported ${selectedActivities.length} activities to your schedule.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
+        showAlert({
+          title: 'Schedule Imported',
+          message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
+          type: 'success',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+        });
       }
     } catch (error) {
       console.error('Save schedule error:', error);
-      Alert.alert('Error', 'Failed to save schedule. Please try again.');
+      showError('Error', 'Failed to save schedule. Please try again.');
     } finally {
       setIsSaving(false);
     }

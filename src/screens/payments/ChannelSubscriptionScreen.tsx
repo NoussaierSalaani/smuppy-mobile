@@ -12,7 +12,6 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AvatarImage } from '../../components/OptimizedImage';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 
@@ -63,6 +63,7 @@ export default function ChannelSubscriptionScreen() {
   const [subscribing, setSubscribing] = useState(false);
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const { showError } = useSmuppyAlert();
 
   const fetchChannelInfo = useCallback(async () => {
     try {
@@ -128,10 +129,10 @@ export default function ChannelSubscriptionScreen() {
           navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Subscription' });
         }
       } else {
-        Alert.alert('Error', response.error || 'Failed to start subscription');
+        showError('Error', response.error || 'Failed to start subscription');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+      showError('Error', error.message || 'Something went wrong');
     } finally {
       setSubscribing(false);
     }

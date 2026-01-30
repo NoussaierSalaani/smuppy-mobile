@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface FeatureItemProps {
   icon: string;
@@ -30,17 +30,19 @@ const FeatureItem = ({ icon, text }: FeatureItemProps) => (
 );
 
 export default function GoLiveIntroScreen(): React.JSX.Element {
+  const { showAlert } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const user = useUserStore((state) => state.user);
 
   // Protect route - only pro_creator can access
   useEffect(() => {
     if (user?.accountType !== 'pro_creator') {
-      Alert.alert(
-        'Pro Creator Feature',
-        'Live streaming is only available for Pro Creator accounts.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      showAlert({
+        title: 'Pro Creator Feature',
+        message: 'Live streaming is only available for Pro Creator accounts.',
+        type: 'warning',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
   }, [user?.accountType, navigation]);
 

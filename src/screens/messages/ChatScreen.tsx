@@ -9,7 +9,6 @@ import {
   Platform,
   Dimensions,
   Modal,
-  Alert,
   ActivityIndicator,
   Keyboard,
   AppState,
@@ -25,6 +24,7 @@ import VoiceRecorder from '../../components/VoiceRecorder';
 import VoiceMessage from '../../components/VoiceMessage';
 import SharedPostBubble from '../../components/SharedPostBubble';
 import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
@@ -55,6 +55,7 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { conversationId: initialConversationId, otherUser, userId } = route.params;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<typeof FlashList.prototype | null>(null);
@@ -188,7 +189,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     if (!inputText.trim()) return;
 
     if (!conversationId) {
-      Alert.alert('Error', 'Conversation not initialized. Please go back and try again.');
+      showError('Error', 'Conversation not initialized. Please go back and try again.');
       return;
     }
 
@@ -218,7 +219,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     if (error) {
       // Remove optimistic message and restore input
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      showError('Error', 'Failed to send message. Please try again.');
       setInputText(messageText);
     }
     setSending(false);
@@ -235,7 +236,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const { data: voiceUrl, error: uploadError } = await uploadVoiceMessage(uri, conversationId);
 
     if (uploadError || !voiceUrl) {
-      Alert.alert('Error', 'Failed to upload voice message');
+      showError('Error', 'Failed to upload voice message');
       setSending(false);
       return;
     }
@@ -249,7 +250,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     );
 
     if (error) {
-      Alert.alert('Error', 'Failed to send voice message');
+      showError('Error', 'Failed to send voice message');
     }
     setSending(false);
   }, [conversationId]);
@@ -523,27 +524,21 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={styles.menuItem}
               onPress={() => {
                 setChatMenuVisible(false);
-                Alert.alert(
+                showDestructiveConfirm(
                   'Block User',
                   `Block ${otherUserProfile?.full_name || 'this user'}?`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Block',
-                      style: 'destructive',
-                      onPress: async () => {
-                        if (otherUserProfile?.id) {
-                          const { error } = await blockUser(otherUserProfile.id);
-                          if (error) {
-                            Alert.alert('Error', 'Failed to block user');
-                          } else {
-                            Alert.alert('Blocked', `${otherUserProfile.full_name || 'User'} has been blocked`);
-                            navigation.goBack();
-                          }
-                        }
+                  async () => {
+                    if (otherUserProfile?.id) {
+                      const { error } = await blockUser(otherUserProfile.id);
+                      if (error) {
+                        showError('Error', 'Failed to block user');
+                      } else {
+                        showSuccess('Blocked', `${otherUserProfile.full_name || 'User'} has been blocked`);
+                        navigation.goBack();
                       }
-                    },
-                  ]
+                    }
+                  },
+                  'Block'
                 );
               }}
             >

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
@@ -18,6 +17,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 // COLORS import removed - not used
 import {
   FilterProvider,
@@ -37,6 +37,7 @@ interface VideoRecorderScreenProps {
 }
 
 function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderScreenProps) {
+  const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -87,7 +88,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
     if (!mediaPermission?.granted) {
       const { granted } = await requestMediaPermission();
       if (!granted) {
-        Alert.alert('Permission needed', 'Please allow access to save videos to your library.');
+        showError('Permission needed', 'Please allow access to save videos to your library.');
         return;
       }
     }
@@ -132,7 +133,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
     } catch (error) {
       console.error('Recording error:', error);
       stopRecording();
-      Alert.alert('Error', 'Failed to record video. Please try again.');
+      showError('Error', 'Failed to record video. Please try again.');
     }
   };
 
@@ -180,11 +181,11 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
     stopRecording();
 
     if (savedSegments.length > 0) {
-      Alert.alert(
+      showSuccess(
         'Videos Saved',
-        `${savedSegments.length} video segment${savedSegments.length > 1 ? 's' : ''} saved to your photo library.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        `${savedSegments.length} video segment${savedSegments.length > 1 ? 's' : ''} saved to your photo library.`
       );
+      navigation.goBack();
     } else {
       navigation.goBack();
     }

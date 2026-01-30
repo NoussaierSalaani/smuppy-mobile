@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -64,6 +64,7 @@ const PERIOD_LABELS = {
 };
 
 export default function MySubscriptionsScreen({ navigation }: { navigation: any }) {
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { formatAmount } = useCurrency();
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -94,29 +95,23 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
   };
 
   const handleCancelSubscription = (subscription: Subscription) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Cancel Subscription',
       `Are you sure you want to cancel your ${subscription.plan.name} subscription at ${subscription.business.name}?\n\nYou'll still have access until ${formatDate(subscription.current_period_end)}.`,
-      [
-        { text: 'Keep Subscription', style: 'cancel' },
-        {
-          text: 'Cancel Subscription',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.cancelBusinessSubscription(subscription.id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadSubscriptions();
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel subscription');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.cancelBusinessSubscription(subscription.id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadSubscriptions();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: any) {
+          showError('Error', error.message || 'Failed to cancel subscription');
+        }
+      },
+      'Cancel Subscription'
     );
   };
 
@@ -125,13 +120,13 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
       const response = await awsAPI.reactivateBusinessSubscription(subscription.id);
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Reactivated', 'Your subscription has been reactivated!');
+        showSuccess('Reactivated', 'Your subscription has been reactivated!');
         loadSubscriptions();
       } else {
         throw new Error(response.message);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to reactivate subscription');
+      showError('Error', error.message || 'Failed to reactivate subscription');
     }
   };
 

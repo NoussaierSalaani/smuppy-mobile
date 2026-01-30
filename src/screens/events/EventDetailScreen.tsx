@@ -13,7 +13,6 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  Alert,
   Share,
   Animated,
 } from 'react-native';
@@ -32,6 +31,7 @@ import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -100,6 +100,7 @@ const darkMapStyle = [
 ];
 
 export default function EventDetailScreen({ route, navigation }: EventDetailScreenProps) {
+  const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const { eventId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
@@ -127,7 +128,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       }
     } catch (error: any) {
       console.error('Load event error:', error);
-      Alert.alert('Error', 'Failed to load event details');
+      showError('Error', 'Failed to load event details');
       navigation.goBack();
     } finally {
       setIsLoading(false);
@@ -139,13 +140,13 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
     // Check if already participating
     if (event.is_participating) {
-      Alert.alert('Already Joined', 'You are already participating in this event.');
+      showError('Already Joined', 'You are already participating in this event.');
       return;
     }
 
     // Check if event is full
     if (event.max_participants && event.participant_count >= event.max_participants) {
-      Alert.alert('Event Full', 'This event has reached maximum capacity.');
+      showError('Event Full', 'This event has reached maximum capacity.');
       return;
     }
 
@@ -166,14 +167,14 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       const response = await awsAPI.joinEvent(eventId);
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Joined!', 'You are now participating in this event.');
+        showSuccess('Joined!', 'You are now participating in this event.');
         loadEventDetails(); // Refresh to update participant count
       } else {
         throw new Error(response.message || 'Failed to join event');
       }
     } catch (error: any) {
       console.error('Join event error:', error);
-      Alert.alert('Error', error.message || 'Failed to join event');
+      showError('Error', error.message || 'Failed to join event');
     } finally {
       setIsJoining(false);
     }
@@ -230,18 +231,19 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
       if (confirmResponse.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '🎉 Payment Successful!',
-          `You're now registered for "${event.title}".\n\nSee you there!`,
-          [{ text: 'View Details', onPress: loadEventDetails }]
-        );
+        showAlert({
+          title: 'Payment Successful!',
+          message: `You're now registered for "${event.title}".\n\nSee you there!`,
+          type: 'success',
+          buttons: [{ text: 'View Details', onPress: loadEventDetails }],
+        });
       } else {
         throw new Error(confirmResponse.message || 'Payment confirmation failed');
       }
     } catch (error: any) {
       console.error('Event payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Payment Failed', error.message || 'Please try again');
+      showError('Payment Failed', error.message || 'Please try again');
     } finally {
       setIsJoining(false);
     }
@@ -250,32 +252,26 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const handleLeaveEvent = async () => {
     if (!event) return;
 
-    Alert.alert(
+    showDestructiveConfirm(
       'Leave Event',
       'Are you sure you want to leave this event?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: async () => {
-            setIsJoining(true);
-            try {
-              const response = await awsAPI.leaveEvent(eventId);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadEventDetails();
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to leave event');
-            } finally {
-              setIsJoining(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setIsJoining(true);
+        try {
+          const response = await awsAPI.leaveEvent(eventId);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadEventDetails();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: any) {
+          showError('Error', error.message || 'Failed to leave event');
+        } finally {
+          setIsJoining(false);
+        }
+      },
+      'Leave'
     );
   };
 

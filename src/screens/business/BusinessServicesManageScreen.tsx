@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Switch,
@@ -24,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -71,6 +71,7 @@ const SUBSCRIPTION_PERIODS = [
 ];
 
 export default function BusinessServicesManageScreen({ navigation }: Props) {
+  const { showError, showDestructiveConfirm } = useSmuppyAlert();
   const { formatAmount, currency } = useCurrency();
 
   const [services, setServices] = useState<Service[]>([]);
@@ -198,36 +199,30 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   };
 
   const handleDelete = (service: Service) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Delete Service',
       `Are you sure you want to delete "${service.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            try {
-              await awsAPI.deleteBusinessService(service.id);
-              setServices((prev) => prev.filter((s) => s.id !== service.id));
-            } catch (_error) {
-              Alert.alert('Error', 'Failed to delete service');
-            }
-          },
-        },
-      ]
+      async () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        try {
+          await awsAPI.deleteBusinessService(service.id);
+          setServices((prev) => prev.filter((s) => s.id !== service.id));
+        } catch (_error) {
+          showError('Error', 'Failed to delete service');
+        }
+      },
+      'Delete'
     );
   };
 
   const handleSave = async () => {
     if (!formName.trim()) {
-      Alert.alert('Error', 'Service name is required');
+      showError('Error', 'Service name is required');
       return;
     }
 
     if (!formPrice || isNaN(parseFloat(formPrice))) {
-      Alert.alert('Error', 'Valid price is required');
+      showError('Error', 'Valid price is required');
       return;
     }
 
@@ -273,7 +268,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       resetForm();
     } catch (error) {
       console.error('Save service error:', error);
-      Alert.alert('Error', 'Failed to save service');
+      showError('Error', 'Failed to save service');
     } finally {
       setIsSaving(false);
     }

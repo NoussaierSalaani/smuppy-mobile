@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface NewPasswordScreenProps {
   navigation: {
@@ -26,6 +27,7 @@ interface NewPasswordScreenProps {
 }
 
 export default function NewPasswordScreen({ navigation, route }: NewPasswordScreenProps) {
+  const { showDestructiveConfirm } = useSmuppyAlert();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,13 +45,11 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
   const code = route?.params?.code;
 
   const handleGoBack = useCallback(() => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Leave password reset?',
       'If you go back, you will need to request a new reset code.',
-      [
-        { text: 'Stay', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: goBack },
-      ]
+      goBack,
+      'Leave'
     );
   }, [goBack]);
 

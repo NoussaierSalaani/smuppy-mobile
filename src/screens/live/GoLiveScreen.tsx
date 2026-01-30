@@ -11,7 +11,6 @@ import {
   Animated,
   StatusBar,
   Image,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -21,10 +20,12 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
 export default function GoLiveScreen(): React.JSX.Element {
+  const { showAlert } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
@@ -37,11 +38,12 @@ export default function GoLiveScreen(): React.JSX.Element {
   // Protect route - only pro_creator can access
   useEffect(() => {
     if (user?.accountType !== 'pro_creator') {
-      Alert.alert(
-        'Pro Creator Feature',
-        'Live streaming is only available for Pro Creator accounts.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      showAlert({
+        title: 'Pro Creator Feature',
+        message: 'Live streaming is only available for Pro Creator accounts.',
+        type: 'warning',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
   }, [user?.accountType, navigation]);
 

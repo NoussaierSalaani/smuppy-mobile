@@ -9,7 +9,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  Alert,
   Share,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -29,6 +28,7 @@ import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 
 const { width } = Dimensions.get('window');
@@ -56,6 +56,7 @@ export interface FanFeedRef {
 }
 
 const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
+  const { showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll, showBars } = useTabBar();
   const listRef = useRef<any>(null);
@@ -403,41 +404,27 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const handleReportPost = useCallback(() => {
     if (!menuPost) return;
     setMenuVisible(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Report Post',
       'Are you sure you want to report this post?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Report',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Reported', 'Thank you for your report. We will review it.');
-          },
-        },
-      ]
+      () => {
+        showSuccess('Reported', 'Thank you for your report. We will review it.');
+      }
     );
-  }, [menuPost]);
+  }, [menuPost, showDestructiveConfirm, showSuccess]);
 
   // Handle mute user
   const handleMuteUser = useCallback(() => {
     if (!menuPost) return;
     setMenuVisible(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Mute User',
       `Mute ${menuPost.user.name}? You won't see their posts anymore.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mute',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
-          },
-        },
-      ]
+      () => {
+        showSuccess('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
+      }
     );
-  }, [menuPost]);
+  }, [menuPost, showDestructiveConfirm, showSuccess]);
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {

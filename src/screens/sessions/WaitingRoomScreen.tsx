@@ -9,7 +9,6 @@ import {
   StatusBar,
   Animated,
   Easing,
-  Alert,
   StyleProp,
   ImageStyle,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 
 const POLL_INTERVAL = 3000; // Poll every 3 seconds
@@ -34,6 +34,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
     },
   };
 
+  const { showAlert } = useSmuppyAlert();
   const [isPolling, setIsPolling] = useState(true);
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -99,18 +100,19 @@ export default function WaitingRoomScreen(): React.JSX.Element {
         } else if (status === 'cancelled') {
           // Creator declined or session cancelled
           setIsPolling(false);
-          Alert.alert(
-            'Session Declined',
-            'The creator was unable to accept your session request.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
+          showAlert({
+            title: 'Session Declined',
+            message: 'The creator was unable to accept your session request.',
+            type: 'error',
+            buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+          });
         }
         // If status is still 'pending', continue polling
       }
     } catch (error) {
       console.error('Failed to check session status:', error);
     }
-  }, [sessionId, creator, navigation]);
+  }, [sessionId, creator, navigation, showAlert]);
 
   // Poll for session status
   useEffect(() => {

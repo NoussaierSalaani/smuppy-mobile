@@ -11,12 +11,12 @@ import {
   TouchableOpacity,
   Share,
   Animated,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 
 interface Props {
@@ -33,6 +33,7 @@ interface Props {
 }
 
 export default function BusinessBookingSuccessScreen({ route, navigation }: Props) {
+  const { showConfirm, showSuccess } = useSmuppyAlert();
   const { bookingId, businessName, serviceName, date, time } = route.params;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -65,19 +66,14 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
   const handleAddToCalendar = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
+    showConfirm(
       'Add to Calendar',
       `Would you like to add "${serviceName}" at ${businessName} on ${formatDate(date)} at ${time} to your calendar?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: () => {
-            // Calendar integration would go here with expo-calendar
-            Alert.alert('Added', 'Event added to your calendar');
-          },
-        },
-      ]
+      () => {
+        // Calendar integration would go here with expo-calendar
+        showSuccess('Added', 'Event added to your calendar');
+      },
+      'Add'
     );
   };
 

@@ -13,7 +13,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -22,6 +21,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
@@ -38,6 +38,7 @@ interface UIComment {
 }
 
 export default function LiveStreamingScreen(): React.JSX.Element {
+  const { showError } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
@@ -117,7 +118,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     setIsStarting(true);
     const success = await joinChannel(channelName, null);
     if (!success && error) {
-      Alert.alert('Error', error || 'Failed to start stream');
+      showError('Error', error || 'Failed to start stream');
       navigation.goBack();
       return;
     }

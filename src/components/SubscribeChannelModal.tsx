@@ -7,12 +7,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AvatarImage } from './OptimizedImage';
 import { COLORS, GRADIENTS } from '../config/theme';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 interface SubscriptionTier {
   id: string;
@@ -80,29 +80,21 @@ export default function SubscribeChannelModal({
   creatorUsername,
   onSubscribe,
 }: SubscribeChannelModalProps): React.JSX.Element {
+  const { showSuccess, showConfirm } = useSmuppyAlert();
   const [selectedTier, setSelectedTier] = useState<string>('premium');
 
   const handleSubscribe = () => {
     const tier = SUBSCRIPTION_TIERS.find(t => t.id === selectedTier);
     if (tier) {
-      Alert.alert(
+      showConfirm(
         'Confirm Subscription',
         `Subscribe to ${creatorName}'s ${tier.name} plan for $${tier.price}/${tier.period}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Subscribe',
-            onPress: () => {
-              onSubscribe?.(selectedTier);
-              onClose();
-              Alert.alert(
-                'Subscribed!',
-                `You're now a ${tier.name} of ${creatorName}!`,
-                [{ text: 'OK' }]
-              );
-            },
-          },
-        ]
+        () => {
+          onSubscribe?.(selectedTier);
+          onClose();
+          showSuccess('Subscribed!', `You're now a ${tier.name} of ${creatorName}!`);
+        },
+        'Subscribe'
       );
     }
   };

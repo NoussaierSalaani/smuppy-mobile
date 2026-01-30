@@ -8,7 +8,6 @@ import {
   StatusBar,
   Modal,
   TouchableWithoutFeedback,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -19,6 +18,7 @@ import { AccountBadge } from '../../components/Badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   getFollowers,
   getFollowing,
@@ -64,6 +64,7 @@ const profileToUser = (
 
 export default function FansListScreen({ navigation, route }: { navigation: any; route: any }) {
   const insets = useSafeAreaInsets();
+  const { showError, showWarning } = useSmuppyAlert();
   const initialTab = route?.params?.initialTab || 'fans';
   const userId = route?.params?.userId; // Optional: view another user's fans
 
@@ -134,7 +135,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       setTracking(transformedTracking);
     } catch (error) {
       console.error('[FansListScreen] Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data. Please try again.');
+      showError('Error', 'Failed to load data. Please try again.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -181,10 +182,9 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
       if (!canRefollow(user)) {
         const days = getDaysRemaining(user.lastUnfollowAt);
-        Alert.alert(
+        showWarning(
           'Cannot become a fan yet',
-          `Wait ${days} more day${days > 1 ? 's' : ''} before becoming a fan of ${user.name} again.`,
-          [{ text: 'OK' }]
+          `Wait ${days} more day${days > 1 ? 's' : ''} before becoming a fan of ${user.name} again.`
         );
         return;
       }
@@ -194,7 +194,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       try {
         const { error } = await followUser(targetUserId);
         if (error) {
-          Alert.alert('Error', error);
+          showError('Error', error);
           return;
         }
 
@@ -213,12 +213,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         });
       } catch (error) {
         console.error('[FansListScreen] Follow error:', error);
-        Alert.alert('Error', 'Failed to follow. Please try again.');
+        showError('Error', 'Failed to follow. Please try again.');
       } finally {
         setActionLoading(null);
       }
     },
-    [fans, tracking, canRefollow, getDaysRemaining]
+    [fans, tracking, canRefollow, getDaysRemaining, showError, showWarning]
   );
 
   const handleUnfollowPress = useCallback((user: User) => {
@@ -238,7 +238,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     try {
       const { error } = await unfollowUser(selectedUser.id);
       if (error) {
-        Alert.alert('Error', error);
+        showError('Error', error);
         return;
       }
 
@@ -262,12 +262,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       closePopups();
     } catch (error) {
       console.error('[FansListScreen] Unfollow error:', error);
-      Alert.alert('Error', 'Failed to unfollow. Please try again.');
+      showError('Error', 'Failed to unfollow. Please try again.');
     } finally {
       setActionLoading(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUser]);
+  }, [selectedUser, showError]);
 
   const closePopups = useCallback(() => {
     setShowUnfollowPopup(false);

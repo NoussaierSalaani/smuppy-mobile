@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { AccountBadge } from '../../components/Badge';
 import { COLORS, SPACING } from '../../config/theme';
@@ -29,6 +29,7 @@ interface NewMessageScreenProps {
 }
 
 export default function NewMessageScreen({ navigation }: NewMessageScreenProps) {
+  const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
@@ -62,11 +63,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
 
     if (error || !conversationId) {
       setNavigating(null);
-      Alert.alert(
-        'Unable to start conversation',
-        error || 'Please try again later.',
-        [{ text: 'OK' }]
-      );
+      showError('Unable to start conversation', error || 'Please try again later.');
       return;
     }
 

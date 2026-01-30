@@ -9,7 +9,6 @@ import {
   StatusBar,
   Modal,
   Animated,
-  Alert,
   ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -22,6 +21,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
@@ -56,6 +56,8 @@ const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
   // Content store for reports and status
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
@@ -353,7 +355,7 @@ const PostDetailFanFeedScreen = () => {
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
-      Alert.alert('Copied!', 'Post link copied to clipboard');
+      showSuccess('Copied!', 'Post link copied to clipboard');
     }
   };
 
@@ -366,21 +368,13 @@ const PostDetailFanFeedScreen = () => {
 
       // Check if already reported (anti-spam)
       if (hasUserReported(currentPost.id)) {
-        Alert.alert(
-          'Déjà signalé',
-          'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.',
-          [{ text: 'OK' }]
-        );
+        showError('Déjà signalé', 'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.');
         return;
       }
 
       // Check if content is already under review
       if (isUnderReview(currentPost.id)) {
-        Alert.alert(
-          'Sous examen',
-          'Ce contenu est déjà en cours d\'examen par notre équipe.',
-          [{ text: 'OK' }]
-        );
+        showError('Sous examen', 'Ce contenu est déjà en cours d\'examen par notre équipe.');
         return;
       }
 
@@ -399,11 +393,11 @@ const PostDetailFanFeedScreen = () => {
     const result = storeSubmitReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
-      Alert.alert('Déjà signalé', result.message, [{ text: 'OK' }]);
+      showError('Déjà signalé', result.message);
     } else if (result.success) {
-      Alert.alert('Signalé', result.message, [{ text: 'OK' }]);
+      showSuccess('Signalé', result.message);
     } else {
-      Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.', [{ text: 'OK' }]);
+      showError('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     }
   };
 
@@ -416,33 +410,27 @@ const PostDetailFanFeedScreen = () => {
     // Check if already muted
     if (isUserMuted(userId)) {
       setShowMenu(false);
-      Alert.alert('Déjà masqué', 'Cet utilisateur est déjà masqué.', [{ text: 'OK' }]);
+      showError('Déjà masqué', 'Cet utilisateur est déjà masqué.');
       return;
     }
 
     setShowMenu(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Masquer cet utilisateur ?',
       'Vous ne verrez plus ses publications dans vos feeds.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Masquer',
-          onPress: async () => {
-            setMuteLoading(true);
-            try {
-              const { error } = await mute(userId);
-              if (error) {
-                Alert.alert('Erreur', 'Impossible de masquer cet utilisateur.', [{ text: 'OK' }]);
-              } else {
-                Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
-              }
-            } finally {
-              setMuteLoading(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setMuteLoading(true);
+        try {
+          const { error } = await mute(userId);
+          if (error) {
+            showError('Erreur', 'Impossible de masquer cet utilisateur.');
+          } else {
+            showSuccess('Utilisateur masqué', 'Vous ne verrez plus ses publications.');
+          }
+        } finally {
+          setMuteLoading(false);
+        }
+      }
     );
   };
 
@@ -455,34 +443,27 @@ const PostDetailFanFeedScreen = () => {
     // Check if already blocked
     if (isBlocked(userId)) {
       setShowMenu(false);
-      Alert.alert('Déjà bloqué', 'Cet utilisateur est déjà bloqué.', [{ text: 'OK' }]);
+      showError('Déjà bloqué', 'Cet utilisateur est déjà bloqué.');
       return;
     }
 
     setShowMenu(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Bloquer cet utilisateur ?',
       'Vous ne verrez plus ses publications et il ne pourra plus interagir avec vous.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Bloquer',
-          style: 'destructive',
-          onPress: async () => {
-            setBlockLoading(true);
-            try {
-              const { error } = await block(userId);
-              if (error) {
-                Alert.alert('Erreur', 'Impossible de bloquer cet utilisateur.', [{ text: 'OK' }]);
-              } else {
-                Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
-              }
-            } finally {
-              setBlockLoading(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setBlockLoading(true);
+        try {
+          const { error } = await block(userId);
+          if (error) {
+            showError('Erreur', 'Impossible de bloquer cet utilisateur.');
+          } else {
+            showSuccess('Utilisateur bloqué', 'Vous ne verrez plus ses publications.');
+          }
+        } finally {
+          setBlockLoading(false);
+        }
+      }
     );
   };
   

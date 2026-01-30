@@ -12,7 +12,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -21,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
@@ -58,6 +58,7 @@ interface Business {
 }
 
 export default function BusinessBookingScreen({ route, navigation }: BusinessBookingScreenProps) {
+  const { showError } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
@@ -121,7 +122,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       }
     } catch (error) {
       console.error('Load business data error:', error);
-      Alert.alert('Error', 'Failed to load business information');
+      showError('Error', 'Failed to load business information');
     } finally {
       setIsLoading(false);
     }
@@ -242,7 +243,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     } catch (error: any) {
       console.error('Booking error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Booking Failed', error.message || 'Please try again');
+      showError('Booking Failed', error.message || 'Please try again');
     } finally {
       setIsBooking(false);
     }

@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width } = Dimensions.get('window');
 
@@ -109,6 +109,7 @@ const FEATURES: Feature[] = [
 
 export default function UpgradeToProScreen() {
   const navigation = useNavigation<any>();
+  const { showDestructiveConfirm, showWarning, showAlert, showError } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
 
@@ -137,39 +138,25 @@ export default function UpgradeToProScreen() {
   const handleUpgrade = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    Alert.alert(
-      '⚠️ Irreversible Upgrade',
-      'Upgrading to Pro Creator is a ONE-WAY process.\n\n🚫 You will LOSE your Personal profile forever.\n\n✅ You will become a Pro Creator with monetization features.\n\nThis action CANNOT be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'I Understand, Continue',
-          style: 'destructive',
-          onPress: () => setStep('confirm'),
-        },
-      ]
+    showDestructiveConfirm(
+      'Irreversible Upgrade',
+      'Upgrading to Pro Creator is a ONE-WAY process.\n\nYou will LOSE your Personal profile forever.\n\nYou will become a Pro Creator with monetization features.\n\nThis action CANNOT be undone.',
+      () => setStep('confirm')
     );
   };
 
   // SECOND CONFIRMATION: Final "Are you sure?"
   const handleConfirmUpgrade = async () => {
     if (!acceptedTerms) {
-      Alert.alert('Terms Required', 'Please accept the Pro Creator terms to continue.');
+      showWarning('Terms Required', 'Please accept the Pro Creator terms to continue.');
       return;
     }
 
     // Final confirmation
-    Alert.alert(
-      '🔒 Final Confirmation',
+    showDestructiveConfirm(
+      'Final Confirmation',
       'Are you absolutely sure?\n\nOnce you upgrade, your Personal account will be permanently converted to Pro Creator.',
-      [
-        { text: 'No, Go Back', style: 'cancel' },
-        {
-          text: 'Yes, Upgrade Now',
-          style: 'destructive',
-          onPress: performUpgrade,
-        },
-      ]
+      performUpgrade
     );
   };
 
@@ -191,10 +178,11 @@ export default function UpgradeToProScreen() {
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        Alert.alert(
-          '🎉 Welcome, Pro Creator!',
-          'Your account has been upgraded successfully!\n\nComplete your setup to start earning from your content.',
-          [
+        showAlert({
+          title: 'Welcome, Pro Creator!',
+          message: 'Your account has been upgraded successfully!\n\nComplete your setup to start earning from your content.',
+          type: 'success',
+          buttons: [
             {
               text: 'Set Up Stripe',
               onPress: () => navigation.replace('IdentityVerification'),
@@ -203,14 +191,14 @@ export default function UpgradeToProScreen() {
               text: 'Later',
               onPress: () => navigation.goBack(),
             },
-          ]
-        );
+          ],
+        });
       } else {
         throw new Error(response.message || 'Upgrade failed');
       }
     } catch (error: any) {
       console.error('Upgrade error:', error);
-      Alert.alert('Upgrade Failed', error.message || 'Please try again later.');
+      showError('Upgrade Failed', 'Please try again later.');
     } finally {
       setIsLoading(false);
     }

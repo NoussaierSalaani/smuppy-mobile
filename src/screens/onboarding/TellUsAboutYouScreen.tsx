@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, Modal, Keyboard, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, Modal, Keyboard, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/them
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -28,6 +29,7 @@ const getAge = (birthDate: Date) => {
 };
 
 export default function TellUsAboutYouScreen({ navigation, route }: any) {
+  const { showError } = useSmuppyAlert();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [gender, setGender] = useState('');
@@ -44,7 +46,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos to add a profile picture.');
+      showError('Permission needed', 'Please allow access to your photos to add a profile picture.');
       return;
     }
 

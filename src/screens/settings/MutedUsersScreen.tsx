@@ -7,7 +7,6 @@ import {
   FlatList,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { useUserSafetyStore } from '../../stores';
 import { MutedUser } from '../../services/database';
 import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface MutedUsersScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -22,6 +22,7 @@ interface MutedUsersScreenProps {
 
 const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showConfirm, showError } = useSmuppyAlert();
   const {
     getMutedUsers,
     unmute,
@@ -43,28 +44,22 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
   };
 
   const handleUnmute = async (userId: string, userName: string) => {
-    Alert.alert(
+    showConfirm(
       'Unmute User',
       `Are you sure you want to unmute ${userName}? Their posts will appear in your feeds again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unmute',
-          onPress: async () => {
-            setUnmuting(prev => ({ ...prev, [userId]: true }));
-            try {
-              const { error } = await unmute(userId);
-              if (!error) {
-                setMutedUsers(prev => prev.filter(u => u.muted_user_id !== userId));
-              } else {
-                Alert.alert('Error', 'Failed to unmute user. Please try again.');
-              }
-            } finally {
-              setUnmuting(prev => ({ ...prev, [userId]: false }));
-            }
-          },
-        },
-      ]
+      async () => {
+        setUnmuting(prev => ({ ...prev, [userId]: true }));
+        try {
+          const { error } = await unmute(userId);
+          if (!error) {
+            setMutedUsers(prev => prev.filter(u => u.muted_user_id !== userId));
+          } else {
+            showError('Error', 'Failed to unmute user. Please try again.');
+          }
+        } finally {
+          setUnmuting(prev => ({ ...prev, [userId]: false }));
+        }
+      }
     );
   };
 

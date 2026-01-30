@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Modal,
   StyleProp,
   ImageStyle,
@@ -22,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Calendar from 'expo-calendar';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface Session {
   id: string;
@@ -48,6 +48,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'SessionDetail'>>();
   const { session } = route.params;
+  const { showError, showSuccess, showAlert } = useSmuppyAlert();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -89,7 +90,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
     try {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission refusée', "L'accès au calendrier est nécessaire.");
+        showError('Permission refusée', "L'accès au calendrier est nécessaire.");
         return;
       }
 
@@ -99,7 +100,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
       ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
 
       if (!defaultCalendar) {
-        Alert.alert('Erreur', 'Aucun calendrier disponible.');
+        showError('Erreur', 'Aucun calendrier disponible.');
         return;
       }
 
@@ -117,10 +118,10 @@ const SessionDetailScreen = (): React.JSX.Element => {
         ],
       });
 
-      Alert.alert('Ajouté', 'La session a été ajoutée à votre calendrier.');
+      showSuccess('Ajouté', 'La session a été ajoutée à votre calendrier.');
     } catch (error) {
       console.error('Calendar error:', error);
-      Alert.alert('Erreur', "Impossible d'ajouter au calendrier.");
+      showError('Erreur', "Impossible d'ajouter au calendrier.");
     }
   };
 
@@ -130,11 +131,14 @@ const SessionDetailScreen = (): React.JSX.Element => {
       // TODO: Call API to cancel session
       await new Promise(resolve => setTimeout(resolve, 1500));
       setShowCancelModal(false);
-      Alert.alert('Session annulée', 'Votre session a été annulée avec succès.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Session annulée',
+        message: 'Votre session a été annulée avec succès.',
+        type: 'success',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     } catch (_error) {
-      Alert.alert('Erreur', "Impossible d'annuler la session.");
+      showError('Erreur', "Impossible d'annuler la session.");
     } finally {
       setCancelling(false);
     }

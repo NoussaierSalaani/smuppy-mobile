@@ -12,7 +12,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  Alert,
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useCurrency } from '../../hooks/useCurrency';
 import TipModal from '../../components/tips/TipModal';
 
@@ -61,6 +61,7 @@ interface Comment {
 }
 
 export default function BattleStreamScreen() {
+  const { showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const _user = useUserStore(getUser);
@@ -176,31 +177,17 @@ export default function BattleStreamScreen() {
   };
 
   const handleEndBattle = () => {
-    Alert.alert('End Battle?', 'Are you sure you want to end this battle?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End Battle',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await awsAPI.battleAction(battleId, 'end');
-          } catch (error) {
-            console.error('End battle error:', error);
-          }
-        },
-      },
-    ]);
+    showDestructiveConfirm('End Battle?', 'Are you sure you want to end this battle?', async () => {
+      try {
+        await awsAPI.battleAction(battleId, 'end');
+      } catch (error) {
+        console.error('End battle error:', error);
+      }
+    }, 'End Battle');
   };
 
   const handleLeaveBattle = () => {
-    Alert.alert('Leave Battle?', 'Are you sure you want to leave?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: () => navigation.goBack(),
-      },
-    ]);
+    showDestructiveConfirm('Leave Battle?', 'Are you sure you want to leave?', () => navigation.goBack(), 'Leave');
   };
 
   const formatDuration = (seconds: number) => {

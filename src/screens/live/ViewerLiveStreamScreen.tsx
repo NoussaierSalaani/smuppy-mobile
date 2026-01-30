@@ -14,7 +14,6 @@ import {
   FlatList,
   Animated,
   Modal,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
@@ -50,6 +50,7 @@ interface RouteParams {
 const REACTIONS = ['❤️', '🔥', '💪', '👏', '😍', '🎉'];
 
 export default function ViewerLiveStreamScreen(): React.JSX.Element {
+  const { showAlert, showSuccess } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -142,11 +143,12 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
       // Give it a moment - host might just be reconnecting
       const timeout = setTimeout(() => {
         if (remoteUsers.length === 0) {
-          Alert.alert(
-            'Stream Ended',
-            `${creatorName}'s live stream has ended.`,
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
+          showAlert({
+            title: 'Stream Ended',
+            message: `${creatorName}'s live stream has ended.`,
+            type: 'warning',
+            buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+          });
         }
       }, 5000);
       return () => clearTimeout(timeout);
@@ -441,7 +443,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
                   style={styles.giftItem}
                   onPress={() => {
                     setShowGiftModal(false);
-                    Alert.alert('Gift Sent!', `You sent a ${gift.name} to ${creatorName}!`);
+                    showSuccess('Gift Sent!', `You sent a ${gift.name} to ${creatorName}!`);
                   }}
                 >
                   <Text style={styles.giftEmoji}>{gift.emoji}</Text>

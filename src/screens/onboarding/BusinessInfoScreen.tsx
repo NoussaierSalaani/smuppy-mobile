@@ -31,6 +31,8 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [businessLatitude, setBusinessLatitude] = useState<number | undefined>();
+  const [businessLongitude, setBusinessLongitude] = useState<number | undefined>();
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const params = route?.params || {};
@@ -72,6 +74,8 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
 
   const selectAddress = useCallback((suggestion: NominatimSearchResult) => {
     setAddress(suggestion.display_name);
+    setBusinessLatitude(parseFloat(suggestion.lat));
+    setBusinessLongitude(parseFloat(suggestion.lon));
     setAddressSuggestions([]);
     Keyboard.dismiss();
   }, []);
@@ -92,6 +96,8 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
       if (reverseResult) {
         const parts = [reverseResult.streetNumber, reverseResult.street, reverseResult.city, reverseResult.postalCode, reverseResult.country].filter(Boolean);
         setAddress(parts.join(', '));
+        setBusinessLatitude(location.coords.latitude);
+        setBusinessLongitude(location.coords.longitude);
         setAddressSuggestions([]);
       }
     } catch (error) {
@@ -109,8 +115,10 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
       ...params,
       businessName: businessName.trim(),
       businessAddress: address.trim(),
+      businessLatitude,
+      businessLongitude,
     });
-  }, [isFormValid, navigate, params, businessName, address]);
+  }, [isFormValid, navigate, params, businessName, address, businessLatitude, businessLongitude]);
 
   return (
     <SafeAreaView style={styles.container}>

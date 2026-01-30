@@ -3224,6 +3224,7 @@ export interface Profile {
   bio: string | null;
   website?: string | null;
   isVerified: boolean;
+  isPremium?: boolean;
   isPrivate: boolean;
   accountType: 'personal' | 'pro_creator' | 'pro_business';
   followersCount: number;
@@ -3242,6 +3243,8 @@ export interface Profile {
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
+  businessLatitude?: number;
+  businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
 }
@@ -3314,6 +3317,8 @@ export interface UpdateProfileInput {
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
+  businessLatitude?: number;
+  businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
 }

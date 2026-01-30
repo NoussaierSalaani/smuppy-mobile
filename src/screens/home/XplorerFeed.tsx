@@ -156,9 +156,33 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const businessLocation = useUserStore((s) => {
     const u = s.user;
     if (u?.accountType !== 'pro_business') return null;
-    // Business location from profile (latitude/longitude stored on profile)
-    return u.businessAddress ? { address: u.businessAddress } : null;
+    return u.businessAddress ? {
+      address: u.businessAddress,
+      latitude: u.businessLatitude,
+      longitude: u.businessLongitude,
+    } : null;
   });
+
+  // Business marker: only visible for premium business accounts with coordinates
+  const businessMarker = useMemo((): MockMarker | null => {
+    if (accountType !== 'pro_business' || !isPremium) return null;
+    if (!businessLocation?.latitude || !businessLocation?.longitude) return null;
+    const u = useUserStore.getState().user;
+    if (!u) return null;
+    return {
+      id: `business_${u.id}`,
+      type: 'business',
+      subcategory: u.businessCategory || 'Business',
+      category: 'business',
+      name: u.businessName || 'My Business',
+      avatar: u.avatar || '',
+      bio: u.bio || '',
+      fans: u.stats?.fans || 0,
+      posts: u.stats?.posts || 0,
+      coordinate: { latitude: businessLocation.latitude, longitude: businessLocation.longitude },
+      address: businessLocation.address,
+    };
+  }, [accountType, isPremium, businessLocation]);
 
   // FAB visibility & actions based on account type
   const fabActions = useMemo((): FabAction[] => {
@@ -525,6 +549,18 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             {renderCustomMarker(marker)}
           </PointAnnotation>
         ))}
+        {businessMarker && (
+          <PointAnnotation
+            key={businessMarker.id}
+            id={businessMarker.id}
+            coordinate={[businessMarker.coordinate.longitude, businessMarker.coordinate.latitude]}
+            onSelected={() => handleMarkerPress(businessMarker)}
+          >
+            <View style={[styles.markerPin, { backgroundColor: COLORS.primary }]}>
+              <Ionicons name="business" size={normalize(20)} color={COLORS.white} />
+            </View>
+          </PointAnnotation>
+        )}
       </MapView>
 
       {/* SEARCH BAR */}

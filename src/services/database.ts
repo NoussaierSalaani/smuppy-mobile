@@ -45,6 +45,8 @@ export interface Profile {
   business_name?: string;
   business_category?: string;
   business_address?: string;
+  business_latitude?: number;
+  business_longitude?: number;
   business_phone?: string;
   locations_mode?: string;
   onboarding_completed?: boolean;
@@ -162,6 +164,7 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     bio: p.bio || undefined,
     website: p.website || undefined,
     is_verified: p.isVerified,
+    is_premium: p.isPremium,
     is_private: p.isPrivate,
     account_type: p.accountType,
     gender: p.gender,
@@ -173,6 +176,8 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     business_name: p.businessName,
     business_category: p.businessCategory,
     business_address: p.businessAddress,
+    business_latitude: p.businessLatitude,
+    business_longitude: p.businessLongitude,
     business_phone: p.businessPhone,
     locations_mode: p.locationsMode,
     fan_count: p.followersCount,
@@ -288,6 +293,8 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (updates.business_name) updateData.businessName = updates.business_name;
     if (updates.business_category) updateData.businessCategory = updates.business_category;
     if (updates.business_address) updateData.businessAddress = updates.business_address;
+    if (updates.business_latitude != null) updateData.businessLatitude = updates.business_latitude;
+    if (updates.business_longitude != null) updateData.businessLongitude = updates.business_longitude;
     if (updates.business_phone) updateData.businessPhone = updates.business_phone;
     if (updates.locations_mode) updateData.locationsMode = updates.locations_mode;
 

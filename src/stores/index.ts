@@ -59,6 +59,8 @@ interface User {
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
+  businessLatitude?: number;
+  businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
   // Stats

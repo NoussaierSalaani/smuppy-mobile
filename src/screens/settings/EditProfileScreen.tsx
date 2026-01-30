@@ -9,6 +9,8 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +24,9 @@ import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { searchNominatim, NominatimSearchResult } from '../../config/api';
+import * as Location from 'expo-location';
+import { COLORS, SPACING } from '../../config/theme';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -71,6 +76,16 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const [dateOfBirth, setDateOfBirth] = useState(mergedProfile.dateOfBirth || '');
   const [gender, setGender] = useState(mergedProfile.gender || '');
 
+  // Business address (pro_business only)
+  const isBusiness = user?.accountType === 'pro_business';
+  const [businessAddress, setBusinessAddress] = useState(user?.businessAddress || '');
+  const [businessLatitude, setBusinessLatitude] = useState<number | undefined>(user?.businessLatitude);
+  const [businessLongitude, setBusinessLongitude] = useState<number | undefined>(user?.businessLongitude);
+  const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const addressSearchTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Modals
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
@@ -95,6 +110,56 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const updateField = (setter: (value: string) => void, value: string) => {
     setter(value);
     setHasChanges(true);
+  };
+
+  // Business address handlers
+  const handleBusinessAddressChange = (text: string) => {
+    setBusinessAddress(text);
+    setHasChanges(true);
+    if (addressSearchTimeout.current) clearTimeout(addressSearchTimeout.current);
+    if (text.length < 3) { setAddressSuggestions([]); return; }
+    addressSearchTimeout.current = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const results = await searchNominatim(text, { limit: 4 });
+        setAddressSuggestions(results);
+      } catch { setAddressSuggestions([]); }
+      finally { setIsLoadingSuggestions(false); }
+    }, 300);
+  };
+
+  const selectBusinessAddress = (suggestion: NominatimSearchResult) => {
+    setBusinessAddress(suggestion.display_name);
+    setBusinessLatitude(parseFloat(suggestion.lat));
+    setBusinessLongitude(parseFloat(suggestion.lon));
+    setAddressSuggestions([]);
+    setHasChanges(true);
+    Keyboard.dismiss();
+  };
+
+  const detectBusinessLocation = async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setIsLoadingLocation(false); return; }
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [reverseResult] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      if (reverseResult) {
+        const parts = [reverseResult.streetNumber, reverseResult.street, reverseResult.city, reverseResult.postalCode, reverseResult.country].filter(Boolean);
+        setBusinessAddress(parts.join(', '));
+        setBusinessLatitude(location.coords.latitude);
+        setBusinessLongitude(location.coords.longitude);
+        setAddressSuggestions([]);
+        setHasChanges(true);
+      }
+    } catch (error) {
+      console.error('Location error:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
   };
 
   const showImagePicker = () => {
@@ -186,13 +251,19 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       }
 
       // Save to AWS
-      await updateDbProfile({
+      const profileUpdates: Record<string, unknown> = {
         full_name: fullName,
         avatar_url: avatarUrl,
         bio: bio,
         date_of_birth: dateOfBirth,
         gender: gender,
-      });
+      };
+      if (isBusiness) {
+        profileUpdates.business_address = businessAddress;
+        if (businessLatitude != null) profileUpdates.business_latitude = businessLatitude;
+        if (businessLongitude != null) profileUpdates.business_longitude = businessLongitude;
+      }
+      await updateDbProfile(profileUpdates);
 
       // Also update local store
       updateLocalProfile({
@@ -203,6 +274,11 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         bio,
         dateOfBirth,
         gender,
+        ...(isBusiness ? {
+          businessAddress,
+          businessLatitude,
+          businessLongitude,
+        } : {}),
       });
 
       // Refresh data
@@ -384,6 +460,46 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
           </View>
         </View>
 
+        {/* Business Address Section (pro_business only) */}
+        {isBusiness && (
+          <View style={styles.formContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Business Address</Text>
+              <View style={styles.addressRow}>
+                <TouchableOpacity onPress={detectBusinessLocation} disabled={isLoadingLocation} style={styles.locationButton}>
+                  {isLoadingLocation ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <Ionicons name="locate" size={18} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={businessAddress}
+                  onChangeText={handleBusinessAddressChange}
+                  placeholder="Start typing or use location..."
+                  placeholderTextColor="#C7C7CC"
+                />
+                {isLoadingSuggestions && <ActivityIndicator size="small" color={COLORS.primary} />}
+              </View>
+              {addressSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {addressSuggestions.map((s) => (
+                    <TouchableOpacity
+                      key={s.place_id.toString()}
+                      style={styles.suggestionItem}
+                      onPress={() => selectBusinessAddress(s)}
+                    >
+                      <Ionicons name="location" size={16} color={COLORS.primary} />
+                      <Text style={styles.suggestionText} numberOfLines={2}>{s.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Spacer for bottom */}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -547,6 +663,40 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#6E6E73',
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingRight: 12,
+  },
+  locationButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0A0A0F',
+    marginLeft: 8,
   },
 });
 

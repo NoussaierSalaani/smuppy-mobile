@@ -214,9 +214,10 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   const insets = useSafeAreaInsets();
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
 
-  // Check if user is pro_creator or pro_business for special styling
+  // Separate checks: creator-only features vs shared pro styling
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === 'pro_creator';
+  const isPro = isProCreator || user?.accountType === 'pro_business';
 
   // Pro creator menu state
   const [showProMenu, setShowProMenu] = useState(false);
@@ -297,8 +298,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
         },
       ]}
     >
-      {/* Green border wrapper for pro_creator */}
-      {isProCreator && (
+      {/* Green border wrapper for pro accounts */}
+      {isPro && (
         <LinearGradient
           colors={GRADIENTS.primary}
           start={{ x: 0, y: 0 }}
@@ -306,14 +307,14 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
           style={styles.proBorderWrapper}
         />
       )}
-      <BlurView intensity={80} tint="light" style={[styles.blurContainer, isProCreator && styles.proBlurContainer]}>
+      <BlurView intensity={80} tint="light" style={[styles.blurContainer, isPro && styles.proBlurContainer]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
 
             if (tab.isCreate) {
-              // Pro creator gets Smuppy "S" icon button with menu
-              if (isProCreator) {
+              // Pro accounts get Smuppy "S" icon button with menu
+              if (isPro) {
                 return (
                   <TouchableOpacity
                     key={tab.name}
@@ -410,8 +411,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
               ]}
             >
               <BlurView intensity={90} tint="light" style={styles.menuBlur}>
-                {/* Live Option */}
-                {FEATURES.GO_LIVE && (
+                {/* Live Option - Creator only */}
+                {FEATURES.GO_LIVE && isProCreator && (
                 <TouchableOpacity
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('live')}
@@ -429,8 +430,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 </TouchableOpacity>
                 )}
 
-                {/* Sessions Option */}
-                {FEATURES.PRIVATE_SESSIONS && (
+                {/* Sessions Option - Creator only */}
+                {FEATURES.PRIVATE_SESSIONS && isProCreator && (
                 <TouchableOpacity
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('sessions')}

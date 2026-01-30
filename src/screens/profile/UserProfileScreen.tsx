@@ -12,7 +12,7 @@ import {
   Share,
   RefreshControl,
 } from 'react-native';
-import { useUserSafetyStore } from '../../stores';
+import { useUserStore, useUserSafetyStore } from '../../stores';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +55,7 @@ interface ProfileApiData {
   is_private?: boolean;
   interests?: string[];
   account_type?: 'personal' | 'pro_creator' | 'pro_business';
+  business_name?: string;
 }
 
 const DEFAULT_PROFILE = {
@@ -98,7 +99,7 @@ const UserProfileScreen = () => {
     return {
       id: data.id || userId || DEFAULT_PROFILE.id,
       username: data.username || DEFAULT_PROFILE.username,
-      displayName: data.full_name || data.username || DEFAULT_PROFILE.displayName,
+      displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.full_name || data.username || DEFAULT_PROFILE.displayName),
       avatar: data.avatar_url || DEFAULT_PROFILE.avatar,
       coverImage: data.cover_url || getCoverImage(interests),
       bio: data.bio || DEFAULT_PROFILE.bio,
@@ -347,7 +348,9 @@ const UserProfileScreen = () => {
       // Direct follow was successful
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
-      useVibeStore.getState().addVibeAction('follow_user');
+      if (useUserStore.getState().user?.accountType !== 'pro_business') {
+        useVibeStore.getState().addVibeAction('follow_user');
+      }
     }
   };
 

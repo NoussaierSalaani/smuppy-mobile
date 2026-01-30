@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { getPrescriptionById, PrescriptionCategory } from '../../services/prescriptionEngine';
 import { COLORS, SPACING } from '../../config/theme';
+import { useUserStore } from '../../stores';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -39,6 +40,8 @@ interface ActivePrescriptionScreenProps {
 }
 
 export default function ActivePrescriptionScreen({ navigation, route }: ActivePrescriptionScreenProps) {
+  const accountType = useUserStore((s) => s.user?.accountType);
+  const isBusiness = accountType === 'pro_business';
   const insets = useSafeAreaInsets();
   const { completePrescription } = useVibePrescriptions();
   const prescription = getPrescriptionById(route.params.prescriptionId);
@@ -97,6 +100,13 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
   }, [prescription, completePrescription, navigation]);
 
   const handleCancel = useCallback(() => navigation.goBack(), [navigation]);
+
+  // Business accounts don't have access to prescriptions
+  useEffect(() => {
+    if (isBusiness) navigation.goBack();
+  }, [isBusiness, navigation]);
+
+  if (isBusiness) return null;
 
   if (!prescription) {
     return (

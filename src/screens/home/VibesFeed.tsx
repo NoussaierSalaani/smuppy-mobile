@@ -173,7 +173,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
 
-  // Advanced Mood AI System
+  // Account type (needed before useMoodAI to gate it)
+  const accountType = useUserStore((state) => state.user?.accountType);
+  const isBusiness = accountType === 'pro_business';
+
+  // Advanced Mood AI System (disabled for business accounts)
   const {
     mood,
     handleScroll: handleMoodScroll,
@@ -182,6 +186,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     trackLike,
     refreshMood,
   } = useMoodAI({
+    enabled: !isBusiness,
     enableScrollTracking: true,
     moodUpdateInterval: 30000, // Update mood every 30s
     onMoodChange: (_newMood) => {
@@ -222,9 +227,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Follow state for modal
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
-
-  // Get account type to determine what to show (interests vs expertise vs category)
-  const accountType = useUserStore((state) => state.user?.accountType);
 
   // Load user interests/expertise based on account type
   // Personal → interests, Pro_creator → expertise, Pro_business → business_category + expertise

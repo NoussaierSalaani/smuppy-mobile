@@ -37,6 +37,8 @@ const ACTIVITY_TIMEOUT = 5000; // Consider idle after 5s of no activity
 // ============================================================================
 
 export interface UseMoodAIOptions {
+  /** Set to false to disable all mood tracking (e.g. for business accounts) */
+  enabled?: boolean;
   enableScrollTracking?: boolean;
   moodUpdateInterval?: number; // ms
   onMoodChange?: (mood: MoodAnalysisResult) => void;
@@ -77,6 +79,7 @@ export interface UseMoodAIReturn {
 
 export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const {
+    enabled = true,
     enableScrollTracking = true,
     onMoodChange,
   } = options;
@@ -157,6 +160,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   // ============================================================================
 
   useEffect(() => {
+    if (!enabled) return;
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
         // App came to foreground - resume refresh
@@ -209,29 +213,30 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     if (__DEV__) console.log('[MoodAI] Session ended');
   }, []);
 
-  // Start session on mount only
+  // Start session on mount only (skip if disabled)
   useEffect(() => {
+    if (!enabled) return;
     startSession();
 
     return () => {
       endSession();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 
   // ============================================================================
   // SCROLL TRACKING (marks activity for adaptive refresh)
   // ============================================================================
 
   const handleScroll = useCallback((event: { nativeEvent: NativeScrollEvent }) => {
-    if (!enableScrollTracking) return;
+    if (!enabled || !enableScrollTracking) return;
 
     const { contentOffset } = event.nativeEvent;
     moodDetection.trackScroll(contentOffset.y);
 
     // Mark user as active (switches to faster refresh rate)
     markActive();
-  }, [enableScrollTracking, markActive]);
+  }, [enabled, enableScrollTracking, markActive]);
 
   // ============================================================================
   // ENGAGEMENT TRACKING (triggers immediate mood refresh)

@@ -2,7 +2,7 @@
  * PrescriptionsScreen — List of context-aware wellness missions
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { Prescription, PrescriptionCategory } from '../../services/prescriptionEngine';
 import { COLORS, SPACING } from '../../config/theme';
+import { useUserStore } from '../../stores';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -37,6 +38,7 @@ interface PrescriptionsScreenProps {
 }
 
 export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenProps) {
+  const accountType = useUserStore((s) => s.user?.accountType);
   const insets = useSafeAreaInsets();
   const {
     prescriptions,
@@ -45,6 +47,8 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
     isLoading,
     refresh,
   } = useVibePrescriptions();
+
+  const isBusiness = accountType === 'pro_business';
 
   const handleStart = useCallback(
     (rx: Prescription) => {
@@ -59,6 +63,13 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
     () => navigation.navigate('PrescriptionPreferences'),
     [navigation],
   );
+
+  // Business accounts don't have access to prescriptions
+  useEffect(() => {
+    if (isBusiness) navigation.goBack();
+  }, [isBusiness, navigation]);
+
+  if (isBusiness) return null;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

@@ -549,8 +549,10 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
       setUploadProgress(100);
 
-      // Award vibe score for posting
-      useVibeStore.getState().addVibeAction('post');
+      // Award vibe score for posting (not for business accounts)
+      if (useUserStore.getState().user?.accountType !== 'pro_business') {
+        useVibeStore.getState().addVibeAction('post');
+      }
 
       // Navigate to success
       navigation.navigate('PostSuccess', {

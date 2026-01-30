@@ -167,6 +167,25 @@ const MenuSessionsIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
+// Dashboard tab icons for pro_business bottom nav
+const DashboardIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="3" width="7" height="7" rx="2" fill={COLORS.dark} />
+    <Rect x="14" y="3" width="7" height="4" rx="2" fill={COLORS.dark} />
+    <Rect x="3" y="14" width="7" height="4" rx="2" fill={COLORS.dark} />
+    <Rect x="14" y="11" width="7" height="7" rx="2" fill={COLORS.dark} />
+  </Svg>
+);
+
+const DashboardIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="3" width="7" height="7" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
+    <Rect x="14" y="3" width="7" height="4" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
+    <Rect x="3" y="14" width="7" height="4" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
+    <Rect x="14" y="11" width="7" height="7" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
+  </Svg>
+);
+
 // Menu icons for pro_business popup
 const MenuDashboardIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -298,9 +317,13 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     return null;
   }
 
+  const isBusiness = user?.accountType === 'pro_business';
+
   const tabs: TabConfig[] = [
     { name: 'Home', iconFilled: HomeIconFilled, iconOutline: HomeIconOutline },
-    { name: 'Peaks', iconFilled: PeaksIconFilled, iconOutline: PeaksIconOutline },
+    isBusiness
+      ? { name: 'Peaks', iconFilled: DashboardIconFilled, iconOutline: DashboardIconOutline }
+      : { name: 'Peaks', iconFilled: PeaksIconFilled, iconOutline: PeaksIconOutline },
     { name: 'CreateTab', isCreate: true },
     { name: 'Messages', iconFilled: MessagesIconFilled, iconOutline: MessagesIconOutline },
     { name: 'Profile', isProfile: true },
@@ -309,6 +332,12 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   const handlePress = (tab: TabConfig, index: number): void => {
     if (tab.isCreate) {
       onCreatePress?.();
+      return;
+    }
+
+    // Business: redirect Peaks tab to Dashboard
+    if (isBusiness && tab.name === 'Peaks') {
+      navigation.navigate('BusinessDashboard');
       return;
     }
 

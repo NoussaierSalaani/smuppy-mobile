@@ -198,7 +198,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     return () => { if (locationSearchTimeout.current) clearTimeout(locationSearchTimeout.current); };
   }, []);
 
-  const handleMapPress = (e: any) => {
+  const handleMapPress = async (e: any) => {
     const [longitude, latitude] = e.geometry.coordinates;
 
     if (hasRoute && selectedCategory && ROUTE_CATEGORIES.includes(selectedCategory.slug)) {
@@ -211,6 +211,20 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       // Set event location
       setCoordinates({ lat: latitude, lng: longitude });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Reverse geocode to fill location name
+      try {
+        const [reverseResult] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (reverseResult) {
+          const parts = [reverseResult.street, reverseResult.city, reverseResult.country].filter(Boolean);
+          if (parts.length > 0) {
+            setLocationName(parts.join(', '));
+            setLocationSuggestions([]);
+          }
+        }
+      } catch {
+        // Silent — location name stays empty, user can type manually
+      }
     }
   };
 
@@ -541,8 +555,13 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           onPress={handleMapPress}
         >
           <Camera
-            centerCoordinate={[userLocation?.lng || 2.3522, userLocation?.lat || 48.8566]}
+            centerCoordinate={[
+              coordinates?.lng || userLocation?.lng || 2.3522,
+              coordinates?.lat || userLocation?.lat || 48.8566,
+            ]}
             zoomLevel={14}
+            animationMode="flyTo"
+            animationDuration={1000}
           />
           {coordinates && !hasRoute && (
             <MarkerView

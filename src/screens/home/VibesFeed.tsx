@@ -909,12 +909,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           />
         }
       >
-        {/* SMUPPY MOOD INDICATOR - AI-powered personalization */}
-        <MoodIndicator
-          mood={mood}
-          onRefresh={refreshMood}
-          onVibePress={() => navigation.navigate('Prescriptions' as any)}
-        />
+        {/* SMUPPY MOOD INDICATOR - AI-powered personalization (not for business accounts) */}
+        {accountType !== 'pro_business' && (
+          <MoodIndicator
+            mood={mood}
+            onRefresh={refreshMood}
+            onVibePress={() => navigation.navigate('Prescriptions' as any)}
+          />
+        )}
 
         {/* PEAKS SECTION */}
         <View style={styles.peaksSection}>
@@ -1046,12 +1048,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         onDismiss={dismissGuardianAlert}
       />
 
-      {/* Session Recap Modal */}
-      <SessionRecapModal
-        visible={showSessionRecap}
-        recap={sessionRecap}
-        onDismiss={dismissSessionRecap}
-      />
+      {/* Session Recap Modal (not for business accounts) */}
+      {accountType !== 'pro_business' && (
+        <SessionRecapModal
+          visible={showSessionRecap}
+          recap={sessionRecap}
+          onDismiss={dismissSessionRecap}
+        />
+      )}
     </View>
   );
 });

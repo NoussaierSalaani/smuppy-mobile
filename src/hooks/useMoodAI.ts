@@ -16,6 +16,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NativeScrollEvent, AppState, AppStateStatus } from 'react-native';
 import { moodDetection, MoodAnalysisResult, MoodType } from '../services/moodDetection';
 import { moodRecommendation, Post, UserProfile, RecommendationResult } from '../services/moodRecommendation';
+import { addPositiveAction } from '../services/rippleTracker';
+import { isFeatureEnabled } from '../config/featureFlags';
 
 // ============================================================================
 // ADAPTIVE REFRESH CONFIGURATION
@@ -63,6 +65,9 @@ export interface UseMoodAIReturn {
   refreshMood: () => void;
   startSession: () => void;
   endSession: () => void;
+
+  // History
+  getMoodHistory: () => MoodAnalysisResult[];
 }
 
 // ============================================================================
@@ -261,7 +266,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
   const trackLike = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('like');
-    // Immediate mood refresh on interaction
+    if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('like');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
@@ -275,14 +280,14 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
   const trackShare = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('share');
-    // Immediate mood refresh on interaction
+    if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('share');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
 
   const trackSave = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('save');
-    // Immediate mood refresh on interaction
+    if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('save');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
@@ -330,6 +335,10 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   // RETURN
   // ============================================================================
 
+  const getMoodHistory = useCallback(() => {
+    return moodDetection.getMoodHistory();
+  }, []);
+
   return {
     mood,
     isAnalyzing,
@@ -345,6 +354,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     refreshMood,
     startSession,
     endSession,
+    getMoodHistory,
   };
 }
 

@@ -29,6 +29,9 @@ import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { unsavePost } from '../../services/database';
 import { LiquidTabsWithMore } from '../../components/LiquidTabs';
+import RippleVisualization from '../../components/RippleVisualization';
+import GradeFrame from '../../components/GradeFrame';
+import { getGrade } from '../../utils/gradeSystem';
 import { styles, AVATAR_SIZE } from './ProfileScreen.styles';
 
 // ProfileDataSource is now imported from ../../types/profile
@@ -100,6 +103,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // Check if user has peaks (for avatar border indicator)
   const hasPeaks = peaks.length > 0;
+
+  // Grade system — decorative frame for 1M+ fans
+  const gradeInfo = useMemo(() => getGrade(user.stats.fans), [user.stats.fans]);
 
   // Modal states
   const [showQRModal, setShowQRModal] = useState(false);
@@ -250,6 +256,50 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     setSelectedCollectionPost(null);
   };
 
+  // ==================== RENDER AVATAR ====================
+  const renderAvatarContent = useCallback(() => {
+    const avatarInner = (
+      <RippleVisualization size={AVATAR_SIZE}>
+        {hasPeaks ? (
+          <LinearGradient
+            colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatarGradientBorder}
+          >
+            <View style={styles.avatarInnerBorder}>
+              {user.avatar ? (
+                <AvatarImage source={user.avatar} size={AVATAR_SIZE - 8} style={styles.avatarWithPeaks} />
+              ) : (
+                <View style={styles.avatarEmptyWithPeaks}>
+                  <Ionicons name="person" size={32} color="#6E6E73" />
+                </View>
+              )}
+            </View>
+          </LinearGradient>
+        ) : (
+          user.avatar ? (
+            <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarEmpty}>
+              <Ionicons name="person" size={36} color="#6E6E73" />
+            </View>
+          )
+        )}
+      </RippleVisualization>
+    );
+
+    if (gradeInfo) {
+      return (
+        <GradeFrame grade={gradeInfo.grade} color={gradeInfo.color} size={AVATAR_SIZE}>
+          {avatarInner}
+        </GradeFrame>
+      );
+    }
+
+    return avatarInner;
+  }, [hasPeaks, user.avatar, gradeInfo]);
+
   // ==================== RENDER HEADER ====================
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -287,33 +337,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           activeOpacity={0.9}
           onPress={() => isOwnProfile && showImageOptions('avatar')}
         >
-          {/* Peaks indicator - gradient border around avatar */}
-          {hasPeaks ? (
-            <LinearGradient
-              colors={['#0EBF8A', '#00B5C1', '#0081BE']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarGradientBorder}
-            >
-              <View style={styles.avatarInnerBorder}>
-                {user.avatar ? (
-                  <AvatarImage source={user.avatar} size={AVATAR_SIZE - 8} style={styles.avatarWithPeaks} />
-                ) : (
-                  <View style={styles.avatarEmptyWithPeaks}>
-                    <Ionicons name="person" size={32} color="#6E6E73" />
-                  </View>
-                )}
-              </View>
-            </LinearGradient>
-          ) : (
-            user.avatar ? (
-              <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarEmpty}>
-                <Ionicons name="person" size={36} color="#6E6E73" />
-              </View>
-            )
-          )}
+          {renderAvatarContent()}
         </TouchableOpacity>
 
         {/* Stats - Glassmorphism Style */}

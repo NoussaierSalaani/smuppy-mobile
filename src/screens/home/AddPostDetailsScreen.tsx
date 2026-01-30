@@ -47,6 +47,7 @@ import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
 import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
+import { useVibeStore } from '../../stores/vibeStore';
 
 const { width } = Dimensions.get('window');
 
@@ -546,6 +547,9 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       }
 
       setUploadProgress(100);
+
+      // Award vibe score for posting
+      useVibeStore.getState().addVibeAction('post');
 
       // Navigate to success
       navigation.navigate('PostSuccess', {
@@ -1069,6 +1073,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       {renderVisibilityModal()}
       {renderLocationModal()}
       {renderTagModal()}
+
     </KeyboardAvoidingView>
   );
 }

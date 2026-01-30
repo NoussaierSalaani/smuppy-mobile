@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { COLORS, GRADIENTS } from '../../config/theme';
 import { FEATURES } from '../../config/featureFlags';
 import { LiquidButton } from '../../components/LiquidButton';
+import { BlurView } from 'expo-blur';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUserStore } from '../../stores';
 
@@ -430,20 +431,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                 const isActive = activeSubs.includes(sub);
                 return (
                   <TouchableOpacity key={sub} activeOpacity={0.8} onPress={() => toggleSubFilter(subFilterSheet, sub)}>
-                    {isActive ? (
-                      <LinearGradient
-                        colors={GRADIENTS.primary}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.sheetChip}
-                      >
-                        <Text style={[styles.sheetChipText, { color: COLORS.white }]}>{sub}</Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.sheetChipInactive}>
-                        <Text style={styles.sheetChipText}>{sub}</Text>
-                      </View>
-                    )}
+                    <View style={isActive ? styles.sheetChipActive : styles.sheetChipInactive}>
+                      <Text style={styles.sheetChipText}>{sub}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -590,23 +580,18 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                 style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
               >
                 {isActive ? (
-                  <LinearGradient
-                    colors={GRADIENTS.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.chip}
-                  >
-                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.white} />
-                    <Text style={[styles.chipText, { color: COLORS.white }]}>{filter.label}</Text>
+                  <View style={styles.chipActive}>
+                    <Ionicons name={filter.icon} size={normalize(16)} color={filter.color} />
+                    <Text style={styles.chipText}>{filter.label}</Text>
                     {subCount > 0 && (
                       <View style={styles.chipSubBadge}>
                         <Text style={styles.chipSubBadgeText}>{subCount}</Text>
                       </View>
                     )}
-                  </LinearGradient>
+                  </View>
                 ) : (
                   <View style={styles.chipInactive}>
-                    <Ionicons name={filter.icon} size={normalize(16)} color={COLORS.dark} />
+                    <Ionicons name={filter.icon} size={normalize(16)} color={filter.color} />
                     <Text style={styles.chipText}>{filter.label}</Text>
                   </View>
                 )}
@@ -640,29 +625,31 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       {/* FAB - Bottom left */}
       {fabActions.length > 0 && (
         <View style={[styles.fabContainer, { bottom: insets.bottom + hp(2) }]}>
-          {/* Expanded actions */}
-          {fabOpen && fabActions.map((item) => (
-            <TouchableOpacity
-              key={item.action}
-              style={styles.fabActionRow}
-              activeOpacity={0.85}
-              onPress={() => handleFabAction(item.action)}
-            >
-              <View style={styles.fabActionLabel}>
-                <Text style={styles.fabActionLabelText}>{item.label}</Text>
-              </View>
-              <LinearGradient
-                colors={GRADIENTS.primary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.fabActionButton}
-              >
-                <Ionicons name={item.icon} size={normalize(20)} color={COLORS.white} />
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
+          {fabOpen ? (
+            <View style={styles.fabPanel}>
+              <BlurView intensity={60} tint="light" style={styles.fabPanelBlur}>
+                {fabActions.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.action}
+                    style={[
+                      styles.fabPanelRow,
+                      index < fabActions.length - 1 && styles.fabPanelRowBorder,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => handleFabAction(item.action)}
+                  >
+                    <View style={styles.fabPanelIcon}>
+                      <Ionicons name={item.icon} size={normalize(20)} color={COLORS.primary} />
+                    </View>
+                    <Text style={styles.fabPanelLabel}>{item.label}</Text>
+                    <Ionicons name="chevron-forward" size={normalize(16)} color={COLORS.grayMuted} />
+                  </TouchableOpacity>
+                ))}
+              </BlurView>
+            </View>
+          ) : null}
 
-          {/* Main FAB */}
+          {/* Main FAB pill */}
           <TouchableOpacity activeOpacity={0.85} onPress={() => {
             if (fabActions.length === 1) {
               handleFabAction(fabActions[0].action);
@@ -676,7 +663,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               end={{ x: 1, y: 1 }}
               style={styles.fab}
             >
-              <Ionicons name={fabOpen ? 'close' : 'add'} size={normalize(26)} color={COLORS.white} />
+              <Ionicons name={fabOpen ? 'close' : 'add'} size={normalize(22)} color={COLORS.white} />
+              {!fabOpen && <Text style={styles.fabLabel}>Create</Text>}
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -748,13 +736,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp(4),
     gap: wp(2),
   },
-  chip: {
+  chipActive: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: wp(3.5),
     paddingVertical: hp(1),
     borderRadius: normalize(20),
     gap: wp(1.5),
+    backgroundColor: 'rgba(14, 191, 138, 0.10)',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
   },
   chipInactive: {
     flexDirection: 'row',
@@ -776,7 +767,7 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
   },
   chipSubBadge: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: COLORS.primary,
     borderRadius: normalize(8),
     width: normalize(16),
     height: normalize(16),
@@ -814,50 +805,67 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   fab: {
-    width: normalize(54),
-    height: normalize(54),
-    borderRadius: normalize(27),
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: normalize(10),
+    justifyContent: 'center',
+    height: normalize(48),
+    paddingHorizontal: wp(5),
+    borderRadius: normalize(24),
+    gap: wp(2),
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  fabActionLabel: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.8),
-    borderRadius: normalize(8),
-    marginRight: wp(2),
+  fabLabel: {
+    fontSize: normalize(15),
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: 0.3,
+  },
+  fabPanel: {
+    marginBottom: normalize(12),
+    borderRadius: normalize(20),
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
   },
-  fabActionLabelText: {
-    fontSize: normalize(13),
-    fontWeight: '600',
-    color: COLORS.dark,
+  fabPanelBlur: {
+    paddingVertical: hp(0.5),
+    paddingHorizontal: wp(1),
+    overflow: 'hidden',
+    borderRadius: normalize(20),
   },
-  fabActionButton: {
-    width: normalize(42),
-    height: normalize(42),
-    borderRadius: normalize(21),
+  fabPanelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: hp(1.6),
+    paddingHorizontal: wp(3.5),
+    gap: wp(3),
+  },
+  fabPanelRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  fabPanelIcon: {
+    width: normalize(36),
+    height: normalize(36),
+    borderRadius: normalize(12),
+    backgroundColor: 'rgba(14, 191, 138, 0.10)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
+  },
+  fabPanelLabel: {
+    flex: 1,
+    fontSize: normalize(15),
+    fontWeight: '600',
+    color: COLORS.dark,
   },
 
   // Marker
@@ -949,9 +957,12 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: normalize(22), fontWeight: '700', color: COLORS.dark },
   sheetSubtitle: { fontSize: normalize(14), color: COLORS.gray, marginBottom: hp(2) },
   sheetChips: { flexDirection: 'row', flexWrap: 'wrap', gap: wp(2.5) },
-  sheetChip: {
+  sheetChipActive: {
     paddingHorizontal: wp(4), paddingVertical: hp(1.2),
     borderRadius: normalize(14),
+    backgroundColor: 'rgba(14, 191, 138, 0.10)',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
   },
   sheetChipInactive: {
     paddingHorizontal: wp(4), paddingVertical: hp(1.2),

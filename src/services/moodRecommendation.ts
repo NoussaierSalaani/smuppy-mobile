@@ -138,6 +138,7 @@ class MoodRecommendationEngine {
   };
 
   private config: RecommendationConfig;
+  private forceUplift: boolean = false;
 
   constructor(config?: Partial<RecommendationConfig>) {
     this.config = { ...this.defaultConfig, ...config };
@@ -148,6 +149,13 @@ class MoodRecommendationEngine {
    */
   setConfig(config: Partial<RecommendationConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+
+  /**
+   * Force uplift content when Vibe Guardian detects mood decline
+   */
+  setUpliftOverride(force: boolean): void {
+    this.forceUplift = force;
   }
 
   /**
@@ -200,7 +208,10 @@ class MoodRecommendationEngine {
       return 'default';
     }
 
-    // Check if uplift is needed
+    // Check if uplift is needed (or forced by Vibe Guardian)
+    if (this.forceUplift) {
+      return 'uplift';
+    }
     if (this.config.enableUplift) {
       const needsUplift = this.checkUpliftNeeded(mood);
       if (needsUplift) {

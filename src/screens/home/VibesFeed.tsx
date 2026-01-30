@@ -28,6 +28,10 @@ import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
 
 import SharePostModal from '../../components/SharePostModal';
+import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
+import SessionRecapModal from '../../components/SessionRecapModal';
+import { useVibeGuardian } from '../../hooks/useVibeGuardian';
+import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
 
 const { width } = Dimensions.get('window');
@@ -47,13 +51,32 @@ const INTEREST_DATA: Record<string, { icon: string; color: string }> = {};
 interface MoodIndicatorProps {
   mood: ReturnType<typeof useMoodAI>['mood'];
   onRefresh?: () => void;
+  onVibePress?: () => void;
 }
 
-const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
+const LEVEL_COLORS: Record<string, string> = {
+  newcomer: '#9E9E9E',
+  explorer: '#4CAF50',
+  contributor: '#2196F3',
+  influencer: '#9C27B0',
+  legend: '#FF9800',
+};
+
+const LEVEL_LABELS: Record<string, string> = {
+  newcomer: 'Newcomer',
+  explorer: 'Explorer',
+  contributor: 'Contributor',
+  influencer: 'Influencer',
+  legend: 'Legend',
+};
+
+const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicatorProps) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const vibeScore = useVibeStore((s) => s.vibeScore);
+  const vibeLevel = useVibeStore((s) => s.vibeLevel);
+  const currentStreak = useVibeStore((s) => s.currentStreak);
 
   useEffect(() => {
-    // Pulse animation (scale is supported by native driver)
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -74,15 +97,11 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
   if (!mood) return null;
 
   const display = getMoodDisplay(mood.primaryMood);
-  const confidencePercent = Math.round(mood.confidence * 100);
-
-  // Strategy badge
-  const strategyBadge = mood.signals.engagement > 0.7 ? 'Active' :
-                        mood.signals.behavioral > 0.7 ? 'Engaged' :
-                        'Exploring';
+  const levelColor = LEVEL_COLORS[vibeLevel] || COLORS.gray;
+  const levelLabel = LEVEL_LABELS[vibeLevel] || 'Newcomer';
 
   return (
-    <TouchableOpacity onPress={onRefresh} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onVibePress || onRefresh} activeOpacity={0.8}>
       <Animated.View style={[styles.moodContainer, { transform: [{ scale: pulseAnim }] }]}>
         <LinearGradient
           colors={[display.color + '25', display.color + '10', 'transparent']}
@@ -105,32 +124,27 @@ const MoodIndicator = React.memo(({ mood, onRefresh }: MoodIndicatorProps) => {
             <Text style={styles.moodEmoji}>{display.emoji}</Text>
           </View>
 
-          {/* Text content */}
+          {/* Mood + Level info */}
           <View style={styles.moodTextContainer}>
             <View style={styles.moodLabelRow}>
               <Text style={styles.moodLabel}>Your vibe</Text>
-              <View style={[styles.strategyBadge, { backgroundColor: display.color + '20' }]}>
-                <Text style={[styles.strategyBadgeText, { color: display.color }]}>{strategyBadge}</Text>
+              <View style={[styles.strategyBadge, { backgroundColor: levelColor + '20' }]}>
+                <Text style={[styles.strategyBadgeText, { color: levelColor }]}>{levelLabel}</Text>
               </View>
             </View>
             <Text style={[styles.moodValue, { color: display.color }]}>{display.label}</Text>
             <Text style={styles.moodDescription}>{display.description}</Text>
           </View>
 
-          {/* Confidence indicator */}
+          {/* Score + Streak */}
           <View style={styles.moodConfidenceContainer}>
-            <Text style={[styles.moodConfidenceText, { color: display.color }]}>{confidencePercent}%</Text>
-            <View style={styles.moodConfidence}>
-              <View
-                style={[
-                  styles.moodConfidenceBar,
-                  {
-                    width: `${confidencePercent}%`,
-                    backgroundColor: display.color,
-                  },
-                ]}
-              />
-            </View>
+            <Text style={[styles.moodConfidenceText, { color: levelColor }]}>{vibeScore} pts</Text>
+            {currentStreak > 1 && (
+              <View style={styles.streakRow}>
+                <Ionicons name="flame" size={10} color="#FF6B35" />
+                <Text style={styles.streakText}>{currentStreak}d</Text>
+              </View>
+            )}
           </View>
         </LinearGradient>
       </Animated.View>
@@ -177,6 +191,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       // Mood changed - could update UI based on mood
     },
   });
+
+  // Vibe Guardian — anti-doom-scroll protection
+  const {
+    isAlertVisible: isGuardianAlert,
+    dismissAlert: dismissGuardianAlert,
+    sessionRecap,
+    showSessionRecap,
+    dismissSessionRecap,
+    trackEngagement: guardianTrackEngagement,
+    trackPositiveInteraction,
+  } = useVibeGuardian();
 
   // User interests from profile
   const [userInterests, setUserInterests] = useState<string[]>([]);
@@ -303,6 +328,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setPage(0);
     fetchPosts(0, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
+
+  // Passive daily login streak tracking
+  useEffect(() => {
+    useVibeStore.getState().checkDailyLogin();
+  }, []);
 
   // Navigate to user profile
   const goToUserProfile = useCallback((userId: string) => {
@@ -471,11 +501,13 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setLikedPostIds(prev => new Set([...prev, postId]));
         // Track engagement for AI mood recommendations
         trackLike(postId, postCategory);
+        // Track for Vibe Guardian
+        trackPositiveInteraction();
       }
     } catch (err) {
       console.error('[VibesFeed] Like error:', err);
     }
-  }, [allPosts, trackLike]);
+  }, [allPosts, trackLike, trackPositiveInteraction]);
 
   // Toggle save (optimistic update)
   const toggleSave = useCallback((postId: string) => {
@@ -497,11 +529,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const openPostModal = useCallback((post: UIVibePost) => {
     postViewStartRef.current = Date.now();
     trackPostView(post.id, post.category, post.user.id, post.type);
+    guardianTrackEngagement();
     // Get fresh post data from allPosts to ensure sync
     const freshPost = allPosts.find(p => p.id === post.id) || post;
     setSelectedPost(freshPost);
     setModalVisible(true);
-  }, [trackPostView, allPosts]);
+  }, [trackPostView, allPosts, guardianTrackEngagement]);
 
   // Close post modal with engagement tracking
   const closePostModal = useCallback(() => {
@@ -888,7 +921,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         }
       >
         {/* SMUPPY MOOD INDICATOR - AI-powered personalization */}
-        <MoodIndicator mood={mood} onRefresh={refreshMood} />
+        <MoodIndicator
+          mood={mood}
+          onRefresh={refreshMood}
+          onVibePress={() => navigation.navigate('Prescriptions' as any)}
+        />
 
         {/* PEAKS SECTION */}
         <View style={styles.peaksSection}>
@@ -1013,6 +1050,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         post={shareModal.data}
         onClose={shareModal.close}
       />
+
+      {/* Vibe Guardian Overlay — anti-doom-scroll */}
+      <VibeGuardianOverlay
+        visible={isGuardianAlert}
+        onDismiss={dismissGuardianAlert}
+      />
+
+      {/* Session Recap Modal */}
+      <SessionRecapModal
+        visible={showSessionRecap}
+        recap={sessionRecap}
+        onDismiss={dismissSessionRecap}
+      />
     </View>
   );
 });
@@ -1102,16 +1152,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginBottom: 2,
   },
-  moodConfidence: {
-    width: 36,
-    height: 3,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
   },
-  moodConfidenceBar: {
-    height: '100%',
-    borderRadius: 2,
+  streakText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 9,
+    color: '#FF6B35',
   },
 
   // PEAKS SECTION

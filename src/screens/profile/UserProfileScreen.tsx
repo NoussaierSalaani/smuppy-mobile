@@ -30,6 +30,8 @@ import { AccountBadge } from '../../components/Badge';
 import SubscribeChannelModal from '../../components/SubscribeChannelModal';
 import { TipButton } from '../../components/tips';
 import { FEATURES } from '../../config/featureFlags';
+import GradeFrame from '../../components/GradeFrame';
+import { getGrade } from '../../utils/gradeSystem';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -154,6 +156,9 @@ const UserProfileScreen = () => {
 
   // Display fan count (local takes precedence for optimistic updates)
   const displayFanCount = localFanCount ?? profile.fanCount;
+
+  // Grade system — decorative frame for 1M+ fans
+  const gradeInfo = useMemo(() => getGrade(profile.fanCount), [profile.fanCount]);
 
   // User's posts
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -680,12 +685,24 @@ const UserProfileScreen = () => {
       {/* Avatar & Stats Row */}
       <View style={styles.avatarRow}>
         <View>
-          {profile.avatar ? (
-            <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+          {gradeInfo ? (
+            <GradeFrame grade={gradeInfo.grade} color={gradeInfo.color} size={AVATAR_SIZE}>
+              {profile.avatar ? (
+                <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarEmpty}>
+                  <Ionicons name="person" size={36} color="#6E6E73" />
+                </View>
+              )}
+            </GradeFrame>
           ) : (
-            <View style={styles.avatarEmpty}>
-              <Ionicons name="person" size={36} color="#6E6E73" />
-            </View>
+            profile.avatar ? (
+              <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarEmpty}>
+                <Ionicons name="person" size={36} color="#6E6E73" />
+              </View>
+            )
           )}
         </View>
 

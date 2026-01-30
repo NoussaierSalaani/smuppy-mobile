@@ -30,6 +30,11 @@ import AddPostDetailsScreen from '../screens/home/AddPostDetailsScreen';
 import PostSuccessScreen from '../screens/home/PostSuccessScreen';
 import VideoRecorderScreen from '../screens/home/VideoRecorderScreen';
 
+// Vibe Screens
+import PrescriptionsScreen from '../screens/vibe/PrescriptionsScreen';
+import ActivePrescriptionScreen from '../screens/vibe/ActivePrescriptionScreen';
+import PrescriptionPreferencesScreen from '../screens/settings/PrescriptionPreferencesScreen';
+
 // Profile Screens
 import FansListScreen from '../screens/profile/FansListScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
@@ -250,6 +255,11 @@ export default function MainNavigator() {
       {/* Profile Stack */}
       <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Vibe */}
+      <Stack.Screen name="Prescriptions" component={asScreen(PrescriptionsScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="ActivePrescription" component={asScreen(ActivePrescriptionScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="PrescriptionPreferences" component={asScreen(PrescriptionPreferencesScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Post Detail Screens */}
       <Stack.Screen name="PostDetailFanFeed" component={PostDetailFanFeedScreen} options={{ animation: 'fade' }} />

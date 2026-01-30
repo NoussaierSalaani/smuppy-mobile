@@ -53,6 +53,12 @@ const PROD_FEATURES = {
   UPGRADE_TO_PRO: false,    // Needs backend: Stripe webhook for account upgrade
   IDENTITY_VERIFICATION: false,
   PLATFORM_SUBSCRIPTION: false,
+
+  // ─── Vibe Ecosystem ────────────────────────────
+  VIBE_GUARDIAN: false,           // Anti-doom-scroll breathing overlay
+  EMOTIONAL_RIPPLE: false,        // Positive interaction ripple on profile
+  VIBE_PRESCRIPTIONS: false,      // Context-aware wellness missions
+  VIBE_SCORE: false,              // Passive vibe score + levels + badges
 } as const;
 
 export type FeatureKey = keyof typeof PROD_FEATURES;

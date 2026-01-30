@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createStackNavigator, StackCardInterpolationProps } from '@react-navigation/stack';
-import { View, Text, StyleSheet, StatusBar, Dimensions, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import * as Linking from 'expo-linking';
+import * as SplashScreen from 'expo-splash-screen';
 import * as backend from '../services/backend';
 import { awsAuth } from '../services/aws-auth';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
@@ -15,9 +15,6 @@ import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPen
 import { resetAllStores } from '../stores';
 import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
-import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
-
-const { width, height } = Dimensions.get('window');
 
 /**
  * Root Stack Param List
@@ -133,9 +130,7 @@ export default function AppNavigator(): React.JSX.Element {
   const [appState, setAppState] = useState<AppState>('loading');
   const [userEmail, setUserEmail] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
-  const [hideSplash, setHideSplash] = useState(false);
   const [pendingRecovery, setPendingRecovery] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const lastHandledUrl = useRef<string | null>(null);
   const resolvingRef = useRef(false);
 
@@ -191,21 +186,6 @@ export default function AppNavigator(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    let sessionLoaded = false;
-    let minTimeElapsed = false;
-
-    const checkReady = () => {
-      if (sessionLoaded && minTimeElapsed) {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          setHideSplash(true);
-        });
-      }
-    };
-
     const loadSession = async () => {
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
 
@@ -229,9 +209,11 @@ export default function AppNavigator(): React.JSX.Element {
         setUserEmail(email);
       }
 
-      sessionLoaded = true;
       setIsReady(true);
-      checkReady();
+      // Wait for React to render the navigator before hiding splash
+      setTimeout(() => {
+        SplashScreen.hideAsync();
+      }, 100);
     };
 
     loadSession();
@@ -261,22 +243,16 @@ export default function AppNavigator(): React.JSX.Element {
       }
     });
 
-    const timer = setTimeout(() => {
-      minTimeElapsed = true;
-      checkReady();
-    }, 600);
-
     Linking.getInitialURL().then(handleDeepLink);
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
       handleDeepLink(url);
     });
 
     return () => {
-      clearTimeout(timer);
       unsubscribe();
       linkingSubscription.remove();
     };
-  }, [handleDeepLink, fadeAnim, resolveAppState]);
+  }, [handleDeepLink, resolveAppState]);
 
   // Simple state → screen mapping
   const showAuth = appState === 'auth' || appState === 'loading' || pendingRecovery;
@@ -328,24 +304,6 @@ export default function AppNavigator(): React.JSX.Element {
         </TabBarProvider>
         </AuthCallbackProvider>
       )}
-
-      {!hideSplash && (
-        <Animated.View style={[styles.splashOverlay, { opacity: fadeAnim }]}>
-          <LinearGradient
-            colors={['#00B3C7', '#0EBF8A', '#7BEDC6']}
-            locations={[0, 0.5, 1]}
-            style={styles.gradient}
-          >
-            <View style={styles.logoContainer}>
-              <SmuppyIcon size={100} variant="dark" />
-            </View>
-            <View style={styles.bottomContainer}>
-              <Text style={styles.fromText}>from</Text>
-              <SmuppyText width={90} variant="dark" />
-            </View>
-          </LinearGradient>
-        </Animated.View>
-      )}
     </View>
   );
 }
@@ -353,31 +311,5 @@ export default function AppNavigator(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0EBF8A',
-  },
-  splashOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999,
-  },
-  gradient: {
-    flex: 1,
-    width,
-    height,
-  },
-  logoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bottomContainer: {
-    paddingBottom: 50,
-    alignItems: 'center',
-  },
-  fromText: {
-    fontSize: 12,
-    fontWeight: '300',
-    color: '#0A252F',
-    marginBottom: 4,
-    letterSpacing: 0.5,
   },
 });

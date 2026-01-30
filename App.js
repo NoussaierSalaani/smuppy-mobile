@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { View } from 'react-native';
+
+SplashScreen.preventAutoHideAsync();
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
@@ -116,13 +118,6 @@ export default function App() {
     let isMounted = true;
 
     async function initializeApp() {
-      // Hide native splash immediately - our React splash takes over
-      try {
-        await SplashScreen.hideAsync();
-      } catch {
-        // Ignore - splash may already be hidden
-      }
-
       try {
         initSentry();
       } catch (e) {
@@ -168,7 +163,7 @@ export default function App() {
   }, []);
 
   if (!appReady) {
-    return null;
+    return <View style={{ flex: 1, backgroundColor: '#0EBF8A' }} />;
   }
 
   // Stripe publishable key - will be set dynamically or from env

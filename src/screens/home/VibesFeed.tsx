@@ -26,6 +26,7 @@ import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores'
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
+import { ALL_INTERESTS } from '../../config/interests';
 
 import SharePostModal from '../../components/SharePostModal';
 import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
@@ -42,7 +43,19 @@ const PEAK_CARD_WIDTH = 100;
 const PEAK_CARD_HEIGHT = 140;
 
 const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
-const INTEREST_DATA: Record<string, { icon: string; color: string }> = {};
+
+// Build interest lookup from shared config (icon + color per interest name)
+const INTEREST_DATA: Record<string, { icon: string; color: string }> = (() => {
+  const map: Record<string, { icon: string; color: string }> = {};
+  for (const category of ALL_INTERESTS) {
+    // Map category name itself (for expertise/business_category matches)
+    map[category.category] = { icon: category.icon, color: category.color };
+    for (const item of category.items) {
+      map[item.name] = { icon: item.icon, color: item.color };
+    }
+  }
+  return map;
+})();
 
 // Advanced Smuppy Mood Indicator Component
 interface MoodIndicatorProps {
@@ -351,9 +364,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     });
   }, [navigation]);
 
-  // Sort posts by interests + engagement - feed always stays full!
+  // Filter + sort posts by interests and engagement
   const filteredPosts = useMemo(() => {
-    // First, apply safety filters (hide under_review and muted/blocked users)
+    // Safety filters (hide under_review and muted/blocked users)
     let result = allPosts.filter(post => {
       if (isUnderReview(String(post.id))) return false;
       const authorId = post.user?.id;
@@ -361,44 +374,34 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       return true;
     });
 
-    // Use activeInterests if any selected, otherwise use userInterests from profile
-    const interestsToUse = activeInterests.size > 0
-      ? Array.from(activeInterests)
-      : userInterests;
+    const hasActiveFilters = activeInterests.size > 0;
 
-    // If no interests at all, sort by engagement only
-    if (interestsToUse.length === 0) {
-      return [...result].sort((a, b) => b.likes - a.likes);
+    // When chips are actively selected, strictly filter to matching posts only
+    if (hasActiveFilters) {
+      const activeArr = Array.from(activeInterests).map(i => i.toLowerCase());
+      result = result.filter(post => {
+        const postTags = post.tags?.map(t => t.toLowerCase()) || [];
+        const postCategory = post.category?.toLowerCase() || '';
+        return activeArr.some(interest =>
+          postTags.includes(interest) || postCategory === interest
+        );
+      });
     }
 
-    // Calculate relevance score for each post
-    const getRelevanceScore = (post: UIVibePost): number => {
-      let score = 0;
+    // Sort: profile interests boost relevance, then by likes
+    const profileInterestsLower = userInterests.map(i => i.toLowerCase());
 
-      // Check if post matches interests (case-insensitive)
-      const postTags = post.tags?.map(t => t.toLowerCase()) || [];
-      const postCategory = post.category?.toLowerCase() || '';
-
-      const matchingTags = interestsToUse.filter(interest =>
-        postTags.includes(interest.toLowerCase()) ||
-        postCategory === interest.toLowerCase()
-      );
-
-      // More matching tags = higher priority
-      // Active filters get higher weight than profile interests
-      const weight = activeInterests.size > 0 ? 1000 : 500;
-      score += matchingTags.length * weight;
-
-      // Add engagement score (likes normalized)
-      score += Math.min(post.likes, 500);
-
-      return score;
-    };
-
-    // Sort by relevance score (highest first)
     return [...result].sort((a, b) => {
-      const scoreA = getRelevanceScore(a);
-      const scoreB = getRelevanceScore(b);
+      // Boost posts matching profile interests
+      const aMatch = profileInterestsLower.some(i =>
+        a.tags?.some(t => t.toLowerCase() === i) || a.category?.toLowerCase() === i
+      ) ? 500 : 0;
+      const bMatch = profileInterestsLower.some(i =>
+        b.tags?.some(t => t.toLowerCase() === i) || b.category?.toLowerCase() === i
+      ) ? 500 : 0;
+
+      const scoreA = aMatch + Math.min(a.likes, 500);
+      const scoreB = bMatch + Math.min(b.likes, 500);
       return scoreB - scoreA;
     });
   }, [allPosts, activeInterests, userInterests, isUnderReview, isHidden]);

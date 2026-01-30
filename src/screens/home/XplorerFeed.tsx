@@ -833,19 +833,6 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // GRADIENT MAP BUTTON
   // ============================================
 
-  const GradientMapButton = useCallback(({ onPress, iconName, size = 46 }: { onPress: () => void; iconName: keyof typeof Ionicons.glyphMap; size?: number }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
-      <LinearGradient
-        colors={GRADIENTS.primary}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gradientMapButton, { width: normalize(size), height: normalize(size), borderRadius: normalize(size / 2) }]}
-      >
-        <Ionicons name={iconName} size={normalize(22)} color={COLORS.white} />
-      </LinearGradient>
-    </TouchableOpacity>
-  ), []);
-
   // ============================================
   // RENDER
   // ============================================
@@ -968,17 +955,15 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           label=""
           onPress={toggleXplorerFullscreen}
           size="md"
+          iconOnly
           icon={<Ionicons name={xplorerFullscreen ? 'contract-outline' : 'expand-outline'} size={normalize(20)} color="#fff" />}
-          iconPosition="left"
-          style={styles.liquidMapButton}
         />
         <LiquidButton
           label=""
           onPress={centerOnUser}
           size="md"
+          iconOnly
           icon={<Ionicons name="navigate" size={normalize(20)} color="#fff" />}
-          iconPosition="left"
-          style={styles.liquidMapButton}
         />
       </View>
 
@@ -1156,21 +1141,6 @@ const styles = StyleSheet.create({
     right: wp(4),
     gap: normalize(10),
     zIndex: 20,
-  },
-  gradientMapButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  liquidMapButton: {
-    width: normalize(46),
-    height: normalize(46),
-    borderRadius: normalize(23),
-    paddingHorizontal: 0,
   },
 
   // FAB

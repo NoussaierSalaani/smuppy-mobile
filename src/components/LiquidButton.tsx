@@ -69,6 +69,7 @@ interface LiquidButtonProps {
   textStyle?: TextStyle;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
+  iconOnly?: boolean;
   variant?: 'filled' | 'outline';
   colorScheme?: ColorScheme;
 }
@@ -89,6 +90,7 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   textStyle,
   icon,
   iconPosition = 'right',
+  iconOnly = false,
   variant = 'filled',
   colorScheme = 'green',
 }) => {
@@ -141,7 +143,7 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
       activeOpacity={0.8}
       style={[
         styles.container,
-        { borderRadius: config.radius, opacity: disabled ? 0.5 : 1, shadowColor: colors.shadow },
+        { borderRadius: iconOnly ? config.height / 2 : config.radius, opacity: disabled ? 0.5 : 1, shadowColor: colors.shadow },
         style,
       ]}
     >
@@ -152,14 +154,15 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
         style={[
           styles.gradient,
           {
-            height: config.height,
-            paddingHorizontal: config.paddingH,
-            borderRadius: config.radius,
+            height: iconOnly ? config.height : config.height,
+            width: iconOnly ? config.height : undefined,
+            paddingHorizontal: iconOnly ? 0 : config.paddingH,
+            borderRadius: iconOnly ? config.height / 2 : config.radius,
           },
         ]}
       >
         {/* Top shine - water reflection */}
-        <View style={[styles.topShine, { borderRadius: config.radius }]} />
+        <View style={[styles.topShine, { borderRadius: iconOnly ? config.height / 2 : config.radius }]} />
         {/* Bottom reflection */}
         <View style={styles.bottomReflection} />
         {/* Center glow */}
@@ -167,11 +170,17 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
 
         {/* Content */}
         <View style={styles.content}>
-          {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-          <Text style={[styles.label, { fontSize: config.fontSize, color: labelColor }, textStyle]}>
-            {label}
-          </Text>
-          {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+          {iconOnly ? (
+            icon
+          ) : (
+            <>
+              {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
+              <Text style={[styles.label, { fontSize: config.fontSize, color: labelColor }, textStyle]}>
+                {label}
+              </Text>
+              {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+            </>
+          )}
         </View>
       </LinearGradient>
     </TouchableOpacity>

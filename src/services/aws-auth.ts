@@ -36,10 +36,10 @@ const CLIENT_ID = AWS_CONFIG.cognito.userPoolClientId;
 // Token storage keys
 // SECURITY: All auth data uses SecureStore (encrypted keychain)
 const TOKEN_KEYS = {
-  ACCESS_TOKEN: 'smuppy_access_token',  // SecureStore (no @ prefix, alphanumeric only)
-  REFRESH_TOKEN: 'smuppy_refresh_token', // SecureStore
-  ID_TOKEN: 'smuppy_id_token',           // SecureStore
-  USER: '@smuppy/user',                  // SecureStore (encrypted)
+  ACCESS_TOKEN: 'smuppy_access_token',
+  REFRESH_TOKEN: 'smuppy_refresh_token',
+  ID_TOKEN: 'smuppy_id_token',
+  USER: 'smuppy_user',
 };
 
 // SecureStore helpers with error handling
@@ -48,15 +48,14 @@ const secureStore = {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
-      // Silent on simulator (no keychain access)
-      return;
+      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] setItem failed for "${key}" (${value.length} chars):`, (error as Error).message);
     }
   },
   async getItem(key: string): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
-      // Silent on simulator (no keychain access)
+      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] getItem failed for "${key}":`, (error as Error).message);
       return null;
     }
   },
@@ -64,7 +63,7 @@ const secureStore = {
     try {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
-      // Silent on simulator (no keychain access)
+      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] removeItem failed for "${key}":`, (error as Error).message);
     }
   },
 };
@@ -145,7 +144,14 @@ class AWSAuthService {
       ]);
 
       if (!accessToken || !userJson) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] No stored session found');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[AWS Auth] No stored session found', {
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken,
+            hasIdToken: !!idToken,
+            hasUser: !!userJson,
+          });
+        }
         return null;
       }
 
@@ -431,6 +437,12 @@ class AWSAuthService {
       secureStore.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
       secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
     ]);
+
+    // Verify tokens were persisted (catches silent SecureStore failures)
+    if (process.env.NODE_ENV === 'development') {
+      const check = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+      console.log('[AWS Auth] Tokens persisted:', check ? 'YES' : 'NO (SecureStore write failed)');
+    }
 
     this.notifyAuthStateChange(user);
     return user;

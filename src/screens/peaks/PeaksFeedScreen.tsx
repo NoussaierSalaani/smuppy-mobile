@@ -15,6 +15,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
 import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useUserStore } from '../../stores';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -49,6 +50,8 @@ const MOCK_PEAKS: Peak[] = [];
 const PeaksFeedScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const user = useUserStore((state) => state.user);
+  const isBusiness = user?.accountType === 'pro_business';
   const [refreshing, setRefreshing] = useState(false);
   const [peaks] = useState<Peak[]>(MOCK_PEAKS);
 
@@ -132,12 +135,14 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
         <Text style={styles.headerTitle}>Peaks</Text>
 
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={handleCreatePeak}
-        >
-          <Ionicons name="add" size={28} color={COLORS.primary} />
-        </TouchableOpacity>
+        {!isBusiness && (
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={handleCreatePeak}
+          >
+            <Ionicons name="add" size={28} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Grid */}

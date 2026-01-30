@@ -21,6 +21,8 @@ import { COLORS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
+import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
+import EventGroupCard from '../../components/EventGroupCard';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
 
 import { AccountBadge, PremiumBadge } from '../../components/Badge';
@@ -103,6 +105,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return realCollections;
   }, [savedPostsData]);
 
+  // Events & Groups
+  const { events, groups, isLoading: isEventsGroupsLoading, refresh: refreshEventsGroups } = useProfileEventsGroups();
+
   // Check if user has peaks (for avatar border indicator)
   const hasPeaks = peaks.length > 0;
 
@@ -118,6 +123,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const [imageSheetType, setImageSheetType] = useState<'avatar' | 'cover'>('avatar');
   const [collectionMenuVisible, setCollectionMenuVisible] = useState(false);
   const [selectedCollectionPost, setSelectedCollectionPost] = useState<any>(null);
+  const [groupEventMode, setGroupEventMode] = useState<'group' | 'event'>('event');
+  const [menuItem, setMenuItem] = useState<{ type: 'event' | 'group'; id: string } | null>(null);
 
   const isOwnProfile = route?.params?.userId === undefined;
 
@@ -138,11 +145,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchProfile(), refetchPosts(), refetchSavedPosts()]);
+      await Promise.all([refetchProfile(), refetchPosts(), refetchSavedPosts(), refreshEventsGroups()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchProfile, refetchPosts, refetchSavedPosts]);
+  }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups]);
 
   // ==================== IMAGE PICKER ====================
   const showImageOptions = (type: 'avatar' | 'cover') => {
@@ -435,6 +442,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     const tabs = [
       { key: 'posts', label: 'Posts', icon: 'grid-outline' },
       { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
+      { key: 'groupevent', label: 'Group/Event', icon: 'people-outline' },
     ];
 
     if (isOwnProfile) {
@@ -642,7 +650,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <Text style={styles.emptyDesc}>
             Share your best moments as Peaks
           </Text>
-          {isOwnProfile && (
+          {isOwnProfile && storeUser?.accountType !== 'pro_business' && (
             <TouchableOpacity
               style={styles.createBtn}
               onPress={() => navigation.navigate('CreatePeak')}
@@ -1050,6 +1058,130 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     </Modal>
   );
 
+  // ==================== GROUP/EVENT HANDLERS ====================
+  const handleEventGroupCardPress = useCallback((type: 'event' | 'group', id: string) => {
+    if (type === 'event') {
+      navigation.navigate('EventDetail', { eventId: id });
+    } else {
+      navigation.navigate('GroupDetail', { groupId: id });
+    }
+  }, [navigation]);
+
+  const handleEventGroupMenuPress = useCallback((type: 'event' | 'group', id: string) => {
+    setMenuItem({ type, id });
+  }, []);
+
+  const handleEventGroupMenuAction = useCallback((action: 'edit' | 'delete') => {
+    if (!menuItem) return;
+    if (action === 'edit') {
+      if (menuItem.type === 'event') {
+        navigation.navigate('EventManage', { eventId: menuItem.id });
+      }
+    }
+    setMenuItem(null);
+  }, [menuItem, navigation]);
+
+  const handleNewEventGroup = useCallback(() => {
+    if (groupEventMode === 'event') {
+      navigation.navigate('CreateEvent');
+    } else {
+      navigation.navigate('CreateGroup');
+    }
+  }, [groupEventMode, navigation]);
+
+  // ==================== RENDER GROUP/EVENT ====================
+  const renderGroupEvent = () => {
+    const items = groupEventMode === 'event' ? events : groups;
+
+    return (
+      <View style={styles.groupEventContainer}>
+        {/* Header: Toggle + New button */}
+        <View style={styles.groupEventHeader}>
+          <View style={styles.toggleChipsRow}>
+            <TouchableOpacity
+              style={[styles.toggleChip, groupEventMode === 'event' && styles.toggleChipActive]}
+              onPress={() => setGroupEventMode('event')}
+            >
+              <Text style={[styles.toggleChipText, groupEventMode === 'event' && styles.toggleChipTextActive]}>
+                Event
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleChip, groupEventMode === 'group' && styles.toggleChipActive]}
+              onPress={() => setGroupEventMode('group')}
+            >
+              <Text style={[styles.toggleChipText, groupEventMode === 'group' && styles.toggleChipTextActive]}>
+                Group
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {isOwnProfile && (
+            <TouchableOpacity style={styles.newButton} onPress={handleNewEventGroup}>
+              <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.newButtonText}>New</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Content */}
+        {isEventsGroupsLoading ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name="calendar-outline"
+              size={48}
+              color={COLORS.grayMuted}
+              style={styles.emptyIconMargin}
+            />
+            <Text style={styles.emptyTitle}>
+              {groupEventMode === 'event' ? 'No events yet' : 'No groups yet'}
+            </Text>
+            <Text style={styles.emptyDesc}>
+              {groupEventMode === 'event'
+                ? 'Create your first event to gather people'
+                : 'Create your first group activity'}
+            </Text>
+            {isOwnProfile && (
+              <TouchableOpacity style={styles.createBtn} onPress={handleNewEventGroup}>
+                <Text style={styles.createBtnText}>
+                  {groupEventMode === 'event' ? 'Create an Event' : 'Create a Group'}
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={styles.groupEventList}>
+            {items.map((item) => {
+              const isEvent = groupEventMode === 'event';
+              const itemTitle = isEvent ? (item as typeof events[0]).title : (item as typeof groups[0]).name;
+              return (
+                <EventGroupCard
+                  key={item.id}
+                  type={groupEventMode}
+                  id={item.id}
+                  title={itemTitle}
+                  location={item.address || ''}
+                  coverImage={item.cover_image_url}
+                  startDate={item.starts_at}
+                  participantCount={item.current_participants}
+                  maxParticipants={item.max_participants}
+                  isOwner={isOwnProfile}
+                  onPress={() => handleEventGroupCardPress(groupEventMode, item.id)}
+                  onMenuPress={() => handleEventGroupMenuPress(groupEventMode, item.id)}
+                />
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // ==================== RENDER TAB CONTENT ====================
   const renderTabContent = () => {
     if (activeTab === 'posts') {
@@ -1077,6 +1209,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }
     if (activeTab === 'sessions') {
       return renderSessions();
+    }
+    if (activeTab === 'groupevent') {
+      return renderGroupEvent();
     }
     if (activeTab === 'collections') {
       return renderCollections();
@@ -1148,6 +1283,26 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           : 'Choose how you want to update your cover photo'
         }
         options={getImageSheetOptions()}
+      />
+
+      {/* Event/Group Menu */}
+      <SmuppyActionSheet
+        visible={!!menuItem}
+        onClose={() => setMenuItem(null)}
+        title={menuItem?.type === 'event' ? 'Event Options' : 'Group Options'}
+        options={[
+          {
+            label: 'Edit',
+            icon: 'create-outline',
+            onPress: async () => handleEventGroupMenuAction('edit'),
+          },
+          {
+            label: 'Delete',
+            icon: 'trash-outline',
+            onPress: async () => handleEventGroupMenuAction('delete'),
+            destructive: true,
+          },
+        ]}
       />
 
       {/* Collection Menu Modal */}

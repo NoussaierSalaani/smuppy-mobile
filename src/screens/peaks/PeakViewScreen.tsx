@@ -28,7 +28,7 @@ import { DARK_COLORS as COLORS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { reportPost } from '../../services/database';
-import { useContentStore } from '../../stores';
+import { useContentStore, useUserStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
@@ -84,6 +84,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
 
   const { peaks = [], initialIndex = 0 } = route.params || {};
+  const currentUser = useUserStore((state) => state.user);
+  const isBusiness = currentUser?.accountType === 'pro_business';
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [carouselVisible, setCarouselVisible] = useState(true);
@@ -507,11 +509,11 @@ const PeakViewScreen = (): React.JSX.Element => {
         const { dx, dy } = gestureState;
 
         if (Math.abs(dy) > Math.abs(dx)) {
-          // Swipe UP - Open replies or create reply Peak
+          // Swipe UP - Open replies or create reply Peak (not for business)
           if (dy < -50) {
             if (currentPeak.repliesCount && currentPeak.repliesCount > 0) {
               setIsInChain(true);
-            } else {
+            } else if (!isBusiness) {
               navigation.navigate('CreatePeak', {
                 replyTo: currentPeak.id,
                 originalPeak: currentPeak,
@@ -544,6 +546,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleCreatePeak = (): void => {
+    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       replyTo: currentPeak.id,
       originalPeak: currentPeak,
@@ -643,13 +646,15 @@ const PeakViewScreen = (): React.JSX.Element => {
             })}
           </View>
 
-          {/* Add Button */}
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleCreatePeak}
-          >
-            <Ionicons name="add" size={26} color={COLORS.white} />
-          </TouchableOpacity>
+          {/* Add Button - hidden for business */}
+          {!isBusiness && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleCreatePeak}
+            >
+              <Ionicons name="add" size={26} color={COLORS.white} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -699,13 +704,15 @@ const PeakViewScreen = (): React.JSX.Element => {
             <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
           </TouchableOpacity>
 
-          {/* Comments/Reply Button */}
-          <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="chatbubble-outline" size={24} color={COLORS.white} />
-            </View>
-            <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
-          </TouchableOpacity>
+          {/* Comments/Reply Button - hidden for business */}
+          {!isBusiness && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
+              <View style={styles.actionIconContainer}>
+                <Ionicons name="chatbubble-outline" size={24} color={COLORS.white} />
+              </View>
+              <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Share Button */}
           <TouchableOpacity style={styles.actionButton} onPress={() => handleMenuAction('share')}>
@@ -767,13 +774,15 @@ const PeakViewScreen = (): React.JSX.Element => {
                   {currentPeak.challengeRules}
                 </Text>
               ) : null}
-              <TouchableOpacity
-                style={styles.acceptChallengeButton}
-                onPress={handleCreatePeak}
-              >
-                <Ionicons name="flame" size={16} color={COLORS.dark} />
-                <Text style={styles.acceptChallengeText}>Accept Challenge</Text>
-              </TouchableOpacity>
+              {!isBusiness && (
+                <TouchableOpacity
+                  style={styles.acceptChallengeButton}
+                  onPress={handleCreatePeak}
+                >
+                  <Ionicons name="flame" size={16} color={COLORS.dark} />
+                  <Text style={styles.acceptChallengeText}>Accept Challenge</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 

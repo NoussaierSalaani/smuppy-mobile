@@ -167,6 +167,38 @@ const MenuSessionsIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
+// Menu icons for pro_business popup
+const MenuDashboardIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="3" width="7" height="7" rx="2" stroke="white" strokeWidth="2" />
+    <Rect x="14" y="3" width="7" height="4" rx="2" stroke="white" strokeWidth="2" />
+    <Rect x="3" y="14" width="7" height="4" rx="2" stroke="white" strokeWidth="2" />
+    <Rect x="14" y="11" width="7" height="7" rx="2" stroke="white" strokeWidth="2" />
+  </Svg>
+);
+
+const MenuPlanningIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="4" width="18" height="17" rx="3" stroke="white" strokeWidth="2" />
+    <Path d="M3 9H21" stroke="white" strokeWidth="2" />
+    <Path d="M8 2V5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <Path d="M16 2V5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <Path d="M8 13H10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <Path d="M14 13H16" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <Path d="M8 17H10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const MenuScannerIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M3 8V6C3 4.343 4.343 3 6 3H8" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M16 3H18C19.657 3 21 4.343 21 6V8" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M21 16V18C21 19.657 19.657 21 18 21H16" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M8 21H6C4.343 21 3 19.657 3 18V16" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M4 12H20" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
 interface ProfileIconProps {
   imageUri?: string;
   isActive: boolean;
@@ -241,7 +273,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     }).start(() => setShowProMenu(false));
   };
 
-  const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions') => {
+  const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions' | 'dashboard' | 'planning' | 'scanner') => {
     closeProMenu();
     // Navigate based on option — gated by feature flags
     if (option === 'live' && FEATURES.GO_LIVE) {
@@ -250,6 +282,12 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       navigation.navigate('CreatePeak');
     } else if (option === 'sessions' && FEATURES.PRIVATE_SESSIONS) {
       navigation.navigate('PrivateSessionsManage');
+    } else if (option === 'dashboard') {
+      navigation.navigate('BusinessDashboard');
+    } else if (option === 'planning') {
+      navigation.navigate('BusinessScheduleUpload');
+    } else if (option === 'scanner') {
+      navigation.navigate('BusinessScanner');
     } else {
       navigation.navigate('CreatePost');
     }
@@ -449,7 +487,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 </TouchableOpacity>
                 )}
 
-                {/* Peaks Option */}
+                {/* Peaks Option - Creator only */}
+                {isProCreator && (
                 <TouchableOpacity
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('peaks')}
@@ -460,6 +499,57 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   </View>
                   <Text style={styles.menuOptionText}>Peaks</Text>
                 </TouchableOpacity>
+                )}
+
+                {/* Business Options */}
+                {!isProCreator && FEATURES.BUSINESS_DASHBOARD && (
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('dashboard')}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={GRADIENTS.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.menuIconBg}
+                  >
+                    <MenuDashboardIcon size={20} />
+                  </LinearGradient>
+                  <Text style={styles.menuOptionText}>Dashboard</Text>
+                </TouchableOpacity>
+                )}
+
+                {!isProCreator && FEATURES.BUSINESS_DASHBOARD && (
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('planning')}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={['#0081BE', '#00B5C1']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.menuIconBg}
+                  >
+                    <MenuPlanningIcon size={20} />
+                  </LinearGradient>
+                  <Text style={styles.menuOptionText}>Planning</Text>
+                </TouchableOpacity>
+                )}
+
+                {!isProCreator && FEATURES.BUSINESS_SCANNER && (
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => handleMenuOption('scanner')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuIconBgLight}>
+                    <MenuScannerIcon size={20} />
+                  </View>
+                  <Text style={styles.menuOptionText}>Scanner</Text>
+                </TouchableOpacity>
+                )}
 
                 {/* Post Option */}
                 <TouchableOpacity

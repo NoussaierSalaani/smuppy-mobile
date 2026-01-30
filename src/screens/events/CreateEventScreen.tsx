@@ -20,14 +20,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
@@ -37,7 +36,7 @@ import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '.
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 
-const { width: SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface EventCategory {
   id: string;
@@ -65,7 +64,7 @@ const CATEGORIES: EventCategory[] = [
 const ROUTE_CATEGORIES = ['running', 'hiking', 'cycling'];
 
 const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const { currency, formatAmount: _formatAmount } = useCurrency();
+  const { currency } = useCurrency();
   const { showError, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
@@ -80,18 +79,16 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(null);
   const [locationName, setLocationName] = useState('');
-  const [address, _setAddress] = useState('');
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [startDate, setStartDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [_showTimePicker, _setShowTimePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'start' | 'end'>('start');
   const [maxParticipants, setMaxParticipants] = useState('');
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState('');
-  const [isPublic, _setIsPublic] = useState(true);
-  const [isFansOnly, _setIsFansOnly] = useState(false);
+  const [isPublic] = useState(true);
+  const [isFansOnly] = useState(false);
 
   // Route state (for running, hiking, cycling)
   const [hasRoute, setHasRoute] = useState(false);
@@ -317,7 +314,6 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         description: description.trim() || undefined,
         categorySlug: selectedCategory.slug,
         locationName: locationName.trim() || 'Event Location',
-        address: address.trim() || undefined,
         latitude: coordinates.lat,
         longitude: coordinates.lng,
         startsAt: startDate.toISOString(),
@@ -332,7 +328,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         routeDistanceKm: hasRoute ? routeDistance : undefined,
         routeDifficulty: hasRoute ? routeDifficulty : undefined,
         routeWaypoints: hasRoute
-          ? routePoints.map((p, i) => ({ lat: p.latitude, lng: p.longitude }))
+          ? routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude }))
           : undefined,
       };
 
@@ -398,7 +394,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             style={[
               styles.categoryCard,
               selectedCategory?.id === category.id && styles.categoryCardSelected,
-              { borderColor: selectedCategory?.id === category.id ? category.color : COLORS.border },
+              { borderColor: selectedCategory?.id === category.id ? category.color : COLORS.grayBorder },
             ]}
             onPress={() => {
               setSelectedCategory(category);
@@ -621,18 +617,18 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         {hasRoute && (
           <View style={styles.routeControls}>
-            <BlurView intensity={80} tint="dark" style={styles.routeControlsBlur}>
+            <View style={styles.routeControlsBlur}>
               <View style={styles.routeInfo}>
                 <Ionicons name="navigate" size={18} color={COLORS.primary} />
                 <Text style={styles.routeInfoText}>{routeDistance.toFixed(2)} km</Text>
               </View>
               <TouchableOpacity style={styles.routeButton} onPress={handleUndoRoutePoint}>
-                <Ionicons name="arrow-undo" size={18} color={COLORS.white} />
+                <Ionicons name="arrow-undo" size={18} color={COLORS.dark} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.routeButton} onPress={handleClearRoute}>
                 <Ionicons name="trash" size={18} color={COLORS.error} />
               </TouchableOpacity>
-            </BlurView>
+            </View>
           </View>
         )}
       </View>
@@ -775,7 +771,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Create Event</Text>
           <View style={{ width: 40 }} />
@@ -852,7 +848,7 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handlePrevStep}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Event</Text>
         <View style={styles.stepIndicator}>
@@ -935,21 +931,11 @@ const CreateEventScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   );
 };
 
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d1d1d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8a8a' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1d1d1d' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2c2c2c' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e0e0e' }] },
-];
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: COLORS.white,
   },
-
-  // Loading & Limit Reached Styles
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -986,12 +972,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: COLORS.dark,
+    borderColor: COLORS.white,
   },
   limitReachedTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.dark,
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -1040,16 +1026,18 @@ const styles = StyleSheet.create({
   },
   featuresList: {
     width: '100%',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray50,
     borderRadius: 16,
     padding: 20,
     gap: 12,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
   },
   featuresTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.dark,
     marginBottom: 4,
   },
   featureRow: {
@@ -1059,7 +1047,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: COLORS.gray,
   },
   goBackButton: {
     paddingVertical: 14,
@@ -1070,8 +1058,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.gray,
   },
-
-  // Pro Badge
   proBadge: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 6,
@@ -1082,9 +1068,8 @@ const styles = StyleSheet.create({
   proBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: COLORS.dark,
+    color: COLORS.white,
   },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1096,17 +1081,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.white,
+    fontWeight: '700',
+    color: COLORS.dark,
   },
   stepIndicator: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray100,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -1118,8 +1103,10 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 3,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray100,
     marginHorizontal: 16,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
@@ -1137,9 +1124,10 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   stepTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.dark,
+    fontFamily: 'WorkSans-Bold',
   },
   stepSubtitle: {
     fontSize: 15,
@@ -1154,12 +1142,12 @@ const styles = StyleSheet.create({
   categoryCard: {
     width: (SCREEN_WIDTH - 56) / 3,
     aspectRatio: 1,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray50,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
   },
   categoryCardSelected: {
     borderWidth: 2,
@@ -1175,7 +1163,7 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.dark,
     textAlign: 'center',
   },
   categoryCheck: {
@@ -1194,29 +1182,29 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.lightGray,
+    color: COLORS.dark,
   },
   input: {
-    backgroundColor: COLORS.darkGray,
-    borderRadius: 14,
+    backgroundColor: COLORS.gray50,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: COLORS.white,
+    color: COLORS.dark,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayBorder,
   },
   locationInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   locationSuggestions: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     marginTop: 6,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayBorder,
   },
   locationSuggestionItem: {
     flexDirection: 'row',
@@ -1225,11 +1213,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.grayBorder,
   },
   locationSuggestionMain: {
     fontSize: 14,
-    color: COLORS.white,
+    color: COLORS.dark,
   },
   locationSuggestionSecondary: {
     fontSize: 12,
@@ -1244,16 +1232,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: COLORS.darkGray,
-    borderRadius: 14,
+    backgroundColor: COLORS.gray50,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayBorder,
   },
   dateButtonText: {
     fontSize: 16,
-    color: COLORS.white,
+    color: COLORS.dark,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1263,13 +1251,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray50,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayBorder,
   },
   toggleButtonActive: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: COLORS.primary + '15',
     borderColor: COLORS.primary,
   },
   toggleButtonText: {
@@ -1283,12 +1271,12 @@ const styles = StyleSheet.create({
   priceInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray50,
     borderRadius: 14,
     paddingHorizontal: 16,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayBorder,
   },
   currencySymbol: {
     fontSize: 20,
@@ -1301,7 +1289,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.dark,
   },
   mapContainer: {
     height: 300,
@@ -1326,6 +1314,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
   },
   routeInfo: {
     flex: 1,
@@ -1336,13 +1327,13 @@ const styles = StyleSheet.create({
   routeInfoText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.dark,
   },
   routeButton: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1368,13 +1359,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray50,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayBorder,
   },
   difficultyButtonActive: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: COLORS.primary + '15',
     borderColor: COLORS.primary,
   },
   difficultyButtonText: {
@@ -1386,10 +1377,12 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   reviewCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: COLORS.gray50,
     borderRadius: 20,
     padding: 20,
     gap: 16,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -1397,7 +1390,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.grayBorder,
   },
   reviewHeaderText: {
     flex: 1,
@@ -1405,7 +1398,7 @@ const styles = StyleSheet.create({
   reviewTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.dark,
   },
   reviewCategory: {
     fontSize: 14,
@@ -1419,7 +1412,7 @@ const styles = StyleSheet.create({
   },
   reviewRowText: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: COLORS.gray,
   },
   bottomAction: {
     position: 'absolute',
@@ -1428,9 +1421,9 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 16,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: COLORS.white,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: COLORS.grayBorder,
   },
   actionButton: {
     borderRadius: 16,

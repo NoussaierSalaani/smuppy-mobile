@@ -163,7 +163,13 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleBlock}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
             <Text style={styles.businessName}>{user?.businessName || user?.fullName || 'Business'}</Text>
           </View>
@@ -403,6 +409,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerTitleBlock: {
+    flex: 1,
   },
   welcomeText: {
     fontSize: 14,

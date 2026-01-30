@@ -27,6 +27,7 @@ import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
 import { ALL_INTERESTS } from '../../config/interests';
+import { ALL_EXPERTISE } from '../../config/expertise';
 
 import SharePostModal from '../../components/SharePostModal';
 import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
@@ -44,14 +45,15 @@ const PEAK_CARD_HEIGHT = 140;
 
 const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 
-// Build interest lookup from shared config (icon + color per interest name)
+// Build unified lookup from interests + expertise configs (icon + color per name)
 const INTEREST_DATA: Record<string, { icon: string; color: string }> = (() => {
   const map: Record<string, { icon: string; color: string }> = {};
-  for (const category of ALL_INTERESTS) {
-    // Map category name itself (for expertise/business_category matches)
-    map[category.category] = { icon: category.icon, color: category.color };
-    for (const item of category.items) {
-      map[item.name] = { icon: item.icon, color: item.color };
+  for (const source of [ALL_INTERESTS, ALL_EXPERTISE]) {
+    for (const category of source) {
+      map[category.category] = { icon: category.icon, color: category.color };
+      for (const item of category.items) {
+        map[item.name] = { icon: item.icon, color: item.color };
+      }
     }
   }
   return map;

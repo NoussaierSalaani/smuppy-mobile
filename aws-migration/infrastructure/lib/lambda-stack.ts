@@ -1033,7 +1033,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        APPLE_CLIENT_ID: 'com.smuppy.app',
+        APPLE_CLIENT_ID: 'com.nou09.Smuppy',
         CLIENT_ID: userPoolClientId,
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
@@ -1052,6 +1052,10 @@ export class LambdaStack extends cdk.NestedStack {
       resources: [userPool.userPoolArn],
     }));
     dbCredentials.grantRead(this.appleAuthFn);
+    this.appleAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     // SECURITY: Google OAuth credentials - use placeholder in staging to prevent runtime errors
     // Production requires real credentials (validated above)
@@ -1092,6 +1096,10 @@ export class LambdaStack extends cdk.NestedStack {
       resources: [userPool.userPoolArn],
     }));
     dbCredentials.grantRead(this.googleAuthFn);
+    this.googleAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.signupAuthFn = new NodejsFunction(this, 'SignupAuthFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/signup.ts'),

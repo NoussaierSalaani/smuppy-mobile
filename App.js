@@ -172,8 +172,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <ThemeProvider>
       <ErrorBoundary showReportButton>
-        <ThemeProvider>
         {stripePublishableKey ? (
           <StripeProvider
             publishableKey={stripePublishableKey}
@@ -207,8 +207,8 @@ export default function App() {
             </SmuppyAlertProvider>
           </QueryClientProvider>
         )}
-        </ThemeProvider>
       </ErrorBoundary>
+        </ThemeProvider>
     </SafeAreaProvider>
   );
 }

@@ -109,7 +109,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         if (!websocketService.isConnected()) {
           const user = await awsAuth.getCurrentUser();
           if (user) {
-            console.log('[useWebSocket] App foregrounded, reconnecting...');
+            if (__DEV__) console.log('[useWebSocket] App foregrounded, reconnecting...');
             connect();
           }
         }

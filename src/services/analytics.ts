@@ -179,7 +179,7 @@ export const identify = async (id: string, properties?: UserProperties): Promise
   }
 
   if (config.debugMode) {
-    console.log('[Analytics] Identified user:', id, properties);
+    console.log('[Analytics] Identified user:', id.substring(0, 2) + '***');
   }
 };
 

@@ -13,7 +13,7 @@ import type {
 
 /** Extract message from an unknown error */
 const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return getErrorMessage(error);
+  if (error instanceof Error) return error.message;
   if (typeof error === 'object' && error !== null && 'message' in error) {
     return String((error as { message: unknown }).message);
   }

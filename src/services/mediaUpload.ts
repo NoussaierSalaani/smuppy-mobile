@@ -153,7 +153,7 @@ const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean
       exists: info.exists,
     };
   } catch (error) {
-    console.log('[getFileInfo] Error checking file:', uri.substring(0, 50), error);
+    if (__DEV__) console.log('[getFileInfo] Error checking file:', uri.substring(0, 50), error);
     // For MediaLibrary URIs, assume they exist
     if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
       return { size: 0, exists: true };
@@ -193,7 +193,7 @@ const readFileAsBase64 = async (uri: string): Promise<string> => {
   } catch (fetchError) {
     // Fallback: try using FileSystem for file:// URIs
     if (uri.startsWith('file://')) {
-      console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
+      if (__DEV__) console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
       // Use the legacy method as fallback
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',

@@ -204,7 +204,7 @@ export default function MainNavigator() {
         if (data && !error) {
           // Check if user ID changed (different account logged in)
           if (currentUserId && currentUserId !== data.id) {
-            console.log('[MainNavigator] Different user detected, updating store');
+            if (__DEV__) console.log('[MainNavigator] Different user detected, updating store');
           }
           // Update Zustand with fresh profile data
           setUser({

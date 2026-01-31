@@ -53,7 +53,7 @@ Notifications.setNotificationHandler({
  */
 export const requestPermissions = async (): Promise<boolean> => {
   if (!Device.isDevice) {
-    console.log('Push notifications only work on physical devices');
+    if (__DEV__) console.log('Push notifications only work on physical devices');
     return false;
   }
 
@@ -67,7 +67,7 @@ export const requestPermissions = async (): Promise<boolean> => {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('Notification permission denied');
+      if (__DEV__) console.log('Notification permission denied');
       return false;
     }
 
@@ -84,7 +84,7 @@ export const requestPermissions = async (): Promise<boolean> => {
  */
 export const getExpoPushToken = async (): Promise<string | null> => {
   if (!Device.isDevice) {
-    console.log('Must use physical device for Push Notifications');
+    if (__DEV__) console.log('Must use physical device for Push Notifications');
     return null;
   }
 
@@ -128,7 +128,7 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
       deviceId,
     });
 
-    console.log('Push token registered successfully');
+    if (__DEV__) console.log('Push token registered successfully');
     return true;
   } catch (error) {
     captureException(error as Error, { context: 'registerPushToken' });
@@ -144,7 +144,7 @@ export const unregisterPushToken = async (_userId: string): Promise<void> => {
   try {
     const deviceId = Device.deviceName || 'unknown';
     await awsAPI.unregisterPushToken(deviceId);
-    console.log('Push token unregistered');
+    if (__DEV__) console.log('Push token unregistered');
   } catch (error) {
     captureException(error as Error, { context: 'unregisterPushToken' });
   }
@@ -314,10 +314,10 @@ export const initializeNotifications = async (): Promise<void> => {
     // Check if launched from notification
     const lastResponse = await getLastNotificationResponse();
     if (lastResponse) {
-      console.log('App launched from notification:', lastResponse);
+      if (__DEV__) console.log('App launched from notification:', lastResponse);
     }
 
-    console.log('Notification system initialized');
+    if (__DEV__) console.log('Notification system initialized');
   } catch (error) {
     captureException(error as Error, { context: 'initializeNotifications' });
   }

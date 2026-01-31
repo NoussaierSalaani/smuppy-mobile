@@ -137,7 +137,7 @@ class CognitoStorageAdapter {
         }
       }
 
-      console.log('[CognitoStorage] Synced', memoryCache.size, 'items from SecureStore');
+      if (__DEV__) console.log('[CognitoStorage] Synced', memoryCache.size, 'items from SecureStore');
     } catch (error) {
       console.error('[CognitoStorage] sync error:', error);
     }

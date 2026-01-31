@@ -92,7 +92,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
   const callbacks: AgoraCallbacks = {
     onJoinSuccess: (channel, joinedUid) => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Joined channel:', channel, 'UID:', joinedUid);
+      if (__DEV__) console.log('[useAgora] Joined channel:', channel, 'UID:', joinedUid);
       setLocalUid(joinedUid);
       setIsJoined(true);
       setIsLoading(false);
@@ -100,14 +100,14 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     },
     onLeaveChannel: () => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Left channel');
+      if (__DEV__) console.log('[useAgora] Left channel');
       setIsJoined(false);
       setRemoteUsers([]);
       setLocalUid(null);
     },
     onUserJoined: (remoteUid) => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Remote user joined:', remoteUid);
+      if (__DEV__) console.log('[useAgora] Remote user joined:', remoteUid);
       setRemoteUsers((prev) => {
         if (prev.includes(remoteUid)) return prev;
         return [...prev, remoteUid];
@@ -115,7 +115,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     },
     onUserLeft: (remoteUid) => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Remote user left:', remoteUid);
+      if (__DEV__) console.log('[useAgora] Remote user left:', remoteUid);
       setRemoteUsers((prev) => prev.filter((id) => id !== remoteUid));
     },
     onError: (errorMsg) => {

@@ -77,7 +77,7 @@ class AgoraService {
       });
 
       this.isInitialized = true;
-      console.log('[Agora] Engine initialized successfully');
+      if (__DEV__) console.log('[Agora] Engine initialized successfully');
       return true;
     } catch (error) {
       console.error('[Agora] Failed to initialize:', error);
@@ -106,26 +106,26 @@ class AgoraService {
 
     this.eventHandler = {
       onJoinChannelSuccess: (connection: RtcConnection, _elapsed: number) => {
-        console.log('[Agora] Joined channel:', connection.channelId);
+        if (__DEV__) console.log('[Agora] Joined channel:', connection.channelId);
         this.currentChannel = connection.channelId || null;
         this.currentUid = connection.localUid || null;
         this.callbacks.onJoinSuccess?.(connection.channelId || '', connection.localUid || 0);
       },
 
       onLeaveChannel: (_connection: RtcConnection, _stats: any) => {
-        console.log('[Agora] Left channel');
+        if (__DEV__) console.log('[Agora] Left channel');
         this.currentChannel = null;
         this.currentUid = null;
         this.callbacks.onLeaveChannel?.();
       },
 
       onUserJoined: (_connection: RtcConnection, remoteUid: number, _elapsed: number) => {
-        console.log('[Agora] User joined:', remoteUid);
+        if (__DEV__) console.log('[Agora] User joined:', remoteUid);
         this.callbacks.onUserJoined?.(remoteUid);
       },
 
       onUserOffline: (_connection: RtcConnection, remoteUid: number, _reason: number) => {
-        console.log('[Agora] User left:', remoteUid);
+        if (__DEV__) console.log('[Agora] User left:', remoteUid);
         this.callbacks.onUserLeft?.(remoteUid);
       },
 

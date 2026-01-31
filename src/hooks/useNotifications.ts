@@ -152,13 +152,13 @@ export const useNotifications = (
   useEffect(() => {
     // Listener for notifications received while app is foregrounded
     notificationListener.current = addNotificationReceivedListener((notification) => {
-      console.log('Notification received:', notification);
+      if (__DEV__) console.log('Notification received:', notification);
       onNotificationReceived?.(notification);
     });
 
     // Listener for notification taps
     responseListener.current = addNotificationResponseListener((response) => {
-      console.log('Notification tapped:', response);
+      if (__DEV__) console.log('Notification tapped:', response);
       const data = parseNotificationData(response);
 
       if (data) {

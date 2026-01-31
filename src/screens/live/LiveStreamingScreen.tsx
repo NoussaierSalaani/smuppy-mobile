@@ -156,10 +156,13 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
   const endStream = async () => {
     // End stream on backend (records stats)
-    const result = await awsAPI.endLiveStream().catch(() => null);
-    await leaveStream();
-    await leaveChannel();
-    await destroy();
+    const result = await awsAPI.endLiveStream().catch((err) => {
+      if (__DEV__) console.error('[LiveStreaming] Failed to end stream:', err);
+      return null;
+    });
+    await leaveStream().catch(() => {});
+    await leaveChannel().catch(() => {});
+    await destroy().catch(() => {});
     navigation.replace('LiveEnded', {
       duration: result?.data?.durationSeconds || duration,
       viewerCount: result?.data?.maxViewers || viewerCount,

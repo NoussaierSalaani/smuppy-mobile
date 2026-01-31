@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SPACING } from '../../config/theme';
 import { biometrics } from '../../utils/biometrics';
 import { useTheme } from '../../hooks/useTheme';
+import { getCurrentProfile } from '../../services/database';
 
 type BiometricType = 'face' | 'fingerprint' | 'iris' | null;
 
@@ -36,7 +37,13 @@ export default function BiometricLoginScreen({ navigation }: BiometricLoginScree
     setError('');
     const result = await biometrics.loginWithBiometrics();
     if (result.success) {
-      navigation.replace('Main');
+      // Verify profile exists before navigating to Main
+      const { data: profile } = await getCurrentProfile(false).catch(() => ({ data: null }));
+      if (profile) {
+        navigation.replace('Main');
+      } else {
+        navigation.replace('Login');
+      }
     } else if (result.error) {
       setError('Authentication failed. Try again or use password.');
     }

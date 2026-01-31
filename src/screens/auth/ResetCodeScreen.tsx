@@ -59,7 +59,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
   const inputs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  const email = route?.params?.email || 'mailusersmuppy@mail.com';
+  const email = route?.params?.email || '';
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
 

@@ -91,7 +91,9 @@ export default function GoLiveScreen(): React.JSX.Element {
       return () => clearTimeout(timer);
     } else if (isCountdown && countdownValue === 0) {
       // Register the live stream on backend (notifies fans)
-      awsAPI.startLiveStream(title || 'Live Session').catch(() => {});
+      awsAPI.startLiveStream(title || 'Live Session').catch((err) => {
+        if (__DEV__) console.error('[GoLive] Failed to register stream:', err);
+      });
       navigation.replace('LiveStreaming', {
         title: title || 'Live Session',
         audience: 'public',

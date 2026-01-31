@@ -1321,14 +1321,21 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
 
   try {
     const result = await awsAPI.request<{ data: AWSConversation[] }>(`/messages/conversations?limit=${limit}`);
-    const conversations: Conversation[] = result.data.map((c) => ({
-      id: c.id,
-      participant_ids: c.participantIds,
-      participants: c.participants?.map((p) => convertProfile(p)).filter(Boolean) as Profile[],
-      last_message_at: c.lastMessageAt ?? undefined,
-      updated_at: c.updatedAt,
-      unread_count: c.unreadCount,
-    }));
+    const conversations: Conversation[] = result.data.map((c) => {
+      const participants = c.participants?.map((p) => convertProfile(p)).filter(Boolean) as Profile[];
+      // Derive other_user: the participant that isn't the current user
+      const otherUser = participants.find(p => p.id !== user.id) || participants[0] || undefined;
+      return {
+        id: c.id,
+        participant_ids: c.participantIds,
+        participants,
+        other_user: otherUser,
+        last_message_at: c.lastMessageAt ?? undefined,
+        last_message_preview: c.lastMessage?.content,
+        updated_at: c.updatedAt,
+        unread_count: c.unreadCount,
+      };
+    });
     return { data: conversations, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };

@@ -92,9 +92,9 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       } else {
         setPaymentReady(true);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.error('Payment initialization error:', err);
-      setError(err.message || 'Failed to initialize payment');
+      setError(err instanceof Error ? err.message : 'Failed to initialize payment');
     } finally {
       setIsLoading(false);
     }
@@ -152,9 +152,9 @@ export default function SessionPaymentScreen(): React.JSX.Element {
           showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.error('Payment error:', err);
-      showError('Error', err.message || 'Something went wrong');
+      showError('Error', err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsProcessing(false);
     }

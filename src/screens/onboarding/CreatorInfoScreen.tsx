@@ -97,7 +97,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    navigate('Expertise', {
+    navigate('CreatorOptionalInfo', {
       ...params,
       profileImage,
       displayName: displayName.trim(),

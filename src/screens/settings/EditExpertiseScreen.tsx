@@ -67,7 +67,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
       await refetch();
 
       navigation.goBack();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showError('Error', 'Failed to save expertise. Please try again.');
     } finally {
       setIsSaving(false);

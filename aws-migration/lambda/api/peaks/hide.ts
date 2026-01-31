@@ -27,6 +27,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const db = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return createCorsResponse(404, { error: 'Profile not found' });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // GET /peaks/hidden - List hidden peaks
     if (httpMethod === 'GET' && !peakId) {
       const hiddenResult = await db.query(
@@ -39,7 +49,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
          WHERE ph.user_id = $1
          ORDER BY ph.created_at DESC
          LIMIT 100`,
-        [userId]
+        [profileId]
       );
 
       return createCorsResponse(200, {
@@ -95,10 +105,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO peak_hidden (user_id, peak_id, reason, created_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (user_id, peak_id) DO UPDATE SET reason = $3, created_at = NOW()`,
-        [userId, peakId, reason]
+        [profileId, peakId, reason]
       );
 
-      log.info('Peak hidden from feed', { peakId, userId, reason });
+      log.info('Peak hidden from feed', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***', reason });
 
       return createCorsResponse(200, {
         success: true,
@@ -110,14 +120,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Unhide peak
       const result = await db.query(
         'DELETE FROM peak_hidden WHERE user_id = $1 AND peak_id = $2 RETURNING id',
-        [userId, peakId]
+        [profileId, peakId]
       );
 
       if (result.rows.length === 0) {
         return createCorsResponse(404, { error: 'Peak was not hidden' });
       }
 
-      log.info('Peak unhidden', { peakId, userId });
+      log.info('Peak unhidden', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

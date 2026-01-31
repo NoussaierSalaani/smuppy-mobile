@@ -183,9 +183,9 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
 
       showSuccess('Succes', 'Carte ajoutee avec succes');
       fetchPaymentMethods();
-    } catch (error: any) {
-      console.error('Failed to add card:', error);
-      showError('Erreur', error.message || 'Impossible d\'ajouter la carte');
+    } catch (error: unknown) {
+      if (__DEV__) console.error('Failed to add card:', error);
+      showError('Erreur', 'Impossible d\'ajouter la carte. Veuillez reessayer.');
     } finally {
       setAddingCard(false);
     }

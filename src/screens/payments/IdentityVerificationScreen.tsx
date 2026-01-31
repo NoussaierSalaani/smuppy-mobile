@@ -178,16 +178,16 @@ export default function IdentityVerificationScreen() {
         });
 
         if (error) {
-          showError('Error', error.message);
+          showError('Error', 'Something went wrong. Please try again.');
         } else {
           setPaymentReady(true);
           await handlePayment();
         }
       } else {
-        showError('Error', response.error || 'Failed to initialize subscription');
+        showError('Error', 'Failed to initialize subscription. Please try again.');
       }
-    } catch (error: any) {
-      showError('Error', error.message || 'Something went wrong');
+    } catch (error: unknown) {
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -200,7 +200,7 @@ export default function IdentityVerificationScreen() {
 
       if (error) {
         if (error.code !== 'Canceled') {
-          showError('Payment Failed', error.message);
+          showError('Payment Failed', 'Something went wrong. Please try again.');
         }
       } else {
         // Subscription activated, start verification
@@ -211,8 +211,8 @@ export default function IdentityVerificationScreen() {
           buttons: [{ text: 'Continue', onPress: startVerification }],
         });
       }
-    } catch (error: any) {
-      showError('Error', error.message || 'Payment failed');
+    } catch (error: unknown) {
+      showError('Error', 'Payment failed. Please try again.');
     } finally {
       setProcessing(false);
     }

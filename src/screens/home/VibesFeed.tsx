@@ -11,6 +11,8 @@ import {
   Animated,
   RefreshControl,
   ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AvatarImage } from '../../components/OptimizedImage';
@@ -294,7 +296,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         console.error('[VibesFeed] Error fetching posts:', error);
         if (refresh || pageNum === 0) {
           // Use mock data as fallback
-          console.log('[VibesFeed] Using mock data as fallback');
+          if (__DEV__) console.log('[VibesFeed] Using mock data as fallback');
           setAllPosts([]);
           setHasMore(false);
         }
@@ -367,7 +369,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [navigation, modalVisible, selectedPost, trackPostExit]);
 
   // Navigate to Peak view
-  const goToPeakView = useCallback((peak: any, index: number) => {
+  const goToPeakView = useCallback((_peak: typeof PEAKS_DATA[number], index: number) => {
     navigation.navigate('PeakView', {
       peakData: PEAKS_DATA as any,
       initialIndex: index,
@@ -630,7 +632,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [loadingMore, hasMore, page, fetchPosts]);
 
   // Handle scroll end for infinite loading
-  const handleScrollEnd = useCallback((event: any) => {
+  const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 200;
     if (isNearBottom && hasMore) {
@@ -1074,7 +1076,7 @@ export default VibesFeed;
 
 const SECTION_GAP = 8; // Consistent spacing between all sections
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

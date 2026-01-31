@@ -196,7 +196,7 @@ export default function UpgradeToProScreen() {
       } else {
         throw new Error(response.message || 'Upgrade failed');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upgrade error:', error);
       showError('Upgrade Failed', 'Please try again later.');
     } finally {

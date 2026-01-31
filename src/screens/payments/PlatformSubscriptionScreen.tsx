@@ -152,8 +152,8 @@ export default function PlatformSubscriptionScreen() {
       } else {
         showError('Error', response.error || 'Failed to start subscription');
       }
-    } catch (error: any) {
-      showError('Error', error.message || 'Something went wrong');
+    } catch (error: unknown) {
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }

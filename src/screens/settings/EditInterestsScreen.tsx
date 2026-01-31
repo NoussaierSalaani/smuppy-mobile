@@ -67,7 +67,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
       await refetch();
 
       navigation.goBack();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showError('Error', 'Failed to save interests. Please try again.');
     } finally {
       setIsSaving(false);

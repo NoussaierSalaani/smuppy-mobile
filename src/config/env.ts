@@ -61,7 +61,7 @@ if (__DEV__) {
     missingVars.push('GOOGLE_API_KEY');
   }
   if (!ENV.SENTRY_DSN) {
-    console.log('[ENV] Sentry DSN not configured. Error tracking disabled.');
+    if (__DEV__) console.log('[ENV] Sentry DSN not configured. Error tracking disabled.');
   }
 
   if (missingVars.length > 0) {

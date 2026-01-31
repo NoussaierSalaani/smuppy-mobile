@@ -35,6 +35,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const db = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return createCorsResponse(404, { error: 'Profile not found' });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Verify peak exists
     const peakResult = await db.query(
       'SELECT id, author_id FROM posts WHERE id = $1 AND is_peak = true',
@@ -62,7 +72,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO peak_reactions (peak_id, user_id, reaction_type, created_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (peak_id, user_id) DO UPDATE SET reaction_type = $3, created_at = NOW()`,
-        [peakId, userId, reaction]
+        [peakId, profileId, reaction]
       );
 
       // Get reaction counts
@@ -78,7 +88,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         reactionCounts[row.reaction_type] = parseInt(row.count);
       });
 
-      log.info('Reaction added', { peakId, userId, reaction });
+      log.info('Reaction added', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***', reaction });
 
       return createCorsResponse(200, {
         success: true,
@@ -90,10 +100,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Remove reaction
       await db.query(
         'DELETE FROM peak_reactions WHERE peak_id = $1 AND user_id = $2',
-        [peakId, userId]
+        [peakId, profileId]
       );
 
-      log.info('Reaction removed', { peakId, userId });
+      log.info('Reaction removed', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

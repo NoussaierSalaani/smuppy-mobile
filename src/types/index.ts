@@ -689,7 +689,7 @@ export type MainStackParamList = {
   // Details
   UserProfile: { userId: string };
   PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Post[] };
-  PostDetailVibesFeed: { postId: string; post?: any; startCondensed?: boolean };
+  PostDetailVibesFeed: { postId: string; post?: Record<string, unknown>; startCondensed?: boolean };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
   FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
 
@@ -752,7 +752,7 @@ export type MainStackParamList = {
   // Live Battles
   BattleLobby: { battleId: string };
   BattleStream: { battleId: string; agoraToken?: string; agoraUid?: number };
-  BattleResults: { battleId: string; winner?: any; participants?: any[] };
+  BattleResults: { battleId: string; winner?: Record<string, unknown>; participants?: Record<string, unknown>[] };
   InviteToBattle: { battleId: string };
 
   // Events (Xplorer)

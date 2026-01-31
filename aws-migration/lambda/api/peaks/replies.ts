@@ -33,6 +33,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const db = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return createCorsResponse(404, { error: 'Profile not found' });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Verify parent peak exists and check if responses are allowed
     const peakResult = await db.query(
       `SELECT id, author_id, allow_peak_responses, visibility
@@ -63,7 +73,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         WHERE p.reply_to_peak_id = $1 AND p.is_peak = true
       `;
 
-      const queryParams: (string | number)[] = [peakId, userId];
+      const queryParams: (string | number)[] = [peakId, profileId];
 
       if (cursor) {
         query += ` AND p.created_at < (SELECT created_at FROM posts WHERE id = $3)`;
@@ -114,7 +124,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       // Check visibility - if private, only author can respond
-      if (parentPeak.visibility === 'private' && parentPeak.author_id !== userId) {
+      if (parentPeak.visibility === 'private' && parentPeak.author_id !== profileId) {
         return createCorsResponse(403, { error: 'This peak is private' });
       }
 
@@ -139,7 +149,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         VALUES ($1, $2, $3, $4, 'video', TRUE, $5, $6, 'public', NOW())
         RETURNING id, created_at`,
         [
-          userId,
+          profileId,
           videoUrl,
           thumbnailUrl ? [videoUrl, thumbnailUrl] : [videoUrl],
           caption || null,
@@ -153,27 +163,27 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Get author info
       const authorResult = await db.query(
         'SELECT id, username, display_name, full_name, avatar_url, is_verified FROM profiles WHERE id = $1',
-        [userId]
+        [profileId]
       );
 
       const author = authorResult.rows[0];
 
       // Create notification for parent peak owner (if not self-reply)
-      if (parentPeak.author_id !== userId) {
+      if (parentPeak.author_id !== profileId) {
         await db.query(
           `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
            VALUES ($1, 'peak_reply', $2, $3, $4, NOW())`,
-          [parentPeak.author_id, userId, peakId, 'replied to your Peak with a Peak']
+          [parentPeak.author_id, profileId, peakId, 'replied to your Peak with a Peak']
         );
       }
 
-      log.info('Peak reply created', { parentPeakId: peakId, replyId: newReply.id, userId });
+      log.info('Peak reply created', { parentPeakId: peakId.substring(0, 8) + '***', replyId: newReply.id.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(201, {
         success: true,
         reply: {
           id: newReply.id,
-          authorId: userId,
+          authorId: profileId,
           videoUrl,
           thumbnailUrl,
           caption,

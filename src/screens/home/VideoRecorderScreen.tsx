@@ -18,7 +18,6 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-// COLORS import removed - not used
 import {
   FilterProvider,
   useFilters,
@@ -26,15 +25,15 @@ import {
   OverlayEditor,
   DraggableOverlay,
 } from '../../filters';
+import type { OverlayPosition } from '../../filters/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const MAX_SEGMENT_DURATION = 15; // 15 seconds per segment
 
-interface VideoRecorderScreenProps {
-  navigation: any;
-  route: any;
-}
+import type { ParamListBase } from '@react-navigation/native';
+type VideoRecorderScreenProps = NativeStackScreenProps<ParamListBase, 'VideoRecorder'>;
 
 function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderScreenProps) {
   const { showError, showSuccess } = useSmuppyAlert();
@@ -57,9 +56,12 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
   const { activeFilter, activeOverlays, updateOverlay } = useFilters();
 
   // Handle overlay position change
-  const handleOverlayPositionChange = useCallback((overlayId: string, position: any) => {
-    updateOverlay(overlayId, { position: { ...position } });
-  }, [updateOverlay]);
+  const handleOverlayPositionChange = useCallback((overlayId: string, position: Partial<OverlayPosition>) => {
+    const existing = activeOverlays.find(o => o.id === overlayId);
+    if (existing) {
+      updateOverlay(overlayId, { position: { ...existing.position, ...position } });
+    }
+  }, [updateOverlay, activeOverlays]);
 
   // Progress animation (0 to 1 over 15 seconds)
   const progress = useSharedValue(0);

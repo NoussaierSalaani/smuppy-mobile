@@ -456,7 +456,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // Navigate to post detail with animation
-  const _handleGridPostPress = (post: any) => {
+  const _handleGridPostPress = (post: typeof MOCK_GRID_POSTS[number]) => {
     const scale = getCardScale(post.id);
 
     // Press animation

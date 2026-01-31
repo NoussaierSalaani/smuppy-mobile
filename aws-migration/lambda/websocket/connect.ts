@@ -91,7 +91,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [connectionId, profileId]
     );
 
-    log.info('WebSocket connected', { connectionId, profileId });
+    log.info('WebSocket connected', { connectionId, profileId: profileId.substring(0, 8) + '***' });
 
     return {
       statusCode: 200,

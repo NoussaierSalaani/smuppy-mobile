@@ -35,6 +35,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const db = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return createCorsResponse(404, { error: 'Profile not found' });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Verify peak exists
     const peakResult = await db.query(
       'SELECT id, author_id FROM posts WHERE id = $1 AND is_peak = true',
@@ -107,18 +117,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO peak_tags (peak_id, tagged_user_id, tagged_by_user_id, created_at)
          VALUES ($1, $2, $3, NOW())
          RETURNING id, created_at`,
-        [peakId, friendId, userId]
+        [peakId, friendId, profileId]
       );
 
       // Create notification for tagged user
       await db.query(
         `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
          VALUES ($1, 'peak_tag', $2, $3, $4, NOW())`,
-        [friendId, userId, peakId, 'tagged you in a Peak']
+        [friendId, profileId, peakId, 'tagged you in a Peak']
       );
 
       const friend = friendResult.rows[0];
-      log.info('Friend tagged on peak', { peakId, taggedUserId: friendId, taggedBy: userId });
+      log.info('Friend tagged on peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: friendId.substring(0, 8) + '***', taggedBy: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(201, {
         success: true,
@@ -130,7 +140,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             displayName: friend.display_name,
             avatarUrl: friend.avatar_url,
           },
-          taggedBy: userId,
+          taggedBy: profileId,
           createdAt: tagResult.rows[0].created_at,
         },
       });
@@ -151,9 +161,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return createCorsResponse(404, { error: 'Tag not found' });
       }
 
-      const canRemove = userId === peakAuthorId ||
-                        userId === tagResult.rows[0].tagged_by_user_id ||
-                        userId === taggedUserId; // Tagged user can remove themselves
+      const canRemove = profileId === peakAuthorId ||
+                        profileId === tagResult.rows[0].tagged_by_user_id ||
+                        profileId === taggedUserId; // Tagged user can remove themselves
 
       if (!canRemove) {
         return createCorsResponse(403, { error: 'Not authorized to remove this tag' });
@@ -164,7 +174,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [peakId, taggedUserId]
       );
 
-      log.info('Tag removed from peak', { peakId, taggedUserId, removedBy: userId });
+      log.info('Tag removed from peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: taggedUserId.substring(0, 8) + '***', removedBy: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

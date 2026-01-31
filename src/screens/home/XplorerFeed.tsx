@@ -323,7 +323,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       setUserCoords(coords);
       setHasLocation(true);
     } catch (err) {
-      console.log('[XplorerFeed] Could not get position:', err);
+      if (__DEV__) console.log('[XplorerFeed] Could not get position:', err);
     }
   }, []);
 
@@ -401,12 +401,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       const eventId = marker.id.replace('event_', '');
       awsAPI.getEventDetail(eventId).then(res => {
         if (res.success && res.event) setSelectedEventData(res.event);
-      }).catch(() => {});
+      }).catch((err) => { if (__DEV__) console.error('[XplorerFeed]', err); });
     } else if (marker.category === 'group') {
       const groupId = marker.id.replace('group_', '');
       awsAPI.getGroup(groupId).then(res => {
         if (res.success && res.group) setSelectedEventData(res.group);
-      }).catch(() => {});
+      }).catch((err) => { if (__DEV__) console.error('[XplorerFeed]', err); });
     } else {
       setSelectedEventData(null);
     }
@@ -1048,7 +1048,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 // STYLES
 // ============================================
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
 

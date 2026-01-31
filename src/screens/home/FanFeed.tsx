@@ -113,7 +113,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         console.error('[FanFeed] Error fetching posts:', error);
         // On error, use mock data as fallback
         if (refresh || pageNum === 0) {
-          console.log('[FanFeed] Using mock data as fallback');
+          if (__DEV__) console.log('[FanFeed] Using mock data as fallback');
           setPosts([]);
           setHasMore(false);
         }
@@ -824,7 +824,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
 export default FanFeed;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

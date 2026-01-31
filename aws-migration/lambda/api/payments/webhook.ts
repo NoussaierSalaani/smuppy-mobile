@@ -150,7 +150,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (paymentType === 'identity_verification') {
           const userId = paymentIntent.metadata?.userId;
           if (!isValidUUID(userId)) {
-            log.warn('Invalid userId in identity verification metadata', { userId });
+            log.warn('Invalid userId in identity verification metadata', { userId: userId?.substring(0, 8) + '***' });
             break;
           }
           await client.query(
@@ -161,7 +161,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
              WHERE id = $1`,
             [userId]
           );
-          log.info('Identity verification payment recorded', { userId });
+          log.info('Identity verification payment recorded', { userId: userId?.substring(0, 8) + '***' });
           break;
         }
 
@@ -271,7 +271,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const planType = session.metadata?.planType;
 
           if (!isValidUUID(userId)) {
-            log.warn('Invalid userId in platform subscription metadata', { userId });
+            log.warn('Invalid userId in platform subscription metadata', { userId: userId?.substring(0, 8) + '***' });
             break;
           }
 
@@ -291,14 +291,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             [accountType, userId]
           );
 
-          log.info('Platform subscription activated', { userId, planType });
+          log.info('Platform subscription activated', { userId: userId?.substring(0, 8) + '***', planType });
         } else if (subscriptionType === 'channel') {
           // Channel subscription (Fan subscribing to Creator)
           const fanId = session.metadata?.fanId;
           const creatorId = session.metadata?.creatorId;
 
           if (!isValidUUID(fanId) || !isValidUUID(creatorId)) {
-            log.warn('Invalid IDs in channel subscription metadata', { fanId, creatorId });
+            log.warn('Invalid IDs in channel subscription metadata', { fanId: fanId?.substring(0, 8) + '***', creatorId: creatorId?.substring(0, 8) + '***' });
             break;
           }
 
@@ -337,7 +337,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             ]
           );
 
-          log.info('Channel subscription created', { fanId, creatorId });
+          log.info('Channel subscription created', { fanId: fanId?.substring(0, 8) + '***', creatorId: creatorId?.substring(0, 8) + '***' });
         }
         break;
       }
@@ -360,7 +360,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                 `UPDATE profiles SET is_verified = false, updated_at = NOW() WHERE id = $1`,
                 [userId]
               );
-              log.warn('Verification sub degraded, badge removed', { userId, status: subscription.status });
+              log.warn('Verification sub degraded, badge removed', { userId: userId.substring(0, 8) + '***', status: subscription.status });
             }
             // If reactivated, restore verification (only if identity was already verified)
             if (subscription.status === 'active') {
@@ -369,7 +369,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  WHERE id = $1 AND identity_verification_session_id IS NOT NULL AND verified_at IS NOT NULL`,
                 [userId]
               );
-              log.info('Verification sub reactivated', { userId });
+              log.info('Verification sub reactivated', { userId: userId.substring(0, 8) + '***' });
             }
           }
         } else if (subscriptionType === 'platform') {
@@ -431,7 +431,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               [userId]
             );
 
-            log.info('Verification subscription canceled, badge removed', { userId });
+            log.info('Verification subscription canceled, badge removed', { userId: userId.substring(0, 8) + '***' });
           }
         } else if (subscriptionType === 'platform') {
           await client.query(
@@ -514,7 +514,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                        'Your verified account payment failed. Please update your payment method to keep your verified badge.', $2)`,
               [userId, JSON.stringify({ invoiceId: invoice.id })]
             );
-            log.warn('Verification invoice payment failed', { userId, invoiceId: invoice.id });
+            log.warn('Verification invoice payment failed', { userId: userId.substring(0, 8) + '***', invoiceId: invoice.id });
           }
         }
         break;
@@ -650,7 +650,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           log.warn('ADMIN ALERT: Dispute created', {
             disputeId: dispute.id,
             amount: dispute.amount,
-            creatorId: payment.creator_id,
+            creatorId: payment.creator_id.substring(0, 8) + '***',
           });
         }
         break;

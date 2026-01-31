@@ -284,10 +284,10 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         const followingProfiles = await awsAPI.getFollowingUsers(user.id, { limit: 100 });
 
         if (followingProfiles) {
-          const users = followingProfiles.map((p: any) => ({
+          const users = followingProfiles.map((p) => ({
             id: p.id,
-            full_name: p.fullName || p.full_name,
-            avatar_url: p.avatarUrl || p.avatar_url,
+            full_name: p.fullName,
+            avatar_url: p.avatarUrl,
           })).filter(Boolean) as FollowingUser[];
           setFollowingUsers(users);
           hasLoadedFollowing.current = true;

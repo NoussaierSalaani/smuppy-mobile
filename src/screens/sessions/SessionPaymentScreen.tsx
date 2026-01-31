@@ -115,7 +115,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       if (paymentError) {
         if (paymentError.code === PaymentSheetError.Canceled) {
           // User cancelled - do nothing
-          console.log('Payment cancelled by user');
+          if (__DEV__) console.log('Payment cancelled by user');
         } else {
           showError('Payment Failed', paymentError.message);
         }

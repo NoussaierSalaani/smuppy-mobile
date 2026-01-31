@@ -235,7 +235,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         setCoordinates({ lat: location.coords.latitude, lng: location.coords.longitude });
       }
     } catch (error) {
-      console.log('Location error:', error);
+      if (__DEV__) console.log('Location error:', error);
     }
   };
 

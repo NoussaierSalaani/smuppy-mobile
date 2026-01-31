@@ -100,7 +100,7 @@ export const validateCertificatePin = (
 
   // If no pin configured, allow (but log for monitoring)
   if (!config) {
-    if (ENV.isDev) {
+    if (__DEV__) {
       console.log(`[CertPin] No pin configured for: ${host}`);
     }
     return true;

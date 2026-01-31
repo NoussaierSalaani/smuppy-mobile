@@ -128,7 +128,7 @@ async function getOrCreateStripeCustomer(db: Pool, userId: string): Promise<stri
     [customer.id, userId]
   );
 
-  log.info('Created Stripe customer', { userId, customerId: customer.id });
+  log.info('Created Stripe customer', { userId: userId.substring(0, 8) + '***', customerId: customer.id });
 
   return customer.id;
 }
@@ -149,7 +149,7 @@ async function createSetupIntent(db: Pool, user: { sub: string }, headers: Recor
     },
   });
 
-  log.info('Created setup intent', { userId: user.sub, setupIntentId: setupIntent.id });
+  log.info('Created setup intent', { userId: user.sub.substring(0, 8) + '***', setupIntentId: setupIntent.id });
 
   return {
     statusCode: 200,
@@ -253,7 +253,7 @@ async function attachPaymentMethod(
   }
 
   log.info('Attached payment method', {
-    userId: user.sub,
+    userId: user.sub.substring(0, 8) + '***',
     paymentMethodId,
     setAsDefault,
   });
@@ -307,7 +307,7 @@ async function detachPaymentMethod(
   // Detach the payment method
   await stripe.paymentMethods.detach(paymentMethodId);
 
-  log.info('Detached payment method', { userId: user.sub, paymentMethodId });
+  log.info('Detached payment method', { userId: user.sub.substring(0, 8) + '***', paymentMethodId });
 
   return {
     statusCode: 200,
@@ -352,7 +352,7 @@ async function setDefaultPaymentMethod(
     },
   });
 
-  log.info('Set default payment method', { userId: user.sub, paymentMethodId });
+  log.info('Set default payment method', { userId: user.sub.substring(0, 8) + '***', paymentMethodId });
 
   return {
     statusCode: 200,

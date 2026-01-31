@@ -90,7 +90,6 @@ interface UserState {
 
 interface AppState {
   isTabBarVisible: boolean;
-  tabBarAnimation: unknown;
   isOnline: boolean;
   globalLoading: boolean;
   errorModal: {
@@ -237,8 +236,6 @@ export const useAppStore = create<AppState>()(
   immer((set) => ({
     // Tab bar visibility
     isTabBarVisible: true,
-    tabBarAnimation: null,
-
     // Network status
     isOnline: true,
 

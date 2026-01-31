@@ -10,10 +10,6 @@
  * Outputs a probability vector for 6 mood states with confidence score.
  */
 
-// Imports for future use when app state / network monitoring is enabled
-// import { AppState, AppStateStatus } from 'react-native';
-// import NetInfo from '@react-native-community/netinfo';
-
 // ============================================================================
 // TYPES
 // ============================================================================

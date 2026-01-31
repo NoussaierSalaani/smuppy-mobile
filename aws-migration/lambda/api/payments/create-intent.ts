@@ -290,8 +290,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     log.info('Payment intent created', {
       paymentIntentId: paymentIntent.id,
-      buyerId: buyer.id,
-      creatorId,
+      buyerId: buyer.id.substring(0, 8) + '***',
+      creatorId: creatorId.substring(0, 8) + '***',
       amount: verifiedAmount,
       type,
       source,
@@ -360,7 +360,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Handle Stripe-specific errors — don't leak internal details
     if (error instanceof Stripe.errors.StripeError) {
-      log.error('Stripe error', { code: error.code, message: error.message });
+      log.error('Stripe error processing payment');
       return {
         statusCode: 400,
         headers,

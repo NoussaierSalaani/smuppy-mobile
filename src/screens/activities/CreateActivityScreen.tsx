@@ -204,7 +204,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           awsAPI.suggestSubcategory({
             parent_category: selectedCategory.slug,
             name: customSubcategory.trim(),
-          }).catch(() => {});
+          }).catch((err) => { if (__DEV__) console.error('[CreateActivityScreen]', err); });
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

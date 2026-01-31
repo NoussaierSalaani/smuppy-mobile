@@ -4,7 +4,7 @@
  * Supports one-time bookings and session packs
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,11 @@ import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 
 interface BusinessBookingScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
@@ -58,6 +59,7 @@ interface Business {
 }
 
 export default function BusinessBookingScreen({ route, navigation }: BusinessBookingScreenProps) {
+  const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
   const { formatAmount, currency } = useCurrency();
@@ -80,6 +82,8 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
   // Get today's date
   const today = new Date();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadBusinessData();
@@ -280,7 +284,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         )}
         <View style={styles.serviceMeta}>
           <View style={styles.serviceMetaItem}>
-            <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+            <Ionicons name="time-outline" size={14} color={colors.gray} />
             <Text style={styles.serviceMetaText}>{service.duration_minutes} min</Text>
           </View>
           <View style={styles.servicePrice}>
@@ -326,7 +330,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -383,7 +387,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
               {services.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="calendar-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No bookable services</Text>
                 </View>
               ) : (
@@ -404,7 +408,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                     {selectedService?.duration_minutes} min • {formatAmount(selectedService?.price_cents || 0)}
                   </Text>
                 </View>
-                <Ionicons name="pencil" size={18} color={COLORS.primary} />
+                <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
 
               <Text style={styles.stepTitle}>Select Date</Text>
@@ -414,11 +418,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 style={styles.datePickerButton}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Ionicons name="calendar" size={24} color={COLORS.primary} />
+                <Ionicons name="calendar" size={24} color={colors.primary} />
                 <Text style={styles.datePickerText}>
                   {selectedDateString ? formatDate(selectedDateString) : 'Tap to select a date'}
                 </Text>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gray} />
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -444,7 +448,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                     {selectedService?.name} • {selectedService?.duration_minutes} min
                   </Text>
                 </View>
-                <Ionicons name="pencil" size={18} color={COLORS.primary} />
+                <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
 
               <Text style={styles.stepTitle}>Select Time</Text>
@@ -452,11 +456,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
               {isLoadingSlots ? (
                 <View style={styles.loadingSlots}>
-                  <ActivityIndicator color={COLORS.primary} />
+                  <ActivityIndicator color={colors.primary} />
                 </View>
               ) : timeSlots.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="time-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="time-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No available slots</Text>
                   <Text style={styles.emptySubtitle}>Try selecting a different date</Text>
                 </View>
@@ -476,7 +480,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
               <View style={styles.confirmCard}>
                 <View style={styles.confirmRow}>
-                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                  <Ionicons name="calendar" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Date</Text>
                     <Text style={styles.confirmValue}>{formatDate(selectedDateString)}</Text>
@@ -486,7 +490,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 <View style={styles.confirmDivider} />
 
                 <View style={styles.confirmRow}>
-                  <Ionicons name="time" size={20} color={COLORS.primary} />
+                  <Ionicons name="time" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Time</Text>
                     <Text style={styles.confirmValue}>{selectedSlot?.time}</Text>
@@ -496,7 +500,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 <View style={styles.confirmDivider} />
 
                 <View style={styles.confirmRow}>
-                  <Ionicons name="fitness" size={20} color={COLORS.primary} />
+                  <Ionicons name="fitness" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Service</Text>
                     <Text style={styles.confirmValue}>{selectedService?.name}</Text>
@@ -507,7 +511,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 <View style={styles.confirmDivider} />
 
                 <View style={styles.confirmRow}>
-                  <Ionicons name="business" size={20} color={COLORS.primary} />
+                  <Ionicons name="business" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Location</Text>
                     <Text style={styles.confirmValue}>{business?.name}</Text>
@@ -622,10 +626,10 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -634,7 +638,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -649,7 +653,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -665,12 +669,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   headerBusinessName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Progress
@@ -685,32 +689,32 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   progressDotActive: {
-    backgroundColor: 'rgba(14,191,138,0.3)',
+    backgroundColor: colors.primaryLight,
   },
   progressDotCurrent: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   progressDotText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   progressDotTextActive: {
-    color: '#fff',
+    color: colors.dark,
   },
   progressLine: {
     flex: 1,
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surface,
     marginHorizontal: 8,
   },
   progressLineActive: {
-    backgroundColor: 'rgba(14,191,138,0.3)',
+    backgroundColor: colors.primaryLight,
   },
 
   content: {
@@ -723,11 +727,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   stepSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 8,
   },
 
@@ -735,11 +739,11 @@ const styles = StyleSheet.create({
   selectedServiceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14,191,138,0.1)',
+    backgroundColor: colors.primaryLight,
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(14,191,138,0.3)',
+    borderColor: colors.primaryLight,
     marginBottom: 8,
   },
   selectedServiceInfo: {
@@ -748,11 +752,11 @@ const styles = StyleSheet.create({
   selectedServiceName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   selectedServiceMeta: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -762,15 +766,15 @@ const styles = StyleSheet.create({
   },
   serviceItem: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   serviceItemSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(14,191,138,0.1)',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   serviceImage: {
     width: 80,
@@ -783,12 +787,12 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   serviceDescription: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 8,
   },
   serviceMeta: {
@@ -803,10 +807,10 @@ const styles = StyleSheet.create({
   },
   serviceMetaText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   servicePrice: {
-    backgroundColor: 'rgba(14,191,138,0.15)',
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -814,7 +818,7 @@ const styles = StyleSheet.create({
   servicePriceText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   serviceCheck: {
     position: 'absolute',
@@ -823,7 +827,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -832,18 +836,18 @@ const styles = StyleSheet.create({
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.border,
   },
   datePickerText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Time Slots
@@ -859,7 +863,7 @@ const styles = StyleSheet.create({
   timeSlot: {
     width: '23%',
     paddingVertical: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
@@ -869,30 +873,30 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   timeSlotSelected: {
-    backgroundColor: 'rgba(14,191,138,0.2)',
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
   },
   timeSlotText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   timeSlotTextUnavailable: {
-    color: COLORS.gray,
+    color: colors.gray,
     textDecorationLine: 'line-through',
   },
   timeSlotTextSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   spotsLeft: {
     fontSize: 10,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
   // Confirm
   confirmCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
   },
@@ -907,27 +911,27 @@ const styles = StyleSheet.create({
   },
   confirmLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   confirmValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   confirmSubvalue: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   confirmDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.border,
   },
 
   // Price Summary
   priceSummary: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
     marginTop: 16,
@@ -939,28 +943,28 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   priceValue: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.dark,
   },
   priceRowTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
   },
   priceTotalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   priceTotalValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Empty State
@@ -972,11 +976,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Bottom Action
@@ -990,9 +994,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingBottom: 34,
-    backgroundColor: 'rgba(15,15,26,0.9)',
+    backgroundColor: isDark ? 'rgba(15,15,26,0.9)' : 'rgba(255,255,255,0.9)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
   },
   bottomActions: {
     flexDirection: 'row',
@@ -1004,14 +1008,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     gap: 6,
   },
   backStepText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   actionButton: {
     flex: 1,
@@ -1047,7 +1051,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   modalBlur: {
-    backgroundColor: 'rgba(20,20,35,0.95)',
+    backgroundColor: isDark ? 'rgba(20,20,35,0.95)' : 'rgba(255,255,255,0.95)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1056,12 +1060,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   modalScroll: {
     padding: 16,

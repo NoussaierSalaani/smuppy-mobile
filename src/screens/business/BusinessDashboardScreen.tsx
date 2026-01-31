@@ -3,7 +3,7 @@
  * Main dashboard for business owners to manage their business
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,11 +18,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import type { IconName } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +64,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 export default function BusinessDashboardScreen({ navigation }: Props) {
+  const { colors, isDark } = useTheme();
   const { formatAmount } = useCurrency();
   const user = useUserStore((state) => state.user);
 
@@ -71,6 +72,8 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadDashboard();
@@ -130,11 +133,11 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
 
   const getActivityColor = (type: string) => {
     switch (type) {
-      case 'check_in': return COLORS.primary;
+      case 'check_in': return colors.primary;
       case 'booking': return '#3498DB';
       case 'subscription': return '#9B59B6';
       case 'cancellation': return '#FF6B6B';
-      default: return COLORS.gray;
+      default: return colors.gray;
     }
   };
 
@@ -151,14 +154,14 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.background, colors.background]} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
@@ -167,7 +170,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={22} color="#fff" />
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
           </TouchableOpacity>
           <View style={styles.headerTitleBlock}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
@@ -177,7 +180,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             style={styles.settingsButton}
             onPress={() => navigation.navigate('BusinessSettings')}
           >
-            <Ionicons name="settings-outline" size={22} color="#fff" />
+            <Ionicons name="settings-outline" size={22} color={colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -188,7 +191,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor={COLORS.primary}
+              tintColor={colors.primary}
             />
           }
         >
@@ -197,7 +200,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             <View style={styles.statCard}>
               <LinearGradient colors={['rgba(14,191,138,0.2)', 'rgba(14,191,138,0.05)']} style={styles.statGradient}>
                 <View style={styles.statIconContainer}>
-                  <Ionicons name="calendar" size={24} color={COLORS.primary} />
+                  <Ionicons name="calendar" size={24} color={colors.primary} />
                 </View>
                 <Text style={styles.statValue}>{stats?.todayBookings || 0}</Text>
                 <Text style={styles.statLabel}>Today's Bookings</Text>
@@ -267,7 +270,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             <View style={styles.overviewCard}>
               <View style={styles.overviewRow}>
                 <View style={styles.overviewItem}>
-                  <Ionicons name="fitness" size={20} color={COLORS.primary} />
+                  <Ionicons name="fitness" size={20} color={colors.primary} />
                   <View style={styles.overviewInfo}>
                     <Text style={styles.overviewValue}>{stats?.upcomingClasses || 0}</Text>
                     <Text style={styles.overviewLabel}>Classes Today</Text>
@@ -311,7 +314,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
 
               {recentActivity.length === 0 && (
                 <View style={styles.emptyActivity}>
-                  <Ionicons name="time-outline" size={32} color={COLORS.gray} />
+                  <Ionicons name="time-outline" size={32} color={colors.gray} />
                   <Text style={styles.emptyText}>No recent activity</Text>
                 </View>
               )}
@@ -333,7 +336,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
                   <Text style={styles.managementTitle}>Services & Products</Text>
                   <Text style={styles.managementDesc}>Manage your offerings and prices</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gray} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -347,7 +350,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
                   <Text style={styles.managementTitle}>Schedule & Activities</Text>
                   <Text style={styles.managementDesc}>Manage your weekly program</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gray} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -361,7 +364,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
                   <Text style={styles.managementTitle}>Upload Program</Text>
                   <Text style={styles.managementDesc}>AI-powered schedule extraction</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gray} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -369,13 +372,13 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
                 onPress={() => navigation.navigate('BusinessMembers')}
               >
                 <View style={[styles.managementIcon, { backgroundColor: 'rgba(14,191,138,0.15)' }]}>
-                  <Ionicons name="people" size={22} color={COLORS.primary} />
+                  <Ionicons name="people" size={22} color={colors.primary} />
                 </View>
                 <View style={styles.managementContent}>
                   <Text style={styles.managementTitle}>Members</Text>
                   <Text style={styles.managementDesc}>View and manage subscriptions</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gray} />
               </TouchableOpacity>
             </View>
           </View>
@@ -387,10 +390,10 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -399,7 +402,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -414,7 +417,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -424,19 +427,19 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   businessName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
   settingsButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -473,12 +476,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Sections
@@ -495,12 +498,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 16,
   },
   seeAllText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
 
@@ -525,13 +528,13 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     fontSize: 12,
-    color: COLORS.lightGray,
+    color: colors.whiteGray,
     textAlign: 'center',
   },
 
   // Overview
   overviewCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     borderRadius: 20,
     padding: 20,
     marginTop: -8,
@@ -552,22 +555,22 @@ const styles = StyleSheet.create({
   overviewValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
   overviewLabel: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   overviewDivider: {
     width: 1,
     height: 40,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.grayBorder,
     marginHorizontal: 16,
   },
 
   // Activity
   activityList: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: -8,
@@ -577,7 +580,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.grayBorder,
   },
   activityIcon: {
     width: 36,
@@ -592,12 +595,12 @@ const styles = StyleSheet.create({
   },
   activityText: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.white,
     marginBottom: 2,
   },
   activityTime: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   emptyActivity: {
     alignItems: 'center',
@@ -606,12 +609,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Management
   managementList: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: -8,
@@ -621,7 +624,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.grayBorder,
   },
   managementIcon: {
     width: 44,
@@ -637,11 +640,11 @@ const styles = StyleSheet.create({
   managementTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 2,
   },
   managementDesc: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });

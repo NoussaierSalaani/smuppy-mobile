@@ -3,7 +3,7 @@
  * Public profile view for Pro Business accounts (gyms, stores, studios, etc.)
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,10 +25,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -129,6 +130,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   const { businessId } = route.params;
   const { formatAmount } = useCurrency();
   const _user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
 
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -140,6 +142,8 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadBusinessProfile();
@@ -265,7 +269,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
           <View style={styles.serviceMeta}>
             {item.duration_minutes && (
               <View style={styles.serviceMetaItem}>
-                <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="time-outline" size={14} color={colors.gray} />
                 <Text style={styles.serviceMetaText}>{item.duration_minutes} min</Text>
               </View>
             )}
@@ -328,7 +332,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -336,7 +340,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   if (!business) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="business-outline" size={64} color={COLORS.gray} />
+        <Ionicons name="business-outline" size={64} color={colors.gray} />
         <Text style={styles.errorText}>Business not found</Text>
         <TouchableOpacity style={styles.errorButton} onPress={() => navigation.goBack()}>
           <Text style={styles.errorButtonText}>Go Back</Text>
@@ -481,7 +485,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
               <Ionicons
                 name={isFollowing ? 'checkmark' : 'add'}
                 size={20}
-                color={isFollowing ? COLORS.primary : '#fff'}
+                color={isFollowing ? colors.primary : '#fff'}
               />
               <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>
                 {isFollowing ? 'Following' : 'Follow'}
@@ -538,7 +542,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                   <View style={styles.featuresGrid}>
                     {business.features.map((feature, index) => (
                       <View key={index} style={styles.featureItem}>
-                        <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                        <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
                         <Text style={styles.featureText}>{feature}</Text>
                       </View>
                     ))}
@@ -569,12 +573,12 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                   </MapView>
                 </View>
                 <TouchableOpacity style={styles.addressRow} onPress={handleOpenMaps}>
-                  <Ionicons name="location" size={18} color={COLORS.primary} />
+                  <Ionicons name="location" size={18} color={colors.primary} />
                   <View style={styles.addressText}>
                     <Text style={styles.addressName}>{business.location.name}</Text>
                     <Text style={styles.addressDetail}>{business.location.address}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={COLORS.gray} />
+                  <Ionicons name="chevron-forward" size={18} color={colors.gray} />
                 </TouchableOpacity>
               </View>
 
@@ -597,7 +601,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
             <View style={styles.servicesTab}>
               {services.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="pricetag-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="pricetag-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No services available</Text>
                 </View>
               ) : (
@@ -636,7 +640,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
               {/* Activities */}
               {getTodayActivities().length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="calendar-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No activities scheduled</Text>
                   <Text style={styles.emptySubtitle}>Check another day</Text>
                 </View>
@@ -664,7 +668,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
               {/* Reviews List */}
               {reviews.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="chatbubble-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="chatbubble-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No reviews yet</Text>
                 </View>
               ) : (
@@ -703,32 +707,32 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
     gap: 16,
   },
   errorText: {
     fontSize: 18,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   errorButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   errorButtonText: {
@@ -745,7 +749,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   headerBlur: {
-    backgroundColor: 'rgba(15,15,26,0.8)',
+    backgroundColor: isDark ? 'rgba(15,15,26,0.8)' : 'rgba(255,255,255,0.8)',
   },
   headerContent: {
     flexDirection: 'row',
@@ -814,13 +818,13 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 20,
     borderWidth: 4,
-    borderColor: '#0f0f1a',
+    borderColor: colors.background,
   },
   verifiedBadge: {
     position: 'absolute',
     bottom: -4,
     right: -4,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 2,
   },
@@ -856,7 +860,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 16,
   },
   statsRow: {
@@ -878,7 +882,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   statDivider: {
@@ -901,7 +905,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 12,
     gap: 8,
@@ -909,7 +913,7 @@ const styles = StyleSheet.create({
   followButtonActive: {
     backgroundColor: 'rgba(14,191,138,0.15)',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   followButtonText: {
     fontSize: 15,
@@ -917,7 +921,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   followButtonTextActive: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   iconButton: {
     width: 48,
@@ -943,12 +947,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
     color: '#fff',
@@ -970,7 +974,7 @@ const styles = StyleSheet.create({
   bioSection: {},
   bioText: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     lineHeight: 22,
   },
   featuresSection: {},
@@ -990,7 +994,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 13,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
   locationSection: {},
   mapContainer: {
@@ -1029,7 +1033,7 @@ const styles = StyleSheet.create({
   },
   addressDetail: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   hoursSection: {},
@@ -1042,7 +1046,7 @@ const styles = StyleSheet.create({
   },
   hourDay: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
   hourTime: {
     fontSize: 14,
@@ -1050,7 +1054,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   hourClosed: {
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Services Tab
@@ -1084,7 +1088,7 @@ const styles = StyleSheet.create({
   subscriptionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1097,7 +1101,7 @@ const styles = StyleSheet.create({
   },
   serviceDescription: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 12,
   },
   serviceFooter: {
@@ -1116,7 +1120,7 @@ const styles = StyleSheet.create({
   },
   serviceMetaText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   servicePrice: {
     backgroundColor: 'rgba(14,191,138,0.15)',
@@ -1127,7 +1131,7 @@ const styles = StyleSheet.create({
   servicePriceText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Schedule Tab
@@ -1143,12 +1147,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   dayButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   dayButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   dayButtonTextActive: {
     color: '#fff',
@@ -1175,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   activityEndTime: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   activityInfo: {
     flex: 1,
@@ -1187,17 +1191,17 @@ const styles = StyleSheet.create({
   },
   activityInstructor: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   activitySpots: {},
   activitySpotsText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   activitySpotsFull: {
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Reviews Tab
@@ -1222,7 +1226,7 @@ const styles = StyleSheet.create({
   },
   ratingCount: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   reviewsList: {
     gap: 12,
@@ -1254,11 +1258,11 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   reviewComment: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     lineHeight: 20,
   },
 
@@ -1275,7 +1279,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Bottom CTA
@@ -1289,7 +1293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingBottom: 34,
-    backgroundColor: 'rgba(15,15,26,0.9)',
+    backgroundColor: isDark ? 'rgba(15,15,26,0.9)' : 'rgba(255,255,255,0.9)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
   },

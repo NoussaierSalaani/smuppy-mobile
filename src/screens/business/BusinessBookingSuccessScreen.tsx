@@ -3,7 +3,7 @@
  * Confirmation screen after successful booking
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   route: {
@@ -33,10 +34,13 @@ interface Props {
 }
 
 export default function BusinessBookingSuccessScreen({ route, navigation }: Props) {
+  const { colors, isDark } = useTheme();
   const { showConfirm, showSuccess } = useSmuppyAlert();
   const { bookingId, businessName, serviceName, date, time } = route.params;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -123,7 +127,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
           <View style={styles.detailsCard}>
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="business" size={20} color={COLORS.primary} />
+                <Ionicons name="business" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Location</Text>
@@ -135,7 +139,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="fitness" size={20} color={COLORS.primary} />
+                <Ionicons name="fitness" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Service</Text>
@@ -147,7 +151,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                <Ionicons name="calendar" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
@@ -160,7 +164,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="receipt" size={20} color={COLORS.primary} />
+                <Ionicons name="receipt" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Booking ID</Text>
@@ -203,10 +207,10 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -234,19 +238,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
   },
   detailsCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
@@ -260,7 +264,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(14,191,138,0.15)',
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -270,28 +274,28 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   detailValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   detailSubvalue: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     marginTop: 2,
   },
   detailValueSmall: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     fontFamily: 'monospace',
   },
   detailDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.border,
   },
   reminderCard: {
     flexDirection: 'row',
@@ -321,7 +325,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surface,
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
@@ -329,7 +333,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   primaryButton: {
     borderRadius: 14,

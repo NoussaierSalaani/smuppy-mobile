@@ -3,7 +3,7 @@
  * AI-powered program/schedule extraction from PDF or images
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,9 +22,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import type { IconName } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   navigation: any;
@@ -52,7 +53,7 @@ interface UploadedFile {
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const ACTIVITY_CATEGORIES = [
+const getActivityCategories = (colors: any) => [
   { id: 'fitness', name: 'Fitness', icon: 'barbell' as IconName, color: '#E74C3C' },
   { id: 'yoga', name: 'Yoga', icon: 'body' as IconName, color: '#9B59B6' },
   { id: 'cardio', name: 'Cardio', icon: 'heart' as IconName, color: '#FF6B35' },
@@ -60,11 +61,12 @@ const ACTIVITY_CATEGORIES = [
   { id: 'dance', name: 'Dance', icon: 'musical-notes' as IconName, color: '#E91E63' },
   { id: 'swimming', name: 'Swimming', icon: 'water' as IconName, color: '#00BCD4' },
   { id: 'martial_arts', name: 'Martial Arts', icon: 'flash' as IconName, color: '#FF5722' },
-  { id: 'other', name: 'Other', icon: 'ellipse' as IconName, color: COLORS.gray },
+  { id: 'other', name: 'Other', icon: 'ellipse' as IconName, color: colors.gray },
 ];
 
 export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   const { showError, showAlert, showSuccess } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -75,6 +77,9 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const ACTIVITY_CATEGORIES = useMemo(() => getActivityCategories(colors), [colors]);
 
   const startPulseAnimation = () => {
     Animated.loop(
@@ -340,7 +345,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
             <Ionicons
               name={uploadedFile.type === 'pdf' ? 'document' : 'image'}
               size={24}
-              color={COLORS.primary}
+              color={colors.primary}
             />
             <View style={styles.filePreviewInfo}>
               <Text style={styles.filePreviewName} numberOfLines={1}>
@@ -351,7 +356,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
               </Text>
             </View>
             <TouchableOpacity onPress={() => setUploadedFile(null)}>
-              <Ionicons name="close-circle" size={24} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={24} color={colors.gray} />
             </TouchableOpacity>
           </View>
 
@@ -380,7 +385,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
       {isAnalyzing && (
         <Animated.View style={[styles.analyzingContainer, { transform: [{ scale: pulseAnim }] }]}>
           <View style={styles.analyzingIconContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
           <Text style={styles.analyzingTitle}>Analyzing Document...</Text>
           <Text style={styles.analyzingProgress}>{analysisProgress}%</Text>
@@ -490,14 +495,14 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
                         <Text style={styles.activityName}>{activity.name}</Text>
                         <View style={styles.activityMeta}>
                           <View style={styles.activityMetaItem}>
-                            <Ionicons name="time-outline" size={12} color={COLORS.gray} />
+                            <Ionicons name="time-outline" size={12} color={colors.gray} />
                             <Text style={styles.activityMetaText}>
                               {activity.startTime} - {activity.endTime}
                             </Text>
                           </View>
                           {activity.instructor && (
                             <View style={styles.activityMetaItem}>
-                              <Ionicons name="person-outline" size={12} color={COLORS.gray} />
+                              <Ionicons name="person-outline" size={12} color={colors.gray} />
                               <Text style={styles.activityMetaText}>{activity.instructor}</Text>
                             </View>
                           )}
@@ -557,7 +562,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.backgroundSecondary, colors.background]} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
@@ -602,10 +607,10 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -630,7 +635,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   stepContainer: {
@@ -656,12 +661,12 @@ const styles = StyleSheet.create({
   uploadTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   uploadSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -690,12 +695,12 @@ const styles = StyleSheet.create({
   uploadOptionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   uploadOptionDesc: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // File Preview
@@ -719,11 +724,11 @@ const styles = StyleSheet.create({
   filePreviewName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   filePreviewType: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   filePreviewImage: {
     width: '100%',
@@ -755,7 +760,7 @@ const styles = StyleSheet.create({
   analyzeButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Analyzing
@@ -772,13 +777,13 @@ const styles = StyleSheet.create({
   analyzingTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   analyzingProgress: {
     fontSize: 32,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: 16,
   },
   progressBar: {
@@ -791,12 +796,12 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 3,
   },
   analyzingHint: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
 
@@ -808,7 +813,7 @@ const styles = StyleSheet.create({
   },
   supportedTitle: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 10,
   },
   formatTags: {
@@ -824,7 +829,7 @@ const styles = StyleSheet.create({
   formatTagText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
 
   // Review Step
@@ -834,12 +839,12 @@ const styles = StyleSheet.create({
   reviewTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   reviewSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 12,
   },
   selectionActions: {
@@ -855,7 +860,7 @@ const styles = StyleSheet.create({
   selectionButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
 
   activitiesScroll: {
@@ -867,7 +872,7 @@ const styles = StyleSheet.create({
   dayTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: 10,
   },
   activityCard: {
@@ -889,14 +894,14 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: COLORS.gray,
+    borderColor: colors.gray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   activityCheckboxSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   activityIcon: {
     width: 36,
@@ -912,7 +917,7 @@ const styles = StyleSheet.create({
   activityName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   activityMeta: {
@@ -926,7 +931,7 @@ const styles = StyleSheet.create({
   },
   activityMetaText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   confidenceBadge: {
     flexDirection: 'row',
@@ -940,7 +945,7 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Bottom Action
@@ -964,7 +969,7 @@ const styles = StyleSheet.create({
   },
   bottomInfoText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   saveButton: {
     borderRadius: 14,
@@ -983,7 +988,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Preview Modal

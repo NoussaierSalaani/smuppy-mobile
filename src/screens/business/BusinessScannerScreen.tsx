@@ -3,7 +3,7 @@
  * For business owners to scan member QR codes for access validation
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,8 +21,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width, height: _height } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.7;
@@ -44,6 +45,7 @@ interface ValidationResult {
 
 export default function BusinessScannerScreen({ navigation }: Props) {
   const { showAlert } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
@@ -53,6 +55,8 @@ export default function BusinessScannerScreen({ navigation }: Props) {
 
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const resultScaleAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     if (isScanning) {
@@ -175,7 +179,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
   if (!permission) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -183,10 +187,10 @@ export default function BusinessScannerScreen({ navigation }: Props) {
   if (!permission.granted) {
     return (
       <View style={styles.permissionContainer}>
-        <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[colors.backgroundSecondary, colors.background]} style={StyleSheet.absoluteFill} />
         <SafeAreaView style={styles.permissionContent}>
           <View style={styles.permissionIcon}>
-            <Ionicons name="camera" size={64} color={COLORS.primary} />
+            <Ionicons name="camera" size={64} color={colors.primary} />
           </View>
           <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
@@ -251,7 +255,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
             {/* Validating indicator */}
             {isValidating && (
               <View style={styles.validatingContainer}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
+                <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={styles.validatingText}>Validating...</Text>
               </View>
             )}
@@ -302,12 +306,12 @@ export default function BusinessScannerScreen({ navigation }: Props) {
                 <Ionicons
                   name={validationResult?.valid ? 'checkmark-circle' : 'close-circle'}
                   size={64}
-                  color={validationResult?.valid ? COLORS.primary : '#FF6B6B'}
+                  color={validationResult?.valid ? colors.primary : '#FF6B6B'}
                 />
               </View>
 
               {/* Status Text */}
-              <Text style={[styles.resultStatus, { color: validationResult?.valid ? COLORS.primary : '#FF6B6B' }]}>
+              <Text style={[styles.resultStatus, { color: validationResult?.valid ? colors.primary : '#FF6B6B' }]}>
                 {validationResult?.valid ? 'Access Granted' : 'Access Denied'}
               </Text>
 
@@ -320,14 +324,14 @@ export default function BusinessScannerScreen({ navigation }: Props) {
                   {validationResult.valid && (
                     <View style={styles.validityInfo}>
                       <View style={styles.validityItem}>
-                        <Ionicons name="calendar-outline" size={16} color={COLORS.gray} />
+                        <Ionicons name="calendar-outline" size={16} color={colors.gray} />
                         <Text style={styles.validityText}>
                           Valid until {formatDate(validationResult.validUntil)}
                         </Text>
                       </View>
                       {validationResult.remainingSessions !== undefined && (
                         <View style={styles.validityItem}>
-                          <Ionicons name="ticket-outline" size={16} color={COLORS.gray} />
+                          <Ionicons name="ticket-outline" size={16} color={colors.gray} />
                           <Text style={styles.validityText}>
                             {validationResult.remainingSessions} sessions remaining
                           </Text>
@@ -368,7 +372,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: COLORS.primary }]}>
+            <Text style={[styles.statValue, { color: colors.primary }]}>
               {scanHistory.filter((s) => s.valid).length}
             </Text>
             <Text style={styles.statLabel}>Successful</Text>
@@ -379,16 +383,16 @@ export default function BusinessScannerScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Permission
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(14,191,138,0.15)',
+    backgroundColor: `${colors.primary}26`,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -413,13 +417,13 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 12,
     textAlign: 'center',
   },
   permissionText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 22,
@@ -437,11 +441,11 @@ const styles = StyleSheet.create({
   permissionButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   cancelText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     paddingVertical: 12,
   },
 
@@ -482,7 +486,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   cornerTL: {
     top: 0,
@@ -517,8 +521,8 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     height: 2,
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 8,
@@ -532,7 +536,7 @@ const styles = StyleSheet.create({
   },
   validatingText: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Header
@@ -558,7 +562,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   historyButton: {
     width: 40,
@@ -608,14 +612,14 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   membershipBadge: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
-    backgroundColor: 'rgba(14,191,138,0.15)',
+    color: colors.primary,
+    backgroundColor: `${colors.primary}26`,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 12,
@@ -635,7 +639,7 @@ const styles = StyleSheet.create({
   },
   validityText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
   errorMessage: {
     fontSize: 14,
@@ -661,7 +665,7 @@ const styles = StyleSheet.create({
   scanAgainText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Footer
@@ -688,11 +692,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   statDivider: {

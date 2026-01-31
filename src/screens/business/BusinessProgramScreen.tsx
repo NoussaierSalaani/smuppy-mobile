@@ -3,7 +3,7 @@
  * Manage business activities, schedule, and services (for Pro Business owners)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,11 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Activity {
   id: string;
@@ -78,6 +79,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   const { showError, showDestructiveConfirm, showWarning } = useSmuppyAlert();
   const { formatAmount: _formatAmount, currency: _currency } = useCurrency();
   const _user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
@@ -86,6 +88,8 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'activities' | 'schedule' | 'tags'>('activities');
   const [selectedDay, setSelectedDay] = useState(0);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Modal states
   const [showActivityModal, setShowActivityModal] = useState(false);
@@ -312,18 +316,18 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
           </View>
           <View style={styles.activityMeta}>
             <View style={styles.activityMetaItem}>
-              <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+              <Ionicons name="time-outline" size={14} color={colors.gray} />
               <Text style={styles.activityMetaText}>{item.duration_minutes} min</Text>
             </View>
             {item.max_participants && (
               <View style={styles.activityMetaItem}>
-                <Ionicons name="people-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="people-outline" size={14} color={colors.gray} />
                 <Text style={styles.activityMetaText}>Max {item.max_participants}</Text>
               </View>
             )}
             {item.instructor && (
               <View style={styles.activityMetaItem}>
-                <Ionicons name="person-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="person-outline" size={14} color={colors.gray} />
                 <Text style={styles.activityMetaText}>{item.instructor}</Text>
               </View>
             )}
@@ -331,7 +335,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         </View>
         <View style={styles.activityActions}>
           <TouchableOpacity style={styles.activityActionButton} onPress={() => handleEditActivity(item)}>
-            <Ionicons name="pencil" size={18} color={COLORS.primary} />
+            <Ionicons name="pencil" size={18} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.activityActionButton} onPress={() => handleDeleteActivity(item)}>
             <Ionicons name="trash" size={18} color="#FF3B30" />
@@ -360,7 +364,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -390,7 +394,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
               <Ionicons
                 name={tab === 'activities' ? 'fitness' : tab === 'schedule' ? 'calendar' : 'pricetags'}
                 size={18}
-                color={activeTab === tab ? '#fff' : COLORS.gray}
+                color={activeTab === tab ? '#fff' : colors.gray}
               />
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -419,7 +423,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
               {activities.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="fitness-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="fitness-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No activities yet</Text>
                   <Text style={styles.emptySubtitle}>
                     Add activities that your business offers
@@ -485,7 +489,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
                 {getDaySlots(selectedDay).length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                    <Ionicons name="calendar-outline" size={48} color={colors.gray} />
                     <Text style={styles.emptyTitle}>No classes scheduled</Text>
                     <Text style={styles.emptySubtitle}>
                       Add time slots for {DAYS[selectedDay]}
@@ -521,7 +525,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                         {tagName}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark" size={14} color={COLORS.primary} />
+                        <Ionicons name="checkmark" size={14} color={colors.primary} />
                       )}
                     </TouchableOpacity>
                   );
@@ -529,7 +533,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
               </View>
 
               <View style={styles.selectedTagsInfo}>
-                <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="information-circle" size={18} color={colors.primary} />
                 <Text style={styles.selectedTagsText}>
                   {tags.length} tag{tags.length !== 1 ? 's' : ''} selected • These will appear in search results
                 </Text>
@@ -568,7 +572,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={activityName}
                     onChangeText={setActivityName}
                     placeholder="e.g., Morning Yoga"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -601,7 +605,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={activityDuration}
                       onChangeText={setActivityDuration}
                       placeholder="60"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                       keyboardType="number-pad"
                     />
                   </View>
@@ -612,7 +616,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={activityMaxParticipants}
                       onChangeText={setActivityMaxParticipants}
                       placeholder="Unlimited"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                       keyboardType="number-pad"
                     />
                   </View>
@@ -625,7 +629,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={activityInstructor}
                     onChangeText={setActivityInstructor}
                     placeholder="Optional"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -636,7 +640,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={activityDescription}
                     onChangeText={setActivityDescription}
                     placeholder="Describe this activity..."
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     multiline
                   />
                 </View>
@@ -710,7 +714,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={slotStartTime}
                       onChangeText={setSlotStartTime}
                       placeholder="09:00"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                     />
                   </View>
                   <View style={[styles.formGroup, { flex: 1 }]}>
@@ -720,7 +724,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={slotEndTime}
                       onChangeText={setSlotEndTime}
                       placeholder="10:00"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                     />
                   </View>
                 </View>
@@ -732,7 +736,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={slotInstructor}
                     onChangeText={setSlotInstructor}
                     placeholder="Use activity default"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -764,10 +768,10 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -776,7 +780,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -819,12 +823,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
     color: '#fff',
@@ -850,14 +854,14 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     marginBottom: 16,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
@@ -924,7 +928,7 @@ const styles = StyleSheet.create({
   },
   activityMetaText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   activityActions: {
     flexDirection: 'row',
@@ -950,19 +954,19 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   dayButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   dayButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   dayButtonTextActive: {
     color: '#fff',
   },
   daySlotCount: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   daySlotCountActive: {
@@ -995,11 +999,11 @@ const styles = StyleSheet.create({
   },
   slotActivity: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
   slotInstructor: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   slotDelete: {
@@ -1026,14 +1030,14 @@ const styles = StyleSheet.create({
   },
   tagChipSelected: {
     backgroundColor: 'rgba(14,191,138,0.1)',
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   tagChipText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tagChipTextSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   selectedTagsInfo: {
@@ -1047,7 +1051,7 @@ const styles = StyleSheet.create({
   selectedTagsText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Empty State
@@ -1063,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
 
@@ -1080,7 +1084,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   modalBlur: {
-    backgroundColor: 'rgba(20,20,35,0.95)',
+    backgroundColor: isDark ? 'rgba(20,20,35,0.95)' : 'rgba(255,255,255,0.95)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1142,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   categorySelectorText: {
     fontSize: 12,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
   activitySelector: {
     flexDirection: 'row',
@@ -1179,7 +1183,7 @@ const styles = StyleSheet.create({
   },
   slotPreviewLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   slotPreviewDay: {
     fontSize: 14,

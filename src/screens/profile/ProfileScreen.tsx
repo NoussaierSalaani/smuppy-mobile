@@ -1084,7 +1084,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <View style={styles.qrContainer}>
             {/* Simple QR placeholder - replace with actual QR library if needed */}
             <View style={styles.qrCode}>
-              <Ionicons name="qr-code" size={150} color="#0A0A0F" />
+              <Ionicons name="qr-code" size={150} color={colors.dark} />
             </View>
           </View>
 

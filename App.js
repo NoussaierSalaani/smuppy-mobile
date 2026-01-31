@@ -29,6 +29,7 @@ import { initializeBackend } from './src/services/backend';
 // UI Components
 import OfflineBanner from './src/components/OfflineBanner';
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 
 /**
  * Network Monitor Component
@@ -172,6 +173,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary showReportButton>
+        <ThemeProvider>
         <StripeProvider
           publishableKey={stripePublishableKey}
           merchantIdentifier="merchant.com.smuppy.app"
@@ -190,6 +192,7 @@ export default function App() {
             </SmuppyAlertProvider>
           </QueryClientProvider>
         </StripeProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

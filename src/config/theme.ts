@@ -72,32 +72,95 @@ export const COLORS = {
     border: '#2A2A2A',
   };
 
-// Dark theme colors (used in Peaks, Profile, etc.)
+// Dark theme colors — full parity with COLORS + legacy extras
 export const DARK_COLORS = {
-    primary: '#0EBF8A',           // Green accent
-    primaryGreen: '#0EBF8A',      // Alias for primary
-    primaryDark: '#0EBF8A',       // Darker green
-    secondary: '#00B3C7',         // Secondary accent (cyan-blue)
-    cyan: '#00E5FF',              // Cyan accent
-    dark: '#0A0A0F',              // Near black background
-    darkBg: '#0D0D0D',            // Darker background variant
-    darkGray: '#1C1C1E',          // Card/elevated background
-    darkCard: '#1C1C1E',          // Card background
-    cardBg: '#1A1A1A',            // Alternative card bg
-    border: '#2A2A2A',            // Border color
+    // Primary
+    primary: '#0EBF8A',
+    primaryDark: '#0EBF8A',
+    primaryLight: '#1A2F2A',
+
+    // Legacy
+    cyan: '#00E5FF',
+    cyanBlue: '#28B7D4',
+    blue: '#009BC5',
+    blueMedium: '#0081BE',
+    blueDark: '#0066ac',
+    primaryGreen: '#0EBF8A',
+
+    // Dark
+    dark: '#E5E7EB',
+    darkGray: '#1C1C1E',
+
+    // Gray scale (inverted for dark mode)
+    gray: '#8E8E93',
+    graySecondary: '#8E8E93',
+    grayMuted: '#6E6E73',
+    grayLight: '#3A3A3C',
+    grayBorder: '#2C2C2E',
+    gray50: '#1C1C1E',
+    gray100: '#2C2C2E',
+    gray200: '#3A3A3C',
+    gray300: '#48484A',
+    gray400: '#636366',
+    gray500: '#8E8E93',
+    gray600: '#AEAEB2',
+    gray700: '#C7C7CC',
+    gray800: '#D1D1D6',
+    gray900: '#E5E5EA',
+
+    // Base
     white: '#FFFFFF',
-    textPrimary: '#FFFFFF',       // Primary text
-    textMuted: '#6B7280',         // Muted text
-    gray: '#8E8E93',              // iOS gray
-    grayLight: '#6E6E73',
-    lightGray: '#AEAEB2',         // Light gray text
-    red: '#FF6B6B',               // Danger/unfollow color
-    orange: '#FFA500',            // Warning color
-    error: '#EF4444',             // Error color
-    success: '#22C55E',           // Success color
-    overlay: 'rgba(0, 0, 0, 0.4)',
+
+    // Status
+    error: '#EF4444',
+    errorLight: '#2D1F1F',
+    errorBorder: '#5C2020',
+    success: '#22C55E',
+
+    // Heart/Like colors
+    heartRed: '#FF6B6B',
+    heartRedDark: '#E55555',
+
+    // Backgrounds
+    background: '#0D0D0D',
+    backgroundSecondary: '#1A1A1A',
+    backgroundFocus: '#0D2420',
+    backgroundValid: '#0D2420',
+    backgroundDisabled: '#2C2C2E',
+
+    // Buttons
+    buttonDisabled: '#3A3A3C',
+    buttonBorder: '#1A5C4A',
+    buttonBorderLight: '#2A4A3E',
+
+    // Section
+    sectionTitle: '#E5E7EB',
+
+    // Overlay
+    overlay: 'rgba(0, 0, 0, 0.6)',
+    overlayLight: 'rgba(0, 0, 0, 0.7)',
+
+    // Dark theme compatibility aliases
+    textMuted: '#6B7280',
+    darkBg: '#0D0D0D',
+    cardBg: '#1A1A1A',
+    border: '#2A2A2A',
+
+    // Legacy dark theme keys (used in existing screens)
+    secondary: '#00B3C7',
+    lightGray: '#AEAEB2',
+    red: '#FF6B6B',
+    orange: '#FFA500',
+    darkCard: '#1C1C1E',
+    textPrimary: '#FFFFFF',
     cardBgTransparent: 'rgba(28, 28, 30, 0.95)',
   };
+
+export type ThemeMode = 'light' | 'dark';
+
+export function getThemeColors(mode: ThemeMode): typeof COLORS {
+  return mode === 'dark' ? DARK_COLORS as unknown as typeof COLORS : COLORS;
+}
   
   export const GRADIENTS = {
     // Primary gradient - optimized for readability with white text

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { createStackNavigator, StackCardInterpolationProps } from '@react-navigation/stack';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import * as Linking from 'expo-linking';
@@ -15,6 +15,7 @@ import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPen
 import { resetAllStores } from '../stores';
 import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
+import { useTheme } from '../hooks/useTheme';
 
 /**
  * Root Stack Param List
@@ -127,6 +128,24 @@ const linking = {
 type AppState = 'loading' | 'auth' | 'emailPending' | 'main';
 
 export default function AppNavigator(): React.JSX.Element {
+  const { colors, isDark } = useTheme();
+
+  const navigationTheme = useMemo<Theme>(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.background,
+        text: colors.dark,
+        border: colors.grayBorder,
+        notification: colors.primary,
+      },
+    };
+  }, [isDark, colors]);
+
   const [appState, setAppState] = useState<AppState>('loading');
   const [userEmail, setUserEmail] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
@@ -272,12 +291,12 @@ export default function AppNavigator(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
       {isReady && (
         <AuthCallbackProvider value={{ onRecoveryComplete: handleRecoveryComplete, onProfileCreated: handleProfileCreated }}>
         <TabBarProvider>
-          <NavigationContainer linking={linking}>
+          <NavigationContainer linking={linking} theme={navigationTheme}>
             <RootStack.Navigator
                 id="RootStack"
                 screenOptions={{

@@ -109,3 +109,6 @@ export {
 
 // Analytics
 export { useAnalytics } from './useAnalytics';
+
+// Theme
+export { useTheme } from './useTheme';

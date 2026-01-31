@@ -15,6 +15,7 @@ import { userSafetyStore } from './userSafetyStore';
 import { filterStore } from './filterStore';
 import { tabBarStore } from './tabBarStore';
 import { vibeStore } from './vibeStore';
+import { themeStore } from './themeStore';
 
 // Re-export all stores
 export { useContentStore, contentStore } from './contentStore';
@@ -22,6 +23,8 @@ export { useUserSafetyStore, userSafetyStore } from './userSafetyStore';
 export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS } from './filterStore';
 export { useTabBarStore, useTabBar, useTabBarAnimations, tabBarStore } from './tabBarStore';
 export { useVibeStore, vibeStore } from './vibeStore';
+export { useThemeStore, themeStore } from './themeStore';
+export type { ThemePreference, ThemeMode } from './themeStore';
 export type { TabBarContextValue } from './tabBarStore';
 export type { ContentStatus } from './contentStore';
 export type { RippleEntry, VibeState, VibeLevel, VibeActionType } from './vibeStore';
@@ -397,6 +400,7 @@ export const resetAllStores = async () => {
   filterStore.reset();
   tabBarStore.reset();
   vibeStore.reset();
+  themeStore.reset();
 
   // Clear persisted AsyncStorage data to prevent cross-user data leaks
   try {
@@ -404,6 +408,7 @@ export const resetAllStores = async () => {
       '@smuppy_user_store',
       '@smuppy_analytics_queue',
       '@smuppy_vibe_store',
+      '@smuppy_theme_store',
     ]);
   } catch {
     // Best-effort cleanup

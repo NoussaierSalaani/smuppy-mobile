@@ -8,7 +8,6 @@ import Svg, { Path } from 'react-native-svg';
 import { SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import ErrorModal from '../../components/ErrorModal';
-import { getCurrentProfile } from '../../services/database';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
 import { awsAPI } from '../../services/aws-api';
 import * as backend from '../../services/backend';
@@ -93,17 +92,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const result = await handleGoogleSignIn(googleResponse);
 
     if (result.success) {
-      try {
-        const { data: profile } = await getCurrentProfile(false);
-        if (!profile) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'AccountType' }],
-          });
-        }
-      } catch {
-        // Let onAuthStateChange handle it
-      }
+      // onAuthStateChange handles navigation
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -120,17 +109,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const result = await signInWithApple();
 
     if (result.success) {
-      try {
-        const { data: profile } = await getCurrentProfile(false);
-        if (!profile) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'AccountType' }],
-          });
-        }
-      } catch {
-        // Let onAuthStateChange handle it
-      }
+      // onAuthStateChange handles navigation
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,

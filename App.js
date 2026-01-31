@@ -126,27 +126,24 @@ export default function App() {
       }
 
       try {
-        await Font.loadAsync({
-          'WorkSans-Regular': require('./assets/fonts/WorkSans-Regular.ttf'),
-          'WorkSans-Medium': require('./assets/fonts/WorkSans-Medium.ttf'),
-          'WorkSans-SemiBold': require('./assets/fonts/WorkSans-SemiBold.ttf'),
-          'WorkSans-Bold': require('./assets/fonts/WorkSans-Bold.ttf'),
-          'WorkSans-ExtraBold': require('./assets/fonts/WorkSans-ExtraBold.ttf'),
-          'Poppins-Regular': require('./assets/fonts/Poppins-Regular.ttf'),
-          'Poppins-Medium': require('./assets/fonts/Poppins-Medium.ttf'),
-          'Poppins-SemiBold': require('./assets/fonts/Poppins-SemiBold.ttf'),
-          'Poppins-Bold': require('./assets/fonts/Poppins-Bold.ttf'),
-          'Poppins-ExtraBold': require('./assets/fonts/Poppins-ExtraBold.ttf'),
-        });
-
-        await rateLimiter.init();
-        await initializeNotifications();
-
-        // Initialize backend (AWS)
-        await initializeBackend();
-        if (__DEV__) {
-          console.log('[Backend] Using AWS backend');
-        }
+        // Run independent init tasks in parallel for faster startup
+        await Promise.all([
+          Font.loadAsync({
+            'WorkSans-Regular': require('./assets/fonts/WorkSans-Regular.ttf'),
+            'WorkSans-Medium': require('./assets/fonts/WorkSans-Medium.ttf'),
+            'WorkSans-SemiBold': require('./assets/fonts/WorkSans-SemiBold.ttf'),
+            'WorkSans-Bold': require('./assets/fonts/WorkSans-Bold.ttf'),
+            'WorkSans-ExtraBold': require('./assets/fonts/WorkSans-ExtraBold.ttf'),
+            'Poppins-Regular': require('./assets/fonts/Poppins-Regular.ttf'),
+            'Poppins-Medium': require('./assets/fonts/Poppins-Medium.ttf'),
+            'Poppins-SemiBold': require('./assets/fonts/Poppins-SemiBold.ttf'),
+            'Poppins-Bold': require('./assets/fonts/Poppins-Bold.ttf'),
+            'Poppins-ExtraBold': require('./assets/fonts/Poppins-ExtraBold.ttf'),
+          }),
+          rateLimiter.init(),
+          initializeNotifications(),
+          initializeBackend(),
+        ]);
       } catch (error) {
         console.error('Error initializing app:', error);
       } finally {

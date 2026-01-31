@@ -172,18 +172,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await handleGoogleSignIn(googleResponse);
 
     if (result.success) {
-      try {
-        await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
-        const { data: profile } = await getCurrentProfile(false);
-        if (!profile) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'AccountType' }],
-          });
-        }
-      } catch {
-        // Let onAuthStateChange handle it
-      }
+      // Fire-and-forget — onAuthStateChange handles navigation
+      storage.set(STORAGE_KEYS.REMEMBER_ME, 'true').catch(() => {});
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -359,10 +349,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         await new Promise(resolve => setTimeout(resolve, awsCheck.delayMs));
       }
 
-      // Persist remember me BEFORE signIn so the flag is guaranteed to
-      // exist when AppNavigator.loadSession runs on next app launch,
-      // even if the app is killed right after signIn fires onAuthStateChange.
-      await storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false');
+      // Persist remember me flag (fire-and-forget, non-blocking)
+      storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false').catch(() => {});
 
       // Use backend service which routes to AWS Cognito
       const user = await backend.signIn({ email: normalizedEmail, password });
@@ -442,18 +430,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await signInWithApple();
 
     if (result.success) {
-      try {
-        await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
-        const { data: profile } = await getCurrentProfile(false);
-        if (!profile) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'AccountType' }],
-          });
-        }
-      } catch {
-        // Let onAuthStateChange handle it
-      }
+      storage.set(STORAGE_KEYS.REMEMBER_ME, 'true').catch(() => {});
     } else if (result.error && result.error !== 'cancelled') {
       setErrorModal({
         visible: true,
@@ -462,7 +439,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       });
     }
     setSocialLoading(null);
-  }, [navigation]);
+  }, []);
 
   // Handle Google Sign-In
   const handleGoogleSignInPress = useCallback(async () => {

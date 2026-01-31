@@ -195,6 +195,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly profilesUnmuteFn: NodejsFunction;
   public readonly profilesGetBlockedFn: NodejsFunction;
   public readonly profilesGetMutedFn: NodejsFunction;
+  public readonly profilesCreationLimitsFn: NodejsFunction;
 
   // Search & Discovery
   public readonly postsSearchFn: NodejsFunction;
@@ -470,6 +471,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.profilesUnmuteFn = createLambda('ProfilesUnmuteFunction', 'profiles/unmute');
     this.profilesGetBlockedFn = createLambda('ProfilesGetBlockedFunction', 'profiles/get-blocked');
     this.profilesGetMutedFn = createLambda('ProfilesGetMutedFunction', 'profiles/get-muted');
+    this.profilesCreationLimitsFn = createLambda('ProfilesCreationLimitsFunction', 'profiles/creation-limits');
 
     // ========================================
     // Settings Lambda Functions

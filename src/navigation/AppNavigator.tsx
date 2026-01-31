@@ -258,8 +258,8 @@ export default function AppNavigator(): React.JSX.Element {
         // If Remember Me is set but session resolution failed (e.g. network not ready),
         // retry once after a short delay
         if (state === 'auth' && rememberMe === 'true') {
-          if (__DEV__) console.log('[Session] Retrying after 2s...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          if (__DEV__) console.log('[Session] Retrying after 500ms...');
+          await new Promise(resolve => setTimeout(resolve, 500));
           const retry = await resolveAppState();
           state = retry.state;
           email = retry.email;
@@ -271,10 +271,8 @@ export default function AppNavigator(): React.JSX.Element {
       }
 
       setIsReady(true);
-      // Wait for React to render the navigator before hiding splash
-      setTimeout(() => {
-        SplashScreen.hideAsync();
-      }, 100);
+      // eslint-disable-next-line no-undef
+      requestAnimationFrame(() => SplashScreen.hideAsync());
     };
 
     loadSession();

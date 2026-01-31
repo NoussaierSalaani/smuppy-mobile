@@ -111,7 +111,7 @@ const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
 
 // ============================================
 
-interface MockMarker {
+interface MapMarker {
   id: string;
   type: string;
   subcategory: string;
@@ -157,7 +157,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [hasLocation, setHasLocation] = useState(false);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [activeSubFilters, setActiveSubFilters] = useState<Record<string, string[]>>({});
-  const [selectedMarker, setSelectedMarker] = useState<MockMarker | null>(null);
+  const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [subFilterSheet, setSubFilterSheet] = useState<string | null>(null);
@@ -177,7 +177,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const userPosts = useUserStore((s) => s.user?.stats?.posts);
 
   // Business marker: only visible for premium business accounts with coordinates
-  const businessMarker = useMemo((): MockMarker | null => {
+  const businessMarker = useMemo((): MapMarker | null => {
     if (accountType !== 'pro_business' || !isPremium) return null;
     if (businessLatitude == null || businessLongitude == null) return null;
     if (!userId) return null;
@@ -197,8 +197,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, [accountType, isPremium, businessLatitude, businessLongitude, userId, businessCategory, businessName, userAvatar, userBio, userFans, userPosts, businessAddress]);
 
   // Event/Group/Live markers loaded from API
-  const [eventGroupMarkers, setEventGroupMarkers] = useState<MockMarker[]>([]);
-  const [liveMarkers, setLiveMarkers] = useState<MockMarker[]>([]);
+  const [eventGroupMarkers, setEventGroupMarkers] = useState<MapMarker[]>([]);
+  const [liveMarkers, setLiveMarkers] = useState<MapMarker[]>([]);
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [joiningEvent, setJoiningEvent] = useState(false);
 
@@ -241,7 +241,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           }),
         ]);
 
-        const markers: MockMarker[] = [];
+        const markers: MapMarker[] = [];
 
         if (eventsRes.success && eventsRes.events) {
           for (const evt of eventsRes.events) {
@@ -301,7 +301,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         const res = await awsAPI.getActiveLiveStreams();
         if (res.success && res.data) {
           // Live markers use the host's location (approximate — centered on user for now)
-          const markers: MockMarker[] = res.data.map((stream) => ({
+          const markers: MapMarker[] = res.data.map((stream) => ({
             id: `live_${stream.host.id}`,
             type: 'live',
             subcategory: 'Live',
@@ -432,7 +432,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     });
   }, []);
 
-  const handleMarkerPress = useCallback((marker: MockMarker) => {
+  const handleMarkerPress = useCallback((marker: MapMarker) => {
     // Live markers: go directly to viewer stream
     if (marker.category === 'live') {
       const hostId = marker.id.replace('live_', '');
@@ -467,7 +467,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     setSelectedEventData(null);
   }, []);
 
-  const goToProfile = useCallback((marker: MockMarker) => {
+  const goToProfile = useCallback((marker: MapMarker) => {
     closePopup();
     navigation.navigate('UserProfile', { userId: marker.id });
   }, [closePopup, navigation]);
@@ -562,7 +562,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // RENDERERS
   // ============================================
 
-  const renderCustomMarker = useCallback((marker: MockMarker) => {
+  const renderCustomMarker = useCallback((marker: MapMarker) => {
     const pinColor = PIN_COLORS[marker.type] || colors.primary;
 
     // Live markers: pulsing red dot with avatar

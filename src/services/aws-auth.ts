@@ -144,7 +144,7 @@ class AWSAuthService {
       ]);
 
       if (!accessToken || !userJson) {
-        if (process.env.NODE_ENV === 'development') {
+        if (__DEV__) {
           console.log('[AWS Auth] No stored session found', {
             hasAccessToken: !!accessToken,
             hasRefreshToken: !!refreshToken,

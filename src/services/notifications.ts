@@ -5,6 +5,7 @@
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { awsAPI } from './aws-api';
 import { captureException } from '../lib/sentry';
@@ -97,7 +98,7 @@ export const getExpoPushToken = async (): Promise<string | null> => {
 
     // Get the token
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID || undefined,
+      projectId: process.env.EXPO_PUBLIC_PROJECT_ID || Constants.expoConfig?.extra?.eas?.projectId || undefined,
     });
 
     return tokenData.data;

@@ -219,7 +219,7 @@ export default function BattleLobbyScreen() {
   };
 
   const handleInvite = () => {
-    navigation.navigate('InviteToBattle', { battleId });
+    // TODO: InviteToBattle screen not yet implemented
   };
 
   const renderParticipant = (participant: Participant, index: number) => {

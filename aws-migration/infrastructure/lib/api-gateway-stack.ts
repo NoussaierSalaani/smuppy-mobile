@@ -334,6 +334,9 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const checkUser = auth.addResource('check-user');
     checkUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkUserFn), bodyValidationOnly);
 
+    const wsToken = auth.addResource('ws-token');
+    wsToken.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.wsTokenFn), authMethodOptions);
+
     // ========================================
     // Media Endpoints
     // ========================================

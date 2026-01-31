@@ -155,7 +155,7 @@ export const initAnalytics = async (options?: Partial<AnalyticsConfig>): Promise
     osVersion: Platform.Version?.toString() || 'unknown',
   });
 
-  if (config.debugMode) {
+  if (__DEV__ && config.debugMode) {
     console.log('[Analytics] Initialized with config:', config);
   }
 };
@@ -178,7 +178,7 @@ export const identify = async (id: string, properties?: UserProperties): Promise
     if (__DEV__) console.warn('Failed to persist analytics user ID:', error);
   }
 
-  if (config.debugMode) {
+  if (__DEV__ && config.debugMode) {
     console.log('[Analytics] Identified user:', id.substring(0, 2) + '***');
   }
 };
@@ -189,7 +189,7 @@ export const identify = async (id: string, properties?: UserProperties): Promise
 export const setUserProperties = (properties: UserProperties): void => {
   userProperties = { ...userProperties, ...properties };
 
-  if (config.debugMode) {
+  if (__DEV__ && config.debugMode) {
     console.log('[Analytics] Set user properties:', properties);
   }
 };
@@ -207,7 +207,7 @@ export const reset = async (): Promise<void> => {
     if (__DEV__) console.warn('Failed to reset analytics:', error);
   }
 
-  if (config.debugMode) {
+  if (__DEV__ && config.debugMode) {
     console.log('[Analytics] Reset user identity');
   }
 };
@@ -236,7 +236,7 @@ export const track = async (
     timestamp: Date.now(),
   };
 
-  if (config.debugMode) {
+  if (__DEV__ && config.debugMode) {
     console.log('[Analytics] Track:', eventName, properties);
   }
 
@@ -346,7 +346,7 @@ export const trackError = (
 export const flush = async (): Promise<void> => {
   if (eventQueue.length === 0) return;
 
-  if (config.debugMode) {
+  if (__DEV__ && config.debugMode) {
     console.log('[Analytics] Flushing', eventQueue.length, 'events');
   }
 

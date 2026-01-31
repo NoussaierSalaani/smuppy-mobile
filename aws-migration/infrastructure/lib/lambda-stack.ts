@@ -123,6 +123,9 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly confirmForgotPasswordFn: NodejsFunction;
   public readonly checkUserFn: NodejsFunction;
 
+  // Auth - WebSocket Token
+  public readonly wsTokenFn: NodejsFunction;
+
   // WebSocket Functions
   public readonly wsConnectFn: NodejsFunction;
   public readonly wsDisconnectFn: NodejsFunction;
@@ -1289,6 +1292,34 @@ export class LambdaStack extends cdk.NestedStack {
     this.checkUserFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
       resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
+
+    // ========================================
+    // Auth - WebSocket Token Lambda
+    // ========================================
+    this.wsTokenFn = new NodejsFunction(this, 'WsTokenFunction', {
+      entry: path.join(__dirname, '../../lambda/api/auth/ws-token.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        WS_TOKENS_TABLE: `smuppy-ws-tokens-${environment}`,
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: authLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.wsTokenFn);
+    this.wsTokenFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-ws-tokens-${environment}`],
     }));
 
     // ========================================

@@ -303,7 +303,7 @@ export default function CreatorWalletScreen() {
       {!dashboard?.profile.hasStripeConnect && (
         <TouchableOpacity
           style={styles.setupStripeButton}
-          onPress={() => navigation.navigate('StripeConnect')}
+          onPress={() => { /* TODO: StripeConnect screen */ }}
         >
           <LinearGradient
             colors={GRADIENTS.primary}
@@ -373,7 +373,7 @@ export default function CreatorWalletScreen() {
       </View>
       <TouchableOpacity
         style={styles.viewMoreButton}
-        onPress={() => navigation.navigate('WalletAnalytics')}
+        onPress={() => { /* TODO: WalletAnalytics screen */ }}
       >
         <Text style={styles.viewMoreText}>View detailed analytics</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.primary} />

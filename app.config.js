@@ -59,6 +59,7 @@ infoPlist: {
   NSPhotoLibraryUsageDescription: 'Smuppy needs access to your photos to share content.',
   NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
   NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
+  NSContactsUsageDescription: 'Smuppy can help you find friends from your contacts.',
 },
     },
 android: {
@@ -114,6 +115,19 @@ plugins: [
 'expo-web-browser',
 '@sentry/react-native',
 'expo-apple-authentication',
+'expo-notifications',
+'expo-camera',
+'expo-location',
+'expo-image-picker',
+'expo-contacts',
+'expo-local-authentication',
+[
+  '@stripe/stripe-react-native',
+  {
+    merchantIdentifier: 'merchant.com.smuppy.app',
+    enableGooglePay: true,
+  },
+],
 [
   '@rnmapbox/maps',
   {

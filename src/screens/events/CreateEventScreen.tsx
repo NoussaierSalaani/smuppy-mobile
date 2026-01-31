@@ -629,7 +629,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
                 type: 'info',
                 buttons: [
                   { text: 'Maybe Later', style: 'cancel' },
-                  { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
+                  { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerification') },
                 ],
               });
             }

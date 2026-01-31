@@ -178,7 +178,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
           </View>
           <TouchableOpacity
             style={styles.settingsButton}
-            onPress={() => navigation.navigate('BusinessSettings')}
+            onPress={() => navigation.navigate('Settings')}
           >
             <Ionicons name="settings-outline" size={22} color={colors.white} />
           </TouchableOpacity>
@@ -369,7 +369,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
 
               <TouchableOpacity
                 style={styles.managementItem}
-                onPress={() => navigation.navigate('BusinessMembers')}
+                onPress={() => navigation.navigate('BusinessProfile')}
               >
                 <View style={[styles.managementIcon, { backgroundColor: 'rgba(14,191,138,0.15)' }]}>
                   <Ionicons name="people" size={22} color={colors.primary} />

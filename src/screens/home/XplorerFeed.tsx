@@ -103,10 +103,9 @@ const BUSINESS_ACTIONS: FabAction[] = [
   { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
 ];
 
-// Pro Business Premium: Create Activity + Upload Planning + Recommend (NO live)
+// Pro Business Premium: Create Activity + Suggest Spot (NO live)
 const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
   { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
-  { label: 'Upload Planning', icon: 'calendar-outline', action: 'upload_planning' },
   { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
 ];
 
@@ -487,7 +486,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               type: 'info',
               buttons: [
                 { text: 'OK', style: 'cancel' },
-                { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
+                { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerification') },
               ],
             });
             return;
@@ -509,9 +508,6 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       case 'suggest_spot':
         navigation.navigate('SuggestSpot');
         break;
-      case 'upload_planning':
-        navigation.navigate('UploadPlanning');
-        break;
       case 'share_live':
         if (!isVerified) {
           showAlert({
@@ -520,7 +516,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             type: 'info',
             buttons: [
               { text: 'Cancel', style: 'cancel' },
-              { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
+              { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerification') },
             ],
           });
           return;

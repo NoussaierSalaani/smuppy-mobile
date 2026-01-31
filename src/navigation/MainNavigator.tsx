@@ -133,6 +133,9 @@ import {
   IdentityVerificationScreen,
 } from '../screens/payments';
 
+// WebView
+import WebViewScreen from '../screens/WebViewScreen';
+
 // Find Friends (standalone popup)
 import FindFriendsScreen from '../screens/onboarding/FindFriendsScreen';
 
@@ -362,6 +365,7 @@ export default function MainNavigator() {
       <Stack.Screen name="PlatformSubscription" component={PlatformSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="ChannelSubscription" component={ChannelSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="WebView" component={WebViewScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Find Friends (standalone popup) */}
       <Stack.Screen name="FindFriends" component={FindFriendsScreen} options={{ animation: 'slide_from_bottom' }} />

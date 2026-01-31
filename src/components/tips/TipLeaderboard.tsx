@@ -211,7 +211,7 @@ export default function TipLeaderboard({
           </View>
           <TouchableOpacity
             onPress={() =>
-              navigation.navigate('TipLeaderboard', { creatorId, creatorUsername })
+              navigation.navigate('UserProfile', { userId: creatorId })
             }
           >
             <Text style={styles.seeAllText}>See All</Text>

@@ -205,7 +205,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
               },
             ]}
           >
-            <SmuppyHeartIcon size={80} color={colors.primary} filled />
+            <SmuppyHeartIcon size={80} color={colors.heartRed} filled />
           </Animated.View>
 
           {/* Mini Hearts Burst */}
@@ -226,7 +226,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
             >
               <SmuppyHeartIcon
                 size={24}
-                color={index % 2 === 0 ? colors.primary : '#FF8FAB'}
+                color={index % 2 === 0 ? colors.heartRed : '#FF8FAB'}
                 filled
               />
             </Animated.View>

@@ -1360,9 +1360,9 @@ export const sendMessage = async (
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<Message>('/messages', {
+    const result = await awsAPI.request<Message>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { conversationId, content, mediaUrl, mediaType },
+      body: { content, mediaUrl, mediaType },
     });
     return { data: result, error: null };
   } catch (error: unknown) {

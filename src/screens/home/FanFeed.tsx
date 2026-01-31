@@ -26,7 +26,7 @@ import { useContentStore, useUserSafetyStore } from '../../stores';
 import { useShareModal } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
+import { getFeedFromFollowed, likePost, unlikePost, savePost, unsavePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -371,19 +371,47 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, []);
 
-  // Toggle save
-  const toggleSave = useCallback((postId: string) => {
-    setPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) {
+  // Toggle save (optimistic + API)
+  const toggleSave = useCallback(async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const wasSaved = post.isSaved;
+
+    // Optimistic update
+    setPosts(prevPosts => prevPosts.map(p => {
+      if (p.id === postId) {
         return {
-          ...post,
-          isSaved: !post.isSaved,
-          saves: post.isSaved ? post.saves - 1 : post.saves + 1,
+          ...p,
+          isSaved: !wasSaved,
+          saves: wasSaved ? p.saves - 1 : p.saves + 1,
         };
       }
-      return post;
+      return p;
     }));
-  }, []);
+
+    try {
+      if (wasSaved) {
+        const { error } = await unsavePost(postId);
+        if (error) throw new Error(error);
+      } else {
+        const { error } = await savePost(postId);
+        if (error) throw new Error(error);
+      }
+    } catch {
+      // Rollback on failure
+      setPosts(prevPosts => prevPosts.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            isSaved: wasSaved,
+            saves: wasSaved ? p.saves + 1 : p.saves - 1,
+          };
+        }
+        return p;
+      }));
+    }
+  }, [posts]);
 
   // Handle share post
   const handleSharePost = useCallback((post: UIPost) => {

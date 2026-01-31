@@ -38,7 +38,7 @@ import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
 import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
-import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, savePost, unsavePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -510,18 +510,39 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }
   }, [allPosts, trackLike, trackPositiveInteraction]);
 
-  // Toggle save (optimistic update)
-  const toggleSave = useCallback((postId: string) => {
-    setAllPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isSaved: !post.isSaved,
-        };
+  // Toggle save (optimistic + API)
+  const toggleSave = useCallback(async (postId: string) => {
+    const post = allPosts.find(p => p.id === postId);
+    if (!post) return;
+
+    const wasSaved = post.isSaved;
+
+    // Optimistic update
+    setAllPosts(prevPosts => prevPosts.map(p => {
+      if (p.id === postId) {
+        return { ...p, isSaved: !wasSaved };
       }
-      return post;
+      return p;
     }));
-  }, []);
+
+    try {
+      if (wasSaved) {
+        const { error } = await unsavePost(postId);
+        if (error) throw new Error(error);
+      } else {
+        const { error } = await savePost(postId);
+        if (error) throw new Error(error);
+      }
+    } catch {
+      // Rollback on failure
+      setAllPosts(prevPosts => prevPosts.map(p => {
+        if (p.id === postId) {
+          return { ...p, isSaved: wasSaved };
+        }
+        return p;
+      }));
+    }
+  }, [allPosts]);
 
   // Track post view start time for engagement tracking
   const postViewStartRef = useRef<number>(0);

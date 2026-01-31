@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Modal, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, Modal, TextInput, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, SIZES } from '../../config/theme';
+import { SPACING, SIZES } from '../../config/theme';
 import { biometrics } from '../../utils/biometrics';
 import { awsAuth } from '../../services/aws-auth';
 import Button from '../../components/Button';
+import { useTheme } from '../../hooks/useTheme';
 
 type BiometricType = 'face' | 'fingerprint' | null;
 type PasswordAction = 'enable' | 'disable' | 'update';
@@ -15,6 +16,7 @@ interface FacialRecognitionScreenProps {
 }
 
 export default function FacialRecognitionScreen({ navigation }: FacialRecognitionScreenProps) {
+  const { colors, isDark } = useTheme();
   const [enabled, setEnabled] = useState(false);
   const [biometricType, setBiometricType] = useState<BiometricType>(null);
   const [loading, setLoading] = useState(false);
@@ -29,6 +31,8 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
 
   // Store password verification result for biometrics.enable() callback
   const passwordVerifiedRef = useRef(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadSettings();
@@ -180,22 +184,22 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.modalClose} onPress={closePasswordModal} disabled={verifying}>
-              <Ionicons name="close" size={24} color="#9CA3AF" />
+              <Ionicons name="close" size={24} color={colors.grayMuted} />
             </TouchableOpacity>
 
             <View style={styles.modalIconBox}>
-              <Ionicons name="lock-closed" size={32} color={COLORS.primary} />
+              <Ionicons name="lock-closed" size={32} color={colors.primary} />
             </View>
 
             <Text style={styles.modalTitle}>{modalText.title}</Text>
             <Text style={styles.modalMessage}>{modalText.message}</Text>
 
             <View style={styles.passwordInputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.grayMuted} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.grayMuted} />
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Enter your password"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={password}
                 onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
                 secureTextEntry={!showPassword}
@@ -204,7 +208,7 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
                 editable={!verifying}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={verifying}>
-                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
               </TouchableOpacity>
             </View>
 
@@ -232,8 +236,8 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
     <Modal visible={successModal.visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <View style={[styles.modalIconBox, { backgroundColor: '#E8FBF5' }]}>
-            <Ionicons name="checkmark-circle" size={40} color={COLORS.primary} />
+          <View style={[styles.modalIconBox, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#E8FBF5' }]}>
+            <Ionicons name="checkmark-circle" size={40} color={colors.primary} />
           </View>
           <Text style={styles.modalTitle}>{successModal.title}</Text>
           <Text style={styles.modalMessage}>{successModal.message}</Text>
@@ -250,10 +254,10 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <TouchableOpacity style={styles.modalClose} onPress={() => setErrorModal({ ...errorModal, visible: false })}>
-            <Ionicons name="close" size={24} color="#9CA3AF" />
+            <Ionicons name="close" size={24} color={colors.grayMuted} />
           </TouchableOpacity>
-          <View style={[styles.modalIconBox, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="alert-circle" size={40} color="#FF3B30" />
+          <View style={[styles.modalIconBox, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2' }]}>
+            <Ionicons name="alert-circle" size={40} color={colors.error} />
           </View>
           <Text style={styles.modalTitle}>{errorModal.title}</Text>
           <Text style={styles.modalMessage}>{errorModal.message}</Text>
@@ -267,9 +271,10 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isFaceId ? 'Facial Recognition' : 'Fingerprint'}</Text>
         <View style={{ width: 40 }} />
@@ -281,15 +286,15 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
           <Switch
             value={enabled}
             onValueChange={handleToggle}
-            trackColor={{ false: COLORS.grayLight, true: COLORS.primary }}
-            thumbColor={COLORS.white}
+            trackColor={{ false: colors.grayLight, true: colors.primary }}
+            thumbColor={colors.white}
             disabled={loading}
           />
         </View>
 
         <View style={styles.infoContainer}>
           <View style={styles.iconBox}>
-            <Ionicons name={isFaceId ? 'scan-outline' : 'finger-print-outline'} size={48} color={COLORS.primary} />
+            <Ionicons name={isFaceId ? 'scan-outline' : 'finger-print-outline'} size={48} color={colors.primary} />
           </View>
 
           <Text style={styles.title}>{isFaceId ? 'Face ID' : 'Touch ID'}</Text>
@@ -314,37 +319,37 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   backButton: { width: 40, height: 40, justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.dark },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.dark },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
-  toggleLabel: { fontSize: 16, fontWeight: '500', color: COLORS.dark },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayLight },
+  toggleLabel: { fontSize: 16, fontWeight: '500', color: colors.dark },
   infoContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 100 },
-  iconBox: { width: 100, height: 100, borderRadius: 24, backgroundColor: '#E8FBF5', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.primary, borderStyle: 'dashed', marginBottom: SPACING.xl },
-  title: { fontSize: 24, fontFamily: 'WorkSans-Bold', color: COLORS.dark, marginBottom: SPACING.sm },
-  subtitle: { fontSize: 14, color: COLORS.gray, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xl, paddingHorizontal: SPACING.lg },
+  iconBox: { width: 100, height: 100, borderRadius: 24, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#E8FBF5', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: colors.primary, borderStyle: 'dashed', marginBottom: SPACING.xl },
+  title: { fontSize: 24, fontFamily: 'WorkSans-Bold', color: colors.dark, marginBottom: SPACING.sm },
+  subtitle: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xl, paddingHorizontal: SPACING.lg },
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 },
-  modalContent: { width: '100%', backgroundColor: '#FFF', borderRadius: 24, padding: 28, alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalContent: { width: '100%', backgroundColor: colors.backgroundSecondary, borderRadius: 24, padding: 28, alignItems: 'center' },
   modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
-  modalIconBox: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#E8FBF5', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#0A0A0F', marginBottom: 8, textAlign: 'center' },
-  modalMessage: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  modalIconBox: { width: 70, height: 70, borderRadius: 35, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#E8FBF5', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.dark, marginBottom: 8, textAlign: 'center' },
+  modalMessage: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
   // Password Input
-  passwordInputContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', height: SIZES.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
-  passwordInput: { flex: 1, fontSize: 16, color: COLORS.dark, marginLeft: SPACING.sm },
-  passwordError: { fontSize: 12, color: '#FF3B30', alignSelf: 'flex-start', marginBottom: SPACING.md },
+  passwordInputContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', height: SIZES.inputHeight, borderWidth: 1.5, borderColor: colors.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.base, marginBottom: SPACING.sm, backgroundColor: colors.background },
+  passwordInput: { flex: 1, fontSize: 16, color: colors.dark, marginLeft: SPACING.sm },
+  passwordError: { fontSize: 12, color: colors.error, alignSelf: 'flex-start', marginBottom: SPACING.md },
   // Modal Buttons
   modalButtons: { flexDirection: 'row', gap: 12, width: '100%', marginTop: SPACING.md },
-  cancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.grayLight, alignItems: 'center' },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: COLORS.dark },
-  confirmBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
-  confirmBtnText: { fontSize: 15, fontWeight: '600', color: '#FFF' },
-  successBtn: { width: '100%', paddingVertical: 16, backgroundColor: COLORS.primary, borderRadius: 14, alignItems: 'center' },
-  successBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
-  errorBtn: { width: '100%', paddingVertical: 16, backgroundColor: '#FF3B30', borderRadius: 14, alignItems: 'center' },
-  errorBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
+  cancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: colors.grayLight, alignItems: 'center' },
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: colors.dark },
+  confirmBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  confirmBtnText: { fontSize: 15, fontWeight: '600', color: colors.white },
+  successBtn: { width: '100%', paddingVertical: 16, backgroundColor: colors.primary, borderRadius: 14, alignItems: 'center' },
+  successBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+  errorBtn: { width: '100%', paddingVertical: 16, backgroundColor: colors.error, borderRadius: 14, alignItems: 'center' },
+  errorBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
 });

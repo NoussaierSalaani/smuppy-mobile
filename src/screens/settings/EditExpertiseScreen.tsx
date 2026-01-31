@@ -3,11 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Activi
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 interface EditExpertiseScreenProps {
   navigation: { goBack: () => void };
@@ -16,6 +17,7 @@ interface EditExpertiseScreenProps {
 
 export default function EditExpertiseScreen({ navigation, route }: EditExpertiseScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const { data: profileData, refetch } = useCurrentProfile();
@@ -74,6 +76,8 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
     }
   };
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
     if (isSelected) {
       return (
@@ -91,7 +95,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
             <View style={styles.chipSelectedInner}>
               <Ionicons name={item.icon as any} size={16} color={item.color} />
               <Text style={styles.chipText}>{item.name}</Text>
-              <Ionicons name="close" size={14} color={COLORS.gray} style={{ marginLeft: 2 }} />
+              <Ionicons name="close" size={14} color={colors.gray} style={{ marginLeft: 2 }} />
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -108,16 +112,16 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
         <Text style={styles.chipText}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle]);
+  }, [toggle, styles, colors]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Expertise</Text>
         <TouchableOpacity
@@ -126,7 +130,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
           disabled={!hasChanges || isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color={colors.white} />
           ) : (
             <Text style={[styles.saveButtonText, (!hasChanges || isSaving) && styles.saveButtonTextDisabled]}>
               Save
@@ -137,7 +141,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
 
       {/* Info banner */}
       <View style={styles.infoBanner}>
-        <Ionicons name="information-circle" size={20} color="#0891B2" />
+        <Ionicons name="information-circle" size={20} color={colors.cyan} />
         <Text style={styles.infoBannerText}>
           Select your areas of expertise to personalize your Vibes feed and help others find you.
         </Text>
@@ -188,8 +192,8 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
 
   // Header
   header: {
@@ -208,10 +212,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   saveButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primaryGreen,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -219,22 +223,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: isDark ? colors.darkGray : colors.grayLight,
   },
   saveButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
   saveButtonTextDisabled: {
-    color: '#C7C7CC',
+    color: colors.grayMuted,
   },
 
   // Info Banner
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#ECFEFF',
+    backgroundColor: isDark ? 'rgba(8, 145, 178, 0.15)' : '#ECFEFF',
     borderRadius: 12,
     padding: 14,
     marginHorizontal: 20,
@@ -244,7 +248,7 @@ const styles = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     fontSize: 13,
-    color: '#0891B2',
+    color: colors.cyan,
     lineHeight: 18,
   },
 
@@ -255,11 +259,11 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 14,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
   },
   hintText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: isDark ? colors.gray : '#8E8E93',
     marginTop: 4,
   },
 
@@ -275,11 +279,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.grayBorder,
   },
   sectionIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0A0A0F' },
-  sectionCount: { fontSize: 14, fontWeight: '600', color: '#0EBF8A' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.dark },
+  sectionCount: { fontSize: 14, fontWeight: '600', color: colors.primaryGreen },
 
   // Items grid
   itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 12 },
@@ -290,9 +294,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: colors.grayBorder,
     borderRadius: 18,
     gap: 6,
   },
@@ -307,12 +311,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12.5,
     borderRadius: 16.5,
-    backgroundColor: '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E6FAF8',
     gap: 6,
   },
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
 });

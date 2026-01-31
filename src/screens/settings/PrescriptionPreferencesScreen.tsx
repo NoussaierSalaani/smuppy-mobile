@@ -2,7 +2,7 @@
  * PrescriptionPreferencesScreen — User settings for Vibe Prescriptions
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,14 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { PrescriptionCategory } from '../../services/prescriptionEngine';
-import { COLORS, SPACING } from '../../config/theme';
+import { SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -54,6 +56,8 @@ interface PrescriptionPreferencesScreenProps {
 export default function PrescriptionPreferencesScreen({ navigation }: PrescriptionPreferencesScreenProps) {
   const insets = useSafeAreaInsets();
   const { preferences, updatePreferences } = useVibePrescriptions();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const toggleCategory = useCallback(
     (cat: PrescriptionCategory) => {
@@ -73,10 +77,11 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Prescription Preferences</Text>
         <View style={{ width: 28 }} />
@@ -93,14 +98,14 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
           return (
             <View key={cat.id} style={styles.row}>
               <View style={styles.rowLeft}>
-                <Ionicons name={cat.icon} size={20} color={isEnabled ? COLORS.primary : COLORS.gray} />
+                <Ionicons name={cat.icon} size={20} color={isEnabled ? colors.primary : colors.gray} />
                 <Text style={styles.rowLabel}>{cat.label}</Text>
               </View>
               <Switch
                 value={isEnabled}
                 onValueChange={() => toggleCategory(cat.id)}
-                trackColor={{ true: COLORS.primary }}
-                thumbColor={COLORS.white}
+                trackColor={{ true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
           );
@@ -118,7 +123,7 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
             >
               <Text style={[styles.optionLabel, isActive && styles.optionLabelActive]}>{level.label}</Text>
               <Text style={styles.optionDesc}>{level.desc}</Text>
-              {isActive && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+              {isActive && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
             </TouchableOpacity>
           );
         })}
@@ -135,7 +140,7 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
             >
               <Text style={[styles.optionLabel, isActive && styles.optionLabelActive]}>{opt.label}</Text>
               <Text style={styles.optionDesc}>{opt.desc}</Text>
-              {isActive && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+              {isActive && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
             </TouchableOpacity>
           );
         })}
@@ -151,7 +156,7 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
               onPress={() => updatePreferences({ frequency: opt.id })}
             >
               <Text style={[styles.optionLabel, isActive && styles.optionLabelActive]}>{opt.label}</Text>
-              {isActive && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+              {isActive && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
             </TouchableOpacity>
           );
         })}
@@ -160,10 +165,10 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -172,12 +177,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   headerTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   content: {
     paddingHorizontal: SPACING.lg,
@@ -185,7 +190,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.xl,
     marginBottom: SPACING.md,
   },
@@ -195,7 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -205,7 +210,7 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   optionCard: {
     flexDirection: 'row',
@@ -213,26 +218,26 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.grayBorder,
+    borderColor: colors.grayBorder,
     marginBottom: SPACING.sm,
     gap: SPACING.sm,
   },
   optionCardActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   optionLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
     flex: 1,
   },
   optionLabelActive: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   optionDesc: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });

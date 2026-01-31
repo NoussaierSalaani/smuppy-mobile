@@ -215,6 +215,22 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     eventJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.eventsJoinFn), authMethodOptions);
 
     // ========================================
+    // Groups Endpoints
+    // ========================================
+    const groups = this.api.root.addResource('groups');
+    groups.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.groupsCreateFn), authWithBodyValidation);
+    groups.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.groupsListFn));
+
+    const groupById = groups.addResource('{groupId}');
+    groupById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.groupsGetFn));
+
+    const groupJoin = groupById.addResource('join');
+    groupJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.groupsJoinFn), authMethodOptions);
+
+    const groupLeave = groupById.addResource('leave');
+    groupLeave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.groupsLeaveFn), authMethodOptions);
+
+    // ========================================
     // Settings Endpoints
     // ========================================
     const settings = this.api.root.addResource('settings');

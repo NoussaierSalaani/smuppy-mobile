@@ -175,6 +175,13 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly eventsListFn: NodejsFunction;
   public readonly eventsJoinFn: NodejsFunction;
 
+  // Groups
+  public readonly groupsCreateFn: NodejsFunction;
+  public readonly groupsListFn: NodejsFunction;
+  public readonly groupsGetFn: NodejsFunction;
+  public readonly groupsJoinFn: NodejsFunction;
+  public readonly groupsLeaveFn: NodejsFunction;
+
   // Content Moderation: Reports
   public readonly reportsPostFn: NodejsFunction;
   public readonly reportsUserFn: NodejsFunction;
@@ -436,6 +443,15 @@ export class LambdaStack extends cdk.NestedStack {
     this.eventsCreateFn = createLambda('EventsCreateFunction', 'events/create');
     this.eventsListFn = createLambda('EventsListFunction', 'events/list');
     this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
+
+    // ========================================
+    // Groups Lambda Functions
+    // ========================================
+    this.groupsCreateFn = createLambda('GroupsCreateFunction', 'groups/create');
+    this.groupsListFn = createLambda('GroupsListFunction', 'groups/list');
+    this.groupsGetFn = createLambda('GroupsGetFunction', 'groups/get');
+    this.groupsJoinFn = createLambda('GroupsJoinFunction', 'groups/join');
+    this.groupsLeaveFn = createLambda('GroupsLeavFunction', 'groups/leave');
 
     // ========================================
     // Content Moderation: Reports Lambda Functions

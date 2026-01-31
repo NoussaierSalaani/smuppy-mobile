@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { createHeaders } from '../../utilities/cors';
-import { checkRateLimit } from '../../utilities/rate-limit';
-import { getPool } from '../../utilities/db';
-import { createLogger } from '../../utilities/logger';
+import { createHeaders } from '../utils/cors';
+import { checkRateLimit } from '../utils/rate-limit';
+import { getPool } from '../../shared/db';
+import { createLogger } from '../utils/logger';
 import { randomBytes } from 'crypto';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 

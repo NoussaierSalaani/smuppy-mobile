@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -180,7 +181,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
               style={styles.creatorRow}
               onPress={() => navigation.navigate('UserProfile', { userId: spot.creator_id })}
             >
-              <Image source={{ uri: spot.creator.avatar_url }} style={styles.creatorAvatar} />
+              <AvatarImage source={spot.creator.avatar_url} size={normalize(32)} />
               <Text style={styles.creatorName}>Suggested by {spot.creator.full_name}</Text>
             </TouchableOpacity>
           )}
@@ -252,7 +253,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
               reviews.map((rev) => (
                 <View key={rev.id} style={styles.reviewItem}>
                   <View style={styles.reviewHeader}>
-                    <Image source={{ uri: rev.user?.avatar_url }} style={styles.reviewAvatar} />
+                    <AvatarImage source={rev.user?.avatar_url} size={normalize(30)} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.reviewName}>{rev.user?.full_name}</Text>
                       <View style={styles.reviewStars}>

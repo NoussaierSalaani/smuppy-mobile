@@ -1,3 +1,5 @@
+import { AvatarImage } from '../../components/OptimizedImage';
+
 /**
  * My Sessions Screen
  * Shows user's upcoming and past sessions (Fan perspective)
@@ -142,7 +144,7 @@ const MySessionsScreen = (): React.JSX.Element => {
       activeOpacity={0.7}
     >
       <View style={styles.sessionHeader}>
-        <Image source={{ uri: session.creator.avatar }} style={styles.avatar} />
+        <AvatarImage source={session.creator.avatar} size={48} style={styles.avatar} />
         <View style={styles.creatorInfo}>
           <View style={styles.nameRow}>
             <Text style={styles.creatorName}>{session.creator.name}</Text>

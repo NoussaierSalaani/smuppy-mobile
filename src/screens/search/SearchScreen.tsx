@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -449,10 +450,7 @@ const SearchScreen = (): React.JSX.Element => {
       style={styles.resultItem}
       onPress={() => handleUserPress(profile.id)}
     >
-      <Image
-        source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
-        style={styles.resultAvatar}
-      />
+      <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
       <View style={styles.resultInfo}>
         <View style={styles.usernameRow}>
           <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
@@ -652,10 +650,7 @@ const SearchScreen = (): React.JSX.Element => {
             style={styles.resultItem}
             onPress={() => handleUserPress(profile.id)}
           >
-            <Image
-              source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
-              style={styles.resultAvatar}
-            />
+            <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
             <View style={styles.resultInfo}>
               <View style={styles.usernameRow}>
                 <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
@@ -697,10 +692,7 @@ const SearchScreen = (): React.JSX.Element => {
               style={styles.resultItem}
               onPress={() => handleUserPress(profile.id)}
             >
-              <Image
-                source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
-                style={styles.resultAvatar}
-              />
+              <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
               <View style={styles.resultInfo}>
                 <View style={styles.usernameRow}>
                   <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>

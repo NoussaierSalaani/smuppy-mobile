@@ -1,3 +1,5 @@
+import { AvatarImage } from '../../components/OptimizedImage';
+
 /**
  * Creator Offerings Screen
  * Shows all offerings from a creator: Sessions, Packs, Channel Subscription
@@ -419,7 +421,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           style={styles.creatorCard}
           onPress={() => navigation.navigate('UserProfile', { userId: creator.id })}
         >
-          <Image source={{ uri: creator.avatar || undefined }} style={styles.creatorAvatar} />
+          <AvatarImage source={creator.avatar} size={64} style={styles.creatorAvatar} />
           <View style={styles.creatorInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.creatorName}>{creator.name}</Text>

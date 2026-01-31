@@ -1,5 +1,6 @@
 // src/screens/sessions/SessionBookedScreen.tsx
 import React from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -122,7 +123,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
         {/* Session Details Card */}
         <View style={styles.detailsCard}>
           <View style={styles.creatorRow}>
-            <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+            <AvatarImage source={creator.avatar} size={52} />
             <View>
               <Text style={styles.creatorName}>{creator.name}</Text>
               <Text style={styles.sessionType}>1-to-1 Private Session</Text>

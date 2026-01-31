@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -184,12 +185,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
 
   const renderParticipantItem = ({ item }: { item: Participant }) => (
     <View style={styles.participantItem}>
-      <Image
-        source={{
-          uri: item.avatar_url || `https://ui-avatars.com/api/?name=${item.username}&background=random`,
-        }}
-        style={styles.participantAvatar}
-      />
+      <AvatarImage source={item.avatar_url} size={44} />
       <View style={styles.participantInfo}>
         <Text style={styles.participantName}>{item.full_name}</Text>
         <Text style={styles.participantUsername}>@{item.username}</Text>

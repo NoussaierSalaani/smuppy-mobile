@@ -1,5 +1,6 @@
 // src/screens/live/LiveStreamingScreen.tsx
 import React, { useState, useEffect, useRef } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -182,13 +183,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
           { opacity: fadeAnims[item.id] },
         ]}
       >
-        {item.avatar ? (
-          <Image source={{ uri: item.avatar }} style={styles.commentAvatar} />
-        ) : (
-          <View style={[styles.commentAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#374151' }]}>
-            <Ionicons name="person" size={14} color="#9CA3AF" />
-          </View>
-        )}
+        <AvatarImage source={item.avatar} size={32} />
         <View style={styles.commentContent}>
           <Text style={styles.commentUser}>{item.user}</Text>
           <Text style={styles.commentMessage}>{item.message}</Text>

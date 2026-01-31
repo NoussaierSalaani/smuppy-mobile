@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Image } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
+import { AvatarImage } from '../OptimizedImage';
 import Svg, { Circle } from 'react-native-svg';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -108,14 +109,7 @@ const PeakProgressRing = ({
         height: size - strokeWidth * 2 - 4,
         borderRadius: (size - strokeWidth * 2 - 4) / 2,
       }]}>
-        <Image
-          source={{ uri: avatar }}
-          style={[styles.avatar, {
-            width: size - strokeWidth * 2 - 6,
-            height: size - strokeWidth * 2 - 6,
-            borderRadius: (size - strokeWidth * 2 - 6) / 2,
-          }]}
-        />
+        <AvatarImage source={avatar} size={size - strokeWidth * 2 - 6} />
       </View>
     </View>
   );

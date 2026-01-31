@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -302,10 +303,7 @@ export default function NotificationsScreen(): React.JSX.Element {
               goToUserProfile((item as UserNotification).user.id)
             }
           >
-            <Image
-              source={{ uri: (item as UserNotification).user.avatar }}
-              style={styles.avatar}
-            />
+            <AvatarImage source={(item as UserNotification).user.avatar} size={50} />
             <View
               style={[
                 styles.typeIcon,

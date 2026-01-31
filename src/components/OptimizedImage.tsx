@@ -7,6 +7,7 @@
 import React, { memo, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
 import { Image, ImageContentFit } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../config/theme';
 
 // Blurhash placeholder for smooth loading
@@ -113,10 +114,12 @@ export const AvatarImage = memo<AvatarImageProps>(({
     borderRadius: size / 2,
   };
 
-  // If no source, show colored placeholder
+  // If no source, show placeholder with person icon
   if (!source) {
     return (
-      <View style={[avatarStyle, { backgroundColor: fallbackColor }, style]} />
+      <View style={[avatarStyle, { backgroundColor: fallbackColor, alignItems: 'center', justifyContent: 'center' }, style]}>
+        <Ionicons name="person" size={size * 0.5} color={COLORS.gray400 || '#9CA3AF'} />
+      </View>
     );
   }
 

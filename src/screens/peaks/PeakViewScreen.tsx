@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -628,17 +629,11 @@ const PeakViewScreen = (): React.JSX.Element => {
                       end={{ x: 1, y: 1 }}
                       style={styles.avatarRingGradient}
                     >
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.avatarImageSelected}
-                      />
+                      <AvatarImage source={user.avatar} size={44} style={styles.avatarImageSelected} />
                     </LinearGradient>
                   ) : (
                     <View style={styles.avatarRingInactive}>
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.avatarImageInactive}
-                      />
+                      <AvatarImage source={user.avatar} size={38} style={styles.avatarImageInactive} />
                     </View>
                   )}
                 </TouchableOpacity>

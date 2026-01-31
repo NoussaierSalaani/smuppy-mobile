@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -186,7 +187,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
               style={styles.creatorRow}
               onPress={() => navigation.navigate('UserProfile', { userId: group.creator_id })}
             >
-              <Image source={{ uri: group.creator.avatar_url }} style={styles.creatorAvatar} />
+              <AvatarImage source={group.creator.avatar_url} size={normalize(40)} />
               <View>
                 <Text style={styles.creatorName}>{group.creator.full_name}</Text>
                 <Text style={styles.creatorLabel}>Organizer</Text>

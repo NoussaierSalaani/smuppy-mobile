@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AvatarImage } from '../../components/OptimizedImage';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -670,7 +671,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       </View>
       
       <View style={styles.peakAvatarContainer}>
-        <Image source={{ uri: peak.user.avatar || undefined }} style={styles.peakAvatar} />
+        <AvatarImage source={peak.user.avatar} size={36} style={styles.peakAvatar} />
       </View>
       
       <Text style={styles.peakUserName} numberOfLines={1}>{peak.user.name}</Text>
@@ -716,7 +717,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               goToUserProfile(post.user.id);
             }}
           >
-            <Image source={{ uri: post.user.avatar || undefined }} style={styles.vibeAvatar} />
+            <AvatarImage source={post.user.avatar} size={20} style={styles.vibeAvatar} />
             <Text style={styles.vibeUserName} numberOfLines={1}>{post.user.name}</Text>
             <View style={styles.vibeLikes}>
               <SmuppyHeartIcon
@@ -776,7 +777,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                     style={styles.modalUserTouch}
                     onPress={() => goToUserProfile(selectedPost.user.id)}
                   >
-                    <Image source={{ uri: selectedPost.user.avatar || undefined }} style={styles.modalAvatar} />
+                    <AvatarImage source={selectedPost.user.avatar} size={44} style={styles.modalAvatar} />
                     <View style={styles.modalUserInfo}>
                       <Text style={styles.modalUserName}>{selectedPost.user.name}</Text>
                       <Text style={styles.modalCategory}>{selectedPost.category}</Text>

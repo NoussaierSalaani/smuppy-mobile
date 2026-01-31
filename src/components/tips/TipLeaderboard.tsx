@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { AvatarImage } from '../OptimizedImage';
 import {
   View,
   Text,
@@ -128,14 +129,7 @@ export default function TipLeaderboard({
               { borderColor: RANK_COLORS[position] },
             ]}
           >
-            <Image
-              source={{
-                uri:
-                  tipper.profile_picture_url ||
-                  `https://ui-avatars.com/api/?name=${tipper.username}&background=random`,
-              }}
-              style={[styles.podiumAvatar, { width: avatarSize, height: avatarSize }]}
-            />
+            <AvatarImage source={tipper.profile_picture_url} size={avatarSize} />
             <View style={[styles.rankBadge, { backgroundColor: RANK_COLORS[position] }]}>
               <Text style={styles.rankText}>{position + 1}</Text>
             </View>
@@ -185,14 +179,7 @@ export default function TipLeaderboard({
           </View>
 
           {/* Avatar & Name */}
-          <Image
-            source={{
-              uri:
-                item.profile_picture_url ||
-                `https://ui-avatars.com/api/?name=${item.username}&background=random`,
-            }}
-            style={styles.listAvatar}
-          />
+          <AvatarImage source={item.profile_picture_url} size={40} style={styles.listAvatar} />
           <View style={styles.listInfo}>
             <View style={styles.listNameRow}>
               <Text style={styles.listUsername}>@{item.username}</Text>

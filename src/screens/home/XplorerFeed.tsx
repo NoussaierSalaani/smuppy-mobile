@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable } from 'react-native';
+import { AvatarImage } from '../../components/OptimizedImage';
 import Mapbox, { MapView, Camera, PointAnnotation, LocationPuck } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -522,7 +523,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     // Default: avatar circle pin
     return (
       <View style={[styles.markerPin, { backgroundColor: pinColor }]}>
-        <Image source={{ uri: marker.avatar }} style={styles.markerAvatar} />
+        <AvatarImage source={marker.avatar} size={wp(9)} />
       </View>
     );
   }, []);
@@ -535,7 +536,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <Ionicons name="close" size={normalize(20)} color={COLORS.gray} />
         </TouchableOpacity>
         <View style={styles.popupContent}>
-          <Image source={{ uri: selectedMarker.avatar }} style={styles.popupAvatar} />
+          <AvatarImage source={selectedMarker.avatar} size={wp(15)} style={styles.popupAvatar} />
           <View style={styles.popupInfo}>
             <Text style={styles.popupName}>{selectedMarker.name}</Text>
             <View style={styles.popupStats}>

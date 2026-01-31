@@ -237,7 +237,7 @@ export function getThemeColors(mode: ThemeMode): typeof COLORS {
   
   export const TYPOGRAPHY = {
     pageTitle: { fontFamily: 'WorkSans-ExtraBold', fontSize: 48, lineHeight: 56, letterSpacing: -0.48, color: COLORS.sectionTitle },
-    sectionHeader: { fontFamily: 'WorkSans-Light', fontSize: 35, lineHeight: 41, letterSpacing: -0.35, color: COLORS.sectionTitle },
+    sectionHeader: { fontFamily: 'WorkSans-Regular', fontSize: 35, lineHeight: 41, letterSpacing: -0.35, color: COLORS.sectionTitle },
     title1: { fontFamily: 'WorkSans-Bold', fontSize: 30, lineHeight: 35, color: COLORS.dark },
     title2: { fontFamily: 'WorkSans-Bold', fontSize: 28, lineHeight: 33, color: COLORS.dark },
     title3: { fontFamily: 'WorkSans-Bold', fontSize: 18, lineHeight: 21, color: COLORS.dark },

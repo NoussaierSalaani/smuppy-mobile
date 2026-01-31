@@ -124,6 +124,10 @@ export function useLiveStream({
     setIsConnected(websocketService.isConnected());
 
     return () => {
+      if (hasJoined.current) {
+        websocketService.send({ action: 'leaveLive', channelName });
+        hasJoined.current = false;
+      }
       unsubMessage();
       unsubConnection();
     };

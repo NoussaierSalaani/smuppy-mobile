@@ -23,6 +23,7 @@ import ExpertiseScreen from '../screens/onboarding/ExpertiseScreen';
 
 // Pro Creator & Business screens
 import CreatorInfoScreen from '../screens/onboarding/CreatorInfoScreen';
+import CreatorOptionalInfoScreen from '../screens/onboarding/CreatorOptionalInfoScreen';
 import BusinessCategoryScreen from '../screens/onboarding/BusinessCategoryScreen';
 import BusinessInfoScreen from '../screens/onboarding/BusinessInfoScreen';
 
@@ -48,6 +49,7 @@ export type AuthStackParamList = {
   TellUsAboutYou: { accountType: string; [key: string]: unknown };
   Interests: { [key: string]: unknown };
   CreatorInfo: { accountType: string; [key: string]: unknown };
+  CreatorOptionalInfo: undefined;
   Expertise: { [key: string]: unknown };
   BusinessCategory: { accountType: string; [key: string]: unknown };
   BusinessInfo: { [key: string]: unknown };
@@ -105,6 +107,7 @@ export default function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="TellUsAboutYou" component={TellUsAboutYouScreen} />
       <Stack.Screen name="Interests" component={InterestsScreen} />
       <Stack.Screen name="CreatorInfo" component={CreatorInfoScreen} />
+      <Stack.Screen name="CreatorOptionalInfo" component={CreatorOptionalInfoScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Expertise" component={ExpertiseScreen} />
       <Stack.Screen name="BusinessCategory" component={BusinessCategoryScreen} />
       <Stack.Screen name="BusinessInfo" component={BusinessInfoScreen} />

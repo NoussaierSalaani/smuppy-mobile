@@ -87,12 +87,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       connect();
     }
 
-    // Cleanup: unsubscribe listeners and disconnect to prevent leaked connections
+    // Cleanup: only remove listeners, don't disconnect the shared singleton
     return () => {
       unsubConnection();
       unsubMessage();
       unsubError();
-      websocketService.disconnect();
     };
   }, [autoConnect, connect]);
 

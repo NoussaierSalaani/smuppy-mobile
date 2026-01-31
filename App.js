@@ -174,11 +174,26 @@ export default function App() {
     <SafeAreaProvider>
       <ErrorBoundary showReportButton>
         <ThemeProvider>
-        <StripeProvider
-          publishableKey={stripePublishableKey}
-          merchantIdentifier="merchant.com.smuppy.app"
-          urlScheme="smuppy"
-        >
+        {stripePublishableKey ? (
+          <StripeProvider
+            publishableKey={stripePublishableKey}
+            merchantIdentifier="merchant.com.smuppy.app"
+            urlScheme="smuppy"
+          >
+            <QueryClientProvider client={queryClient}>
+              <NetworkMonitor />
+              <UserContextSync />
+              <CachePersistence />
+              <PushNotificationHandler />
+              <SmuppyAlertProvider>
+                <View style={{ flex: 1 }}>
+                  <AppNavigator />
+                  <OfflineBanner />
+                </View>
+              </SmuppyAlertProvider>
+            </QueryClientProvider>
+          </StripeProvider>
+        ) : (
           <QueryClientProvider client={queryClient}>
             <NetworkMonitor />
             <UserContextSync />
@@ -191,7 +206,7 @@ export default function App() {
               </View>
             </SmuppyAlertProvider>
           </QueryClientProvider>
-        </StripeProvider>
+        )}
         </ThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

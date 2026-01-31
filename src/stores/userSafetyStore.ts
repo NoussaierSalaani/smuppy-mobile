@@ -142,6 +142,9 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (!userId) return { error: 'Invalid user ID' };
       if (get().blockedUserIds.includes(userId)) return { error: null };
 
+      // Capture pre-block mute state for rollback
+      const wasMuted = get().mutedUserIds.includes(userId);
+
       // Optimistic update
       set((state) => {
         if (!state.blockedUserIds.includes(userId)) {
@@ -158,7 +161,9 @@ export const useUserSafetyStore = create<UserSafetyState>()(
         // Rollback
         set((state) => {
           state.blockedUserIds = state.blockedUserIds.filter((id) => id !== userId);
-          state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
+          if (!wasMuted) {
+            state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
+          }
         });
         return { error };
       }

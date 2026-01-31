@@ -35,6 +35,7 @@ class WebSocketService {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isConnecting = false;
 
   private messageHandlers: Set<MessageHandler> = new Set();
@@ -127,6 +128,11 @@ class WebSocketService {
    * Disconnect from WebSocket server
    */
   disconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     this.stopPingInterval();
 
     if (this.socket) {
@@ -184,6 +190,16 @@ class WebSocketService {
     });
 
     this.socket.send(payload);
+  }
+
+  /**
+   * Send raw JSON payload through WebSocket
+   */
+  send(payload: Record<string, unknown>): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify(payload));
   }
 
   /**
@@ -255,7 +271,8 @@ class WebSocketService {
 
     if (process.env.NODE_ENV === 'development') console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
-    setTimeout(async () => {
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
       try {
         // Refresh token before reconnecting to avoid using an expired token
         await awsAuth.getIdToken();

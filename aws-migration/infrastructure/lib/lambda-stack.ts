@@ -175,6 +175,20 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly eventsListFn: NodejsFunction;
   public readonly eventsJoinFn: NodejsFunction;
 
+  // Content Moderation: Reports
+  public readonly reportsPostFn: NodejsFunction;
+  public readonly reportsUserFn: NodejsFunction;
+  public readonly reportsCheckPostFn: NodejsFunction;
+  public readonly reportsCheckUserFn: NodejsFunction;
+
+  // Content Moderation: Block & Mute
+  public readonly profilesBlockFn: NodejsFunction;
+  public readonly profilesUnblockFn: NodejsFunction;
+  public readonly profilesMuteFn: NodejsFunction;
+  public readonly profilesUnmuteFn: NodejsFunction;
+  public readonly profilesGetBlockedFn: NodejsFunction;
+  public readonly profilesGetMutedFn: NodejsFunction;
+
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
 
@@ -380,6 +394,24 @@ export class LambdaStack extends cdk.NestedStack {
     this.eventsCreateFn = createLambda('EventsCreateFunction', 'events/create');
     this.eventsListFn = createLambda('EventsListFunction', 'events/list');
     this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
+
+    // ========================================
+    // Content Moderation: Reports Lambda Functions
+    // ========================================
+    this.reportsPostFn = createLambda('ReportsPostFunction', 'reports/report-post');
+    this.reportsUserFn = createLambda('ReportsUserFunction', 'reports/report-user');
+    this.reportsCheckPostFn = createLambda('ReportsCheckPostFunction', 'reports/check-post-report');
+    this.reportsCheckUserFn = createLambda('ReportsCheckUserFunction', 'reports/check-user-report');
+
+    // ========================================
+    // Content Moderation: Block & Mute Lambda Functions
+    // ========================================
+    this.profilesBlockFn = createLambda('ProfilesBlockFunction', 'profiles/block');
+    this.profilesUnblockFn = createLambda('ProfilesUnblockFunction', 'profiles/unblock');
+    this.profilesMuteFn = createLambda('ProfilesMuteFunction', 'profiles/mute');
+    this.profilesUnmuteFn = createLambda('ProfilesUnmuteFunction', 'profiles/unmute');
+    this.profilesGetBlockedFn = createLambda('ProfilesGetBlockedFunction', 'profiles/get-blocked');
+    this.profilesGetMutedFn = createLambda('ProfilesGetMutedFunction', 'profiles/get-muted');
 
     // ========================================
     // Settings Lambda Functions

@@ -128,6 +128,10 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const postSaved = postById.addResource('saved');
     postSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsIsSavedFn), authMethodOptions);
 
+    // Report check: GET /posts/{id}/reported
+    const postReported = postById.addResource('reported');
+    postReported.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.reportsCheckPostFn), authMethodOptions);
+
     // ========================================
     // Comments Endpoints
     // ========================================
@@ -159,6 +163,29 @@ export class ApiGatewayStack extends cdk.NestedStack {
 
     const profilesSuggested = profiles.addResource('suggested');
     profilesSuggested.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesSuggestedFn), authMethodOptions);
+
+    // Block & Mute
+    const profileBlock = profileById.addResource('block');
+    profileBlock.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesBlockFn), authMethodOptions);
+
+    const profileUnblock = profileById.addResource('unblock');
+    profileUnblock.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesUnblockFn), authMethodOptions);
+
+    const profileMute = profileById.addResource('mute');
+    profileMute.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesMuteFn), authMethodOptions);
+
+    const profileUnmute = profileById.addResource('unmute');
+    profileUnmute.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesUnmuteFn), authMethodOptions);
+
+    const profilesBlocked = profiles.addResource('blocked');
+    profilesBlocked.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetBlockedFn), authMethodOptions);
+
+    const profilesMuted = profiles.addResource('muted');
+    profilesMuted.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetMutedFn), authMethodOptions);
+
+    // Report check: GET /profiles/{id}/reported
+    const profileReported = profileById.addResource('reported');
+    profileReported.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.reportsCheckUserFn), authMethodOptions);
 
     // ========================================
     // Feed Endpoint
@@ -262,6 +289,16 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const messages = this.api.root.addResource('messages');
     const messageById = messages.addResource('{id}');
     messageById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.messagesDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Reports Endpoints
+    // ========================================
+    const reports = this.api.root.addResource('reports');
+    const reportPost = reports.addResource('post');
+    reportPost.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsPostFn), authWithBodyValidation);
+
+    const reportUser = reports.addResource('user');
+    reportUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsUserFn), authWithBodyValidation);
 
     // ========================================
     // Auth Endpoints (no Cognito auth)

@@ -16,6 +16,7 @@ import { resetAllStores } from '../stores';
 import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
 import { useTheme } from '../hooks/useTheme';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 /**
  * Root Stack Param List
@@ -108,6 +109,36 @@ const linking = {
               businessId: (businessId: string) => {
                 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
                 return uuidRegex.test(businessId) ? businessId : '';
+              },
+            },
+          },
+          EventList: {
+            path: 'events',
+          },
+          GroupDetail: {
+            path: 'groups/:groupId',
+            parse: {
+              groupId: (groupId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(groupId) ? groupId : '';
+              },
+            },
+          },
+          CreatorOfferings: {
+            path: 'creator/:creatorId/offerings',
+            parse: {
+              creatorId: (creatorId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(creatorId) ? creatorId : '';
+              },
+            },
+          },
+          PackPurchase: {
+            path: 'packs/:packId',
+            parse: {
+              packId: (packId: string) => {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                return uuidRegex.test(packId) ? packId : '';
               },
             },
           },
@@ -296,6 +327,7 @@ export default function AppNavigator(): React.JSX.Element {
       {isReady && (
         <AuthCallbackProvider value={{ onRecoveryComplete: handleRecoveryComplete, onProfileCreated: handleProfileCreated }}>
         <TabBarProvider>
+          <ErrorBoundary name="AppNavigator">
           <NavigationContainer linking={linking} theme={navigationTheme}>
             <RootStack.Navigator
                 id="RootStack"
@@ -331,6 +363,7 @@ export default function AppNavigator(): React.JSX.Element {
                 )}
             </RootStack.Navigator>
           </NavigationContainer>
+          </ErrorBoundary>
         </TabBarProvider>
         </AuthCallbackProvider>
       )}

@@ -174,8 +174,12 @@ export const useUserSafetyStore = create<UserSafetyState>()(
         });
       }
 
-      // Also mute in database
-      await dbMuteUser(userId);
+      // Also mute in database (best-effort, block is primary)
+      try {
+        await dbMuteUser(userId);
+      } catch (muteErr) {
+        console.error('[UserSafetyStore] Mute after block failed (non-critical):', muteErr);
+      }
 
       return { error: null };
     },

@@ -78,6 +78,11 @@ class WebSocketService {
       this.socket.onopen = () => {
         if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connected successfully');
         this.isConnecting = false;
+        // Cancel any pending reconnect timer
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
         this.reconnectAttempts = 0;
         this.notifyConnectionHandlers(true);
         this.startPingInterval();

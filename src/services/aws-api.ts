@@ -41,6 +41,36 @@ class AWSAPIService {
    * Make authenticated API request
    */
   async request<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
+    const MAX_RETRIES = 2;
+    const RETRYABLE_STATUSES = [408, 429, 500, 502, 503, 504];
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await this._requestOnce<T>(endpoint, options);
+      } catch (error: any) {
+        lastError = error;
+        const status = error.statusCode || error.status;
+        const isRetryable = RETRYABLE_STATUSES.includes(status);
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          throw error;
+        }
+
+        // Exponential backoff: 1s, 2s
+        if (status === 429 && error.data?.retryAfter) {
+          await new Promise(r => setTimeout(r, error.data.retryAfter * 1000));
+        } else {
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async _requestOnce<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
 
     const baseUrl = API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))

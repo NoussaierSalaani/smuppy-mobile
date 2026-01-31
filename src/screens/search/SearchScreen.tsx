@@ -103,13 +103,15 @@ const SearchScreen = (): React.JSX.Element => {
 
   // Load current user on mount
   useEffect(() => {
+    let mounted = true;
     const loadCurrentUser = async () => {
       const { data: currentProfile } = await getCurrentProfile();
-      if (currentProfile) {
+      if (mounted && currentProfile) {
         setCurrentUserId(currentProfile.id);
       }
     };
     loadCurrentUser();
+    return () => { mounted = false; };
   }, []);
 
   // Detect Smuppy links and show content in results (not auto-navigate)
@@ -186,13 +188,15 @@ const SearchScreen = (): React.JSX.Element => {
   }, []);
 
   // Load suggested content
-  const loadSuggestedContent = useCallback(async () => {
+  const loadSuggestedContent = useCallback(async (signal?: { aborted: boolean }) => {
     setIsLoading(true);
 
     const [profilesRes, hashtagsRes] = await Promise.all([
       getSuggestedProfiles(PAGE_SIZE, 0),
       getTrendingHashtags(10),
     ]);
+
+    if (signal?.aborted) return;
 
     if (profilesRes.data) {
       setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId));
@@ -205,9 +209,11 @@ const SearchScreen = (): React.JSX.Element => {
   }, [currentUserId]);
 
   useEffect(() => {
+    const signal = { aborted: false };
     if (currentUserId) {
-      loadSuggestedContent();
+      loadSuggestedContent(signal);
     }
+    return () => { signal.aborted = true; };
   }, [currentUserId, loadSuggestedContent]);
 
   // Perform search based on active tab

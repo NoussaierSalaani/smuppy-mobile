@@ -140,15 +140,8 @@ export function useLiveStream({
       return;
     }
 
-    const payload = JSON.stringify({
-      action,
-      channelName,
-      ...data,
-    });
-
     try {
-      // Access the underlying socket to send
-      (websocketService as any).socket?.send(payload);
+      websocketService.send({ action, channelName, ...data });
     } catch (error) {
       console.error('[useLiveStream] Failed to send:', error);
     }

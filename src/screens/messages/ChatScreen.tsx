@@ -94,7 +94,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   // Get current user ID
   useEffect(() => {
-    getCurrentUserId().then(setCurrentUserId);
+    let mounted = true;
+    getCurrentUserId().then(id => {
+      if (mounted) setCurrentUserId(id);
+    });
+    return () => { mounted = false; };
   }, []);
 
   // Track initialization error
@@ -102,12 +106,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   // Load or create conversation
   useEffect(() => {
+    let mounted = true;
     const initConversation = async () => {
-      setInitError(null);
+      if (mounted) setInitError(null);
       if (initialConversationId) {
-        setConversationId(initialConversationId);
+        if (mounted) setConversationId(initialConversationId);
       } else if (userId) {
         const { data, error } = await getOrCreateConversation(userId);
+        if (!mounted) return;
         if (error) {
           console.error('[ChatScreen] Failed to create conversation:', error);
           setInitError(error);
@@ -119,17 +125,27 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           setLoading(false);
         }
       } else {
-        setInitError('No conversation or user specified');
-        setLoading(false);
+        if (mounted) {
+          setInitError('No conversation or user specified');
+          setLoading(false);
+        }
       }
     };
     initConversation();
+    return () => { mounted = false; };
   }, [initialConversationId, userId]);
 
   // Load messages
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
     const { data, error } = await getMessages(conversationId, 0, 100);
+    if (!mountedRef.current) return;
     if (!error && data) {
       setMessages(data);
       markConversationAsRead(conversationId);

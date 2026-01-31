@@ -55,7 +55,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         setUserEmail(authUser.email);
       }
     };
-    loadEmail();
+    loadEmail().catch(err => console.error('[EditProfileScreen] Load error:', err));
   }, []);
 
   // Merge profile data from DB and local context

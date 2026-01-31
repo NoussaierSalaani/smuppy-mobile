@@ -438,10 +438,12 @@ class AWSAuthService {
       secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
     ]);
 
-    // Verify tokens were persisted (catches silent SecureStore failures)
-    if (process.env.NODE_ENV === 'development') {
-      const check = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
-      console.log('[AWS Auth] Tokens persisted:', check ? 'YES' : 'NO (SecureStore write failed)');
+    // Verify critical token was persisted
+    const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+    if (!storedToken) {
+      console.error('[AWS Auth] CRITICAL: Failed to persist access token to SecureStore');
+      // Retry once
+      await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken);
     }
 
     this.notifyAuthStateChange(user);

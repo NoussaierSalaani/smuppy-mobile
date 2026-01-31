@@ -666,7 +666,6 @@ export type MainStackParamList = {
   Interests: { [key: string]: unknown } | undefined;
   Expertise: { [key: string]: unknown } | undefined;
   Guidelines: { [key: string]: unknown } | undefined;
-  OnboardingSuccess: undefined;
   Success: undefined;
 
   // Search & Messages
@@ -689,7 +688,7 @@ export type MainStackParamList = {
   // Details
   UserProfile: { userId: string };
   PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Post[] };
-  PostDetailVibesFeed: { postId: string; post?: Record<string, unknown>; startCondensed?: boolean };
+  PostDetailVibesFeed: { postId: string; post?: unknown; startCondensed?: boolean };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
   FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
 

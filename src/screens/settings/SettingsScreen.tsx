@@ -21,8 +21,11 @@ import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { resetAllStores, useUserStore } from '../../stores';
+import type { ThemePreference } from '../../stores/themeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { VerifiedBadge } from '../../components/Badge';
 
 const COVER_HEIGHT = 160;
 
@@ -35,8 +38,15 @@ interface SettingsScreenProps {
   };
 }
 
+const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { preference, setTheme } = useTheme();
   const { showError } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const getFullName = useUserStore((state) => state.getFullName);
@@ -115,7 +125,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   }, [user, getFullName, profileData]);
 
   useEffect(() => {
-    checkBiometrics();
+    checkBiometrics().catch((err) => console.error('Biometric check failed:', err));
     loadUserData();
   }, [loadUserData]);
 
@@ -148,15 +158,20 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const isProCreator = user?.accountType === 'pro_creator';
   const isPro = isProCreator || user?.accountType === 'pro_business';
 
-  const MENU_ITEMS = [
+  const ACCOUNT_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
-    // Personal → Interests only, Pro → Expertise only
     ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
     ...(isProCreator ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
     ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
+  ];
+
+  const PREFERENCES_ITEMS = [
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
     { id: 'followRequests', icon: 'person-add-outline' as const, label: 'Follow Requests', screen: 'FollowRequests' },
+  ];
+
+  const SUPPORT_ITEMS = [
     { id: 'blocked', icon: 'ban-outline' as const, label: 'Blocked Users', screen: 'BlockedUsers' },
     { id: 'muted', icon: 'volume-mute-outline' as const, label: 'Muted Users', screen: 'MutedUsers' },
     { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a Problem', screen: 'ReportProblem' },
@@ -234,7 +249,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
-  const renderMenuItem = (item: typeof MENU_ITEMS[0], index: number) => (
+  const renderMenuItem = (item: { id: string; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: string; params?: Record<string, unknown> }, index: number) => (
     <TouchableOpacity
       key={item.id}
       style={[styles.menuItem, index === 0 && styles.menuItemFirst]}
@@ -344,9 +359,11 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                   <Ionicons name="person" size={36} color="#9CA3AF" />
                 </View>
               )}
-              <View style={styles.avatarBadge}>
-                <Ionicons name="checkmark" size={12} color="#FFF" />
-              </View>
+              {user?.isVerified && (
+                <View style={styles.avatarBadge}>
+                  <Ionicons name="checkmark" size={12} color="#FFF" />
+                </View>
+              )}
             </View>
             <Text style={styles.displayName}>{displayName}</Text>
             {username ? <Text style={styles.username}>@{username}</Text> : null}
@@ -357,14 +374,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.menuCard}>
-            {MENU_ITEMS.slice(0, 4).map((item, index) => renderMenuItem(item, index))}
+            {ACCOUNT_ITEMS.map((item, index) => renderMenuItem(item, index))}
           </View>
         </View>
 
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Preferences</Text>
           <View style={styles.menuCard}>
-            {MENU_ITEMS.slice(4, 6).map((item, index) => renderMenuItem(item, index))}
+            {PREFERENCES_ITEMS.map((item, index) => renderMenuItem(item, index))}
 
             {/* Privacy Toggle */}
             <View style={styles.menuItem}>
@@ -386,13 +403,43 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 disabled={togglingPrivacy}
               />
             </View>
+
+            {/* Appearance Toggle */}
+            <View style={styles.menuItem}>
+              <View style={styles.menuItemIcon}>
+                <Ionicons name="contrast-outline" size={20} color={COLORS.primaryGreen} />
+              </View>
+              <Text style={styles.menuItemLabel}>Appearance</Text>
+              <View style={styles.appearanceChips}>
+                {APPEARANCE_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.appearanceChip,
+                      preference === opt.value && styles.appearanceChipActive,
+                    ]}
+                    onPress={() => setTheme(opt.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.appearanceChipText,
+                        preference === opt.value && styles.appearanceChipTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </View>
         </View>
 
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Support</Text>
           <View style={styles.menuCard}>
-            {MENU_ITEMS.slice(6).map((item, index) => renderMenuItem(item, index))}
+            {SUPPORT_ITEMS.map((item, index) => renderMenuItem(item, index))}
           </View>
         </View>
 
@@ -463,10 +510,19 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#E3F2FD' }]}>
-                <Ionicons name="shield-checkmark-outline" size={20} color="#2196F3" />
+                <VerifiedBadge size={20} />
               </View>
-              <Text style={styles.menuItemLabel}>Identity Verification</Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemLabel}>Identity Verification</Text>
+                <Text style={styles.menuItemSubtitle}>
+                  {user?.isVerified ? 'Active' : 'Not verified'}
+                </Text>
+              </View>
+              {user?.isVerified ? (
+                <View style={styles.verifiedStatusDot} />
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+              )}
             </TouchableOpacity>
 
             {/* Private Sessions - Creator only */}
@@ -687,6 +743,33 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 1,
   },
+  verifiedStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  appearanceChips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  appearanceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  appearanceChipActive: {
+    backgroundColor: COLORS.primaryGreen,
+  },
+  appearanceChipText: {
+    fontSize: 12,
+    fontFamily: 'Poppins-Medium',
+    color: '#6B7280',
+  },
+  appearanceChipTextActive: {
+    color: '#FFFFFF',
+  },
   dangerIcon: {
     backgroundColor: '#FEE2E2',
   },
@@ -736,23 +819,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // Footer
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  footerLogo: {
-    fontSize: 22,
-    fontFamily: 'WorkSans-Bold',
-    color: '#D1D5DB',
-  },
-  footerVersion: {
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
-    marginTop: 4,
   },
 
   // Modal Styles

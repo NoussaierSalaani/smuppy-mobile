@@ -348,6 +348,79 @@ export function getThemeColors(mode: ThemeMode): typeof COLORS {
   
   export const Z_INDEX = { base: 0, dropdown: 10, sticky: 20, fixed: 30, modal: 40, popover: 50, tooltip: 60 };
   
-  const theme = { COLORS, DARK_COLORS, GRADIENTS, FORM, FONTS, TYPOGRAPHY, SPACING, SIZES, SHADOWS, BORDERS, ANIMATION, Z_INDEX };
+export const DARK_GRADIENTS = {
+    primary: ['#008A94', '#0A9E72', '#4BA888'] as const,
+    primaryStart: { x: 0, y: 0 },
+    primaryEnd: { x: 1, y: 0 },
+    diagonal: ['#008A94', '#0A9E72', '#4BA888'] as const,
+    diagonalStart: { x: 0, y: 0 },
+    diagonalEnd: { x: 1, y: 1 },
+    button: ['#008A94', '#0A9E72', '#4BA888'] as const,
+    buttonDisabled: ['#3A3A3C', '#3A3A3C'] as const,
+    primaryReverse: ['#4BA888', '#0A9E72', '#008A94'] as const,
+    live: ['#FF5E57', '#FA6B65'] as const,
+    liveDisabled: ['#3A2020', '#3A2222'] as const,
+    reminder: ['#0081BE', '#00B5C1'] as const,
+    reminderDisabled: ['#1A2E3A', '#1A3A3C'] as const,
+    bottomNav: ['rgba(0, 155, 137, 0.9)', 'rgba(0, 155, 137, 0.9)'] as const,
+    bottomNavWhite: ['rgba(26, 26, 26, 0.9)', 'rgba(26, 26, 26, 0.9)'] as const,
+  };
+
+  export const DARK_FORM: typeof FORM = {
+    inputHeight: 56,
+    inputRadius: 28,
+    inputBorderWidth: 1.5,
+    inputPaddingHorizontal: 20,
+    buttonHeight: 56,
+    buttonRadius: 28,
+    buttonSmallHeight: 48,
+    buttonSmallRadius: 24,
+    inputBorder: '#3A3A3C',
+    inputBorderFocus: '#0EBF8A',
+    inputBorderValid: '#0EBF8A',
+    inputBorderError: '#EF4444',
+    inputBgFocus: '#0D2420',
+    inputBgValid: '#0D2420',
+    inputBgError: '#2D1F1F',
+    iconDefault: '#6E6E73',
+    iconFocus: '#0EBF8A',
+    iconError: '#EF4444',
+    textPrimary: '#E5E5EA',
+    textSecondary: '#AEAEB2',
+    textMuted: '#6E6E73',
+    textLink: '#0EBF8A',
+    textError: '#EF4444',
+  };
+
+  export const DARK_SHADOWS: typeof SHADOWS = {
+    none: { shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
+    card: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 },
+    cardMedium: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+    button: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+    buttonGradient: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 8 },
+    nav: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 5 },
+    navLight: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.15, shadowRadius: 7, elevation: 3 },
+    appBar: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 4 },
+    float: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
+    inputFocus: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 0 },
+  };
+
+  export type ThemeGradients = typeof GRADIENTS;
+  export type ThemeForm = typeof FORM;
+  export type ThemeShadows = typeof SHADOWS;
+
+  export function getThemeGradients(mode: ThemeMode): ThemeGradients {
+    return mode === 'dark' ? DARK_GRADIENTS as unknown as ThemeGradients : GRADIENTS;
+  }
+
+  export function getThemeForm(mode: ThemeMode): ThemeForm {
+    return mode === 'dark' ? DARK_FORM : FORM;
+  }
+
+  export function getThemeShadows(mode: ThemeMode): ThemeShadows {
+    return mode === 'dark' ? DARK_SHADOWS : SHADOWS;
+  }
+
+  const theme = { COLORS, DARK_COLORS, GRADIENTS, DARK_GRADIENTS, FORM, DARK_FORM, FONTS, TYPOGRAPHY, SPACING, SIZES, SHADOWS, DARK_SHADOWS, BORDERS, ANIMATION, Z_INDEX };
 
   export default theme;

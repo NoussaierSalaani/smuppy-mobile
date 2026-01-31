@@ -1,5 +1,6 @@
 import React from 'react';
 import { createStackNavigator, StackCardInterpolationProps, StackNavigationOptions } from '@react-navigation/stack';
+import { useTheme } from '../hooks/useTheme';
 // Auth screens
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -72,11 +73,12 @@ const fadeTransition: StackNavigationOptions = {
 };
 
 export default function AuthNavigator(): React.JSX.Element {
+  const { colors } = useTheme();
   return (
     <Stack.Navigator
       id="AuthStack"
       initialRouteName="Welcome"
-      screenOptions={{ headerShown: false, cardStyle: { backgroundColor: '#fff' } }}
+      screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.background } }}
     >
       {/* Welcome */}
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={fadeTransition} />

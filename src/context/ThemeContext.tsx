@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { useThemeStore, type ThemePreference, type ThemeMode } from '../stores/themeStore';
-import { COLORS, getThemeColors } from '../config/theme';
+import { COLORS, GRADIENTS, FORM, SHADOWS, getThemeColors, getThemeGradients, getThemeForm, getThemeShadows } from '../config/theme';
 
 type ThemeColors = typeof COLORS;
 
 interface ThemeContextValue {
   colors: ThemeColors;
+  gradients: typeof GRADIENTS;
+  form: typeof FORM;
+  shadows: typeof SHADOWS;
   isDark: boolean;
   mode: ThemeMode;
   preference: ThemePreference;
@@ -28,6 +31,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<ThemeContextValue>(() => ({
     colors: getThemeColors(mode),
+    gradients: getThemeGradients(mode),
+    form: getThemeForm(mode),
+    shadows: getThemeShadows(mode),
     isDark: mode === 'dark',
     mode,
     preference,

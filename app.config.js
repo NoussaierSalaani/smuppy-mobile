@@ -120,13 +120,7 @@ plugins: [
 'expo-location',
 'expo-image-picker',
 'expo-contacts',
-[
-  '@stripe/stripe-react-native',
-  {
-    merchantIdentifier: 'merchant.com.smuppy.app',
-    enableGooglePay: true,
-  },
-],
+'@stripe/stripe-react-native',
 [
   '@rnmapbox/maps',
   {

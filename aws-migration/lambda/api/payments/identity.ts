@@ -10,7 +10,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -27,16 +27,6 @@ const VERIFICATION_FEE_CENTS = 1490;
 // Stripe Price ID for the verification subscription product
 // Must be created in Stripe Dashboard: Product "Smuppy Verified Account" → Price $14.90/month recurring
 const VERIFICATION_PRICE_ID = process.env.STRIPE_VERIFICATION_PRICE_ID || '';
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -116,6 +106,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
  * so the frontend can present PaymentSheet.
  */
 async function createVerificationSubscription(stripe: Stripe, userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -216,6 +207,7 @@ async function confirmSubscriptionAndStartVerification(
   userId: string,
   returnUrl: string
 ): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -258,6 +250,7 @@ async function confirmSubscriptionAndStartVerification(
  * Verification badge will be removed at period end via webhook.
  */
 async function cancelVerificationSubscription(stripe: Stripe, userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -299,6 +292,7 @@ async function cancelVerificationSubscription(stripe: Stripe, userId: string): P
  */
 async function createVerificationPaymentIntent(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get user info
@@ -425,6 +419,7 @@ async function confirmPaymentAndStartVerification(
   returnUrl: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify payment intent
@@ -468,6 +463,7 @@ async function createVerificationSession(
   returnUrl: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get user info
@@ -570,6 +566,7 @@ async function createVerificationSession(
 
 async function getVerificationStatus(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -631,6 +628,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
 
 async function getVerificationReport(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(

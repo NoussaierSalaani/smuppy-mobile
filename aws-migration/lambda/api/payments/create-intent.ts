@@ -116,7 +116,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
       verifiedAmount = Math.round(parseFloat(packResult.rows[0].price) * 100);
     } else {
-      verifiedAmount = amount;
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'sessionId or packId is required to determine price' }),
+      };
     }
 
     // Validate verified amount (minimum $1.00 = 100 cents, maximum $50,000)

@@ -13,7 +13,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -23,16 +23,6 @@ async function getStripe(): Promise<Stripe> {
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -130,6 +120,7 @@ async function subscribeToChannel(
   creatorId: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Check if already subscribed
@@ -337,6 +328,7 @@ async function cancelChannelSubscription(
   subscriptionId: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify ownership
@@ -383,6 +375,7 @@ async function cancelChannelSubscription(
 }
 
 async function listMySubscriptions(userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -422,6 +415,7 @@ async function listMySubscriptions(userId: string): Promise<APIGatewayProxyResul
 }
 
 async function getChannelInfo(creatorId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -473,6 +467,7 @@ async function setChannelPrice(
   userId: string,
   pricePerMonth: number
 ): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify user is a pro account
@@ -525,6 +520,7 @@ async function setChannelPrice(
 }
 
 async function getMySubscribers(userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(

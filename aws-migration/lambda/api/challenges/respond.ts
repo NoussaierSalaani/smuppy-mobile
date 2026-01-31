@@ -4,16 +4,12 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('challenges-respond');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 interface RespondChallengeRequest {
   challengeId: string;
@@ -25,6 +21,7 @@ interface RespondChallengeRequest {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {
@@ -46,6 +43,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           success: false,
           message: 'Challenge ID and Peak ID are required',
         }),
+      });
+    }
+
+    if (!isValidUUID(challengeId) || !isValidUUID(peakId)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       });
     }
 

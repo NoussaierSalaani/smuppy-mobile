@@ -4,17 +4,13 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('battles-join');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID!;
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE!;
@@ -26,6 +22,7 @@ interface JoinBattleRequest {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {
@@ -38,10 +35,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const battleId = event.pathParameters?.battleId;
-    if (!battleId) {
+    if (!battleId || !isValidUUID(battleId)) {
       return cors({
         statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Battle ID required' }),
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       });
     }
 

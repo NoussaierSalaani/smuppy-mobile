@@ -5,7 +5,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('payments-subscriptions');
@@ -18,16 +18,6 @@ async function getStripe(): Promise<Stripe> {
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -93,6 +83,7 @@ async function createSubscription(
   priceId: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get subscriber's Stripe customer ID
@@ -194,6 +185,7 @@ async function cancelSubscription(
   subscriptionId: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify ownership
@@ -237,6 +229,7 @@ async function cancelSubscription(
 }
 
 async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -262,6 +255,7 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
 }
 
 async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get creator's subscription tiers

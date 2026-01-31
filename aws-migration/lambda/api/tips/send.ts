@@ -13,6 +13,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 import { getPool } from '../../shared/db';
 
 const log = createLogger('tips-send');
@@ -64,6 +65,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Rate limit check
     const now = Date.now();
     const userLimit = tipRateLimits.get(userId);
@@ -101,6 +115,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    if (!isValidUUID(receiverId) || (contextId && !isValidUUID(contextId))) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
+      });
+    }
+
     if (!['profile', 'live', 'peak', 'battle'].includes(contextType)) {
       return cors({
         statusCode: 400,
@@ -112,7 +133,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Can't tip yourself
-    if (receiverId === userId) {
+    if (receiverId === profileId) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
@@ -126,7 +147,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const senderResult = await client.query(
       `SELECT id, username, display_name, stripe_customer_id
        FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     if (senderResult.rows.length === 0) {
@@ -198,13 +219,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let customerId = sender.stripe_customer_id;
     if (!customerId) {
       const customer = await stripe.customers.create({
-        metadata: { smuppy_user_id: userId },
+        metadata: { smuppy_user_id: profileId },
       });
       customerId = customer.id;
 
       await client.query(
         'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-        [customerId, userId]
+        [customerId, profileId]
       );
     }
 
@@ -217,7 +238,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
       RETURNING id`,
       [
-        userId,
+        profileId,
         receiverId,
         amountDecimal,
         currency.toUpperCase(),
@@ -241,7 +262,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       metadata: {
         type: 'tip',
         tip_id: tipId,
-        sender_id: userId,
+        sender_id: profileId,
         receiver_id: receiverId,
         context_type: contextType,
         context_id: contextId || '',

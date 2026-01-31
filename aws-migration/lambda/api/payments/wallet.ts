@@ -12,8 +12,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
-import { SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -23,16 +22,6 @@ async function getStripe(): Promise<Stripe> {
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -111,6 +100,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
  */
 async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify user is a creator
@@ -251,6 +241,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
  * Get transaction history with filtering
  */
 async function getTransactions(userId: string, options: WalletBody): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const limit = Math.min(options.limit || 20, 100);
@@ -336,6 +327,7 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
  * Get revenue analytics for a period
  */
 async function getAnalytics(userId: string, period: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     let periodFilter = '';
@@ -451,6 +443,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
  */
 async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -501,6 +494,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
  */
 async function getPayouts(userId: string, limit: number): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -548,6 +542,7 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
  */
 async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -614,6 +609,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
  */
 async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(

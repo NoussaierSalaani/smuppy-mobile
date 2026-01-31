@@ -33,12 +33,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
+  const pool = await getPool();
+  const client = await pool.connect();
+
   try {
     const body: DeclineBody = JSON.parse(event.body || '{}');
-    const pool = await getPool();
+
+    await client.query('BEGIN');
 
     // Get session and verify creator
-    const sessionResult = await pool.query(
+    const sessionResult = await client.query(
       `SELECT s.*, fp.full_name as fan_name
        FROM private_sessions s
        JOIN profiles fp ON s.fan_id = fp.id
@@ -47,6 +51,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (sessionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return {
         statusCode: 404,
         headers: corsHeaders,
@@ -57,7 +62,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const session = sessionResult.rows[0];
 
     // Update session status to declined
-    await pool.query(
+    await client.query(
       `UPDATE private_sessions
        SET status = 'cancelled', cancellation_reason = $1, updated_at = NOW()
        WHERE id = $2`,
@@ -66,14 +71,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // If session was from a pack, refund the session credit
     if (session.pack_id) {
-      await pool.query(
+      await client.query(
         `UPDATE user_session_packs SET sessions_remaining = sessions_remaining + 1 WHERE id = $1`,
         [session.pack_id]
       );
     }
 
     // Notify the fan
-    await pool.query(
+    await client.query(
       `INSERT INTO notifications (user_id, type, title, body, data)
        VALUES ($1, 'session_declined', 'Session non disponible', $2, $3)`,
       [
@@ -87,6 +92,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       ]
     );
 
+    await client.query('COMMIT');
+
     return {
       statusCode: 200,
       headers: corsHeaders,
@@ -96,11 +103,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Decline session error:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({ success: false, message: 'Failed to decline session' }),
     };
+  } finally {
+    client.release();
   }
 };

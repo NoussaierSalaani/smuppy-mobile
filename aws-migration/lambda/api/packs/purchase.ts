@@ -5,6 +5,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { isValidUUID } from '../utils/security';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 
@@ -43,15 +44,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const body: PurchaseBody = JSON.parse(event.body || '{}');
     const { packId } = body;
 
-    if (!packId) {
+    if (!packId || !isValidUUID(packId)) {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Pack ID required' }),
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       };
     }
 
     const pool = await getPool();
+
+    // Resolve cognito_sub to profile ID
+    const profileResult = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      };
+    }
+    const profileId = profileResult.rows[0].id;
 
     // SECURITY: Derive creatorId from pack (never trust client-provided creatorId)
     const packResult = await pool.query(
@@ -75,7 +90,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Get user's Stripe customer ID
     const userResult = await pool.query(
       `SELECT stripe_customer_id, email FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     let customerId = userResult.rows[0]?.stripe_customer_id;
@@ -84,13 +99,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: userResult.rows[0]?.email,
-        metadata: { userId },
+        metadata: { userId: profileId },
       });
       customerId = customer.id;
 
       await pool.query(
         `UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2`,
-        [customerId, userId]
+        [customerId, profileId]
       );
     }
 
@@ -107,7 +122,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         type: 'session_pack',
         packId,
         creatorId: pack.creator_id,
-        userId,
+        userId: profileId,
         packName: pack.name,
       },
       description: `Pack: ${pack.name} - ${pack.sessions_included} sessions`,
@@ -127,7 +142,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     await pool.query(
       `INSERT INTO pending_pack_purchases (user_id, pack_id, creator_id, payment_intent_id, amount, status)
        VALUES ($1, $2, $3, $4, $5, 'pending')`,
-      [userId, packId, pack.creator_id, paymentIntent.id, pack.price]
+      [profileId, packId, pack.creator_id, paymentIntent.id, pack.price]
     );
 
     return {

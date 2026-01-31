@@ -6,6 +6,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('sessions-create');
 
@@ -32,6 +33,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
+    // Resolve cognito_sub to profile ID
+    const pool0 = await getPool();
+    const profileResult = await pool0.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      };
+    }
+    const profileId = profileResult.rows[0].id;
     const body: CreateSessionBody = JSON.parse(event.body || '{}');
     const { creatorId, scheduledAt, duration, notes, fromPackId } = body;
 
@@ -40,6 +55,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 400,
         headers: corsHeaders,
         body: JSON.stringify({ success: false, message: 'Missing required fields' }),
+      };
+    }
+
+    if (!isValidUUID(creatorId) || (fromPackId && !isValidUUID(fromPackId))) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       };
     }
 
@@ -127,7 +150,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
            WHERE id = $1 AND user_id = $2 AND creator_id = $3 AND sessions_remaining > 0
            AND expires_at > NOW()
            FOR UPDATE`,
-          [fromPackId, userId, creatorId]
+          [fromPackId, profileId, creatorId]
         );
 
         if (packResult.rows.length === 0) {
@@ -166,7 +189,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         RETURNING id, creator_id, fan_id, scheduled_at, duration, price, status, created_at`,
         [
           creatorId,
-          userId,
+          profileId,
           scheduledAt,
           duration,
           packUsed ? 0 : creator.session_price,
@@ -187,7 +210,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           `Vous avez une nouvelle demande de session`,
           JSON.stringify({
             sessionId: session.id,
-            fanId: userId,
+            fanId: profileId,
             scheduledAt,
           }),
         ]

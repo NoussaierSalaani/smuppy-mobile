@@ -4,16 +4,11 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('settings-currency');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 // IP to currency mapping (simplified)
 const COUNTRY_CURRENCY_MAP: Record<string, string> = {
@@ -55,6 +50,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {

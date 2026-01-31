@@ -57,6 +57,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       paramIndex++;
     }
 
+    whereClauses.push(`p.visibility = 'public'`);
+
     if (interests.length > 0) {
       params.push(interests);
       whereClauses.push(`p.tags && $${paramIndex}::text[]`);

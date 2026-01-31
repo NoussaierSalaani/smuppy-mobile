@@ -106,7 +106,7 @@ export const useNotifications = (
    */
   const registerForPushNotifications = useCallback(async (): Promise<boolean> => {
     if (!user?.id) {
-      console.log('Cannot register for push notifications: No user logged in');
+      if (__DEV__) console.log('Cannot register for push notifications: No user logged in');
       return false;
     }
 
@@ -211,7 +211,7 @@ export const useAutoRegisterPushNotifications = (): void => {
         const success = await registerPushToken(user.id);
         if (success) {
           hasRegistered.current = true;
-          console.log('Auto-registered for push notifications');
+          if (__DEV__) console.log('Auto-registered for push notifications');
         }
       }
     };

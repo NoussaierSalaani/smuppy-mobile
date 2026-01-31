@@ -113,7 +113,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
         // If status is still 'pending', continue polling
       }
     } catch (error) {
-      console.error('Failed to check session status:', error);
+      if (__DEV__) console.error('Failed to check session status:', error);
     }
   }, [sessionId, creator, navigation, showAlert]);
 

@@ -131,7 +131,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         throw new Error(response.message || 'Failed to load event');
       }
     } catch (error: any) {
-      console.error('Load event error:', error);
+      if (__DEV__) console.error('Load event error:', error);
       showError('Error', 'Failed to load event details');
       navigation.goBack();
     } finally {
@@ -177,7 +177,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         throw new Error(response.message || 'Failed to join event');
       }
     } catch (error: any) {
-      console.error('Join event error:', error);
+      if (__DEV__) console.error('Join event error:', error);
       showError('Error', error.message || 'Failed to join event');
     } finally {
       setIsJoining(false);
@@ -245,7 +245,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         throw new Error(confirmResponse.message || 'Payment confirmation failed');
       }
     } catch (error: any) {
-      console.error('Event payment error:', error);
+      if (__DEV__) console.error('Event payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showError('Payment Failed', error.message || 'Please try again');
     } finally {
@@ -292,7 +292,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         url: shareUrl,
       });
     } catch (error) {
-      console.error('Share error:', error);
+      if (__DEV__) console.error('Share error:', error);
     }
   };
 

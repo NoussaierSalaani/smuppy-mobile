@@ -232,7 +232,7 @@ export default function MainNavigator() {
           });
         }
       } catch (err) {
-        console.error('[MainNavigator] Error syncing profile:', err);
+        if (__DEV__) console.error('[MainNavigator] Error syncing profile:', err);
       }
     };
 

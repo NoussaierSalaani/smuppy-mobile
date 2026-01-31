@@ -90,7 +90,7 @@ class AWSAPIService {
       if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
       } else {
-        console.warn('[AWS API] No ID token available for authenticated request');
+        if (__DEV__) console.warn('[AWS API] No ID token available for authenticated request');
       }
     }
 

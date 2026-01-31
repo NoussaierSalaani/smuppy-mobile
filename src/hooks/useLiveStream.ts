@@ -136,14 +136,14 @@ export function useLiveStream({
   // Send action to WebSocket
   const sendAction = useCallback((action: string, data?: Record<string, unknown>) => {
     if (!websocketService.isConnected()) {
-      console.warn('[useLiveStream] WebSocket not connected');
+      if (__DEV__) console.warn('[useLiveStream] WebSocket not connected');
       return;
     }
 
     try {
       websocketService.send({ action, channelName, ...data });
     } catch (error) {
-      console.error('[useLiveStream] Failed to send:', error);
+      if (__DEV__) console.error('[useLiveStream] Failed to send:', error);
     }
   }, [channelName]);
 

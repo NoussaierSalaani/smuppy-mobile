@@ -81,7 +81,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
 
       setShowSuccessModal(true);
     } catch (err) {
-      console.error('[ReportProblem] Error:', err);
+      if (__DEV__) console.error('[ReportProblem] Error:', err);
       showError('Error', 'Failed to send report. Please try again.');
     } finally {
       setSending(false);

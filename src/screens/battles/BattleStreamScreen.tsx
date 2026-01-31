@@ -125,7 +125,7 @@ export default function BattleStreamScreen() {
         }
       }
     } catch (error) {
-      console.error('Load battle state error:', error);
+      if (__DEV__) console.error('Load battle state error:', error);
     }
   };
 
@@ -181,7 +181,7 @@ export default function BattleStreamScreen() {
       try {
         await awsAPI.battleAction(battleId, 'end');
       } catch (error) {
-        console.error('End battle error:', error);
+        if (__DEV__) console.error('End battle error:', error);
       }
     }, 'End Battle');
   };
@@ -411,7 +411,7 @@ export default function BattleStreamScreen() {
               setShowTipModal(false);
               loadBattleState();
             } catch (error) {
-              console.error('Send tip error:', error);
+              if (__DEV__) console.error('Send tip error:', error);
             }
           }}
           receiver={{

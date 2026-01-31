@@ -74,7 +74,7 @@ class CognitoStorageAdapter {
     // Persist to SecureStore asynchronously
     const secureKey = sanitizeKey(key);
     SecureStore.setItemAsync(secureKey, value).catch((error) => {
-      console.error('[CognitoStorage] SecureStore setItem error:', error);
+      if (__DEV__) console.error('[CognitoStorage] SecureStore setItem error:', error);
     });
     addKeyToIndex(key).catch(() => {});
 
@@ -97,7 +97,7 @@ class CognitoStorageAdapter {
 
     const secureKey = sanitizeKey(key);
     SecureStore.deleteItemAsync(secureKey).catch((error) => {
-      console.error('[CognitoStorage] SecureStore removeItem error:', error);
+      if (__DEV__) console.error('[CognitoStorage] SecureStore removeItem error:', error);
     });
     removeKeyFromIndex(key).catch(() => {});
   }
@@ -117,7 +117,7 @@ class CognitoStorageAdapter {
         await AsyncStorage.removeItem(COGNITO_KEYS_INDEX);
       })
       .catch((error) => {
-        console.error('[CognitoStorage] clear error:', error);
+        if (__DEV__) console.error('[CognitoStorage] clear error:', error);
       });
   }
 
@@ -139,7 +139,7 @@ class CognitoStorageAdapter {
 
       if (__DEV__) console.log('[CognitoStorage] Synced', memoryCache.size, 'items from SecureStore');
     } catch (error) {
-      console.error('[CognitoStorage] sync error:', error);
+      if (__DEV__) console.error('[CognitoStorage] sync error:', error);
     }
   }
 }
@@ -160,7 +160,7 @@ export async function getCognitoItem(key: string): Promise<string | null> {
     }
     return value;
   } catch (error) {
-    console.error('[CognitoStorage] getItem async error:', error);
+    if (__DEV__) console.error('[CognitoStorage] getItem async error:', error);
     return null;
   }
 }
@@ -172,7 +172,7 @@ export async function setCognitoItem(key: string, value: string): Promise<void> 
     await SecureStore.setItemAsync(secureKey, value);
     await addKeyToIndex(key);
   } catch (error) {
-    console.error('[CognitoStorage] setItem async error:', error);
+    if (__DEV__) console.error('[CognitoStorage] setItem async error:', error);
   }
 }
 
@@ -183,7 +183,7 @@ export async function removeCognitoItem(key: string): Promise<void> {
     await SecureStore.deleteItemAsync(secureKey);
     await removeKeyFromIndex(key);
   } catch (error) {
-    console.error('[CognitoStorage] removeItem async error:', error);
+    if (__DEV__) console.error('[CognitoStorage] removeItem async error:', error);
   }
 }
 
@@ -197,7 +197,7 @@ export async function clearCognitoStorage(): Promise<void> {
     }
     await AsyncStorage.removeItem(COGNITO_KEYS_INDEX);
   } catch (error) {
-    console.error('[CognitoStorage] clear async error:', error);
+    if (__DEV__) console.error('[CognitoStorage] clear async error:', error);
   }
 }
 

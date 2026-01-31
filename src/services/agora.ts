@@ -53,7 +53,7 @@ class AgoraService {
     }
 
     if (!AGORA_APP_ID) {
-      console.error('[Agora] App ID not configured');
+      if (__DEV__) console.error('[Agora] App ID not configured');
       return false;
     }
 
@@ -80,7 +80,7 @@ class AgoraService {
       if (__DEV__) console.log('[Agora] Engine initialized successfully');
       return true;
     } catch (error) {
-      console.error('[Agora] Failed to initialize:', error);
+      if (__DEV__) console.error('[Agora] Failed to initialize:', error);
       return false;
     }
   }
@@ -130,7 +130,7 @@ class AgoraService {
       },
 
       onError: (err: number, msg: string) => {
-        console.error('[Agora] Error:', err, msg);
+        if (__DEV__) console.error('[Agora] Error:', err, msg);
         this.callbacks.onError?.(msg);
       },
 
@@ -202,7 +202,7 @@ class AgoraService {
 
       return true;
     } catch (error) {
-      console.error('[Agora] Failed to join channel:', error);
+      if (__DEV__) console.error('[Agora] Failed to join channel:', error);
       return false;
     }
   }
@@ -217,7 +217,7 @@ class AgoraService {
       this.engine.stopPreview();
       this.engine.leaveChannel();
     } catch (error) {
-      console.error('[Agora] Failed to leave channel:', error);
+      if (__DEV__) console.error('[Agora] Failed to leave channel:', error);
     }
   }
 
@@ -290,7 +290,7 @@ class AgoraService {
         this.engine.leaveChannel();
         this.engine.release();
       } catch (error) {
-        console.error('[Agora] Error during cleanup:', error);
+        if (__DEV__) console.error('[Agora] Error during cleanup:', error);
       }
     }
 

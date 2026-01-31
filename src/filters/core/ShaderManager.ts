@@ -393,7 +393,7 @@ export class ShaderManager {
         const effect = Skia.RuntimeEffect.Make(source);
         compiledShaders.set(filterId, effect);
       } catch (error) {
-        console.error(`Failed to compile shader for ${filterId}:`, error);
+        if (__DEV__) console.error(`Failed to compile shader for ${filterId}:`, error);
         compiledShaders.set(filterId, null);
       }
     }

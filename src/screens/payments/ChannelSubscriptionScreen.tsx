@@ -79,7 +79,7 @@ export default function ChannelSubscriptionScreen() {
         setChannelInfo(response.channel);
       }
     } catch (error) {
-      console.error('Failed to fetch channel info:', error);
+      if (__DEV__) console.error('Failed to fetch channel info:', error);
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export default function ChannelSubscriptionScreen() {
         setIsSubscribed(!!sub);
       }
     } catch (error) {
-      console.error('Failed to check subscription:', error);
+      if (__DEV__) console.error('Failed to check subscription:', error);
     }
   }, [params.creatorId]);
 

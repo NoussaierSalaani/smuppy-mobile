@@ -259,7 +259,7 @@ export const getPresignedUrl = async (
       cdnUrl: awsAPI.getCDNUrl(result.fileUrl),
     };
   } catch (error) {
-    console.error('Error getting presigned URL:', error);
+    if (__DEV__) console.error('Error getting presigned URL:', error);
     captureException(error as Error, { context: 'getPresignedUrl' });
     return null;
   }
@@ -372,7 +372,7 @@ export const uploadToS3 = async (
     onProgress?.(100);
     return true;
   } catch (error) {
-    console.error('S3 upload error:', error);
+    if (__DEV__) console.error('S3 upload error:', error);
     captureException(error as Error, { context: 'uploadToS3' });
     return false;
   }
@@ -403,7 +403,7 @@ export const uploadWithFileSystem = async (
     onProgress?.(100);
     return true;
   } catch (error) {
-    console.error('FileSystem upload error:', error);
+    if (__DEV__) console.error('FileSystem upload error:', error);
     captureException(error as Error, { context: 'uploadWithFileSystem' });
     return false;
   }
@@ -498,7 +498,7 @@ export const uploadImage = async (
       fileSize,
     };
   } catch (error) {
-    console.error('Image upload error:', error);
+    if (__DEV__) console.error('Image upload error:', error);
     captureException(error as Error, { context: 'uploadImage', folder });
     return { success: false, error: 'Upload failed' };
   }
@@ -556,7 +556,7 @@ export const uploadVideo = async (
       fileSize: fileInfo.size,
     };
   } catch (error) {
-    console.error('Video upload error:', error);
+    if (__DEV__) console.error('Video upload error:', error);
     captureException(error as Error, { context: 'uploadVideo', folder });
     return { success: false, error: 'Upload failed' };
   }
@@ -638,7 +638,7 @@ export const deleteFromS3 = async (key: string): Promise<boolean> => {
 
     return response.ok;
   } catch (error) {
-    console.error('Delete error:', error);
+    if (__DEV__) console.error('Delete error:', error);
     captureException(error as Error, { context: 'deleteFromS3', key });
     return false;
   }

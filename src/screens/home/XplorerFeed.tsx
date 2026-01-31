@@ -286,7 +286,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
         setEventGroupMarkers(markers);
       } catch (error) {
-        console.error('[XplorerFeed] Failed to fetch events/groups:', error);
+        if (__DEV__) console.error('[XplorerFeed] Failed to fetch events/groups:', error);
       }
     };
     fetchEventsGroups();
@@ -703,7 +703,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (res.success && res.group) setSelectedEventData(res.group);
       }
     } catch (error) {
-      console.error('Join error:', error);
+      if (__DEV__) console.error('Join error:', error);
     } finally {
       setJoiningEvent(false);
     }
@@ -727,7 +727,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (res.success && res.group) setSelectedEventData(res.group);
       }
     } catch (error) {
-      console.error('Leave error:', error);
+      if (__DEV__) console.error('Leave error:', error);
     } finally {
       setJoiningEvent(false);
     }

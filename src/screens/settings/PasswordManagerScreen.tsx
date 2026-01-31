@@ -81,7 +81,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
       });
       setShowModal(true);
     } catch (err) {
-      console.error('[PasswordManager] Reset error:', err);
+      if (__DEV__) console.error('[PasswordManager] Reset error:', err);
     }
   };
 

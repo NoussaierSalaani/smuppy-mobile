@@ -96,7 +96,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       // Get current user ID
       const { data: currentProfile, error: profileError } = await getCurrentProfile();
       if (!currentProfile) {
-        console.warn('[FansListScreen] No current profile:', profileError);
+        if (__DEV__) console.warn('[FansListScreen] No current profile:', profileError);
         // Show empty state instead of crashing
         setFans([]);
         setTracking([]);
@@ -136,7 +136,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       setFans(transformedFans);
       setTracking(transformedTracking);
     } catch (error) {
-      console.error('[FansListScreen] Error loading data:', error);
+      if (__DEV__) console.error('[FansListScreen] Error loading data:', error);
       showError('Error', 'Failed to load data. Please try again.');
     } finally {
       setIsLoading(false);
@@ -214,7 +214,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           );
         });
       } catch (error) {
-        console.error('[FansListScreen] Follow error:', error);
+        if (__DEV__) console.error('[FansListScreen] Follow error:', error);
         showError('Error', 'Failed to follow. Please try again.');
       } finally {
         setActionLoading(null);
@@ -263,7 +263,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
       closePopups();
     } catch (error) {
-      console.error('[FansListScreen] Unfollow error:', error);
+      if (__DEV__) console.error('[FansListScreen] Unfollow error:', error);
       showError('Error', 'Failed to unfollow. Please try again.');
     } finally {
       setActionLoading(null);

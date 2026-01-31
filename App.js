@@ -126,7 +126,7 @@ export default function App() {
       try {
         initSentry();
       } catch (e) {
-        console.warn('[Sentry] init failed:', e);
+        if (__DEV__) console.warn('[Sentry] init failed:', e);
       }
 
       // Initialize Mapbox globally before any map component renders
@@ -136,7 +136,7 @@ export default function App() {
           Mapbox.setAccessToken(mapboxToken);
         }
       } catch (e) {
-        console.warn('[Mapbox] init failed:', e);
+        if (__DEV__) console.warn('[Mapbox] init failed:', e);
       }
 
       try {
@@ -159,7 +159,7 @@ export default function App() {
           initializeBackend(),
         ]);
       } catch (error) {
-        console.error('Error initializing app:', error);
+        if (__DEV__) console.error('Error initializing app:', error);
       } finally {
         if (isMounted) {
           setAppReady(true);

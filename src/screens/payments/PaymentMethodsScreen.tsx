@@ -113,7 +113,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch payment methods:', error);
+      if (__DEV__) console.error('Failed to fetch payment methods:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -210,7 +210,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         showError('Erreur', response.message || 'Impossible de definir comme defaut');
       }
     } catch (error) {
-      console.error('Failed to set default:', error);
+      if (__DEV__) console.error('Failed to set default:', error);
       showError('Erreur', 'Une erreur est survenue');
     }
   };
@@ -231,7 +231,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             showError('Erreur', response.message || 'Impossible de supprimer');
           }
         } catch (error) {
-          console.error('Failed to remove card:', error);
+          if (__DEV__) console.error('Failed to remove card:', error);
           showError('Erreur', 'Une erreur est survenue');
         }
       }

@@ -154,7 +154,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         ]);
       }
     } catch (error) {
-      console.error('Load services error:', error);
+      if (__DEV__) console.error('Load services error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -271,7 +271,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error('Save service error:', error);
+      if (__DEV__) console.error('Save service error:', error);
       showError('Error', 'Failed to save service');
     } finally {
       setIsSaving(false);
@@ -286,7 +286,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         prev.map((s) => (s.id === service.id ? { ...s, is_active: !s.is_active } : s))
       );
     } catch (error) {
-      console.error('Toggle active error:', error);
+      if (__DEV__) console.error('Toggle active error:', error);
     }
   };
 

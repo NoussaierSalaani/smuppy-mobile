@@ -117,7 +117,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         setExistingSubscription(subRes.subscription);
       }
     } catch (error) {
-      console.error('Load subscription data error:', error);
+      if (__DEV__) console.error('Load subscription data error:', error);
       showError('Error', 'Failed to load subscription plans');
     } finally {
       setIsLoading(false);
@@ -210,7 +210,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         throw new Error(confirmResponse.message || 'Subscription confirmation failed');
       }
     } catch (error: any) {
-      console.error('Subscription error:', error);
+      if (__DEV__) console.error('Subscription error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showError('Subscription Failed', error.message || 'Please try again');
     } finally {

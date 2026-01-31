@@ -65,6 +65,6 @@ if (__DEV__) {
   }
 
   if (missingVars.length > 0) {
-    console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);
+    if (__DEV__) console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);
   }
 }

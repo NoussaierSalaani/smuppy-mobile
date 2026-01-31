@@ -358,7 +358,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : `Failed to create ${mode}`;
-      console.error(`Create ${mode} error:`, error);
+      if (__DEV__) console.error(`Create ${mode} error:`, error);
       showError('Error', message);
     } finally {
       setIsLoading(false);

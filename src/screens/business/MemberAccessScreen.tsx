@@ -127,7 +127,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
         });
       }
     } catch (error) {
-      console.error('Load access pass error:', error);
+      if (__DEV__) console.error('Load access pass error:', error);
       // Set demo pass on error
       setAccessPass({
         id: subscriptionId,

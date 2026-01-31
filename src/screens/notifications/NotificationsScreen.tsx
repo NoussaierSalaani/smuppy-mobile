@@ -166,7 +166,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       setCursor((response as any).cursor || null);
       setHasMore((response as any).hasMore || false);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      if (__DEV__) console.error('Error fetching notifications:', error);
       // Keep existing notifications on error
     }
   }, [cursor]);
@@ -186,7 +186,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       if (mounted) setLoading(false);
     };
     loadInitial().catch(err => {
-      if (mounted) console.error('[NotificationsScreen] Load error:', err);
+      if (mounted && __DEV__) console.error('[NotificationsScreen] Load error:', err);
     });
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,7 +246,7 @@ export default function NotificationsScreen(): React.JSX.Element {
     try {
       await awsAPI.markNotificationRead(String(id));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      if (__DEV__) console.error('Error marking notification as read:', error);
     }
   };
 

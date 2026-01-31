@@ -15,7 +15,7 @@ if (!isExpoGo) {
   try {
     Sentry = require('@sentry/react-native');
   } catch (_e) {
-    console.log('Sentry not available in this environment');
+    if (__DEV__) console.log('Sentry not available in this environment');
   }
 }
 
@@ -28,12 +28,12 @@ const SENTRY_DSN = ENV.SENTRY_DSN || '';
  */
 export const initSentry = () => {
   if (isExpoGo) {
-    console.log('Sentry disabled in Expo Go - use development build for error tracking');
+    if (__DEV__) console.log('Sentry disabled in Expo Go - use development build for error tracking');
     return;
   }
 
   if (!Sentry || !SENTRY_DSN) {
-    console.log('Sentry DSN not configured - error tracking disabled');
+    if (__DEV__) console.log('Sentry DSN not configured - error tracking disabled');
     return;
   }
 
@@ -72,7 +72,7 @@ export const initSentry = () => {
     beforeSend(event: { user?: { email?: string; ip_address?: string } }, _hint: unknown) {
       // Filter out development errors
       if (ENV.APP_ENV === 'development') {
-        console.log('Sentry event (dev):', event);
+        if (__DEV__) console.log('Sentry event (dev):', event);
         return null; // Don't send in development
       }
 
@@ -95,7 +95,7 @@ export const initSentry = () => {
     },
   });
 
-  console.log('Sentry initialized');
+  if (__DEV__) console.log('Sentry initialized');
 };
 
 /**
@@ -134,7 +134,7 @@ export const addBreadcrumb = (message: string, category = 'app', data = {}) => {
  */
 export const captureException = (error: Error, context: Record<string, any> = {}) => {
   if (!Sentry || !SENTRY_DSN || isExpoGo) {
-    console.error('Captured exception:', error);
+    if (__DEV__) console.error('Captured exception:', error);
     return;
   }
 
@@ -153,7 +153,7 @@ export const captureException = (error: Error, context: Record<string, any> = {}
  */
 export const captureMessage = (message: string, level = 'info', context: Record<string, any> = {}) => {
   if (!Sentry || !SENTRY_DSN || isExpoGo) {
-    console.log('Captured message:', message);
+    if (__DEV__) console.log('Captured message:', message);
     return;
   }
 
@@ -199,7 +199,7 @@ try {
     sentryNavigationIntegration = new Sentry.ReactNavigationInstrumentation();
   }
 } catch (_e) {
-  console.warn('[Sentry] ReactNavigationInstrumentation not available');
+  if (__DEV__) console.warn('[Sentry] ReactNavigationInstrumentation not available');
 }
 export { sentryNavigationIntegration };
 

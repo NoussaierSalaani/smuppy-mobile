@@ -96,7 +96,7 @@ export const validateEmailAdvanced = async (email: string) => {
     return { valid: true, email: emailLower };
 
   } catch (err) {
-    console.warn('Email validation service error:', err);
+    if (__DEV__) console.warn('Email validation service error:', err);
     // Network error or Lambda not deployed
     // Local validation already passed, so allow signup
     return { valid: true, email: emailLower };
@@ -137,7 +137,7 @@ export const checkDomainMx = async (email: string) => {
       clearTimeout(timeoutId);
     }
   } catch (error) {
-    console.warn('MX check failed:', error);
+    if (__DEV__) console.warn('MX check failed:', error);
     return true; // Fail open - don't block on network errors
   }
 };

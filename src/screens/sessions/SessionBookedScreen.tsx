@@ -86,7 +86,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
       showSuccess('Added to Calendar', `Your session with ${creator.name} has been added to your calendar.`);
     } catch (error) {
-      console.error('[Calendar] Error adding event:', error);
+      if (__DEV__) console.error('[Calendar] Error adding event:', error);
       showError('Error', 'Failed to add event to calendar. Please try again.');
     }
   };

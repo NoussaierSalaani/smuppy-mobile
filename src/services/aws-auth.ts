@@ -180,12 +180,12 @@ class AWSAuthService {
 
         return this.user;
       } catch {
-        console.error('[AWS Auth] Failed to parse stored user');
+        if (__DEV__) console.error('[AWS Auth] Failed to parse stored user');
         await this.clearSession();
         return null;
       }
     } catch (error) {
-      console.error('[AWS Auth] Initialize error:', error);
+      if (__DEV__) console.error('[AWS Auth] Initialize error:', error);
       return null;
     }
   }
@@ -287,7 +287,7 @@ class AWSAuthService {
         confirmationRequired: !response.UserConfirmed,
       };
     } catch (error: any) {
-      console.error('[AWS Auth] Direct SignUp error:', error.name, error.message);
+      if (__DEV__) console.error('[AWS Auth] Direct SignUp error:', error.name, error.message);
       throw error;
     }
   }
@@ -334,7 +334,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Confirm signup error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Confirm signup error:', apiError.message);
       throw apiError;
     }
   }
@@ -386,7 +386,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Resend confirmation code error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Resend confirmation code error:', apiError.message);
       throw apiError;
     }
   }
@@ -441,7 +441,7 @@ class AWSAuthService {
     // Verify critical token was persisted
     const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
     if (!storedToken) {
-      console.error('[AWS Auth] CRITICAL: Failed to persist access token to SecureStore');
+      if (__DEV__) console.error('[AWS Auth] CRITICAL: Failed to persist access token to SecureStore');
       // Retry once
       await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken);
     }
@@ -556,7 +556,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Forgot password error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Forgot password error:', apiError.message);
       throw apiError;
     }
   }
@@ -603,7 +603,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Confirm forgot password error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Confirm forgot password error:', apiError.message);
       throw apiError;
     }
   }
@@ -706,7 +706,7 @@ class AWSAuthService {
       await client.send(command);
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Password changed successfully');
     } catch (error: any) {
-      console.error('[AWS Auth] Change password error:', error.name, error.message);
+      if (__DEV__) console.error('[AWS Auth] Change password error:', error.name, error.message);
       throw error;
     }
   }
@@ -751,7 +751,7 @@ class AWSAuthService {
       this.notifyAuthStateChange(result.user);
       return result.user;
     } catch (error: any) {
-      console.error('[AWS Auth] Apple Sign-In error:', error);
+      if (__DEV__) console.error('[AWS Auth] Apple Sign-In error:', error);
       throw error;
     }
   }
@@ -789,7 +789,7 @@ class AWSAuthService {
       this.notifyAuthStateChange(result.user);
       return result.user;
     } catch (error: any) {
-      console.error('[AWS Auth] Google Sign-In error:', error);
+      if (__DEV__) console.error('[AWS Auth] Google Sign-In error:', error);
       throw error;
     }
   }
@@ -856,12 +856,12 @@ class AWSAuthService {
 
       if (isNetworkError) {
         // Network error — keep session alive so Remember Me works on cold start
-        console.warn('[AWS Auth] Token refresh failed due to network, keeping session');
+        if (__DEV__) console.warn('[AWS Auth] Token refresh failed due to network, keeping session');
         return false;
       }
 
       // Auth error (token revoked, invalid, etc.) — clear session
-      console.warn('[AWS Auth] Token refresh failed (auth error), clearing session');
+      if (__DEV__) console.warn('[AWS Auth] Token refresh failed (auth error), clearing session');
       await this.clearSession();
       return false;
     }
@@ -886,7 +886,7 @@ class AWSAuthService {
       try {
         callback(user);
       } catch (error) {
-        console.error('[AWS Auth] Error in auth state listener:', error);
+        if (__DEV__) console.error('[AWS Auth] Error in auth state listener:', error);
       }
     });
   }

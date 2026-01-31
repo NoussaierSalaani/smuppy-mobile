@@ -295,7 +295,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       const { data, error } = await getDiscoveryFeed(selectedArr, userInterests, pageNum, 40);
 
       if (error) {
-        console.error('[VibesFeed] Error fetching posts:', error);
+        if (__DEV__) console.error('[VibesFeed] Error fetching posts:', error);
         if (refresh || pageNum === 0) {
           // Use mock data as fallback
           if (__DEV__) console.log('[VibesFeed] Using mock data as fallback');
@@ -332,7 +332,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       setHasMore(data.length >= 40);
     } catch (err) {
-      console.error('[VibesFeed] Error:', err);
+      if (__DEV__) console.error('[VibesFeed] Error:', err);
       if (refresh) {
         setAllPosts([]);
         setHasMore(false);
@@ -521,7 +521,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         trackPositiveInteraction();
       }
     } catch (err) {
-      console.error('[VibesFeed] Like error:', err);
+      if (__DEV__) console.error('[VibesFeed] Like error:', err);
     }
   }, [allPosts, trackLike, trackPositiveInteraction]);
 
@@ -637,7 +637,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setIsFollowingUser(true);
       }
     } catch (err) {
-      console.error('[VibesFeed] Follow error:', err);
+      if (__DEV__) console.error('[VibesFeed] Follow error:', err);
     } finally {
       setFollowLoading(false);
     }

@@ -123,7 +123,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         setTags(response.tags || []);
       }
     } catch (error) {
-      console.error('Load program error:', error);
+      if (__DEV__) console.error('Load program error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -291,7 +291,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         }
       }
     } catch (error) {
-      console.error('Toggle tag error:', error);
+      if (__DEV__) console.error('Toggle tag error:', error);
     }
   };
 

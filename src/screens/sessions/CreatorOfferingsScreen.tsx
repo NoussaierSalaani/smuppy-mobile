@@ -139,7 +139,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           });
         }
       } catch (err) {
-        console.error('Failed to fetch profile:', err);
+        if (__DEV__) console.error('Failed to fetch profile:', err);
       }
 
       // Fetch creator's availability (session offerings)
@@ -165,7 +165,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           setSessionOfferings(Array.from(uniqueOfferings.values()).sort((a, b) => a.duration - b.duration));
         }
       } catch (err) {
-        console.error('Failed to fetch availability:', err);
+        if (__DEV__) console.error('Failed to fetch availability:', err);
       }
 
       // Fetch creator's packs
@@ -185,10 +185,10 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           })));
         }
       } catch (err) {
-        console.error('Failed to fetch packs:', err);
+        if (__DEV__) console.error('Failed to fetch packs:', err);
       }
     } catch (error) {
-      console.error('Failed to fetch creator data:', error);
+      if (__DEV__) console.error('Failed to fetch creator data:', error);
     } finally {
       setLoading(false);
     }

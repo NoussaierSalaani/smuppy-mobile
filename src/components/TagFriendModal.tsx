@@ -82,7 +82,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
       // Get current user
       const { data: currentProfile } = await getCurrentProfile();
       if (!currentProfile) {
-        console.error('[TagFriendModal] No current profile');
+        if (__DEV__) console.error('[TagFriendModal] No current profile');
         setLoading(false);
         return;
       }
@@ -105,7 +105,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
       setFriends(transformedFriends);
     } catch (error) {
-      console.error('[TagFriendModal] Error loading friends:', error);
+      if (__DEV__) console.error('[TagFriendModal] Error loading friends:', error);
       showError('Error', 'Failed to load friends. Please try again.');
     } finally {
       setLoading(false);

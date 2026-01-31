@@ -108,7 +108,7 @@ export default function BookSessionScreen(): React.JSX.Element {
         setPacks(packsRes.packs || []);
       }
     } catch (error) {
-      console.error('Error fetching booking data:', error);
+      if (__DEV__) console.error('Error fetching booking data:', error);
     } finally {
       setLoading(false);
     }

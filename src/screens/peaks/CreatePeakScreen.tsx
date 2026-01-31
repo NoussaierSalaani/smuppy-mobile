@@ -107,7 +107,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
         setPermissionsReady(camGranted && micGranted);
       } catch (error) {
-        console.error('Permission request error:', error);
+        if (__DEV__) console.error('Permission request error:', error);
       } finally {
         setPermissionsChecked(true);
       }

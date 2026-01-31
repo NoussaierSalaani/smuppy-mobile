@@ -126,7 +126,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   }, [user, getFullName, profileData]);
 
   useEffect(() => {
-    checkBiometrics().catch((err) => console.error('Biometric check failed:', err));
+    checkBiometrics().catch((err) => { if (__DEV__) console.error('Biometric check failed:', err); });
     loadUserData();
   }, [loadUserData]);
 
@@ -139,7 +139,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setIsPrivate(newValue);
       await refetch();
     } catch (error) {
-      console.error('Toggle privacy error:', error);
+      if (__DEV__) console.error('Toggle privacy error:', error);
       showError('Error', 'Failed to update privacy setting.');
     } finally {
       setTogglingPrivacy(false);
@@ -203,7 +203,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // No need for manual navigation.reset - it causes "action not handled" warning
       await backend.signOut();
     } catch (error) {
-      console.error('Logout error:', error);
+      if (__DEV__) console.error('Logout error:', error);
       setShowLogoutModal(false);
     } finally {
       setLoggingOut(false);
@@ -243,7 +243,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // No need for manual navigation.reset - it causes "action not handled" warning
       await backend.signOut();
     } catch (error) {
-      console.error('Delete account error:', error);
+      if (__DEV__) console.error('Delete account error:', error);
       showError('Error', 'Failed to delete account. Please try again.');
     } finally {
       setDeleting(false);

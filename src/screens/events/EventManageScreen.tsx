@@ -106,7 +106,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
         setParticipants(participantsResponse.participants || []);
       }
     } catch (error) {
-      console.error('Load event data error:', error);
+      if (__DEV__) console.error('Load event data error:', error);
       showError('Error', 'Failed to load event data');
     } finally {
       setIsLoading(false);

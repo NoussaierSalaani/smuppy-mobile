@@ -45,7 +45,7 @@ export const uploadProfileImage = async (
     return { url: urlWithCacheBust, error: null };
   } catch (err) {
     const error = err as Error;
-    console.error('[ImageUpload] Error:', error);
+    if (__DEV__) console.error('[ImageUpload] Error:', error);
     return { url: null, error: error.message || 'Failed to upload image' };
   }
 };

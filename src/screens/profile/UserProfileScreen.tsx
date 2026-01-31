@@ -229,7 +229,7 @@ const UserProfileScreen = () => {
         url: profileUrl,
       });
     } catch (error) {
-      console.error('Error sharing profile:', error);
+      if (__DEV__) console.error('Error sharing profile:', error);
     }
   };
 
@@ -340,7 +340,7 @@ const UserProfileScreen = () => {
     setIsLoadingFollow(false);
 
     if (error) {
-      console.error('[UserProfile] Follow error:', error);
+      if (__DEV__) console.error('[UserProfile] Follow error:', error);
       return;
     }
 
@@ -387,7 +387,7 @@ const UserProfileScreen = () => {
       // Revert on error
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
-      console.error('[UserProfile] Unfollow error:', error);
+      if (__DEV__) console.error('[UserProfile] Unfollow error:', error);
     }
   };
 

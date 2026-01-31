@@ -140,7 +140,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         lng: location.coords.longitude,
       });
     } catch (error) {
-      console.error('Get location error:', error);
+      if (__DEV__) console.error('Get location error:', error);
     }
   };
 
@@ -182,7 +182,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         setBusinesses(response.businesses || []);
       }
     } catch (error) {
-      console.error('Load businesses error:', error);
+      if (__DEV__) console.error('Load businesses error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

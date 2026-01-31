@@ -49,7 +49,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     this.setState({ errorInfo });
 
     // Log to console in development
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    if (__DEV__) console.error('ErrorBoundary caught an error:', error, errorInfo);
 
     // Add breadcrumb for context
     addBreadcrumb('Error caught by ErrorBoundary', 'error', {

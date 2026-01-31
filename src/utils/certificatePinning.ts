@@ -115,7 +115,7 @@ export const validateCertificatePin = (
   if (config.backup.includes(serverPublicKeyHash)) {
     // Log that backup pin was used (indicates certificate rotation)
     addBreadcrumb(`Backup pin used for ${host}`, 'security');
-    console.warn(`[CertPin] Backup pin matched for ${host}. Primary may need update.`);
+    if (__DEV__) console.warn(`[CertPin] Backup pin matched for ${host}. Primary may need update.`);
     return true;
   }
 

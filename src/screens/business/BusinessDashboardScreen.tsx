@@ -104,7 +104,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
         ]);
       }
     } catch (error) {
-      console.error('Load dashboard error:', error);
+      if (__DEV__) console.error('Load dashboard error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

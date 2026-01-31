@@ -61,7 +61,7 @@ export const checkAWSRateLimit = async (
   const config = ACTION_TO_CONFIG[action];
   if (!config) {
     // Unknown action - allow but log for debugging
-    console.warn(`[RateLimit] Unknown action: ${action}`);
+    if (__DEV__) console.warn(`[RateLimit] Unknown action: ${action}`);
     return { allowed: true, remaining: 10 };
   }
 

@@ -256,7 +256,7 @@ export default function RouteMapPicker({
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
-      console.warn('[RouteMapPicker] Route calculation failed:', err);
+      if (__DEV__) console.warn('[RouteMapPicker] Route calculation failed:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsCalculating(false);

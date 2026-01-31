@@ -180,7 +180,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      if (__DEV__) console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
@@ -280,7 +280,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         showError('Error', response.message || 'Failed to save session settings');
       }
     } catch (error) {
-      console.error('Failed to save session:', error);
+      if (__DEV__) console.error('Failed to save session:', error);
       showError('Error', 'Failed to save session settings. Please try again.');
     }
   };
@@ -318,7 +318,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         showError('Error', response.message || 'Failed to create pack');
       }
     } catch (error) {
-      console.error('Failed to create pack:', error);
+      if (__DEV__) console.error('Failed to create pack:', error);
       showError('Error', 'Failed to create pack. Please try again.');
     }
   };
@@ -333,7 +333,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         ));
       }
     } catch (error) {
-      console.error('Failed to update pack:', error);
+      if (__DEV__) console.error('Failed to update pack:', error);
       showError('Error', 'Failed to update pack');
     }
   };
@@ -352,7 +352,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             showError('Error', response.message || 'Failed to delete pack');
           }
         } catch (error) {
-          console.error('Failed to delete pack:', error);
+          if (__DEV__) console.error('Failed to delete pack:', error);
           showError('Error', 'Failed to delete pack');
         }
       },
@@ -376,7 +376,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
           showError('Error', response.message || `Failed to ${action} request`);
         }
       } catch (error) {
-        console.error(`Failed to ${action} request:`, error);
+        if (__DEV__) console.error(`Failed to ${action} request:`, error);
         showError('Error', `Failed to ${action} request`);
       }
     };

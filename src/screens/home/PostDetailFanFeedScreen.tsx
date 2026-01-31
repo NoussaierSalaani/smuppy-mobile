@@ -162,7 +162,7 @@ const PostDetailFanFeedScreen = () => {
     if (isValidUUID(userId)) {
       navigation.navigate('UserProfile', { userId });
     } else {
-      console.warn('[PostDetailFanFeed] Cannot navigate - invalid userId:', userId);
+      if (__DEV__) console.warn('[PostDetailFanFeed] Cannot navigate - invalid userId:', userId);
     }
   };
 
@@ -269,7 +269,7 @@ const PostDetailFanFeedScreen = () => {
         }
       }
     } catch (error) {
-      console.error('[PostDetailFanFeed] Like error:', error);
+      if (__DEV__) console.error('[PostDetailFanFeed] Like error:', error);
     } finally {
       setLikeLoading(prev => ({ ...prev, [postId]: false }));
     }
@@ -302,7 +302,7 @@ const PostDetailFanFeedScreen = () => {
         }
       }
     } catch (error) {
-      console.error('[PostDetailFanFeed] Bookmark error:', error);
+      if (__DEV__) console.error('[PostDetailFanFeed] Bookmark error:', error);
     } finally {
       setBookmarkLoading(prev => ({ ...prev, [postId]: false }));
     }
@@ -313,7 +313,7 @@ const PostDetailFanFeedScreen = () => {
     // Validate UUID format to avoid mock data errors
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!userId || fanLoading[userId] || !uuidRegex.test(userId)) {
-      console.warn('[PostDetailFanFeed] Invalid userId:', userId);
+      if (__DEV__) console.warn('[PostDetailFanFeed] Invalid userId:', userId);
       return;
     }
     setFanLoading(prev => ({ ...prev, [userId]: true }));
@@ -322,10 +322,10 @@ const PostDetailFanFeedScreen = () => {
       if (!error) {
         setFanStatus(prev => ({ ...prev, [userId]: true }));
       } else {
-        console.error('[PostDetailFanFeed] Follow error:', error);
+        if (__DEV__) console.error('[PostDetailFanFeed] Follow error:', error);
       }
     } catch (error) {
-      console.error('[PostDetailFanFeed] Follow error:', error);
+      if (__DEV__) console.error('[PostDetailFanFeed] Follow error:', error);
     } finally {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }

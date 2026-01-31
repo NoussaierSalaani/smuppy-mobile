@@ -143,7 +143,7 @@ export default function IdentityVerificationScreen() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch status:', error);
+      if (__DEV__) console.error('Failed to fetch status:', error);
     } finally {
       setLoading(false);
     }

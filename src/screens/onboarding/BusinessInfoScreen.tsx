@@ -62,7 +62,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
       const results = await searchNominatim(query, { limit: 4 });
       setAddressSuggestions(results);
     } catch (error) {
-      console.error('[BusinessInfoScreen] Address search failed:', error);
+      if (__DEV__) console.error('[BusinessInfoScreen] Address search failed:', error);
       setAddressSuggestions([]);
       Alert.alert('Search failed', 'Could not search for addresses. Please type your address manually.');
     } finally {
@@ -107,7 +107,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
         setAddressSuggestions([]);
       }
     } catch (error) {
-      console.error('Location error:', error);
+      if (__DEV__) console.error('Location error:', error);
     } finally {
       setIsLoadingLocation(false);
     }

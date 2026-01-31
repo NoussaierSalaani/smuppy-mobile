@@ -87,13 +87,13 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       });
 
       if (initError) {
-        console.error('Payment sheet init error:', initError);
+        if (__DEV__) console.error('Payment sheet init error:', initError);
         setError(initError.message);
       } else {
         setPaymentReady(true);
       }
     } catch (err: any) {
-      console.error('Payment initialization error:', err);
+      if (__DEV__) console.error('Payment initialization error:', err);
       setError(err.message || 'Failed to initialize payment');
     } finally {
       setIsLoading(false);
@@ -148,12 +148,12 @@ export default function SessionPaymentScreen(): React.JSX.Element {
             showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
           }
         } catch (bookingError) {
-          console.error('Booking error:', bookingError);
+          if (__DEV__) console.error('Booking error:', bookingError);
           showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
         }
       }
     } catch (err: any) {
-      console.error('Payment error:', err);
+      if (__DEV__) console.error('Payment error:', err);
       showError('Error', err.message || 'Something went wrong');
     } finally {
       setIsProcessing(false);

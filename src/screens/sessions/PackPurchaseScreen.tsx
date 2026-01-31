@@ -77,7 +77,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch creator:', error);
+      if (__DEV__) console.error('Failed to fetch creator:', error);
     }
   }, [creatorId]);
 
@@ -130,12 +130,12 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       });
 
       if (error) {
-        console.error('Payment sheet init error:', error);
+        if (__DEV__) console.error('Payment sheet init error:', error);
       } else {
         setPaymentReady(true);
       }
     } catch (error) {
-      console.error('Payment init error:', error);
+      if (__DEV__) console.error('Payment init error:', error);
       showError('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
     } finally {
       setLoading(false);
@@ -164,7 +164,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         });
       }
     } catch (error) {
-      console.error('Payment error:', error);
+      if (__DEV__) console.error('Payment error:', error);
       showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
       setLoading(false);

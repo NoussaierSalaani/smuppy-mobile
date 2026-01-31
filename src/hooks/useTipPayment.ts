@@ -114,7 +114,7 @@ export function useTipPayment(): UseTipPaymentReturn {
         setIsProcessing(false);
         return true;
       } catch (err: any) {
-        console.error('Tip payment error:', err);
+        if (__DEV__) console.error('Tip payment error:', err);
         setError(err.message || 'Payment failed');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 

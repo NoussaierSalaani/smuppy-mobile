@@ -243,7 +243,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           setCurrentUser({ displayName, avatar });
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        if (__DEV__) console.error('Error loading user data:', error);
       }
     };
 
@@ -293,7 +293,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           hasLoadedFollowing.current = true;
         }
       } catch (error) {
-        console.error('Error fetching following:', error);
+        if (__DEV__) console.error('Error fetching following:', error);
       } finally {
         setIsLoadingFollowing(false);
       }
@@ -355,7 +355,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         locationCacheRef.current.set(query, predictions);
         setLocationPredictions(predictions);
       } catch (error) {
-        console.error('Error searching locations:', error);
+        if (__DEV__) console.error('Error searching locations:', error);
       } finally {
         setIsSearchingLocation(false);
       }
@@ -398,7 +398,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         }
       }
     } catch (error) {
-      console.error('Error getting location:', error);
+      if (__DEV__) console.error('Error getting location:', error);
       showError('Error', 'Could not get your current location.');
     }
   };
@@ -419,7 +419,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         setCurrentLocationName(locationName);
       }
     } catch (error) {
-      console.error('Error reverse geocoding:', error);
+      if (__DEV__) console.error('Error reverse geocoding:', error);
     }
   };
 
@@ -517,7 +517,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
         if (!result.success) {
           // More descriptive error for debugging
-          console.error(`[Upload] Failed for media ${i + 1}:`, result.error);
+          if (__DEV__) console.error(`[Upload] Failed for media ${i + 1}:`, result.error);
           throw new Error(result.error || `Failed to upload media ${i + 1}`);
         }
 
@@ -565,7 +565,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         postId: newPost?.id,
       });
     } catch (error) {
-      console.error('Post creation error:', error);
+      if (__DEV__) console.error('Post creation error:', error);
       showError('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
       setIsPosting(false);
       setUploadProgress(0);

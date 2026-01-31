@@ -93,7 +93,7 @@ export default function TipLeaderboard({
         });
       }
     } catch (error) {
-      console.error('Load leaderboard error:', error);
+      if (__DEV__) console.error('Load leaderboard error:', error);
     } finally {
       setIsLoading(false);
     }

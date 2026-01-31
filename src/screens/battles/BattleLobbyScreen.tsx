@@ -153,7 +153,7 @@ export default function BattleLobbyScreen() {
         }
       }
     } catch (error) {
-      console.error('Load battle error:', error);
+      if (__DEV__) console.error('Load battle error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +185,7 @@ export default function BattleLobbyScreen() {
       await awsAPI.battleAction(battleId, newReady ? 'ready' : 'unready');
       loadBattle();
     } catch (error) {
-      console.error('Toggle ready error:', error);
+      if (__DEV__) console.error('Toggle ready error:', error);
       setIsReady(!newReady);
     }
   };
@@ -202,7 +202,7 @@ export default function BattleLobbyScreen() {
         });
       }
     } catch (error) {
-      console.error('Start battle error:', error);
+      if (__DEV__) console.error('Start battle error:', error);
       showError('Error', 'Failed to start battle');
     }
   };
@@ -213,7 +213,7 @@ export default function BattleLobbyScreen() {
         await awsAPI.battleAction(battleId, 'leave');
         navigation.goBack();
       } catch (error) {
-        console.error('Leave battle error:', error);
+        if (__DEV__) console.error('Leave battle error:', error);
       }
     }, 'Leave');
   };

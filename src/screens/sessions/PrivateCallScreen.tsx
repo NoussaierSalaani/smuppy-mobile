@@ -86,7 +86,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   // Fetch Agora token from backend
   const fetchAgoraToken = useCallback(async (): Promise<boolean> => {
     if (!sessionId) {
-      console.warn('No sessionId provided, using fallback channel');
+      if (__DEV__) console.warn('No sessionId provided, using fallback channel');
       return true; // Continue with fallback
     }
 
@@ -97,11 +97,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
         setAgoraChannelName(response.channelName || `private_${sessionId}`);
         return true;
       } else {
-        console.error('Failed to get Agora token:', response.message);
+        if (__DEV__) console.error('Failed to get Agora token:', response.message);
         return false;
       }
     } catch (err) {
-      console.error('Error fetching Agora token:', err);
+      if (__DEV__) console.error('Error fetching Agora token:', err);
       return false;
     }
   }, [sessionId]);

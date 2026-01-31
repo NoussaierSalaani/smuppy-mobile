@@ -69,7 +69,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
         message: `I just subscribed to ${businessName} on Smuppy! 🏋️‍♂️\n\nJoin me and let's workout together!`,
       });
     } catch (error) {
-      console.error('Share error:', error);
+      if (__DEV__) console.error('Share error:', error);
     }
   };
 

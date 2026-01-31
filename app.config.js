@@ -18,6 +18,7 @@ splash: {
 ios: {
 supportsTablet: true,
 bundleIdentifier: 'com.nou09.Smuppy',
+buildNumber: '1',
 usesAppleSignIn: true,
 // Universal Links - associate app with web domain
 associatedDomains: [
@@ -54,6 +55,10 @@ infoPlist: {
   // Camera & Microphone for live streaming
   NSCameraUsageDescription: 'Smuppy needs access to your camera for live streaming and video calls.',
   NSMicrophoneUsageDescription: 'Smuppy needs access to your microphone for live streaming and video calls.',
+  // Photos & Location
+  NSPhotoLibraryUsageDescription: 'Smuppy needs access to your photos to share content.',
+  NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
+  NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
 },
     },
 android: {
@@ -111,7 +116,9 @@ plugins: [
 'expo-apple-authentication',
 [
   '@rnmapbox/maps',
-  {},
+  {
+    RNMapboxMapsDownloadToken: process.env.RNMAPBOX_MAPS_DOWNLOAD_TOKEN || process.env.MAPBOX_ACCESS_TOKEN,
+  },
 ],
 ],
 extra: {

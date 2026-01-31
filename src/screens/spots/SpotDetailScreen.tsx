@@ -60,7 +60,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
       if (spotRes.success) setSpot(spotRes.spot);
       if (reviewsRes.success) setReviews(reviewsRes.reviews || []);
     } catch (err) {
-      console.error('Failed to load spot:', err);
+      if (__DEV__) console.error('Failed to load spot:', err);
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +85,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
         loadData();
       }
     } catch (err) {
-      console.error('Failed to submit review:', err);
+      if (__DEV__) console.error('Failed to submit review:', err);
     } finally {
       setIsSubmittingReview(false);
     }

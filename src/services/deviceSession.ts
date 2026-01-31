@@ -37,7 +37,7 @@ async function getOrCreateDeviceId(): Promise<string> {
 
     return deviceId;
   } catch (error) {
-    console.error('[DeviceSession] Error getting device ID:', error);
+    if (__DEV__) console.error('[DeviceSession] Error getting device ID:', error);
     // Fallback to a random ID
     return `fallback-${Math.random().toString(36).substring(2, 15)}`;
   }
@@ -85,7 +85,7 @@ export async function getUserDevices(): Promise<any[]> {
     const devices = await awsAPI.getUserDevices();
     return devices || [];
   } catch (error) {
-    console.error('[DeviceSession] Get devices error:', error);
+    if (__DEV__) console.error('[DeviceSession] Get devices error:', error);
     return [];
   }
 }
@@ -98,7 +98,7 @@ export async function revokeDeviceSession(sessionId: string): Promise<boolean> {
     const result = await awsAPI.revokeDeviceSession(sessionId);
     return result?.success || false;
   } catch (error) {
-    console.error('[DeviceSession] Revoke error:', error);
+    if (__DEV__) console.error('[DeviceSession] Revoke error:', error);
     return false;
   }
 }

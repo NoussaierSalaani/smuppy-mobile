@@ -211,7 +211,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      console.error('Analysis error:', error);
+      if (__DEV__) console.error('Analysis error:', error);
       showError('Analysis Failed', 'Could not analyze the document. Please try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -279,7 +279,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
         });
       }
     } catch (error) {
-      console.error('Save schedule error:', error);
+      if (__DEV__) console.error('Save schedule error:', error);
       showError('Error', 'Failed to save schedule. Please try again.');
     } finally {
       setIsSaving(false);

@@ -216,7 +216,7 @@ export const useFilterStore = create<FilterStoreState>()(
 
       const definition = FILTER_DEFINITIONS.find((f) => f.id === filterId);
       if (!definition) {
-        console.warn(`Filter not found: ${filterId}`);
+        if (__DEV__) console.warn(`Filter not found: ${filterId}`);
         return;
       }
 

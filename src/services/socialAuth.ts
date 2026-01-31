@@ -88,7 +88,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
 
     // Validate random bytes generation (crypto polyfill must be loaded)
     if (!randomBytes || randomBytes.length !== 32) {
-      console.error('[AppleAuth] Failed to generate random bytes - crypto polyfill may not be initialized');
+      if (__DEV__) console.error('[AppleAuth] Failed to generate random bytes - crypto polyfill may not be initialized');
       return { success: false, error: 'Security initialization failed. Please restart the app.' };
     }
 
@@ -137,7 +137,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     if (error.code === 'ERR_REQUEST_CANCELED') {
       return { success: false, error: 'cancelled' };
     }
-    console.error('[AppleAuth] Error:', error);
+    if (__DEV__) console.error('[AppleAuth] Error:', error);
     return { success: false, error: error.message || 'Apple Sign-In failed' };
   }
 };
@@ -200,7 +200,7 @@ export const handleGoogleSignIn = async (
       },
     };
   } catch (error: any) {
-    console.error('[GoogleAuth] Error:', error);
+    if (__DEV__) console.error('[GoogleAuth] Error:', error);
     return { success: false, error: error.message || 'Google Sign-In failed' };
   }
 };

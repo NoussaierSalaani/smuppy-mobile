@@ -167,14 +167,14 @@ const request = async <T = unknown>(endpoint: string, options: RequestOptions = 
 
   // SECURITY: Enforce HTTPS in production
   if (!isSecureUrl(url)) {
-    console.warn('HTTPS required. HTTP request blocked:', url);
+    if (__DEV__) console.warn('HTTPS required. HTTP request blocked:', url);
     captureException(new Error('HTTP request blocked'), { url, reason: 'https_required' });
     return { success: false, error: 'HTTPS required', blocked: true };
   }
 
   // Validate host for security
   if (url.startsWith('http') && !isAllowedHost(url) && !endpoint.startsWith(ENV.API_URL || '')) {
-    console.warn('Request to untrusted host blocked:', url);
+    if (__DEV__) console.warn('Request to untrusted host blocked:', url);
     return { success: false, error: 'Untrusted host', blocked: true };
   }
 

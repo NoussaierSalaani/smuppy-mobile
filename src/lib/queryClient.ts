@@ -76,7 +76,7 @@ export const persistQueryCache = async () => {
 
     await AsyncStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(serializableCache));
   } catch (error) {
-    console.warn('Failed to persist query cache:', error);
+    if (__DEV__) console.warn('Failed to persist query cache:', error);
   }
 };
 
@@ -98,7 +98,7 @@ export const restoreQueryCache = async () => {
       });
     }
   } catch (error) {
-    console.warn('Failed to restore query cache:', error);
+    if (__DEV__) console.warn('Failed to restore query cache:', error);
   }
 };
 

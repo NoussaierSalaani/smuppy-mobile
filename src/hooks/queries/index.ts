@@ -26,11 +26,11 @@ export const useCurrentProfile = () => {
       if (error) {
         const errorMsg = typeof error === 'string' ? error : (error as { message?: string })?.message;
         if (errorMsg === 'Not authenticated') {
-          console.log('[useCurrentProfile] Not authenticated, returning null');
+          if (__DEV__) console.log('[useCurrentProfile] Not authenticated, returning null');
           return null;
         }
         // For other errors, log but don't throw - return null for resilience
-        console.error('[useCurrentProfile] Error fetching profile:', error);
+        if (__DEV__) console.error('[useCurrentProfile] Error fetching profile:', error);
         return null;
       }
       return data;

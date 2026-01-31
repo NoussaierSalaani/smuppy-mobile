@@ -81,7 +81,7 @@ export async function getWeather(): Promise<WeatherData> {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      console.error('[WeatherService] API error:', response.status);
+      if (__DEV__) console.error('[WeatherService] API error:', response.status);
       return getDefaultWeather();
     }
 
@@ -103,7 +103,7 @@ export async function getWeather(): Promise<WeatherData> {
 
     return cachedWeather;
   } catch (error) {
-    console.error('[WeatherService] Fetch error:', error);
+    if (__DEV__) console.error('[WeatherService] Fetch error:', error);
     return cachedWeather || getDefaultWeather();
   }
 }

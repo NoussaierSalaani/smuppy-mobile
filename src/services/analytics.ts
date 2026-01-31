@@ -145,7 +145,7 @@ export const initAnalytics = async (options?: Partial<AnalyticsConfig>): Promise
       eventQueue = JSON.parse(queuedEvents);
     }
   } catch (error) {
-    console.warn('Failed to initialize analytics:', error);
+    if (__DEV__) console.warn('Failed to initialize analytics:', error);
   }
 
   // Set device properties
@@ -175,7 +175,7 @@ export const identify = async (id: string, properties?: UserProperties): Promise
   try {
     await AsyncStorage.setItem(ANALYTICS_USER_ID_KEY, id);
   } catch (error) {
-    console.warn('Failed to persist analytics user ID:', error);
+    if (__DEV__) console.warn('Failed to persist analytics user ID:', error);
   }
 
   if (config.debugMode) {
@@ -204,7 +204,7 @@ export const reset = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ANALYTICS_USER_ID_KEY);
   } catch (error) {
-    console.warn('Failed to reset analytics:', error);
+    if (__DEV__) console.warn('Failed to reset analytics:', error);
   }
 
   if (config.debugMode) {
@@ -252,7 +252,7 @@ export const track = async (
   try {
     await AsyncStorage.setItem(ANALYTICS_QUEUE_KEY, JSON.stringify(eventQueue));
   } catch (error) {
-    console.warn('Failed to persist analytics queue:', error);
+    if (__DEV__) console.warn('Failed to persist analytics queue:', error);
   }
 
   // In production, you would send to your analytics provider here

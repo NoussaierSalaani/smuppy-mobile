@@ -60,6 +60,7 @@ infoPlist: {
   NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
   NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
   NSContactsUsageDescription: 'Smuppy can help you find friends from your contacts.',
+  NSFaceIDUsageDescription: 'Smuppy uses Face ID to secure your account and payments.',
 },
     },
 android: {

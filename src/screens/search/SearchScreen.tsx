@@ -45,9 +45,15 @@ const PAGE_SIZE = 15;
 
 // Smuppy URL patterns
 const SMUPPY_URL_PATTERNS = {
-  post: /(?:smuppy\.app|localhost)\/p\/([a-f0-9-]{36})/i,
-  peak: /(?:smuppy\.app|localhost)\/peak\/([a-f0-9-]{36})/i,
-  profile: /(?:smuppy\.app|localhost)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i,
+  post: __DEV__
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/p\/([a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/p\/([a-f0-9-]{36})/i,
+  peak: __DEV__
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/peak\/([a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/peak\/([a-f0-9-]{36})/i,
+  profile: __DEV__
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i,
 };
 
 // ============================================
@@ -338,7 +344,7 @@ const SearchScreen = (): React.JSX.Element => {
     if (searchQuery.length > 0) {
       searchTimeoutRef.current = setTimeout(async () => {
         // First check if it's a Smuppy link
-        const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('localhost');
+        const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
         if (isLink) {
           const handled = await detectAndShowLinkContent(searchQuery);
           if (handled) {
@@ -370,7 +376,7 @@ const SearchScreen = (): React.JSX.Element => {
     if (linkDetected || searchQuery.length < 2) return;
 
     // Check if it's a link - don't re-search
-    const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('localhost');
+    const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
     if (isLink) return;
 
     performSearch(searchQuery, activeTab, 0, false);

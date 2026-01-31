@@ -25,7 +25,7 @@ import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
-import { createPost } from '../../services/database';
+import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 
@@ -161,33 +161,13 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         throw new Error(uploadResult.error || 'Failed to upload video');
       }
 
-      // Calculate expiry date based on feedDuration (24h or 48h)
-      const expiryDate = new Date();
-      expiryDate.setHours(expiryDate.getHours() + feedDuration);
-
-      // Create peak in database
+      // Create peak via dedicated peaks API
       const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
-      const peakData = {
-        content: textOverlay || '',
-        media_urls: [mediaUrl].filter(Boolean) as string[],
-        media_type: 'video' as const,
-        visibility: 'public' as const,
-        location: location || null,
-        is_peak: true,
-        peak_duration: duration, // 6s, 10s, or 15s
-        peak_expires_at: expiryDate.toISOString(),
-        save_to_profile: saveToProfile,
-        reply_to_peak_id: replyTo || null,
-        is_challenge: isChallenge,
-        challenge_title: isChallenge ? challengeTitle : null,
-        challenge_rules: isChallenge ? challengeRules : null,
-      };
-
-      const { error } = await createPost(peakData);
-
-      if (error) {
-        throw new Error(typeof error === 'string' ? error : 'Failed to create Peak');
-      }
+      await awsAPI.createPeak({
+        videoUrl: mediaUrl,
+        caption: textOverlay || undefined,
+        duration: duration,
+      });
 
       // Show success and navigate
       setShowSuccessModal(true);

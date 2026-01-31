@@ -37,9 +37,9 @@ const PROD_FEATURES = {
   BATTLES: false,
 
   // ─── Monetization / Sessions ─────────────────────
-  PRIVATE_SESSIONS: false,  // Needs backend: Stripe Connect, booking, availability
-  CHANNEL_SUBSCRIBE: false, // Needs backend: Stripe Subscriptions
-  TIPPING: false,           // Needs backend: PaymentIntents, creator payouts
+  PRIVATE_SESSIONS: true,   // Backend ready: sessions handlers + Stripe Connect
+  CHANNEL_SUBSCRIBE: true,  // Backend ready: channel-subscription handler
+  TIPPING: true,            // Backend ready: tips handlers + PaymentIntents
   CREATOR_WALLET: false,    // Needs backend: balance, transactions, withdrawals
   GIFTING: false,
 
@@ -52,13 +52,13 @@ const PROD_FEATURES = {
   // ─── Account / Settings ──────────────────────────
   UPGRADE_TO_PRO: false,    // Needs backend: Stripe webhook for account upgrade
   IDENTITY_VERIFICATION: false,
-  PLATFORM_SUBSCRIPTION: false,
+  PLATFORM_SUBSCRIPTION: true,
 
   // ─── Vibe Ecosystem ────────────────────────────
-  VIBE_GUARDIAN: false,           // Anti-doom-scroll breathing overlay
-  EMOTIONAL_RIPPLE: false,        // Positive interaction ripple on profile
-  VIBE_PRESCRIPTIONS: false,      // Context-aware wellness missions
-  VIBE_SCORE: false,              // Passive vibe score + levels + badges
+  VIBE_GUARDIAN: true,            // Anti-doom-scroll breathing overlay
+  EMOTIONAL_RIPPLE: true,         // Positive interaction ripple on profile
+  VIBE_PRESCRIPTIONS: true,       // Context-aware wellness missions
+  VIBE_SCORE: true,               // Passive vibe score + levels + badges
 } as const;
 
 export type FeatureKey = keyof typeof PROD_FEATURES;

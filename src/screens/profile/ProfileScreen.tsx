@@ -38,6 +38,7 @@ import { getGrade } from '../../utils/gradeSystem';
 import { useVibeStore } from '../../stores/vibeStore';
 import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
+import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
 // ProfileDataSource is now imported from ../../types/profile
 
@@ -93,10 +94,22 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return realPosts;
   }, [allUserPosts]);
 
-  const peaks = useMemo(() => {
-    const realPeaks = allUserPosts.filter(post => post.is_peak && post.save_to_profile !== false);
-    return realPeaks;
-  }, [allUserPosts]);
+  const [peaks, setPeaks] = useState<any[]>([]);
+  useEffect(() => {
+    awsAPI.getPeaks({ userId, limit: 50 }).then((res) => {
+      setPeaks((res.data || []).map((p: APIPeak) => ({
+        id: p.id,
+        media_urls: [p.thumbnailUrl || p.videoUrl],
+        media_type: 'video',
+        is_peak: true,
+        content: p.caption || '',
+        created_at: p.createdAt,
+        likes: p.likesCount,
+        comments: p.commentsCount,
+        views: p.viewsCount,
+      })));
+    }).catch(() => { /* silent */ });
+  }, [userId]);
 
   // Get saved posts (collections) - only for own profile
   const {

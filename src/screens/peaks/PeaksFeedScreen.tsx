@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StatusBar,
   RefreshControl,
   Dimensions,
+  ActivityIndicator,
   ListRenderItem,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores';
+import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -52,14 +54,50 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const user = useUserStore((state) => state.user);
   const isBusiness = user?.accountType === 'pro_business';
   const [refreshing, setRefreshing] = useState(false);
-  const [peaks] = useState<Peak[]>([]);
+  const [peaks, setPeaks] = useState<Peak[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  const fetchPeaks = useCallback(async (reset = false) => {
+    try {
+      const params: { limit: number; cursor?: string } = { limit: 20 };
+      if (!reset && cursor) params.cursor = cursor;
+      const response = await awsAPI.getPeaks(params);
+      const mapped: Peak[] = (response.data || []).map((p) => ({
+        id: p.id,
+        thumbnail: p.thumbnailUrl || p.videoUrl,
+        duration: p.duration,
+        user: {
+          id: p.author?.id || p.authorId,
+          name: p.author?.displayName || p.author?.username || 'User',
+          avatar: p.author?.avatarUrl || '',
+        },
+        views: p.viewsCount,
+        reactions: p.likesCount,
+        repliesCount: p.commentsCount,
+        createdAt: p.createdAt,
+      }));
+      setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
+      setCursor(response.nextCursor);
+      setHasMore(!!response.nextCursor);
+    } catch (error) {
+      if (__DEV__) console.error('Failed to fetch peaks:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [cursor]);
+
+  useEffect(() => {
+    fetchPeaks(true);
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
-  }, []);
+    setCursor(null);
+    fetchPeaks(true);
+  }, [fetchPeaks]);
 
   const handlePeakPress = (peak: Peak): void => {
     const index = peaks.findIndex(p => p.id === peak.id);
@@ -160,7 +198,25 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         }
         contentContainerStyle={styles.gridContainer}
         renderItem={renderItem}
-        ListFooterComponent={<View style={{ height: 100 }} />}
+        onEndReached={() => { if (hasMore && !loading) fetchPeaks(false); }}
+        onEndReachedThreshold={0.5}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={{ alignItems: 'center', paddingTop: 80 }}>
+              <Ionicons name="videocam-outline" size={48} color={colors.gray} />
+              <Text style={{ color: colors.gray, marginTop: 12, fontSize: 15 }}>No peaks yet</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          loading ? (
+            <View style={{ paddingVertical: 20 }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <View style={{ height: 100 }} />
+          )
+        }
       />
     </View>
   );

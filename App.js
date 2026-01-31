@@ -26,6 +26,10 @@ import { initializeNotifications, registerPushToken, clearBadge } from './src/se
 // Backend Services
 import { initializeBackend } from './src/services/backend';
 
+// Map
+import Mapbox from '@rnmapbox/maps';
+import Constants from 'expo-constants';
+
 // UI Components
 import OfflineBanner from './src/components/OfflineBanner';
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
@@ -123,6 +127,16 @@ export default function App() {
         initSentry();
       } catch (e) {
         console.warn('[Sentry] init failed:', e);
+      }
+
+      // Initialize Mapbox globally before any map component renders
+      try {
+        const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+        if (mapboxToken) {
+          Mapbox.setAccessToken(mapboxToken);
+        }
+      } catch (e) {
+        console.warn('[Mapbox] init failed:', e);
       }
 
       try {

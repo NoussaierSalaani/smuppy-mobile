@@ -39,6 +39,7 @@ import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, savePost, unsavePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
+import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -244,6 +245,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [peaksData, setPeaksData] = useState<typeof PEAKS_DATA>([]);
   const [hasMore, setHasMore] = useState(true);
 
   // Share modal state (using shared hook)
@@ -345,6 +347,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     fetchPosts(0, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
 
+  // Fetch peaks for carousel
+  useEffect(() => {
+    awsAPI.getPeaks({ limit: 10 }).then((res) => {
+      setPeaksData((res.data || []).map((p) => ({
+        id: p.id,
+        thumbnail: p.thumbnailUrl || p.videoUrl,
+        user: { id: p.author?.id || p.authorId, name: p.author?.displayName || p.author?.username || 'User', avatar: p.author?.avatarUrl || null },
+        duration: p.duration,
+        hasNew: true,
+      })));
+    }).catch(() => { /* silent */ });
+  }, []);
+
   // Passive daily login streak tracking
   useEffect(() => {
     useVibeStore.getState().checkDailyLogin();
@@ -371,10 +386,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Navigate to Peak view
   const goToPeakView = useCallback((_peak: typeof PEAKS_DATA[number], index: number) => {
     navigation.navigate('PeakView', {
-      peakData: PEAKS_DATA as any,
+      peakData: peaksData as any,
       initialIndex: index,
     });
-  }, [navigation]);
+  }, [navigation, peaksData]);
 
   // Sort posts by interests + engagement — feed always stays full, chips boost matching posts
   const filteredPosts = useMemo(() => {
@@ -968,7 +983,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.peaksScrollContent}
           >
-            {PEAKS_DATA.map((peak, index) => renderPeakCard(peak, index))}
+            {peaksData.map((peak, index) => renderPeakCard(peak, index))}
           </ScrollView>
         </View>}
 

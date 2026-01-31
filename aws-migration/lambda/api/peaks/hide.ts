@@ -44,7 +44,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                 p.thumbnail_url, p.author_id,
                 pr.username, pr.display_name, pr.avatar_url
          FROM peak_hidden ph
-         JOIN posts p ON ph.peak_id = p.id
+         JOIN peaks p ON ph.peak_id = p.id
          JOIN profiles pr ON p.author_id = pr.id
          WHERE ph.user_id = $1
          ORDER BY ph.created_at DESC
@@ -78,7 +78,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Verify peak exists
     const peakResult = await db.query(
-      'SELECT id, author_id FROM posts WHERE id = $1 AND is_peak = true',
+      'SELECT id, author_id FROM peaks WHERE id = $1',
       [peakId]
     );
 

@@ -47,7 +47,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Verify peak exists
     const peakResult = await db.query(
-      'SELECT id, author_id FROM posts WHERE id = $1 AND is_peak = true',
+      'SELECT id, author_id FROM peaks WHERE id = $1',
       [peakId]
     );
 

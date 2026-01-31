@@ -46,8 +46,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Verify parent peak exists and check if responses are allowed
     const peakResult = await db.query(
       `SELECT id, author_id, allow_peak_responses, visibility
-       FROM posts
-       WHERE id = $1 AND is_peak = true`,
+       FROM peaks
+       WHERE id = $1`,
       [peakId]
     );
 
@@ -63,20 +63,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const cursor = event.queryStringParameters?.cursor;
 
       let query = `
-        SELECT p.id, p.author_id, p.media_url, p.media_urls, p.caption,
+        SELECT p.id, p.author_id, p.video_url, p.thumbnail_url, p.caption,
                p.likes_count, p.comments_count, p.views_count, p.peak_replies_count,
-               p.peak_duration, p.created_at,
+               p.duration, p.created_at,
                pr.id as profile_id, pr.username, pr.display_name, pr.full_name, pr.avatar_url, pr.is_verified,
-               EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) as is_liked
-        FROM posts p
+               EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $2) as is_liked
+        FROM peaks p
         JOIN profiles pr ON p.author_id = pr.id
-        WHERE p.reply_to_peak_id = $1 AND p.is_peak = true
+        WHERE p.reply_to_peak_id = $1
       `;
 
       const queryParams: (string | number)[] = [peakId, profileId];
 
       if (cursor) {
-        query += ` AND p.created_at < (SELECT created_at FROM posts WHERE id = $3)`;
+        query += ` AND p.created_at < (SELECT created_at FROM peaks WHERE id = $3)`;
         queryParams.push(cursor);
       }
 
@@ -89,10 +89,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const replies = repliesResult.rows.slice(0, limit).map((row: Record<string, unknown>) => ({
         id: row.id,
         authorId: row.author_id,
-        videoUrl: row.media_url || row.media_urls?.[0],
-        thumbnailUrl: row.media_urls?.[1] || row.media_url,
+        videoUrl: row.video_url,
+        thumbnailUrl: row.thumbnail_url,
         caption: row.caption,
-        duration: row.peak_duration,
+        duration: row.duration,
         likesCount: row.likes_count,
         commentsCount: row.comments_count,
         viewsCount: row.views_count,
@@ -142,20 +142,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Create the reply peak
       const result = await db.query(
-        `INSERT INTO posts (
-          author_id, media_url, media_urls, caption, media_type,
-          is_peak, peak_duration, reply_to_peak_id, visibility, created_at
+        `INSERT INTO peaks (
+          author_id, video_url, thumbnail_url, caption,
+          duration, reply_to_peak_id, visibility, created_at
         )
-        VALUES ($1, $2, $3, $4, 'video', TRUE, $5, $6, 'public', NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, 'public', NOW())
         RETURNING id, created_at`,
-        [
-          profileId,
-          videoUrl,
-          thumbnailUrl ? [videoUrl, thumbnailUrl] : [videoUrl],
-          caption || null,
-          duration,
-          peakId,
-        ]
+        [profileId, videoUrl, thumbnailUrl || null, caption || null, duration, peakId]
       );
 
       const newReply = result.rows[0];

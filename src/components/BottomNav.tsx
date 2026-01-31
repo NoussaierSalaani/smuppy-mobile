@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTabBar } from '../context/TabBarContext';
-import { COLORS, GRADIENTS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import { useUserStore } from '../stores';
 import { SmuppyIcon } from './SmuppyLogo';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -26,30 +26,31 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 interface IconProps {
   size?: number;
+  color?: string;
 }
 
 // Home icon from UI Kit - House shape with tilted roof
-const HomeIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
+const HomeIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 20 21" fill="none">
     {/* House body with roof - filled */}
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
       d="M7.5601 3.3893C5.0178 5.277 3.7466 6.2209 3.2474 7.6151C3.2073 7.727 3.1713 7.8403 3.1394 7.9548C2.7414 9.3827 3.227 10.9099 4.198 13.9643C5.1691 17.0187 5.6546 18.5459 6.7978 19.462C6.8895 19.5355 6.9838 19.6055 7.0805 19.672C8.2863 20.5 9.8575 20.5 13 20.5C16.1425 20.5 17.7137 20.5 18.9195 19.672C19.0162 19.6055 19.1105 19.5355 19.2022 19.462C20.3454 18.5459 20.8309 17.0187 21.802 13.9643C22.773 10.9099 23.2586 9.3827 22.8606 7.9548C22.8287 7.8403 22.7927 7.727 22.7526 7.6151C22.2534 6.2209 20.9822 5.277 18.4399 3.3893C15.8976 1.5016 14.6265 0.5577 13.1747 0.5033C13.0583 0.4989 12.9417 0.4989 12.8253 0.5033C11.3735 0.5577 10.1024 1.5016 7.5601 3.3893ZM11.0934 15.1821C10.6985 15.1821 10.3784 15.5093 10.3784 15.9129C10.3784 16.3164 10.6985 16.6436 11.0934 16.6436H14.9066C15.3015 16.6436 15.6216 16.3164 15.6216 15.9129C15.6216 15.5093 15.3015 15.1821 14.9066 15.1821H11.0934Z"
-      fill={COLORS.dark}
+      fill={color}
       transform="translate(-3, 0)"
     />
   </Svg>
 );
 
-const HomeIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
+const HomeIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 20 21" fill="none">
     {/* House body with roof - outline version (same shape) */}
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
       d="M7.5601 3.3893C5.0178 5.277 3.7466 6.2209 3.2474 7.6151C3.2073 7.727 3.1713 7.8403 3.1394 7.9548C2.7414 9.3827 3.227 10.9099 4.198 13.9643C5.1691 17.0187 5.6546 18.5459 6.7978 19.462C6.8895 19.5355 6.9838 19.6055 7.0805 19.672C8.2863 20.5 9.8575 20.5 13 20.5C16.1425 20.5 17.7137 20.5 18.9195 19.672C19.0162 19.6055 19.1105 19.5355 19.2022 19.462C20.3454 18.5459 20.8309 17.0187 21.802 13.9643C22.773 10.9099 23.2586 9.3827 22.8606 7.9548C22.8287 7.8403 22.7927 7.727 22.7526 7.6151C22.2534 6.2209 20.9822 5.277 18.4399 3.3893C15.8976 1.5016 14.6265 0.5577 13.1747 0.5033C13.0583 0.4989 12.9417 0.4989 12.8253 0.5033C11.3735 0.5577 10.1024 1.5016 7.5601 3.3893ZM11.0934 15.1821C10.6985 15.1821 10.3784 15.5093 10.3784 15.9129C10.3784 16.3164 10.6985 16.6436 11.0934 16.6436H14.9066C15.3015 16.6436 15.6216 16.3164 15.6216 15.9129C15.6216 15.5093 15.3015 15.1821 14.9066 15.1821H11.0934Z"
-      stroke={COLORS.dark}
+      stroke={color}
       strokeWidth="1.5"
       fill="white"
       transform="translate(-3, 0)"
@@ -58,12 +59,12 @@ const HomeIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
 );
 
 // Peaks icon from UI Kit - Rounded rectangle with play button
-const PeaksIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
+const PeaksIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 21 21" fill="none">
     {/* Rounded rectangle background - filled */}
     <Path
       d="M0.5 5C0.5 2.239 2.739 0 5.5 0H16C18.761 0 21 2.239 21 5V13C21 17.418 17.418 21 13 21H5.5C2.739 21 0.5 18.761 0.5 16V5Z"
-      fill={COLORS.dark}
+      fill={color}
     />
     {/* Play button - white */}
     <Path
@@ -73,12 +74,12 @@ const PeaksIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-const PeaksIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
+const PeaksIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 21 20" fill="none">
     {/* Rounded rectangle with chat bubble tail */}
     <Path
       d="M15.7 19.335C14.528 19.5 13 19.5 10.95 19.5H9.05C5.019 19.5 3.004 19.5 1.752 18.248C0.5 16.996 0.5 14.981 0.5 10.95V9.05C0.5 5.019 0.5 3.004 1.752 1.752C3.004 0.5 5.019 0.5 9.05 0.5H10.95C14.981 0.5 16.996 0.5 18.248 1.752C19.5 3.004 19.5 5.019 19.5 9.05V10.95C19.5 12.158 19.5 13.185 19.466 14.065C19.439 14.77 19.426 15.123 19.159 15.254C18.892 15.386 18.593 15.175 17.996 14.752L16.65 13.8"
-      stroke={COLORS.dark}
+      stroke={color}
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -87,7 +88,7 @@ const PeaksIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
     {/* Play button outline */}
     <Path
       d="M12.945 10.395C12.769 11.021 11.933 11.464 10.263 12.35C8.648 13.206 7.841 13.635 7.19 13.462C6.921 13.391 6.676 13.256 6.478 13.07C6 12.62 6 11.746 6 10C6 8.253 6 7.38 6.478 6.93C6.676 6.744 6.921 6.609 7.19 6.538C7.841 6.365 8.648 6.794 10.263 7.65C11.933 8.536 12.769 8.978 12.945 9.605C13.018 9.864 13.018 10.136 12.945 10.395Z"
-      stroke={COLORS.dark}
+      stroke={color}
       strokeWidth="1.8"
       strokeLinejoin="round"
       fill="none"
@@ -96,20 +97,20 @@ const PeaksIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
 );
 
 // Messages icon - Chat bubble shape
-const MessagesIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
+const MessagesIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2C6.477 2 2 6.477 2 12C2 13.89 2.525 15.66 3.438 17.168L2.071 20.668C1.872 21.184 2.132 21.764 2.648 21.963C2.813 22.026 2.993 22.037 3.165 21.993L7.415 20.923C8.82 21.612 10.373 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2Z"
-      fill={COLORS.dark}
+      fill={color}
     />
   </Svg>
 );
 
-const MessagesIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
+const MessagesIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 3C7.029 3 3 7.029 3 12C3 13.689 3.466 15.274 4.287 16.628L3.016 19.832C2.76 20.478 3.303 21.14 3.985 20.994L7.789 20.158C9.05 20.693 10.447 21 12 21C16.971 21 21 16.971 21 12C21 7.029 16.971 3 12 3Z"
-      stroke={COLORS.dark}
+      stroke={color}
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -145,17 +146,17 @@ const MenuLiveIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-const MenuPeaksIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+const MenuPeaksIcon = ({ size = 24, color = '#0EBF8A' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x="2" y="4" width="20" height="16" rx="4" stroke={COLORS.primary} strokeWidth="2" />
-    <Path d="M15 12L10 9V15L15 12Z" fill={COLORS.primary} />
+    <Rect x="2" y="4" width="20" height="16" rx="4" stroke={color} strokeWidth="2" />
+    <Path d="M15 12L10 9V15L15 12Z" fill={color} />
   </Svg>
 );
 
-const MenuPostIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+const MenuPostIcon = ({ size = 24, color = '#0EBF8A' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x="3" y="3" width="18" height="18" rx="4" stroke={COLORS.primary} strokeWidth="2" />
-    <Path d="M12 8V16M8 12H16" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+    <Rect x="3" y="3" width="18" height="18" rx="4" stroke={color} strokeWidth="2" />
+    <Path d="M12 8V16M8 12H16" stroke={color} strokeWidth="2" strokeLinecap="round" />
   </Svg>
 );
 
@@ -168,21 +169,21 @@ const MenuSessionsIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
 );
 
 // Dashboard tab icons for pro_business bottom nav
-const DashboardIconFilled = ({ size = 22 }: IconProps): React.JSX.Element => (
+const DashboardIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x="3" y="3" width="7" height="7" rx="2" fill={COLORS.dark} />
-    <Rect x="14" y="3" width="7" height="4" rx="2" fill={COLORS.dark} />
-    <Rect x="3" y="14" width="7" height="4" rx="2" fill={COLORS.dark} />
-    <Rect x="14" y="11" width="7" height="7" rx="2" fill={COLORS.dark} />
+    <Rect x="3" y="3" width="7" height="7" rx="2" fill={color} />
+    <Rect x="14" y="3" width="7" height="4" rx="2" fill={color} />
+    <Rect x="3" y="14" width="7" height="4" rx="2" fill={color} />
+    <Rect x="14" y="11" width="7" height="7" rx="2" fill={color} />
   </Svg>
 );
 
-const DashboardIconOutline = ({ size = 22 }: IconProps): React.JSX.Element => (
+const DashboardIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x="3" y="3" width="7" height="7" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
-    <Rect x="14" y="3" width="7" height="4" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
-    <Rect x="3" y="14" width="7" height="4" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
-    <Rect x="14" y="11" width="7" height="7" rx="2" stroke={COLORS.dark} strokeWidth="1.5" />
+    <Rect x="3" y="3" width="7" height="7" rx="2" stroke={color} strokeWidth="1.5" />
+    <Rect x="14" y="3" width="7" height="4" rx="2" stroke={color} strokeWidth="1.5" />
+    <Rect x="3" y="14" width="7" height="4" rx="2" stroke={color} strokeWidth="1.5" />
+    <Rect x="14" y="11" width="7" height="7" rx="2" stroke={color} strokeWidth="1.5" />
   </Svg>
 );
 
@@ -208,13 +209,13 @@ const MenuPlanningIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-const MenuScannerIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+const MenuScannerIcon = ({ size = 24, color = '#0EBF8A' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M3 8V6C3 4.343 4.343 3 6 3H8" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M16 3H18C19.657 3 21 4.343 21 6V8" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M21 16V18C21 19.657 19.657 21 18 21H16" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M8 21H6C4.343 21 3 19.657 3 18V16" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M4 12H20" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M3 8V6C3 4.343 4.343 3 6 3H8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M16 3H18C19.657 3 21 4.343 21 6V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M21 16V18C21 19.657 19.657 21 18 21H16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M8 21H6C4.343 21 3 19.657 3 18V16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M4 12H20" stroke={color} strokeWidth="2" strokeLinecap="round" />
   </Svg>
 );
 
@@ -222,26 +223,39 @@ interface ProfileIconProps {
   imageUri?: string;
   isActive: boolean;
   size?: number;
+  activeColor: string;
 }
 
-const ProfileIcon = ({ imageUri, isActive, size = 26 }: ProfileIconProps): React.JSX.Element => (
-  <View style={[
-    styles.profileContainer,
-    { width: size, height: size, borderRadius: size / 2 },
-    isActive && styles.profileActive
-  ]}>
-    {imageUri ? (
-      <Image
-        source={{ uri: imageUri }}
-        style={styles.profileImage}
-      />
-    ) : (
-      <View style={[styles.profileImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E7EB' }]}>
-        <Ionicons name="person" size={size * 0.6} color="#9CA3AF" />
-      </View>
-    )}
-  </View>
-);
+const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIconProps): React.JSX.Element => {
+  const profileContainerStyle = React.useMemo(() => ({
+    overflow: 'hidden' as const,
+    borderWidth: 2,
+    borderColor: isActive ? activeColor : 'transparent',
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+  }), [isActive, activeColor, size]);
+
+  const profileImageStyle = React.useMemo(() => ({
+    width: '100%' as const,
+    height: '100%' as const,
+  }), []);
+
+  return (
+    <View style={profileContainerStyle}>
+      {imageUri ? (
+        <Image
+          source={{ uri: imageUri }}
+          style={profileImageStyle}
+        />
+      ) : (
+        <View style={[profileImageStyle, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E7EB' }]}>
+          <Ionicons name="person" size={size * 0.6} color="#9CA3AF" />
+        </View>
+      )}
+    </View>
+  );
+};
 
 interface TabConfig {
   name: string;
@@ -264,6 +278,9 @@ interface BottomNavProps {
 const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: BottomNavProps): React.JSX.Element | null {
   const insets = useSafeAreaInsets();
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
+  const { colors, isDark, gradients } = useTheme();
+
+  const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Separate checks: creator-only features vs shared pro styling
   const user = useUserStore((state) => state.user);
@@ -368,13 +385,13 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       {/* Green border wrapper for pro accounts */}
       {isPro && (
         <LinearGradient
-          colors={GRADIENTS.primary}
+          colors={gradients.primary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.proBorderWrapper}
         />
       )}
-      <BlurView intensity={80} tint="light" style={[styles.blurContainer, isPro && styles.proBlurContainer]}>
+      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isPro && styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
@@ -390,7 +407,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                     activeOpacity={0.8}
                     testID="create-tab"
                   >
-                    <View style={styles.proSmuppyButton}>
+                    <View style={[styles.proSmuppyButton, { shadowColor: colors.dark }]}>
                       <SmuppyIcon size={46} variant="dark" />
                     </View>
                   </TouchableOpacity>
@@ -405,7 +422,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                   testID="create-tab"
                 >
-                  <View style={styles.createButton}>
+                  <View style={[styles.createButton, { backgroundColor: isDark ? 'rgba(13,13,13,0.95)' : 'rgba(255,255,255,0.95)', borderColor: colors.primary, shadowColor: colors.primary }]}>
                     <CreateIcon size={22} />
                   </View>
                 </TouchableOpacity>
@@ -421,8 +438,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                   testID="profile-tab"
                 >
-                  <ProfileIcon imageUri={user?.avatar || undefined} isActive={isActive} size={26} />
-                  {isActive ? <View style={styles.underline} /> : null}
+                  <ProfileIcon imageUri={user?.avatar || undefined} isActive={isActive} size={26} activeColor={colors.dark} />
+                  {isActive ? <View style={[styles.underline, { backgroundColor: colors.dark }]} /> : null}
                 </TouchableOpacity>
               );
             }
@@ -437,8 +454,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 activeOpacity={0.7}
                 testID={`${tab.name.toLowerCase()}-tab`}
               >
-                <IconComponent size={22} />
-                {isActive ? <View style={styles.underline} /> : null}
+                <IconComponent size={22} color={colors.dark} />
+                {isActive ? <View style={[styles.underline, { backgroundColor: colors.dark }]} /> : null}
               </TouchableOpacity>
             );
           })}
@@ -477,7 +494,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 },
               ]}
             >
-              <BlurView intensity={90} tint="light" style={styles.menuBlur}>
+              <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={[styles.menuBlur, { backgroundColor: isDark ? 'rgba(13,13,13,0.95)' : 'rgba(255,255,255,0.95)' }]}>
                 {/* Live Option - Creator only */}
                 {FEATURES.GO_LIVE && isProCreator && (
                 <TouchableOpacity
@@ -486,14 +503,14 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                 >
                   <LinearGradient
-                    colors={GRADIENTS.primary}
+                    colors={gradients.primary}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.menuIconBg}
                   >
                     <MenuLiveIcon size={20} />
                   </LinearGradient>
-                  <Text style={styles.menuOptionText}>Live</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Live</Text>
                 </TouchableOpacity>
                 )}
 
@@ -512,7 +529,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   >
                     <MenuSessionsIcon size={20} />
                   </LinearGradient>
-                  <Text style={styles.menuOptionText}>Sessions</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Sessions</Text>
                 </TouchableOpacity>
                 )}
 
@@ -524,9 +541,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                 >
                   <View style={styles.menuIconBgLight}>
-                    <MenuPeaksIcon size={20} />
+                    <MenuPeaksIcon size={20} color={colors.primary} />
                   </View>
-                  <Text style={styles.menuOptionText}>Peaks</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Peaks</Text>
                 </TouchableOpacity>
                 )}
 
@@ -538,14 +555,14 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                 >
                   <LinearGradient
-                    colors={GRADIENTS.primary}
+                    colors={gradients.primary}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.menuIconBg}
                   >
                     <MenuDashboardIcon size={20} />
                   </LinearGradient>
-                  <Text style={styles.menuOptionText}>Dashboard</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Dashboard</Text>
                 </TouchableOpacity>
                 )}
 
@@ -563,7 +580,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   >
                     <MenuPlanningIcon size={20} />
                   </LinearGradient>
-                  <Text style={styles.menuOptionText}>Planning</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Planning</Text>
                 </TouchableOpacity>
                 )}
 
@@ -574,9 +591,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                 >
                   <View style={styles.menuIconBgLight}>
-                    <MenuScannerIcon size={20} />
+                    <MenuScannerIcon size={20} color={colors.primary} />
                   </View>
-                  <Text style={styles.menuOptionText}>Scanner</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Scanner</Text>
                 </TouchableOpacity>
                 )}
 
@@ -587,9 +604,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   activeOpacity={0.7}
                 >
                   <View style={styles.menuIconBgLight}>
-                    <MenuPostIcon size={20} />
+                    <MenuPostIcon size={20} color={colors.primary} />
                   </View>
-                  <Text style={styles.menuOptionText}>Poste</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Poste</Text>
                 </TouchableOpacity>
               </BlurView>
             </Animated.View>
@@ -602,7 +619,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
 export default BottomNav;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     position: 'absolute',
     left: 20,
@@ -641,8 +658,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.primary,
-    shadowColor: COLORS.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -653,7 +670,7 @@ const styles = StyleSheet.create({
     bottom: 8,
     width: 18,
     height: 3,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     borderRadius: 1.5,
   },
   profileContainer: {
@@ -662,7 +679,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   profileActive: {
-    borderColor: COLORS.dark,
+    borderColor: colors.dark,
   },
   profileImage: {
     width: '100%',
@@ -682,7 +699,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   proSmuppyButton: {
-    shadowColor: COLORS.dark,
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -739,6 +756,6 @@ const styles = StyleSheet.create({
   menuOptionText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 });

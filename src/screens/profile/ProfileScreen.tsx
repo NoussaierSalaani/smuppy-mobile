@@ -17,7 +17,6 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores';
 import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
@@ -37,7 +36,8 @@ import RippleVisualization from '../../components/RippleVisualization';
 import GradeFrame from '../../components/GradeFrame';
 import { getGrade } from '../../utils/gradeSystem';
 import { useVibeStore } from '../../stores/vibeStore';
-import { styles, AVATAR_SIZE } from './ProfileScreen.styles';
+import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
+import { useTheme } from '../../hooks/useTheme';
 
 // ProfileDataSource is now imported from ../../types/profile
 
@@ -60,6 +60,8 @@ interface ProfileScreenProps {
 const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();
   const { showSuccess, showError } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createProfileStyles(colors), [colors]);
   const storeUser = useUserStore((state) => state.user);
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
@@ -334,7 +336,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 <AvatarImage source={user.avatar} size={AVATAR_SIZE - 8} style={styles.avatarWithPeaks} />
               ) : (
                 <View style={styles.avatarEmptyWithPeaks}>
-                  <Ionicons name="person" size={32} color="#6E6E73" />
+                  <Ionicons name="person" size={32} color={colors.gray400} />
                 </View>
               )}
             </View>
@@ -344,7 +346,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
           ) : (
             <View style={styles.avatarEmpty}>
-              <Ionicons name="person" size={36} color="#6E6E73" />
+              <Ionicons name="person" size={36} color={colors.gray400} />
             </View>
           )
         )}
@@ -381,7 +383,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
         {/* Gradient that fades the cover into white */}
         <LinearGradient
-          colors={['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
+          colors={['transparent', 'transparent', isDark ? 'rgba(13,13,13,0.5)' : 'rgba(255,255,255,0.5)', isDark ? 'rgba(13,13,13,0.85)' : 'rgba(255,255,255,0.85)', colors.background]}
           locations={[0, 0.35, 0.55, 0.75, 1]}
           style={styles.coverGradientOverlay}
           pointerEvents="none"
@@ -404,7 +406,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
         {/* Stats - Glassmorphism Style */}
         <View style={styles.statsGlass}>
-          <BlurView intensity={80} tint="light" style={styles.statsBlurContainer}>
+          <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={styles.statsBlurContainer}>
             <TouchableOpacity style={styles.statGlassItem} onPress={handleFansPress}>
               <Text style={styles.statGlassValue}>{user.stats.fans}</Text>
               <Text style={styles.statGlassLabel}>Fans</Text>
@@ -440,7 +442,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
-          <Ionicons name="qr-code-outline" size={18} color="#0A0A0F" />
+          <Ionicons name="qr-code-outline" size={18} color={colors.gray900} />
         </TouchableOpacity>
       </View>
 
@@ -476,7 +478,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           style={styles.addBioBtn}
           onPress={() => navigation.navigate('EditProfile')}
         >
-          <Ionicons name="add" size={16} color="#0EBF8A" />
+          <Ionicons name="add" size={16} color={colors.primary} />
           <Text style={styles.addBioText}>Add Bio</Text>
         </TouchableOpacity>
       ) : null}
@@ -560,7 +562,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                   <Ionicons
                     name={tab.icon as any}
                     size={22}
-                    color={activeTab === tab.key ? '#0EBF8A' : '#374151'}
+                    color={activeTab === tab.key ? colors.primary : colors.gray500}
                   />
                   <Text
                     style={[
@@ -571,7 +573,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                     {tab.label}
                   </Text>
                   {activeTab === tab.key && (
-                    <Ionicons name="checkmark" size={20} color="#0EBF8A" />
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -585,7 +587,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER EMPTY STATE ====================
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="images-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+      <Ionicons name="images-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
       <Text style={styles.emptyTitle}>No posts yet</Text>
       <Text style={styles.emptyDesc}>
         You're one click away from your{'\n'}first post
@@ -616,7 +618,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
           <View style={[styles.postThumb, styles.postThumbEmpty]}>
-            <Ionicons name="image-outline" size={24} color="#6E6E73" />
+            <Ionicons name="image-outline" size={24} color={colors.gray400} />
           </View>
         )}
         {isVideo && (
@@ -653,7 +655,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <OptimizedImage source={thumbnail} style={styles.peakThumb} />
         ) : (
           <View style={[styles.peakThumb, styles.postThumbEmpty]}>
-            <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
+            <Ionicons name="videocam-outline" size={24} color={colors.gray400} />
           </View>
         )}
         {/* Duration badge */}
@@ -677,8 +679,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {/* Tags - only visible to the creator (own profile) */}
           {isOwnProfile && (peak.tags_count ?? 0) > 0 && (
             <View style={styles.peakStat}>
-              <Ionicons name="pricetag" size={10} color={COLORS.primary} />
-              <Text style={[styles.peakStatText, { color: COLORS.primary }]}>{peak.tags_count}</Text>
+              <Ionicons name="pricetag" size={10} color={colors.primary} />
+              <Text style={[styles.peakStatText, { color: colors.primary }]}>{peak.tags_count}</Text>
             </View>
           )}
         </View>
@@ -692,7 +694,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (peaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No peaks yet</Text>
           <Text style={styles.emptyDesc}>
             Share your best moments as Peaks
@@ -769,7 +771,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="lock-closed-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>Private</Text>
           <Text style={styles.emptyDesc}>
             Collections are only visible to the account owner
@@ -781,7 +783,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (collections.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="bookmark-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No collections yet</Text>
           <Text style={styles.emptyDesc}>
             Save posts to find them easily later
@@ -852,12 +854,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     };
     const getVisibilityColor = () => {
       switch (video.visibility) {
-        case 'public': return COLORS.primary;
+        case 'public': return colors.primary;
         case 'subscribers': return '#FFD700'; // Gold for premium/subscribers
         case 'fans': return '#0081BE';
         case 'private': return '#8E8E93';
         case 'hidden': return '#8E8E93';
-        default: return COLORS.primary;
+        default: return colors.primary;
       }
     };
     const getVisibilityLabel = () => {
@@ -917,7 +919,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (visibleVideos.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="film-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="film-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No videos yet</Text>
           <Text style={styles.emptyDesc}>
             {isOwnProfile
@@ -961,7 +963,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No lives yet</Text>
           <Text style={styles.emptyDesc}>
             This creator hasn't shared any recorded lives yet
@@ -972,7 +974,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+        <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
         <Text style={styles.emptyTitle}>No lives yet</Text>
         <Text style={styles.emptyDesc}>
           Go live to connect with your fans in real-time
@@ -1042,7 +1044,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="lock-closed-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>Private</Text>
           <Text style={styles.emptyDesc}>
             Sessions are only visible to the creator
@@ -1053,7 +1055,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+        <Ionicons name="calendar-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
         <Text style={styles.emptyTitle}>No sessions yet</Text>
         <Text style={styles.emptyDesc}>
           Your 1:1 sessions with fans will appear here
@@ -1158,7 +1160,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               <Ionicons
                 name="people-outline"
                 size={16}
-                color={groupEventMode === 'group' ? COLORS.white : COLORS.dark}
+                color={groupEventMode === 'group' ? colors.white : colors.dark}
               />
               <Text style={[styles.toggleChipText, groupEventMode === 'group' && styles.toggleChipTextActive]}>
                 Group
@@ -1171,7 +1173,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               <Ionicons
                 name="calendar-outline"
                 size={16}
-                color={groupEventMode === 'event' ? COLORS.white : COLORS.dark}
+                color={groupEventMode === 'event' ? colors.white : colors.dark}
               />
               <Text style={[styles.toggleChipText, groupEventMode === 'event' && styles.toggleChipTextActive]}>
                 Event
@@ -1181,7 +1183,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
           {isOwnProfile && (
             <TouchableOpacity style={styles.newButton} onPress={handleNewEventGroup}>
-              <Ionicons name="add-circle" size={20} color={COLORS.primary} />
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
               <Text style={styles.newButtonText}>New</Text>
             </TouchableOpacity>
           )}
@@ -1190,14 +1192,14 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         {/* Content */}
         {isEventsGroupsLoading ? (
           <View style={styles.emptyContainer}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons
               name="calendar-outline"
               size={48}
-              color={COLORS.grayMuted}
+              color={colors.grayMuted}
               style={styles.emptyIconMargin}
             />
             <Text style={styles.emptyTitle}>No events or groups yet</Text>
@@ -1275,7 +1277,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   if (isProfileLoading && !profileData && !user.displayName) {
     return (
       <View style={[styles.container, styles.loadingCenter]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.bioText, styles.loadingMargin]}>Loading profile...</Text>
       </View>
     );
@@ -1288,7 +1290,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== MAIN RENDER ====================
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
 
       {/* Settings Button - Fixed on top */}
       {isOwnProfile && (
@@ -1307,7 +1309,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         stickyHeaderIndices={[1]} // Make tabs sticky when scrolling
       >
@@ -1370,15 +1372,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         >
           <View style={styles.collectionMenuContainer}>
             <TouchableOpacity style={styles.collectionMenuItem} onPress={handleRemoveFromCollection}>
-              <Ionicons name="bookmark-outline" size={22} color={COLORS.dark} />
+              <Ionicons name="bookmark-outline" size={22} color={colors.dark} />
               <Text style={styles.collectionMenuText}>Remove from saved</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.collectionMenuItem, styles.collectionMenuItemLast]}
               onPress={() => setCollectionMenuVisible(false)}
             >
-              <Ionicons name="close" size={22} color={COLORS.grayMuted} />
-              <Text style={[styles.collectionMenuText, { color: COLORS.grayMuted }]}>Cancel</Text>
+              <Ionicons name="close" size={22} color={colors.grayMuted} />
+              <Text style={[styles.collectionMenuText, { color: colors.grayMuted }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

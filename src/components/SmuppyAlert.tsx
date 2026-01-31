@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS } from '../config/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ALERT_WIDTH = Math.min(SCREEN_WIDTH - 48, 340);
@@ -39,14 +39,6 @@ interface SmuppyAlertProps {
   buttons?: AlertButton[];
 }
 
-const ICON_MAP: Record<AlertType, { name: string; color: string }> = {
-  success: { name: 'checkmark-circle', color: COLORS.primary },
-  error: { name: 'close-circle', color: COLORS.error },
-  warning: { name: 'warning', color: '#FF9500' },
-  info: { name: 'information-circle', color: '#007AFF' },
-  confirm: { name: 'help-circle', color: '#007AFF' },
-};
-
 const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
   visible,
   onClose,
@@ -55,8 +47,17 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
   type = 'info',
   buttons = [{ text: 'OK' }],
 }) => {
+  const { colors, gradients } = useTheme();
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const ICON_MAP: Record<AlertType, { name: string; color: string }> = {
+    success: { name: 'checkmark-circle', color: colors.primary },
+    error: { name: 'close-circle', color: colors.error },
+    warning: { name: 'warning', color: '#FF9500' },
+    info: { name: 'information-circle', color: '#007AFF' },
+    confirm: { name: 'help-circle', color: '#007AFF' },
+  };
 
   useEffect(() => {
     if (visible) {
@@ -100,6 +101,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
         <Animated.View
           style={[
             styles.card,
+            { backgroundColor: colors.darkGray },
             {
               opacity: opacityAnim,
               transform: [{ scale: scaleAnim }],
@@ -112,7 +114,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: colors.white }]}>{title}</Text>
 
           {/* Message */}
           {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -134,12 +136,12 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
                     style={styles.buttonPrimary}
                   >
                     <LinearGradient
-                      colors={[...GRADIENTS.button]}
+                      colors={[...gradients.button]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.buttonGradient}
                     >
-                      <Text style={styles.buttonTextPrimary}>{button.text}</Text>
+                      <Text style={[styles.buttonTextPrimary, { color: colors.white }]}>{button.text}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 );
@@ -154,12 +156,12 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
                     style={styles.buttonPrimary}
                   >
                     <LinearGradient
-                      colors={[COLORS.error, '#FF6B6B']}
+                      colors={[colors.error, '#FF6B6B']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.buttonGradient}
                     >
-                      <Text style={styles.buttonTextPrimary}>{button.text}</Text>
+                      <Text style={[styles.buttonTextPrimary, { color: colors.white }]}>{button.text}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 );
@@ -192,7 +194,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: ALERT_WIDTH,
-    backgroundColor: COLORS.darkGray,
     borderRadius: 20,
     paddingTop: 28,
     paddingBottom: 20,
@@ -211,7 +212,6 @@ const styles = StyleSheet.create({
     fontFamily: 'WorkSans-Bold',
     fontSize: 20,
     lineHeight: 26,
-    color: COLORS.white,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -240,7 +240,6 @@ const styles = StyleSheet.create({
   buttonTextPrimary: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.white,
   },
   buttonSecondary: {
     height: 48,

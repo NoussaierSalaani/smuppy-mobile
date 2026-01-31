@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING } from '../../config/theme';
+import { SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { AccountBadge } from '../../components/Badge';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { resolveDisplayName } from '../../types/profile';
@@ -31,6 +32,8 @@ interface MessagesScreenProps {
 
 export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -153,6 +156,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
             >
               <Text style={[
                 styles.userName,
+                { color: colors.dark },
                 (item.unread_count || 0) > 0 && styles.userNameUnread
               ]}>
                 {resolveDisplayName(otherUser)}
@@ -166,7 +170,8 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
             </TouchableOpacity>
             <Text style={[
               styles.messageTime,
-              (item.unread_count || 0) > 0 && styles.messageTimeUnread
+              { color: colors.gray },
+              (item.unread_count || 0) > 0 && { color: colors.primary, fontWeight: '600' as const }
             ]}>
               {formatTime(item.last_message_at || new Date().toISOString())}
             </Text>
@@ -176,7 +181,8 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
             <Text
               style={[
                 styles.lastMessage,
-                (item.unread_count || 0) > 0 && styles.lastMessageUnread
+                { color: colors.gray },
+                (item.unread_count || 0) > 0 && { color: colors.dark, fontWeight: '500' as const }
               ]}
               numberOfLines={1}
             >
@@ -187,8 +193,8 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
 
         {/* Unread badge */}
         {(item.unread_count || 0) > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadCount}>{item.unread_count}</Text>
+          <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.unreadCount, { color: colors.white }]}>{item.unread_count}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -197,39 +203,39 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Messages</Text>
+        <Text style={[styles.headerTitle, { color: colors.dark }]}>Messages</Text>
         <TouchableOpacity onPress={() => navigation.navigate('NewMessage')}>
-          <Ionicons name="create-outline" size={24} color={COLORS.dark} />
+          <Ionicons name="create-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.gray} />
+        <View style={[styles.searchBar, { backgroundColor: colors.gray100 }]}>
+          <Ionicons name="search" size={20} color={colors.gray} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.dark }]}
             placeholder="Search messages..."
-            placeholderTextColor={COLORS.gray}
+            placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={20} color={colors.gray} />
             </TouchableOpacity>
           )}
         </View>
@@ -261,22 +267,22 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={60} color={COLORS.grayLight} />
-            <Text style={styles.emptyTitle}>No messages</Text>
-            <Text style={styles.emptySubtitle}>
+            <Ionicons name="chatbubbles-outline" size={60} color={colors.grayLight} />
+            <Text style={[styles.emptyTitle, { color: colors.dark }]}>No messages</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.gray }]}>
               {searchQuery ? 'No results found' : 'Start a conversation!'}
             </Text>
             <TouchableOpacity
-              style={styles.startChatBtn}
+              style={[styles.startChatBtn, { backgroundColor: colors.primary }]}
               onPress={() => navigation.navigate('NewMessage')}
             >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.startChatText}>New Message</Text>
+              <Ionicons name="add" size={20} color={colors.white} />
+              <Text style={[styles.startChatText, { color: colors.white }]}>New Message</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -285,10 +291,10 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
@@ -304,7 +310,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   searchContainer: {
     paddingHorizontal: SPACING.lg,
@@ -313,7 +319,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.gray100,
     borderRadius: 12,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
@@ -322,7 +328,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACING.sm,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   filtersContainer: {
     paddingHorizontal: SPACING.lg,
@@ -358,7 +364,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   userNameUnread: {
     fontWeight: '700',
@@ -368,10 +374,10 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   messageTimeUnread: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   messagePreview: {
@@ -380,18 +386,18 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     flex: 1,
   },
   lastMessageUnread: {
-    color: COLORS.dark,
+    color: colors.dark,
     fontWeight: '500',
   },
   unreadBadge: {
     minWidth: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
@@ -399,7 +405,7 @@ const styles = StyleSheet.create({
   unreadCount: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.white,
   },
   emptyState: {
     alignItems: 'center',
@@ -409,25 +415,25 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.lg,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.sm,
   },
   startChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 25,
     marginTop: SPACING.lg,
   },
   startChatText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
     marginLeft: 8,
   },

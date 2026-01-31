@@ -55,6 +55,7 @@
     "node_modules",
     "babel.config.js",
     "metro.config.js",
-    "aws-migration/**/*"
+    "aws-migration/**/*",
+    "smuppy-mobile/**/*"
   ]
 }

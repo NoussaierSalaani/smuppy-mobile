@@ -5,7 +5,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
-import { headers as corsHeaders } from '../utils/cors';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('posts-search');
@@ -21,18 +21,9 @@ function sanitizeQuery(raw: string): string {
     .substring(0, MAX_QUERY_LENGTH);
 }
 
-function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: {
-      ...corsHeaders,
-      'Cache-Control': statusCode === 200 ? 'public, max-age=30' : 'no-cache',
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const headers = createHeaders(event);
+
   try {
     const {
       q = '',
@@ -42,7 +33,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const sanitized = sanitizeQuery(q);
     if (!sanitized) {
-      return response(400, { success: false, error: 'Search query is required' });
+      return { statusCode: 400, headers: { ...headers, 'Cache-Control': 'no-cache' }, body: JSON.stringify({ success: false, error: 'Search query is required' }) };
     }
 
     const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
@@ -130,13 +121,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
-    return response(200, {
-      success: true,
-      data: posts,
-      total: posts.length,
-    });
+    return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=30' }, body: JSON.stringify({ success: true, data: posts, total: posts.length }) };
   } catch (error: unknown) {
     log.error('Error searching posts', error);
-    return response(500, { success: false, error: 'Internal server error' });
+    return { statusCode: 500, headers: { ...headers, 'Cache-Control': 'no-cache' }, body: JSON.stringify({ success: false, error: 'Internal server error' }) };
   }
 };

@@ -12,6 +12,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey, getStripeWebhookSecret } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('payments/webhook');
@@ -57,9 +58,7 @@ function calculatePlatformFeePercent(fanCount: number): number {
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = {
-    'Content-Type': 'application/json',
-  };
+  const headers = createHeaders(event);
 
   try {
     const stripe = await getStripe();
@@ -636,7 +635,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
              VALUES ($1, 'dispute_created', 'Payment Disputed', $2, $3)`,
             [
               payment.creator_id,
-              `A payment of €${(dispute.amount / 100).toFixed(2)} has been disputed. Reason: ${dispute.reason}`,
+              `A payment of €${(dispute.amount / 100).toFixed(2)} has been disputed. Reason: ${(dispute.reason || 'unknown').replace(/<[^>]*>/g, '').substring(0, 100)}`,
               JSON.stringify({
                 disputeId: dispute.id,
                 chargeId,

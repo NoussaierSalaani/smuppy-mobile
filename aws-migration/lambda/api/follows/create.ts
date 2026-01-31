@@ -44,11 +44,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const body = JSON.parse(event.body || '{}');
     const followingId = body.followingId;
 
-    if (!followingId) {
+    // SECURITY: Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!followingId || !uuidRegex.test(followingId)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'followingId is required' }),
+        body: JSON.stringify({ message: 'Valid followingId is required' }),
       };
     }
 

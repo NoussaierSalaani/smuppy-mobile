@@ -6,8 +6,8 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getReaderPool, SqlParam } from '../../shared/db';
-import { headers as corsHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('posts-list');
 
@@ -40,19 +40,12 @@ async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: {
-      ...corsHeaders,
-      'Cache-Control': statusCode === 200 ? 'public, max-age=60' : 'no-cache',
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   const startTime = Date.now();
+  const headers = {
+    ...createHeaders(event),
+    'Cache-Control': 'no-cache',
+  };
 
   try {
     const {
@@ -72,7 +65,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
-          return response(200, { ...JSON.parse(cached), cached: true, latency: Date.now() - startTime });
+          return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=60' }, body: JSON.stringify({ ...JSON.parse(cached), cached: true, latency: Date.now() - startTime }) };
         }
       } catch { /* Cache miss, continue */ }
     }
@@ -154,9 +147,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch { /* Ignore */ }
     }
 
-    return response(200, { ...responseData, cached: false, latency: Date.now() - startTime });
+    return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=60' }, body: JSON.stringify({ ...responseData, cached: false, latency: Date.now() - startTime }) };
   } catch (error: unknown) {
     log.error('Error fetching posts', error);
-    return response(500, { error: 'Internal server error' });
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal server error' }) };
   }
 };

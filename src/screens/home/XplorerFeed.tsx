@@ -201,6 +201,16 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [joiningEvent, setJoiningEvent] = useState(false);
 
+  // Pre-fetch creation limits (non-blocking)
+  const creationLimitsRef = useRef<{ canCreateEvent: boolean; canCreateGroup: boolean } | null>(null);
+  useEffect(() => {
+    if (accountType === 'personal' && !isVerified) {
+      awsAPI.checkCreationLimits()
+        .then((limits) => { creationLimitsRef.current = limits; })
+        .catch(() => { creationLimitsRef.current = { canCreateEvent: true, canCreateGroup: true }; });
+    }
+  }, [accountType, isVerified]);
+
   // Advanced filter sheet
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [filterDistance, setFilterDistance] = useState(25);
@@ -419,27 +429,25 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     navigation.navigate('UserProfile', { userId: marker.id });
   }, [closePopup, navigation]);
 
-  const handleFabAction = useCallback(async (action: string) => {
+  const handleFabAction = useCallback((action: string) => {
     setFabOpen(false);
     switch (action) {
       case 'create_activity': {
-        // Personal non-verified: 1 creation per week, then must verify
+        // Personal non-verified: check pre-fetched limits (instant, no network wait)
         if (accountType === 'personal' && !isVerified) {
-          try {
-            const limits = await awsAPI.checkCreationLimits();
-            if (!limits.canCreateEvent) {
-              showAlert({
-                title: 'Weekly Limit Reached',
-                message: 'Free accounts can create 1 event per week. Verify your identity to create unlimited events and groups.',
-                type: 'info',
-                buttons: [
-                  { text: 'OK', style: 'cancel' },
-                  { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
-                ],
-              });
-              return;
-            }
-          } catch (_e) { /* Allow on error */ }
+          const limits = creationLimitsRef.current;
+          if (limits && !limits.canCreateEvent) {
+            showAlert({
+              title: 'Weekly Limit Reached',
+              message: 'Free accounts can create 1 event per week. Verify your identity to create unlimited events and groups.',
+              type: 'info',
+              buttons: [
+                { text: 'OK', style: 'cancel' },
+                { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerificationScreen') },
+              ],
+            });
+            return;
+          }
         }
 
         if (accountType === 'pro_business' && businessLatitude != null && businessLongitude != null) {

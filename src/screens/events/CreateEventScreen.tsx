@@ -195,7 +195,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         setCanCreate(allowed);
         setEventsThisMonth(response.eventsThisMonth || 0);
       } catch (error) {
-        console.error('Error checking limits:', error);
+        if (__DEV__) console.error('Error checking limits:', error);
         setCanCreate(true);
       } finally {
         setCheckingLimits(false);

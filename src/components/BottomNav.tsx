@@ -382,16 +382,18 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
         },
       ]}
     >
-      {/* Green border wrapper for pro accounts */}
-      {isPro && (
+      {/* Green border wrapper — pro gets gradient, personal gets solid green outline */}
+      {isPro ? (
         <LinearGradient
           colors={gradients.primary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.proBorderWrapper}
         />
+      ) : (
+        <View style={styles.personalBorderWrapper} />
       )}
-      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isPro && styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
+      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
@@ -684,6 +686,18 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   profileImage: {
     width: '100%',
     height: '100%',
+  },
+
+  // ===== PERSONAL ACCOUNT STYLES =====
+  personalBorderWrapper: {
+    position: 'absolute',
+    top: -1.5,
+    left: -1.5,
+    right: -1.5,
+    bottom: -1.5,
+    borderRadius: 29.5,
+    borderWidth: 1.5,
+    borderColor: '#0EBF8A',
   },
 
   // ===== PRO CREATOR STYLES =====

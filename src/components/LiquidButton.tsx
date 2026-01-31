@@ -19,6 +19,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../hooks/useTheme';
 
 type ColorScheme = 'green' | 'dark' | 'gold' | 'red' | 'blue';
 
@@ -95,17 +96,22 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   colorScheme = 'green',
 }) => {
   const config = SIZE_CONFIG[size];
-  const colors = COLOR_SCHEMES[colorScheme];
+  const scheme = COLOR_SCHEMES[colorScheme];
+  const { isDark } = useTheme();
   const labelColor = colorScheme === 'gold' ? '#000000' : '#FFFFFF';
 
-  // Tinted transparent background for outline
+  // Tinted transparent background for outline — darker tint in dark mode
   const outlineBgMap: Record<ColorScheme, string> = {
-    green: 'rgba(14, 191, 138, 0.08)',
-    dark: 'rgba(10, 10, 15, 0.05)',
-    gold: 'rgba(255, 165, 0, 0.08)',
-    red: 'rgba(231, 76, 60, 0.08)',
-    blue: 'rgba(37, 99, 235, 0.08)',
+    green: isDark ? 'rgba(14, 191, 138, 0.12)' : 'rgba(14, 191, 138, 0.08)',
+    dark: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(10, 10, 15, 0.05)',
+    gold: isDark ? 'rgba(255, 165, 0, 0.12)' : 'rgba(255, 165, 0, 0.08)',
+    red: isDark ? 'rgba(231, 76, 60, 0.12)' : 'rgba(231, 76, 60, 0.08)',
+    blue: isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(37, 99, 235, 0.08)',
   };
+
+  // In dark mode: outline text should be lighter for readability
+  const outlineTextColor = isDark && colorScheme === 'dark' ? '#E5E7EB' : scheme.outlineText;
+  const outlineBorderColor = isDark && colorScheme === 'dark' ? '#4A4A4C' : scheme.outlineBorder;
 
   if (variant === 'outline') {
     return (
@@ -120,15 +126,15 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
             paddingHorizontal: config.paddingH,
             borderRadius: config.radius,
             opacity: disabled ? 0.5 : 1,
-            borderColor: colors.outlineBorder,
-            shadowColor: colors.shadow,
+            borderColor: outlineBorderColor,
+            shadowColor: scheme.shadow,
             backgroundColor: outlineBgMap[colorScheme],
           },
           style,
         ]}
       >
         {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-        <Text style={[styles.outlineText, { fontSize: config.fontSize, color: colors.outlineText }, textStyle]}>
+        <Text style={[styles.outlineText, { fontSize: config.fontSize, color: outlineTextColor }, textStyle]}>
           {label}
         </Text>
         {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
@@ -143,12 +149,12 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
       activeOpacity={0.8}
       style={[
         styles.container,
-        { borderRadius: iconOnly ? config.height / 2 : config.radius, opacity: disabled ? 0.5 : 1, shadowColor: colors.shadow },
+        { borderRadius: iconOnly ? config.height / 2 : config.radius, opacity: disabled ? 0.5 : 1, shadowColor: scheme.shadow },
         style,
       ]}
     >
       <LinearGradient
-        colors={colors.gradient as unknown as [string, string, ...string[]]}
+        colors={scheme.gradient as unknown as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -253,7 +259,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderWidth: 1.5,
     borderColor: '#0EBF8A',
     shadowColor: '#0EBF8A',

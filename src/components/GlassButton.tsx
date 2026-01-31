@@ -25,6 +25,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import { useTheme } from '../hooks/useTheme';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -51,6 +52,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
   style,
   textStyle,
 }) => {
+  const { isDark } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -117,18 +119,23 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
       activeOpacity={0.9}
       style={[animatedStyle, style]}
     >
-      <View style={[styles.glassContainer, sizeStyles[size], active && styles.glassActive]}>
+      <View style={[
+          styles.glassContainer,
+          sizeStyles[size],
+          isDark && styles.glassContainerDark,
+          active && (isDark ? styles.glassActiveDark : styles.glassActive),
+        ]}>
         <BlurView
           intensity={40}
-          tint="light"
-          style={StyleSheet.absoluteFill}
+          tint={isDark ? 'dark' : 'light'}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
         <View style={styles.glassContent}>
           {icon && (
             <Ionicons
               name={icon}
               size={iconSizes[size]}
-              color={active ? '#0EBF8A' : '#374151'}
+              color={active ? '#0EBF8A' : (isDark ? '#D1D5DB' : '#374151')}
               style={label ? { marginRight: 8 } : undefined}
             />
           )}
@@ -137,6 +144,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
               style={[
                 styles.glassText,
                 { fontSize: textSizes[size] },
+                isDark && styles.glassTextDark,
                 active && styles.glassTextActive,
                 textStyle,
               ]}
@@ -146,7 +154,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
           )}
         </View>
         {/* Inner highlight */}
-        <View style={styles.innerHighlight} />
+        <View style={[styles.innerHighlight, isDark && styles.innerHighlightDark]} />
       </View>
     </AnimatedTouchable>
   );
@@ -166,9 +174,11 @@ export const GlassPillTabs: React.FC<GlassPillTabsProps> = ({
   onTabChange,
   style,
 }) => {
+  const { isDark: pillDark } = useTheme();
+
   return (
-    <View style={[styles.pillTabsContainer, style]}>
-      <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+    <View style={[styles.pillTabsContainer, pillDark && styles.pillTabsContainerDark, style]}>
+      <BlurView intensity={50} tint={pillDark ? 'dark' : 'light'} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <View style={styles.pillTabsInner}>
         {tabs.map((tab) => {
           const isActive = tab.key === activeTab;
@@ -194,9 +204,9 @@ export const GlassPillTabs: React.FC<GlassPillTabsProps> = ({
               ) : (
                 <View style={styles.pillTab}>
                   {tab.icon && (
-                    <Ionicons name={tab.icon} size={16} color="#6B7280" style={{ marginRight: 6 }} />
+                    <Ionicons name={tab.icon} size={16} color={pillDark ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 6 }} />
                   )}
-                  <Text style={styles.pillTabText}>{tab.label}</Text>
+                  <Text style={[styles.pillTabText, pillDark && styles.pillTabTextDark]}>{tab.label}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -235,6 +245,28 @@ const styles = StyleSheet.create({
   },
   glassTextActive: {
     color: '#0EBF8A',
+  },
+  // Dark mode variants
+  glassContainerDark: {
+    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  glassActiveDark: {
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    borderColor: 'rgba(14, 191, 138, 0.4)',
+  },
+  glassTextDark: {
+    color: '#D1D5DB',
+  },
+  innerHighlightDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  pillTabsContainerDark: {
+    backgroundColor: 'rgba(30, 30, 30, 0.9)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  pillTabTextDark: {
+    color: '#9CA3AF',
   },
   innerHighlight: {
     position: 'absolute',

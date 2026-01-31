@@ -84,17 +84,17 @@ export default function Button({
       },
       secondary: {
         gradient: null,
-        backgroundColor: colors.white,
+        backgroundColor: isDark ? colors.cardBg : colors.white,
         textColor: disabled ? colors.grayMuted : colors.dark,
-        borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? colors.grayBorder : 'transparent',
+        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
+        borderColor: isDark ? colors.buttonBorder : (disabled ? colors.grayBorder : 'transparent'),
       },
       tertiary: {
         gradient: null,
-        backgroundColor: colors.white,
+        backgroundColor: isDark ? colors.cardBg : colors.white,
         textColor: disabled ? colors.grayMuted : colors.dark,
-        borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? colors.grayLight : 'transparent',
+        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
+        borderColor: isDark ? colors.buttonBorderLight : (disabled ? colors.grayLight : 'transparent'),
       },
       ghost: {
         gradient: null,
@@ -105,10 +105,10 @@ export default function Button({
       },
       danger: {
         gradient: null,
-        backgroundColor: colors.white,
+        backgroundColor: isDark ? colors.cardBg : colors.white,
         textColor: disabled ? (isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3') : colors.error,
-        borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? (isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3') : 'transparent',
+        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
+        borderColor: isDark ? 'rgba(239,68,68,0.3)' : (disabled ? '#FFB3B3' : 'transparent'),
       },
       live: {
         gradient: disabled ? GRADIENTS.liveDisabled : GRADIENTS.live,

@@ -120,7 +120,13 @@ plugins: [
 'expo-location',
 'expo-image-picker',
 'expo-contacts',
-'@stripe/stripe-react-native',
+[
+  '@stripe/stripe-react-native',
+  {
+    merchantIdentifier: [],
+    enableGooglePay: false,
+  },
+],
 [
   '@rnmapbox/maps',
   {

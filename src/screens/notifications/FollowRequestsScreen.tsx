@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,15 @@ import {
   declineFollowRequest,
   FollowRequest,
 } from '../../services/database';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface FollowRequestsScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
 }
 
 const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const [requests, setRequests] = useState<FollowRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,7 +122,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
             disabled={!!isProcessing}
           >
             {isAccepting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.white} />
             ) : (
               <Text style={styles.acceptBtnText}>Accept</Text>
             )}
@@ -132,7 +134,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
             disabled={!!isProcessing}
           >
             {isDecline ? (
-              <ActivityIndicator size="small" color="#8E8E93" />
+              <ActivityIndicator size="small" color={colors.gray} />
             ) : (
               <Text style={styles.declineBtnText}>Decline</Text>
             )}
@@ -145,23 +147,23 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
-        <Ionicons name="person-add-outline" size={48} color="#9CA3AF" />
+        <Ionicons name="person-add-outline" size={48} color={colors.grayMuted} />
       </View>
       <Text style={styles.emptyTitle}>No Follow Requests</Text>
       <Text style={styles.emptySubtitle}>
         When someone requests to follow you, you'll see it here.
       </Text>
     </View>
-  ), []);
+  ), [styles, colors]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Follow Requests</Text>
         <View style={styles.headerSpacer} />
@@ -170,7 +172,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
       {/* Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primaryGreen} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -188,7 +190,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.primaryGreen}
+              tintColor={colors.primary}
             />
           }
         />
@@ -197,10 +199,10 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    borderBottomColor: colors.grayBorder,
   },
   backButton: {
     width: 40,
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   headerSpacer: {
     width: 40,
@@ -250,7 +252,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#F2F2F2',
+    backgroundColor: colors.grayBorder,
   },
   userDetails: {
     marginLeft: 12,
@@ -263,12 +265,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 15,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   userHandle: {
     fontSize: 13,
     fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
+    color: colors.grayMuted,
     marginTop: 1,
   },
   actions: {
@@ -279,27 +281,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: COLORS.primaryGreen,
+    backgroundColor: colors.primary,
     minWidth: 70,
     alignItems: 'center',
   },
   acceptBtnText: {
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   declineBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     minWidth: 70,
     alignItems: 'center',
   },
   declineBtnText: {
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
-    color: '#8E8E93',
+    color: colors.gray,
   },
   btnDisabled: {
     opacity: 0.6,
@@ -314,7 +316,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -322,13 +324,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
+    color: colors.grayMuted,
     textAlign: 'center',
     lineHeight: 22,
   },

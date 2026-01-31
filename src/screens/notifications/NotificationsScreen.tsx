@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -14,9 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation/native';
-import { COLORS, GRADIENTS, SIZES, SPACING } from '../../config/theme';
+import { GRADIENTS, SIZES, SPACING } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme } from '../../hooks/useTheme';
 
 // ============================================
 // TYPES
@@ -133,6 +134,7 @@ function formatTimeAgo(date: Date): string {
 // ============================================
 
 export default function NotificationsScreen(): React.JSX.Element {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -142,6 +144,8 @@ export default function NotificationsScreen(): React.JSX.Element {
   const [followRequestsCount, setFollowRequestsCount] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Fetch notifications from API
   const fetchNotifications = useCallback(async (isRefresh = false) => {
@@ -256,13 +260,13 @@ export default function NotificationsScreen(): React.JSX.Element {
       case 'like':
         return { name: 'heart', color: '#FF6B6B' };
       case 'follow':
-        return { name: 'person-add', color: COLORS.blue };
+        return { name: 'person-add', color: colors.blue };
       case 'peak_reply':
-        return { name: 'videocam', color: COLORS.primary };
+        return { name: 'videocam', color: colors.primary };
       case 'live':
         return { name: 'radio', color: '#FF5E57' };
       default:
-        return { name: 'notifications', color: COLORS.primary };
+        return { name: 'notifications', color: colors.primary };
     }
   };
 
@@ -288,11 +292,11 @@ export default function NotificationsScreen(): React.JSX.Element {
         {!item.isRead && <View style={styles.unreadDot} />}
 
         {isSystem ? (
-          <View style={[styles.systemIcon, { backgroundColor: COLORS.backgroundFocus }]}>
+          <View style={[styles.systemIcon, { backgroundColor: colors.backgroundFocus }]}>
             <Ionicons
               name={(item as SystemNotification).icon as keyof typeof Ionicons.glyphMap}
               size={24}
-              color={COLORS.primary}
+              color={colors.primary}
             />
           </View>
         ) : (
@@ -307,7 +311,10 @@ export default function NotificationsScreen(): React.JSX.Element {
             <View
               style={[
                 styles.typeIcon,
-                { backgroundColor: getNotificationIcon(item.type).color },
+                {
+                  backgroundColor: getNotificationIcon(item.type).color,
+                  borderColor: colors.white
+                },
               ]}
             >
               <Ionicons name={getNotificationIcon(item.type).name} size={10} color="#fff" />
@@ -384,14 +391,14 @@ export default function NotificationsScreen(): React.JSX.Element {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={24} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => navigation.navigate('NotificationSettings')}
         >
-          <Ionicons name="settings-outline" size={24} color={COLORS.dark} />
+          <Ionicons name="settings-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -426,8 +433,8 @@ export default function NotificationsScreen(): React.JSX.Element {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -438,7 +445,7 @@ export default function NotificationsScreen(): React.JSX.Element {
             onPress={() => navigation.navigate('FollowRequests')}
           >
             <View style={styles.followRequestsIcon}>
-              <Ionicons name="person-add" size={20} color={COLORS.primaryGreen} />
+              <Ionicons name="person-add" size={20} color={colors.primaryGreen} />
             </View>
             <View style={styles.followRequestsContent}>
               <Text style={styles.followRequestsTitle}>Follow Requests</Text>
@@ -446,7 +453,7 @@ export default function NotificationsScreen(): React.JSX.Element {
                 {followRequestsCount} {followRequestsCount === 1 ? 'person wants' : 'people want'} to follow you
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+            <Ionicons name="chevron-forward" size={20} color={colors.gray} />
           </TouchableOpacity>
         )}
 
@@ -460,14 +467,14 @@ export default function NotificationsScreen(): React.JSX.Element {
 
         {loading && notifications.length === 0 && (
           <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Loading notifications...</Text>
           </View>
         )}
 
         {!loading && filteredNotifications.length === 0 && (
           <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={60} color={COLORS.grayLight} />
+            <Ionicons name="notifications-off-outline" size={60} color={colors.grayLight} />
             <Text style={styles.emptyTitle}>No notifications</Text>
             <Text style={styles.emptySubtitle}>
               When you get notifications, they'll show up here
@@ -485,10 +492,10 @@ export default function NotificationsScreen(): React.JSX.Element {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -503,7 +510,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 24,
-    color: COLORS.dark,
+    color: colors.dark,
     flex: 1,
   },
   settingsButton: {
@@ -519,20 +526,20 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     marginRight: SPACING.sm,
   },
   filterChipActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   filterChipText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   filterChipTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
   notificationsList: {
     flex: 1,
@@ -541,20 +548,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
   },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   notificationUnread: {
-    backgroundColor: COLORS.backgroundFocus,
+    backgroundColor: colors.backgroundFocus,
   },
   unreadDot: {
     position: 'absolute',
@@ -562,7 +569,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   avatarContainer: {
     position: 'relative',
@@ -583,7 +590,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.white,
   },
   systemIcon: {
     width: 50,
@@ -600,7 +606,7 @@ const styles = StyleSheet.create({
   notificationText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     lineHeight: 20,
   },
   userName: {
@@ -609,18 +615,18 @@ const styles = StyleSheet.create({
   systemTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   systemMessage: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   timeText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
     marginTop: 4,
   },
   followButtonContainer: {
@@ -634,19 +640,19 @@ const styles = StyleSheet.create({
   followButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   followingButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: SIZES.radiusSm,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
   },
   followingButtonText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   postThumbnail: {
     width: 44,
@@ -664,7 +670,7 @@ const styles = StyleSheet.create({
   liveButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: COLORS.white,
+    color: colors.white,
   },
   loadingState: {
     alignItems: 'center',
@@ -674,7 +680,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.md,
   },
   emptyState: {
@@ -686,13 +692,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.lg,
   },
   emptySubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },
@@ -702,16 +708,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: isDark ? 'rgba(15,45,30,0.3)' : 'rgba(240,253,244,1)',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.grayBorder,
     marginBottom: SPACING.sm,
   },
   followRequestsIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: isDark ? 'rgba(15,45,30,0.6)' : 'rgba(220,252,231,1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -722,12 +728,12 @@ const styles = StyleSheet.create({
   followRequestsTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   followRequestsSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 1,
   },
 });

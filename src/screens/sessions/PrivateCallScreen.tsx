@@ -1,6 +1,6 @@
 // src/screens/sessions/PrivateCallScreen.tsx
 // 1:1 Private Video Call Screen with Agora
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { usePrivateCall } from '../../hooks/useAgora';
 import { LocalVideoView, RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
 import { awsAPI } from '../../services/aws-api';
@@ -44,8 +44,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   const { showAlert } = useSmuppyAlert();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const {
     sessionId,
@@ -312,7 +315,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
           </Text>
 
           {isLoading && (
-            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
           )}
         </View>
 
@@ -481,7 +484,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -504,7 +507,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   callerName: {
     fontSize: 28,
@@ -590,7 +593,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   creatorName: {
     color: 'white',
@@ -607,7 +610,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   durationText: {
     color: 'rgba(255,255,255,0.8)',
@@ -688,7 +691,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   continueButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

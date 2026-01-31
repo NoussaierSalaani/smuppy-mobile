@@ -15,9 +15,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI, SessionPack } from '../../services/aws-api';
 import OptimizedImage from '../../components/OptimizedImage';
+import { useTheme } from '../../hooks/useTheme';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -51,6 +52,7 @@ type BookingMode = 'single' | 'pack';
 export default function BookSessionScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { colors, isDark } = useTheme();
 
   const { creatorId, creator: routeCreator } = route.params || {};
 
@@ -192,12 +194,14 @@ export default function BookSessionScreen(): React.JSX.Element {
     ? (selectedDate && selectedTime)
     : selectedPack;
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading availability...</Text>
         </View>
       </SafeAreaView>
@@ -206,12 +210,12 @@ export default function BookSessionScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Book 1-to-1 Session</Text>
         <View style={styles.placeholder} />
@@ -390,7 +394,7 @@ export default function BookSessionScreen(): React.JSX.Element {
                         )}
                       </View>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                        <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                       )}
                     </View>
 
@@ -455,10 +459,10 @@ export default function BookSessionScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -468,7 +472,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   header: {
     flexDirection: 'row',
@@ -477,7 +481,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
@@ -488,7 +492,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -500,7 +504,7 @@ const styles = StyleSheet.create({
   creatorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 191, 138, 0.08)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.08)',
     borderRadius: 16,
     padding: 16,
     marginTop: 20,
@@ -511,7 +515,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   creatorInfo: {
     marginLeft: 12,
@@ -519,16 +523,16 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   creatorSpecialty: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 2,
   },
   sessionTypeContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(10, 37, 47, 0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     padding: 4,
     marginBottom: 24,
@@ -540,38 +544,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sessionTypeActive: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDark ? 0.3 : 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   sessionTypeText: {
     fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   sessionTypeTextActive: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 12,
   },
   availabilityNote: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.gray,
     marginBottom: 12,
     marginTop: -8,
   },
   noSlotsText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 20,
@@ -588,16 +592,16 @@ const styles = StyleSheet.create({
     width: 64,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(10, 37, 47, 0.04)',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     marginRight: 10,
   },
   dateItemSelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   dateDay: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     marginBottom: 4,
   },
   dateDaySelected: {
@@ -606,7 +610,7 @@ const styles = StyleSheet.create({
   dateNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 2,
   },
   dateNumberSelected: {
@@ -614,23 +618,23 @@ const styles = StyleSheet.create({
   },
   dateMonth: {
     fontSize: 11,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   dateMonthSelected: {
     color: 'rgba(255,255,255,0.8)',
   },
   dateItemUnavailable: {
-    backgroundColor: 'rgba(10, 37, 47, 0.02)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(10, 37, 47, 0.02)',
     opacity: 0.5,
   },
   dateDayUnavailable: {
-    color: 'rgba(10, 37, 47, 0.3)',
+    color: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(10, 37, 47, 0.3)',
   },
   dateNumberUnavailable: {
-    color: 'rgba(10, 37, 47, 0.3)',
+    color: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(10, 37, 47, 0.3)',
   },
   dateMonthUnavailable: {
-    color: 'rgba(10, 37, 47, 0.3)',
+    color: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(10, 37, 47, 0.3)',
   },
   timeSlotsContainer: {
     flexDirection: 'row',
@@ -642,21 +646,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(10, 37, 47, 0.04)',
+    backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   timeSlotSelected: {
-    backgroundColor: 'rgba(14, 191, 138, 0.1)',
-    borderColor: COLORS.primary,
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.2)' : 'rgba(14, 191, 138, 0.1)',
+    borderColor: colors.primary,
   },
   timeSlotText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   timeSlotTextSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   durationsContainer: {
@@ -668,34 +672,34 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     borderRadius: 14,
-    backgroundColor: 'rgba(10, 37, 47, 0.04)',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   durationItemSelected: {
-    backgroundColor: 'rgba(14, 191, 138, 0.1)',
-    borderColor: COLORS.primary,
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.2)' : 'rgba(14, 191, 138, 0.1)',
+    borderColor: colors.primary,
   },
   durationLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 4,
   },
   durationLabelSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   durationPrice: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   durationPriceSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   // Pack styles
   packCard: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -703,8 +707,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   packCardSelected: {
-    backgroundColor: 'rgba(14, 191, 138, 0.08)',
-    borderColor: COLORS.primary,
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.08)',
+    borderColor: colors.primary,
   },
   packHeader: {
     flexDirection: 'row',
@@ -720,7 +724,7 @@ const styles = StyleSheet.create({
   packName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   savingsBadge: {
     backgroundColor: '#22C55E20',
@@ -744,17 +748,17 @@ const styles = StyleSheet.create({
   },
   packDetailText: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.gray,
   },
   packDescription: {
     fontSize: 13,
-    color: '#666',
+    color: colors.gray,
     marginBottom: 12,
   },
   packPrice: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   bottomSpacer: {
     height: 100,
@@ -765,20 +769,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    backgroundColor: 'white',
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   priceInfo: {
     marginRight: 16,
   },
   priceLabel: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   priceValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   continueButtonWrapper: {
     flex: 1,

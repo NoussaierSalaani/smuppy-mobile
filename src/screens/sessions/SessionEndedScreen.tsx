@@ -1,5 +1,5 @@
 // src/screens/sessions/SessionEndedScreen.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function SessionEndedScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { colors, isDark } = useTheme();
 
   const { duration = 0, creator } = route.params || {
     duration: 0,
@@ -27,6 +29,8 @@ export default function SessionEndedScreen(): React.JSX.Element {
       avatar: null,
     },
   };
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -52,16 +56,16 @@ export default function SessionEndedScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       <View style={styles.content}>
         {/* Success Icon */}
         <View style={styles.iconContainer}>
           <LinearGradient
-            colors={['#0081BE', '#00B5C1']}
+            colors={[colors.primary, colors.primaryDark]}
             style={styles.iconGradient}
           >
-            <Ionicons name="checkmark" size={48} color="white" />
+            <Ionicons name="checkmark" size={48} color={colors.white} />
           </LinearGradient>
         </View>
 
@@ -86,13 +90,13 @@ export default function SessionEndedScreen(): React.JSX.Element {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Ionicons name="time-outline" size={24} color="#0081BE" />
+            <Ionicons name="time-outline" size={24} color={colors.primary} />
             <Text style={styles.statValue}>{formatDuration(duration)}</Text>
             <Text style={styles.statLabel}>Duration</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Ionicons name="videocam-outline" size={24} color="#0081BE" />
+            <Ionicons name="videocam-outline" size={24} color={colors.primary} />
             <Text style={styles.statValue}>HD</Text>
             <Text style={styles.statLabel}>Quality</Text>
           </View>
@@ -114,19 +118,19 @@ export default function SessionEndedScreen(): React.JSX.Element {
       {/* Bottom Buttons */}
       <View style={styles.bottomButtons}>
         <TouchableOpacity style={styles.rebookButton} onPress={handleRebook}>
-          <Ionicons name="calendar-outline" size={20} color="#0081BE" />
+          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
           <Text style={styles.rebookButtonText}>Book Again</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleDone} activeOpacity={0.9}>
           <LinearGradient
-            colors={GRADIENTS.primary}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.doneButton}
           >
             <Text style={styles.doneButtonText}>Done</Text>
-            <Ionicons name="arrow-forward" size={20} color="white" />
+            <Ionicons name="arrow-forward" size={20} color={colors.white} />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -134,10 +138,10 @@ export default function SessionEndedScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0081BE',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -163,18 +167,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.lightGray,
     marginBottom: 32,
   },
   creatorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 129, 190, 0.08)',
+    backgroundColor: colors.primary + '10',
     borderRadius: 16,
     padding: 16,
     width: '100%',
@@ -185,7 +189,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 2,
-    borderColor: '#0081BE',
+    borderColor: colors.primary,
     marginRight: 12,
   },
   creatorInfo: {
@@ -194,11 +198,11 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sessionType: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.lightGray,
     marginTop: 2,
   },
   statsContainer: {
@@ -209,7 +213,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(0, 129, 190, 0.08)',
+    backgroundColor: colors.primary + '10',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -217,13 +221,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 8,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.lightGray,
   },
   rateContainer: {
     alignItems: 'center',
@@ -232,7 +236,7 @@ const styles = StyleSheet.create({
   rateTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 12,
   },
   starsContainer: {
@@ -254,13 +258,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#0081BE',
+    borderColor: colors.primary,
     gap: 8,
   },
   rebookButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0081BE',
+    color: colors.primary,
   },
   doneButton: {
     flexDirection: 'row',
@@ -273,6 +277,6 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
+    color: colors.white,
   },
 });

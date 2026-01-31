@@ -1,5 +1,5 @@
 // src/screens/sessions/SessionBookedScreen.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -15,12 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Calendar from 'expo-calendar';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function SessionBookedScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { colors, isDark } = useTheme();
 
   const { showError, showSuccess } = useSmuppyAlert();
 
@@ -99,9 +101,11 @@ export default function SessionBookedScreen(): React.JSX.Element {
     });
   };
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <View style={styles.content}>
         {/* Success Icon */}
@@ -134,7 +138,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
           <View style={styles.detailRow}>
             <View style={styles.detailIconContainer}>
-              <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
             </View>
             <View>
               <Text style={styles.detailLabel}>Date</Text>
@@ -144,7 +148,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
           <View style={styles.detailRow}>
             <View style={styles.detailIconContainer}>
-              <Ionicons name="time-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="time-outline" size={20} color={colors.primary} />
             </View>
             <View>
               <Text style={styles.detailLabel}>Time</Text>
@@ -155,7 +159,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
         {/* Add to Calendar Button */}
         <TouchableOpacity style={styles.calendarButton} onPress={handleAddToCalendar}>
-          <Ionicons name="calendar" size={20} color={COLORS.primary} />
+          <Ionicons name="calendar" size={20} color={colors.primary} />
           <Text style={styles.calendarButtonText}>Add to Calendar</Text>
         </TouchableOpacity>
       </View>
@@ -177,10 +181,10 @@ export default function SessionBookedScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -197,7 +201,7 @@ const styles = StyleSheet.create({
     borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -206,19 +210,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 22,
   },
   detailsCard: {
     width: '100%',
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -233,22 +237,22 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     marginRight: 12,
   },
   creatorName: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sessionType: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(10, 37, 47, 0.08)',
+    backgroundColor: colors.border,
     marginBottom: 16,
   },
   detailRow: {
@@ -260,20 +264,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(14, 191, 138, 0.1)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.2)' : 'rgba(14, 191, 138, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   detailLabel: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     marginBottom: 2,
   },
   detailValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   calendarButton: {
     flexDirection: 'row',
@@ -282,20 +286,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     gap: 8,
   },
   calendarButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   bottomContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    backgroundColor: 'white',
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   doneButton: {
     flexDirection: 'row',

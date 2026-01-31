@@ -6,7 +6,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
  * Fan/Member perspective
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { awsAPI, SessionPack } from '../../services/aws-api';
 
 type TabType = 'sessions' | 'packs' | 'channel';
@@ -108,6 +108,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'CreatorOfferings'>>();
+  const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('sessions');
   const [loading, setLoading] = useState(true);
   const [creator, setCreator] = useState<Creator | null>(null);
@@ -238,8 +239,8 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
       </Text>
       {sessionOfferings.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.gray} />
-          <Text style={{ color: COLORS.gray, marginTop: 12 }}>Aucune session disponible</Text>
+          <Ionicons name="videocam-outline" size={48} color={colors.gray} />
+          <Text style={{ color: colors.gray, marginTop: 12 }}>Aucune session disponible</Text>
         </View>
       ) : null}
       {sessionOfferings.map(offering => (
@@ -250,7 +251,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         >
           <View style={styles.offeringHeader}>
             <View style={styles.durationBadge}>
-              <Ionicons name="time" size={16} color={COLORS.primary} />
+              <Ionicons name="time" size={16} color={colors.primary} />
               <Text style={styles.durationText}>{offering.duration} min</Text>
             </View>
             <Text style={styles.offeringPrice}>{offering.price.toFixed(2)} €</Text>
@@ -258,7 +259,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           <Text style={styles.offeringDescription}>{offering.description}</Text>
           <View style={styles.offeringFooter}>
             <Text style={styles.bookNowText}>Réserver</Text>
-            <Ionicons name="arrow-forward" size={18} color={COLORS.primary} />
+            <Ionicons name="arrow-forward" size={18} color={colors.primary} />
           </View>
         </TouchableOpacity>
       ))}
@@ -272,8 +273,8 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
       </Text>
       {packs.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-          <Ionicons name="cube-outline" size={48} color={COLORS.gray} />
-          <Text style={{ color: COLORS.gray, marginTop: 12 }}>Aucun pack disponible</Text>
+          <Ionicons name="cube-outline" size={48} color={colors.gray} />
+          <Text style={{ color: colors.gray, marginTop: 12 }}>Aucun pack disponible</Text>
         </View>
       ) : null}
       {packs.map(pack => (
@@ -284,7 +285,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         >
           {pack.popular && (
             <View style={styles.popularBadge}>
-              <Ionicons name="star" size={12} color={COLORS.white} />
+              <Ionicons name="star" size={12} color={colors.white} />
               <Text style={styles.popularText}>Populaire</Text>
             </View>
           )}
@@ -297,15 +298,15 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           <Text style={styles.packDescription}>{pack.description}</Text>
           <View style={styles.packDetails}>
             <View style={styles.packDetailItem}>
-              <Ionicons name="videocam-outline" size={18} color={COLORS.gray} />
+              <Ionicons name="videocam-outline" size={18} color={colors.gray} />
               <Text style={styles.packDetailText}>{pack.sessionsIncluded} sessions</Text>
             </View>
             <View style={styles.packDetailItem}>
-              <Ionicons name="time-outline" size={18} color={COLORS.gray} />
+              <Ionicons name="time-outline" size={18} color={colors.gray} />
               <Text style={styles.packDetailText}>{pack.sessionDuration} min/session</Text>
             </View>
             <View style={styles.packDetailItem}>
-              <Ionicons name="calendar-outline" size={18} color={COLORS.gray} />
+              <Ionicons name="calendar-outline" size={18} color={colors.gray} />
               <Text style={styles.packDetailText}>Valide {pack.validityDays} jours</Text>
             </View>
           </View>
@@ -338,7 +339,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         >
           {tier.popular && (
             <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
+              colors={[colors.primary, colors.cyanBlue]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.tierPopularBadge}
@@ -356,7 +357,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           <View style={styles.tierPerks}>
             {tier.perks.map((perk, index) => (
               <View key={index} style={styles.perkRow}>
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.perkText}>{perk}</Text>
               </View>
             ))}
@@ -367,7 +368,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           >
             {tier.popular ? (
               <LinearGradient
-                colors={[COLORS.primary, COLORS.secondary]}
+                colors={[colors.primary, colors.cyanBlue]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.subscribeGradient}
@@ -375,7 +376,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
                 <Text style={styles.subscribeButtonText}>S'abonner</Text>
               </LinearGradient>
             ) : (
-              <Text style={[styles.subscribeButtonText, { color: COLORS.primary }]}>S'abonner</Text>
+              <Text style={[styles.subscribeButtonText, { color: colors.primary }]}>S'abonner</Text>
             )}
           </TouchableOpacity>
         </TouchableOpacity>
@@ -383,11 +384,13 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
     </View>
   );
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.gray, marginTop: 16 }}>Chargement...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Chargement...</Text>
       </View>
     );
   }
@@ -395,10 +398,10 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   if (!creator) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.gray} />
-        <Text style={{ color: COLORS.gray, marginTop: 16 }}>Créateur non trouvé</Text>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.gray} />
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Créateur non trouvé</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
-          <Text style={{ color: COLORS.primary }}>Retour</Text>
+          <Text style={{ color: colors.primary }}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
@@ -409,7 +412,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+          <Ionicons name="chevron-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.title}>Offres</Text>
         <View style={styles.placeholder} />
@@ -426,7 +429,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             <View style={styles.nameRow}>
               <Text style={styles.creatorName}>{creator.name}</Text>
               {creator.verified && (
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
               )}
             </View>
             <Text style={styles.creatorUsername}>@{creator.username}</Text>
@@ -445,7 +448,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             <Ionicons
               name="videocam"
               size={20}
-              color={activeTab === 'sessions' ? COLORS.primary : COLORS.gray}
+              color={activeTab === 'sessions' ? colors.primary : colors.gray}
             />
             <Text style={[styles.tabText, activeTab === 'sessions' && styles.activeTabText]}>
               Sessions
@@ -458,7 +461,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             <Ionicons
               name="cube"
               size={20}
-              color={activeTab === 'packs' ? COLORS.primary : COLORS.gray}
+              color={activeTab === 'packs' ? colors.primary : colors.gray}
             />
             <Text style={[styles.tabText, activeTab === 'packs' && styles.activeTabText]}>
               Packs
@@ -471,7 +474,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             <Ionicons
               name="heart"
               size={20}
-              color={activeTab === 'channel' ? COLORS.primary : COLORS.gray}
+              color={activeTab === 'channel' ? colors.primary : colors.gray}
             />
             <Text style={[styles.tabText, activeTab === 'channel' && styles.activeTabText]}>
               Chaîne
@@ -490,10 +493,10 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -511,7 +514,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   placeholder: {
     width: 40,
@@ -522,7 +525,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 20,
     padding: 16,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
   },
   creatorAvatar: {
@@ -542,23 +545,23 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   creatorUsername: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   subscribersCount: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 4,
   },
   tabsContainer: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginBottom: 20,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     padding: 4,
   },
@@ -572,28 +575,28 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   activeTab: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   activeTabText: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   tabContent: {
     paddingHorizontal: 16,
   },
   tabDescription: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 16,
     lineHeight: 20,
   },
   // Sessions
   offeringCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -608,7 +611,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -616,16 +619,16 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   offeringPrice: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   offeringDescription: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     marginBottom: 12,
   },
   offeringFooter: {
@@ -637,24 +640,24 @@ const styles = StyleSheet.create({
   bookNowText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   // Packs
   packCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
   },
   packCardPopular: {
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   popularBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -664,7 +667,7 @@ const styles = StyleSheet.create({
   popularText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   packHeader: {
     flexDirection: 'row',
@@ -675,7 +678,7 @@ const styles = StyleSheet.create({
   packName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   savingsBadge: {
     backgroundColor: '#22C55E20',
@@ -690,7 +693,7 @@ const styles = StyleSheet.create({
   },
   packDescription: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     marginBottom: 16,
   },
   packDetails: {
@@ -706,7 +709,7 @@ const styles = StyleSheet.create({
   },
   packDetailText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   packFooter: {
     flexDirection: 'row',
@@ -714,20 +717,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.dark,
+    borderTopColor: colors.background,
   },
   packPrice: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
   },
   perSessionPrice: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   buyButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
@@ -735,18 +738,18 @@ const styles = StyleSheet.create({
   buyButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   // Channel Tiers
   tierCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
   },
   tierCardPopular: {
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   tierPopularBadge: {
     paddingHorizontal: 12,
@@ -758,7 +761,7 @@ const styles = StyleSheet.create({
   tierPopularText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   tierHeader: {
     flexDirection: 'row',
@@ -769,7 +772,7 @@ const styles = StyleSheet.create({
   tierName: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   tierPriceContainer: {
     flexDirection: 'row',
@@ -778,11 +781,11 @@ const styles = StyleSheet.create({
   tierPrice: {
     fontSize: 24,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   tierPeriod: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 2,
   },
   tierPerks: {
@@ -796,13 +799,13 @@ const styles = StyleSheet.create({
   },
   perkText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     flex: 1,
   },
   subscribeButton: {
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     overflow: 'hidden',
   },
   subscribeButtonPopular: {
@@ -815,7 +818,7 @@ const styles = StyleSheet.create({
   subscribeButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     textAlign: 'center',
     paddingVertical: 14,
   },

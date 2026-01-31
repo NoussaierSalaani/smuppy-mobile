@@ -3,7 +3,7 @@
  * Checkout screen for subscribing to a creator's channel
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,9 +20,9 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStripe } from '@stripe/stripe-react-native';
-import { DARK_COLORS as COLORS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 interface ChannelTier {
   id: string;
@@ -59,6 +59,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'ChannelSubscribe'>>();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { colors, isDark } = useTheme();
 
   const { showError } = useSmuppyAlert();
   const { creatorId, tier } = route.params;
@@ -66,6 +67,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
   const [loading, setLoading] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     initializePayment();
@@ -104,13 +107,13 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         },
         appearance: {
           colors: {
-            primary: COLORS.primary,
-            background: COLORS.dark,
-            componentBackground: COLORS.darkGray,
-            componentText: COLORS.white,
-            primaryText: COLORS.white,
-            secondaryText: COLORS.gray,
-            placeholderText: COLORS.gray,
+            primary: colors.primary,
+            background: colors.background,
+            componentBackground: colors.backgroundSecondary,
+            componentText: colors.dark,
+            primaryText: colors.dark,
+            secondaryText: colors.gray,
+            placeholderText: colors.gray,
           },
         },
       });
@@ -165,7 +168,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={COLORS.white} />
+          <Ionicons name="close" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>S'abonner</Text>
         <View style={styles.placeholder} />
@@ -184,7 +187,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
             <View style={styles.nameRow}>
               <Text style={styles.heroName}>{creator.name}</Text>
               {creator.verified && (
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
               )}
             </View>
             <Text style={styles.heroUsername}>@{creator.username}</Text>
@@ -198,19 +201,19 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         <View style={styles.tierCard}>
           {tier.popular && (
             <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
+              colors={[colors.primary, colors.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.tierBadge}
             >
-              <Ionicons name="star" size={12} color={COLORS.white} />
+              <Ionicons name="star" size={12} color={colors.white} />
               <Text style={styles.tierBadgeText}>Recommandé</Text>
             </LinearGradient>
           )}
 
           <View style={styles.tierHeader}>
             <View style={styles.tierIconContainer}>
-              <Ionicons name="heart" size={28} color={COLORS.primary} />
+              <Ionicons name="heart" size={28} color={colors.primary} />
             </View>
             <View style={styles.tierTitleContainer}>
               <Text style={styles.tierName}>{tier.name}</Text>
@@ -227,7 +230,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           <View style={styles.perksList}>
             {tier.perks.map((perk, index) => (
               <View key={index} style={styles.perkRow}>
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                 <Text style={styles.perkText}>{perk}</Text>
               </View>
             ))}
@@ -259,8 +262,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         {/* Benefits */}
         <View style={styles.benefitsCard}>
           <View style={styles.benefitItem}>
-            <View style={[styles.benefitIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Ionicons name="lock-open" size={20} color={COLORS.primary} />
+            <View style={[styles.benefitIcon, { backgroundColor: colors.primary + '20' }]}>
+              <Ionicons name="lock-open" size={20} color={colors.primary} />
             </View>
             <View style={styles.benefitContent}>
               <Text style={styles.benefitTitle}>Accès immédiat</Text>
@@ -269,8 +272,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           </View>
 
           <View style={styles.benefitItem}>
-            <View style={[styles.benefitIcon, { backgroundColor: '#EC489920' }]}>
-              <Ionicons name="close-circle" size={20} color="#EC4899" />
+            <View style={[styles.benefitIcon, { backgroundColor: colors.error + '20' }]}>
+              <Ionicons name="close-circle" size={20} color={colors.error} />
             </View>
             <View style={styles.benefitContent}>
               <Text style={styles.benefitTitle}>Sans engagement</Text>
@@ -279,8 +282,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           </View>
 
           <View style={styles.benefitItem}>
-            <View style={[styles.benefitIcon, { backgroundColor: '#22C55E20' }]}>
-              <Ionicons name="shield-checkmark" size={20} color="#22C55E" />
+            <View style={[styles.benefitIcon, { backgroundColor: colors.success + '20' }]}>
+              <Ionicons name="shield-checkmark" size={20} color={colors.success} />
             </View>
             <View style={styles.benefitContent}>
               <Text style={styles.benefitTitle}>Paiement sécurisé</Text>
@@ -306,16 +309,16 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           disabled={loading}
         >
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.subscribeGradient}
           >
             {loading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
-                <Ionicons name="heart" size={20} color={COLORS.white} />
+                <Ionicons name="heart" size={20} color={colors.white} />
                 <Text style={styles.subscribeButtonText}>
                   S'abonner pour {tier.price.toFixed(2)} €/mois
                 </Text>
@@ -328,10 +331,10 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -368,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginBottom: 14,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   heroInfo: {
     alignItems: 'center',
@@ -381,26 +384,26 @@ const styles = StyleSheet.create({
   heroName: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.dark,
   },
   heroUsername: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   subscribersCount: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 6,
     fontWeight: '500',
   },
   tierCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   tierBadge: {
     flexDirection: 'row',
@@ -415,7 +418,7 @@ const styles = StyleSheet.create({
   tierBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   tierHeader: {
     flexDirection: 'row',
@@ -426,7 +429,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -437,7 +440,7 @@ const styles = StyleSheet.create({
   tierName: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 4,
   },
   tierPriceRow: {
@@ -447,22 +450,22 @@ const styles = StyleSheet.create({
   tierPrice: {
     fontSize: 28,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   tierPeriod: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     marginVertical: 16,
   },
   perksTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 12,
   },
   perksList: {
@@ -475,11 +478,11 @@ const styles = StyleSheet.create({
   },
   perkText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.gray,
     flex: 1,
   },
   billingCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -487,7 +490,7 @@ const styles = StyleSheet.create({
   billingTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 16,
   },
   billingRow: {
@@ -498,15 +501,15 @@ const styles = StyleSheet.create({
   },
   billingLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   billingValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   benefitsCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -530,17 +533,17 @@ const styles = StyleSheet.create({
   benefitTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 2,
   },
   benefitText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 18,
   },
   terms: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: 20,
@@ -552,9 +555,9 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingTop: 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: COLORS.darkGray,
+    borderTopColor: colors.backgroundSecondary,
   },
   subscribeButton: {
     borderRadius: 16,
@@ -573,7 +576,7 @@ const styles = StyleSheet.create({
   subscribeButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

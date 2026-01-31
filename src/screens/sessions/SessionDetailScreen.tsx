@@ -3,7 +3,7 @@
  * Shows detailed information about a session (Fan perspective)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Calendar from 'expo-calendar';
-import { DARK_COLORS as COLORS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Session {
   id: string;
@@ -49,9 +49,12 @@ const SessionDetailScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RouteParams, 'SessionDetail'>>();
   const { session } = route.params;
   const { showError, showSuccess, showAlert } = useSmuppyAlert();
+  const { colors, gradients, isDark } = useTheme();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('fr-FR', {
@@ -68,11 +71,11 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
   const getStatusColor = (status: Session['status']): string => {
     switch (status) {
-      case 'confirmed': return COLORS.primary;
+      case 'confirmed': return colors.primary;
       case 'pending': return '#FFA500';
-      case 'completed': return COLORS.gray;
+      case 'completed': return colors.gray;
       case 'cancelled': return '#FF4444';
-      default: return COLORS.gray;
+      default: return colors.gray;
     }
   };
 
@@ -169,7 +172,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+          <Ionicons name="chevron-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.title}>Détails de la session</Text>
         <View style={styles.placeholder} />
@@ -188,12 +191,12 @@ const SessionDetailScreen = (): React.JSX.Element => {
             <View style={styles.nameRow}>
               <Text style={styles.creatorName}>{session.creatorName}</Text>
               {session.creatorVerified && (
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
               )}
             </View>
             <Text style={styles.username}>@{session.creatorUsername}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+          <Ionicons name="chevron-forward" size={20} color={colors.gray} />
         </TouchableOpacity>
 
         {/* Status Banner */}
@@ -218,7 +221,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Ionicons name="calendar-outline" size={22} color={COLORS.primary} />
+              <Ionicons name="calendar-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Date</Text>
@@ -228,7 +231,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Ionicons name="time-outline" size={22} color={COLORS.primary} />
+              <Ionicons name="time-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Heure</Text>
@@ -238,7 +241,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Ionicons name="hourglass-outline" size={22} color={COLORS.primary} />
+              <Ionicons name="hourglass-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Durée</Text>
@@ -249,7 +252,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
           {session.sessionType === 'pack' && session.packName && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <Ionicons name="cube-outline" size={22} color={COLORS.primary} />
+                <Ionicons name="cube-outline" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Pack</Text>
@@ -261,7 +264,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
           {session.price > 0 && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <Ionicons name="card-outline" size={22} color={COLORS.primary} />
+                <Ionicons name="card-outline" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Prix payé</Text>
@@ -276,18 +279,18 @@ const SessionDetailScreen = (): React.JSX.Element => {
           <View style={styles.actionsSection}>
             <TouchableOpacity style={styles.actionRow} onPress={handleAddToCalendar}>
               <View style={styles.actionIcon}>
-                <Ionicons name="calendar" size={22} color={COLORS.white} />
+                <Ionicons name="calendar" size={22} color={colors.white} />
               </View>
               <Text style={styles.actionText}>Ajouter au calendrier</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.gray} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionRow} onPress={handleMessageCreator}>
               <View style={styles.actionIcon}>
-                <Ionicons name="chatbubble" size={22} color={COLORS.white} />
+                <Ionicons name="chatbubble" size={22} color={colors.white} />
               </View>
               <Text style={styles.actionText}>Envoyer un message</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.gray} />
             </TouchableOpacity>
 
             {canCancel && (
@@ -312,7 +315,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               style={styles.rebookButton}
               onPress={() => navigation.navigate('BookSession', { creatorId: session.creatorId })}
             >
-              <Ionicons name="refresh" size={20} color={COLORS.white} />
+              <Ionicons name="refresh" size={20} color={colors.white} />
               <Text style={styles.rebookButtonText}>Réserver à nouveau</Text>
             </TouchableOpacity>
           </View>
@@ -326,12 +329,12 @@ const SessionDetailScreen = (): React.JSX.Element => {
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity style={styles.joinButton} onPress={handleJoinSession}>
             <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
+              colors={gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.joinGradient}
             >
-              <Ionicons name="videocam" size={24} color={COLORS.white} />
+              <Ionicons name="videocam" size={24} color={colors.white} />
               <Text style={styles.joinText}>Rejoindre la session</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -381,10 +384,10 @@ const SessionDetailScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -402,7 +405,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   placeholder: {
     width: 40,
@@ -414,7 +417,7 @@ const styles = StyleSheet.create({
   creatorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -436,11 +439,11 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   username: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   statusBanner: {
@@ -456,7 +459,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoSection: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -464,7 +467,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 16,
   },
   infoRow: {
@@ -476,7 +479,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -486,16 +489,16 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   actionsSection: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
@@ -505,13 +508,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.dark,
+    borderBottomColor: colors.background,
   },
   actionIcon: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -520,7 +523,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.white,
+    color: colors.white,
   },
   cancelAction: {
     borderBottomWidth: 0,
@@ -536,7 +539,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     margin: 16,
     paddingVertical: 14,
     borderRadius: 12,
@@ -544,14 +547,14 @@ const styles = StyleSheet.create({
   rebookButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: COLORS.darkGray,
+    borderTopColor: colors.backgroundSecondary,
   },
   joinButton: {
     borderRadius: 14,
@@ -567,7 +570,7 @@ const styles = StyleSheet.create({
   joinText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   modalOverlay: {
     flex: 1,
@@ -577,7 +580,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 24,
     width: '100%',
@@ -586,19 +589,19 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginTop: 16,
     marginBottom: 8,
   },
   modalText: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     textAlign: 'center',
     lineHeight: 22,
   },
   modalNote: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 12,
     fontStyle: 'italic',
@@ -613,13 +616,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     alignItems: 'center',
   },
   modalButtonCancelText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   modalButtonConfirm: {
     flex: 1,
@@ -631,7 +634,7 @@ const styles = StyleSheet.create({
   modalButtonConfirmText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

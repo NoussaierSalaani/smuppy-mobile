@@ -1,5 +1,5 @@
 // src/screens/sessions/SessionPaymentScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,16 +16,19 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { usePaymentSheet, PaymentSheetError } from '@stripe/stripe-react-native';
-import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function SessionPaymentScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
+  const { colors, gradients, isDark } = useTheme();
 
   const { showError, showWarning } = useSmuppyAlert();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const { creator, date, time, duration, price, sessionId } = route.params || {
     creator: { id: '', name: 'Creator', avatar: null },
@@ -171,7 +174,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Setting up payment...</Text>
         </View>
       );
@@ -227,7 +230,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
 
         {/* Secure Payment Badge */}
         <View style={styles.secureBadge}>
-          <Ionicons name="shield-checkmark" size={16} color={COLORS.primary} />
+          <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
           <Text style={styles.secureText}>Secure payment powered by Stripe</Text>
         </View>
       </>
@@ -241,7 +244,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payment</Text>
         <View style={styles.placeholder} />
@@ -260,7 +263,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={paymentReady ? GRADIENTS.primary : ['#CCC', '#AAA']}
+              colors={paymentReady ? gradients.primary : ['#CCC', '#AAA']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.payButton}
@@ -284,10 +287,10 @@ export default function SessionPaymentScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -296,7 +299,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
   },
   backButton: {
     width: 40,
@@ -307,7 +310,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -325,7 +328,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   errorContainer: {
     flex: 1,
@@ -337,19 +340,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   errorText: {
     marginTop: 8,
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   retryButtonText: {
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -370,7 +373,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   summaryInfo: {
     flex: 1,
@@ -379,20 +382,20 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sessionDetails: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 2,
   },
   price: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   paymentInfo: {
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -405,28 +408,28 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     fontSize: 15,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
   },
   paymentValue: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
     marginTop: 8,
     paddingTop: 16,
   },
   totalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   totalValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   secureBadge: {
     flexDirection: 'row',
@@ -436,14 +439,14 @@ const styles = StyleSheet.create({
   },
   secureText: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   bottomContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    backgroundColor: 'white',
+    borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.background,
   },
   payButton: {
     flexDirection: 'row',

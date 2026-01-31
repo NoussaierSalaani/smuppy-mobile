@@ -1,5 +1,5 @@
 // src/screens/sessions/WaitingRoomScreen.tsx
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 
@@ -24,6 +24,7 @@ const POLL_INTERVAL = 3000; // Poll every 3 seconds
 export default function WaitingRoomScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { colors, isDark } = useTheme();
 
   const { sessionId, creator } = route.params || {
     sessionId: null,
@@ -36,6 +37,8 @@ export default function WaitingRoomScreen(): React.JSX.Element {
 
   const { showAlert } = useSmuppyAlert();
   const [isPolling, setIsPolling] = useState(true);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const dotAnim = useRef(new Animated.Value(0)).current;
@@ -149,12 +152,12 @@ export default function WaitingRoomScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>1 to 1 Live</Text>
         <View style={styles.placeholder} />
@@ -211,17 +214,17 @@ export default function WaitingRoomScreen(): React.JSX.Element {
       <View style={styles.bottomContainer}>
         <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
           <Text style={styles.cancelButtonText}>Cancel request</Text>
-          <Ionicons name="arrow-forward" size={18} color={COLORS.primary} />
+          <Ionicons name="arrow-forward" size={18} color={colors.primary} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -239,7 +242,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -263,14 +266,14 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 70,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   avatarRing: {
     width: 120,
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     padding: 4,
   },
   avatar: {
@@ -281,7 +284,7 @@ const styles = StyleSheet.create({
   waitingTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     paddingHorizontal: 40,
     marginBottom: 16,
@@ -294,7 +297,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   bottomContainer: {
     paddingHorizontal: 20,
@@ -307,12 +310,12 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     gap: 8,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 });

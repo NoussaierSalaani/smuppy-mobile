@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,8 +24,9 @@ import { AccountBadge } from '../../components/Badge';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import VoiceMessage from '../../components/VoiceMessage';
 import SharedPostBubble from '../../components/SharedPostBubble';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
@@ -56,6 +57,7 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
+  const { colors, isDark } = useTheme();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { conversationId: initialConversationId, otherUser, userId } = route.params;
   const insets = useSafeAreaInsets();
@@ -256,6 +258,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setSending(false);
   }, [conversationId]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
     const isFromMe = item.sender_id === currentUserId;
     const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
@@ -310,14 +314,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         </View>
       </View>
     );
-  }, [currentUserId, messages, goToUserProfile, formatTime]);
+  }, [currentUserId, messages, goToUserProfile, formatTime, styles]);
 
   const displayName = resolveDisplayName(otherUserProfile);
 
   if (loading && !conversationId) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -328,13 +332,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+            <Ionicons name="arrow-back" size={24} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerName}>Error</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.centered}>
-          <Ionicons name="alert-circle-outline" size={64} color={COLORS.gray} />
+          <Ionicons name="alert-circle-outline" size={64} color={colors.gray} />
           <Text style={styles.errorTitle}>Unable to start conversation</Text>
           <Text style={styles.errorMessage}>{initError}</Text>
           <TouchableOpacity
@@ -366,7 +370,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.userInfo} onPress={() => otherUserProfile?.id && goToUserProfile(otherUserProfile.id)}>
           <AvatarImage source={otherUserProfile?.avatar_url} size={40} />
@@ -386,13 +390,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerIcon} onPress={() => setChatMenuVisible(true)}>
-          <Ionicons name="ellipsis-vertical" size={22} color={COLORS.dark} />
+          <Ionicons name="ellipsis-vertical" size={22} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlashList
@@ -429,7 +433,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             <Ionicons
               name={showEmojiPicker ? "keypad" : "happy-outline"}
               size={24}
-              color={showEmojiPicker ? COLORS.primary : COLORS.gray}
+              color={showEmojiPicker ? colors.primary : colors.gray}
             />
           </TouchableOpacity>
 
@@ -438,7 +442,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               ref={inputRef}
               style={styles.textInput}
               placeholder="Message..."
-              placeholderTextColor={COLORS.gray}
+              placeholderTextColor={colors.gray}
               value={inputText}
               onChangeText={setInputText}
               onFocus={() => setShowEmojiPicker(false)}
@@ -457,7 +461,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={styles.voiceButton}
               onPress={() => setIsRecording(true)}
             >
-              <Ionicons name="mic" size={24} color={COLORS.primary} />
+              <Ionicons name="mic" size={24} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -471,14 +475,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         expandable={false}
         theme={{
           backdrop: 'rgba(0,0,0,0.2)',
-          knob: COLORS.primary,
-          container: '#FFFFFF',
-          header: COLORS.dark,
-          skinTonesContainer: '#F5F5F5',
+          knob: colors.primary,
+          container: isDark ? '#1E1E1E' : '#FFFFFF',
+          header: colors.dark,
+          skinTonesContainer: isDark ? '#2A2A2A' : '#F5F5F5',
           category: {
-            icon: COLORS.gray,
-            iconActive: COLORS.primary,
-            container: '#F5F5F5',
+            icon: colors.gray,
+            iconActive: colors.primary,
+            container: isDark ? '#2A2A2A' : '#F5F5F5',
             containerActive: 'rgba(0,230,118,0.1)',
           },
         }}
@@ -518,7 +522,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 }
               }}
             >
-              <Ionicons name="person-outline" size={22} color={COLORS.dark} />
+              <Ionicons name="person-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>View Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -550,8 +554,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[styles.menuItem, styles.menuItemLast]}
               onPress={() => setChatMenuVisible(false)}
             >
-              <Ionicons name="close-outline" size={22} color={COLORS.gray} />
-              <Text style={[styles.menuItemText, { color: COLORS.gray }]}>Cancel</Text>
+              <Ionicons name="close-outline" size={22} color={colors.gray} />
+              <Text style={[styles.menuItemText, { color: colors.gray }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -560,19 +564,19 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
-  errorTitle: { fontSize: 18, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.md, textAlign: 'center' },
-  errorMessage: { fontSize: 14, color: COLORS.gray, marginTop: SPACING.sm, textAlign: 'center' },
-  retryButton: { marginTop: SPACING.lg, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
+  errorTitle: { fontSize: 18, fontWeight: '600', color: colors.dark, marginTop: SPACING.md, textAlign: 'center' },
+  errorMessage: { fontSize: 14, color: colors.gray, marginTop: SPACING.sm, textAlign: 'center' },
+  retryButton: { marginTop: SPACING.lg, backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
   retryButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   backButton: { padding: 4 },
   userInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.sm },
   headerNameRow: { flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.sm },
-  headerName: { fontSize: 16, fontWeight: '600', color: COLORS.dark },
-  headerStatus: { fontSize: 12, color: COLORS.gray, marginLeft: SPACING.sm },
+  headerName: { fontSize: 16, fontWeight: '600', color: colors.dark },
+  headerStatus: { fontSize: 12, color: colors.gray, marginLeft: SPACING.sm },
   headerIcon: { padding: 4 },
   messagesList: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.md },
   messageRow: { flexDirection: 'row', marginBottom: SPACING.sm },
@@ -580,32 +584,32 @@ const styles = StyleSheet.create({
   messageRowRight: { justifyContent: 'flex-end' },
   avatarSpace: { width: 32, marginRight: 8 },
   messageBubble: { maxWidth: width * 0.75, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
-  messageBubbleLeft: { backgroundColor: COLORS.white, borderBottomLeftRadius: 4 },
-  messageBubbleRight: { backgroundColor: COLORS.primary, borderBottomRightRadius: 4 },
+  messageBubbleLeft: { backgroundColor: colors.white, borderBottomLeftRadius: 4 },
+  messageBubbleRight: { backgroundColor: colors.primary, borderBottomRightRadius: 4 },
   messageBubbleNoPadding: { padding: 0, overflow: 'hidden' },
-  messageText: { fontSize: 15, color: COLORS.dark, lineHeight: 20 },
+  messageText: { fontSize: 15, color: colors.dark, lineHeight: 20 },
   messageTextRight: { color: '#fff' },
-  deletedMessage: { fontSize: 14, fontStyle: 'italic', color: COLORS.gray },
+  deletedMessage: { fontSize: 14, fontStyle: 'italic', color: colors.gray },
   messageFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
-  messageTime: { fontSize: 11, color: COLORS.gray },
+  messageTime: { fontSize: 11, color: colors.gray },
   messageTimeRight: { color: 'rgba(255,255,255,0.7)' },
   messageImage: { width: 200, height: 150, borderRadius: 12 },
-  inputArea: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
-  inputContainer: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 120 },
-  textInput: { fontSize: 16, color: COLORS.dark, minHeight: 40, maxHeight: 100, paddingTop: Platform.OS === 'ios' ? 10 : 8 },
+  inputArea: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.grayBorder },
+  inputContainer: { flex: 1, backgroundColor: isDark ? 'rgba(50,50,50,1)' : '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 120 },
+  textInput: { fontSize: 16, color: colors.dark, minHeight: 40, maxHeight: 100, paddingTop: Platform.OS === 'ios' ? 10 : 8 },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
-  voiceButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  voiceButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: isDark ? 'rgba(50,50,50,1)' : '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   emojiButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  emptyChatName: { fontSize: 18, fontWeight: '600', color: COLORS.dark, marginTop: SPACING.md },
-  emptyChatText: { fontSize: 14, color: COLORS.gray, marginTop: SPACING.sm, textAlign: 'center' },
+  emptyChatName: { fontSize: 18, fontWeight: '600', color: colors.dark, marginTop: SPACING.md },
+  emptyChatText: { fontSize: 14, color: colors.gray, marginTop: SPACING.sm, textAlign: 'center' },
   imageModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   closeImageBtn: { position: 'absolute', right: 20, zIndex: 10 },
   fullImage: { width: width, height: width },
   // Chat Menu
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  menuContainer: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.md, paddingBottom: 34 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  menuContainer: { backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.md, paddingBottom: 34 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   menuItemLast: { borderBottomWidth: 0 },
-  menuItemText: { fontSize: 16, fontWeight: '500', color: COLORS.dark, marginLeft: SPACING.md },
+  menuItemText: { fontSize: 16, fontWeight: '500', color: colors.dark, marginLeft: SPACING.md },
 });

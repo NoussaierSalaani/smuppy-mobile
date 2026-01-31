@@ -52,8 +52,8 @@ export const useProfile = (userId: string | null | undefined) => {
       return data;
     },
     enabled: !!userId,
-    staleTime: 0, // Always consider data stale
-    refetchOnMount: 'always', // Always refetch when screen opens
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: true, // Refetch on mount if stale
   });
 };
 

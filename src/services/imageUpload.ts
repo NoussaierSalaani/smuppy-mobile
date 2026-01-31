@@ -4,6 +4,7 @@
 // ============================================
 
 import { uploadAvatar, uploadImage as uploadToS3 } from './mediaUpload';
+import { awsAuth } from './aws-auth';
 
 /**
  * Result type for image upload operations
@@ -80,8 +81,12 @@ export const uploadImage = async (
     // Map bucket to folder
     const folder = bucket as 'avatars' | 'covers' | 'posts' | 'messages' | 'thumbnails';
 
+    // Get authenticated user ID
+    const user = await awsAuth.getCurrentUser();
+    const userId = user?.id || 'unknown';
+
     // Use mediaUpload service
-    const result = await uploadToS3('temp-user', imageUri, { folder, compress: true });
+    const result = await uploadToS3(userId, imageUri, { folder, compress: true });
 
     if (!result.success) {
       return { url: null, error: result.error || 'Upload failed' };

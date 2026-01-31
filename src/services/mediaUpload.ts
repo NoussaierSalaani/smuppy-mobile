@@ -251,7 +251,7 @@ export const getPresignedUrl = async (
     const { awsAPI } = await import('./aws-api');
 
     // Use AWS API to get presigned URL
-    const result = await awsAPI.getUploadUrl(`${folder}/${fileName}`, contentType);
+    const result = await awsAPI.getUploadUrl(fileName, contentType);
 
     return {
       uploadUrl: result.uploadUrl,

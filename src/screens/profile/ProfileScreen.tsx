@@ -29,7 +29,9 @@ import { AccountBadge, PremiumBadge } from '../../components/Badge';
 import { FEATURES } from '../../config/featureFlags';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { unsavePost } from '../../services/database';
+import { unsavePost, updateProfile as updateDbProfile } from '../../services/database';
+import { uploadProfileImage } from '../../services/imageUpload';
+import { uploadCoverImage } from '../../services/mediaUpload';
 import { LiquidTabsWithMore } from '../../components/LiquidTabs';
 import RippleVisualization from '../../components/RippleVisualization';
 import GradeFrame from '../../components/GradeFrame';
@@ -59,6 +61,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();
   const { showSuccess, showError } = useSmuppyAlert();
   const storeUser = useUserStore((state) => state.user);
+  const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
   const [activeTab, setActiveTab] = useState('posts');
   const [showMoreTabs, setShowMoreTabs] = useState(false);
@@ -189,9 +192,24 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }
   };
 
-  const handleRemovePhoto = async () => {
-    updateImage(imageSheetType, null);
-  };
+  const handleRemovePhoto = useCallback(async () => {
+    setUser(prev => ({
+      ...prev,
+      [imageSheetType === 'avatar' ? 'avatar' : 'coverImage']: null,
+    }));
+    try {
+      if (imageSheetType === 'avatar') {
+        await updateDbProfile({ avatar_url: '' });
+        updateStoreProfile({ avatar: null });
+      } else {
+        await updateDbProfile({ cover_url: '' });
+        updateStoreProfile({ coverImage: null });
+      }
+      refetchProfile();
+    } catch {
+      showError('Error', 'Failed to remove photo');
+    }
+  }, [imageSheetType, refetchProfile, showError, updateStoreProfile]);
 
   const getImageSheetOptions = () => {
     const hasExisting = imageSheetType === 'avatar' ? !!user.avatar : !!user.coverImage;
@@ -220,12 +238,44 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return options;
   };
 
-  const updateImage = (type: 'avatar' | 'cover', uri: string | null) => {
+  const updateImage = useCallback(async (type: 'avatar' | 'cover', uri: string | null) => {
+    // Optimistically update UI
     setUser(prev => ({
       ...prev,
       [type === 'avatar' ? 'avatar' : 'coverImage']: uri,
     }));
-  };
+
+    if (!uri || uri.startsWith('http')) return;
+
+    const currentUserId = profileData?.id || storeUser?.id;
+    if (!currentUserId) return;
+
+    try {
+      if (type === 'avatar') {
+        const { url, error } = await uploadProfileImage(uri, currentUserId);
+        if (error || !url) {
+          showError('Upload Failed', 'Could not upload avatar');
+          return;
+        }
+        await updateDbProfile({ avatar_url: url });
+        updateStoreProfile({ avatar: url });
+        setUser(prev => ({ ...prev, avatar: url }));
+      } else {
+        const result = await uploadCoverImage(currentUserId, uri);
+        if (!result.success || !result.cdnUrl) {
+          showError('Upload Failed', 'Could not upload cover image');
+          return;
+        }
+        const coverUrl = `${result.cdnUrl}?t=${Date.now()}`;
+        await updateDbProfile({ cover_url: coverUrl });
+        updateStoreProfile({ coverImage: coverUrl });
+        setUser(prev => ({ ...prev, coverImage: coverUrl }));
+      }
+      refetchProfile();
+    } catch {
+      showError('Upload Failed', 'Something went wrong');
+    }
+  }, [profileData?.id, storeUser?.id, showError, refetchProfile, updateStoreProfile]);
 
   // ==================== COPY PROFILE LINK ====================
   const getProfileUrl = () => {

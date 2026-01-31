@@ -3305,6 +3305,7 @@ export interface UpdateProfileInput {
   fullName?: string;
   bio?: string;
   avatarUrl?: string;
+  coverUrl?: string;
   isPrivate?: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
   gender?: string;
@@ -3321,6 +3322,7 @@ export interface UpdateProfileInput {
   businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
+  onboardingCompleted?: boolean;
 }
 
 export interface Conversation {

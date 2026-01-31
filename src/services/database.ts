@@ -275,7 +275,8 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (updates.username) updateData.username = updates.username;
     if (updates.full_name) updateData.fullName = updates.full_name;
     if (updates.bio) updateData.bio = updates.bio;
-    if (updates.avatar_url) updateData.avatarUrl = updates.avatar_url;
+    if (updates.avatar_url !== undefined) updateData.avatarUrl = updates.avatar_url || null;
+    if (updates.cover_url !== undefined) updateData.coverUrl = updates.cover_url || null;
     if (updates.is_private !== undefined) updateData.isPrivate = updates.is_private;
 
     // Account type

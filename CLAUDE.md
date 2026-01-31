@@ -1,5 +1,19 @@
 # Smuppy — Project Rules & Conventions
 
+## ABSOLUTE RULES — NEVER VIOLATE
+
+### Destruction Protection (CRITICAL — READ FIRST)
+- **NEVER** run `cdk destroy`, `aws cloudformation delete-stack`, or any command that deletes infrastructure
+- **NEVER** run `rm -rf`, `rm -r`, or bulk delete on any project files or directories
+- **NEVER** drop tables, drop databases, or run destructive SQL (DROP, TRUNCATE, DELETE without WHERE)
+- **NEVER** delete S3 buckets, Cognito user pools, RDS clusters, DynamoDB tables, or any AWS resource
+- **NEVER** run `git clean -f`, `git checkout .`, `git reset --hard` unless the user explicitly requests it with full awareness
+- **NEVER** delete environment files (.env), secrets, credentials, or configuration files
+- Before ANY delete/remove operation: explain what will be deleted, ask for explicit confirmation, and suggest a backup first
+- If a file or resource must be removed, **rename it** (e.g., `_old_filename`) or **move it to a backup directory** instead of deleting
+- AWS stacks: always use `--retain-resources` or `DeletionPolicy: Retain` on stateful resources (DB, S3, Cognito)
+- This rule applies to ALL Claude sessions — current and future. No exceptions.
+
 ## Architecture
 
 - React Native (Expo) mobile app with AWS Lambda backend

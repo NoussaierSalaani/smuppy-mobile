@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -28,7 +28,9 @@ interface PostSuccessScreenProps {
 
 export default function PostSuccessScreen({ route, navigation }: PostSuccessScreenProps) {
   const { media, postType } = route.params;
-  
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -103,10 +105,10 @@ export default function PostSuccessScreen({ route, navigation }: PostSuccessScre
           ]}
         >
           <LinearGradient
-            colors={GRADIENTS.primary}
+            colors={[colors.primary, colors.primaryDark]}
             style={styles.checkGradient}
           >
-            <Ionicons name="checkmark" size={40} color="#fff" />
+            <Ionicons name="checkmark" size={40} color={colors.background} />
           </LinearGradient>
         </Animated.View>
 
@@ -123,7 +125,7 @@ export default function PostSuccessScreen({ route, navigation }: PostSuccessScre
           <Image source={{ uri: media[0]?.uri }} style={styles.previewImage} />
           {media.length > 1 && (
             <View style={styles.multipleIndicator}>
-              <Ionicons name="copy" size={14} color="#fff" />
+              <Ionicons name="copy" size={14} color={colors.background} />
               <Text style={styles.multipleCount}>{media.length}</Text>
             </View>
           )}
@@ -165,10 +167,10 @@ export default function PostSuccessScreen({ route, navigation }: PostSuccessScre
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.dark,
   },
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
@@ -177,7 +179,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.7)',
   },
   content: {
     flex: 1,
@@ -185,7 +187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  
+
   // Checkmark
   checkCircle: {
     marginBottom: 30,
@@ -196,7 +198,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 15,
@@ -210,7 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 30,
-    shadowColor: '#000',
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -226,13 +228,13 @@ const styles = StyleSheet.create({
     right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   multipleCount: {
-    color: '#fff',
+    color: colors.background,
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
@@ -242,13 +244,13 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.background,
     textAlign: 'center',
     marginBottom: 10,
   },
   successSubtitle: {
     fontSize: 18,
-    color: 'rgba(255,255,255,0.8)',
+    color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     marginBottom: 40,
   },
@@ -261,13 +263,13 @@ const styles = StyleSheet.create({
   progressBar: {
     width: 150,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.2)',
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
 });

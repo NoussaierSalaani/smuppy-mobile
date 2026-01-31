@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 4) / 3;
@@ -53,6 +54,7 @@ interface CreatePostScreenProps {
 
 export default function CreatePostScreen({ navigation, route: _route }: CreatePostScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
   const alert = { error: errorAlert, warning: warningAlert };
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
@@ -62,7 +64,9 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   const [hasPermission, setHasPermission] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showCameraSheet, setShowCameraSheet] = useState(false);
-  
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Post type is always 'post' for this screen (Peaks use CreatePeakScreen)
 
   // Request permissions and load media
@@ -227,7 +231,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalIconBox}>
-            <Ionicons name="image-outline" size={32} color={COLORS.primary} />
+            <Ionicons name="image-outline" size={32} color={colors.primary} />
           </View>
           <Text style={styles.modalTitle}>Discard post?</Text>
           <Text style={styles.modalMessage}>
@@ -313,10 +317,10 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           style={[styles.permissionCloseButton, { top: insets.top + 10 }]}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="close" size={28} color={COLORS.dark} />
+          <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
         <View style={styles.centered}>
-          <Ionicons name="images-outline" size={60} color={COLORS.gray} />
+          <Ionicons name="images-outline" size={60} color={colors.gray} />
           <Text style={styles.permissionText}>Allow access to your photos</Text>
           <TouchableOpacity
             style={styles.permissionButton}
@@ -340,12 +344,12 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={handleClose}>
-          <Ionicons name="close" size={28} color={COLORS.dark} />
+          <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create post</Text>
         <TouchableOpacity onPress={handleNext}>
           <LinearGradient
-            colors={selectedMedia.length > 0 ? GRADIENTS.primary : ['#ccc', '#ccc']}
+            colors={selectedMedia.length > 0 ? GRADIENTS.primary : [colors.grayBorder, colors.grayBorder]}
             style={styles.nextButton}
           >
             <Text style={styles.nextButtonText}>Next</Text>
@@ -372,7 +376,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           </>
         ) : (
           <View style={styles.previewPlaceholder}>
-            <Ionicons name="image-outline" size={60} color={COLORS.grayLight} />
+            <Ionicons name="image-outline" size={60} color={colors.grayLight} />
             <Text style={styles.previewPlaceholderText}>Select a photo or video</Text>
           </View>
         )}
@@ -387,13 +391,13 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           }}
         >
           <Text style={styles.galleryTabText}>Recent</Text>
-          <Ionicons name="chevron-down" size={18} color={COLORS.dark} />
+          <Ionicons name="chevron-down" size={18} color={colors.dark} />
         </TouchableOpacity>
 
         {/* Selection count indicator */}
         {selectedMedia.length > 0 && (
           <View style={styles.selectionCount}>
-            <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
             <Text style={styles.selectionCountText}>{selectedMedia.length} selected</Text>
           </View>
         )}
@@ -402,7 +406,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       {/* Media Grid */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlashList<MediaLibrary.Asset>
@@ -419,7 +423,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 20 }]}>
         {/* Camera Button */}
         <TouchableOpacity style={styles.cameraButton} onPress={openCamera}>
-          <Ionicons name="camera" size={24} color={COLORS.dark} />
+          <Ionicons name="camera" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -438,10 +442,10 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -465,7 +469,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   nextButton: {
     paddingHorizontal: 20,
@@ -496,7 +500,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   previewPlaceholderText: {
-    color: COLORS.grayLight,
+    color: colors.grayLight,
     fontSize: 14,
     marginTop: 10,
   },
@@ -505,7 +509,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -515,13 +519,13 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 15,
   },
   multipleIndicatorText: {
-    color: '#fff',
+    color: isDark ? '#000' : '#fff',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 5,
@@ -542,13 +546,13 @@ const styles = StyleSheet.create({
   galleryTabText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginRight: 4,
   },
   selectionCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14,191,138,0.2)' : '#E6FAF8',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -556,7 +560,7 @@ const styles = StyleSheet.create({
   selectionCountText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.primary,
+    color: colors.primary,
     marginLeft: 6,
   },
 
@@ -589,13 +593,13 @@ const styles = StyleSheet.create({
     left: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 3,
   },
   videoDurationText: {
-    color: '#fff',
+    color: isDark ? '#000' : '#fff',
     fontSize: 11,
     marginLeft: 3,
   },
@@ -608,13 +612,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#fff',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   selectionCircleActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   selectionCircleInner: {
     width: 8,
@@ -639,15 +643,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.grayBorder,
   },
   cameraButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -655,12 +659,12 @@ const styles = StyleSheet.create({
   // Permission
   permissionText: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.lg,
     marginBottom: SPACING.md,
   },
   permissionButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -674,13 +678,13 @@ const styles = StyleSheet.create({
   // Discard Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
     borderRadius: 24,
     padding: 28,
     width: '100%',
@@ -690,7 +694,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14,191,138,0.2)' : '#E6FAF8',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -698,12 +702,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   modalMessage: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
@@ -718,13 +722,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   keepEditingText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   discardButton: {
     flex: 1,

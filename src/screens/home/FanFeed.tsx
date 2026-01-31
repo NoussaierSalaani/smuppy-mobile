@@ -15,7 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
@@ -29,6 +29,7 @@ import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 
 const { width } = Dimensions.get('window');
@@ -56,6 +57,7 @@ export interface FanFeedRef {
 }
 
 const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
+  const { colors, isDark } = useTheme();
   const { showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll, showBars } = useTabBar();
@@ -95,10 +97,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [menuPost, setMenuPost] = useState<UIPost | null>(null);
 
   // Memoized styles to prevent re-renders
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const listContentStyle = useMemo(() => ({
     ...styles.listContent,
     paddingTop: headerHeight > 0 ? headerHeight : 0,
-  }), [headerHeight]);
+  }), [headerHeight, styles]);
 
   // Fetch posts from tracked users
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
@@ -512,7 +516,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.postMore} onPress={() => handlePostMenu(post)}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.dark} />
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -584,7 +588,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           >
             <SmuppyHeartIcon
               size={26}
-              color={post.isLiked ? "#FF6B6B" : COLORS.dark}
+              color={post.isLiked ? "#FF6B6B" : colors.dark}
               filled={post.isLiked}
             />
           </TouchableOpacity>
@@ -593,7 +597,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             onPress={() => handleSharePost(post)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="paper-plane-outline" size={22} color={COLORS.dark} />
+            <Ionicons name="paper-plane-outline" size={22} color={colors.dark} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity
@@ -603,7 +607,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <Ionicons
             name={post.isSaved ? "bookmark" : "bookmark-outline"}
             size={22}
-            color={post.isSaved ? COLORS.primary : COLORS.dark}
+            color={post.isSaved ? colors.primary : colors.dark}
           />
         </TouchableOpacity>
       </View>
@@ -659,10 +663,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             onPress={inviteFriends}
           >
             <LinearGradient
-              colors={['#E8F5E9', '#C8E6C9']}
+              colors={isDark ? ['#1A2A1F', '#2A3A2F'] : ['#E8F5E9', '#C8E6C9']}
               style={styles.inviteButtonInner}
             >
-              <Ionicons name="person-add" size={28} color={COLORS.primary} />
+              <Ionicons name="person-add" size={28} color={colors.primary} />
             </LinearGradient>
           </TouchableOpacity>
           <Text style={styles.suggestionName} numberOfLines={1}>
@@ -691,7 +695,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     if (loadingMore) {
       return (
         <View style={styles.loadingMore}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       );
     }
@@ -699,7 +703,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     if (!hasMore && posts.length > 0) {
       return (
         <View style={styles.endOfFeed}>
-          <Ionicons name="checkmark-circle" size={50} color={COLORS.primary} />
+          <Ionicons name="checkmark-circle" size={50} color={colors.primary} />
           <Text style={styles.endOfFeedTitle}>You're All Caught Up</Text>
           <Text style={styles.endOfFeedSubtitle}>
             You've seen all posts from people you follow
@@ -708,7 +712,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       );
     }
     return null;
-  }, [loadingMore, hasMore, posts.length]);
+  }, [loadingMore, hasMore, posts.length, styles, colors]);
 
   const keyExtractor = useCallback((item: UIPost) => String(item.id), []);
 
@@ -716,7 +720,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Empty state component
   const EmptyState = useCallback(() => (
     <View style={styles.emptyState}>
-      <Ionicons name="people-outline" size={64} color={COLORS.grayMuted} />
+      <Ionicons name="people-outline" size={64} color={colors.grayMuted} />
       <Text style={styles.emptyStateTitle}>No Posts Yet</Text>
       <Text style={styles.emptyStateSubtitle}>
         Track some users to see their posts here
@@ -728,7 +732,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         <Text style={styles.emptyStateButtonText}>Find People</Text>
       </TouchableOpacity>
     </View>
-  ), [navigation]);
+  ), [navigation, styles, colors]);
 
   // Navigate to Peaks screen - MUST be before any conditional returns (Rules of Hooks)
   const openPeaks = useCallback(() => {
@@ -739,7 +743,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   if (isLoading && posts.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading your feed...</Text>
       </View>
     );
@@ -767,8 +771,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.primary}
-              colors={[COLORS.primary]}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
               progressViewOffset={headerHeight}
             />
           }
@@ -797,19 +801,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         >
           <View style={styles.menuContainer}>
             <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
-              <Ionicons name="flag-outline" size={22} color={COLORS.dark} />
+              <Ionicons name="flag-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Report</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
-              <Ionicons name="volume-mute-outline" size={22} color={COLORS.dark} />
+              <Ionicons name="volume-mute-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Mute User</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemLast]}
               onPress={() => setMenuVisible(false)}
             >
-              <Ionicons name="close-outline" size={22} color={COLORS.gray} />
-              <Text style={[styles.menuItemText, { color: COLORS.gray }]}>Cancel</Text>
+              <Ionicons name="close-outline" size={22} color={colors.gray} />
+              <Text style={[styles.menuItemText, { color: colors.gray }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -820,10 +824,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
 export default FanFeed;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
 
   // Suggestions Section - Compact spacing
@@ -831,7 +835,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
+    borderBottomColor: colors.grayBorder,
   },
   suggestionsSectionHeader: {
     flexDirection: 'row',
@@ -843,12 +847,12 @@ const styles = StyleSheet.create({
   suggestionsSectionTitle: {
     fontSize: 16,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   seeAllText: {
     fontSize: 14,
     fontFamily: 'Poppins-Medium',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   suggestionsRow: {
     flexDirection: 'row',
@@ -875,7 +879,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   suggestionAvatarContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderRadius: 38,
     padding: 2,
   },
@@ -886,13 +890,13 @@ const styles = StyleSheet.create({
   },
   suggestionName: {
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     fontFamily: 'Poppins-Medium',
     textAlign: 'center',
     marginBottom: 4,
   },
   trackButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
@@ -903,15 +907,15 @@ const styles = StyleSheet.create({
   trackButtonText: {
     fontSize: 12,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.white,
+    color: colors.background,
   },
   trackedButton: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   // Invite button
   inviteButton: {
@@ -929,21 +933,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
   },
   inviteTextButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   inviteTextButtonText: {
     fontSize: 12,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Post
@@ -951,7 +955,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
   },
   postHeader: {
     flexDirection: 'row',
@@ -961,12 +965,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
     // Shadow 3D effet extérieur prononcé
-    shadowColor: '#000',
+    shadowColor: isDark ? '#fff' : '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -988,7 +992,7 @@ const styles = StyleSheet.create({
   postUserName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   verifiedBadge: {
     marginLeft: 4,
@@ -1003,12 +1007,12 @@ const styles = StyleSheet.create({
   teamBadgeText: {
     fontSize: 9,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   postMeta: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   postMore: {
     padding: 4,
@@ -1016,7 +1020,7 @@ const styles = StyleSheet.create({
   postMedia: {
     width: width,
     height: width * 1.1,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.grayBorder,
   },
   postImage: {
     width: '100%',
@@ -1088,7 +1092,7 @@ const styles = StyleSheet.create({
   postLikes: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     paddingHorizontal: SPACING.base,
   },
   postCaption: {
@@ -1098,7 +1102,7 @@ const styles = StyleSheet.create({
   postCaptionText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     lineHeight: 20,
   },
   postCaptionUser: {
@@ -1106,7 +1110,7 @@ const styles = StyleSheet.create({
   },
   postDivider: {
     height: 8,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     marginTop: SPACING.md,
   },
 
@@ -1118,13 +1122,13 @@ const styles = StyleSheet.create({
   endOfFeedTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.md,
   },
   endOfFeedSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1132,7 +1136,7 @@ const styles = StyleSheet.create({
   // Comments Modal
   commentsContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   commentsHeader: {
     flexDirection: 'row',
@@ -1142,12 +1146,12 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
+    borderBottomColor: colors.grayBorder,
   },
   commentsTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   commentsList: {
     flex: 1,
@@ -1164,18 +1168,18 @@ const styles = StyleSheet.create({
   commentUser: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   commentText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 2,
   },
   commentTime: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   commentInput: {
@@ -1184,25 +1188,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.grayLight,
+    borderTopColor: colors.grayBorder,
   },
   commentInputField: {
     flex: 1,
     marginHorizontal: SPACING.sm,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
   },
   commentInputPlaceholder: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
   },
   commentPostBtn: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Pagination styles
@@ -1219,12 +1223,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   loadingText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.md,
   },
 
@@ -1239,18 +1243,18 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 20,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.lg,
   },
   emptyStateSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },
   emptyStateButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
     borderRadius: 25,
@@ -1259,7 +1263,7 @@ const styles = StyleSheet.create({
   emptyStateButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.background,
   },
 
   // Post Menu Modal
@@ -1269,7 +1273,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: SPACING.md,
@@ -1281,7 +1285,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.grayBorder,
   },
   menuItemLast: {
     borderBottomWidth: 0,
@@ -1289,7 +1293,7 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: SPACING.md,
   },
 });

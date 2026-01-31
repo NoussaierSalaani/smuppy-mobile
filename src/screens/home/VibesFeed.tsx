@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
@@ -29,6 +29,7 @@ import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
 import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
+import { useTheme } from '../../hooks/useTheme';
 
 import SharePostModal from '../../components/SharePostModal';
 import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
@@ -84,10 +85,13 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicatorProps) => {
+  const { colors, isDark } = useTheme();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const vibeScore = useVibeStore((s) => s.vibeScore);
   const vibeLevel = useVibeStore((s) => s.vibeLevel);
   const currentStreak = useVibeStore((s) => s.currentStreak);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     Animated.loop(
@@ -110,7 +114,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
   if (!mood) return null;
 
   const display = getMoodDisplay(mood.primaryMood);
-  const levelColor = LEVEL_COLORS[vibeLevel] || COLORS.gray;
+  const levelColor = LEVEL_COLORS[vibeLevel] || colors.gray;
   const levelLabel = LEVEL_LABELS[vibeLevel] || 'Newcomer';
 
   return (
@@ -174,10 +178,13 @@ export interface VibesFeedRef {
 }
 
 const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }, ref) => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll, showBars } = useTabBar();
   const scrollRef = useRef<ScrollView>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Expose scrollToTop method to parent
   useImperativeHandle(ref, () => ({
@@ -722,7 +729,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             <View style={styles.vibeLikes}>
               <SmuppyHeartIcon
                 size={12}
-                color={post.isLiked ? COLORS.heartRed : "#fff"}
+                color={post.isLiked ? colors.heartRed : "#fff"}
                 filled={post.isLiked}
               />
               <Text style={[styles.vibeLikesText, post.isLiked && styles.vibeLikesTextLiked]}>
@@ -809,7 +816,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   >
                     <SmuppyHeartIcon
                       size={24}
-                      color={selectedPost.isLiked ? "#FF6B6B" : COLORS.dark}
+                      color={selectedPost.isLiked ? "#FF6B6B" : colors.dark}
                       filled={selectedPost.isLiked}
                     />
                     <Text style={styles.modalActionText}>{formatNumber(selectedPost.likes)}</Text>
@@ -830,7 +837,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                       }
                     }}
                   >
-                    <Ionicons name="share-outline" size={24} color={COLORS.dark} />
+                    <Ionicons name="share-outline" size={24} color={colors.dark} />
                     <Text style={styles.modalActionText}>Share</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -844,7 +851,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                     <Ionicons
                       name={selectedPost.isSaved ? "bookmark" : "bookmark-outline"}
                       size={24}
-                      color={selectedPost.isSaved ? COLORS.primary : COLORS.dark}
+                      color={selectedPost.isSaved ? colors.primary : colors.dark}
                     />
                     <Text style={styles.modalActionText}>Save</Text>
                   </TouchableOpacity>
@@ -906,8 +913,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
             progressViewOffset={headerHeight}
           />
         }
@@ -930,7 +937,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               onPress={() => navigation.navigate('Peaks')}
             >
               <Text style={styles.peaksSeeAllText}>See all</Text>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -953,7 +960,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="add" size={16} color={COLORS.primary} />
+            <Ionicons name="add" size={16} color={colors.primary} />
           </TouchableOpacity>
           <ScrollView
             horizontal
@@ -984,7 +991,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                           color={interest.color}
                         />
                         <Text style={styles.filterChipText}>{interest.name}</Text>
-                        <Ionicons name="close" size={12} color={COLORS.dark} style={{ marginLeft: 2 }} />
+                        <Ionicons name="close" size={12} color={colors.dark} style={{ marginLeft: 2 }} />
                       </View>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -1020,7 +1027,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
           {filteredPosts.length === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="images-outline" size={64} color={COLORS.gray} />
+              <Ionicons name="images-outline" size={64} color={colors.gray} />
               <Text style={styles.emptyTitle}>No vibes found</Text>
               <Text style={styles.emptySubtitle}>Try selecting different interests</Text>
             </View>
@@ -1028,7 +1035,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
           {loadingMore && (
             <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           )}
 
@@ -1067,10 +1074,10 @@ export default VibesFeed;
 
 const SECTION_GAP = 8; // Consistent spacing between all sections
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingTop: 0,
@@ -1089,7 +1096,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
   },
   moodIconContainer: {
     width: 32,
@@ -1108,7 +1115,7 @@ const styles = StyleSheet.create({
   moodLabel: {
     fontFamily: 'Poppins-Regular',
     fontSize: 9,
-    color: COLORS.gray,
+    color: colors.gray,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -1136,7 +1143,7 @@ const styles = StyleSheet.create({
   moodDescription: {
     fontFamily: 'Poppins-Regular',
     fontSize: 9,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 0,
   },
   moodConfidenceContainer: {
@@ -1174,7 +1181,7 @@ const styles = StyleSheet.create({
   peaksSectionTitle: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   peaksSeeAll: {
     flexDirection: 'row',
@@ -1184,7 +1191,7 @@ const styles = StyleSheet.create({
   peaksSeeAllText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
   },
   peaksScrollContent: {
     paddingHorizontal: SPACING.base,
@@ -1198,7 +1205,7 @@ const styles = StyleSheet.create({
     width: PEAK_CARD_WIDTH,
     height: PEAK_CARD_HEIGHT,
     borderRadius: 16,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.gray900,
   },
   peakNewIndicator: {
     position: 'absolute',
@@ -1207,15 +1214,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: colors.background,
   },
   peakDuration: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1223,7 +1230,7 @@ const styles = StyleSheet.create({
   peakDurationText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 10,
-    color: COLORS.white,
+    color: '#fff',
   },
   peakAvatarContainer: {
     position: 'absolute',
@@ -1236,12 +1243,12 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   peakUserName: {
     fontFamily: 'Poppins-Medium',
     fontSize: 11,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginTop: 6,
   },
@@ -1266,11 +1273,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderRadius: 16,
     marginRight: 8,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: colors.grayBorder,
     gap: 5,
   },
   filterChipGradientBorder: {
@@ -1285,21 +1292,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10.5,
     borderRadius: 14.5,
-    backgroundColor: '#E6FAF8',
+    backgroundColor: colors.primaryLight,
     gap: 5,
   },
   filterChipText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   addInterestButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1323,7 +1330,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusMd,
     overflow: 'hidden',
     marginBottom: SECTION_GAP,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.backgroundSecondary,
   },
   vibeImage: {
     width: '100%',
@@ -1342,14 +1349,14 @@ const styles = StyleSheet.create({
   vibeBlurOverlay: {
     padding: SPACING.sm,
     paddingTop: SPACING.md,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)',
   },
   vibeTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
     color: '#fff',
     marginBottom: 6,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -1363,7 +1370,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.3)',
   },
   vibeUserName: {
     fontFamily: 'Poppins-Regular',
@@ -1382,7 +1389,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   vibeLikesTextLiked: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   videoIndicator: {
     position: 'absolute',
@@ -1390,7 +1397,7 @@ const styles = StyleSheet.create({
     right: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
@@ -1405,7 +1412,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.6)',
     padding: 4,
     borderRadius: 4,
   },
@@ -1418,20 +1425,20 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.lg,
   },
   emptySubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.sm,
   },
 
   // ===== MODAL (Full screen post) =====
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   modalImageContainer: {
     position: 'relative',
@@ -1451,7 +1458,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1475,12 +1482,12 @@ const styles = StyleSheet.create({
   modalUserName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   modalCategory: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   modalUserTouch: {
     flex: 1,
@@ -1490,7 +1497,7 @@ const styles = StyleSheet.create({
   modalFollowButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 20,
   },
   modalFollowButtonLoading: {
@@ -1504,7 +1511,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 20,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: SPACING.lg,
   },
   modalActions: {
@@ -1512,7 +1519,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.grayLight,
+    borderTopColor: colors.grayBorder,
   },
   modalAction: {
     alignItems: 'center',
@@ -1520,7 +1527,7 @@ const styles = StyleSheet.create({
   modalActionText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
 
@@ -1532,7 +1539,7 @@ const styles = StyleSheet.create({
   relatedTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: SPACING.md,
   },
   relatedGrid: {
@@ -1549,7 +1556,7 @@ const styles = StyleSheet.create({
   },
   relatedImage: {
     width: '100%',
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.backgroundSecondary,
   },
   relatedOverlay: {
     position: 'absolute',
@@ -1557,7 +1564,7 @@ const styles = StyleSheet.create({
     left: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.5)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, ScrollView,
@@ -6,11 +6,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { SOCIAL_NETWORKS } from '../../config/constants';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { useTheme } from '../../hooks/useTheme';
 
 interface CreatorOptionalInfoScreenProps {
   navigation: {
@@ -24,6 +25,7 @@ interface CreatorOptionalInfoScreenProps {
 }
 
 export default function CreatorOptionalInfoScreen({ navigation, route }: CreatorOptionalInfoScreenProps) {
+  const { colors, isDark } = useTheme();
   const [bio, setBio] = useState('');
   const [website, setWebsite] = useState('');
   const [socialFields, setSocialFields] = useState<{ id: string; value: string }[]>([
@@ -35,6 +37,8 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
   const socialScrollRef = useRef<ScrollView>(null);
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleNext = useCallback(() => {
     const socialLinks: Record<string, string> = {};
@@ -132,7 +136,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
               <TextInput
                 style={styles.bioInput}
                 placeholder="Tell people about yourself..."
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={bio}
                 onChangeText={setBio}
                 onFocus={() => setFocusedField('bio')}
@@ -153,11 +157,11 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
-              <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? COLORS.primary : COLORS.grayMuted} />
+              <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? colors.primary : colors.grayMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="https://yourwebsite.com"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={website}
                 onChangeText={setWebsite}
                 onFocus={() => setFocusedField('website')}
@@ -172,7 +176,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Social Links</Text>
             <TouchableOpacity style={styles.addBtn} onPress={addSocialField} disabled={!canAddMore}>
-              <Ionicons name="add-circle" size={24} color={canAddMore ? COLORS.primary : COLORS.grayMuted} />
+              <Ionicons name="add-circle" size={24} color={canAddMore ? colors.primary : colors.grayMuted} />
             </TouchableOpacity>
           </View>
 
@@ -217,12 +221,12 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
                         <Ionicons
                           name={network.icon as any}
                           size={18}
-                          color={(hasValue || isFocused) ? network.color : COLORS.grayMuted}
+                          color={(hasValue || isFocused) ? network.color : colors.grayMuted}
                         />
                         <TextInput
                           style={styles.input}
                           placeholder={network.label}
-                          placeholderTextColor={COLORS.grayMuted}
+                          placeholderTextColor={colors.grayMuted}
                           value={field.value}
                           onChangeText={(v) => updateSocialField(index, v)}
                           onFocus={() => setFocusedField(`social-${index}`)}
@@ -232,7 +236,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
                       </View>
                     </LinearGradient>
                     <TouchableOpacity style={styles.removeBtn} onPress={() => removeSocialField(index)}>
-                      <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                      <Ionicons name="close-circle" size={24} color={colors.error} />
                     </TouchableOpacity>
                   </View>
                 );
@@ -262,31 +266,31 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg },
   skipRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: SPACING.sm },
-  skipText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
+  skipText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   header: { alignItems: 'center', marginBottom: SPACING.lg },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
-  label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: SPACING.xs, fontSize: 13 },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 13, color: colors.grayMuted, textAlign: 'center' },
+  label: { ...TYPOGRAPHY.label, color: colors.dark, marginBottom: SPACING.xs, fontSize: 13 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.sm },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
+  sectionTitle: { fontSize: 14, fontWeight: '600', color: colors.dark },
   addBtn: { padding: 4 },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.md },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight - 4, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: SIZES.inputHeight - 4, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: colors.background },
+  inputInnerValid: { backgroundColor: colors.backgroundValid },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.sm, fontSize: 14, color: colors.dark },
   bioGradientBorder: { height: 110, marginBottom: SPACING.sm },
-  bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm, backgroundColor: COLORS.white },
-  bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, textAlignVertical: 'top', width: '100%' },
-  charCount: { fontSize: 11, color: COLORS.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.md },
+  bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm, backgroundColor: colors.background },
+  bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, textAlignVertical: 'top', width: '100%', color: colors.dark },
+  charCount: { fontSize: 11, color: colors.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.md },
   // Social links with scroll indicator
   socialContainer: { flexDirection: 'row', minHeight: 180, maxHeight: 240 },
   scrollIndicatorContainer: { width: 6, marginRight: SPACING.xs, justifyContent: 'center' },
-  scrollIndicatorTrack: { width: 3, height: '100%', backgroundColor: COLORS.grayLight, borderRadius: 2, position: 'relative' },
+  scrollIndicatorTrack: { width: 3, height: '100%', backgroundColor: colors.grayLight, borderRadius: 2, position: 'relative' },
   scrollIndicatorThumb: { position: 'absolute', width: 3, height: '30%', borderRadius: 2 },
   socialScroll: { flex: 1 },
   socialScrollWithIndicator: { marginLeft: 0 },
@@ -294,5 +298,5 @@ const styles = StyleSheet.create({
   socialInputFlex: { flex: 1, marginBottom: 0 },
   removeBtn: { marginLeft: SPACING.xs, padding: 4 },
   spacer: { flex: 1, minHeight: SPACING.xl },
-  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.grayLight },
+  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.grayLight },
 });

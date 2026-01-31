@@ -1,14 +1,15 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { useTheme } from '../../hooks/useTheme';
 
 type AccountType = 'personal' | 'pro' | null;
 type ProType = 'creator' | 'business' | null;
@@ -25,11 +26,13 @@ interface AccountTypeScreenProps {
 }
 
 export default function AccountTypeScreen({ navigation, route: _route }: AccountTypeScreenProps) {
+  const { colors, isDark } = useTheme();
   const [selected, setSelected] = useState<AccountType>(null);
   const [proType, setProType] = useState<ProType>(null);
   const proSubAnim = useRef(new Animated.Value(0)).current;
 
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleSelectMain = useCallback((type: AccountType) => {
     setSelected(type);
@@ -92,7 +95,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                 activeOpacity={0.7}
               >
                 <View style={[styles.cardIconBox, styles.cardIconBoxActive]}>
-                  <Ionicons name="person-outline" size={26} color={COLORS.dark} />
+                  <Ionicons name="person-outline" size={26} color={colors.dark} />
                 </View>
                 <View style={styles.cardTextBox}>
                   <Text style={styles.cardTitle}>Personal</Text>
@@ -113,7 +116,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
               activeOpacity={0.7}
             >
               <View style={styles.cardIconBox}>
-                <Ionicons name="person-outline" size={26} color={COLORS.dark} />
+                <Ionicons name="person-outline" size={26} color={colors.dark} />
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={[styles.cardTitle, selected === 'pro' && styles.cardTextInactive]}>Personal</Text>
@@ -137,7 +140,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                 activeOpacity={0.7}
               >
                 <View style={[styles.cardIconBox, styles.cardIconBoxActive]}>
-                  <Ionicons name="briefcase-outline" size={26} color={COLORS.dark} />
+                  <Ionicons name="briefcase-outline" size={26} color={colors.dark} />
                 </View>
                 <View style={styles.cardTextBox}>
                   <Text style={styles.cardTitle}>Professional</Text>
@@ -158,7 +161,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
               activeOpacity={0.7}
             >
               <View style={styles.cardIconBox}>
-                <Ionicons name="briefcase-outline" size={26} color={COLORS.dark} />
+                <Ionicons name="briefcase-outline" size={26} color={colors.dark} />
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={[styles.cardTitle, selected === 'personal' && styles.cardTextInactive]}>Professional</Text>
@@ -193,7 +196,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                   activeOpacity={0.7}
                 >
                   <View style={[styles.proSubIconBox, styles.proSubIconBoxActive]}>
-                    <Ionicons name="videocam-outline" size={22} color={COLORS.dark} />
+                    <Ionicons name="videocam-outline" size={22} color={colors.dark} />
                   </View>
                   <View style={styles.proSubTextBox}>
                     <Text style={styles.proSubText}>Creator</Text>
@@ -211,7 +214,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                 activeOpacity={0.7}
               >
                 <View style={styles.proSubIconBox}>
-                  <Ionicons name="videocam-outline" size={22} color={COLORS.dark} />
+                  <Ionicons name="videocam-outline" size={22} color={colors.dark} />
                 </View>
                 <View style={styles.proSubTextBox}>
                   <Text style={styles.proSubText}>Creator</Text>
@@ -235,7 +238,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                   activeOpacity={0.7}
                 >
                   <View style={[styles.proSubIconBox, styles.proSubIconBoxActive]}>
-                    <Ionicons name="storefront-outline" size={22} color={COLORS.dark} />
+                    <Ionicons name="storefront-outline" size={22} color={colors.dark} />
                   </View>
                   <View style={styles.proSubTextBox}>
                     <Text style={styles.proSubText}>Business</Text>
@@ -253,7 +256,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                 activeOpacity={0.7}
               >
                 <View style={styles.proSubIconBox}>
-                  <Ionicons name="storefront-outline" size={22} color={COLORS.dark} />
+                  <Ionicons name="storefront-outline" size={22} color={colors.dark} />
                 </View>
                 <View style={styles.proSubTextBox}>
                   <Text style={styles.proSubText}>Business</Text>
@@ -286,14 +289,14 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   inner: { flex: 1, paddingHorizontal: SPACING.xl },
 
   // Title
   titleBox: { alignItems: 'center', marginBottom: SPACING.xl },
-  title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.sm },
-  subtitle: { fontSize: 15, color: COLORS.dark, textAlign: 'center' },
+  title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: colors.dark, textAlign: 'center', marginBottom: SPACING.sm },
+  subtitle: { fontSize: 15, color: colors.dark, textAlign: 'center' },
 
   // Cards - Horizontal Rectangles
   cardsContainer: { marginBottom: SPACING.lg },
@@ -303,9 +306,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
     borderWidth: 2,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
     borderRadius: SIZES.radiusLg,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.backgroundSecondary,
     marginBottom: SPACING.sm,
   },
   cardGradientBorder: {
@@ -319,7 +322,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
     borderRadius: SIZES.radiusLg - 2,
-    backgroundColor: '#E8FAF7',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#E8FAF7',
   },
   cardInactive: { opacity: 0.4 },
   cardIconBox: {
@@ -328,14 +331,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#F3F4F6',
     marginRight: SPACING.md,
   },
   cardIconBoxActive: { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
   cardTextBox: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dark, marginBottom: 2 },
-  cardDesc: { fontSize: 13, color: COLORS.grayMuted },
-  cardTextInactive: { color: COLORS.grayMuted },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.dark, marginBottom: 2 },
+  cardDesc: { fontSize: 13, color: colors.grayMuted },
+  cardTextInactive: { color: colors.grayMuted },
 
   // Radio
   radio: {
@@ -343,26 +346,26 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: SPACING.sm,
   },
-  radioActive: { borderColor: COLORS.primary },
-  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.primary },
+  radioActive: { borderColor: colors.primary },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary },
 
   // Pro Sub-options - Horizontal Rectangles
   proSubContainer: {},
-  proSubTitle: { fontSize: 15, fontWeight: '600', color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.md },
+  proSubTitle: { fontSize: 15, fontWeight: '600', color: colors.dark, textAlign: 'center', marginBottom: SPACING.md },
   proSubCard: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
     borderWidth: 2,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
     borderRadius: SIZES.radiusLg,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.backgroundSecondary,
     marginBottom: SPACING.sm,
   },
   proSubGradientBorder: {
@@ -376,7 +379,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
     borderRadius: SIZES.radiusLg - 2,
-    backgroundColor: '#E8FAF7',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#E8FAF7',
   },
   proSubIconBox: {
     width: 40,
@@ -384,13 +387,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#F3F4F6',
     marginRight: SPACING.md,
   },
   proSubIconBoxActive: { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
   proSubTextBox: { flex: 1 },
-  proSubText: { fontSize: 15, fontWeight: '600', color: COLORS.dark, marginBottom: 2 },
-  proSubDesc: { fontSize: 12, color: COLORS.grayMuted },
+  proSubText: { fontSize: 15, fontWeight: '600', color: colors.dark, marginBottom: 2 },
+  proSubDesc: { fontSize: 12, color: colors.grayMuted },
 
   // Spacer
   spacer: { flex: 1 },

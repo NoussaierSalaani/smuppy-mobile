@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, GRADIENTS } from '../config/theme';
+import { SPACING, GRADIENTS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 const SEGMENT_GAP = 4;
 
@@ -23,6 +24,8 @@ export default function OnboardingHeader({
   showProgress = true,
   showBackArrow = true,
 }: OnboardingHeaderProps) {
+  const { colors, isDark } = useTheme();
+
   // Memoize segments to avoid recalculating on every render
   const segments = useMemo(() => {
     return Array.from({ length: totalSteps }, (_, index) => {
@@ -37,6 +40,8 @@ export default function OnboardingHeader({
     });
   }, [totalSteps]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <View style={styles.container}>
       {showBackArrow && onBack ? (
@@ -47,7 +52,7 @@ export default function OnboardingHeader({
           activeOpacity={0.6}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
       ) : (
         <View style={styles.backArrowPlaceholder} />
@@ -81,7 +86,7 @@ export default function OnboardingHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.sm,
@@ -123,6 +128,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.grayLight,
   },
 });

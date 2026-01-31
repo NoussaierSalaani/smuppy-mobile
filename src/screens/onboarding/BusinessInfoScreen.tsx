@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator, Alert,
@@ -7,11 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { COLORS, SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
+import { SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import { searchNominatim, NominatimSearchResult } from '../../config/api';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { useTheme } from '../../hooks/useTheme';
 
 interface BusinessInfoScreenProps {
   navigation: {
@@ -25,6 +26,7 @@ interface BusinessInfoScreenProps {
 }
 
 export default function BusinessInfoScreen({ navigation, route }: BusinessInfoScreenProps) {
+  const { colors, isDark } = useTheme();
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
@@ -37,6 +39,8 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const params = route?.params || {};
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -143,11 +147,11 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, businessName.length > 0 && styles.inputInnerValid]}>
-              <Ionicons name="business-outline" size={18} color={(businessName.length > 0 || focusedField === 'businessName') ? COLORS.primary : COLORS.grayMuted} />
+              <Ionicons name="business-outline" size={18} color={(businessName.length > 0 || focusedField === 'businessName') ? colors.primary : colors.grayMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="Your business name"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={businessName}
                 onChangeText={setBusinessName}
                 onFocus={() => setFocusedField('businessName')}
@@ -173,21 +177,21 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
             <View style={[styles.inputInner, address.length > 0 && styles.inputInnerValid]}>
               <TouchableOpacity onPress={detectCurrentLocation} disabled={isLoadingLocation} style={styles.locationBtn}>
                 {isLoadingLocation ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Ionicons name="locate" size={18} color={(address.length > 0 || focusedField === 'address') ? COLORS.primary : COLORS.grayMuted} />
+                  <Ionicons name="locate" size={18} color={(address.length > 0 || focusedField === 'address') ? colors.primary : colors.grayMuted} />
                 )}
               </TouchableOpacity>
               <TextInput
                 style={styles.input}
                 placeholder="Start typing or use location..."
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={address}
                 onChangeText={handleAddressChange}
                 onFocus={() => setFocusedField('address')}
                 onBlur={() => setFocusedField(null)}
               />
-              {isLoadingSuggestions && <ActivityIndicator size="small" color={COLORS.primary} />}
+              {isLoadingSuggestions && <ActivityIndicator size="small" color={colors.primary} />}
             </View>
           </LinearGradient>
 
@@ -200,7 +204,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
                   style={[styles.suggestionItem, i === addressSuggestions.length - 1 && styles.suggestionLast]}
                   onPress={() => selectAddress(s)}
                 >
-                  <Ionicons name="location" size={16} color={COLORS.primary} />
+                  <Ionicons name="location" size={16} color={colors.primary} />
                   <Text style={styles.suggestionText} numberOfLines={2}>{s.display_name}</Text>
                 </TouchableOpacity>
               ))}
@@ -209,7 +213,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
 
           {/* Info note */}
           <View style={styles.infoNote}>
-            <Ionicons name="information-circle-outline" size={16} color={COLORS.grayMuted} />
+            <Ionicons name="information-circle-outline" size={16} color={colors.grayMuted} />
             <Text style={styles.infoText}>You can add logo, phone, website and social links later in Settings</Text>
           </View>
         </View>
@@ -225,27 +229,27 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
   header: { alignItems: 'center', marginBottom: SPACING.sm },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
-  greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
-  greetingName: { fontWeight: '700', color: COLORS.dark },
-  label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: 4, fontSize: 12 },
-  required: { color: COLORS.error },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: colors.grayMuted, textAlign: 'center' },
+  greeting: { fontSize: 14, fontWeight: '500', color: colors.primary, textAlign: 'center', marginBottom: SPACING.sm },
+  greetingName: { fontWeight: '700', color: colors.dark },
+  label: { ...TYPOGRAPHY.label, color: colors.dark, marginBottom: 4, fontSize: 12 },
+  required: { color: colors.error },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: colors.surface },
+  inputInnerValid: { backgroundColor: colors.backgroundValid },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14, color: colors.dark },
   locationBtn: { padding: 2 },
-  suggestions: { backgroundColor: COLORS.white, borderRadius: 12, marginTop: -SPACING.sm, marginBottom: SPACING.md, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
+  suggestions: { backgroundColor: colors.surface, borderRadius: 12, marginTop: -SPACING.sm, marginBottom: SPACING.md, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: SPACING.base, borderBottomWidth: 1, borderBottomColor: colors.grayLight },
   suggestionLast: { borderBottomWidth: 0 },
-  suggestionText: { flex: 1, fontSize: 14, color: COLORS.dark, marginLeft: SPACING.sm },
-  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
-  infoText: { flex: 1, fontSize: 13, color: COLORS.grayMuted, lineHeight: 18 },
-  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: COLORS.white },
+  suggestionText: { flex: 1, fontSize: 14, color: colors.dark, marginLeft: SPACING.sm },
+  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? colors.surface : '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
+  infoText: { flex: 1, fontSize: 13, color: colors.grayMuted, lineHeight: 18 },
+  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: colors.background },
 });

@@ -5,11 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -29,6 +30,7 @@ const getAge = (birthDate: Date) => {
 };
 
 export default function TellUsAboutYouScreen({ navigation, route }: any) {
+  const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -41,6 +43,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
 
   const { accountType } = route?.params || {};
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -120,12 +123,12 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} style={styles.profileImage} />
                   ) : (
-                    <Ionicons name="camera" size={32} color={COLORS.grayMuted} />
+                    <Ionicons name="camera" size={32} color={colors.grayMuted} />
                   )}
                 </View>
               </LinearGradient>
               <View style={styles.photoBadge}>
-                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={COLORS.white} />
+                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={colors.white} />
               </View>
             </TouchableOpacity>
             <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add a photo'}</Text>
@@ -140,11 +143,11 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, hasName && styles.inputInnerValid]}>
-              <Ionicons name="person-outline" size={18} color={(hasName || focusedField === 'name') ? COLORS.primary : COLORS.grayMuted} />
+              <Ionicons name="person-outline" size={18} color={(hasName || focusedField === 'name') ? colors.primary : colors.grayMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="Your name"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={name}
                 onChangeText={setName}
                 returnKeyType="done"
@@ -178,7 +181,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
                     activeOpacity={0.7}
                   >
                     <View style={[styles.genderIcon, { backgroundColor: g.color }]}>
-                      <Ionicons name={g.icon} size={22} color={COLORS.white} />
+                      <Ionicons name={g.icon} size={22} color={colors.white} />
                     </View>
                     <Text style={[styles.genderText, { color: g.color }]}>{g.label}</Text>
                   </TouchableOpacity>
@@ -207,7 +210,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
               onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="calendar-outline" size={18} color={COLORS.error} />
+              <Ionicons name="calendar-outline" size={18} color={colors.error} />
               <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
                 {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
               </Text>
@@ -224,7 +227,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
                 onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="calendar-outline" size={18} color={hasSelectedDate ? COLORS.primary : COLORS.grayMuted} />
+                <Ionicons name="calendar-outline" size={18} color={hasSelectedDate ? colors.primary : colors.grayMuted} />
                 <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
                   {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
                 </Text>
@@ -234,14 +237,14 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
 
           {!!ageError && (
             <View style={styles.errorRow}>
-              <Ionicons name="alert-circle" size={14} color={COLORS.error} />
+              <Ionicons name="alert-circle" size={14} color={colors.error} />
               <Text style={styles.errorText}>{ageError}</Text>
             </View>
           )}
 
           {/* Info note */}
           <View style={styles.infoNote}>
-            <Ionicons name="information-circle-outline" size={16} color={COLORS.grayMuted} />
+            <Ionicons name="information-circle-outline" size={16} color={colors.grayMuted} />
             <Text style={styles.infoText}>You can add bio and more details later in Settings</Text>
           </View>
         </View>
@@ -305,47 +308,47 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
   header: { alignItems: 'center', marginBottom: SPACING.sm },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
-  subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 2 },
+  subtitle: { fontSize: 13, color: colors.gray, textAlign: 'center' },
   // Profile Photo
   photoSection: { alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.lg },
   photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
-  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  photoContainerFilled: { backgroundColor: COLORS.backgroundValid },
+  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: colors.backgroundSecondary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoContainerFilled: { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : colors.backgroundValid },
   profileImage: { width: '100%', height: '100%', borderRadius: 52 },
-  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: COLORS.white },
-  photoLabel: { fontSize: 12, color: COLORS.grayMuted, marginTop: 4 },
-  label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: 4, fontSize: 12 },
-  required: { color: COLORS.error },
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
+  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: colors.background },
+  photoLabel: { fontSize: 12, color: colors.grayMuted, marginTop: 4 },
+  label: { ...TYPOGRAPHY.label, color: colors.dark, marginBottom: 4, fontSize: 12 },
+  required: { color: colors.error },
+  inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 2, borderColor: colors.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: colors.backgroundSecondary },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
-  greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
-  greetingName: { fontWeight: '700', color: COLORS.dark },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
-  inputError: { borderColor: COLORS.error, backgroundColor: '#FEE' },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
+  greeting: { fontSize: 14, fontWeight: '500', color: colors.primary, textAlign: 'center', marginBottom: SPACING.sm },
+  greetingName: { fontWeight: '700', color: colors.dark },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: colors.backgroundSecondary },
+  inputInnerValid: { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : colors.backgroundValid },
+  inputError: { borderColor: colors.error, backgroundColor: isDark ? 'rgba(255, 0, 0, 0.1)' : '#FEE' },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14, color: colors.dark },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -2, marginBottom: SPACING.xs, gap: 4 },
-  errorText: { fontSize: 12, color: COLORS.error },
+  errorText: { fontSize: 12, color: colors.error },
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
-  genderBox: { width: 80, height: 80, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, justifyContent: 'center', alignItems: 'center' },
+  genderBox: { width: 80, height: 80, backgroundColor: colors.backgroundSecondary, borderWidth: 2, borderColor: colors.grayLight, borderRadius: SIZES.radiusMd, justifyContent: 'center', alignItems: 'center' },
   genderGradientBorder: { width: 80, height: 80, borderRadius: SIZES.radiusMd, padding: 2 },
-  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: COLORS.backgroundValid, justifyContent: 'center', alignItems: 'center' },
+  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : colors.backgroundValid, justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
-  dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.sm, fontSize: 14 },
-  placeholder: { color: COLORS.grayMuted },
-  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
-  infoText: { flex: 1, fontSize: 13, color: COLORS.grayMuted, lineHeight: 18 },
-  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
+  genderText: { ...TYPOGRAPHY.caption, color: colors.dark, fontSize: 11 },
+  dobText: { ...TYPOGRAPHY.body, color: colors.dark, marginLeft: SPACING.sm, fontSize: 14 },
+  placeholder: { color: colors.grayMuted },
+  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? colors.backgroundSecondary : '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
+  infoText: { flex: 1, fontSize: 13, color: colors.grayMuted, lineHeight: 18 },
+  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: colors.background },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
-  pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
-  pickerCancel: { ...TYPOGRAPHY.body, color: COLORS.dark },
-  pickerDone: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '600' },
+  pickerBox: { backgroundColor: colors.backgroundSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: colors.grayLight },
+  pickerCancel: { ...TYPOGRAPHY.body, color: colors.dark },
+  pickerDone: { ...TYPOGRAPHY.body, color: colors.primary, fontWeight: '600' },
 });

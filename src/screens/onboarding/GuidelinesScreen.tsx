@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
+import { TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
@@ -12,6 +12,7 @@ import { useUserStore } from '../../stores';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 interface GuidelinesScreenProps {
   navigation: {
@@ -25,6 +26,7 @@ interface GuidelinesScreenProps {
 }
 
 export default function GuidelinesScreen({ navigation, route }: GuidelinesScreenProps) {
+  const { colors, isDark } = useTheme();
   const params = useMemo(() => route?.params || {}, [route?.params]);
   const { accountType } = params;
   const { onProfileCreated } = useAuthCallbacks();
@@ -38,6 +40,8 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
     // personal (3/3) and pro_business (3/3)
     return { currentStep: 3, totalSteps: 3 };
   }, [accountType]);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleAccept = useCallback(async () => {
     if (isCreating) return;
@@ -183,7 +187,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
 
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <SmuppyLogoFull iconSize={40} textWidth={110} iconVariant="dark" textVariant="dark" />
+          <SmuppyLogoFull iconSize={40} textWidth={110} iconVariant={isDark ? 'white' : 'dark'} textVariant={isDark ? 'white' : 'dark'} />
         </View>
 
         {/* Title */}
@@ -287,8 +291,8 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         <View style={styles.btnContainer}>
           {isCreating ? (
             <View style={styles.creatingBox}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={styles.creatingText}>Creating your profile...</Text>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.creatingText, { color: colors.primary }]}>Creating your profile...</Text>
             </View>
           ) : (
             <Button variant="primary" size="lg" icon="checkmark" iconPosition="right" disabled={disabled || isCreating} onPress={handleAccept}>
@@ -301,28 +305,28 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
   logoContainer: { alignItems: 'center', marginBottom: SPACING.lg },
-  title: { fontSize: 32, fontWeight: '900', color: '#111214', textAlign: 'left', marginBottom: SPACING.xs, lineHeight: 38 },
-  subtitle: { fontSize: 16, fontWeight: '400', color: '#111214', textAlign: 'left', marginBottom: SPACING.xl },
-  intro: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 24, marginBottom: SPACING.lg },
-  introBold: { fontWeight: '700', color: '#111214' },
+  title: { fontSize: 32, fontWeight: '900', color: colors.dark, textAlign: 'left', marginBottom: SPACING.xs, lineHeight: 38 },
+  subtitle: { fontSize: 16, fontWeight: '400', color: colors.dark, textAlign: 'left', marginBottom: SPACING.xl },
+  intro: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 24, marginBottom: SPACING.lg },
+  introBold: { fontWeight: '700', color: colors.dark },
   section: { marginBottom: SPACING.xl },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#111214', marginBottom: SPACING.sm },
-  text: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 24, marginBottom: SPACING.sm },
-  textBold: { fontSize: 15, fontWeight: '700', color: '#111214', lineHeight: 24, marginTop: SPACING.sm },
-  textUnderline: { fontSize: 14, color: COLORS.dark, fontWeight: '500', textDecorationLine: 'underline', lineHeight: 22, marginTop: SPACING.sm },
-  subTitle: { fontSize: 15, fontWeight: '700', color: '#111214', marginTop: SPACING.md, marginBottom: SPACING.xs },
-  listItem: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 24, marginLeft: SPACING.xs, marginBottom: 4 },
-  bulletItem: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 22, marginLeft: SPACING.xl, marginBottom: 2 },
-  conclusionBox: { backgroundColor: COLORS.backgroundFocus, borderRadius: SIZES.radiusLg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.primary },
-  conclusionTitle: { ...TYPOGRAPHY.subtitle, color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm, textDecorationLine: 'underline' },
-  conclusionText: { ...TYPOGRAPHY.bodySmall, color: COLORS.dark, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.sm },
-  conclusionHighlight: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '700', textAlign: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.dark, marginBottom: SPACING.sm },
+  text: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 24, marginBottom: SPACING.sm },
+  textBold: { fontSize: 15, fontWeight: '700', color: colors.dark, lineHeight: 24, marginTop: SPACING.sm },
+  textUnderline: { fontSize: 14, color: colors.dark, fontWeight: '500', textDecorationLine: 'underline', lineHeight: 22, marginTop: SPACING.sm },
+  subTitle: { fontSize: 15, fontWeight: '700', color: colors.dark, marginTop: SPACING.md, marginBottom: SPACING.xs },
+  listItem: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 24, marginLeft: SPACING.xs, marginBottom: 4 },
+  bulletItem: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 22, marginLeft: SPACING.xl, marginBottom: 2 },
+  conclusionBox: { backgroundColor: colors.backgroundFocus, borderRadius: SIZES.radiusLg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: colors.primary },
+  conclusionTitle: { ...TYPOGRAPHY.subtitle, color: colors.primary, textAlign: 'center', marginBottom: SPACING.sm, textDecorationLine: 'underline' },
+  conclusionText: { ...TYPOGRAPHY.bodySmall, color: colors.dark, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.sm },
+  conclusionHighlight: { ...TYPOGRAPHY.body, color: colors.primary, fontWeight: '700', textAlign: 'center' },
   btnContainer: { marginTop: SPACING.md, marginBottom: SPACING.xl },
   creatingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: SPACING.md },
-  creatingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+  creatingText: { fontSize: 14, fontWeight: '500' },
 });

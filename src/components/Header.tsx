@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES } from '../config/theme';
+import { SIZES } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface HeaderProps {
   title?: string;
@@ -36,7 +37,9 @@ export default function Header({
   rightComponent,
   style,
 }: HeaderProps): React.JSX.Element {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const renderLeft = (): ReactNode => {
     if (leftComponent) return leftComponent;
@@ -48,7 +51,7 @@ export default function Header({
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
       );
     }
@@ -78,7 +81,7 @@ export default function Header({
           style={styles.rightButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name={rightIcon} size={24} color={COLORS.dark} />
+          <Ionicons name={rightIcon} size={24} color={colors.dark} />
         </TouchableOpacity>
       );
     }
@@ -130,9 +133,9 @@ export default function Header({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 0,
   },
   transparent: {
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
     fontFamily: 'WorkSans-Bold',
     fontSize: 18,
     lineHeight: 24,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   titleCentered: {
     textAlign: 'center',
@@ -188,12 +191,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   rightText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

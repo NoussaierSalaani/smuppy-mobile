@@ -1,8 +1,9 @@
-import React, { Component, ReactNode } from 'react';
+import React, { Component, ReactNode, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING } from '../config/theme';
+import { SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
+import { useTheme } from '../hooks/useTheme';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -12,6 +13,8 @@ interface ErrorBoundaryProps {
   title?: string;
   message?: string;
   showReportButton?: boolean;
+  colors?: any;
+  isDark?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -77,6 +80,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   render() {
+    const { colors, isDark } = this.props;
+    const styles = createStyles(colors, isDark || false);
+
     if (this.state.hasError) {
       // Custom fallback UI from props
       if (this.props.fallback) {
@@ -99,7 +105,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return (
         <View style={styles.container}>
           <View style={styles.iconContainer}>
-            <Ionicons name="warning-outline" size={48} color={COLORS.error || '#EF4444'} />
+            <Ionicons name="warning-outline" size={48} color={colors?.error || '#EF4444'} />
           </View>
 
           <Text style={styles.title}>
@@ -147,19 +153,19 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.white || '#FFFFFF',
+    backgroundColor: colors.background,
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.errorLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.lg,
@@ -167,13 +173,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 20,
-    color: COLORS.dark || '#0A252F',
+    color: colors.dark,
     textAlign: 'center',
   },
   message: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray || '#8E8E93',
+    color: colors.gray,
     marginTop: SPACING.sm,
     textAlign: 'center',
     lineHeight: 22,
@@ -182,14 +188,14 @@ const styles = StyleSheet.create({
   errorDetails: {
     marginTop: SPACING.lg,
     padding: SPACING.md,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.errorLight,
     borderRadius: 8,
     maxWidth: '100%',
   },
   errorText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: '#991B1B',
+    color: colors.error,
   },
   buttonContainer: {
     marginTop: SPACING.xl,
@@ -201,7 +207,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 28,
-    backgroundColor: COLORS.primary || '#00CDB5',
+    backgroundColor: colors.primary,
     borderRadius: 28,
     gap: 8,
   },
@@ -217,7 +223,7 @@ const styles = StyleSheet.create({
   reportText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.gray || '#8E8E93',
+    color: colors.gray,
     textDecorationLine: 'underline',
   },
   // Minimal styles
@@ -228,14 +234,20 @@ const styles = StyleSheet.create({
   minimalText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray || '#8E8E93',
+    color: colors.gray,
   },
   minimalRetry: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.primary || '#00CDB5',
+    color: colors.primary,
     marginTop: SPACING.sm,
   },
 });
 
-export default ErrorBoundary;
+// Wrapper to inject theme into class component
+function ErrorBoundaryWithTheme(props: Omit<ErrorBoundaryProps, 'colors' | 'isDark'>) {
+  const { colors, isDark } = useTheme();
+  return <ErrorBoundary {...props} colors={colors} isDark={isDark} />;
+}
+
+export default ErrorBoundaryWithTheme;

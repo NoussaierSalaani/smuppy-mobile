@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS, BORDERS } from '../config/theme';
+import { SIZES, SHADOWS, BORDERS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 type InputState = 'default' | 'focus' | 'error' | 'disabled';
 
@@ -66,6 +67,7 @@ export default function Input({
   inputStyle,
   ...props
 }: InputProps): React.JSX.Element {
+  const { colors, isDark } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isSecure, setIsSecure] = useState(secureTextEntry);
 
@@ -82,44 +84,46 @@ export default function Input({
   // State-based styles
   const stateStyles: Record<InputState, StateStyle> = {
     default: {
-      backgroundColor: COLORS.white,
-      borderColor: COLORS.primary,
+      backgroundColor: colors.white,
+      borderColor: colors.primary,
       borderWidth: BORDERS.thin,
-      labelColor: COLORS.dark,
-      textColor: COLORS.dark,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.dark,
+      labelColor: colors.dark,
+      textColor: colors.dark,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.dark,
     },
     focus: {
-      backgroundColor: COLORS.backgroundFocus,
-      borderColor: COLORS.primary,
+      backgroundColor: colors.backgroundFocus,
+      borderColor: colors.primary,
       borderWidth: BORDERS.thin,
-      labelColor: COLORS.dark,
-      textColor: COLORS.dark,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.dark,
+      labelColor: colors.dark,
+      textColor: colors.dark,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.dark,
     },
     error: {
-      backgroundColor: COLORS.white,
-      borderColor: COLORS.error,
+      backgroundColor: colors.white,
+      borderColor: colors.error,
       borderWidth: BORDERS.thin,
-      labelColor: COLORS.dark,
-      textColor: COLORS.error,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.dark,
+      labelColor: colors.dark,
+      textColor: colors.error,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.dark,
     },
     disabled: {
-      backgroundColor: COLORS.backgroundDisabled,
+      backgroundColor: colors.backgroundDisabled,
       borderColor: 'transparent',
       borderWidth: 0,
-      labelColor: COLORS.graySecondary,
-      textColor: COLORS.grayLight,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.grayMuted,
+      labelColor: colors.graySecondary,
+      textColor: colors.grayLight,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.grayMuted,
     },
   };
 
   const currentStyle = stateStyles[state];
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Handle password visibility toggle
   const handleToggleSecure = (): void => {
@@ -226,7 +230,7 @@ export default function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     marginBottom: 8,
   },
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.error,
+    color: colors.error,
     marginTop: 4,
   },
 });

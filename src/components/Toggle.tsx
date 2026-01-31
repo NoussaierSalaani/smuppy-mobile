@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Animated, ViewStyle } from 'react-native';
-import { COLORS, BORDERS } from '../config/theme';
+import { BORDERS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 type ToggleSize = 'sm' | 'md' | 'lg';
 
@@ -29,6 +30,8 @@ export default function Toggle({
   size = 'md',
   style,
 }: ToggleProps): React.JSX.Element {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
 
   // Size configurations
@@ -81,19 +84,19 @@ export default function Toggle({
   // Calculate background color
   const backgroundColor = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [COLORS.white, COLORS.primary],
+    outputRange: [colors.background, colors.primary],
   });
 
   // Calculate border color
   const borderColor = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [COLORS.grayLight, COLORS.primary],
+    outputRange: [colors.grayLight, colors.primary],
   });
 
   // Calculate thumb color
   const thumbColor = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [COLORS.grayLight, COLORS.white],
+    outputRange: [colors.grayLight, colors.white],
   });
 
   return (
@@ -110,8 +113,8 @@ export default function Toggle({
             width: config.width,
             height: config.height,
             borderRadius: config.height / 2,
-            backgroundColor: disabled ? COLORS.backgroundDisabled : backgroundColor,
-            borderColor: disabled ? COLORS.grayLight : borderColor,
+            backgroundColor: disabled ? colors.backgroundSecondary : backgroundColor,
+            borderColor: disabled ? colors.grayLight : borderColor,
             opacity: disabled ? 0.5 : 1,
           },
         ]}
@@ -123,7 +126,7 @@ export default function Toggle({
               width: config.thumbSize,
               height: config.thumbSize,
               borderRadius: config.thumbSize / 2,
-              backgroundColor: disabled ? COLORS.grayMuted : thumbColor,
+              backgroundColor: disabled ? colors.grayMuted : thumbColor,
               transform: [{ translateX: thumbPosition }],
             },
           ]}
@@ -133,14 +136,14 @@ export default function Toggle({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   track: {
     justifyContent: 'center',
     borderWidth: BORDERS.thin,
   },
   thumb: {
     position: 'absolute',
-    shadowColor: '#000',
+    shadowColor: isDark ? colors.dark : '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

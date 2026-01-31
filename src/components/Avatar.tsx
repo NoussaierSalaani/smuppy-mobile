@@ -1,8 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SIZES } from '../config/theme';
+import { GRADIENTS, SIZES } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import OptimizedImage from './OptimizedImage';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -41,6 +42,9 @@ const Avatar = memo(function Avatar({
   onPress,
   style,
 }: AvatarProps): React.JSX.Element {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Size configurations
   const sizeConfig: Record<AvatarSize, SizeConfig> = {
     xs: {
@@ -90,7 +94,7 @@ const Avatar = memo(function Avatar({
       <Ionicons
         name="person"
         size={config.size * 0.5}
-        color={COLORS.grayLight}
+        color={colors.grayLight}
       />
     </View>
   );
@@ -188,7 +192,7 @@ const Avatar = memo(function Avatar({
             height: config.size + 4,
             borderRadius: config.borderRadius + 2,
             padding: 2,
-            backgroundColor: COLORS.white,
+            backgroundColor: colors.background,
           },
         ]}
       >
@@ -226,15 +230,15 @@ Avatar.displayName = 'Avatar';
 
 export default Avatar;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     position: 'relative',
   },
   image: {
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.grayLight,
   },
   placeholder: {
-    backgroundColor: COLORS.backgroundDisabled,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -248,30 +252,30 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    backgroundColor: COLORS.error,
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 1,
-    borderColor: COLORS.white,
+    borderColor: colors.background,
   },
   badgeText: {
     fontFamily: 'Poppins-Bold',
     fontSize: 8,
-    color: COLORS.white,
+    color: colors.white,
   },
   onlineIndicator: {
     position: 'absolute',
-    backgroundColor: COLORS.success,
+    backgroundColor: colors.success,
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: colors.background,
   },
   eventRing: {
     position: 'absolute',
     top: -3,
     left: -3,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     backgroundColor: 'transparent',
   },
 });

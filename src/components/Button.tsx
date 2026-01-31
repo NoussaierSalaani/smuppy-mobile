@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+import { GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger' | 'live' | 'reminder' | 'text';
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -36,6 +37,8 @@ export default function Button({
   textStyle,
   children,
 }: ButtonProps) {
+  const { colors, isDark } = useTheme();
+
   // Get size styles
   const sizeStyles = {
     xs: {
@@ -75,54 +78,54 @@ export default function Button({
     const variants = {
       primary: {
         gradient: disabled ? GRADIENTS.buttonDisabled : GRADIENTS.button,
-        textColor: disabled ? COLORS.grayMuted : COLORS.dark,
+        textColor: disabled ? colors.grayMuted : colors.dark,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       secondary: {
         gradient: null,
-        backgroundColor: COLORS.white,
-        textColor: disabled ? COLORS.grayMuted : COLORS.dark,
+        backgroundColor: colors.white,
+        textColor: disabled ? colors.grayMuted : colors.dark,
         borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? COLORS.buttonBorder : 'transparent',
+        borderColor: disabled ? colors.grayBorder : 'transparent',
       },
       tertiary: {
         gradient: null,
-        backgroundColor: COLORS.white,
-        textColor: disabled ? COLORS.grayMuted : COLORS.dark,
+        backgroundColor: colors.white,
+        textColor: disabled ? colors.grayMuted : colors.dark,
         borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? COLORS.grayLight : 'transparent',
+        borderColor: disabled ? colors.grayLight : 'transparent',
       },
       ghost: {
         gradient: null,
         backgroundColor: 'transparent',
-        textColor: disabled ? COLORS.grayMuted : COLORS.primary,
+        textColor: disabled ? colors.grayMuted : colors.primary,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       danger: {
         gradient: null,
-        backgroundColor: COLORS.white,
-        textColor: disabled ? COLORS.errorLight : COLORS.error,
+        backgroundColor: colors.white,
+        textColor: disabled ? (isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3') : colors.error,
         borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? COLORS.errorLight : 'transparent',
+        borderColor: disabled ? (isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3') : 'transparent',
       },
       live: {
         gradient: disabled ? GRADIENTS.liveDisabled : GRADIENTS.live,
-        textColor: disabled ? '#FFA7A3' : COLORS.white,
+        textColor: disabled ? '#FFA7A3' : colors.white,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       reminder: {
         gradient: disabled ? GRADIENTS.reminderDisabled : GRADIENTS.reminder,
-        textColor: disabled ? '#7CA0AE' : COLORS.white,
+        textColor: disabled ? '#7CA0AE' : colors.white,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       text: {
         gradient: null,
         backgroundColor: 'transparent',
-        textColor: disabled ? COLORS.grayMuted : COLORS.primary,
+        textColor: disabled ? colors.grayMuted : colors.primary,
         borderWidth: 0,
         borderColor: 'transparent',
       },
@@ -131,6 +134,7 @@ export default function Button({
   };
 
   const variantStyles = getVariantStyles();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render icon
   const renderIcon = () => {
@@ -223,7 +227,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   button: {
     flexDirection: 'row',
     justifyContent: 'center',

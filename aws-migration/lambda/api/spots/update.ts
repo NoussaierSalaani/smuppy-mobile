@@ -1,0 +1,213 @@
+/**
+ * Update Spot Lambda Handler
+ * Partial update of a spot (owner only)
+ */
+
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { getPool, SqlParam } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+
+const log = createLogger('spots-update');
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sanitizeText(text: string, maxLength: number = 500): string {
+  return text
+    .replace(/<[^>]*>/g, '')
+    .trim()
+    .slice(0, maxLength)
+    .replace(/\0/g, '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+const ALLOWED_FIELDS: Record<string, { column: string; maxLength?: number; type: string }> = {
+  name: { column: 'name', maxLength: 255, type: 'text' },
+  description: { column: 'description', maxLength: 5000, type: 'text' },
+  category: { column: 'category', maxLength: 100, type: 'text' },
+  sportType: { column: 'sport_type', maxLength: 100, type: 'text' },
+  address: { column: 'address', maxLength: 500, type: 'text' },
+  city: { column: 'city', maxLength: 100, type: 'text' },
+  country: { column: 'country', maxLength: 100, type: 'text' },
+  latitude: { column: 'latitude', type: 'number' },
+  longitude: { column: 'longitude', type: 'number' },
+  images: { column: 'images', type: 'text[]' },
+  amenities: { column: 'amenities', type: 'text[]' },
+  openingHours: { column: 'opening_hours', type: 'jsonb' },
+  contactInfo: { column: 'contact_info', type: 'jsonb' },
+};
+
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const headers = createHeaders(event);
+
+  try {
+    const userId = event.requestContext.authorizer?.claims?.sub;
+    if (!userId) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    const rateLimit = await checkRateLimit({ prefix: 'spot-update', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    if (!rateLimit.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ error: 'Too many requests. Please try again later.' }) };
+    }
+
+    const spotId = event.pathParameters?.id;
+    if (!spotId || !UUID_REGEX.test(spotId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid spot ID format' }),
+      };
+    }
+
+    const body = event.body ? JSON.parse(event.body) : {};
+
+    // Build SET clause from allowed fields only
+    const setClauses: string[] = [];
+    const params: SqlParam[] = [];
+    let paramIndex = 1;
+
+    for (const [key, config] of Object.entries(ALLOWED_FIELDS)) {
+      if (body[key] === undefined) continue;
+
+      const value = body[key];
+
+      if (config.type === 'text') {
+        if (value !== null && typeof value !== 'string') continue;
+        const sanitized = value !== null ? sanitizeText(value, config.maxLength) : null;
+        setClauses.push(`${config.column} = $${paramIndex}`);
+        params.push(sanitized);
+        paramIndex++;
+      } else if (config.type === 'number') {
+        if (value !== null && typeof value !== 'number') continue;
+        if (config.column === 'latitude' && value !== null && (value < -90 || value > 90)) continue;
+        if (config.column === 'longitude' && value !== null && (value < -180 || value > 180)) continue;
+        setClauses.push(`${config.column} = $${paramIndex}`);
+        params.push(value);
+        paramIndex++;
+      } else if (config.type === 'text[]') {
+        if (value !== null && !Array.isArray(value)) continue;
+        const sanitized = value !== null ? value.map((v: string) => sanitizeText(v, 2000)) : null;
+        setClauses.push(`${config.column} = $${paramIndex}`);
+        params.push(sanitized);
+        paramIndex++;
+      } else if (config.type === 'jsonb') {
+        setClauses.push(`${config.column} = $${paramIndex}`);
+        params.push(value !== null ? JSON.stringify(value) : null);
+        paramIndex++;
+      }
+    }
+
+    if (setClauses.length === 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'No valid fields to update' }),
+      };
+    }
+
+    // Add updated_at
+    setClauses.push(`updated_at = NOW()`);
+
+    const db = await getPool();
+
+    // Resolve cognito_sub to profile ID
+    const userResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'User profile not found' }),
+      };
+    }
+
+    const profileId = userResult.rows[0].id;
+
+    // Update with ownership check
+    params.push(spotId);
+    const spotIdIndex = paramIndex;
+    paramIndex++;
+    params.push(profileId);
+    const profileIdIndex = paramIndex;
+
+    const result = await db.query(
+      `UPDATE spots
+       SET ${setClauses.join(', ')}
+       WHERE id = $${spotIdIndex} AND creator_id = $${profileIdIndex}
+       RETURNING id, creator_id, name, description, category, sport_type,
+         address, city, country, latitude, longitude,
+         images, amenities, rating, review_count, is_verified,
+         opening_hours, contact_info, created_at, updated_at`,
+      params
+    );
+
+    if (result.rows.length === 0) {
+      // Check if spot exists at all
+      const existsResult = await db.query(
+        'SELECT id FROM spots WHERE id = $1',
+        [spotId]
+      );
+      if (existsResult.rows.length === 0) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Spot not found' }),
+        };
+      }
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Not authorized to update this spot' }),
+      };
+    }
+
+    const s = result.rows[0];
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        spot: {
+          id: s.id,
+          creatorId: s.creator_id,
+          name: s.name,
+          description: s.description,
+          category: s.category,
+          sportType: s.sport_type,
+          address: s.address,
+          city: s.city,
+          country: s.country,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          images: s.images || [],
+          amenities: s.amenities || [],
+          rating: s.rating,
+          reviewCount: s.review_count,
+          isVerified: s.is_verified || false,
+          openingHours: s.opening_hours,
+          contactInfo: s.contact_info,
+          createdAt: s.created_at,
+          updatedAt: s.updated_at,
+        },
+      }),
+    };
+  } catch (error: unknown) {
+    log.error('Error updating spot', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ message: 'Internal server error' }),
+    };
+  }
+}

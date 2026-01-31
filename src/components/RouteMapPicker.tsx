@@ -11,7 +11,7 @@
  * - Stats card: distance, duration, difficulty, elevation (route mode only)
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,8 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { COLORS, GRADIENTS } from '../config/theme';
+import { GRADIENTS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import {
   searchNominatim,
   reverseGeocodeNominatim,
@@ -105,6 +106,7 @@ export default function RouteMapPicker({
   onRouteCalculated,
   onRouteClear,
 }: RouteMapPickerProps) {
+  const { colors, isDark } = useTheme();
   const cameraRef = useRef<Camera>(null);
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -145,6 +147,8 @@ export default function RouteMapPicker({
   const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
 
   const profile = getRouteProfile(activityType);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // ============================================
   // INIT
@@ -466,7 +470,7 @@ export default function RouteMapPicker({
               style={styles.suggestionItem}
               onPress={() => selectSuggestion(result, field)}
             >
-              <Ionicons name="location" size={16} color={COLORS.primary} />
+              <Ionicons name="location" size={16} color={colors.primary} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.suggestionMain} numberOfLines={1}>{formatted.mainText}</Text>
                 {formatted.secondaryText ? (
@@ -509,7 +513,7 @@ export default function RouteMapPicker({
             <MarkerView coordinate={[selectedPoint.lng, selectedPoint.lat]}>
               <View style={styles.pinContainer}>
                 <LinearGradient colors={GRADIENTS.primary} style={styles.pin}>
-                  <Ionicons name="location" size={normalize(20)} color={COLORS.white} />
+                  <Ionicons name="location" size={normalize(20)} color={colors.white} />
                 </LinearGradient>
                 <View style={styles.pinShadow} />
               </View>
@@ -542,7 +546,7 @@ export default function RouteMapPicker({
           {waypoints.map((wp, index) => (
             <MarkerView key={`wp-${index}`} coordinate={[wp.lng, wp.lat]}>
               <View style={styles.routePinContainer}>
-                <View style={[styles.routePin, { backgroundColor: COLORS.primary }]}>
+                <View style={[styles.routePin, { backgroundColor: colors.primary }]}>
                   <Text style={styles.routePinText}>{index + 1}</Text>
                 </View>
               </View>
@@ -555,7 +559,7 @@ export default function RouteMapPicker({
               <LineLayer
                 id="routeLineLayer"
                 style={{
-                  lineColor: COLORS.primary,
+                  lineColor: colors.primary,
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',
@@ -569,12 +573,12 @@ export default function RouteMapPicker({
         {/* Map controls */}
         <View style={styles.mapControls}>
           <TouchableOpacity style={styles.mapControlButton} onPress={centerOnUser}>
-            <Ionicons name="navigate" size={normalize(20)} color={COLORS.primary} />
+            <Ionicons name="navigate" size={normalize(20)} color={colors.primary} />
           </TouchableOpacity>
           {hasPoints && (
             <>
               <TouchableOpacity style={styles.mapControlButton} onPress={undoLastPoint}>
-                <Ionicons name="arrow-undo" size={normalize(20)} color={COLORS.primary} />
+                <Ionicons name="arrow-undo" size={normalize(20)} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.mapControlButton} onPress={clearAll}>
                 <Ionicons name="trash-outline" size={normalize(20)} color="#FF6B6B" />
@@ -586,7 +590,7 @@ export default function RouteMapPicker({
         {/* Loading overlay */}
         {isCalculating && (
           <View style={styles.calculatingOverlay}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.calculatingText}>Calculating route...</Text>
           </View>
         )}
@@ -636,7 +640,7 @@ export default function RouteMapPicker({
                   activeField === 'departure' && styles.fieldInputActive,
                 ]}
                 placeholder="Departure address"
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.gray}
                 value={departureSearch}
                 onChangeText={(text) => {
                   setDepartureSearch(text);
@@ -645,7 +649,7 @@ export default function RouteMapPicker({
                 }}
                 onFocus={() => setActiveField('departure')}
               />
-              {searchingDeparture && <ActivityIndicator size="small" color={COLORS.primary} style={styles.fieldSpinner} />}
+              {searchingDeparture && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
               {departureAddress && !searchingDeparture && (
                 <TouchableOpacity
                   style={styles.fieldClear}
@@ -660,7 +664,7 @@ export default function RouteMapPicker({
                     onRouteClear?.();
                   }}
                 >
-                  <Ionicons name="close-circle" size={18} color={COLORS.grayMuted} />
+                  <Ionicons name="close-circle" size={18} color={colors.gray} />
                 </TouchableOpacity>
               )}
             </View>
@@ -678,7 +682,7 @@ export default function RouteMapPicker({
                   activeField === 'arrival' && styles.fieldInputActive,
                 ]}
                 placeholder="Arrival address"
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.gray}
                 value={arrivalSearch}
                 onChangeText={(text) => {
                   setArrivalSearch(text);
@@ -687,7 +691,7 @@ export default function RouteMapPicker({
                 }}
                 onFocus={() => setActiveField('arrival')}
               />
-              {searchingArrival && <ActivityIndicator size="small" color={COLORS.primary} style={styles.fieldSpinner} />}
+              {searchingArrival && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
               {arrivalAddress && !searchingArrival && (
                 <TouchableOpacity
                   style={styles.fieldClear}
@@ -702,7 +706,7 @@ export default function RouteMapPicker({
                     onRouteClear?.();
                   }}
                 >
-                  <Ionicons name="close-circle" size={18} color={COLORS.grayMuted} />
+                  <Ionicons name="close-circle" size={18} color={colors.gray} />
                 </TouchableOpacity>
               )}
             </View>
@@ -713,13 +717,13 @@ export default function RouteMapPicker({
         <View style={styles.fieldsContainer}>
           {/* Single location field */}
           <View style={styles.fieldRow}>
-            <Ionicons name="location-outline" size={normalize(18)} color={COLORS.primary} />
+            <Ionicons name="location-outline" size={normalize(18)} color={colors.primary} />
             <View style={{ width: 10 }} />
             <View style={styles.fieldInputWrapper}>
               <TextInput
                 style={[styles.fieldInput, styles.fieldInputActive]}
                 placeholder="Search address or place..."
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.gray}
                 value={locationSearch}
                 onChangeText={(text) => {
                   setLocationSearch(text);
@@ -727,7 +731,7 @@ export default function RouteMapPicker({
                 }}
                 editable={!lockedLocation}
               />
-              {searchingLocation && <ActivityIndicator size="small" color={COLORS.primary} style={styles.fieldSpinner} />}
+              {searchingLocation && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
               {locationAddress && !searchingLocation && !lockedLocation && (
                 <TouchableOpacity
                   style={styles.fieldClear}
@@ -739,7 +743,7 @@ export default function RouteMapPicker({
                     onLocationNameChange('');
                   }}
                 >
-                  <Ionicons name="close-circle" size={18} color={COLORS.grayMuted} />
+                  <Ionicons name="close-circle" size={18} color={colors.gray} />
                 </TouchableOpacity>
               )}
             </View>
@@ -756,13 +760,13 @@ export default function RouteMapPicker({
         <View style={styles.routeInfoCard}>
           <View style={styles.routeInfoRow}>
             <View style={styles.routeInfoItem}>
-              <Ionicons name="map-outline" size={normalize(18)} color={COLORS.primary} />
+              <Ionicons name="map-outline" size={normalize(18)} color={colors.primary} />
               <Text style={styles.routeInfoValue}>{formatDistance(routeResult.distanceKm)}</Text>
               <Text style={styles.routeInfoLabel}>Distance</Text>
             </View>
             <View style={styles.routeInfoDivider} />
             <View style={styles.routeInfoItem}>
-              <Ionicons name="time-outline" size={normalize(18)} color={COLORS.primary} />
+              <Ionicons name="time-outline" size={normalize(18)} color={colors.primary} />
               <Text style={styles.routeInfoValue}>{formatDuration(routeResult.durationMin)}</Text>
               <Text style={styles.routeInfoLabel}>Est. time</Text>
             </View>
@@ -798,7 +802,7 @@ export default function RouteMapPicker({
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -806,7 +810,7 @@ const styles = StyleSheet.create({
     height: 280,
     borderRadius: normalize(16),
     overflow: 'hidden',
-    backgroundColor: COLORS.gray100,
+    backgroundColor: colors.backgroundSecondary,
   },
   map: {
     flex: 1,
@@ -841,7 +845,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2.5,
-    borderColor: COLORS.white,
+    borderColor: colors.white,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -851,7 +855,7 @@ const styles = StyleSheet.create({
   routePinText: {
     fontSize: normalize(13),
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
 
   // Map controls
@@ -865,7 +869,7 @@ const styles = StyleSheet.create({
     width: normalize(38),
     height: normalize(38),
     borderRadius: normalize(19),
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -882,7 +886,7 @@ const styles = StyleSheet.create({
     left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: normalize(12),
@@ -895,7 +899,7 @@ const styles = StyleSheet.create({
   },
   calculatingText: {
     fontSize: normalize(12),
-    color: COLORS.gray,
+    color: colors.gray,
     fontWeight: '500',
   },
 
@@ -913,7 +917,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: normalize(12),
-    color: COLORS.white,
+    color: colors.white,
     fontWeight: '500',
   },
 
@@ -931,7 +935,7 @@ const styles = StyleSheet.create({
     height: normalize(12),
     borderRadius: normalize(6),
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: colors.white,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
@@ -948,18 +952,18 @@ const styles = StyleSheet.create({
   },
   fieldInput: {
     flex: 1,
-    backgroundColor: COLORS.gray100,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: normalize(12),
     paddingHorizontal: 14,
     height: normalize(44),
     fontSize: normalize(14),
-    color: COLORS.dark,
+    color: colors.dark,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
   fieldInputActive: {
-    borderColor: COLORS.primary + '40',
-    backgroundColor: COLORS.white,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.white,
   },
   fieldSpinner: {
     position: 'absolute',
@@ -972,12 +976,12 @@ const styles = StyleSheet.create({
 
   // Suggestions
   suggestionsContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: normalize(12),
     marginBottom: 8,
     marginLeft: 24,
     borderWidth: 1,
-    borderColor: COLORS.grayBorder || '#E5E7EB',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   suggestionItem: {
@@ -987,27 +991,27 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.grayBorder || '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   suggestionMain: {
     fontSize: normalize(14),
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   suggestionSub: {
     fontSize: normalize(12),
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
   // Route info card
   routeInfoCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: normalize(14),
     padding: 16,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: COLORS.grayBorder || '#E5E7EB',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -1026,20 +1030,20 @@ const styles = StyleSheet.create({
   routeInfoValue: {
     fontSize: normalize(16),
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   routeInfoLabel: {
     fontSize: normalize(11),
-    color: COLORS.gray,
+    color: colors.gray,
   },
   routeInfoDivider: {
     width: 1,
     height: 40,
-    backgroundColor: COLORS.grayBorder || '#E5E7EB',
+    backgroundColor: colors.border,
   },
   routeInfoProfile: {
     fontSize: normalize(11),
-    color: COLORS.gray400,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 10,
   },

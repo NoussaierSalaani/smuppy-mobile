@@ -5,12 +5,13 @@
  * Displays a breathing circle, a gentle message, and a dismiss button.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BreathingCircle from './BreathingCircle';
-import { COLORS, SPACING } from '../config/theme';
+import { SPACING } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface VibeGuardianOverlayProps {
   visible: boolean;
@@ -18,7 +19,9 @@ interface VibeGuardianOverlayProps {
 }
 
 const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDismiss }) => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   return (
     <Modal
@@ -43,7 +46,7 @@ const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDi
 
           {/* Breathing circle */}
           <View style={styles.breatheSection}>
-            <BreathingCircle size={160} color={COLORS.primary} showLabel />
+            <BreathingCircle size={160} color={colors.primary} showLabel />
           </View>
 
           {/* Dismiss */}
@@ -68,7 +71,7 @@ const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDi
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -84,7 +87,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: COLORS.white,
+    color: colors.white,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
   dismissText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

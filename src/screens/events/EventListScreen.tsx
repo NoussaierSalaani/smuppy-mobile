@@ -3,7 +3,7 @@
  * Browse and discover events on map
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useTheme } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -117,6 +118,7 @@ const darkMapStyle = [
 ];
 
 export default function EventListScreen() {
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const { formatAmount } = useCurrency();
 
@@ -135,6 +137,8 @@ export default function EventListScreen() {
   const mapRef = useRef<any>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Check if selected category is in visible list
   const isSelectedInVisible = VISIBLE_CATEGORIES.some(c => c.id === selectedCategory.id);
@@ -707,10 +711,10 @@ export default function EventListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,

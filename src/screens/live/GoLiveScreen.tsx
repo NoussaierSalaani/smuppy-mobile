@@ -1,6 +1,6 @@
 // src/screens/live/GoLiveScreen.tsx
 // Simplified: Just for going live (public). Private sessions managed separately.
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,9 +18,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -29,6 +30,8 @@ export default function GoLiveScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const [title, setTitle] = useState('');
   const [showTitleInput, setShowTitleInput] = useState(false);
@@ -262,7 +265,7 @@ export default function GoLiveScreen(): React.JSX.Element {
             <TextInput
               style={styles.titleInput}
               placeholder="What's your live about?"
-              placeholderTextColor="rgba(10, 37, 47, 0.4)"
+              placeholderTextColor={colors.gray}
               value={title}
               onChangeText={setTitle}
               autoFocus
@@ -286,7 +289,7 @@ export default function GoLiveScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -335,7 +338,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   titleBadgeText: {
     color: 'white',
@@ -387,7 +390,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   liveIndicatorText: {
     color: 'white',
@@ -400,7 +403,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -430,7 +433,7 @@ const styles = StyleSheet.create({
   sheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(10, 37, 47, 0.15)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(10, 37, 47, 0.15)',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -438,24 +441,24 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 20,
   },
   titleInputSheet: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingTop: 12,
   },
   titleInput: {
-    backgroundColor: 'rgba(10, 37, 47, 0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 16,
   },
   titleSaveButton: {
@@ -487,7 +490,7 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 20,

@@ -3,7 +3,7 @@
  * Inspired by Revolut, Cash App, and modern fintech apps
  * Features: Earnings overview, transactions, analytics, payouts
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,9 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
+import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -77,12 +78,15 @@ interface DashboardData {
 export default function CreatorWalletScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics'>('overview');
   const scrollY = new Animated.Value(0);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -234,21 +238,21 @@ export default function CreatorWalletScreen() {
     <View style={styles.statsContainer}>
       <View style={styles.statCard}>
         <View style={styles.statIconContainer}>
-          <Ionicons name="trending-up" size={20} color={COLORS.primary} />
+          <Ionicons name="trending-up" size={20} color={colors.primary} />
         </View>
         <Text style={styles.statValue}>{formatCurrency(dashboard?.earnings.thisMonth.total || 0)}</Text>
         <Text style={styles.statLabel}>This Month</Text>
       </View>
       <View style={styles.statCard}>
         <View style={styles.statIconContainer}>
-          <Ionicons name="wallet" size={20} color={COLORS.primary} />
+          <Ionicons name="wallet" size={20} color={colors.primary} />
         </View>
         <Text style={styles.statValue}>{formatCurrency(dashboard?.earnings.lifetime.total || 0)}</Text>
         <Text style={styles.statLabel}>Lifetime</Text>
       </View>
       <View style={styles.statCard}>
         <View style={styles.statIconContainer}>
-          <Ionicons name="people" size={20} color={COLORS.primary} />
+          <Ionicons name="people" size={20} color={colors.primary} />
         </View>
         <Text style={styles.statValue}>{formatNumber(dashboard?.subscribers.active || 0)}</Text>
         <Text style={styles.statLabel}>Subscribers</Text>
@@ -321,7 +325,7 @@ export default function CreatorWalletScreen() {
       <Text style={styles.sectionTitle}>Recent Transactions</Text>
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="receipt-outline" size={48} color={COLORS.gray400} />
+          <Ionicons name="receipt-outline" size={48} color={colors.gray} />
           <Text style={styles.emptyText}>No transactions yet</Text>
         </View>
       ) : (
@@ -372,7 +376,7 @@ export default function CreatorWalletScreen() {
         onPress={() => navigation.navigate('WalletAnalytics')}
       >
         <Text style={styles.viewMoreText}>View detailed analytics</Text>
-        <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
+        <Ionicons name="arrow-forward" size={16} color={colors.primary} />
       </TouchableOpacity>
     </View>
   );
@@ -380,7 +384,7 @@ export default function CreatorWalletScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -390,7 +394,7 @@ export default function CreatorWalletScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
         scrollEventThrottle={16}
@@ -407,16 +411,16 @@ export default function CreatorWalletScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -528,7 +532,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -538,7 +542,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -546,18 +550,18 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 11,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   tabsContainer: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginTop: 20,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     padding: 4,
     ...SHADOWS.card,
@@ -569,12 +573,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   tabTextActive: {
     color: 'white',
@@ -586,14 +590,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 16,
   },
   breakdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
@@ -614,16 +618,16 @@ const styles = StyleSheet.create({
   breakdownType: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   breakdownCount: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   breakdownAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   setupStripeButton: {
     marginTop: 16,
@@ -646,7 +650,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
@@ -667,11 +671,11 @@ const styles = StyleSheet.create({
   transactionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   transactionSubtitle: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   transactionRight: {
     alignItems: 'flex-end',
@@ -683,7 +687,7 @@ const styles = StyleSheet.create({
   },
   transactionStatus: {
     fontSize: 12,
-    color: COLORS.gray500,
+    color: colors.gray,
     textTransform: 'capitalize',
   },
   emptyState: {
@@ -692,11 +696,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: 12,
   },
   analyticsCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     padding: 20,
     borderRadius: 16,
     marginBottom: 12,
@@ -704,13 +708,13 @@ const styles = StyleSheet.create({
   },
   analyticsLabel: {
     fontSize: 14,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginBottom: 4,
   },
   analyticsValue: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   viewMoreButton: {
     flexDirection: 'row',
@@ -722,6 +726,6 @@ const styles = StyleSheet.create({
   viewMoreText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

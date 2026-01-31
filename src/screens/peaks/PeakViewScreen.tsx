@@ -25,7 +25,7 @@ import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { reportPost } from '../../services/database';
@@ -79,6 +79,7 @@ type RootStackParamList = {
 };
 
 const PeakViewScreen = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -575,6 +576,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   // Find which user index is currently selected
   const currentUserIndex = uniqueUsers.findIndex(u => u.id === currentPeak.user?.id);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <View style={styles.container}>
       <StatusBar hidden />
@@ -602,7 +605,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             style={styles.backButton}
             onPress={handleGoBack}
           >
-            <Ionicons name="chevron-back" size={26} color={COLORS.white} />
+            <Ionicons name="chevron-back" size={26} color={colors.white} />
           </TouchableOpacity>
 
           {/* Circular Avatar Carousel */}
@@ -647,7 +650,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               style={styles.addButton}
               onPress={handleCreatePeak}
             >
-              <Ionicons name="add" size={26} color={COLORS.white} />
+              <Ionicons name="add" size={26} color={colors.white} />
             </TouchableOpacity>
           )}
         </View>
@@ -692,7 +695,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
               <SmuppyHeartIcon
                 size={26}
-                color={isLiked ? COLORS.primary : COLORS.white}
+                color={isLiked ? colors.primary : colors.white}
                 filled={isLiked}
               />
             </View>
@@ -703,7 +706,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {!isBusiness && (
             <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
               <View style={styles.actionIconContainer}>
-                <Ionicons name="chatbubble-outline" size={24} color={COLORS.white} />
+                <Ionicons name="chatbubble-outline" size={24} color={colors.white} />
               </View>
               <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
             </TouchableOpacity>
@@ -712,7 +715,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* Share Button */}
           <TouchableOpacity style={styles.actionButton} onPress={() => handleMenuAction('share')}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="paper-plane-outline" size={24} color={COLORS.white} />
+              <Ionicons name="paper-plane-outline" size={24} color={colors.white} />
             </View>
           </TouchableOpacity>
 
@@ -722,7 +725,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               <Ionicons
                 name={isSaved ? "bookmark" : "bookmark-outline"}
                 size={24}
-                color={isSaved ? COLORS.primary : COLORS.white}
+                color={isSaved ? colors.primary : colors.white}
               />
             </View>
           </TouchableOpacity>
@@ -730,7 +733,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* More Options */}
           <TouchableOpacity style={styles.actionButton} onPress={() => setShowMenu(true)}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="ellipsis-horizontal" size={24} color={COLORS.white} />
+              <Ionicons name="ellipsis-horizontal" size={24} color={colors.white} />
             </View>
           </TouchableOpacity>
         </View>
@@ -774,7 +777,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                   style={styles.acceptChallengeButton}
                   onPress={handleCreatePeak}
                 >
-                  <Ionicons name="flame" size={16} color={COLORS.dark} />
+                  <Ionicons name="flame" size={16} color={colors.dark} />
                   <Text style={styles.acceptChallengeText}>Accept Challenge</Text>
                 </TouchableOpacity>
               )}
@@ -802,7 +805,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               }
             ]}
           >
-            <SmuppyHeartIcon size={100} color={COLORS.primary} filled />
+            <SmuppyHeartIcon size={100} color={colors.primary} filled />
           </Animated.View>
 
           {/* Particles */}
@@ -821,7 +824,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 }
               ]}
             >
-              <SmuppyHeartIcon size={24} color={COLORS.primary} filled />
+              <SmuppyHeartIcon size={24} color={colors.primary} filled />
             </Animated.View>
           ))}
         </View>
@@ -872,7 +875,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               style={styles.menuItem}
               onPress={() => handleMenuAction('not_interested')}
             >
-              <Ionicons name="eye-off-outline" size={24} color={COLORS.white} />
+              <Ionicons name="eye-off-outline" size={24} color={colors.white} />
               <Text style={styles.menuItemText}>Pas intéressé</Text>
             </TouchableOpacity>
 
@@ -917,10 +920,10 @@ const PeakViewScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   mediaContainer: {
     flex: 1,
@@ -980,7 +983,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: COLORS.dark,
+    borderColor: colors.dark,
   },
   avatarRingInactive: {
     width: 42,
@@ -1015,7 +1018,7 @@ const styles = StyleSheet.create({
   },
   progressSegmentFill: {
     height: '100%',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: 1,
   },
   progressSegmentComplete: {
@@ -1030,7 +1033,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 1,
   },
   // Vertical Action Buttons - Right Side (No circles, just icons)
@@ -1055,7 +1058,7 @@ const styles = StyleSheet.create({
   actionCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -1079,7 +1082,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -1091,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   captionText: {
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 12,
     lineHeight: 20,
     textShadowColor: 'rgba(0,0,0,0.8)',
@@ -1119,7 +1122,7 @@ const styles = StyleSheet.create({
   },
   challengeBannerRules: {
     fontSize: 13,
-    color: COLORS.white,
+    color: colors.white,
     opacity: 0.8,
     marginBottom: 8,
     lineHeight: 18,
@@ -1137,7 +1140,7 @@ const styles = StyleSheet.create({
   acceptChallengeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   bottomProgressBar: {
     marginTop: 12,
@@ -1178,11 +1181,11 @@ const styles = StyleSheet.create({
   chainTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   chainHint: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   // Onboarding
@@ -1201,7 +1204,7 @@ const styles = StyleSheet.create({
   onboardingText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -1220,12 +1223,12 @@ const styles = StyleSheet.create({
   pauseUserName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 4,
   },
   pauseDate: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   // Menu Modal
   menuOverlay: {
@@ -1258,7 +1261,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 17,
-    color: COLORS.white,
+    color: colors.white,
     fontWeight: '500',
   },
   menuItemDanger: {
@@ -1281,7 +1284,7 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 17,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

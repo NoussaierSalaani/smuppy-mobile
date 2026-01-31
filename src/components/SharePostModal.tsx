@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { AvatarImage } from './OptimizedImage';
 import OptimizedImage from './OptimizedImage';
 import { AccountBadge } from './Badge';
-import { COLORS, SPACING } from '../config/theme';
+import { SPACING } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import {
   getConversations,
   searchProfiles,
@@ -41,6 +42,8 @@ interface SharePostModalProps {
 export default function SharePostModal({ visible, post, onClose }: SharePostModalProps) {
   const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
@@ -142,7 +145,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
           <Text style={styles.userUsername}>@{otherUser.username}</Text>
         </View>
         {sending === item.id ? (
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         ) : (
           <TouchableOpacity
             style={styles.sendButton}
@@ -175,7 +178,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
         <Text style={styles.userUsername}>@{item.username}</Text>
       </View>
       {sending === item.id ? (
-        <ActivityIndicator size="small" color={COLORS.primary} />
+        <ActivityIndicator size="small" color={colors.primary} />
       ) : (
         <TouchableOpacity
           style={styles.sendButton}
@@ -198,7 +201,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={28} color={COLORS.dark} />
+            <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Share</Text>
           <View style={{ width: 28 }} />
@@ -224,17 +227,17 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
 
         {/* Search */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={COLORS.gray} />
+          <Ionicons name="search" size={20} color={colors.gray} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search users..."
-            placeholderTextColor={COLORS.gray}
+            placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={20} color={colors.gray} />
             </TouchableOpacity>
           )}
         </View>
@@ -242,7 +245,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
         {/* List */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : searchQuery.length >= 2 ? (
           <FlashList
@@ -276,10 +279,10 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -288,17 +291,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   postPreview: {
     flexDirection: 'row',
     padding: SPACING.md,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.backgroundSecondary,
     margin: SPACING.md,
     borderRadius: 12,
   },
@@ -319,17 +322,17 @@ const styles = StyleSheet.create({
   postAuthor: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   postCaption: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5F5F5',
     borderRadius: 12,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
@@ -340,12 +343,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACING.sm,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
   },
@@ -366,16 +369,16 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
     marginRight: 4,
   },
   userUsername: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   sendButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
@@ -396,12 +399,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     fontWeight: '500',
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.grayLight,
+    color: colors.grayLight,
     marginTop: 4,
   },
 });

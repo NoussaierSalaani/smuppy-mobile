@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores';
 
 const { width } = Dimensions.get('window');
@@ -48,6 +48,7 @@ type RootStackParamList = {
 const MOCK_PEAKS: Peak[] = [];
 
 const PeaksFeedScreen = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const user = useUserStore((state) => state.user);
@@ -120,6 +121,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     </View>
   );
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
@@ -130,7 +133,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           style={styles.backButton}
           onPress={handleGoBack}
         >
-          <Ionicons name="chevron-back" size={28} color={COLORS.white} />
+          <Ionicons name="chevron-back" size={28} color={colors.white} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Peaks</Text>
@@ -140,7 +143,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             style={styles.createButton}
             onPress={handleCreatePeak}
           >
-            <Ionicons name="add" size={28} color={COLORS.primary} />
+            <Ionicons name="add" size={28} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -154,7 +157,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
         contentContainerStyle={styles.gridContainer}
@@ -165,10 +168,10 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   header: {
     flexDirection: 'row',
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   createButton: {
     width: 44,

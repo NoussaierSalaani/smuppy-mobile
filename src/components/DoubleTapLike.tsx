@@ -8,7 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
 
 interface DoubleTapLikeProps {
@@ -36,6 +36,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
   style,
   showAnimation = true,
 }: DoubleTapLikeProps) {
+  const { colors } = useTheme();
   const lastTap = useRef<number>(0);
   const singleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHeart, setShowHeart] = useState(false);
@@ -204,7 +205,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
               },
             ]}
           >
-            <SmuppyHeartIcon size={80} color={COLORS.primary} filled />
+            <SmuppyHeartIcon size={80} color={colors.primary} filled />
           </Animated.View>
 
           {/* Mini Hearts Burst */}
@@ -225,7 +226,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
             >
               <SmuppyHeartIcon
                 size={24}
-                color={index % 2 === 0 ? COLORS.primary : '#FF8FAB'}
+                color={index % 2 === 0 ? colors.primary : '#FF8FAB'}
                 filled
               />
             </Animated.View>

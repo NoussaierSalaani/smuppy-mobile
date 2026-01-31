@@ -3,7 +3,7 @@
  * Premium subscription selection for Pro Creator ($99) and Pro Business ($49)
  * Inspired by Spotify Premium, YouTube Premium selection screens
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,9 +20,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { COLORS, SHADOWS } from '../../config/theme';
+import { SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -89,6 +90,7 @@ export default function PlatformSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
   const { showError, showSuccess } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
 
   // Filter plans based on account type
   // pro_creator users can only subscribe to pro_creator premium, not pro_business
@@ -101,6 +103,8 @@ export default function PlatformSubscriptionScreen() {
   const [loading, setLoading] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     fetchCurrentSubscription();
@@ -255,7 +259,7 @@ export default function PlatformSubscriptionScreen() {
 
                 {selectedPlan === plan.id && (
                   <View style={styles.checkmark}>
-                    <Ionicons name="checkmark-circle" size={28} color={COLORS.primary} />
+                    <Ionicons name="checkmark-circle" size={28} color={colors.primary} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -285,7 +289,7 @@ export default function PlatformSubscriptionScreen() {
 
         {/* Guarantee */}
         <View style={styles.guaranteeSection}>
-          <Ionicons name="shield-checkmark" size={24} color={COLORS.primary} />
+          <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
           <View style={styles.guaranteeText}>
             <Text style={styles.guaranteeTitle}>Cancel anytime</Text>
             <Text style={styles.guaranteeSubtitle}>No commitment, cancel whenever you want</Text>
@@ -330,10 +334,10 @@ export default function PlatformSubscriptionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   headerGradient: {
     paddingHorizontal: 20,
@@ -390,7 +394,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   planCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     borderWidth: 2,
@@ -398,7 +402,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.card,
   },
   planCardSelected: {
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     ...SHADOWS.cardMedium,
   },
   planCardCurrent: {
@@ -443,7 +447,7 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 4,
   },
   priceContainer: {
@@ -454,16 +458,16 @@ const styles = StyleSheet.create({
   planPrice: {
     fontSize: 32,
     fontWeight: '800',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   planPeriod: {
     fontSize: 16,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginLeft: 4,
   },
   planDescription: {
     fontSize: 14,
-    color: COLORS.gray500,
+    color: colors.gray,
     lineHeight: 20,
   },
   checkmark: {
@@ -478,7 +482,7 @@ const styles = StyleSheet.create({
   featuresTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 20,
   },
   featureItem: {
@@ -497,7 +501,7 @@ const styles = StyleSheet.create({
   featureText: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   featureTextHighlight: {
     fontWeight: '600',
@@ -508,7 +512,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     marginHorizontal: 20,
     padding: 16,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 16,
     gap: 12,
   },
@@ -518,18 +522,18 @@ const styles = StyleSheet.create({
   guaranteeTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   guaranteeSubtitle: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   bottomContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: isDark ? colors.border : '#F1F5F9',
   },
   subscribeButton: {
     borderRadius: 16,
@@ -550,7 +554,7 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 12,
-    color: COLORS.gray500,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 12,
   },

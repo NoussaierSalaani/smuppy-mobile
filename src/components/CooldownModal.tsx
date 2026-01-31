@@ -6,7 +6,7 @@
  *   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,14 +18,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { 
-  COLORS, 
-  GRADIENTS, 
-  FORM, 
-  SPACING, 
+import {
+  GRADIENTS,
+  FORM,
+  SPACING,
   SIZES,
   SHADOWS,
 } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 // ============================================
 // COOLDOWN MODAL COMPONENT
@@ -46,9 +46,12 @@ export default function CooldownModal({
   title = "Please wait",
   message = "You can request a new code in"
 }: CooldownModalProps) {
+  const { colors, isDark } = useTheme();
   const [countdown, setCountdown] = useState(seconds);
   const progressAnim = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     if (visible) {
@@ -112,12 +115,12 @@ export default function CooldownModal({
           <TouchableWithoutFeedback>
             <View style={styles.container}>
               {/* Close Button */}
-              <TouchableOpacity 
-                style={styles.closeBtn} 
-                onPress={onClose} 
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={onClose}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={24} color={COLORS.grayMuted} />
+                <Ionicons name="close" size={24} color={colors.gray} />
               </TouchableOpacity>
 
               {/* Icon */}
@@ -127,7 +130,7 @@ export default function CooldownModal({
                 end={{ x: 1, y: 1 }}
                 style={styles.iconBox}
               >
-                <Ionicons name="time-outline" size={40} color={COLORS.white} />
+                <Ionicons name="time-outline" size={40} color={colors.white} />
               </LinearGradient>
 
               {/* Title */}
@@ -247,112 +250,112 @@ export function useCooldown(cooldownSeconds = 30) {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
-  overlay: { 
-    flex: 1, 
-    backgroundColor: COLORS.overlay, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: SPACING.xl,
   },
-  
-  container: { 
-    width: '100%', 
-    backgroundColor: COLORS.white, 
-    borderRadius: SIZES.radiusXl, 
-    padding: SPACING['2xl'], 
+
+  container: {
+    width: '100%',
+    backgroundColor: colors.white,
+    borderRadius: SIZES.radiusXl,
+    padding: SPACING['2xl'],
     alignItems: 'center',
   },
-  
-  closeBtn: { 
-    position: 'absolute', 
-    top: SPACING.base, 
-    right: SPACING.base, 
+
+  closeBtn: {
+    position: 'absolute',
+    top: SPACING.base,
+    right: SPACING.base,
     zIndex: 10,
   },
-  
+
   // Icon
-  iconBox: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 40, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginBottom: SPACING.lg, 
+  iconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
     marginTop: SPACING.sm,
     ...SHADOWS.buttonGradient,
   },
-  
+
   // Text
-  title: { 
+  title: {
     fontFamily: 'WorkSans-Bold',
-    fontSize: 22, 
-    color: COLORS.dark, 
-    marginBottom: SPACING.sm, 
+    fontSize: 22,
+    color: colors.dark,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
-  
-  message: { 
+
+  message: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 14, 
-    color: COLORS.gray, 
-    textAlign: 'center', 
+    fontSize: 14,
+    color: colors.gray,
+    textAlign: 'center',
     marginBottom: SPACING.base,
   },
-  
-  countdown: { 
+
+  countdown: {
     fontFamily: 'Poppins-Bold',
-    fontSize: 48, 
-    color: COLORS.primary, 
+    fontSize: 48,
+    color: colors.primary,
     marginBottom: SPACING.base,
   },
-  
+
   // Progress
-  progressBg: { 
-    width: '100%', 
-    height: 6, 
-    backgroundColor: COLORS.grayBorder, 
-    borderRadius: 3, 
-    overflow: 'hidden', 
+  progressBg: {
+    width: '100%',
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
     marginBottom: SPACING.lg,
   },
-  
+
   progressBarContainer: {
     height: '100%',
     overflow: 'hidden',
   },
-  
-  progressBar: { 
+
+  progressBar: {
     flex: 1,
     borderRadius: 3,
   },
-  
+
   // Info
-  info: { 
+  info: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 12, 
-    color: COLORS.gray, 
-    textAlign: 'center', 
-    lineHeight: 18, 
+    fontSize: 12,
+    color: colors.gray,
+    textAlign: 'center',
+    lineHeight: 18,
     marginBottom: SPACING.lg,
   },
-  
+
   // Button
-  okBtn: { 
-    width: '100%', 
-    height: FORM.buttonHeight, 
+  okBtn: {
+    width: '100%',
+    height: FORM.buttonHeight,
     borderRadius: FORM.buttonRadius,
   },
-  
+
   okBtnInner: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  okText: { 
+
+  okText: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 16, 
-    color: COLORS.white,
+    fontSize: 16,
+    color: colors.white,
   },
 });

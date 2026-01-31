@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   FilterProvider,
@@ -71,6 +71,7 @@ type RootStackParamList = {
 
 // Inner component that uses filter context
 const CreatePeakScreenInner = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'CreatePeak'>>();
@@ -303,11 +304,13 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     }
   };
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Permissions loading
   if (!permissionsChecked) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.permissionText, { marginTop: 16 }]}>Setting up camera...</Text>
       </View>
     );
@@ -319,7 +322,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     const micDenied = !micPermissionGranted;
     return (
       <View style={[styles.container, styles.centered]}>
-        <Ionicons name="camera-outline" size={48} color={COLORS.primary} style={{ marginBottom: 16 }} />
+        <Ionicons name="camera-outline" size={48} color={colors.primary} style={{ marginBottom: 16 }} />
         <Text style={styles.permissionTitle}>Permissions Required</Text>
         <Text style={styles.permissionText}>
           {cameraDenied && micDenied
@@ -367,7 +370,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.headerButton}
               onPress={handleClose}
             >
-              <Ionicons name="close" size={28} color={COLORS.white} />
+              <Ionicons name="close" size={28} color={colors.white} />
             </TouchableOpacity>
 
             <Text style={styles.headerTitle}>
@@ -385,7 +388,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                 style={styles.toolbarButton}
                 onPress={toggleCameraFacing}
               >
-                <Ionicons name="camera-reverse" size={26} color={COLORS.white} />
+                <Ionicons name="camera-reverse" size={26} color={colors.white} />
                 <Text style={styles.toolbarLabel}>Flip</Text>
               </TouchableOpacity>
 
@@ -400,7 +403,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                 <Ionicons
                   name="color-wand"
                   size={26}
-                  color={showFilters ? COLORS.primary : COLORS.white}
+                  color={showFilters ? colors.primary : colors.white}
                 />
                 <Text style={[
                   styles.toolbarLabel,
@@ -422,7 +425,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                   <Ionicons
                     name="layers"
                     size={26}
-                    color={activeOverlays.length > 0 ? COLORS.primary : COLORS.white}
+                    color={activeOverlays.length > 0 ? colors.primary : colors.white}
                   />
                   {activeOverlays.length > 0 && (
                     <View style={styles.overlayBadge}>
@@ -452,7 +455,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
           {/* Active filter indicator - centered top */}
           {activeFilter && !isRecording && (
             <View style={[styles.activeFilterBadge, { top: insets.top + 70 }]}>
-              <Ionicons name="sparkles" size={14} color={COLORS.primary} />
+              <Ionicons name="sparkles" size={14} color={colors.primary} />
               <Text style={styles.activeFilterText}>Filter Active</Text>
             </View>
           )}
@@ -545,7 +548,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             {!isPreviewPlaying && (
               <View style={styles.playButtonOverlay}>
                 <View style={styles.playButton}>
-                  <Ionicons name="play" size={50} color={COLORS.white} />
+                  <Ionicons name="play" size={50} color={colors.white} />
                 </View>
               </View>
             )}
@@ -557,7 +560,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.headerButton}
               onPress={handleClose}
             >
-              <Ionicons name="close" size={28} color={COLORS.white} />
+              <Ionicons name="close" size={28} color={colors.white} />
             </TouchableOpacity>
 
             <View style={styles.durationBadge}>
@@ -573,7 +576,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.retakeButton}
               onPress={handleRetake}
             >
-              <Ionicons name="refresh" size={24} color={COLORS.white} />
+              <Ionicons name="refresh" size={24} color={colors.white} />
               <Text style={styles.retakeButtonText}>Retake</Text>
             </TouchableOpacity>
 
@@ -581,7 +584,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.confirmButton}
               onPress={handleConfirm}
             >
-              <Ionicons name="checkmark" size={24} color={COLORS.dark} />
+              <Ionicons name="checkmark" size={24} color={colors.dark} />
               <Text style={styles.confirmButtonText}>Next</Text>
             </TouchableOpacity>
           </View>
@@ -592,7 +595,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
       {showToast && (
         <View style={[styles.toastContainer, { top: insets.top + 60 }]}>
           <View style={styles.toast}>
-            <Ionicons name="time-outline" size={18} color={COLORS.white} />
+            <Ionicons name="time-outline" size={18} color={colors.white} />
             <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
         </View>
@@ -616,10 +619,10 @@ const CreatePeakScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   centered: {
     justifyContent: 'center',
@@ -628,20 +631,20 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     textAlign: 'center',
     marginBottom: 10,
   },
   permissionText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 32,
     lineHeight: 22,
   },
   permissionButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 24,
@@ -650,7 +653,7 @@ const styles = StyleSheet.create({
   permissionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   permissionSecondaryButton: {
     paddingHorizontal: 24,
@@ -659,7 +662,7 @@ const styles = StyleSheet.create({
   permissionSecondaryText: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   camera: {
     ...StyleSheet.absoluteFillObject,
@@ -690,7 +693,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     letterSpacing: 0.5,
   },
 
@@ -713,7 +716,7 @@ const styles = StyleSheet.create({
   toolbarButtonActive: {
     backgroundColor: 'rgba(0,230,118,0.15)',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   toolbarLabel: {
     fontSize: 10,
@@ -722,7 +725,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   toolbarLabelActive: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   overlayBadge: {
     position: 'absolute',
@@ -731,14 +734,14 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   overlayBadgeText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Reply info
@@ -751,11 +754,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   replyText: {
     fontSize: 13,
-    color: COLORS.white,
+    color: colors.white,
   },
 
   // Active filter badge
@@ -770,12 +773,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 5,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   activeFilterText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Filter Panel
@@ -812,7 +815,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   durationOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   durationText: {
     fontSize: 14,
@@ -820,7 +823,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
   },
   durationTextActive: {
-    color: COLORS.dark,
+    color: colors.dark,
     fontWeight: '700',
   },
   recordButtonContainer: {
@@ -840,7 +843,7 @@ const styles = StyleSheet.create({
   // Preview
   previewContainer: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   videoTouchable: {
     flex: 1,
@@ -875,7 +878,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   durationBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 12,
@@ -883,7 +886,7 @@ const styles = StyleSheet.create({
   durationBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   previewBottomSection: {
     position: 'absolute',
@@ -910,17 +913,17 @@ const styles = StyleSheet.create({
   retakeButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   confirmButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 28,
     gap: 8,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -929,7 +932,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Toast
@@ -952,7 +955,7 @@ const styles = StyleSheet.create({
   toastText: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

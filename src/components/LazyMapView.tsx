@@ -4,7 +4,7 @@ import React, { useState, useEffect, forwardRef, memo } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import Constants from 'expo-constants';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -23,6 +23,7 @@ interface LazyMapViewProps {
 
 // Lazy-loaded MapView component
 const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
+  const { colors } = useTheme();
   const [MapViewComponent, setMapViewComponent] = useState<any>(null);
   const [CameraComponent, setCameraComponent] = useState<any>(null);
   const [LocationPuckComponent, setLocationPuckComponent] = useState<any>(null);
@@ -58,7 +59,7 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
   if (isLoading || !MapViewComponent) {
     return (
       <View style={[styles.loadingContainer, props.style]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -117,6 +118,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1C1C1E',
   },
 });

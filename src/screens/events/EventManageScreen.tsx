@@ -3,7 +3,7 @@
  * Creator dashboard to manage their event (edit, participants, cancel)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -22,11 +22,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 interface EventManageScreenProps {
   route: { params: { eventId: string } };
@@ -65,6 +66,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const { colors, isDark } = useTheme();
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -78,6 +80,8 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   const [editDescription, setEditDescription] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editMaxParticipants, setEditMaxParticipants] = useState('');
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadEventData();
@@ -215,7 +219,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -240,7 +244,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Event</Text>
           <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editButton}>
-            <Ionicons name="pencil" size={20} color={COLORS.primary} />
+            <Ionicons name="pencil" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -294,7 +298,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
             <View style={styles.tabContent}>
               <View style={styles.detailCard}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                  <Ionicons name="calendar" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Date</Text>
                     <Text style={styles.detailValue}>
@@ -310,7 +314,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Ionicons name="location" size={20} color={COLORS.primary} />
+                  <Ionicons name="location" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Location</Text>
                     <Text style={styles.detailValue}>{event.location_name}</Text>
@@ -318,7 +322,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Ionicons name="people" size={20} color={COLORS.primary} />
+                  <Ionicons name="people" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Capacity</Text>
                     <Text style={styles.detailValue}>
@@ -328,7 +332,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Ionicons name="pricetag" size={20} color={COLORS.primary} />
+                  <Ionicons name="pricetag" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Entry Fee</Text>
                     <Text style={styles.detailValue}>
@@ -345,7 +349,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                   onPress={() => setShowEditModal(true)}
                 >
                   <View style={styles.actionIcon}>
-                    <Ionicons name="pencil" size={22} color={COLORS.primary} />
+                    <Ionicons name="pencil" size={22} color={colors.primary} />
                   </View>
                   <Text style={styles.actionText}>Edit Event</Text>
                 </TouchableOpacity>
@@ -355,7 +359,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                   onPress={() => navigation.navigate('EventDetail', { eventId })}
                 >
                   <View style={styles.actionIcon}>
-                    <Ionicons name="eye" size={22} color={COLORS.primary} />
+                    <Ionicons name="eye" size={22} color={colors.primary} />
                   </View>
                   <Text style={styles.actionText}>View Public</Text>
                 </TouchableOpacity>
@@ -377,7 +381,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
             <View style={styles.tabContent}>
               {participants.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="people-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="people-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No participants yet</Text>
                   <Text style={styles.emptySubtitle}>Share your event to get people to join!</Text>
                 </View>
@@ -451,7 +455,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                     value={editTitle}
                     onChangeText={setEditTitle}
                     placeholder="Event title"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -462,7 +466,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                     value={editDescription}
                     onChangeText={setEditDescription}
                     placeholder="Describe your event..."
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     multiline
                   />
                 </View>
@@ -478,7 +482,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                       value={editPrice}
                       onChangeText={setEditPrice}
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                       keyboardType="decimal-pad"
                     />
                     {!event.is_free && participants.length > 0 && (
@@ -499,7 +503,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                     value={editMaxParticipants}
                     onChangeText={setEditMaxParticipants}
                     placeholder="Unlimited"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     keyboardType="number-pad"
                   />
                 </View>
@@ -526,7 +530,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f1a',
@@ -548,7 +552,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Header
@@ -611,7 +615,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   statDivider: {
@@ -635,12 +639,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
     color: '#fff',
@@ -671,7 +675,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   detailValue: {
     fontSize: 15,
@@ -739,7 +743,7 @@ const styles = StyleSheet.create({
   },
   participantUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   participantMeta: {
     flexDirection: 'row',
@@ -769,7 +773,7 @@ const styles = StyleSheet.create({
   freeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   removeButton: {
     padding: 4,
@@ -790,7 +794,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Revenue Tab
@@ -804,7 +808,7 @@ const styles = StyleSheet.create({
   },
   revenueLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   revenueAmount: {
     fontSize: 36,
@@ -814,7 +818,7 @@ const styles = StyleSheet.create({
   },
   revenueSubtext: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   revenueBreakdown: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -835,7 +839,7 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   breakdownValue: {
     fontSize: 14,
@@ -903,7 +907,7 @@ const styles = StyleSheet.create({
   },
   formHint: {
     fontWeight: '400',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   formInput: {
     backgroundColor: 'rgba(255,255,255,0.05)',

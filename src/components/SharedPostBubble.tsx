@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import OptimizedImage, { AvatarImage } from './OptimizedImage';
 import { AccountBadge } from './Badge';
-import { COLORS, SPACING } from '../config/theme';
+import { SPACING } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import { getPostById, Post } from '../services/database';
 
 interface SharedPostBubbleProps {
@@ -18,10 +19,13 @@ interface SharedPostBubbleProps {
 }
 
 export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadPost();
@@ -65,7 +69,7 @@ export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleP
   if (loading) {
     return (
       <View style={[styles.container, isFromMe ? styles.containerFromMe : styles.containerFromOther]}>
-        <ActivityIndicator size="small" color={isFromMe ? '#fff' : COLORS.primary} />
+        <ActivityIndicator size="small" color={isFromMe ? '#fff' : colors.primary} />
       </View>
     );
   }
@@ -129,17 +133,17 @@ export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     width: 220,
     borderRadius: 16,
     overflow: 'hidden',
   },
   containerFromMe: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   containerFromOther: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
   },
   postImage: {
     width: '100%',
@@ -155,7 +159,7 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: 6,
     marginRight: 4,
     flex: 1,
@@ -165,7 +169,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     lineHeight: 16,
   },
@@ -183,11 +187,11 @@ const styles = StyleSheet.create({
   sharedText: {
     fontSize: 10,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   errorText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     fontStyle: 'italic',
     padding: SPACING.md,
   },

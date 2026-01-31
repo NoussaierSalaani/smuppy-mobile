@@ -1,5 +1,5 @@
 // src/screens/live/GoLiveIntroScreen.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,28 +11,35 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 interface FeatureItemProps {
   icon: string;
   text: string;
+  colors: any;
 }
 
-const FeatureItem = ({ icon, text }: FeatureItemProps) => (
-  <View style={styles.featureItem}>
-    <View style={styles.featureIcon}>
-      <Ionicons name={icon as any} size={20} color={COLORS.primary} />
+const FeatureItem = ({ icon, text, colors }: FeatureItemProps) => {
+  const styles = useMemo(() => createStyles(colors, false), [colors]);
+  return (
+    <View style={styles.featureItem}>
+      <View style={styles.featureIcon}>
+        <Ionicons name={icon as any} size={20} color={colors.primary} />
+      </View>
+      <Text style={styles.featureText}>{text}</Text>
     </View>
-    <Text style={styles.featureText}>{text}</Text>
-  </View>
-);
+  );
+};
 
 export default function GoLiveIntroScreen(): React.JSX.Element {
   const { showAlert } = useSmuppyAlert();
   const navigation = useNavigation<any>();
   const user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Protect route - only pro_creator can access
   useEffect(() => {
@@ -66,7 +73,7 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Go Live</Text>
         <View style={styles.placeholder} />
@@ -82,7 +89,7 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
           style={styles.heroCard}
         >
           <View style={styles.heroIconContainer}>
-            <Ionicons name="videocam" size={24} color={COLORS.primary} />
+            <Ionicons name="videocam" size={24} color={colors.primary} />
           </View>
           <View style={styles.heroTextContainer}>
             <Text style={styles.heroTitle}>Start Your Streaming Journey</Text>
@@ -96,7 +103,7 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
         <View style={styles.trialSection}>
           <Text style={styles.trialLabel}>Trial Period</Text>
           <View style={styles.trialRight}>
-            <Ionicons name="time-outline" size={16} color={COLORS.dark} />
+            <Ionicons name="time-outline" size={16} color={colors.dark} />
             <Text style={styles.trialDays}>67 days left</Text>
           </View>
         </View>
@@ -112,16 +119,16 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
         {/* Features */}
         <Text style={styles.sectionTitle}>What You Can Do</Text>
         <View style={styles.featuresList}>
-          <FeatureItem icon="fitness" text="Stream live workouts" />
-          <FeatureItem icon="chatbubbles" text="Interact with followers" />
-          <FeatureItem icon="save" text="Save recordings" />
-          <FeatureItem icon="stats-chart" text="Track engagement" />
+          <FeatureItem icon="fitness" text="Stream live workouts" colors={colors} />
+          <FeatureItem icon="chatbubbles" text="Interact with followers" colors={colors} />
+          <FeatureItem icon="save" text="Save recordings" colors={colors} />
+          <FeatureItem icon="stats-chart" text="Track engagement" colors={colors} />
         </View>
 
         {/* Quick Tips */}
         <View style={styles.tipsCard}>
           <View style={styles.tipsHeader}>
-            <Ionicons name="bulb-outline" size={20} color={COLORS.primary} />
+            <Ionicons name="bulb-outline" size={20} color={colors.primary} />
             <Text style={styles.tipsTitle}>Quick Tips</Text>
           </View>
           <Text style={styles.tipText}>Ensure good lighting and stable internet connection</Text>
@@ -147,10 +154,10 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -168,7 +175,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -188,7 +195,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.2)' : 'rgba(14, 191, 138, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -199,12 +206,12 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 4,
   },
   heroSubtitle: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
     lineHeight: 18,
   },
   trialSection: {
@@ -216,7 +223,7 @@ const styles = StyleSheet.create({
   trialLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   trialRight: {
     flexDirection: 'row',
@@ -225,11 +232,11 @@ const styles = StyleSheet.create({
   },
   trialDays: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
   },
   progressBar: {
     height: 6,
-    backgroundColor: 'rgba(10, 37, 47, 0.08)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(10, 37, 47, 0.08)',
     borderRadius: 3,
     marginBottom: 32,
     overflow: 'hidden',
@@ -241,7 +248,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 16,
   },
   featuresList: {
@@ -257,17 +264,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: 'rgba(14, 191, 138, 0.1)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   featureText: {
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
     fontWeight: '500',
   },
   tipsCard: {
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
   },
@@ -280,11 +287,11 @@ const styles = StyleSheet.create({
   tipsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   tipText: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
     marginBottom: 4,
     paddingLeft: 28,
   },

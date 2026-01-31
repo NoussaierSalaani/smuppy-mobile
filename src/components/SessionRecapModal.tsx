@@ -4,13 +4,14 @@
  * Shows: duration, mood trajectory, positive interactions, start/end mood.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { SessionRecap } from '../services/vibeGuardian';
 import { getMoodDisplay } from '../hooks/useMoodAI';
-import { COLORS, SPACING } from '../config/theme';
+import { SPACING } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface SessionRecapModalProps {
   visible: boolean;
@@ -26,6 +27,8 @@ const TRAJECTORY_CONFIG = {
 
 const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, onDismiss }) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   if (!recap) return null;
 
@@ -46,13 +49,13 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
           <View style={styles.header}>
             <Text style={styles.title}>Session Recap</Text>
             <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color={COLORS.gray} />
+              <Ionicons name="close" size={24} color={colors.gray} />
             </TouchableOpacity>
           </View>
 
           {/* Duration */}
           <View style={styles.stat}>
-            <Ionicons name="time-outline" size={20} color={COLORS.gray} />
+            <Ionicons name="time-outline" size={20} color={colors.gray} />
             <Text style={styles.statLabel}>Duration</Text>
             <Text style={styles.statValue}>{recap.durationMinutes} min</Text>
           </View>
@@ -71,7 +74,7 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
               <Text style={styles.moodName}>{startDisplay.label}</Text>
               <Text style={styles.moodTime}>Start</Text>
             </View>
-            <Ionicons name="arrow-forward" size={20} color={COLORS.grayLight} />
+            <Ionicons name="arrow-forward" size={20} color={colors.grayLight} />
             <View style={styles.moodBubble}>
               <Text style={styles.moodEmoji}>{endDisplay.emoji}</Text>
               <Text style={styles.moodName}>{endDisplay.label}</Text>
@@ -81,7 +84,7 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
 
           {/* Positive interactions */}
           <View style={styles.stat}>
-            <Ionicons name="heart-outline" size={20} color={COLORS.heartRed} />
+            <Ionicons name="heart-outline" size={20} color={colors.heartRed} />
             <Text style={styles.statLabel}>Positive interactions</Text>
             <Text style={styles.statValue}>{recap.positiveInteractions}</Text>
           </View>
@@ -96,14 +99,14 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: SPACING.xl,
@@ -117,26 +120,26 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 22,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.border,
   },
   statLabel: {
     flex: 1,
     fontFamily: 'Poppins-Regular',
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: SPACING.md,
   },
   statValue: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   moodJourney: {
     flexDirection: 'row',
@@ -147,7 +150,7 @@ const styles = StyleSheet.create({
   },
   moodBubble: {
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: SPACING.md,
     minWidth: 100,
@@ -159,17 +162,17 @@ const styles = StyleSheet.create({
   moodName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   moodTime: {
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   dismissButton: {
     marginTop: SPACING.lg,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 28,
     alignItems: 'center',
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
   dismissText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

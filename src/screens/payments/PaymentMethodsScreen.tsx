@@ -4,7 +4,7 @@
  * Inspired by Revolut, Apple Pay, and modern banking apps
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,8 +23,9 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { DARK_COLORS as COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
+import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 48;
@@ -86,6 +87,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
   const navigation = useNavigation<any>();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +98,8 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchPaymentMethods = useCallback(async () => {
     try {
@@ -157,13 +161,13 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         setupIntentClientSecret: setupResponse.setupIntent.clientSecret,
         appearance: {
           colors: {
-            primary: COLORS.primary,
-            background: COLORS.dark,
-            componentBackground: COLORS.darkGray,
-            componentText: COLORS.white,
-            primaryText: COLORS.white,
-            secondaryText: COLORS.gray,
-            placeholderText: COLORS.gray,
+            primary: colors.primary,
+            background: colors.dark,
+            componentBackground: colors.darkGray,
+            componentText: colors.white,
+            primaryText: colors.white,
+            secondaryText: colors.gray,
+            placeholderText: colors.gray,
           },
         },
       });
@@ -282,7 +286,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               </Text>
               {method.isDefault && (
                 <View style={styles.defaultChip}>
-                  <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} />
+                  <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
                   <Text style={styles.defaultChipText}>Principale</Text>
                 </View>
               )}
@@ -347,7 +351,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           end={{ x: 1, y: 1 }}
           style={[styles.loadingHeader, { paddingTop: insets.top + 10 }]}
         >
-          <ActivityIndicator size="large" color={COLORS.white} />
+          <ActivityIndicator size="large" color="white" />
           <Text style={styles.loadingText}>Chargement...</Text>
         </LinearGradient>
       </View>
@@ -365,7 +369,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
       >
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Moyens de paiement</Text>
           <View style={styles.placeholder} />
@@ -374,17 +378,17 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <BlurView intensity={20} tint="light" style={styles.statCard}>
-            <Ionicons name="card" size={20} color={COLORS.white} />
+            <Ionicons name="card" size={20} color="white" />
             <Text style={styles.statNumber}>{paymentMethods.length}</Text>
             <Text style={styles.statLabel}>Cartes</Text>
           </BlurView>
           <BlurView intensity={20} tint="light" style={styles.statCard}>
-            <Ionicons name="shield-checkmark" size={20} color={COLORS.white} />
+            <Ionicons name="shield-checkmark" size={20} color="white" />
             <Text style={styles.statNumber}>256</Text>
             <Text style={styles.statLabel}>bit SSL</Text>
           </BlurView>
           <BlurView intensity={20} tint="light" style={styles.statCard}>
-            <Ionicons name="lock-closed" size={20} color={COLORS.white} />
+            <Ionicons name="lock-closed" size={20} color="white" />
             <Text style={styles.statNumber}>3DS</Text>
             <Text style={styles.statLabel}>Secure</Text>
           </BlurView>
@@ -399,7 +403,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
       >
@@ -409,10 +413,10 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             <Text style={styles.sectionTitle}>Vos cartes</Text>
             <TouchableOpacity onPress={handleAddCard} disabled={addingCard}>
               {addingCard ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <View style={styles.addButton}>
-                  <Ionicons name="add" size={20} color={COLORS.white} />
+                  <Ionicons name="add" size={20} color="white" />
                 </View>
               )}
             </TouchableOpacity>
@@ -430,7 +434,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
                 style={styles.emptyCard}
               >
                 <View style={styles.emptyCardContent}>
-                  <Ionicons name="card-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="card-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>Aucune carte</Text>
                   <Text style={styles.emptySubtitle}>
                     Ajoutez une carte pour des paiements rapides et securises
@@ -463,10 +467,10 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             style={styles.addCardGradient}
           >
             {addingCard ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color="white" />
             ) : (
               <>
-                <Ionicons name="add-circle" size={24} color={COLORS.white} />
+                <Ionicons name="add-circle" size={24} color="white" />
                 <Text style={styles.addCardLargeText}>Ajouter une nouvelle carte</Text>
               </>
             )}
@@ -477,7 +481,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         <View style={styles.securitySection}>
           <View style={styles.securityItem}>
             <View style={styles.securityIcon}>
-              <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
+              <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
               <Text style={styles.securityTitle}>Chiffrement SSL</Text>
@@ -486,7 +490,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           </View>
           <View style={styles.securityItem}>
             <View style={styles.securityIcon}>
-              <Ionicons name="finger-print" size={20} color={COLORS.primary} />
+              <Ionicons name="finger-print" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
               <Text style={styles.securityTitle}>Authentification 3DS</Text>
@@ -495,7 +499,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           </View>
           <View style={styles.securityItem}>
             <View style={styles.securityIcon}>
-              <Ionicons name="eye-off" size={20} color={COLORS.primary} />
+              <Ionicons name="eye-off" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
               <Text style={styles.securityTitle}>Donnees masquees</Text>
@@ -516,10 +520,10 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   loadingHeader: {
     flex: 1,
@@ -527,7 +531,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: COLORS.white,
+    color: 'white',
     fontSize: 16,
     marginTop: 12,
   },
@@ -554,7 +558,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: 'white',
   },
   placeholder: {
     width: 40,
@@ -575,7 +579,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: 'white',
     marginTop: 4,
   },
   statLabel: {
@@ -602,13 +606,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
   },
   addButton: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.button,
@@ -626,7 +630,7 @@ const styles = StyleSheet.create({
   },
   creditCardSelected: {
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   cardShine: {
     position: 'absolute',
@@ -660,7 +664,7 @@ const styles = StyleSheet.create({
   defaultChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   chipIcon: {
     width: 45,
@@ -727,7 +731,7 @@ const styles = StyleSheet.create({
   cardHint: {
     textAlign: 'center',
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 8,
   },
   emptyState: {
@@ -738,7 +742,7 @@ const styles = StyleSheet.create({
     height: CARD_WIDTH * 0.63,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
@@ -751,12 +755,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginTop: 12,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 20,
@@ -772,7 +776,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.gray + '40',
+    backgroundColor: colors.gray + '40',
   },
   addCardLarge: {
     marginHorizontal: 24,
@@ -791,7 +795,7 @@ const styles = StyleSheet.create({
   addCardLargeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: 'white',
   },
   securitySection: {
     paddingHorizontal: 24,
@@ -801,7 +805,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     padding: 16,
     borderRadius: 14,
   },
@@ -809,7 +813,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -819,11 +823,11 @@ const styles = StyleSheet.create({
   securityTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   securityDesc: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   poweredBy: {
@@ -835,7 +839,7 @@ const styles = StyleSheet.create({
   },
   poweredByText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   stripeLogo: {
     fontSize: 18,

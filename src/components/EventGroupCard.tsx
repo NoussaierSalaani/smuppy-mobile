@@ -1,8 +1,8 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from './OptimizedImage';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface EventGroupCardProps {
   type: 'event' | 'group';
@@ -49,45 +49,48 @@ const EventGroupCard = memo(({
   onPress,
   onMenuPress,
 }: EventGroupCardProps) => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const participantText = maxParticipants
     ? `${participantCount}/${maxParticipants}`
     : `${participantCount}`;
 
   return (
-    <TouchableOpacity style={cardStyles.container} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
       {coverImage ? (
-        <OptimizedImage source={coverImage} style={cardStyles.thumbnail} />
+        <OptimizedImage source={coverImage} style={styles.thumbnail} />
       ) : (
-        <View style={[cardStyles.thumbnail, cardStyles.placeholderThumb]}>
+        <View style={[styles.thumbnail, styles.placeholderThumb]}>
           <Ionicons name="calendar-outline" size={28} color="#9CA3AF" />
         </View>
       )}
 
-      <View style={cardStyles.content}>
-        <Text style={cardStyles.title} numberOfLines={2}>{title}</Text>
+      <View style={styles.content}>
+        <Text style={styles.title} numberOfLines={2}>{title}</Text>
 
         {location ? (
-          <View style={cardStyles.row}>
+          <View style={styles.row}>
             <Ionicons name="location-outline" size={14} color="#8E8E93" />
-            <Text style={cardStyles.rowText} numberOfLines={1}>{location}</Text>
+            <Text style={styles.rowText} numberOfLines={1}>{location}</Text>
           </View>
         ) : null}
 
         {startDate ? (
-          <View style={cardStyles.row}>
+          <View style={styles.row}>
             <Ionicons name="calendar-outline" size={14} color="#8E8E93" />
-            <Text style={cardStyles.rowText} numberOfLines={1}>{formatDate(startDate)}</Text>
+            <Text style={styles.rowText} numberOfLines={1}>{formatDate(startDate)}</Text>
           </View>
         ) : null}
 
-        <View style={cardStyles.row}>
+        <View style={styles.row}>
           <Ionicons name="people-outline" size={14} color="#8E8E93" />
-          <Text style={cardStyles.rowText}>{participantText} participants</Text>
+          <Text style={styles.rowText}>{participantText} participants</Text>
         </View>
       </View>
 
       {isOwner && (
-        <TouchableOpacity style={cardStyles.menuBtn} onPress={onMenuPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity style={styles.menuBtn} onPress={onMenuPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="ellipsis-vertical" size={18} color="#8E8E93" />
         </TouchableOpacity>
       )}
@@ -97,10 +100,10 @@ const EventGroupCard = memo(({
 
 EventGroupCard.displayName = 'EventGroupCard';
 
-const cardStyles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 12,
@@ -110,7 +113,7 @@ const cardStyles = StyleSheet.create({
     height: 80,
   },
   placeholderThumb: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -123,7 +126,7 @@ const cardStyles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
     marginBottom: 4,
   },
   row: {
@@ -134,7 +137,7 @@ const cardStyles = StyleSheet.create({
   },
   rowText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.gray,
     flex: 1,
   },
   menuBtn: {

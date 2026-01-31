@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 interface VoiceRecorderProps {
@@ -17,6 +17,7 @@ interface VoiceRecorderProps {
 }
 
 export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
+  const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -25,6 +26,8 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Request permissions on mount
   useEffect(() => {
@@ -150,7 +153,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
     <View style={styles.container}>
       {/* Cancel button */}
       <TouchableOpacity style={styles.cancelButton} onPress={cancelRecording}>
-        <Ionicons name="close" size={24} color={COLORS.gray} />
+        <Ionicons name="close" size={24} color={colors.gray} />
       </TouchableOpacity>
 
       {/* Recording indicator */}
@@ -182,15 +185,15 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.border,
   },
   cancelButton: {
     padding: 8,
@@ -211,18 +214,18 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginRight: 8,
   },
   recordingLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   recordButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

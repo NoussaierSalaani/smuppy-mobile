@@ -1,6 +1,6 @@
 // src/screens/live/ViewerLiveStreamScreen.tsx
 // Screen for users to watch a live stream as a viewer
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
 import { RemoteVideoView } from '../../components/AgoraVideoView';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width, height: _height } = Dimensions.get('window');
 
@@ -55,6 +56,8 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const params = (route.params || {}) as RouteParams;
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const {
     channelName,
@@ -177,17 +180,20 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     navigation.goBack();
   };
 
-  const renderComment = ({ item }: { item: Comment }) => (
-    <View style={styles.commentItem}>
-      <AvatarImage source={item.avatar} size={28} />
-      <View style={styles.commentContent}>
-        <Text style={[styles.commentUser, item.isCreator && styles.creatorNameHighlight]}>
-          {item.user} {item.isCreator && '(Creator)'}
-        </Text>
-        <Text style={styles.commentText}>{item.text}</Text>
+  const renderComment = ({ item }: { item: Comment }) => {
+    const itemStyles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+    return (
+      <View style={itemStyles.commentItem}>
+        <AvatarImage source={item.avatar} size={28} />
+        <View style={itemStyles.commentContent}>
+          <Text style={[itemStyles.commentUser, item.isCreator && itemStyles.creatorNameHighlight]}>
+            {item.user} {item.isCreator && '(Creator)'}
+          </Text>
+          <Text style={itemStyles.commentText}>{item.text}</Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   // Get the host's UID (first remote user is typically the host)
   const hostUid = remoteUsers[0];
@@ -197,7 +203,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Joining live stream...</Text>
       </View>
     );
@@ -235,7 +241,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.streamPlaceholder}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.streamPlaceholderText}>Waiting for host...</Text>
           </View>
         </View>
@@ -341,7 +347,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
             />
             {newComment.trim() && (
               <TouchableOpacity onPress={handleSendComment} style={styles.sendButton}>
-                <Ionicons name="send" size={20} color={COLORS.primary} />
+                <Ionicons name="send" size={20} color={colors.primary} />
               </TouchableOpacity>
             )}
           </View>
@@ -422,7 +428,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
             <View style={styles.giftModalHeader}>
               <Text style={styles.giftModalTitle}>Send a Gift</Text>
               <TouchableOpacity onPress={() => setShowGiftModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.dark} />
+                <Ionicons name="close" size={24} color={colors.dark} />
               </TouchableOpacity>
             </View>
             <Text style={styles.giftModalSubtitle}>
@@ -459,7 +465,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -486,7 +492,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   retryText: {
@@ -553,7 +559,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   creatorNameHighlight: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   liveBadge: {
     flexDirection: 'row',
@@ -685,7 +691,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     borderRadius: 20,
     padding: 24,
     width: width * 0.85,
@@ -694,12 +700,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   modalMessage: {
     fontSize: 15,
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -713,12 +719,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
-    backgroundColor: 'rgba(10, 37, 47, 0.08)',
+    backgroundColor: colors.backgroundSecondary,
   },
   modalButtonCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   modalButtonConfirm: {
     flex: 1,
@@ -742,7 +748,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   giftModalContent: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -757,11 +763,11 @@ const styles = StyleSheet.create({
   giftModalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   giftModalSubtitle: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginBottom: 20,
   },
   giftsGrid: {
@@ -773,7 +779,7 @@ const styles = StyleSheet.create({
     width: (width - 60) / 3,
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'rgba(14, 191, 138, 0.08)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.12)' : 'rgba(14, 191, 138, 0.08)',
     borderRadius: 16,
     marginBottom: 12,
   },
@@ -784,11 +790,11 @@ const styles = StyleSheet.create({
   giftName: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   giftPrice: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 4,
   },

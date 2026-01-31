@@ -8,7 +8,7 @@
  *   Step 4: Review with cover hero
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
@@ -45,14 +45,13 @@ import { LiquidTabs } from '../../components/LiquidTabs';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const TEAL_BORDER = COLORS.primary;
-const INACTIVE_BORDER = '#B5E8DC';
 const SEGMENT_GAP = 6;
 
 type CreateMode = 'event' | 'group';
@@ -97,17 +96,16 @@ const ROUTE_CATEGORIES = ['running', 'hiking', 'cycling'];
 const TOTAL_STEPS = 4;
 
 // ─── Segmented progress bar (4 discrete segments with gaps) ──────
-const ProgressSegments: React.FC<{ current: number; total: number }> = ({ current, total }) => {
+const ProgressSegments: React.FC<{ current: number; total: number; colors: any }> = ({ current, total, colors }) => {
   const segmentWidth = (SCREEN_WIDTH - 32 - SEGMENT_GAP * (total - 1)) / total;
   return (
-    <View style={progressStyles.row}>
+    <View style={{ flexDirection: 'row', gap: SEGMENT_GAP, paddingHorizontal: 16, marginBottom: 8 }}>
       {Array.from({ length: total }).map((_, i) => (
         <View
           key={i}
           style={[
-            progressStyles.segment,
-            { width: segmentWidth },
-            i < current ? progressStyles.segmentFilled : progressStyles.segmentEmpty,
+            { height: 4, borderRadius: 2, width: segmentWidth },
+            { backgroundColor: i < current ? colors.primary : colors.gray200 },
           ]}
         />
       ))}
@@ -115,15 +113,9 @@ const ProgressSegments: React.FC<{ current: number; total: number }> = ({ curren
   );
 };
 
-const progressStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: SEGMENT_GAP, paddingHorizontal: 16, marginBottom: 8 },
-  segment: { height: 4, borderRadius: 2 },
-  segmentFilled: { backgroundColor: TEAL_BORDER },
-  segmentEmpty: { backgroundColor: COLORS.gray200 },
-});
-
 // ─── Component ───────────────────────────────────────────────────
 const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigation, route }) => {
+  const { colors, isDark } = useTheme();
   const { currency } = useCurrency();
   const { showError, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
@@ -188,6 +180,8 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 
   const mapRef = useRef<any>(null);
   const scrollRef = useRef<ScrollView>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // ─── Effects ─────────────────────────────────────────────────
   useEffect(() => {
@@ -475,7 +469,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
   // STEP 1 — Name, Description, Category, Date, Time
   // ─────────────────────────────────────────────────────────────
   const renderStep1 = () => (
-    <View style={s.stepContainer}>
+    <View style={styles.stepContainer}>
       {/* Groups / Events toggle — Liquid tabs */}
       <LiquidTabs
         tabs={[
@@ -486,60 +480,60 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         onTabChange={(key) => setMode(key as CreateMode)}
         size="medium"
         fullWidth={false}
-        style={s.liquidToggle}
+        style={styles.liquidToggle}
       />
 
       {/* Name */}
-      <Text style={s.label}>Name</Text>
+      <Text style={styles.label}>Name</Text>
       <TextInput
-        style={s.capsuleInput}
+        style={styles.capsuleInput}
         value={title}
         onChangeText={setTitle}
         placeholder="Type Here ..."
-        placeholderTextColor={COLORS.gray400}
+        placeholderTextColor={colors.gray}
         maxLength={100}
       />
 
       {/* Description */}
-      <Text style={s.label}>Detailed description</Text>
+      <Text style={styles.label}>Detailed description</Text>
       <TextInput
-        style={[s.capsuleInput, s.textArea]}
+        style={[styles.capsuleInput, styles.textArea]}
         value={description}
         onChangeText={setDescription}
         placeholder="Type Here ..."
-        placeholderTextColor={COLORS.gray400}
+        placeholderTextColor={colors.gray}
         multiline
         maxLength={500}
       />
 
       {/* Category dropdown */}
-      <Text style={s.label}>Category</Text>
-      <TouchableOpacity style={s.capsuleInput} onPress={() => setShowCategoryModal(true)}>
-        <View style={s.dropdownRow}>
-          <Text style={selectedCategory ? s.dropdownValue : s.dropdownPlaceholder}>
+      <Text style={styles.label}>Category</Text>
+      <TouchableOpacity style={styles.capsuleInput} onPress={() => setShowCategoryModal(true)}>
+        <View style={styles.dropdownRow}>
+          <Text style={selectedCategory ? styles.dropdownValue : styles.dropdownPlaceholder}>
             {selectedCategory?.name || 'Sport'}
           </Text>
-          <Ionicons name="chevron-down" size={20} color={COLORS.gray400} />
+          <Ionicons name="chevron-down" size={20} color={colors.gray} />
         </View>
       </TouchableOpacity>
 
       {/* Date */}
-      <Text style={s.label}>Date</Text>
-      <TouchableOpacity style={s.capsuleInput} onPress={() => setShowDatePicker(true)}>
-        <View style={s.iconInputRow}>
-          <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
-          <Text style={startDate ? s.dropdownValue : s.dropdownPlaceholder}>
+      <Text style={styles.label}>Date</Text>
+      <TouchableOpacity style={styles.capsuleInput} onPress={() => setShowDatePicker(true)}>
+        <View style={styles.iconInputRow}>
+          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+          <Text style={startDate ? styles.dropdownValue : styles.dropdownPlaceholder}>
             {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </Text>
         </View>
       </TouchableOpacity>
 
       {/* Time */}
-      <Text style={s.label}>Time</Text>
-      <TouchableOpacity style={s.capsuleInput} onPress={() => setShowTimePicker(true)}>
-        <View style={s.iconInputRow}>
-          <Ionicons name="time-outline" size={20} color={COLORS.primary} />
-          <Text style={s.dropdownValue}>
+      <Text style={styles.label}>Time</Text>
+      <TouchableOpacity style={styles.capsuleInput} onPress={() => setShowTimePicker(true)}>
+        <View style={styles.iconInputRow}>
+          <Ionicons name="time-outline" size={20} color={colors.primary} />
+          <Text style={styles.dropdownValue}>
             {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
@@ -551,70 +545,70 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
   // STEP 2 — Visibility, Capacity, Cover image
   // ─────────────────────────────────────────────────────────────
   const renderStep2 = () => (
-    <View style={s.stepContainer}>
+    <View style={styles.stepContainer}>
       {/* Public / Private */}
-      <View style={s.visibilityRow}>
+      <View style={styles.visibilityRow}>
         <TouchableOpacity
-          style={[s.radioChip, isPublic && s.radioChipActive]}
+          style={[styles.radioChip, isPublic && styles.radioChipActive]}
           onPress={() => setIsPublic(true)}
         >
-          <Ionicons name="people-outline" size={18} color={isPublic ? COLORS.primary : COLORS.gray} />
-          <Text style={[s.radioChipText, isPublic && s.radioChipTextActive]}>Public</Text>
-          <View style={[s.radioCircle, isPublic && s.radioCircleFilled]}>
-            {isPublic && <View style={s.radioInner} />}
+          <Ionicons name="people-outline" size={18} color={isPublic ? colors.primary : colors.gray} />
+          <Text style={[styles.radioChipText, isPublic && styles.radioChipTextActive]}>Public</Text>
+          <View style={[styles.radioCircle, isPublic && styles.radioCircleFilled]}>
+            {isPublic && <View style={styles.radioInner} />}
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[s.radioChip, !isPublic && s.radioChipActive]}
+          style={[styles.radioChip, !isPublic && styles.radioChipActive]}
           onPress={() => setIsPublic(false)}
         >
-          <Ionicons name="lock-closed-outline" size={18} color={!isPublic ? COLORS.primary : COLORS.gray} />
-          <Text style={[s.radioChipText, !isPublic && s.radioChipTextActive]}>Private</Text>
-          <View style={[s.radioCircle, !isPublic && s.radioCircleFilled]}>
-            {!isPublic && <View style={s.radioInner} />}
+          <Ionicons name="lock-closed-outline" size={18} color={!isPublic ? colors.primary : colors.gray} />
+          <Text style={[styles.radioChipText, !isPublic && styles.radioChipTextActive]}>Private</Text>
+          <View style={[styles.radioCircle, !isPublic && styles.radioCircleFilled]}>
+            {!isPublic && <View style={styles.radioInner} />}
           </View>
         </TouchableOpacity>
       </View>
 
       {/* Max capacity */}
-      <Text style={s.label}>Maximum capacity</Text>
+      <Text style={styles.label}>Maximum capacity</Text>
       <TextInput
-        style={s.capsuleInput}
+        style={styles.capsuleInput}
         value={maxParticipants}
         onChangeText={setMaxParticipants}
         placeholder="Type Here ..."
-        placeholderTextColor={COLORS.gray400}
+        placeholderTextColor={colors.gray}
         keyboardType="number-pad"
       />
 
       {/* Cover image */}
-      <Text style={s.label}>Cover image</Text>
-      <TouchableOpacity style={s.coverUpload} onPress={pickCoverImage}>
+      <Text style={styles.label}>Cover image</Text>
+      <TouchableOpacity style={styles.coverUpload} onPress={pickCoverImage}>
         {coverImage ? (
-          <Image source={{ uri: coverImage }} style={s.coverPreview} />
+          <Image source={{ uri: coverImage }} style={styles.coverPreview} />
         ) : (
-          <View style={s.coverPlaceholder}>
-            <Ionicons name="cloud-upload-outline" size={32} color={COLORS.primary} />
-            <Text style={s.coverPlaceholderText}>Add File Here ...</Text>
+          <View style={styles.coverPlaceholder}>
+            <Ionicons name="cloud-upload-outline" size={32} color={colors.primary} />
+            <Text style={styles.coverPlaceholderText}>Add File Here ...</Text>
           </View>
         )}
       </TouchableOpacity>
 
       {/* Pricing (keep existing logic) */}
-      <Text style={s.label}>Pricing</Text>
-      <View style={s.visibilityRow}>
+      <Text style={styles.label}>Pricing</Text>
+      <View style={styles.visibilityRow}>
         <TouchableOpacity
-          style={[s.radioChip, isFree && s.radioChipActive]}
+          style={[styles.radioChip, isFree && styles.radioChipActive]}
           onPress={() => setIsFree(true)}
         >
-          <Text style={[s.radioChipText, isFree && s.radioChipTextActive]}>Free</Text>
-          <View style={[s.radioCircle, isFree && s.radioCircleFilled]}>
-            {isFree && <View style={s.radioInner} />}
+          <Text style={[styles.radioChipText, isFree && styles.radioChipTextActive]}>Free</Text>
+          <View style={[styles.radioCircle, isFree && styles.radioCircleFilled]}>
+            {isFree && <View style={styles.radioInner} />}
           </View>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.radioChip, !isFree && s.radioChipActive]}
+          style={[styles.radioChip, !isFree && styles.radioChipActive]}
           onPress={() => {
             if (canUsePaid) {
               setIsFree(false);
@@ -641,24 +635,24 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
             }
           }}
         >
-          <Text style={[s.radioChipText, !isFree && s.radioChipTextActive]}>Paid</Text>
+          <Text style={[styles.radioChipText, !isFree && styles.radioChipTextActive]}>Paid</Text>
           {!canUsePaid && (
-            <View style={s.proBadge}>
-              <Text style={s.proBadgeText}>{isBusinessNonPremium ? 'PREMIUM' : 'VERIFIED'}</Text>
+            <View style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>{isBusinessNonPremium ? 'PREMIUM' : 'VERIFIED'}</Text>
             </View>
           )}
-          <View style={[s.radioCircle, !isFree && s.radioCircleFilled]}>
-            {!isFree && <View style={s.radioInner} />}
+          <View style={[styles.radioCircle, !isFree && styles.radioCircleFilled]}>
+            {!isFree && <View style={styles.radioInner} />}
           </View>
         </TouchableOpacity>
       </View>
       {!isFree && canUsePaid && (
         <TextInput
-          style={s.capsuleInput}
+          style={styles.capsuleInput}
           value={price}
           onChangeText={setPrice}
           placeholder={`Price (${currency.symbol})`}
-          placeholderTextColor={COLORS.gray400}
+          placeholderTextColor={colors.gray}
           keyboardType="decimal-pad"
         />
       )}
@@ -669,8 +663,8 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
   // STEP 3 — Location / Route
   // ─────────────────────────────────────────────────────────────
   const renderStep3 = () => (
-    <View style={s.stepContainer}>
-      <Text style={s.sectionLabel}>Location</Text>
+    <View style={styles.stepContainer}>
+      <Text style={styles.sectionLabel}>Location</Text>
 
       {/* Group mode with route activity → use RouteMapPicker */}
       {mode === 'group' ? (
@@ -690,34 +684,34 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
       ) : (
         <>
           {/* Search bar */}
-          <View style={s.locationSearchRow}>
-            <Ionicons name="search" size={18} color={COLORS.gray400} />
+          <View style={styles.locationSearchRow}>
+            <Ionicons name="search" size={18} color={colors.gray} />
             <TextInput
-              style={s.locationSearchInput}
+              style={styles.locationSearchInput}
               value={locationName}
               onChangeText={handleLocationNameChange}
               placeholder="Search address or place..."
-              placeholderTextColor={COLORS.gray400}
+              placeholderTextColor={colors.gray}
             />
-            {isLoadingLocationSearch && <ActivityIndicator size="small" color={COLORS.primary} />}
+            {isLoadingLocationSearch && <ActivityIndicator size="small" color={colors.primary} />}
           </View>
 
           {/* Suggestions */}
           {locationSuggestions.length > 0 && (
-            <View style={s.suggestions}>
+            <View style={styles.suggestions}>
               {locationSuggestions.map((result) => {
                 const formatted = formatNominatimResult(result);
                 return (
                   <TouchableOpacity
                     key={result.place_id.toString()}
-                    style={s.suggestionItem}
+                    style={styles.suggestionItem}
                     onPress={() => selectLocationSuggestion(result)}
                   >
-                    <Ionicons name="location" size={16} color={COLORS.primary} />
+                    <Ionicons name="location" size={16} color={colors.primary} />
                     <View style={{ flex: 1 }}>
-                      <Text style={s.suggestionMain} numberOfLines={1}>{formatted.mainText}</Text>
+                      <Text style={styles.suggestionMain} numberOfLines={1}>{formatted.mainText}</Text>
                       {formatted.secondaryText ? (
-                        <Text style={s.suggestionSub} numberOfLines={1}>{formatted.secondaryText}</Text>
+                        <Text style={styles.suggestionSub} numberOfLines={1}>{formatted.secondaryText}</Text>
                       ) : null}
                     </View>
                   </TouchableOpacity>
@@ -727,8 +721,8 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
           )}
 
           {/* Map */}
-          <View style={s.mapContainer}>
-            <MapView ref={mapRef} style={s.map} onPress={handleMapPress}>
+          <View style={styles.mapContainer}>
+            <MapView ref={mapRef} style={styles.map} onPress={handleMapPress}>
               <Camera
                 centerCoordinate={[
                   coordinates?.lng || userLocation?.lng || 2.3522,
@@ -740,8 +734,8 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
               />
               {coordinates && !hasRoute && (
                 <MarkerView coordinate={[coordinates.lng, coordinates.lat]}>
-                  <View style={s.mapMarker}>
-                    <View style={[s.mapMarkerInner, { backgroundColor: selectedCategory?.color || COLORS.primary }]} />
+                  <View style={styles.mapMarker}>
+                    <View style={[styles.mapMarkerInner, { backgroundColor: selectedCategory?.color || colors.primary }]} />
                   </View>
                 </MarkerView>
               )}
@@ -756,16 +750,16 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
                 >
                   <LineLayer
                     id="routeLineLayer"
-                    style={{ lineColor: selectedCategory?.color || COLORS.primary, lineWidth: 4 }}
+                    style={{ lineColor: selectedCategory?.color || colors.primary, lineWidth: 4 }}
                   />
                 </ShapeSource>
               )}
               {hasRoute && routePoints.map((point, index) => (
                 <MarkerView key={index} coordinate={[point.longitude, point.latitude]}>
-                  <View style={[s.routeMarker, {
-                    backgroundColor: index === 0 ? '#4CAF50' : index === routePoints.length - 1 ? '#F44336' : selectedCategory?.color || COLORS.primary,
+                  <View style={[styles.routeMarker, {
+                    backgroundColor: index === 0 ? '#4CAF50' : index === routePoints.length - 1 ? '#F44336' : selectedCategory?.color || colors.primary,
                   }]}>
-                    <Text style={s.routeMarkerText}>
+                    <Text style={styles.routeMarkerText}>
                       {index === 0 ? 'S' : index === routePoints.length - 1 ? 'E' : index}
                     </Text>
                   </View>
@@ -774,17 +768,17 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
             </MapView>
 
             {hasRoute && (
-              <View style={s.routeControls}>
-                <View style={s.routeControlsBar}>
-                  <View style={s.routeInfo}>
-                    <Ionicons name="navigate" size={18} color={COLORS.primary} />
-                    <Text style={s.routeInfoText}>{routeDistance.toFixed(2)} km</Text>
+              <View style={styles.routeControls}>
+                <View style={styles.routeControlsBar}>
+                  <View style={styles.routeInfo}>
+                    <Ionicons name="navigate" size={18} color={colors.primary} />
+                    <Text style={styles.routeInfoText}>{routeDistance.toFixed(2)} km</Text>
                   </View>
-                  <TouchableOpacity style={s.routeBtn} onPress={handleUndoRoutePoint}>
-                    <Ionicons name="arrow-undo" size={18} color={COLORS.dark} />
+                  <TouchableOpacity style={styles.routeBtn} onPress={handleUndoRoutePoint}>
+                    <Ionicons name="arrow-undo" size={18} color={colors.dark} />
                   </TouchableOpacity>
-                  <TouchableOpacity style={s.routeBtn} onPress={handleClearRoute}>
-                    <Ionicons name="trash" size={18} color={COLORS.error} />
+                  <TouchableOpacity style={styles.routeBtn} onPress={handleClearRoute}>
+                    <Ionicons name="trash" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -793,15 +787,15 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 
           {hasRoute && (
             <>
-              <Text style={s.label}>Difficulty</Text>
-              <View style={s.difficultyRow}>
+              <Text style={styles.label}>Difficulty</Text>
+              <View style={styles.difficultyRow}>
                 {(['easy', 'moderate', 'hard', 'expert'] as const).map((level) => (
                   <TouchableOpacity
                     key={level}
-                    style={[s.difficultyBtn, routeDifficulty === level && s.difficultyBtnActive]}
+                    style={[styles.difficultyBtn, routeDifficulty === level && styles.difficultyBtnActive]}
                     onPress={() => setRouteDifficulty(level)}
                   >
-                    <Text style={[s.difficultyText, routeDifficulty === level && s.difficultyTextActive]}>
+                    <Text style={[styles.difficultyText, routeDifficulty === level && styles.difficultyTextActive]}>
                       {level.charAt(0).toUpperCase() + level.slice(1)}
                     </Text>
                   </TouchableOpacity>
@@ -818,61 +812,61 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
   // STEP 4 — Review (mockup: cover hero + info badges)
   // ─────────────────────────────────────────────────────────────
   const renderStep4 = () => (
-    <View style={s.stepContainer}>
+    <View style={styles.stepContainer}>
       {/* Cover hero */}
       {coverImage ? (
-        <View style={s.reviewHero}>
-          <Image source={{ uri: coverImage }} style={s.reviewHeroImage} />
-          <View style={s.reviewHeroOverlay}>
-            <Text style={s.reviewHeroTitle}>{title}</Text>
-            <View style={s.reviewHeroLocation}>
-              <Ionicons name="location" size={14} color={COLORS.white} />
-              <Text style={s.reviewHeroLocationText}>{locationName || 'Location on map'}</Text>
+        <View style={styles.reviewHero}>
+          <Image source={{ uri: coverImage }} style={styles.reviewHeroImage} />
+          <View style={styles.reviewHeroOverlay}>
+            <Text style={styles.reviewHeroTitle}>{title}</Text>
+            <View style={styles.reviewHeroLocation}>
+              <Ionicons name="location" size={14} color={colors.white} />
+              <Text style={styles.reviewHeroLocationText}>{locationName || 'Location on map'}</Text>
             </View>
           </View>
         </View>
       ) : (
-        <View style={s.reviewNoImage}>
-          <Text style={s.reviewNoImageTitle}>{title}</Text>
-          <View style={s.reviewHeroLocation}>
-            <Ionicons name="location" size={14} color={COLORS.gray} />
-            <Text style={s.reviewNoImageLocation}>{locationName || 'Location on map'}</Text>
+        <View style={styles.reviewNoImage}>
+          <Text style={styles.reviewNoImageTitle}>{title}</Text>
+          <View style={styles.reviewHeroLocation}>
+            <Ionicons name="location" size={14} color={colors.gray} />
+            <Text style={styles.reviewNoImageLocation}>{locationName || 'Location on map'}</Text>
           </View>
         </View>
       )}
 
       {/* Info badges row */}
-      <View style={s.reviewBadgesRow}>
-        <View style={s.reviewBadge}>
-          <Ionicons name="calendar-outline" size={14} color={COLORS.dark} />
-          <Text style={s.reviewBadgeText}>
+      <View style={styles.reviewBadgesRow}>
+        <View style={styles.reviewBadge}>
+          <Ionicons name="calendar-outline" size={14} color={colors.dark} />
+          <Text style={styles.reviewBadgeText}>
             {startDate.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </Text>
         </View>
-        <View style={s.reviewBadge}>
-          <Ionicons name="time-outline" size={14} color={COLORS.dark} />
-          <Text style={s.reviewBadgeText}>
+        <View style={styles.reviewBadge}>
+          <Ionicons name="time-outline" size={14} color={colors.dark} />
+          <Text style={styles.reviewBadgeText}>
             {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
-        <View style={s.reviewBadge}>
-          <Ionicons name={isPublic ? 'globe-outline' : 'lock-closed-outline'} size={14} color={COLORS.dark} />
-          <Text style={s.reviewBadgeText}>{isPublic ? 'Public' : 'Private'}</Text>
+        <View style={styles.reviewBadge}>
+          <Ionicons name={isPublic ? 'globe-outline' : 'lock-closed-outline'} size={14} color={colors.dark} />
+          <Text style={styles.reviewBadgeText}>{isPublic ? 'Public' : 'Private'}</Text>
         </View>
       </View>
 
-      <View style={s.reviewBadgesRow}>
-        <View style={s.reviewBadge}>
-          <Ionicons name={selectedCategory?.icon as any || 'fitness'} size={14} color={COLORS.dark} />
-          <Text style={s.reviewBadgeText}>{selectedCategory?.name || 'Sport'}</Text>
+      <View style={styles.reviewBadgesRow}>
+        <View style={styles.reviewBadge}>
+          <Ionicons name={selectedCategory?.icon as any || 'fitness'} size={14} color={colors.dark} />
+          <Text style={styles.reviewBadgeText}>{selectedCategory?.name || 'Sport'}</Text>
         </View>
-        <View style={s.reviewBadge}>
-          <Ionicons name="people-outline" size={14} color={COLORS.dark} />
-          <Text style={s.reviewBadgeText}>{maxParticipants || '∞'}</Text>
+        <View style={styles.reviewBadge}>
+          <Ionicons name="people-outline" size={14} color={colors.dark} />
+          <Text style={styles.reviewBadgeText}>{maxParticipants || '∞'}</Text>
         </View>
         {!isFree && (
-          <View style={s.reviewBadge}>
-            <Text style={s.reviewBadgeText}>{currency.symbol}{price}</Text>
+          <View style={styles.reviewBadge}>
+            <Text style={styles.reviewBadgeText}>{currency.symbol}{price}</Text>
           </View>
         )}
       </View>
@@ -880,36 +874,36 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
       {/* Description */}
       {description.trim() ? (
         <>
-          <Text style={s.reviewDescLabel}>Description</Text>
-          <Text style={s.reviewDescText}>{description}</Text>
+          <Text style={styles.reviewDescLabel}>Description</Text>
+          <Text style={styles.reviewDescText}>{description}</Text>
         </>
       ) : null}
 
       {/* Route info — event inline route */}
       {mode === 'event' && hasRoute && routeDistance > 0 && (
-        <View style={s.reviewBadgesRow}>
-          <View style={s.reviewBadge}>
-            <Ionicons name="navigate" size={14} color={COLORS.dark} />
-            <Text style={s.reviewBadgeText}>{routeDistance.toFixed(2)} km</Text>
+        <View style={styles.reviewBadgesRow}>
+          <View style={styles.reviewBadge}>
+            <Ionicons name="navigate" size={14} color={colors.dark} />
+            <Text style={styles.reviewBadgeText}>{routeDistance.toFixed(2)} km</Text>
           </View>
-          <View style={s.reviewBadge}>
-            <Text style={s.reviewBadgeText}>{routeDifficulty}</Text>
+          <View style={styles.reviewBadge}>
+            <Text style={styles.reviewBadgeText}>{routeDifficulty}</Text>
           </View>
         </View>
       )}
 
       {/* Route info — group RouteMapPicker data */}
       {mode === 'group' && groupRouteData && (
-        <View style={s.reviewBadgesRow}>
-          <View style={s.reviewBadge}>
-            <Ionicons name="navigate" size={14} color={COLORS.dark} />
-            <Text style={s.reviewBadgeText}>{groupRouteData.distanceKm} km</Text>
+        <View style={styles.reviewBadgesRow}>
+          <View style={styles.reviewBadge}>
+            <Ionicons name="navigate" size={14} color={colors.dark} />
+            <Text style={styles.reviewBadgeText}>{groupRouteData.distanceKm} km</Text>
           </View>
-          <View style={s.reviewBadge}>
-            <Text style={s.reviewBadgeText}>{groupRouteData.durationMin} min</Text>
+          <View style={styles.reviewBadge}>
+            <Text style={styles.reviewBadgeText}>{groupRouteData.durationMin} min</Text>
           </View>
-          <View style={s.reviewBadge}>
-            <Text style={s.reviewBadgeText}>{groupRouteData.difficulty}</Text>
+          <View style={styles.reviewBadge}>
+            <Text style={styles.reviewBadgeText}>{groupRouteData.difficulty}</Text>
           </View>
         </View>
       )}
@@ -919,9 +913,9 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
   // ─── Loading / Limit screens ────────────────────────────────
   if (checkingLimits) {
     return (
-      <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -929,28 +923,28 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 
   if (!canCreate && !isProCreator) {
     return (
-      <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+            <Ionicons name="arrow-back" size={24} color={colors.dark} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Create Groups and Events</Text>
+          <Text style={styles.headerTitle}>Create Groups and Events</Text>
           <View style={{ width: 24 }} />
         </View>
-        <View style={s.limitContainer}>
-          <Ionicons name="lock-closed" size={48} color={COLORS.gray300} />
-          <Text style={s.limitTitle}>Monthly Limit Reached</Text>
-          <Text style={s.limitText}>
+        <View style={styles.limitContainer}>
+          <Ionicons name="lock-closed" size={48} color={colors.gray300} />
+          <Text style={styles.limitTitle}>Monthly Limit Reached</Text>
+          <Text style={styles.limitText}>
             You've created {eventsThisMonth} event this month.{'\n'}
             Personal accounts can create 1 free event per month.
           </Text>
           <TouchableOpacity onPress={() => navigation.navigate('UpgradeToPro')}>
-            <LinearGradient colors={GRADIENTS.primary} style={s.limitUpgradeBtn}>
-              <Text style={s.limitUpgradeBtnText}>Upgrade to Pro</Text>
+            <LinearGradient colors={GRADIENTS.primary} style={styles.limitUpgradeBtn}>
+              <Text style={styles.limitUpgradeBtnText}>Upgrade to Pro</Text>
             </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
-            <Text style={{ color: COLORS.primary, fontWeight: '500', fontSize: 15 }}>Maybe Later</Text>
+            <Text style={{ color: colors.primary, fontWeight: '500', fontSize: 15 }}>Maybe Later</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -959,24 +953,24 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 
   // ─── Main render ────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={s.header}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={handlePrevStep}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Create Groups and Events</Text>
+        <Text style={styles.headerTitle}>Create Groups and Events</Text>
         <View style={{ width: 24 }} />
       </View>
 
       {/* Progress segments */}
-      <ProgressSegments current={step} total={TOTAL_STEPS} />
+      <ProgressSegments current={step} total={TOTAL_STEPS} colors={colors} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={s.scrollContent}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           {step === 1 && renderStep1()}
@@ -987,7 +981,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
       </KeyboardAvoidingView>
 
       {/* Bottom button */}
-      <View style={s.bottomBar}>
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           onPress={step === TOTAL_STEPS ? handleCreate : handleNextStep}
           disabled={isLoading}
@@ -995,16 +989,16 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         >
           <LinearGradient
             colors={GRADIENTS.button}
-            style={s.nextBtn}
+            style={styles.nextBtn}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
             {isLoading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
-                <Text style={s.nextBtnText}>{step === TOTAL_STEPS ? 'Create' : 'Next'}</Text>
-                <Ionicons name={step === TOTAL_STEPS ? 'checkmark' : 'arrow-forward'} size={18} color={COLORS.white} />
+                <Text style={styles.nextBtnText}>{step === TOTAL_STEPS ? 'Create' : 'Next'}</Text>
+                <Ionicons name={step === TOTAL_STEPS ? 'checkmark' : 'arrow-forward'} size={18} color={colors.white} />
               </>
             )}
           </LinearGradient>
@@ -1013,15 +1007,15 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 
       {/* Category modal */}
       <Modal visible={showCategoryModal} transparent animationType="slide">
-        <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowCategoryModal(false)}>
-          <View style={s.modalSheet}>
-            <Text style={s.modalTitle}>Select Category</Text>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCategoryModal(false)}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Select Category</Text>
             <FlatList
               data={activeCategories}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[s.modalItem, selectedCategory?.id === item.id && s.modalItemActive]}
+                  style={[styles.modalItem, selectedCategory?.id === item.id && styles.modalItemActive]}
                   onPress={() => {
                     setSelectedCategory(item);
                     if (mode === 'event') {
@@ -1032,9 +1026,9 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
                   }}
                 >
                   <Ionicons name={item.icon as any} size={22} color={item.color} />
-                  <Text style={s.modalItemText}>{item.name}</Text>
+                  <Text style={styles.modalItemText}>{item.name}</Text>
                   {selectedCategory?.id === item.id && (
-                    <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
+                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               )}
@@ -1089,8 +1083,12 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 const CAPSULE_RADIUS = 28;
 const INPUT_HEIGHT = 52;
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => {
+  const TEAL_BORDER = colors.primary;
+  const INACTIVE_BORDER = '#B5E8DC';
+
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // Header
@@ -1105,7 +1103,7 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Scroll
@@ -1113,8 +1111,8 @@ const s = StyleSheet.create({
   stepContainer: { gap: 14, paddingTop: 8 },
 
   // Labels
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginTop: 4 },
-  sectionLabel: { fontSize: 16, fontWeight: '700', color: COLORS.dark },
+  label: { fontSize: 14, fontWeight: '600', color: colors.dark, marginTop: 4 },
+  sectionLabel: { fontSize: 16, fontWeight: '700', color: colors.dark },
 
   // Capsule input (matching mockup: rounded, teal border)
   capsuleInput: {
@@ -1122,11 +1120,11 @@ const s = StyleSheet.create({
     borderRadius: CAPSULE_RADIUS,
     borderWidth: 1.5,
     borderColor: INACTIVE_BORDER,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     paddingHorizontal: 20,
     justifyContent: 'center',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   textArea: {
     height: 110,
@@ -1136,8 +1134,8 @@ const s = StyleSheet.create({
 
   // Dropdown inside capsule
   dropdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dropdownValue: { fontSize: 15, color: COLORS.dark },
-  dropdownPlaceholder: { fontSize: 15, color: COLORS.gray400 },
+  dropdownValue: { fontSize: 15, color: colors.dark },
+  dropdownPlaceholder: { fontSize: 15, color: colors.gray },
 
   // Icon + text row inside capsule
   iconInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -1158,24 +1156,24 @@ const s = StyleSheet.create({
     height: INPUT_HEIGHT,
     borderRadius: CAPSULE_RADIUS,
     borderWidth: 1.5,
-    borderColor: COLORS.gray200,
+    borderColor: colors.gray200,
     paddingHorizontal: 16,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
-  radioChipActive: { borderColor: COLORS.primary },
-  radioChipText: { flex: 1, fontSize: 14, fontWeight: '500', color: COLORS.gray },
-  radioChipTextActive: { color: COLORS.dark, fontWeight: '600' },
+  radioChipActive: { borderColor: colors.primary },
+  radioChipText: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.gray },
+  radioChipTextActive: { color: colors.dark, fontWeight: '600' },
   radioCircle: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: COLORS.gray300,
+    borderColor: colors.gray300,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  radioCircleFilled: { borderColor: COLORS.primary },
-  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.primary },
+  radioCircleFilled: { borderColor: colors.primary },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary },
 
   // Cover image upload
   coverUpload: {
@@ -1189,12 +1187,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   coverPlaceholder: { alignItems: 'center', gap: 8 },
-  coverPlaceholderText: { fontSize: 14, color: COLORS.gray400 },
+  coverPlaceholderText: { fontSize: 14, color: colors.gray },
   coverPreview: { width: '100%', height: '100%', borderRadius: 18 },
 
   // Pro badge
-  proBadge: { backgroundColor: COLORS.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  proBadgeText: { fontSize: 9, fontWeight: '800', color: COLORS.white },
+  proBadge: { backgroundColor: colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  proBadgeText: { fontSize: 9, fontWeight: '800', color: colors.white },
 
   // Location step
   locationSearchRow: {
@@ -1206,14 +1204,14 @@ const s = StyleSheet.create({
     borderColor: INACTIVE_BORDER,
     paddingHorizontal: 16,
     gap: 10,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
-  locationSearchInput: { flex: 1, fontSize: 15, color: COLORS.dark },
+  locationSearchInput: { flex: 1, fontSize: 15, color: colors.dark },
   suggestions: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.grayBorder,
+    borderColor: colors.grayBorder,
     overflow: 'hidden',
   },
   suggestionItem: {
@@ -1223,10 +1221,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
-  suggestionMain: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
-  suggestionSub: { fontSize: 12, color: COLORS.gray, marginTop: 2 },
+  suggestionMain: { fontSize: 14, fontWeight: '600', color: colors.dark },
+  suggestionSub: { fontSize: 12, color: colors.gray, marginTop: 2 },
 
   // Map
   mapContainer: { height: 320, borderRadius: 20, overflow: 'hidden', marginTop: 4 },
@@ -1235,11 +1233,11 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.primary + '30',
+    backgroundColor: colors.primary + '30',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mapMarkerInner: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: COLORS.white },
+  mapMarkerInner: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.white },
 
   // Route
   routeControls: { position: 'absolute', bottom: 16, left: 16, right: 16 },
@@ -1252,13 +1250,13 @@ const s = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderWidth: 1,
-    borderColor: COLORS.grayBorder,
+    borderColor: colors.grayBorder,
   },
   routeInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  routeInfoText: { fontSize: 16, fontWeight: '700', color: COLORS.dark },
-  routeBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.gray100, justifyContent: 'center', alignItems: 'center' },
-  routeMarker: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
-  routeMarkerText: { fontSize: 10, fontWeight: '700', color: COLORS.white },
+  routeInfoText: { fontSize: 16, fontWeight: '700', color: colors.dark },
+  routeBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.gray100, justifyContent: 'center', alignItems: 'center' },
+  routeMarker: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: colors.white },
+  routeMarkerText: { fontSize: 10, fontWeight: '700', color: colors.white },
 
   // Difficulty
   difficultyRow: { flexDirection: 'row', gap: 8 },
@@ -1267,13 +1265,13 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: CAPSULE_RADIUS,
     borderWidth: 1.5,
-    borderColor: COLORS.gray200,
+    borderColor: colors.gray200,
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
-  difficultyBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '10' },
-  difficultyText: { fontSize: 13, fontWeight: '600', color: COLORS.gray },
-  difficultyTextActive: { color: COLORS.primary },
+  difficultyBtnActive: { borderColor: colors.primary, backgroundColor: colors.primary + '10' },
+  difficultyText: { fontSize: 13, fontWeight: '600', color: colors.gray },
+  difficultyTextActive: { color: colors.primary },
 
   // Review step
   reviewHero: { height: 200, borderRadius: 20, overflow: 'hidden', position: 'relative' },
@@ -1286,19 +1284,19 @@ const s = StyleSheet.create({
     padding: 16,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  reviewHeroTitle: { fontSize: 20, fontWeight: '700', color: COLORS.white },
+  reviewHeroTitle: { fontSize: 20, fontWeight: '700', color: colors.white },
   reviewHeroLocation: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  reviewHeroLocationText: { fontSize: 13, color: COLORS.white },
+  reviewHeroLocationText: { fontSize: 13, color: colors.white },
 
   reviewNoImage: {
-    backgroundColor: COLORS.gray50,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: COLORS.grayBorder,
+    borderColor: colors.grayBorder,
   },
-  reviewNoImageTitle: { fontSize: 20, fontWeight: '700', color: COLORS.dark },
-  reviewNoImageLocation: { fontSize: 13, color: COLORS.gray },
+  reviewNoImageTitle: { fontSize: 20, fontWeight: '700', color: colors.dark },
+  reviewNoImageLocation: { fontSize: 13, color: colors.gray },
 
   reviewBadgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   reviewBadge: {
@@ -1309,20 +1307,20 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.grayBorder,
-    backgroundColor: COLORS.white,
+    borderColor: colors.grayBorder,
+    backgroundColor: colors.backgroundSecondary,
   },
-  reviewBadgeText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
+  reviewBadgeText: { fontSize: 13, fontWeight: '500', color: colors.dark },
 
-  reviewDescLabel: { fontSize: 16, fontWeight: '700', color: COLORS.dark, marginTop: 4 },
-  reviewDescText: { fontSize: 14, color: COLORS.gray, lineHeight: 21 },
+  reviewDescLabel: { fontSize: 16, fontWeight: '700', color: colors.dark, marginTop: 4 },
+  reviewDescText: { fontSize: 14, color: colors.gray, lineHeight: 21 },
 
   // Bottom button
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   nextBtn: {
     flexDirection: 'row',
@@ -1332,19 +1330,19 @@ const s = StyleSheet.create({
     borderRadius: 26,
     gap: 8,
   },
-  nextBtnText: { fontSize: 17, fontWeight: '600', color: COLORS.white },
+  nextBtnText: { fontSize: 17, fontWeight: '600', color: colors.white },
 
   // Category modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   modalSheet: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.backgroundSecondary,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '60%',
     paddingTop: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.dark, paddingHorizontal: 20, marginBottom: 12 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.dark, paddingHorizontal: 20, marginBottom: 12 },
   modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1352,17 +1350,18 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
-  modalItemActive: { backgroundColor: COLORS.primary + '10' },
-  modalItemText: { flex: 1, fontSize: 16, color: COLORS.dark },
+  modalItemActive: { backgroundColor: colors.primary + '10' },
+  modalItemText: { flex: 1, fontSize: 16, color: colors.dark },
 
   // Limit screen
   limitContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  limitTitle: { fontSize: 20, fontWeight: '700', color: COLORS.dark, marginTop: 16, marginBottom: 8 },
-  limitText: { fontSize: 14, color: COLORS.gray, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  limitTitle: { fontSize: 20, fontWeight: '700', color: colors.dark, marginTop: 16, marginBottom: 8 },
+  limitText: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
   limitUpgradeBtn: { paddingVertical: 14, paddingHorizontal: 40, borderRadius: 26 },
-  limitUpgradeBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
-});
+  limitUpgradeBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+  });
+};
 
 export default CreateEventScreen;

@@ -3,7 +3,7 @@
  * View event details and join/pay to participate
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,11 +24,12 @@ import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rn
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { useStripe } from '@stripe/stripe-react-native';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -105,6 +106,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { colors, isDark } = useTheme();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +115,8 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const mapRef = useRef<any>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadEventDetails();
@@ -306,7 +310,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -314,7 +318,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   if (!event) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={COLORS.gray} />
+        <Ionicons name="alert-circle" size={64} color={colors.gray} />
         <Text style={styles.errorText}>Event not found</Text>
         <TouchableOpacity style={styles.backButtonLarge} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>Go Back</Text>
@@ -470,14 +474,14 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
               </View>
               <Text style={styles.organizerUsername}>@{event.organizer.username} • Organizer</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+            <Ionicons name="chevron-forward" size={20} color={colors.gray} />
           </TouchableOpacity>
 
           {/* Details Card */}
           <View style={styles.detailsCard}>
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                <Ionicons name="calendar" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
@@ -489,7 +493,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="location" size={20} color={COLORS.primary} />
+                <Ionicons name="location" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Location</Text>
@@ -505,7 +509,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
                 <View style={styles.detailDivider} />
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <Ionicons name="map" size={20} color={COLORS.primary} />
+                    <Ionicons name="map" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.detailText}>
                     <Text style={styles.detailLabel}>Route</Text>
@@ -526,7 +530,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="people" size={20} color={COLORS.primary} />
+                <Ionicons name="people" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Participants</Text>
@@ -621,7 +625,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
           ) : event.is_participating ? (
             <View style={styles.joinedActions}>
               <View style={styles.joinedBadge}>
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.joinedText}>Joined</Text>
               </View>
               <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveEvent}>
@@ -664,7 +668,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f1a',
@@ -684,13 +688,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   backButtonLarge: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   backButtonText: {
@@ -841,7 +845,7 @@ const styles = StyleSheet.create({
   },
   organizerUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -871,7 +875,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   detailValue: {
@@ -881,7 +885,7 @@ const styles = StyleSheet.create({
   },
   detailSubvalue: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   detailDivider: {
@@ -901,13 +905,13 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     lineHeight: 22,
   },
   readMore: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 8,
   },
 
@@ -966,7 +970,7 @@ const styles = StyleSheet.create({
   },
   bottomPriceLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   bottomPriceAmount: {
     fontSize: 22,
@@ -976,7 +980,7 @@ const styles = StyleSheet.create({
   bottomPriceText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   joinButton: {
     borderRadius: 16,
@@ -1028,7 +1032,7 @@ const styles = StyleSheet.create({
   joinedText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   leaveButton: {
     paddingHorizontal: 16,

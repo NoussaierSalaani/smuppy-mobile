@@ -4,11 +4,12 @@
  * Displays relevant quality attributes (e.g. "Shade", "Parking", "Lighting")
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS } from '../config/theme';
+import { GRADIENTS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import { SPOT_QUALITIES } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -24,6 +25,9 @@ interface QualityPickerProps {
 }
 
 export default function QualityPicker({ category, selected, onSelectionChange }: QualityPickerProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const key = category.toLowerCase().replace(/\s+/g, '_');
   const qualities = SPOT_QUALITIES[key] || SPOT_QUALITIES.general || [];
 
@@ -57,8 +61,8 @@ export default function QualityPicker({ category, selected, onSelectionChange }:
                   end={{ x: 1, y: 1 }}
                   style={styles.chip}
                 >
-                  <Ionicons name="checkmark" size={normalize(14)} color={COLORS.white} />
-                  <Text style={[styles.chipText, { color: COLORS.white }]}>{quality}</Text>
+                  <Ionicons name="checkmark" size={normalize(14)} color={colors.white} />
+                  <Text style={[styles.chipText, { color: colors.white }]}>{quality}</Text>
                 </LinearGradient>
               ) : (
                 <View style={styles.chipInactive}>
@@ -73,19 +77,19 @@ export default function QualityPicker({ category, selected, onSelectionChange }:
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     marginVertical: 8,
   },
   title: {
     fontSize: normalize(16),
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: normalize(13),
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 12,
   },
   grid: {
@@ -107,11 +111,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: normalize(20),
-    backgroundColor: COLORS.gray100,
+    backgroundColor: colors.backgroundSecondary,
   },
   chipText: {
     fontSize: normalize(13),
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 });

@@ -1,5 +1,5 @@
 // src/screens/live/LiveStreamingScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -20,13 +20,14 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -43,6 +44,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Get current user as fallback for host info
   const currentUser = useUserStore((state) => state.user);
@@ -298,7 +301,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             onSubmitEditing={sendComment}
           />
           <TouchableOpacity onPress={sendComment} style={styles.sendButton}>
-            <Ionicons name="send" size={20} color={COLORS.primary} />
+            <Ionicons name="send" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -357,7 +360,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -398,7 +401,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   creatorName: {
     color: 'white',
@@ -586,7 +589,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cancelStreamButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

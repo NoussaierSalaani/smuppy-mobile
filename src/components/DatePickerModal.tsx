@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../hooks/useTheme';
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -53,6 +54,9 @@ const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')
  * @param {string} initialDate - Date initiale (YYYY-MM-DD)
  */
 export default function DatePickerModal({ visible, onClose, onConfirm, initialDate }: DatePickerModalProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Parser la date initiale ou utiliser des valeurs par défaut
   const parseInitialDate = () => {
     if (initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {
@@ -186,7 +190,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
           <View style={styles.header}>
             <Text style={styles.title}>Date of Birth</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#0A252F" />
+              <Ionicons name="close" size={24} color={colors.dark} />
             </TouchableOpacity>
           </View>
 
@@ -277,7 +281,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -287,7 +291,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 24,
     overflow: 'hidden',
   },
@@ -298,12 +302,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A252F',
+    color: colors.dark,
   },
   closeButton: {
     width: 40,
@@ -323,7 +327,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     height: ITEM_HEIGHT,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     opacity: 0.15,
   },
@@ -338,12 +342,12 @@ const styles = StyleSheet.create({
   },
   pickerItemText: {
     fontSize: 16,
-    color: '#9CA3AF',
+    color: colors.gray,
     fontWeight: '500',
   },
   pickerItemTextSelected: {
     fontSize: 18,
-    color: '#0A252F',
+    color: colors.dark,
     fontWeight: '700',
   },
   buttonsContainer: {
@@ -356,24 +360,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 25,
     borderWidth: 1.5,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   confirmButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 25,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   confirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 });

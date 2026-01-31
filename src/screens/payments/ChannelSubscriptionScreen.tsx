@@ -3,7 +3,7 @@
  * Premium UI for subscribing to a creator's streaming channel
  * Inspired by Twitch, Patreon, and modern subscription flows
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
+import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -58,12 +59,15 @@ export default function ChannelSubscriptionScreen() {
   const route = useRoute();
   const params = route.params as RouteParams;
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { showError } = useSmuppyAlert();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchChannelInfo = useCallback(async () => {
     try {
@@ -141,7 +145,7 @@ export default function ChannelSubscriptionScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -149,7 +153,7 @@ export default function ChannelSubscriptionScreen() {
   if (!channelInfo) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={64} color={COLORS.gray400} />
+        <Ionicons name="alert-circle-outline" size={64} color={colors.gray} />
         <Text style={styles.errorText}>Channel not found</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>Go Back</Text>
@@ -258,7 +262,7 @@ export default function ChannelSubscriptionScreen() {
 
         {/* Social Proof */}
         <View style={styles.socialProof}>
-          <Ionicons name="people" size={20} color={COLORS.primary} />
+          <Ionicons name="people" size={20} color={colors.primary} />
           <Text style={styles.socialProofText}>
             Join {formatNumber(channelInfo.subscriberCount)} other members supporting {channelInfo.fullName}
           </Text>
@@ -269,7 +273,7 @@ export default function ChannelSubscriptionScreen() {
       <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 16 }]}>
         {isSubscribed ? (
           <View style={styles.subscribedContainer}>
-            <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
             <Text style={styles.subscribedText}>You're a member!</Text>
           </View>
         ) : (
@@ -308,34 +312,34 @@ export default function ChannelSubscriptionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     padding: 20,
   },
   errorText: {
     fontSize: 18,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: 16,
     marginBottom: 24,
   },
   backBtn: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   backBtnText: {
@@ -442,7 +446,7 @@ const styles = StyleSheet.create({
   subscriptionCard: {
     marginHorizontal: 16,
     marginTop: -20,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 24,
     padding: 24,
     ...SHADOWS.cardMedium,
@@ -456,11 +460,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   cardSubtitle: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: 2,
   },
   priceTag: {
@@ -470,21 +474,21 @@ const styles = StyleSheet.create({
   priceAmount: {
     fontSize: 28,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   pricePeriod: {
     fontSize: 14,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginLeft: 2,
   },
   channelDescription: {
     fontSize: 14,
-    color: COLORS.gray600,
+    color: colors.gray,
     lineHeight: 20,
     marginBottom: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: isDark ? colors.border : '#F1F5F9',
   },
   perksContainer: {
     marginTop: 8,
@@ -492,7 +496,7 @@ const styles = StyleSheet.create({
   perksTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 16,
   },
   perkItem: {
@@ -511,7 +515,7 @@ const styles = StyleSheet.create({
   perkText: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   socialProof: {
     flexDirection: 'row',
@@ -523,14 +527,14 @@ const styles = StyleSheet.create({
   },
   socialProofText: {
     fontSize: 14,
-    color: COLORS.gray600,
+    color: colors.gray,
   },
   bottomContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: isDark ? colors.border : '#F1F5F9',
   },
   subscribeButton: {
     borderRadius: 16,
@@ -551,7 +555,7 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 12,
-    color: COLORS.gray500,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 12,
   },
@@ -560,13 +564,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 18,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 16,
     gap: 8,
   },
   subscribedText: {
     fontSize: 17,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

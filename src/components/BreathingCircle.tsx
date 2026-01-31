@@ -7,7 +7,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface BreathingCircleProps {
   size?: number;
@@ -20,9 +20,11 @@ const EXHALE_DURATION = 4000;
 
 const BreathingCircle: React.FC<BreathingCircleProps> = ({
   size = 120,
-  color = COLORS.primary,
+  color,
   showLabel = true,
 }) => {
+  const { colors } = useTheme();
+  const breathColor = color || colors.primary;
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0.4)).current;
   const phaseRef = useRef<'inhale' | 'exhale'>('inhale');
@@ -89,7 +91,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
             width: size,
             height: size,
             borderRadius: size / 2,
-            borderColor: color + '30',
+            borderColor: breathColor + '30',
             transform: [{ scale: scaleAnim }],
             opacity: opacityAnim,
           },
@@ -104,8 +106,8 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
             width: size * 0.75,
             height: size * 0.75,
             borderRadius: (size * 0.75) / 2,
-            backgroundColor: color + '25',
-            borderColor: color + '60',
+            backgroundColor: breathColor + '25',
+            borderColor: breathColor + '60',
             transform: [{ scale: scaleAnim }],
           },
         ]}
@@ -118,7 +120,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
               width: size * 0.2,
               height: size * 0.2,
               borderRadius: (size * 0.2) / 2,
-              backgroundColor: color,
+              backgroundColor: breathColor,
             },
           ]}
         />
@@ -129,7 +131,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
         <Animated.Text
           style={[
             styles.label,
-            { color, opacity: labelAnim, top: size + 16 },
+            { color: breathColor, opacity: labelAnim, top: size + 16 },
           ]}
         >
           Breathe

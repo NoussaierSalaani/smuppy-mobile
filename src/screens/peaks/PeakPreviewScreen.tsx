@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import { createPost } from '../../services/database';
@@ -65,6 +65,7 @@ type RootStackParamList = {
 };
 
 const PeakPreviewScreen = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakPreview'>>();
@@ -256,6 +257,8 @@ const PeakPreviewScreen = (): React.JSX.Element => {
     Keyboard.dismiss();
   };
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -281,7 +284,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           {!isPlaying && (
             <View style={styles.playIndicator}>
               <View style={styles.playButton}>
-                <Ionicons name="play" size={50} color={COLORS.white} />
+                <Ionicons name="play" size={50} color={colors.white} />
               </View>
             </View>
           )}
@@ -298,7 +301,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
           <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Ionicons name="chevron-back" size={28} color={COLORS.white} />
+            <Ionicons name="chevron-back" size={28} color={colors.white} />
           </TouchableOpacity>
 
           <View style={styles.durationBadge}>
@@ -321,7 +324,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Reply info */}
             {replyTo && originalPeak && (
               <View style={styles.replyInfo}>
-                <Ionicons name="link" size={14} color={COLORS.primary} />
+                <Ionicons name="link" size={14} color={colors.primary} />
                 <Text style={styles.replyText}>Reply to {originalPeak.user?.name}</Text>
               </View>
             )}
@@ -332,20 +335,20 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 <View style={styles.locationInputHeader}>
                   <TouchableOpacity onPress={detectCurrentLocation} disabled={isLoadingLocation}>
                     {isLoadingLocation ? (
-                      <ActivityIndicator size="small" color={COLORS.primary} />
+                      <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
-                      <Ionicons name="locate" size={18} color={COLORS.primary} />
+                      <Ionicons name="locate" size={18} color={colors.primary} />
                     )}
                   </TouchableOpacity>
                   <TextInput
                     style={styles.locationInput}
                     placeholder="Search location..."
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     value={locationSearch}
                     onChangeText={handleLocationSearchChange}
                     autoFocus
                   />
-                  {isLoadingLocation && <ActivityIndicator size="small" color={COLORS.primary} />}
+                  {isLoadingLocation && <ActivityIndicator size="small" color={colors.primary} />}
                   <TouchableOpacity
                     onPress={() => {
                       setShowLocationInput(false);
@@ -354,7 +357,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                       Keyboard.dismiss();
                     }}
                   >
-                    <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                    <Ionicons name="close-circle" size={20} color={colors.gray} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.locationSuggestions}>
@@ -366,7 +369,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                         style={styles.locationSuggestion}
                         onPress={() => selectLocation(formatted.fullAddress)}
                       >
-                        <Ionicons name="location-outline" size={14} color={COLORS.gray} />
+                        <Ionicons name="location-outline" size={14} color={colors.gray} />
                         <View style={{ flex: 1 }}>
                           <Text style={styles.locationSuggestionText} numberOfLines={1}>{formatted.mainText}</Text>
                           {formatted.secondaryText ? (
@@ -381,8 +384,8 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                       style={styles.locationSuggestion}
                       onPress={() => selectLocation(locationSearch)}
                     >
-                      <Ionicons name="add-circle-outline" size={14} color={COLORS.primary} />
-                      <Text style={[styles.locationSuggestionText, { color: COLORS.primary }]}>
+                      <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                      <Text style={[styles.locationSuggestionText, { color: colors.primary }]}>
                         Use "{locationSearch}"
                       </Text>
                     </TouchableOpacity>
@@ -395,14 +398,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 onPress={() => setShowLocationInput(true)}
               >
                 <View style={styles.optionLeft}>
-                  <Ionicons name="location-outline" size={18} color={COLORS.primary} />
+                  <Ionicons name="location-outline" size={18} color={colors.primary} />
                   <Text style={styles.optionLabel}>Location</Text>
                 </View>
                 <View style={styles.optionRight}>
                   <Text style={styles.optionValue} numberOfLines={1}>
                     {location || 'Add'}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={COLORS.gray} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.gray} />
                 </View>
               </TouchableOpacity>
             )}
@@ -410,14 +413,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Caption/CTA */}
             <View style={styles.captionContainer}>
               <View style={styles.captionHeader}>
-                <Ionicons name="text-outline" size={18} color={COLORS.primary} />
+                <Ionicons name="text-outline" size={18} color={colors.primary} />
                 <Text style={styles.optionLabel}>Caption / CTA</Text>
               </View>
               <View style={styles.captionInputWrapper}>
                 <TextInput
                   style={styles.captionInput}
                   placeholder="Ex: 50 push-ups challenge!"
-                  placeholderTextColor={COLORS.gray}
+                  placeholderTextColor={colors.gray}
                   value={textOverlay}
                   onChangeText={setTextOverlay}
                   maxLength={60}
@@ -436,7 +439,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Visibility */}
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
-                <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                <Ionicons name="time-outline" size={18} color={colors.primary} />
                 <Text style={styles.optionLabel}>Visible for</Text>
               </View>
               <View style={styles.visibilityPicker}>
@@ -465,14 +468,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Save to profile - ALWAYS VISIBLE */}
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
-                <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
+                <Ionicons name="bookmark-outline" size={18} color={colors.primary} />
                 <Text style={styles.optionLabel}>Save to profile</Text>
               </View>
               <Switch
                 value={saveToProfile}
                 onValueChange={setSaveToProfile}
-                trackColor={{ false: '#3A3A3C', true: COLORS.primary }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: '#3A3A3C', true: colors.primary }}
+                thumbColor={colors.white}
                 ios_backgroundColor="#3A3A3C"
               />
             </View>
@@ -487,7 +490,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 value={isChallenge}
                 onValueChange={setIsChallenge}
                 trackColor={{ false: '#3A3A3C', true: '#FFD700' }}
-                thumbColor={COLORS.white}
+                thumbColor={colors.white}
                 ios_backgroundColor="#3A3A3C"
               />
             </View>
@@ -497,7 +500,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 <TextInput
                   style={styles.challengeInput}
                   placeholder="Challenge title"
-                  placeholderTextColor={COLORS.gray}
+                  placeholderTextColor={colors.gray}
                   value={challengeTitle}
                   onChangeText={setChallengeTitle}
                   maxLength={80}
@@ -506,7 +509,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 <TextInput
                   style={[styles.challengeInput, { height: 60 }]}
                   placeholder="Rules (optional)"
-                  placeholderTextColor={COLORS.gray}
+                  placeholderTextColor={colors.gray}
                   value={challengeRules}
                   onChangeText={setChallengeRules}
                   maxLength={200}
@@ -527,19 +530,19 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={isPublishing ? ['#888', '#666'] : [COLORS.primary, '#00B5C1']}
+                  colors={isPublishing ? ['#888', '#666'] : [colors.primary, '#00B5C1']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.publishGradient}
                 >
                   {isPublishing ? (
                     <>
-                      <ActivityIndicator size="small" color={COLORS.white} />
+                      <ActivityIndicator size="small" color={colors.white} />
                       <Text style={styles.publishButtonText}>Publishing...</Text>
                     </>
                   ) : (
                     <>
-                      <Ionicons name="rocket" size={22} color={COLORS.dark} />
+                      <Ionicons name="rocket" size={22} color={colors.dark} />
                       <Text style={styles.publishButtonText}>Publish Peak</Text>
                     </>
                   )}
@@ -555,10 +558,10 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         <View style={styles.successOverlay}>
           <View style={styles.successContent}>
             <LinearGradient
-              colors={[COLORS.primary, '#00B5C1']}
+              colors={[colors.primary, '#00B5C1']}
               style={styles.successIconBg}
             >
-              <Ionicons name="checkmark" size={50} color={COLORS.white} />
+              <Ionicons name="checkmark" size={50} color={colors.white} />
             </LinearGradient>
             <Text style={styles.successTitle}>Peak Published! 🎉</Text>
             <Text style={styles.successDesc}>
@@ -580,10 +583,10 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
 
   // Full screen video
@@ -595,7 +598,7 @@ const styles = StyleSheet.create({
   },
   videoPlaceholder: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   playIndicator: {
     ...StyleSheet.absoluteFillObject,
@@ -634,7 +637,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   durationBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 12,
@@ -642,7 +645,7 @@ const styles = StyleSheet.create({
   durationBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Spacer
@@ -652,7 +655,7 @@ const styles = StyleSheet.create({
 
   // Options panel
   optionsPanel: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: colors.backgroundSecondary,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.45,
@@ -672,7 +675,7 @@ const styles = StyleSheet.create({
   },
   replyText: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Option row
@@ -694,7 +697,7 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.white,
+    color: colors.white,
   },
   optionRight: {
     flexDirection: 'row',
@@ -704,7 +707,7 @@ const styles = StyleSheet.create({
   },
   optionValue: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Location input
@@ -726,7 +729,7 @@ const styles = StyleSheet.create({
   locationInput: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.white,
   },
   locationSuggestions: {
     maxHeight: 140,
@@ -742,11 +745,11 @@ const styles = StyleSheet.create({
   },
   locationSuggestionText: {
     fontSize: 13,
-    color: COLORS.white,
+    color: colors.white,
   },
   locationSecondaryText: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -775,12 +778,12 @@ const styles = StyleSheet.create({
   captionInput: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.white,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   captionOkButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -789,11 +792,11 @@ const styles = StyleSheet.create({
   captionOkText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   charCount: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'right',
     marginTop: 6,
   },
@@ -810,15 +813,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   visibilityOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   visibilityOptionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   visibilityOptionTextActive: {
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Challenge fields
@@ -832,7 +835,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 14,
   },
 
@@ -844,7 +847,7 @@ const styles = StyleSheet.create({
   publishButtonContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -860,7 +863,7 @@ const styles = StyleSheet.create({
   publishButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Success Modal
@@ -882,7 +885,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -890,23 +893,23 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 12,
     textAlign: 'center',
   },
   successDesc: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
   successButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 40,
     paddingVertical: 16,
     borderRadius: 30,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -914,7 +917,7 @@ const styles = StyleSheet.create({
   successButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 });
 

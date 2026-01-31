@@ -11,7 +11,7 @@ import {
   RenderModeType,
 } from 'react-native-agora';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface LocalVideoViewProps {
   style?: ViewStyle;
@@ -39,12 +39,13 @@ interface VideoPlaceholderProps {
  * Placeholder shown when video is off or loading
  */
 export function VideoPlaceholder({ style, label, iconSize = 48 }: VideoPlaceholderProps) {
+  const { colors } = useTheme();
   return (
     <View style={[styles.placeholder, style]}>
       <View style={styles.placeholderIcon}>
-        <Ionicons name="videocam-off" size={iconSize} color={COLORS.grayMuted} />
+        <Ionicons name="videocam-off" size={iconSize} color={colors.gray} />
       </View>
-      {label && <Text style={styles.placeholderText}>{label}</Text>}
+      {label && <Text style={[styles.placeholderText, { color: colors.gray }]}>{label}</Text>}
     </View>
   );
 }
@@ -117,6 +118,7 @@ export function RemoteVideoGrid({
   style,
   maxVisible = 4,
 }: VideoGridProps) {
+  const { colors } = useTheme();
   const visibleUsers = remoteUsers.slice(0, maxVisible);
   const hiddenCount = remoteUsers.length - maxVisible;
 
@@ -145,8 +147,8 @@ export function RemoteVideoGrid({
   if (visibleUsers.length === 0) {
     return (
       <View style={[styles.emptyGrid, style]}>
-        <Ionicons name="people-outline" size={48} color={COLORS.grayMuted} />
-        <Text style={styles.emptyText}>Waiting for viewers...</Text>
+        <Ionicons name="people-outline" size={48} color={colors.gray} />
+        <Text style={[styles.emptyText, { color: colors.gray }]}>Waiting for viewers...</Text>
       </View>
     );
   }
@@ -191,7 +193,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     marginTop: 12,
-    color: COLORS.grayMuted,
     fontSize: 14,
   },
   emptyGrid: {
@@ -202,7 +203,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 12,
-    color: COLORS.grayMuted,
     fontSize: 16,
   },
   gridSingle: {

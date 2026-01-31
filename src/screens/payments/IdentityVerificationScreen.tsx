@@ -3,7 +3,7 @@
  * Premium verification flow with payment
  * Inspired by Stripe Identity, Airbnb verification
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // TODO: Fetch from backend config API so price changes don't require app update
 const VERIFICATION_FEE = '$14.90';
@@ -24,8 +24,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useStripe } from '@stripe/stripe-react-native';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
+import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -38,10 +39,10 @@ interface StatusInfo {
   subtitle: string;
 }
 
-const STATUS_INFO: Record<VerificationStatus, StatusInfo> = {
+const getStatusInfo = (colors: any): Record<VerificationStatus, StatusInfo> => ({
   not_started: {
     icon: 'shield-outline',
-    color: COLORS.gray400,
+    color: colors.gray,
     title: 'Not Verified',
     subtitle: 'Complete verification to get your badge',
   },
@@ -69,7 +70,7 @@ const STATUS_INFO: Record<VerificationStatus, StatusInfo> = {
     title: 'Verified',
     subtitle: 'Your identity has been verified',
   },
-};
+});
 
 const VERIFICATION_STEPS = [
   {
@@ -106,12 +107,16 @@ export default function IdentityVerificationScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<VerificationStatus>('not_started');
   const [_paymentReady, setPaymentReady] = useState(false);
   const { showError, showAlert } = useSmuppyAlert();
+
+  const STATUS_INFO = useMemo(() => getStatusInfo(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -270,7 +275,7 @@ export default function IdentityVerificationScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -325,7 +330,7 @@ export default function IdentityVerificationScreen() {
               </View>
               <View style={styles.priceDivider} />
               <View style={styles.priceInfo}>
-                <Ionicons name="information-circle" size={18} color={COLORS.gray500} />
+                <Ionicons name="information-circle" size={18} color={colors.gray} />
                 <Text style={styles.priceInfoText}>
                   Monthly subscription. Cancel anytime from your profile settings.
                 </Text>
@@ -362,7 +367,7 @@ export default function IdentityVerificationScreen() {
               <Text style={styles.sectionTitle}>Why get verified?</Text>
               {BENEFITS.map((benefit, index) => (
                 <View key={index} style={styles.benefitItem}>
-                  <Ionicons name={benefit.icon as any} size={22} color={COLORS.primary} />
+                  <Ionicons name={benefit.icon as any} size={22} color={colors.primary} />
                   <Text style={styles.benefitText}>{benefit.text}</Text>
                 </View>
               ))}
@@ -373,7 +378,7 @@ export default function IdentityVerificationScreen() {
         {status === 'verified' && (
           <View style={styles.verifiedSection}>
             <View style={styles.verifiedCard}>
-              <Ionicons name="ribbon" size={48} color={COLORS.primary} />
+              <Ionicons name="ribbon" size={48} color={colors.primary} />
               <Text style={styles.verifiedCardTitle}>Congratulations!</Text>
               <Text style={styles.verifiedCardText}>
                 Your identity has been verified. The verified badge is now visible on your profile.
@@ -416,7 +421,7 @@ export default function IdentityVerificationScreen() {
           </TouchableOpacity>
 
           <View style={styles.securityNote}>
-            <Ionicons name="lock-closed" size={14} color={COLORS.gray500} />
+            <Ionicons name="lock-closed" size={14} color={colors.gray} />
             <Text style={styles.securityText}>
               Powered by Stripe Identity • Your data is secure
             </Text>
@@ -427,16 +432,16 @@ export default function IdentityVerificationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -499,7 +504,7 @@ const styles = StyleSheet.create({
   priceCard: {
     marginHorizontal: 16,
     marginTop: -20,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     ...SHADOWS.cardMedium,
@@ -512,7 +517,7 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   priceTag: {
     alignItems: 'flex-end',
@@ -520,16 +525,16 @@ const styles = StyleSheet.create({
   priceAmount: {
     fontSize: 32,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   priceOnce: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: -4,
   },
   priceDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? colors.border : '#F1F5F9',
     marginVertical: 16,
   },
   priceInfo: {
@@ -540,7 +545,7 @@ const styles = StyleSheet.create({
   priceInfoText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   stepsSection: {
     marginTop: 32,
@@ -549,7 +554,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 20,
   },
   stepItem: {
@@ -562,7 +567,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -570,7 +575,7 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   stepIcon: {
     width: 44,
@@ -587,11 +592,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   stepSubtitle: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: 2,
   },
   stepLine: {
@@ -600,7 +605,7 @@ const styles = StyleSheet.create({
     top: 32,
     width: 2,
     height: 30,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
   benefitsSection: {
     marginTop: 32,
@@ -609,7 +614,7 @@ const styles = StyleSheet.create({
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     padding: 16,
     borderRadius: 14,
     marginBottom: 10,
@@ -619,14 +624,14 @@ const styles = StyleSheet.create({
   benefitText: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   verifiedSection: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   verifiedCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
@@ -635,12 +640,12 @@ const styles = StyleSheet.create({
   verifiedCardTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 16,
   },
   verifiedCardText: {
     fontSize: 15,
-    color: COLORS.gray500,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 22,
@@ -648,9 +653,9 @@ const styles = StyleSheet.create({
   bottomContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: isDark ? colors.border : '#F1F5F9',
   },
   ctaButton: {
     borderRadius: 16,
@@ -678,6 +683,6 @@ const styles = StyleSheet.create({
   },
   securityText: {
     fontSize: 12,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
 });

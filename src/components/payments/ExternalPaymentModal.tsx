@@ -4,7 +4,7 @@
  * Compliant with Apple's External Link Entitlement requirements
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,6 +38,9 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
   price,
   creatorName,
 }) => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <Modal
       visible={visible}
@@ -52,7 +56,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
               colors={GRADIENTS.primary}
               style={styles.iconGradient}
             >
-              <Ionicons name="open-outline" size={32} color={COLORS.white} />
+              <Ionicons name="open-outline" size={32} color={colors.white} />
             </LinearGradient>
           </View>
 
@@ -70,7 +74,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
 
           {/* Disclosure Text - Required by Apple */}
           <View style={styles.disclosureBox}>
-            <Ionicons name="information-circle" size={20} color={COLORS.gray} />
+            <Ionicons name="information-circle" size={20} color={colors.gray} />
             <Text style={styles.disclosureText}>
               Vous allez etre redirige vers smuppy.com pour finaliser votre paiement.
               Cette transaction sera traitee en dehors de l'App Store par notre
@@ -81,15 +85,15 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
           {/* Additional Info */}
           <View style={styles.infoSection}>
             <View style={styles.infoRow}>
-              <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
+              <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
               <Text style={styles.infoText}>Paiement securise SSL 256-bit</Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="card" size={18} color={COLORS.primary} />
+              <Ionicons name="card" size={18} color={colors.primary} />
               <Text style={styles.infoText}>Apple Pay, Google Pay, Carte acceptes</Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="receipt" size={18} color={COLORS.primary} />
+              <Ionicons name="receipt" size={18} color={colors.primary} />
               <Text style={styles.infoText}>Recu envoye par email</Text>
             </View>
           </View>
@@ -121,7 +125,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
                 end={{ x: 1, y: 0 }}
                 style={styles.confirmGradient}
               >
-                <Ionicons name="open-outline" size={18} color={COLORS.white} />
+                <Ionicons name="open-outline" size={18} color={colors.white} />
                 <Text style={styles.confirmButtonText}>Continuer</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -132,7 +136,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',
@@ -141,7 +145,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: SCREEN_WIDTH - 48,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.darkGray,
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
@@ -159,13 +163,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 16,
     textAlign: 'center',
   },
   productCard: {
     width: '100%',
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -174,24 +178,24 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   creatorName: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   price: {
     fontSize: 24,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 8,
   },
   disclosureBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
   disclosureText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
     lineHeight: 18,
   },
   infoSection: {
@@ -214,11 +218,11 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: COLORS.lightGray,
+    color: colors.lightGray,
   },
   appleNotice: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 15,
     marginBottom: 20,
@@ -234,15 +238,15 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   confirmButton: {
     flex: 1.5,
@@ -260,7 +264,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

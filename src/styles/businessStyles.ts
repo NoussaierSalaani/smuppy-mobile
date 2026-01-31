@@ -4,308 +4,323 @@
  */
 
 import { StyleSheet, Dimensions } from 'react-native';
-import { DARK_COLORS as COLORS } from '../config/theme';
+import { COLORS as LIGHT_COLORS, DARK_COLORS } from '../config/theme';
 
 const { width } = Dimensions.get('window');
 
-/**
- * Common header styles used across business screens
- */
-export const headerStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  rightPlaceholder: {
-    width: 40,
-  },
-});
+// Fallback colors for legacy usage
+const fallbackColors = LIGHT_COLORS;
 
 /**
- * Common button styles
+ * Factory function to create business styles with theme support
  */
-export const buttonStyles = StyleSheet.create({
-  primary: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  primaryGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  primaryText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  secondary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-  },
-  secondaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-});
+export const createBusinessStyles = (colors: any, isDark: boolean) => {
+  const baseBackground = isDark ? '#0f0f1a' : '#FFFFFF';
+  const cardBackground = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+  const textPrimary = isDark ? '#fff' : colors.dark;
+  const textSecondary = isDark ? colors.gray : colors.gray;
 
-/**
- * Common card styles
- */
-export const cardStyles = StyleSheet.create({
-  container: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 20,
-    padding: 20,
-  },
-  containerSmall: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
-    padding: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-});
+  return {
+    /**
+     * Common header styles used across business screens
+     */
+    headerStyles: StyleSheet.create({
+      container: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      },
+      backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      title: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: textPrimary,
+      },
+      rightPlaceholder: {
+        width: 40,
+      },
+    }),
 
-/**
- * Common loading styles
- */
-export const loadingStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0f0f1a',
-  },
-  text: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 12,
-  },
-});
+    /**
+     * Common button styles
+     */
+    buttonStyles: StyleSheet.create({
+      primary: {
+        borderRadius: 14,
+        overflow: 'hidden',
+      },
+      primaryGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        gap: 8,
+      },
+      primaryText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+      },
+      secondary: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+        paddingVertical: 14,
+        borderRadius: 14,
+        gap: 8,
+      },
+      secondaryText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: textPrimary,
+      },
+      disabled: {
+        opacity: 0.5,
+      },
+    }),
 
-/**
- * Common empty state styles
- */
-export const emptyStateStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    gap: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.gray,
-  },
-});
+    /**
+     * Common card styles
+     */
+    cardStyles: StyleSheet.create({
+      container: {
+        width: '100%',
+        backgroundColor: cardBackground,
+        borderRadius: 20,
+        padding: 20,
+      },
+      containerSmall: {
+        backgroundColor: cardBackground,
+        borderRadius: 16,
+        padding: 16,
+      },
+      divider: {
+        height: 1,
+        backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      },
+      row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+      },
+    }),
 
-/**
- * Common badge/chip styles
- */
-export const badgeStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});
+    /**
+     * Common loading styles
+     */
+    loadingStyles: StyleSheet.create({
+      container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: baseBackground,
+      },
+      text: {
+        fontSize: 14,
+        color: colors.gray,
+        marginTop: 12,
+      },
+    }),
 
-/**
- * Common info card styles (for tips, reminders, etc.)
- */
-export const infoCardStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    gap: 12,
-  },
-  text: {
-    flex: 1,
-    fontSize: 13,
-  },
-  primary: {
-    backgroundColor: 'rgba(14,191,138,0.1)',
-  },
-  warning: {
-    backgroundColor: 'rgba(255,215,0,0.1)',
-  },
-  error: {
-    backgroundColor: 'rgba(255,107,107,0.1)',
-  },
-});
+    /**
+     * Common empty state styles
+     */
+    emptyStateStyles: StyleSheet.create({
+      container: {
+        alignItems: 'center',
+        paddingVertical: 48,
+        gap: 8,
+      },
+      title: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: textPrimary,
+      },
+      subtitle: {
+        fontSize: 14,
+        color: colors.gray,
+      },
+    }),
 
-/**
- * Common modal styles
- */
-export const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  content: {
-    maxHeight: '90%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-  },
-  blur: {
-    backgroundColor: 'rgba(20,20,35,0.95)',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-});
+    /**
+     * Common badge/chip styles
+     */
+    badgeStyles: StyleSheet.create({
+      container: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 6,
+      },
+      dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+      },
+      text: {
+        fontSize: 13,
+        fontWeight: '600',
+      },
+    }),
 
-/**
- * Common form styles
- */
-export const formStyles = StyleSheet.create({
-  group: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#fff',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  inputMultiline: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  hint: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginTop: 4,
-  },
-});
+    /**
+     * Common info card styles (for tips, reminders, etc.)
+     */
+    infoCardStyles: StyleSheet.create({
+      container: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 14,
+        gap: 12,
+      },
+      text: {
+        flex: 1,
+        fontSize: 13,
+      },
+      primary: {
+        backgroundColor: 'rgba(14,191,138,0.1)',
+      },
+      warning: {
+        backgroundColor: 'rgba(255,215,0,0.1)',
+      },
+      error: {
+        backgroundColor: 'rgba(255,107,107,0.1)',
+      },
+    }),
 
-/**
- * Common stat card styles
- */
-export const statStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
-    padding: 16,
-  },
-  item: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  label: {
-    fontSize: 12,
-    color: COLORS.gray,
-  },
-  divider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-});
+    /**
+     * Common modal styles
+     */
+    modalStyles: StyleSheet.create({
+      overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'flex-end',
+      },
+      content: {
+        maxHeight: '90%',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        overflow: 'hidden',
+      },
+      blur: {
+        backgroundColor: isDark ? 'rgba(20,20,35,0.95)' : 'rgba(255,255,255,0.95)',
+      },
+      header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      },
+      title: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: textPrimary,
+      },
+      scroll: {
+        paddingHorizontal: 20,
+        paddingTop: 16,
+      },
+    }),
 
-/**
- * Screen container style
- */
-export const screenStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f0f1a',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-  },
-});
+    /**
+     * Common form styles
+     */
+    formStyles: StyleSheet.create({
+      group: {
+        marginBottom: 20,
+      },
+      label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: textPrimary,
+        marginBottom: 8,
+      },
+      input: {
+        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        fontSize: 15,
+        color: textPrimary,
+        borderWidth: 1,
+        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      },
+      inputMultiline: {
+        minHeight: 80,
+        textAlignVertical: 'top',
+      },
+      hint: {
+        fontSize: 12,
+        color: colors.gray,
+        marginTop: 4,
+      },
+    }),
+
+    /**
+     * Common stat card styles
+     */
+    statStyles: StyleSheet.create({
+      row: {
+        flexDirection: 'row',
+        backgroundColor: cardBackground,
+        borderRadius: 16,
+        padding: 16,
+      },
+      item: {
+        flex: 1,
+        alignItems: 'center',
+      },
+      value: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: textPrimary,
+        marginBottom: 4,
+      },
+      label: {
+        fontSize: 12,
+        color: colors.gray,
+      },
+      divider: {
+        width: 1,
+        backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      },
+    }),
+
+    /**
+     * Screen container style
+     */
+    screenStyles: StyleSheet.create({
+      container: {
+        flex: 1,
+        backgroundColor: baseBackground,
+      },
+      safeArea: {
+        flex: 1,
+      },
+      scrollContent: {
+        paddingHorizontal: 20,
+      },
+    }),
+  };
+};
 
 /**
  * Constants for consistent spacing and sizing
@@ -336,3 +351,17 @@ export const BUSINESS_COLORS = {
   premium: '#9B59B6',
   gold: '#FFD700',
 };
+
+// Legacy exports for backward compatibility
+const legacyStyles = createBusinessStyles(fallbackColors, false);
+export const headerStyles = legacyStyles.headerStyles;
+export const buttonStyles = legacyStyles.buttonStyles;
+export const cardStyles = legacyStyles.cardStyles;
+export const loadingStyles = legacyStyles.loadingStyles;
+export const emptyStateStyles = legacyStyles.emptyStateStyles;
+export const badgeStyles = legacyStyles.badgeStyles;
+export const infoCardStyles = legacyStyles.infoCardStyles;
+export const modalStyles = legacyStyles.modalStyles;
+export const formStyles = legacyStyles.formStyles;
+export const statStyles = legacyStyles.statStyles;
+export const screenStyles = legacyStyles.screenStyles;

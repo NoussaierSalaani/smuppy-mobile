@@ -6,7 +6,7 @@
  * Available to: Personal verified, Pro Creator, Pro Business Premium
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,13 +23,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import QualityPicker from '../../components/QualityPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -61,6 +62,7 @@ const ROUTE_SUBCATEGORIES = ['Trails', 'Running Path', 'Cycling Path'];
 
 const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { showError, showAlert } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
   const [step, setStep] = useState(1);
   const TOTAL_STEPS = 5;
 
@@ -167,13 +169,15 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     true,                                   // step 5 (review optional)
   ];
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={goBack} style={styles.headerButton}>
-            <Ionicons name="arrow-back" size={normalize(24)} color={COLORS.dark} />
+            <Ionicons name="arrow-back" size={normalize(24)} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Suggest a Spot</Text>
           <Text style={styles.stepIndicator}>{step}/{TOTAL_STEPS}</Text>
@@ -209,7 +213,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         setSelectedSubcategory('');
                       }}
                     >
-                      <Ionicons name={cat.icon} size={normalize(28)} color={isSelected ? cat.color : COLORS.gray} />
+                      <Ionicons name={cat.icon} size={normalize(28)} color={isSelected ? cat.color : colors.gray} />
                       <Text style={[styles.categoryName, isSelected && { color: cat.color, fontWeight: '600' }]}>{cat.label}</Text>
                     </TouchableOpacity>
                   );
@@ -228,7 +232,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                       >
                         {selectedSubcategory === sub ? (
                           <LinearGradient colors={GRADIENTS.primary} style={styles.subChip}>
-                            <Text style={[styles.subChipText, { color: COLORS.white }]}>{sub}</Text>
+                            <Text style={[styles.subChipText, { color: colors.white }]}>{sub}</Text>
                           </LinearGradient>
                         ) : (
                           <View style={styles.subChipInactive}>
@@ -241,7 +245,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   <TextInput
                     style={styles.customInput}
                     placeholder="Or suggest a new subcategory..."
-                    placeholderTextColor={COLORS.gray400}
+                    placeholderTextColor={colors.grayMuted}
                     value={customSubcategory}
                     onChangeText={(t) => { setCustomSubcategory(t); setSelectedSubcategory(''); }}
                   />
@@ -259,7 +263,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Parc Lafontaine Outdoor Gym"
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.grayMuted}
                 value={name}
                 onChangeText={setName}
                 maxLength={100}
@@ -269,7 +273,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               <TextInput
                 style={[styles.textInput, { minHeight: 100 }]}
                 placeholder="Describe this spot..."
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.grayMuted}
                 value={description}
                 onChangeText={setDescription}
                 multiline
@@ -281,7 +285,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. calisthenics, pull-ups, free"
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.grayMuted}
                 value={tags}
                 onChangeText={setTags}
               />
@@ -339,7 +343,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                     <Ionicons
                       name={star <= rating ? 'star' : 'star-outline'}
                       size={normalize(36)}
-                      color={star <= rating ? '#FFD700' : COLORS.gray300}
+                      color={star <= rating ? '#FFD700' : colors.grayBorder}
                     />
                   </TouchableOpacity>
                 ))}
@@ -348,7 +352,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               <TextInput
                 style={[styles.textInput, { minHeight: 80, marginTop: 16 }]}
                 placeholder="Share your experience (optional)..."
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.grayMuted}
                 value={review}
                 onChangeText={setReview}
                 multiline
@@ -376,22 +380,22 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           {step < TOTAL_STEPS ? (
             <TouchableOpacity activeOpacity={0.85} disabled={!canProceed[step - 1]} onPress={goNext}>
               <LinearGradient
-                colors={canProceed[step - 1] ? GRADIENTS.primary : [COLORS.gray300, COLORS.gray300]}
+                colors={canProceed[step - 1] ? GRADIENTS.primary : [colors.grayBorder, colors.grayBorder]}
                 style={styles.nextButton}
               >
                 <Text style={styles.nextButtonText}>Next</Text>
-                <Ionicons name="arrow-forward" size={normalize(18)} color={COLORS.white} />
+                <Ionicons name="arrow-forward" size={normalize(18)} color={colors.white} />
               </LinearGradient>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity activeOpacity={0.85} onPress={handleSubmit} disabled={isLoading}>
               <LinearGradient colors={GRADIENTS.primary} style={styles.nextButton}>
                 {isLoading ? (
-                  <ActivityIndicator color={COLORS.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <>
                     <Text style={styles.nextButtonText}>Suggest Spot</Text>
-                    <Ionicons name="checkmark" size={normalize(18)} color={COLORS.white} />
+                    <Ionicons name="checkmark" size={normalize(18)} color={colors.white} />
                   </>
                 )}
               </LinearGradient>
@@ -405,64 +409,64 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
 export default SuggestSpotScreen;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
 
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   headerButton: { padding: 4 },
-  headerTitle: { flex: 1, fontSize: normalize(18), fontWeight: '700', color: COLORS.dark, marginLeft: 12 },
-  stepIndicator: { fontSize: normalize(14), fontWeight: '600', color: COLORS.gray },
+  headerTitle: { flex: 1, fontSize: normalize(18), fontWeight: '700', color: colors.dark, marginLeft: 12 },
+  stepIndicator: { fontSize: normalize(14), fontWeight: '600', color: colors.gray },
 
-  progressBar: { height: 3, backgroundColor: COLORS.gray100, marginHorizontal: 16, borderRadius: 2, overflow: 'hidden' },
+  progressBar: { height: 3, backgroundColor: colors.gray100, marginHorizontal: 16, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
 
   scrollContent: { flex: 1 },
   stepContent: { padding: 20 },
-  stepTitle: { fontSize: normalize(22), fontWeight: '700', color: COLORS.dark, marginBottom: 4 },
-  stepSubtitle: { fontSize: normalize(14), color: COLORS.gray, marginBottom: 20 },
+  stepTitle: { fontSize: normalize(22), fontWeight: '700', color: colors.dark, marginBottom: 4 },
+  stepSubtitle: { fontSize: normalize(14), color: colors.gray, marginBottom: 20 },
 
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   categoryCard: {
     width: (SCREEN_WIDTH - 40 - 24) / 3,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: COLORS.gray50,
+    backgroundColor: colors.gray50,
     borderRadius: normalize(14),
     borderWidth: 1,
-    borderColor: COLORS.grayBorder,
+    borderColor: colors.grayBorder,
     gap: 6,
   },
-  categoryName: { fontSize: normalize(12), color: COLORS.dark, fontWeight: '500' },
+  categoryName: { fontSize: normalize(12), color: colors.dark, fontWeight: '500' },
 
   subcategorySection: { marginTop: 20 },
-  subcategoryTitle: { fontSize: normalize(14), fontWeight: '600', color: COLORS.dark, marginBottom: 10 },
+  subcategoryTitle: { fontSize: normalize(14), fontWeight: '600', color: colors.dark, marginBottom: 10 },
   subChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: normalize(20), marginRight: 8 },
-  subChipInactive: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: normalize(20), marginRight: 8, backgroundColor: COLORS.gray100 },
-  subChipText: { fontSize: normalize(13), fontWeight: '500', color: COLORS.dark },
+  subChipInactive: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: normalize(20), marginRight: 8, backgroundColor: colors.gray100 },
+  subChipText: { fontSize: normalize(13), fontWeight: '500', color: colors.dark },
   customInput: {
-    backgroundColor: COLORS.gray50, borderRadius: normalize(12), paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: normalize(14), color: COLORS.dark, borderWidth: 1, borderColor: COLORS.grayBorder, marginTop: 10,
+    backgroundColor: colors.gray50, borderRadius: normalize(12), paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: normalize(14), color: colors.dark, borderWidth: 1, borderColor: colors.grayBorder, marginTop: 10,
   },
 
-  fieldLabel: { fontSize: normalize(14), fontWeight: '600', color: COLORS.dark, marginBottom: 8, marginTop: 16 },
+  fieldLabel: { fontSize: normalize(14), fontWeight: '600', color: colors.dark, marginBottom: 8, marginTop: 16 },
   textInput: {
-    backgroundColor: COLORS.gray50, borderRadius: normalize(12), paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: normalize(14), color: COLORS.dark, borderWidth: 1, borderColor: COLORS.grayBorder,
+    backgroundColor: colors.gray50, borderRadius: normalize(12), paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: normalize(14), color: colors.dark, borderWidth: 1, borderColor: colors.grayBorder,
   },
 
   starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 8 },
 
   summaryCard: {
-    backgroundColor: COLORS.gray50, borderRadius: normalize(14), padding: 16, marginTop: 20,
-    borderWidth: 1, borderColor: COLORS.grayBorder,
+    backgroundColor: colors.gray50, borderRadius: normalize(14), padding: 16, marginTop: 20,
+    borderWidth: 1, borderColor: colors.grayBorder,
   },
-  summaryTitle: { fontSize: normalize(15), fontWeight: '600', color: COLORS.dark, marginBottom: 8 },
-  summaryItem: { fontSize: normalize(13), color: COLORS.gray, lineHeight: normalize(20) },
+  summaryTitle: { fontSize: normalize(15), fontWeight: '600', color: colors.dark, marginBottom: 8 },
+  summaryItem: { fontSize: normalize(13), color: colors.gray, lineHeight: normalize(20) },
 
-  bottomBar: { paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.grayBorder },
+  bottomBar: { paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.grayBorder },
   nextButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 14, borderRadius: normalize(14), gap: 8,
   },
-  nextButtonText: { fontSize: normalize(16), fontWeight: '600', color: COLORS.white },
+  nextButtonText: { fontSize: normalize(16), fontWeight: '600', color: colors.white },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
@@ -48,6 +48,7 @@ const PostDetailProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   
   // Params
   const params = route.params as { postId?: string; profilePosts?: typeof MOCK_PROFILE_POSTS } || {};
@@ -312,7 +313,10 @@ const PostDetailProfileScreen = () => {
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
     return num.toString();
   };
-  
+
+  // Create styles with theme
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Render post item
   const renderPostItem = ({ item, index }: { item: PostItem; index: number }) => (
     <TouchableWithoutFeedback onPress={handleDoubleTap}>
@@ -348,7 +352,7 @@ const PostDetailProfileScreen = () => {
               },
             ]}
           >
-            <SmuppyHeartIcon size={100} color={COLORS.primaryGreen} filled />
+            <SmuppyHeartIcon size={100} color={colors.primary} filled />
           </Animated.View>
         )}
         
@@ -389,11 +393,11 @@ const PostDetailProfileScreen = () => {
             disabled={likeLoading}
           >
             {likeLoading ? (
-              <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <SmuppyHeartIcon
                 size={28}
-                color={isLiked ? COLORS.primaryGreen : '#FFF'}
+                color={isLiked ? colors.primary : '#FFF'}
                 filled={isLiked}
               />
             )}
@@ -405,12 +409,12 @@ const PostDetailProfileScreen = () => {
             disabled={bookmarkLoading}
           >
             {bookmarkLoading ? (
-              <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Ionicons
                 name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
                 size={28}
-                color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+                color={isBookmarked ? colors.primary : '#FFF'}
               />
             )}
           </TouchableOpacity>
@@ -453,11 +457,11 @@ const PostDetailProfileScreen = () => {
                 disabled={fanLoading}
               >
                 {fanLoading ? (
-                  <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <>
                     {!theyFollowMe && (
-                      <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                      <Ionicons name="add" size={16} color={colors.primary} />
                     )}
                     <Text style={styles.fanBtnText}>
                       {theyFollowMe ? 'Track' : 'Fan'}
@@ -487,7 +491,7 @@ const PostDetailProfileScreen = () => {
           {/* Stats bar */}
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
-              <SmuppyHeartIcon size={18} color={COLORS.primaryGreen} filled />
+              <SmuppyHeartIcon size={18} color={colors.primary} filled />
               <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
             </View>
             <View style={styles.statItem}>
@@ -624,10 +628,10 @@ const PostDetailProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.darkBg,
+    backgroundColor: colors.background,
   },
   postContainer: {
     width: width,
@@ -734,12 +738,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryGreen,
+    borderColor: colors.primary,
     gap: 4,
   },
   fanBtnActive: {
-    backgroundColor: COLORS.primaryGreen,
-    borderColor: COLORS.primaryGreen,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   fanBtnDisabled: {
     opacity: 0.6,
@@ -747,10 +751,10 @@ const styles = StyleSheet.create({
   fanBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primaryGreen,
+    color: colors.primary,
   },
   fanBtnTextActive: {
-    color: COLORS.darkBg,
+    color: colors.background,
   },
   
   // Description
@@ -761,7 +765,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   moreText: {
-    color: COLORS.textMuted,
+    color: colors.gray,
   },
 
   // Stats bar
@@ -786,7 +790,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.gray,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -800,7 +804,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContent: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: colors.backgroundSecondary,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -821,7 +825,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.gray,
     alignItems: 'center',
   },
   menuCancelText: {
@@ -840,7 +844,7 @@ const styles = StyleSheet.create({
   },
   reportSubtitle: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -848,7 +852,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.gray,
   },
   reportOptionText: {
     fontSize: 16,

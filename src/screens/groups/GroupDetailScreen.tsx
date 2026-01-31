@@ -3,7 +3,7 @@
  * View group activity details, route, participants, join/leave.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -20,11 +20,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import * as Haptics from 'expo-haptics';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -38,6 +39,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
   const { showError } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
   const { groupId } = route.params;
   const userId = useUserStore((s) => s.user?.id);
 
@@ -85,11 +87,13 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
     }
   }, [groupId, hasJoined, loadGroup]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -125,12 +129,12 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-            <Ionicons name="arrow-back" size={normalize(24)} color={COLORS.dark} />
+            <Ionicons name="arrow-back" size={normalize(24)} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{group.name}</Text>
           {isCreator && (
             <TouchableOpacity style={styles.headerButton}>
-              <Ionicons name="settings-outline" size={normalize(22)} color={COLORS.dark} />
+              <Ionicons name="settings-outline" size={normalize(22)} color={colors.dark} />
             </TouchableOpacity>
           )}
         </View>
@@ -154,7 +158,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
             <MarkerView coordinate={[group.longitude, group.latitude]}>
               <View style={styles.pinContainer}>
                 <LinearGradient colors={GRADIENTS.primary} style={styles.pin}>
-                  <Ionicons name="people" size={normalize(18)} color={COLORS.white} />
+                  <Ionicons name="people" size={normalize(18)} color={colors.white} />
                 </LinearGradient>
               </View>
             </MarkerView>
@@ -165,7 +169,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
                 <LineLayer
                   id="routeLineLayer"
                   style={{
-                    lineColor: COLORS.primary,
+                    lineColor: colors.primary,
                     lineWidth: 4,
                     lineCap: 'round',
                     lineJoin: 'round',
@@ -198,7 +202,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
           {/* Details */}
           <View style={styles.detailsCard}>
             <View style={styles.detailRow}>
-              <Ionicons name="calendar-outline" size={normalize(18)} color={COLORS.primary} />
+              <Ionicons name="calendar-outline" size={normalize(18)} color={colors.primary} />
               <Text style={styles.detailText}>
                 {startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </Text>
@@ -206,20 +210,20 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
 
             {group.address && (
               <View style={styles.detailRow}>
-                <Ionicons name="location-outline" size={normalize(18)} color={COLORS.primary} />
+                <Ionicons name="location-outline" size={normalize(18)} color={colors.primary} />
                 <Text style={styles.detailText}>{group.address}</Text>
               </View>
             )}
 
             <View style={styles.detailRow}>
-              <Ionicons name="people-outline" size={normalize(18)} color={COLORS.primary} />
+              <Ionicons name="people-outline" size={normalize(18)} color={colors.primary} />
               <Text style={styles.detailText}>
                 {group.current_participants || 0}{group.max_participants ? ` / ${group.max_participants}` : ''} participants
               </Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Ionicons name="cash-outline" size={normalize(18)} color={COLORS.primary} />
+              <Ionicons name="cash-outline" size={normalize(18)} color={colors.primary} />
               <Text style={styles.detailText}>
                 {group.is_free ? 'Free' : `$${group.price} ${group.currency || 'CAD'}`}
               </Text>
@@ -242,7 +246,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
                 </View>
                 <View style={styles.routeStatDivider} />
                 <View style={styles.routeStat}>
-                  <Text style={[styles.routeStatValue, { color: DIFFICULTY_COLORS[group.difficulty] || COLORS.dark }]}>
+                  <Text style={[styles.routeStatValue, { color: DIFFICULTY_COLORS[group.difficulty] || colors.dark }]}>
                     {group.difficulty ? group.difficulty.charAt(0).toUpperCase() + group.difficulty.slice(1) : 'N/A'}
                   </Text>
                   <Text style={styles.routeStatLabel}>Difficulty</Text>
@@ -266,14 +270,14 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
         <View style={styles.bottomBar}>
           <TouchableOpacity activeOpacity={0.85} onPress={handleJoin} disabled={isJoining}>
             <LinearGradient
-              colors={hasJoined ? [COLORS.gray300, COLORS.gray300] : GRADIENTS.primary}
+              colors={hasJoined ? [colors.grayBorder, colors.grayBorder] : GRADIENTS.primary}
               style={styles.joinButton}
             >
               {isJoining ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color={colors.white} />
               ) : (
                 <>
-                  <Ionicons name={hasJoined ? 'exit-outline' : 'enter-outline'} size={normalize(20)} color={COLORS.white} />
+                  <Ionicons name={hasJoined ? 'exit-outline' : 'enter-outline'} size={normalize(20)} color={colors.white} />
                   <Text style={styles.joinButtonText}>{hasJoined ? 'Leave Group' : 'Join Group'}</Text>
                 </>
               )}
@@ -287,11 +291,11 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
 
 export default GroupDetailScreen;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: normalize(16), color: COLORS.gray, marginBottom: 12 },
-  backLink: { fontSize: normalize(14), color: COLORS.primary, fontWeight: '500' },
+  errorText: { fontSize: normalize(16), color: colors.gray, marginBottom: 12 },
+  backLink: { fontSize: normalize(14), color: colors.primary, fontWeight: '500' },
 
   // Header
   header: {
@@ -305,7 +309,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: normalize(18),
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: 12,
   },
 
@@ -331,7 +335,7 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: normalize(24),
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 12,
   },
 
@@ -350,16 +354,16 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: normalize(15),
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   creatorLabel: {
     fontSize: normalize(12),
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Details card
   detailsCard: {
-    backgroundColor: COLORS.gray50,
+    backgroundColor: colors.gray50,
     borderRadius: normalize(14),
     padding: 16,
     gap: 12,
@@ -373,12 +377,12 @@ const styles = StyleSheet.create({
   detailText: {
     flex: 1,
     fontSize: normalize(14),
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Route card
   routeCard: {
-    backgroundColor: COLORS.gray50,
+    backgroundColor: colors.gray50,
     borderRadius: normalize(14),
     padding: 16,
     marginBottom: 16,
@@ -386,7 +390,7 @@ const styles = StyleSheet.create({
   routeCardTitle: {
     fontSize: normalize(15),
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 12,
   },
   routeStatsRow: {
@@ -398,16 +402,16 @@ const styles = StyleSheet.create({
   routeStatValue: {
     fontSize: normalize(16),
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   routeStatLabel: {
     fontSize: normalize(11),
-    color: COLORS.gray,
+    color: colors.gray,
   },
   routeStatDivider: {
     width: 1,
     height: 30,
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: colors.grayBorder,
   },
 
   // Description
@@ -415,12 +419,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: normalize(16),
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   descriptionText: {
     fontSize: normalize(14),
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: normalize(20),
   },
 
@@ -429,7 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.grayBorder,
+    borderTopColor: colors.grayBorder,
   },
   joinButton: {
     flexDirection: 'row',
@@ -442,6 +446,6 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: normalize(16),
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

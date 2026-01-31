@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, NominatimSearchResult } from '../../config/api';
 import * as Location from 'expo-location';
-import { COLORS, SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -34,6 +34,7 @@ interface EditProfileScreenProps {
 
 const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const user = useUserStore((state) => state.user);
   const updateLocalProfile = useUserStore((state) => state.updateProfile);
   const { data: profileData, refetch } = useCurrentProfile();
@@ -304,6 +305,9 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
     }
   };
 
+  // Create styles with theme
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Format date for display (various formats → DD/MM/YYYY)
   const formatDateForDisplay = (dateString: string | Date | null | undefined): string => {
     if (!dateString) return '';
@@ -477,9 +481,9 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
               <View style={styles.addressRow}>
                 <TouchableOpacity onPress={detectBusinessLocation} disabled={isLoadingLocation} style={styles.locationButton}>
                   {isLoadingLocation ? (
-                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
-                    <Ionicons name="locate" size={18} color={COLORS.primary} />
+                    <Ionicons name="locate" size={18} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 <TextInput
@@ -489,7 +493,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
                   placeholder="Start typing or use location..."
                   placeholderTextColor="#C7C7CC"
                 />
-                {isLoadingSuggestions && <ActivityIndicator size="small" color={COLORS.primary} />}
+                {isLoadingSuggestions && <ActivityIndicator size="small" color={colors.primary} />}
               </View>
               {addressSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>
@@ -499,7 +503,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
                       style={styles.suggestionItem}
                       onPress={() => selectBusinessAddress(s)}
                     >
-                      <Ionicons name="location" size={16} color={COLORS.primary} />
+                      <Ionicons name="location" size={16} color={colors.primary} />
                       <Text style={styles.suggestionText} numberOfLines={2}>{s.display_name}</Text>
                     </TouchableOpacity>
                   ))}
@@ -541,10 +545,10 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -562,24 +566,24 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   saveButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   saveButtonDisabled: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.backgroundSecondary,
   },
   saveButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
   saveButtonTextDisabled: {
-    color: '#C7C7CC',
+    color: colors.gray,
   },
   content: {
     flex: 1,
@@ -602,7 +606,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     alignSelf: 'center',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
@@ -610,7 +614,7 @@ const styles = StyleSheet.create({
   updateButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
 
   // Form
@@ -623,16 +627,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.gray,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   bioInput: {
     minHeight: 80,
@@ -640,12 +644,12 @@ const styles = StyleSheet.create({
   },
   charCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.gray,
     textAlign: 'right',
     marginTop: 4,
   },
   selectInput: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -655,13 +659,13 @@ const styles = StyleSheet.create({
   },
   selectInputText: {
     fontSize: 16,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   selectInputPlaceholder: {
-    color: '#C7C7CC',
+    color: colors.gray,
   },
   readOnlyInput: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -671,12 +675,12 @@ const styles = StyleSheet.create({
   readOnlyText: {
     flex: 1,
     fontSize: 16,
-    color: '#6E6E73',
+    color: colors.gray,
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingRight: 12,
   },
@@ -685,7 +689,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   suggestionsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 12,
     marginTop: 4,
     shadowColor: '#000',
@@ -704,7 +708,7 @@ const styles = StyleSheet.create({
   suggestionText: {
     flex: 1,
     fontSize: 14,
-    color: '#0A0A0F',
+    color: colors.dark,
     marginLeft: 8,
   },
 });

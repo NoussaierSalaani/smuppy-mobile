@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface VoiceMessageProps {
   uri: string;
@@ -16,6 +16,7 @@ interface VoiceMessageProps {
 }
 
 export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
+  const { colors } = useTheme();
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -89,16 +90,22 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
   const displayTime = isPlaying || position > 0 ? position : duration;
 
   return (
-    <View style={[styles.container, isFromMe ? styles.containerFromMe : styles.containerFromOther]}>
+    <View style={[
+      styles.container,
+      { backgroundColor: isFromMe ? colors.primary : colors.gray100 }
+    ]}>
       <TouchableOpacity
-        style={[styles.playButton, isFromMe ? styles.playButtonFromMe : styles.playButtonFromOther]}
+        style={[
+          styles.playButton,
+          { backgroundColor: isFromMe ? 'rgba(255,255,255,0.9)' : colors.primary }
+        ]}
         onPress={togglePlayback}
         disabled={!isLoaded}
       >
         <Ionicons
           name={isPlaying ? "pause" : "play"}
           size={20}
-          color={isFromMe ? COLORS.primary : "#fff"}
+          color={isFromMe ? colors.primary : "#fff"}
         />
       </TouchableOpacity>
 
@@ -122,7 +129,10 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
         </View>
 
         {/* Duration */}
-        <Text style={[styles.duration, isFromMe && styles.durationFromMe]}>
+        <Text style={[
+          styles.duration,
+          { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
+        ]}>
           {formatTime(displayTime)}
         </Text>
       </View>
@@ -139,12 +149,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     minWidth: 180,
   },
-  containerFromMe: {
-    backgroundColor: COLORS.primary,
-  },
-  containerFromOther: {
-    backgroundColor: '#F0F0F0',
-  },
   playButton: {
     width: 36,
     height: 36,
@@ -152,12 +156,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
-  },
-  playButtonFromMe: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  playButtonFromOther: {
-    backgroundColor: COLORS.primary,
   },
   waveformContainer: {
     flex: 1,
@@ -174,10 +172,6 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 11,
-    color: COLORS.gray,
     marginTop: 4,
-  },
-  durationFromMe: {
-    color: 'rgba(255,255,255,0.8)',
   },
 });

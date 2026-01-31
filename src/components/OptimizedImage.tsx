@@ -8,7 +8,6 @@ import React, { memo, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
 import { Image, ImageContentFit } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/theme';
 
 // Blurhash placeholder for smooth loading
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -105,7 +104,7 @@ export const AvatarImage = memo<AvatarImageProps>(({
   source,
   size = 40,
   style,
-  fallbackColor = COLORS.gray200,
+  fallbackColor = '#E5E7EB',
   ...props
 }) => {
   const avatarStyle = {
@@ -118,7 +117,7 @@ export const AvatarImage = memo<AvatarImageProps>(({
   if (!source) {
     return (
       <View style={[avatarStyle, { backgroundColor: fallbackColor, alignItems: 'center', justifyContent: 'center' }, style]}>
-        <Ionicons name="person" size={size * 0.5} color={COLORS.gray400 || '#9CA3AF'} />
+        <Ionicons name="person" size={size * 0.5} color="#9CA3AF" />
       </View>
     );
   }
@@ -200,7 +199,7 @@ export const ThumbnailImage = memo<ThumbnailImageProps>(({
 
 const styles = StyleSheet.create({
   placeholder: {
-    backgroundColor: COLORS.gray100,
+    backgroundColor: '#F3F4F6',
   },
   backgroundContainer: {
     flex: 1,

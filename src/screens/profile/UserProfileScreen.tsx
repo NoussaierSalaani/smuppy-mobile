@@ -17,7 +17,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
 import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
@@ -86,6 +86,7 @@ const UserProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { showAlert, showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
   
   // Déterminer si c'est notre profil ou celui d'un autre
@@ -414,6 +415,10 @@ const UserProfileScreen = () => {
     return blockEndDate.toLocaleDateString('en-US', options);
   };
 
+  // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const geStyles = useMemo(() => createGeStyles(colors, isDark), [colors, isDark]);
+
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
     // Support both media_urls array and legacy media_url string
@@ -491,7 +496,7 @@ const UserProfileScreen = () => {
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primaryGreen} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
       </View>
     );
@@ -570,7 +575,7 @@ const UserProfileScreen = () => {
     if (isLoadingPosts) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       );
@@ -948,7 +953,7 @@ const UserProfileScreen = () => {
             <View style={styles.nextLiveSection}>
               <View style={styles.nextLiveHeader}>
                 <View style={styles.nextLiveIconContainer}>
-                  <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.nextLiveInfo}>
                   <Text style={styles.nextLiveLabel}>Next Live Session</Text>
@@ -986,7 +991,7 @@ const UserProfileScreen = () => {
                   <Ionicons
                     name={creatorLiveStatus.hasReminder ? 'notifications' : 'notifications-outline'}
                     size={18}
-                    color={creatorLiveStatus.hasReminder ? '#FFFFFF' : COLORS.primary}
+                    color={creatorLiveStatus.hasReminder ? '#FFFFFF' : colors.primary}
                   />
                   <Text style={[
                     styles.reminderButtonText,
@@ -1019,7 +1024,7 @@ const UserProfileScreen = () => {
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         {renderTabContent()}
@@ -1209,10 +1214,10 @@ const UserProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
 
   // ===== HEADER =====
@@ -1283,11 +1288,11 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.white,
   },
 
   // ===== STATS GLASSMORPHISM =====
@@ -1343,7 +1348,7 @@ const styles = StyleSheet.create({
   displayName: {
     fontFamily: 'WorkSans-SemiBold',
     fontSize: 20,
-    color: '#0A252F',
+    color: colors.dark,
     letterSpacing: -0.2,
     flexShrink: 1,
   },
@@ -1365,7 +1370,7 @@ const styles = StyleSheet.create({
   },
   privateBadge: {
     marginLeft: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     padding: 4,
     borderRadius: 10,
   },
@@ -1373,7 +1378,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1394,7 +1399,7 @@ const styles = StyleSheet.create({
   bioText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0A252F',
+    color: colors.dark,
     lineHeight: 18,
   },
   seeMoreBtn: {
@@ -1403,7 +1408,7 @@ const styles = StyleSheet.create({
   seeMoreText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
     paddingVertical: 1,
   },
 
@@ -1424,34 +1429,34 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fanButtonActive: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
   },
   fanButtonRequested: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E5E5',
+    backgroundColor: colors.backgroundSecondary,
+    borderColor: colors.gray,
   },
   fanButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   fanButtonTextActive: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   fanButtonTextRequested: {
-    color: '#8E8E93',
+    color: colors.gray,
   },
   messageButton: {
     flex: 1,
     flexDirection: 'row',
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -1459,7 +1464,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
   },
   messageButtonDisabled: {
     opacity: 0.5,
@@ -1630,11 +1635,11 @@ const styles = StyleSheet.create({
   tabsContainer: {
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   pillsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 10,
     padding: 3,
   },
@@ -1700,7 +1705,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   postThumbEmpty: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1755,7 +1760,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.backgroundSecondary,
   },
   peakThumb: {
     width: '100%',
@@ -1804,7 +1809,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     marginTop: 8,
   },
   emptyContainer: {
@@ -1815,13 +1820,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   emptyDesc: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 21,
   },
@@ -1836,7 +1841,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -1844,13 +1849,13 @@ const styles = StyleSheet.create({
   privateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   privateDesc: {
     fontSize: 15,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -1859,12 +1864,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 25,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
   },
   privateFollowBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 
   // ===== MODALS =====
@@ -1877,7 +1882,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -1889,13 +1894,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
     textAlign: 'center',
   },
   modalText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -1909,37 +1914,37 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
   },
   modalBtnCancelText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   modalBtnConfirm: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   modalBtnConfirmText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   modalBtnSingle: {
     width: '100%',
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   modalBtnSingleText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 
   // ===== MENU MODAL =====
@@ -1949,7 +1954,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -1957,7 +1962,7 @@ const styles = StyleSheet.create({
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: colors.gray,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -1972,7 +1977,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   menuItemDanger: {
     borderTopWidth: 1,
@@ -1988,24 +1993,24 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
   },
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
 });
 
-const geStyles = StyleSheet.create({
+const createGeStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   header: {
     width: '100%',
     marginBottom: 16,
   },
   toggleRow: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 10,
     padding: 3,
     alignSelf: 'center',
@@ -2016,7 +2021,7 @@ const geStyles = StyleSheet.create({
     borderRadius: 8,
   },
   chipActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -2026,10 +2031,10 @@ const geStyles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.gray,
   },
   chipTextActive: {
-    color: '#0A252F',
+    color: colors.dark,
   },
 });
 

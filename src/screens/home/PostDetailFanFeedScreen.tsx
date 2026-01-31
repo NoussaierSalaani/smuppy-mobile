@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
@@ -56,6 +56,7 @@ const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
@@ -474,6 +475,8 @@ const PostDetailFanFeedScreen = () => {
     return num.toString();
   };
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Render post item
   const renderPostItem = ({ item, index }: { item: FanFeedPost; index: number }) => {
     const isLiked = likedPosts[item.id];
@@ -527,10 +530,10 @@ const PostDetailFanFeedScreen = () => {
                 },
               ]}
             >
-              <SmuppyHeartIcon size={100} color={COLORS.heartRed} filled />
+              <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
             </Animated.View>
           )}
-          
+
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
             <TouchableOpacity
@@ -568,11 +571,11 @@ const PostDetailFanFeedScreen = () => {
               disabled={likeLoading[item.id]}
             >
               {likeLoading[item.id] ? (
-                <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                <ActivityIndicator size="small" color={colors.primaryGreen} />
               ) : (
                 <SmuppyHeartIcon
                   size={28}
-                  color={isLiked ? COLORS.heartRed : '#FFF'}
+                  color={isLiked ? colors.heartRed : '#FFF'}
                   filled={isLiked}
                 />
               )}
@@ -584,12 +587,12 @@ const PostDetailFanFeedScreen = () => {
               disabled={bookmarkLoading[item.id]}
             >
               {bookmarkLoading[item.id] ? (
-                <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                <ActivityIndicator size="small" color={colors.primaryGreen} />
               ) : (
                 <Ionicons
                   name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
                   size={28}
-                  color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+                  color={isBookmarked ? colors.primaryGreen : '#FFF'}
                 />
               )}
             </TouchableOpacity>
@@ -633,11 +636,11 @@ const PostDetailFanFeedScreen = () => {
                   disabled={fanLoading[item.user.id]}
                 >
                   {fanLoading[item.user.id] ? (
-                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                    <ActivityIndicator size="small" color={colors.primaryGreen} />
                   ) : (
                     <>
                       {!userFollowsMe && (
-                        <Ionicons name="add" size={16} color={COLORS.primaryGreen} />
+                        <Ionicons name="add" size={16} color={colors.primaryGreen} />
                       )}
                       <Text style={styles.fanBtnText}>
                         {userFollowsMe ? 'Track' : 'Fan'}
@@ -667,7 +670,7 @@ const PostDetailFanFeedScreen = () => {
             {/* Stats bar */}
             <View style={styles.statsBar}>
               <View style={styles.statItem}>
-                <SmuppyHeartIcon size={18} color={COLORS.heartRed} filled />
+                <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
                 <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
               </View>
               <View style={styles.statItem}>
@@ -831,10 +834,10 @@ const PostDetailFanFeedScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.darkBg,
+    backgroundColor: colors.background,
   },
   postContainer: {
     width: width,
@@ -968,7 +971,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryGreen,
+    borderColor: colors.primaryGreen,
     gap: 4,
     minWidth: 70,
     justifyContent: 'center',
@@ -979,7 +982,7 @@ const styles = StyleSheet.create({
   fanBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primaryGreen,
+    color: colors.primaryGreen,
   },
   
   // Description
@@ -990,7 +993,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   moreText: {
-    color: COLORS.textMuted,
+    color: colors.gray,
   },
 
   // Stats bar
@@ -1015,13 +1018,13 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 8,
   },
-  
+
   // Menu Modal
   menuOverlay: {
     flex: 1,
@@ -1029,7 +1032,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContent: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: colors.backgroundSecondary,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -1050,7 +1053,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
     alignItems: 'center',
   },
   menuCancelText: {
@@ -1069,7 +1072,7 @@ const styles = StyleSheet.create({
   },
   reportSubtitle: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -1077,7 +1080,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   reportOptionText: {
     fontSize: 16,

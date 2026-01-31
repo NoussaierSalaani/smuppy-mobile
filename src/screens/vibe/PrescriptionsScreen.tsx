@@ -2,7 +2,7 @@
  * PrescriptionsScreen — List of context-aware wellness missions
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { Prescription, PrescriptionCategory } from '../../services/prescriptionEngine';
-import { COLORS, SPACING } from '../../config/theme';
+import { SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -38,6 +39,7 @@ interface PrescriptionsScreenProps {
 }
 
 export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenProps) {
+  const { colors, isDark } = useTheme();
   const accountType = useUserStore((s) => s.user?.accountType);
   const insets = useSafeAreaInsets();
   const {
@@ -64,6 +66,8 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
     [navigation],
   );
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Business accounts don't have access to prescriptions
   useEffect(() => {
     if (isBusiness) navigation.goBack();
@@ -76,18 +80,18 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vibe Prescriptions</Text>
         <TouchableOpacity onPress={handleSettings} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="settings-outline" size={24} color={COLORS.dark} />
+          <Ionicons name="settings-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
       {/* Weather badge */}
       {weather && (
         <View style={styles.weatherBadge}>
-          <Ionicons name="partly-sunny" size={16} color={COLORS.gray} />
+          <Ionicons name="partly-sunny" size={16} color={colors.gray} />
           <Text style={styles.weatherText}>
             {weather.temp}°C · {weather.description}
           </Text>
@@ -101,7 +105,7 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Preparing your prescriptions...</Text>
         </View>
       ) : (
@@ -110,18 +114,18 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={false} onRefresh={refresh} tintColor={COLORS.primary} />
+            <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.primary} />
           }
         >
           {prescriptions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="checkmark-circle" size={48} color={COLORS.primary} />
+              <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
               <Text style={styles.emptyTitle}>All done for today!</Text>
               <Text style={styles.emptySubtitle}>Check back later for new prescriptions</Text>
             </View>
           ) : (
             prescriptions.map((rx) => (
-              <PrescriptionCard key={rx.id} prescription={rx} onStart={handleStart} />
+              <PrescriptionCard key={rx.id} prescription={rx} onStart={handleStart} styles={styles} />
             ))
           )}
 
@@ -139,9 +143,10 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
 interface PrescriptionCardProps {
   prescription: Prescription;
   onStart: (rx: Prescription) => void;
+  styles: ReturnType<typeof createStyles>;
 }
 
-const PrescriptionCard: React.FC<PrescriptionCardProps> = React.memo(({ prescription, onStart }) => {
+const PrescriptionCard: React.FC<PrescriptionCardProps> = React.memo(({ prescription, onStart, styles }) => {
   const config = CATEGORY_CONFIG[prescription.category];
 
   return (
@@ -182,10 +187,10 @@ const PrescriptionCard: React.FC<PrescriptionCardProps> = React.memo(({ prescrip
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -197,7 +202,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   weatherBadge: {
     flexDirection: 'row',
@@ -209,7 +214,7 @@ const styles = StyleSheet.create({
   weatherText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   indoorBadge: {
     backgroundColor: '#FFF3E0',
@@ -231,7 +236,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   list: {
     flex: 1,
@@ -247,15 +252,15 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   emptySubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   card: {
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
@@ -282,18 +287,18 @@ const styles = StyleSheet.create({
   duration: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   cardTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 4,
   },
   cardDesc: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 20,
     marginBottom: SPACING.md,
   },
@@ -315,7 +320,7 @@ const styles = StyleSheet.create({
   difficultyText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 4,
     textTransform: 'capitalize',
   },
@@ -327,6 +332,6 @@ const styles = StyleSheet.create({
   startButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-    color: COLORS.white,
+    color: colors.white,
   },
 });

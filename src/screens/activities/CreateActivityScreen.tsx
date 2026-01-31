@@ -23,7 +23,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
@@ -66,6 +67,7 @@ const CATEGORIES: ActivityCategory[] = [
 // ============================================
 
 const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
+  const { colors, isDark } = useTheme();
   const { currency } = useCurrency();
   const { showError, showSuccess, showConfirm, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
@@ -278,6 +280,8 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
     }
   }, [step, selectedCategory, title, coordinates, routeData, saveToProfile, shareOnMap]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // ============================================
   // STEP 1: Category
   // ============================================
@@ -347,7 +351,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           <TextInput
             style={styles.customSubInput}
             placeholder="Or type a custom subcategory..."
-            placeholderTextColor={COLORS.gray}
+            placeholderTextColor={colors.gray}
             value={customSubcategory}
             onChangeText={(t) => { setCustomSubcategory(t); setSelectedSubcategory(''); }}
           />
@@ -372,7 +376,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           value={title}
           onChangeText={setTitle}
           placeholder="e.g., Morning 5K Run"
-          placeholderTextColor={COLORS.gray}
+          placeholderTextColor={colors.gray}
           maxLength={100}
         />
       </View>
@@ -384,7 +388,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           value={description}
           onChangeText={setDescription}
           placeholder="Tell people what to expect..."
-          placeholderTextColor={COLORS.gray}
+          placeholderTextColor={colors.gray}
           multiline
           maxLength={500}
         />
@@ -393,7 +397,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
       <View style={styles.formGroup}>
         <Text style={styles.label}>Date & Time</Text>
         <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-          <Ionicons name="calendar" size={20} color={COLORS.primary} />
+          <Ionicons name="calendar" size={20} color={colors.primary} />
           <Text style={styles.dateButtonText}>
             {startDate.toLocaleDateString('en-US', {
               weekday: 'short', month: 'short', day: 'numeric',
@@ -410,7 +414,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           value={maxParticipants}
           onChangeText={setMaxParticipants}
           placeholder="Leave empty for unlimited"
-          placeholderTextColor={COLORS.gray}
+          placeholderTextColor={colors.gray}
           keyboardType="number-pad"
         />
       </View>
@@ -459,7 +463,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
               value={price}
               onChangeText={setPrice}
               placeholder="0.00"
-              placeholderTextColor={COLORS.gray}
+              placeholderTextColor={colors.gray}
               keyboardType="decimal-pad"
             />
           </View>
@@ -514,7 +518,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         onPress={() => setSaveToProfile(prev => !prev)}
       >
         <View style={styles.optionIconWrap}>
-          <Ionicons name="bookmark" size={24} color={saveToProfile ? COLORS.primary : COLORS.gray} />
+          <Ionicons name="bookmark" size={24} color={saveToProfile ? colors.primary : colors.gray} />
         </View>
         <View style={styles.optionContent}>
           <Text style={styles.optionTitle}>Save to Profile</Text>
@@ -523,7 +527,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           </Text>
         </View>
         <View style={[styles.checkbox, saveToProfile && styles.checkboxActive]}>
-          {saveToProfile && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
+          {saveToProfile && <Ionicons name="checkmark" size={16} color={colors.white} />}
         </View>
       </TouchableOpacity>
 
@@ -533,7 +537,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         onPress={() => setShareOnMap(prev => !prev)}
       >
         <View style={styles.optionIconWrap}>
-          <Ionicons name="map" size={24} color={shareOnMap ? COLORS.primary : COLORS.gray} />
+          <Ionicons name="map" size={24} color={shareOnMap ? colors.primary : colors.gray} />
         </View>
         <View style={styles.optionContent}>
           <Text style={styles.optionTitle}>Share on Map</Text>
@@ -542,7 +546,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           </Text>
         </View>
         <View style={[styles.checkbox, shareOnMap && styles.checkboxActive]}>
-          {shareOnMap && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
+          {shareOnMap && <Ionicons name="checkmark" size={16} color={colors.white} />}
         </View>
       </TouchableOpacity>
     </View>
@@ -559,8 +563,8 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
 
       <View style={styles.reviewCard}>
         <View style={styles.reviewHeader}>
-          <View style={[styles.categoryIcon, { backgroundColor: (selectedCategory?.color || COLORS.primary) + '20' }]}>
-            <Ionicons name={selectedCategory?.icon || 'people'} size={24} color={selectedCategory?.color || COLORS.primary} />
+          <View style={[styles.categoryIcon, { backgroundColor: (selectedCategory?.color || colors.primary) + '20' }]}>
+            <Ionicons name={selectedCategory?.icon || 'people'} size={24} color={selectedCategory?.color || colors.primary} />
           </View>
           <View style={styles.reviewHeaderText}>
             <Text style={styles.reviewTitle}>{title}</Text>
@@ -571,7 +575,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         </View>
 
         <View style={styles.reviewRow}>
-          <Ionicons name="calendar" size={18} color={COLORS.gray} />
+          <Ionicons name="calendar" size={18} color={colors.gray} />
           <Text style={styles.reviewRowText}>
             {startDate.toLocaleDateString('en-US', {
               weekday: 'short', month: 'short', day: 'numeric',
@@ -581,13 +585,13 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         </View>
 
         <View style={styles.reviewRow}>
-          <Ionicons name="location" size={18} color={COLORS.gray} />
+          <Ionicons name="location" size={18} color={colors.gray} />
           <Text style={styles.reviewRowText}>{locationName || 'Location set on map'}</Text>
         </View>
 
         {routeData && (
           <View style={styles.reviewRow}>
-            <Ionicons name="map" size={18} color={COLORS.gray} />
+            <Ionicons name="map" size={18} color={colors.gray} />
             <Text style={styles.reviewRowText}>
               {routeData.distanceKm} km · {routeData.durationMin} min · {routeData.difficulty}
             </Text>
@@ -595,14 +599,14 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         )}
 
         <View style={styles.reviewRow}>
-          <Ionicons name="people" size={18} color={COLORS.gray} />
+          <Ionicons name="people" size={18} color={colors.gray} />
           <Text style={styles.reviewRowText}>
             {maxParticipants ? `Max ${maxParticipants} participants` : 'Unlimited participants'}
           </Text>
         </View>
 
         <View style={styles.reviewRow}>
-          <Ionicons name="pricetag" size={18} color={COLORS.gray} />
+          <Ionicons name="pricetag" size={18} color={colors.gray} />
           <Text style={styles.reviewRowText}>
             {isFree ? 'Free activity' : `${currency.symbol}${price}`}
           </Text>
@@ -611,14 +615,14 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         <View style={styles.reviewDivider} />
 
         <View style={styles.reviewRow}>
-          <Ionicons name="bookmark" size={18} color={saveToProfile ? COLORS.primary : COLORS.gray} />
+          <Ionicons name="bookmark" size={18} color={saveToProfile ? colors.primary : colors.gray} />
           <Text style={styles.reviewRowText}>
             {saveToProfile ? 'Saved to profile' : 'Not saved to profile'}
           </Text>
         </View>
 
         <View style={styles.reviewRow}>
-          <Ionicons name="map" size={18} color={shareOnMap ? COLORS.primary : COLORS.gray} />
+          <Ionicons name="map" size={18} color={shareOnMap ? colors.primary : colors.gray} />
           <Text style={styles.reviewRowText}>
             {shareOnMap ? 'Visible on map' : 'Not shared on map'}
           </Text>
@@ -635,7 +639,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Checking account limits...</Text>
         </View>
       </SafeAreaView>
@@ -647,7 +651,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Create Activity</Text>
           <View style={styles.headerSpacer} />
@@ -655,9 +659,9 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
 
         <View style={styles.limitContainer}>
           <View style={styles.limitIcon}>
-            <Ionicons name="calendar-outline" size={48} color={COLORS.primary} />
+            <Ionicons name="calendar-outline" size={48} color={colors.primary} />
             <View style={styles.limitBadge}>
-              <Ionicons name="lock-closed" size={16} color={COLORS.white} />
+              <Ionicons name="lock-closed" size={16} color={colors.white} />
             </View>
           </View>
           <Text style={styles.limitTitle}>Monthly Limit Reached</Text>
@@ -687,7 +691,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={goBack}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Activity</Text>
         <View style={styles.stepIndicator}>
@@ -725,13 +729,13 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
           disabled={isLoading || !canProceed}
         >
           <LinearGradient
-            colors={canProceed ? GRADIENTS.primary : [COLORS.gray, COLORS.gray]}
+            colors={canProceed ? GRADIENTS.primary : [colors.gray, colors.gray]}
             style={styles.actionButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
             {isLoading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
                 <Text style={styles.actionButtonText}>
@@ -740,7 +744,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
                 <Ionicons
                   name={step === TOTAL_STEPS ? 'checkmark' : 'arrow-forward'}
                   size={20}
-                  color={COLORS.white}
+                  color={colors.white}
                 />
               </>
             )}
@@ -771,10 +775,10 @@ export default CreateActivityScreen;
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   flex: {
     flex: 1,
@@ -789,7 +793,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   limitContainer: {
     flex: 1,
@@ -801,7 +805,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -813,22 +817,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.error,
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: COLORS.dark,
+    borderColor: colors.dark,
   },
   limitTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     textAlign: 'center',
     marginBottom: 12,
   },
   limitSubtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -841,7 +845,7 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   goBackLink: {
     marginTop: 16,
@@ -851,7 +855,7 @@ const styles = StyleSheet.create({
   goBackLinkText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Header
@@ -866,20 +870,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   headerSpacer: {
     width: 40,
   },
   stepIndicator: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -887,18 +891,18 @@ const styles = StyleSheet.create({
   stepIndicatorText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Progress
   progressBar: {
     height: 3,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     marginHorizontal: 16,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
 
@@ -913,11 +917,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   stepSubtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 8,
   },
 
@@ -930,12 +934,12 @@ const styles = StyleSheet.create({
   categoryCard: {
     width: (SCREEN_WIDTH - 56) / 3,
     aspectRatio: 1,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   categoryCardSelected: {
     borderWidth: 2,
@@ -951,7 +955,7 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
     textAlign: 'center',
   },
   categoryCheck: {
@@ -973,7 +977,7 @@ const styles = StyleSheet.create({
   subcategoryTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.lightGray,
+    color: colors.gray,
   },
   subcategoryChip: {
     paddingHorizontal: 16,
@@ -986,29 +990,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   subcategoryChipTextActive: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.white,
+    color: colors.white,
   },
   subcategoryChipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.lightGray,
+    color: colors.gray,
   },
   customSubInput: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
 
   // Form
@@ -1018,17 +1022,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.lightGray,
+    color: colors.gray,
   },
   input: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   textArea: {
     minHeight: 100,
@@ -1038,16 +1042,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   dateButtonText: {
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.white,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1057,28 +1061,28 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
   },
   toggleButtonActive: {
-    backgroundColor: COLORS.primary + '20',
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary + '20',
+    borderColor: colors.primary,
   },
   toggleButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   toggleButtonTextActive: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   proBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1086,22 +1090,22 @@ const styles = StyleSheet.create({
   proBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   priceInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     paddingHorizontal: 16,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   currencySymbol: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
     marginRight: 8,
   },
   priceInput: {
@@ -1109,29 +1113,29 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 
   // Save & Share (Step 4)
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     gap: 14,
   },
   optionCardActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary + '10',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
   },
   optionIconWrap: {
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1141,12 +1145,12 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 4,
   },
   optionDescription: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 18,
   },
   checkbox: {
@@ -1154,18 +1158,18 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
 
   // Review
   reviewCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     gap: 16,
@@ -1176,7 +1180,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   reviewHeaderText: {
     flex: 1,
@@ -1184,11 +1188,11 @@ const styles = StyleSheet.create({
   reviewTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   reviewCategory: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   reviewRow: {
@@ -1198,11 +1202,11 @@ const styles = StyleSheet.create({
   },
   reviewRowText: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: colors.gray,
   },
   reviewDivider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
   },
 
   // Bottom Action
@@ -1213,9 +1217,9 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 16,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
   },
   actionButtonGradient: {
     flexDirection: 'row',
@@ -1228,6 +1232,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

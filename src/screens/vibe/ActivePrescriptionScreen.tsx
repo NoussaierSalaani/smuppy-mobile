@@ -4,7 +4,7 @@
  * Completion feeds the twin + vibe score.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { getPrescriptionById, PrescriptionCategory } from '../../services/prescriptionEngine';
-import { COLORS, SPACING } from '../../config/theme';
+import { SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useUserStore, useVibeStore } from '../../stores';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -46,6 +47,7 @@ const COUNTDOWN_SECONDS = 3;
 type Phase = 'prep' | 'countdown' | 'active' | 'complete';
 
 export default function ActivePrescriptionScreen({ navigation, route }: ActivePrescriptionScreenProps) {
+  const { colors, isDark } = useTheme();
   const accountType = useUserStore((s) => s.user?.accountType);
   const isBusiness = accountType === 'pro_business';
   const insets = useSafeAreaInsets();
@@ -158,6 +160,8 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
 
   const handleCancel = useCallback(() => navigation.goBack(), [navigation]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Business accounts don't have access to prescriptions
   useEffect(() => {
     if (isBusiness) navigation.goBack();
@@ -192,11 +196,11 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
     return (
       <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-          <Ionicons name="close" size={28} color={COLORS.gray} />
+          <Ionicons name="close" size={28} color={colors.gray} />
         </TouchableOpacity>
 
         <View style={styles.infoSection}>
-          <Ionicons name={CATEGORY_ICONS[prescription.category]} size={40} color={COLORS.primary} />
+          <Ionicons name={CATEGORY_ICONS[prescription.category]} size={40} color={colors.primary} />
           <Text style={styles.title}>{prescription.title}</Text>
           <Text style={styles.prepDuration}>{prescription.durationMinutes} min</Text>
         </View>
@@ -248,11 +252,11 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
       <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-        <Ionicons name="close" size={28} color={COLORS.gray} />
+        <Ionicons name="close" size={28} color={colors.gray} />
       </TouchableOpacity>
 
       <View style={styles.infoSection}>
-        <Ionicons name={CATEGORY_ICONS[prescription.category]} size={40} color={COLORS.primary} />
+        <Ionicons name={CATEGORY_ICONS[prescription.category]} size={40} color={colors.primary} />
         <Text style={styles.title}>{prescription.title}</Text>
         <Text style={styles.description}>{prescription.description}</Text>
         {isManual && phase === 'active' && (
@@ -263,7 +267,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
       <Animated.View style={[styles.timerSection, { transform: [{ scale: bounceAnim }] }]}>
         {phase === 'complete' ? (
           <>
-            <Ionicons name="checkmark-circle" size={80} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={80} color={colors.primary} />
             <Text style={styles.completeText}>
               {wasRushed ? 'Completed' : 'Well done!'}
             </Text>
@@ -287,7 +291,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
               end={{ x: 1, y: 0 }}
               style={styles.markDoneButton}
             >
-              <Ionicons name="checkmark" size={28} color={COLORS.white} />
+              <Ionicons name="checkmark" size={28} color={colors.white} />
               <Text style={styles.markDoneText}>Mark as Done</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -325,10 +329,10 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     paddingHorizontal: SPACING.xl,
   },
   cancelButton: {
@@ -342,13 +346,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 24,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
   },
   description: {
     fontFamily: 'Poppins-Regular',
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -360,32 +364,32 @@ const styles = StyleSheet.create({
   timer: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 72,
-    color: COLORS.dark,
+    color: colors.dark,
     letterSpacing: 2,
   },
   progressBarBg: {
     width: '100%',
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: colors.border,
     marginTop: SPACING.lg,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   completeText: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: SPACING.md,
   },
   rewardText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.xs,
   },
   bottomSection: {
@@ -399,7 +403,7 @@ const styles = StyleSheet.create({
   completeButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.white,
   },
   skipButton: {
     paddingVertical: 16,
@@ -408,26 +412,26 @@ const styles = StyleSheet.create({
   skipText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   errorText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.error,
+    color: colors.error,
     textAlign: 'center',
     marginTop: 40,
   },
   backLink: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.primary,
+    color: colors.primary,
     textAlign: 'center',
     marginTop: SPACING.md,
   },
   prepDuration: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   instructionsSection: {
     flex: 1,
@@ -437,7 +441,7 @@ const styles = StyleSheet.create({
   instructionsTitle: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: SPACING.xs,
   },
   instructionRow: {
@@ -449,7 +453,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -457,12 +461,12 @@ const styles = StyleSheet.create({
   instructionBulletText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: COLORS.white,
+    color: colors.white,
   },
   instructionText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
     flex: 1,
     lineHeight: 22,
   },
@@ -473,18 +477,18 @@ const styles = StyleSheet.create({
   countdownNumber: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 120,
-    color: COLORS.primary,
+    color: colors.primary,
   },
   countdownLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 18,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.sm,
   },
   recommendedDuration: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.xs,
   },
   markDoneButton: {
@@ -499,12 +503,12 @@ const styles = StyleSheet.create({
   markDoneText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.white,
+    color: colors.white,
   },
   rushedText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.lg,

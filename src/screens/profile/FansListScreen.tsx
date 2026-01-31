@@ -17,7 +17,8 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   getFollowers,
@@ -64,6 +65,7 @@ const profileToUser = (
 
 export default function FansListScreen({ navigation, route }: { navigation: any; route: any }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { showError, showWarning } = useSmuppyAlert();
   const initialTab = route?.params?.initialTab || 'fans';
   const userId = route?.params?.userId; // Optional: view another user's fans
@@ -284,7 +286,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       if (isLoadingThis) {
         return (
           <View style={styles.loadingBadge}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
         );
       }
@@ -297,7 +299,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
               style={styles.trackBadge}
               onPress={() => handleFollow(item.id)}
             >
-              <Ionicons name="add" size={14} color={COLORS.dark} />
+              <Ionicons name="add" size={14} color={colors.dark} />
               <Text style={styles.trackBadgeText}>Track</Text>
             </TouchableOpacity>
           );
@@ -306,7 +308,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         if (isMutual) {
           return (
             <View style={styles.mutualBadge}>
-              <Ionicons name="swap-horizontal" size={14} color={COLORS.primary} />
+              <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
             </View>
           );
         }
@@ -317,7 +319,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
             style={styles.fanBadge}
             onPress={() => handleUnfollowPress(item)}
           >
-            <SmuppyHeartIcon size={12} color={COLORS.primary} filled />
+            <SmuppyHeartIcon size={12} color={colors.primary} filled />
             <Text style={styles.fanBadgeText}>Fan</Text>
           </TouchableOpacity>
         );
@@ -357,6 +359,9 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   );
 
   const keyExtractor = useCallback((item: User) => item.id, []);
+
+  // Create styles with theme
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render tabs
   const renderTabs = () => (
@@ -409,7 +414,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       <Ionicons
         name={activeTab === 'fans' ? 'people-outline' : 'heart-outline'}
         size={60}
-        color={COLORS.gray}
+        color={colors.gray}
       />
       <Text style={styles.emptyTitle}>
         {activeTab === 'fans' ? 'No fans yet' : 'Not tracking anyone'}
@@ -427,7 +432,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -443,7 +448,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
 
         <Text style={styles.headerText}>Community</Text>
@@ -457,17 +462,17 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.gray} />
+          <Ionicons name="search" size={20} color={colors.gray} />
           <TextInput
             style={styles.searchInput}
             placeholder={`Search ${activeTab}...`}
-            placeholderTextColor={COLORS.gray}
+            placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={20} color={colors.gray} />
             </TouchableOpacity>
           )}
         </View>
@@ -510,10 +515,10 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                       disabled={actionLoading === selectedUser.id}
                     >
                       {actionLoading === selectedUser.id ? (
-                        <ActivityIndicator size="small" color={COLORS.red} />
+                        <ActivityIndicator size="small" color={'#FF6B6B'} />
                       ) : (
                         <>
-                          <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                          <Ionicons name="heart-dislike-outline" size={18} color={'#FF6B6B'} />
                           <Text style={styles.unfollowButtonText}>Unfan</Text>
                         </>
                       )}
@@ -540,7 +545,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                 {selectedUser && (
                   <>
                     <View style={styles.warningIconContainer}>
-                      <Ionicons name="warning" size={40} color={COLORS.orange} />
+                      <Ionicons name="warning" size={40} color={'#FFA500'} />
                     </View>
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
                     <Text style={styles.popupUsername}>{selectedUser.username}</Text>
@@ -557,10 +562,10 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                         disabled={actionLoading === selectedUser.id}
                       >
                         {actionLoading === selectedUser.id ? (
-                          <ActivityIndicator size="small" color={COLORS.red} />
+                          <ActivityIndicator size="small" color={'#FF6B6B'} />
                         ) : (
                           <>
-                            <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                            <Ionicons name="heart-dislike-outline" size={18} color={'#FF6B6B'} />
                             <Text style={styles.unfollowButtonText}>Unfan</Text>
                           </>
                         )}
@@ -577,10 +582,10 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -589,7 +594,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   loadingBadge: {
     width: 60,
@@ -617,7 +622,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 
   // Tabs
@@ -640,15 +645,15 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
   tabCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
     backgroundColor: '#2C2C2E',
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -656,8 +661,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tabCountActive: {
-    color: COLORS.dark,
-    backgroundColor: COLORS.primary,
+    color: colors.dark,
+    backgroundColor: colors.primary,
   },
   tabIndicator: {
     position: 'absolute',
@@ -684,7 +689,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.white,
     marginLeft: 10,
   },
 
@@ -713,11 +718,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   userUsername: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   verifiedBadge: {
@@ -728,7 +733,7 @@ const styles = StyleSheet.create({
   trackBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -736,7 +741,7 @@ const styles = StyleSheet.create({
   trackBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: 2,
   },
   fanBadge: {
@@ -747,12 +752,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   fanBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
     marginLeft: 4,
   },
   mutualBadge: {
@@ -773,12 +778,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
     marginTop: 16,
   },
   emptyDesc: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
@@ -802,24 +807,24 @@ const styles = StyleSheet.create({
   popupName: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
     marginTop: 12,
     marginBottom: 4,
   },
   popupUsername: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 12,
   },
   popupInfo: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 16,
   },
   popupWarning: {
     fontSize: 13,
-    color: COLORS.orange,
+    color: '#FFA500',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
@@ -846,7 +851,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   unfollowButton: {
     flexDirection: 'row',
@@ -856,14 +861,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: COLORS.red,
+    borderColor: '#FF6B6B',
     minWidth: 100,
     justifyContent: 'center',
   },
   unfollowButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.red,
+    color: '#FF6B6B',
     marginLeft: 8,
   },
 });

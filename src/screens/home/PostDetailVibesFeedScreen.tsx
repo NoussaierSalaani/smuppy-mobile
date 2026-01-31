@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
@@ -48,6 +48,7 @@ const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
@@ -562,7 +563,7 @@ const PostDetailVibesFeedScreen = () => {
               <Text style={styles.gridUserName} numberOfLines={1}>{post.user?.name}</Text>
             </View>
             <View style={styles.gridStatsRow}>
-              <SmuppyHeartIcon size={14} color={COLORS.heartRed} filled />
+              <SmuppyHeartIcon size={14} color={colors.heartRed} filled />
               <Text style={styles.gridLikes}>{formatNumber(post.likes ?? 0)}</Text>
             </View>
           </View>
@@ -574,6 +575,8 @@ const PostDetailVibesFeedScreen = () => {
   // Split grid posts into columns for masonry layout
   const leftColumn = gridPosts.filter((_, i) => i % 2 === 0);
   const rightColumn = gridPosts.filter((_, i) => i % 2 === 1);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   return (
     <View style={styles.container}>
@@ -634,7 +637,7 @@ const PostDetailVibesFeedScreen = () => {
                     },
                   ]}
                 >
-                  <SmuppyHeartIcon size={100} color={COLORS.heartRed} filled />
+                  <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
                 </Animated.View>
               )}
 
@@ -679,11 +682,11 @@ const PostDetailVibesFeedScreen = () => {
                   disabled={likeLoading}
                 >
                   {likeLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.heartRed} />
+                    <ActivityIndicator size="small" color={colors.heartRed} />
                   ) : (
                     <SmuppyHeartIcon
                       size={28}
-                      color={isLiked ? COLORS.heartRed : '#FFF'}
+                      color={isLiked ? colors.heartRed : '#FFF'}
                       filled={isLiked}
                     />
                   )}
@@ -695,12 +698,12 @@ const PostDetailVibesFeedScreen = () => {
                   disabled={bookmarkLoading}
                 >
                   {bookmarkLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                    <ActivityIndicator size="small" color={colors.primaryGreen} />
                   ) : (
                     <Ionicons
                       name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
                       size={28}
-                      color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+                      color={isBookmarked ? colors.primaryGreen : '#FFF'}
                     />
                   )}
                 </TouchableOpacity>
@@ -741,10 +744,10 @@ const PostDetailVibesFeedScreen = () => {
                       disabled={fanLoading}
                     >
                       {fanLoading ? (
-                        <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                        <ActivityIndicator size="small" color={colors.primaryGreen} />
                       ) : (
                         <>
-                          <Ionicons name="add" size={18} color={COLORS.primaryGreen} />
+                          <Ionicons name="add" size={18} color={colors.primaryGreen} />
                           <Text style={styles.fanBtnText}>Fan</Text>
                         </>
                       )}
@@ -768,7 +771,7 @@ const PostDetailVibesFeedScreen = () => {
                 {/* Stats bar */}
                 <View style={styles.statsBar}>
                   <View style={styles.statItem}>
-                    <SmuppyHeartIcon size={16} color={COLORS.heartRed} filled />
+                    <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                     <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
                   </View>
                   <View style={styles.statDot} />
@@ -828,7 +831,7 @@ const PostDetailVibesFeedScreen = () => {
                   </View>
                 </View>
                 <View style={styles.condensedStats}>
-                  <SmuppyHeartIcon size={16} color={COLORS.heartRed} filled />
+                  <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                   <Text style={styles.condensedLikes}>{formatNumber(currentPost.likes)}</Text>
                 </View>
               </View>
@@ -839,7 +842,7 @@ const PostDetailVibesFeedScreen = () => {
               <Text style={styles.sectionTitle}>More to explore</Text>
               <TouchableOpacity style={styles.seeAllBtn}>
                 <Text style={styles.seeAllText}>See all</Text>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.primaryGreen} />
+                <Ionicons name="chevron-forward" size={16} color={colors.primaryGreen} />
               </TouchableOpacity>
             </View>
 
@@ -944,16 +947,16 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
                 <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
-                  <Ionicons name="ban-outline" size={22} color={COLORS.heartRed} />
+                  <Ionicons name="ban-outline" size={22} color={colors.heartRed} />
                 </View>
-                <Text style={[styles.menuItemText, { color: COLORS.heartRed }]}>Block user</Text>
+                <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Block user</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
                 <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
-                  <Ionicons name="flag-outline" size={22} color={COLORS.heartRed} />
+                  <Ionicons name="flag-outline" size={22} color={colors.heartRed} />
                 </View>
-                <Text style={[styles.menuItemText, { color: COLORS.heartRed }]}>Report</Text>
+                <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Report</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1039,10 +1042,10 @@ const PostDetailVibesFeedScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -1200,7 +1203,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(14, 191, 138, 0.15)',
     borderWidth: 1.5,
-    borderColor: COLORS.primaryGreen,
+    borderColor: colors.primaryGreen,
     gap: 4,
   },
   fanBtnDisabled: {
@@ -1209,7 +1212,7 @@ const styles = StyleSheet.create({
   fanBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primaryGreen,
+    color: colors.primaryGreen,
   },
   description: {
     fontSize: 14,
@@ -1368,7 +1371,7 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primaryGreen,
+    color: colors.primaryGreen,
   },
 
   // Grid

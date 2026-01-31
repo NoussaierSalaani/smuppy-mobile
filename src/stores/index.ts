@@ -402,6 +402,14 @@ export const resetAllStores = async () => {
   vibeStore.reset();
   themeStore.reset();
 
+  // Clear React Query cache to prevent cross-user data leaks
+  try {
+    const { clearQueryCache } = await import('../lib/queryClient');
+    await clearQueryCache();
+  } catch {
+    // Best-effort cleanup
+  }
+
   // Clear persisted AsyncStorage data to prevent cross-user data leaks
   try {
     await AsyncStorage.multiRemove([
@@ -409,6 +417,7 @@ export const resetAllStores = async () => {
       '@smuppy_analytics_queue',
       '@smuppy_vibe_store',
       '@smuppy_theme_store',
+      '@smuppy_query_cache',
     ]);
   } catch {
     // Best-effort cleanup

@@ -41,7 +41,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // SECURITY: Include author's privacy setting in query
     const result = await db.query(
       `SELECT
-        p.*,
+        p.id, p.author_id, p.content, p.caption, p.media_urls, p.media_url,
+        p.media_type, p.visibility, p.likes_count, p.comments_count, p.views_count,
+        p.is_peak, p.peak_duration, p.peak_expires_at, p.save_to_profile,
+        p.location, p.tags, p.created_at, p.updated_at,
         pr.is_private as author_is_private,
         pr.cognito_sub as author_cognito_sub,
         json_build_object(

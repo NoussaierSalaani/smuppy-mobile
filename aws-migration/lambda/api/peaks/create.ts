@@ -14,6 +14,7 @@ const log = createLogger('peaks-create');
 // Simple input sanitization
 function sanitizeText(text: string, maxLength: number = 500): string {
   return text
+    .replace(/<[^>]*>/g, '')
     .trim()
     .slice(0, maxLength)
     .replace(/\0/g, '')

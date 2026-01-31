@@ -96,7 +96,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [
           postId,
           userId,
-          body.content || '',
+          (body.content || '').replace(/<[^>]*>/g, '').trim(),
           body.mediaUrls || [],
           body.mediaType || null,
           body.visibility || 'public',

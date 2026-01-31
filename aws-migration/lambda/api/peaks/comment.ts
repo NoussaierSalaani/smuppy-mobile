@@ -13,6 +13,7 @@ const log = createLogger('peaks-comment');
 // Simple input sanitization
 function sanitizeText(text: string): string {
   return text
+    .replace(/<[^>]*>/g, '')
     .trim()
     .slice(0, 1000) // Max 1000 characters for peak comments
     .replace(/\0/g, '')

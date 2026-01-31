@@ -713,7 +713,6 @@ export type MainStackParamList = {
   NotificationSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
-  FacialRecognition: undefined;
   BlockedUsers: undefined;
   MutedUsers: undefined;
   FollowRequests: undefined;

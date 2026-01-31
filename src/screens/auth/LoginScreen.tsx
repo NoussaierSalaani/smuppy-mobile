@@ -12,7 +12,6 @@ import {
   createGetInputIconColor,
   createGetButtonGradient,
 } from '../../components/auth/authStyles';
-import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
@@ -33,8 +32,6 @@ const GoogleLogo = ({ size = 20 }) => (
   </Svg>
 );
 
-type BiometricType = 'face' | 'fingerprint' | 'iris' | null;
-
 interface LoginScreenProps {
   navigation: {
     replace: (screen: string, params?: Record<string, unknown>) => void;
@@ -52,19 +49,6 @@ const createLocalStyles = (colors: ThemeColors, authColors: any) => StyleSheet.c
   header: { alignItems: 'center', marginBottom: 24 },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 6 },
   subtitle: { fontSize: 13, color: colors.gray, textAlign: 'center', lineHeight: 18 },
-
-  // Biometric
-  biometricBtn: { alignItems: 'center', paddingVertical: 12, marginBottom: 6 },
-  biometricBtnDisabled: { opacity: 0.6 },
-  biometricIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: authColors.validBg, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: colors.primary, marginBottom: 8 },
-  biometricIconBoxDisabled: { backgroundColor: colors.grayLight, borderColor: colors.grayLight },
-  biometricText: { fontSize: 13, fontWeight: '600', color: colors.primary },
-  biometricTextDisabled: { color: colors.grayMuted },
-  enableBiometricBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.backgroundFocus, borderRadius: 14, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.grayBorder },
-  enableBiometricLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  enableBiometricIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: authColors.validBg, justifyContent: 'center', alignItems: 'center' },
-  enableBiometricTitle: { fontSize: 13, fontWeight: '600', color: colors.dark },
-  enableBiometricSubtitle: { fontSize: 10, color: colors.gray, marginTop: 1 },
 
   // Field Group
   fieldGroup: { marginBottom: 12 },
@@ -139,12 +123,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [loading, setLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [biometricSupported, setBiometricSupported] = useState(false);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [biometricType, setBiometricType] = useState<BiometricType>(null);
-  const [biometricBlocked, setBiometricBlocked] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
-  const [successModal, setSuccessModal] = useState({ visible: false, title: '', message: '' });
   // Social auth state
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
@@ -152,11 +131,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   // Google OAuth hook
   const [googleRequest, googleResponse, googlePromptAsync] = useGoogleAuth();
 
-  // Check Apple Sign-In availability and biometrics
+  // Check Apple Sign-In availability
   useEffect(() => {
-    checkBiometrics();
     isAppleSignInAvailable().then(setAppleAvailable);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle Google OAuth response
@@ -184,23 +161,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setSocialLoading(null);
   };
 
-  const checkBiometrics = useCallback(async () => {
-    const available = await biometrics.isAvailable();
-    setBiometricSupported(available);
-    if (available) {
-      const type = await biometrics.getType();
-      setBiometricType(type);
-      const enabled = await biometrics.isEnabled();
-      setBiometricEnabled(enabled);
-      if (enabled) {
-        const blockStatus = await biometrics.isBlocked();
-        setBiometricBlocked(blockStatus.blocked);
-      }
-    }
-  }, []);
-
-  const isFaceId = biometricType === 'face';
-
   // Navigation - remplace l'écran pour éviter l'empilement
   const handleGoToSignup = useCallback(() => {
     navigation.replace('Signup');
@@ -209,109 +169,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const handleForgotPassword = useCallback(() => {
     navigation.navigate('ForgotPassword');
   }, [navigation]);
-
-  const handleEnableBiometric = useCallback(async () => {
-    // SECURITY: From login screen, we need the password to enable biometrics
-    // If the user has entered their password, use it; otherwise show error
-    if (!password) {
-      setErrorModal({
-        visible: true,
-        title: 'Password Required',
-        message: 'Please enter your password first to enable biometric login.'
-      });
-      return;
-    }
-
-    // Create a password verification function that uses AWS auth
-    const verifyPassword = async (): Promise<boolean> => {
-      try {
-        // We need to verify this is the correct password for this account
-        // Use signIn to verify (it will fail if wrong password)
-        const normalizedEmail = email.trim().toLowerCase();
-        await backend.signIn({ email: normalizedEmail, password });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    const result = await biometrics.enable(verifyPassword);
-    if (result.success) {
-      setBiometricEnabled(true);
-      setSuccessModal({
-        visible: true,
-        title: `${isFaceId ? 'Face ID' : 'Touch ID'} Enabled!`,
-        message: `You can now use ${isFaceId ? 'Face ID' : 'Touch ID'} for faster login.`
-      });
-    } else if (result.error === 'blocked') {
-      const minutes = Math.ceil((result.remainingSeconds ?? 60) / 60);
-      setErrorModal({
-        visible: true,
-        title: 'Too Many Attempts',
-        message: `Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before trying again.`
-      });
-    } else if (result.error === 'Password verification failed') {
-      setErrorModal({
-        visible: true,
-        title: 'Verification Failed',
-        message: 'The password you entered is incorrect. Please try again.'
-      });
-    }
-  }, [isFaceId, email, password]);
-
-  const handleBiometricLogin = useCallback(async () => {
-    const blockStatus = await biometrics.isBlocked();
-    if (blockStatus.blocked) {
-      const minutes = Math.ceil(blockStatus.remainingSeconds / 60);
-      setErrorModal({
-        visible: true,
-        title: 'Too Many Attempts',
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} is temporarily blocked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} or use your password.`
-      });
-      setBiometricBlocked(true);
-      return;
-    }
-    const result = await biometrics.loginWithBiometrics();
-    if (result.success) {
-      // Check if we have a valid session via backend
-      const currentUser = await backend.getCurrentUser();
-      if (currentUser) {
-        // Biometric login implies persistent session
-        await storage.set(STORAGE_KEYS.REMEMBER_ME, 'true');
-        return;
-      }
-      setErrorModal({
-        visible: true,
-        title: 'Session Expired',
-        message: 'Your session has expired. Please login with your password to continue.'
-      });
-      // Disable biometrics since session is invalid
-      setBiometricEnabled(false);
-    } else if (result.error === 'session_expired') {
-      // SECURITY: Biometric session expired after 30 days of inactivity
-      // User must re-authenticate with password
-      setErrorModal({
-        visible: true,
-        title: 'Session Expired',
-        message: 'For your security, biometric login has been disabled after 30 days of inactivity. Please login with your password.'
-      });
-      setBiometricEnabled(false);
-    } else if (result.error === 'blocked') {
-      const minutes = Math.ceil((result.remainingSeconds ?? 60) / 60);
-      setErrorModal({
-        visible: true,
-        title: 'Too Many Attempts',
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} is temporarily blocked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} or use your password.`
-      });
-      setBiometricBlocked(true);
-    } else if (result.attemptsLeft !== undefined && result.attemptsLeft > 0) {
-      setErrorModal({
-        visible: true,
-        title: 'Authentication Failed',
-        message: `${isFaceId ? 'Face ID' : 'Touch ID'} failed. ${result.attemptsLeft} attempt${result.attemptsLeft > 1 ? 's' : ''} remaining.`
-      });
-    }
-  }, [isFaceId]);
 
   const handleLogin = useCallback(async () => {
     if (__DEV__) console.log('[Login] handleLogin called', { email: email.replace(/^(.).*@/, '$1***@'), loading });
@@ -366,12 +223,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      // Parallelize post-login operations
-      const [, profileResult] = await Promise.all([
-        biometrics.resetAttempts(),
-        getCurrentProfile(false).catch(() => ({ data: null })),
-      ]);
-      setBiometricBlocked(false);
+      const profileResult = await getCurrentProfile(false).catch(() => ({ data: null }));
 
       // Check if user has a profile - if not, navigate to onboarding
       // (onAuthStateChange handles Main navigation for users WITH profiles)
@@ -418,10 +270,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setErrorModal(prev => ({ ...prev, visible: false }));
   }, []);
 
-  const closeSuccessModal = useCallback(() => {
-    setSuccessModal(prev => ({ ...prev, visible: false }));
-  }, []);
-
   const isFormValid = email.length > 0 && password.length > 0;
 
   // Handle Apple Sign-In
@@ -456,66 +304,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     // Response will be handled by the useEffect
   }, [googleRequest, googlePromptAsync]);
 
-  const renderBiometricSection = () => {
-    if (!biometricSupported) return null;
-    if (biometricEnabled) {
-      return (
-        <>
-          <TouchableOpacity 
-            style={[styles.biometricBtn, biometricBlocked && styles.biometricBtnDisabled]} 
-            onPress={handleBiometricLogin} 
-            activeOpacity={0.8} 
-            disabled={biometricBlocked}
-          >
-            <View style={[styles.biometricIconBox, biometricBlocked && styles.biometricIconBoxDisabled]}>
-              <Ionicons
-                name={isFaceId ? 'scan-outline' : 'finger-print-outline'}
-                size={28}
-                color={biometricBlocked ? colors.grayMuted : colors.primary}
-              />
-            </View>
-            <Text style={[styles.biometricText, biometricBlocked && styles.biometricTextDisabled]}>
-              {biometricBlocked 
-                ? `${isFaceId ? 'Face ID' : 'Touch ID'} temporarily blocked` 
-                : `Login with ${isFaceId ? 'Face ID' : 'Touch ID'}`
-              }
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or use password</Text>
-            <View style={styles.dividerLine} />
-          </View>
-        </>
-      );
-    }
-    return (
-      <>
-        <TouchableOpacity
-          style={styles.biometricBtn}
-          onPress={handleEnableBiometric}
-          activeOpacity={0.8}
-        >
-          <View style={styles.biometricIconBox}>
-            <Ionicons
-              name={isFaceId ? 'scan-outline' : 'finger-print-outline'}
-              size={28}
-              color={colors.primary}
-            />
-          </View>
-          <Text style={styles.biometricText}>
-            Enable {isFaceId ? 'Face ID' : 'Touch ID'}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Or use password</Text>
-          <View style={styles.dividerLine} />
-        </View>
-      </>
-    );
-  };
-
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container} testID="login-screen">
@@ -527,9 +315,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               <Text style={styles.title}>Login to Smuppy</Text>
               <Text style={styles.subtitle}>Together for personalized well-being!</Text>
             </View>
-
-            {/* Biometric Section */}
-            {renderBiometricSection()}
 
             {/* Email Input */}
             <View style={styles.fieldGroup}>
@@ -692,24 +477,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.error }]} onPress={closeErrorModal}>
                 <Text style={styles.modalBtnText}>OK</Text>
               </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Success Modal */}
-        <Modal visible={successModal.visible} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={[styles.modalIconBox, { backgroundColor: authColors.validBg }]}>
-                <Ionicons name="checkmark-circle" size={40} color={colors.primary} />
-              </View>
-              <Text style={styles.modalTitle}>{successModal.title}</Text>
-              <Text style={styles.modalMessage}>{successModal.message}</Text>
-              <LinearGradient colors={GRADIENTS.primary} start={GRADIENTS.primaryStart} end={GRADIENTS.primaryEnd} style={styles.modalBtnGradient}>
-                <TouchableOpacity style={styles.modalBtnInner} onPress={closeSuccessModal}>
-                  <Text style={styles.modalBtnText}>Got it!</Text>
-                </TouchableOpacity>
-              </LinearGradient>
             </View>
           </View>
         </Modal>

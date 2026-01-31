@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
-import { biometrics } from '../../utils/biometrics';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,8 +26,6 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { VerifiedBadge } from '../../components/Badge';
 
 const COVER_HEIGHT = 160;
-
-type BiometricType = 'face' | 'fingerprint' | null;
 
 interface SettingsScreenProps {
   navigation: {
@@ -55,8 +52,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [biometricType, setBiometricType] = useState<BiometricType>(null);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -126,7 +121,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   }, [user, getFullName, profileData]);
 
   useEffect(() => {
-    checkBiometrics().catch((err) => { if (__DEV__) console.error('Biometric check failed:', err); });
     loadUserData();
   }, [loadUserData]);
 
@@ -146,15 +140,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
-  const checkBiometrics = async () => {
-    const available = await biometrics.isAvailable();
-    setBiometricAvailable(available);
-    if (available) {
-      const type = await biometrics.getType();
-      setBiometricType(type);
-    }
-  };
-
   // Separate checks for creator-only vs all pro features
   const isProCreator = user?.accountType === 'pro_creator';
   const isPro = isProCreator || user?.accountType === 'pro_business';
@@ -164,7 +149,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
     ...(isProCreator ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
-    ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
   ];
 
   const PREFERENCES_ITEMS = [
@@ -197,7 +181,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       ]);
       // Reset all Zustand stores (user, feed, auth, app)
       resetAllStores();
-      await biometrics.disable();
+
       setShowLogoutModal(false);
       // signOut triggers onAuthStateChange in AppNavigator which auto-navigates to Auth
       // No need for manual navigation.reset - it causes "action not handled" warning
@@ -237,7 +221,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       ]);
       // Reset all Zustand stores
       resetAllStores();
-      await biometrics.disable();
+
       setShowDeleteModal(false);
       // signOut triggers onAuthStateChange in AppNavigator which auto-navigates to Auth
       // No need for manual navigation.reset - it causes "action not handled" warning

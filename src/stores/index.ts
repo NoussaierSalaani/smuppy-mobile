@@ -132,10 +132,7 @@ interface Session {
 
 interface AuthState {
   session: Session | null;
-  biometricEnabled: boolean;
-  biometricType: 'face' | 'fingerprint' | null;
   setSession: (session: Session | null) => void;
-  setBiometric: (enabled: boolean, type?: 'face' | 'fingerprint' | null) => void;
   clearAuth: () => void;
 }
 
@@ -352,20 +349,10 @@ export const useAuthStore = create<AuthState>()(
     // Session info (not persisted - managed by AWS Cognito)
     session: null as Session | null,
 
-    // Biometric state
-    biometricEnabled: false,
-    biometricType: null as 'face' | 'fingerprint' | null,
-
     // Actions
     setSession: (session: Session | null) =>
       set((state) => {
         state.session = session;
-      }),
-
-    setBiometric: (enabled: boolean, type: 'face' | 'fingerprint' | null = null) =>
-      set((state) => {
-        state.biometricEnabled = enabled;
-        state.biometricType = type;
       }),
 
     clearAuth: () =>

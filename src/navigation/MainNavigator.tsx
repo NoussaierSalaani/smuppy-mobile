@@ -53,7 +53,6 @@ import PasswordManagerScreen from '../screens/settings/PasswordManagerScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
 import TermsPoliciesScreen from '../screens/settings/TermsPoliciesScreen';
-import FacialRecognitionScreen from '../screens/settings/FacialRecognitionScreen';
 import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/settings/MutedUsersScreen';
 import UpgradeToProScreen from '../screens/settings/UpgradeToProScreen';
@@ -283,7 +282,6 @@ export default function MainNavigator() {
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="FacialRecognition" component={FacialRecognitionScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="MutedUsers" component={MutedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

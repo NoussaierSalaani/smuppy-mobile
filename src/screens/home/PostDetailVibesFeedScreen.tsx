@@ -135,6 +135,8 @@ const PostDetailVibesFeedScreen = () => {
     checkPostStatus();
   }, [currentPost?.id]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Guard: if no post data was passed, bail out
   if (!currentPost) return null;
 
@@ -575,8 +577,6 @@ const PostDetailVibesFeedScreen = () => {
   // Split grid posts into columns for masonry layout
   const leftColumn = gridPosts.filter((_, i) => i % 2 === 0);
   const rightColumn = gridPosts.filter((_, i) => i % 2 === 1);
-
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   return (
     <View style={styles.container}>

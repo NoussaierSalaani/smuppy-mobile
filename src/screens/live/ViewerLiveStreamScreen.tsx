@@ -181,15 +181,14 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   };
 
   const renderComment = ({ item }: { item: Comment }) => {
-    const itemStyles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
     return (
-      <View style={itemStyles.commentItem}>
+      <View style={styles.commentItem}>
         <AvatarImage source={item.avatar} size={28} />
-        <View style={itemStyles.commentContent}>
-          <Text style={[itemStyles.commentUser, item.isCreator && itemStyles.creatorNameHighlight]}>
+        <View style={styles.commentContent}>
+          <Text style={[styles.commentUser, item.isCreator && styles.creatorNameHighlight]}>
             {item.user} {item.isCreator && '(Creator)'}
           </Text>
-          <Text style={itemStyles.commentText}>{item.text}</Text>
+          <Text style={styles.commentText}>{item.text}</Text>
         </View>
       </View>
     );

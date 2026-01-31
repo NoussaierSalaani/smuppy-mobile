@@ -239,6 +239,11 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly spotsReviewsCreateFn: NodejsFunction;
   public readonly spotsReviewsDeleteFn: NodejsFunction;
 
+  // Live Streams
+  public readonly liveStreamsStartFn: NodejsFunction;
+  public readonly liveStreamsEndFn: NodejsFunction;
+  public readonly liveStreamsActiveFn: NodejsFunction;
+
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
 
@@ -472,6 +477,13 @@ export class LambdaStack extends cdk.NestedStack {
     this.profilesGetBlockedFn = createLambda('ProfilesGetBlockedFunction', 'profiles/get-blocked');
     this.profilesGetMutedFn = createLambda('ProfilesGetMutedFunction', 'profiles/get-muted');
     this.profilesCreationLimitsFn = createLambda('ProfilesCreationLimitsFunction', 'profiles/creation-limits');
+
+    // ========================================
+    // Live Streams Lambda Functions
+    // ========================================
+    this.liveStreamsStartFn = createLambda('LiveStreamsStartFunction', 'live-streams/start');
+    this.liveStreamsEndFn = createLambda('LiveStreamsEndFunction', 'live-streams/end');
+    this.liveStreamsActiveFn = createLambda('LiveStreamsActiveFunction', 'live-streams/active');
 
     // ========================================
     // Settings Lambda Functions

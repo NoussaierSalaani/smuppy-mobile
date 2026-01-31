@@ -318,6 +318,19 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsDeleteFn), authMethodOptions);
 
     // ========================================
+    // Live Streams Endpoints
+    // ========================================
+    const liveStreams = this.api.root.addResource('live-streams');
+    const liveStreamsActive = liveStreams.addResource('active');
+    liveStreamsActive.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.liveStreamsActiveFn), authMethodOptions);
+
+    const liveStreamsStart = liveStreams.addResource('start');
+    liveStreamsStart.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.liveStreamsStartFn), authMethodOptions);
+
+    const liveStreamsEnd = liveStreams.addResource('end');
+    liveStreamsEnd.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.liveStreamsEndFn), authMethodOptions);
+
+    // ========================================
     // WAF for Secondary API
     // ========================================
     const webAcl = new wafv2.CfnWebACL(this, 'SmuppyWAF2', {

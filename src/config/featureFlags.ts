@@ -29,8 +29,8 @@ const PROD_FEATURES = {
   SPOTS: true,
 
   // ─── Live Streaming ──────────────────────────────
-  GO_LIVE: false,           // Needs backend: token gen, stream registry, notifications
-  VIEWER_LIVE_STREAM: false,
+  GO_LIVE: true,
+  VIEWER_LIVE_STREAM: true,
 
   // ─── Challenges & Battles ────────────────────────
   CHALLENGES: true,         // Merged into Peaks — challenge toggle on peak creation

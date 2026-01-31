@@ -28,6 +28,7 @@ import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { awsAPI } from '../../services/aws-api';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -154,10 +155,18 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   };
 
   const endStream = async () => {
+    // End stream on backend (records stats)
+    const result = await awsAPI.endLiveStream().catch(() => null);
     await leaveStream();
     await leaveChannel();
     await destroy();
-    navigation.replace('LiveEnded', { duration, viewerCount, channelName });
+    navigation.replace('LiveEnded', {
+      duration: result?.data?.durationSeconds || duration,
+      viewerCount: result?.data?.maxViewers || viewerCount,
+      totalComments: result?.data?.totalComments || 0,
+      totalReactions: result?.data?.totalReactions || 0,
+      channelName,
+    });
   };
 
   const sendComment = () => {

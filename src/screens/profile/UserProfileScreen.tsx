@@ -30,6 +30,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import SubscribeChannelModal from '../../components/SubscribeChannelModal';
 import { TipButton } from '../../components/tips';
+import { awsAPI } from '../../services/aws-api';
 import { FEATURES } from '../../config/featureFlags';
 import GradeFrame from '../../components/GradeFrame';
 import EventGroupCard from '../../components/EventGroupCard';
@@ -137,20 +138,27 @@ const UserProfileScreen = () => {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
 
-  // Live status for pro_creator (mock data - can be connected to real data later)
+  // Live status for pro_creator
   const [creatorLiveStatus, setCreatorLiveStatus] = useState<{
     isLive: boolean;
     liveTitle?: string;
-    nextLiveDate?: Date;
-    nextLiveTitle?: string;
-    hasReminder?: boolean;
+    channelName?: string;
   }>({
-    isLive: false, // Set to true to show "LIVE NOW" section
-    liveTitle: 'Morning Workout Session',
-    nextLiveDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-    nextLiveTitle: 'Full Body Training',
-    hasReminder: false,
+    isLive: false,
   });
+
+  // Check if this creator is currently live
+  useEffect(() => {
+    if (profile.accountType !== 'pro_creator') return;
+    awsAPI.getActiveLiveStreams().then(res => {
+      if (res.success && res.data) {
+        const live = res.data.find(s => s.host.id === profile.id);
+        if (live) {
+          setCreatorLiveStatus({ isLive: true, liveTitle: live.title, channelName: live.channelName });
+        }
+      }
+    }).catch(() => {});
+  }, [profile.id, profile.accountType]);
 
   // Sync local fan count with profile data from server
   // Always update when profile.fanCount changes to get the latest value
@@ -948,61 +956,6 @@ const UserProfileScreen = () => {
             </View>
           )}
 
-          {/* Next Live Session Section - hidden once reminder is set */}
-          {!creatorLiveStatus.isLive && creatorLiveStatus.nextLiveDate && !creatorLiveStatus.hasReminder && (
-            <View style={styles.nextLiveSection}>
-              <View style={styles.nextLiveHeader}>
-                <View style={styles.nextLiveIconContainer}>
-                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.nextLiveInfo}>
-                  <Text style={styles.nextLiveLabel}>Next Live Session</Text>
-                  <Text style={styles.nextLiveDate}>
-                    {creatorLiveStatus.nextLiveDate.toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                  {creatorLiveStatus.nextLiveTitle && (
-                    <Text style={styles.nextLiveTitle}>{creatorLiveStatus.nextLiveTitle}</Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.reminderButton,
-                    creatorLiveStatus.hasReminder && styles.reminderButtonActive
-                  ]}
-                  onPress={() => {
-                    setCreatorLiveStatus(prev => ({
-                      ...prev,
-                      hasReminder: !prev.hasReminder,
-                    }));
-                    showSuccess(
-                      creatorLiveStatus.hasReminder ? 'Reminder Removed' : 'Reminder Set',
-                      creatorLiveStatus.hasReminder
-                        ? "You won't be notified about this live."
-                        : "We'll notify you when this live starts."
-                    );
-                  }}
-                >
-                  <Ionicons
-                    name={creatorLiveStatus.hasReminder ? 'notifications' : 'notifications-outline'}
-                    size={18}
-                    color={creatorLiveStatus.hasReminder ? '#FFFFFF' : colors.primary}
-                  />
-                  <Text style={[
-                    styles.reminderButtonText,
-                    creatorLiveStatus.hasReminder && styles.reminderButtonTextActive
-                  ]}>
-                    {creatorLiveStatus.hasReminder ? 'Reminded' : 'Set Reminder'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
         </>
       )}
     </View>

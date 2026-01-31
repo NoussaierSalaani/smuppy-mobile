@@ -43,6 +43,7 @@ const PIN_COLORS: Record<string, string> = {
   events: '#FF6B6B',
   groups: '#4ECDC4',
   spots: '#5D4037',
+  live: '#FF0000',
 };
 
 // ============================================
@@ -80,11 +81,10 @@ const PERSONAL_ACTIONS: FabAction[] = [
   { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
 ];
 
-// Personal verified: + Suggest Spot, Add Review
+// Personal verified: + Suggest Spot
 const PERSONAL_VERIFIED_ACTIONS: FabAction[] = [
   ...PERSONAL_ACTIONS,
   { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
-  { label: 'Add Review', icon: 'star-outline', action: 'add_review' },
 ];
 
 // Pro Creator: same as personal verified
@@ -163,6 +163,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [searchQuery, setSearchQuery] = useState('');
   const [subFilterSheet, setSubFilterSheet] = useState<string | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
   // Business location fields (individual selectors for stable references)
   const businessAddress = useUserStore((s) => s.user?.businessAddress);
@@ -196,8 +197,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     };
   }, [accountType, isPremium, businessLatitude, businessLongitude, userId, businessCategory, businessName, userAvatar, userBio, userFans, userPosts, businessAddress]);
 
-  // Event/Group markers loaded from API
+  // Event/Group/Live markers loaded from API
   const [eventGroupMarkers, setEventGroupMarkers] = useState<MockMarker[]>([]);
+  const [liveMarkers, setLiveMarkers] = useState<MockMarker[]>([]);
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [joiningEvent, setJoiningEvent] = useState(false);
 
@@ -291,6 +293,36 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     };
     fetchEventsGroups();
   }, [hasLocation, userCoords, filterDistance]);
+
+  // Fetch active live streams (poll every 30s)
+  useEffect(() => {
+    if (!isActive) return;
+    const fetchLiveStreams = async () => {
+      try {
+        const res = await awsAPI.getActiveLiveStreams();
+        if (res.success && res.data) {
+          // Live markers use the host's location (approximate — centered on user for now)
+          const markers: MockMarker[] = res.data.map((stream) => ({
+            id: `live_${stream.host.id}`,
+            type: 'live',
+            subcategory: 'Live',
+            category: 'live',
+            name: `${stream.host.displayName || stream.host.username} — LIVE`,
+            avatar: stream.host.avatarUrl || '',
+            bio: stream.title,
+            fans: stream.viewerCount,
+            coordinate: { latitude: userCoords[1], longitude: userCoords[0] },
+          }));
+          setLiveMarkers(markers);
+        }
+      } catch {
+        // silent
+      }
+    };
+    fetchLiveStreams();
+    const interval = setInterval(fetchLiveStreams, 30000);
+    return () => clearInterval(interval);
+  }, [isActive, userCoords]);
 
   // FAB visibility & actions based on account type
   const fabActions = useMemo((): FabAction[] => {
@@ -402,6 +434,18 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, []);
 
   const handleMarkerPress = useCallback((marker: MockMarker) => {
+    // Live markers: go directly to viewer stream
+    if (marker.category === 'live') {
+      const hostId = marker.id.replace('live_', '');
+      navigation.navigate('ViewerLiveStream', {
+        channelName: `live_${hostId}`,
+        hostId,
+        hostName: marker.name.replace(' — LIVE', ''),
+        hostAvatar: marker.avatar,
+      });
+      return;
+    }
+
     setSelectedMarker(marker);
     // For event/group markers, also load full detail
     if (marker.category === 'event') {
@@ -465,11 +509,6 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       case 'suggest_spot':
         navigation.navigate('SuggestSpot');
         break;
-      case 'add_review':
-        // Review is done via AddReviewSheet on a selected marker popup
-        // For FAB, open spot suggestion which includes initial review
-        navigation.navigate('SuggestSpot');
-        break;
       case 'upload_planning':
         navigation.navigate('UploadPlanning');
         break;
@@ -492,20 +531,34 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, [navigation, accountType, isPremium, isVerified, businessLatitude, businessLongitude, businessAddress, showAlert]);
 
   const allMarkers = useMemo(() => {
-    return [...eventGroupMarkers];
-  }, [eventGroupMarkers]);
+    return [...liveMarkers, ...eventGroupMarkers];
+  }, [liveMarkers, eventGroupMarkers]);
 
   const filteredMarkers = useMemo(() => {
-    if (activeFilters.length === 0) return allMarkers; // Show all when no filter
-    return allMarkers.filter(m => {
-      if (!activeFilters.includes(m.type)) return false;
-      const subs = activeSubFilters[m.type];
-      if (subs && subs.length > 0) {
-        return subs.includes(m.subcategory);
-      }
-      return true;
-    });
-  }, [activeFilters, activeSubFilters, allMarkers]);
+    let markers = allMarkers;
+
+    if (activeFilters.length > 0) {
+      markers = markers.filter(m => {
+        if (!activeFilters.includes(m.type)) return false;
+        const subs = activeSubFilters[m.type];
+        if (subs && subs.length > 0) {
+          return subs.includes(m.subcategory);
+        }
+        return true;
+      });
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      markers = markers.filter(m =>
+        m.name.toLowerCase().includes(q) ||
+        m.subcategory.toLowerCase().includes(q) ||
+        (m.address && m.address.toLowerCase().includes(q))
+      );
+    }
+
+    return markers;
+  }, [activeFilters, activeSubFilters, allMarkers, searchQuery]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -515,6 +568,21 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   const renderCustomMarker = useCallback((marker: MockMarker) => {
     const pinColor = PIN_COLORS[marker.type] || colors.primary;
+
+    // Live markers: pulsing red dot with avatar
+    if (marker.type === 'live') {
+      return (
+        <View style={styles.liveMarkerContainer}>
+          <View style={styles.liveMarkerPulse} />
+          <View style={styles.liveMarkerInner}>
+            <AvatarImage source={marker.avatar} size={wp(8)} />
+          </View>
+          <View style={styles.liveBadge}>
+            <Text style={styles.liveBadgeText}>LIVE</Text>
+          </View>
+        </View>
+      );
+    }
 
     // Event/group markers: teardrop with icon
     if (marker.type === 'events' || marker.type === 'groups') {
@@ -852,12 +920,21 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* MAP */}
+      {mapError ? (
+        <View style={[styles.map, { backgroundColor: isDark ? '#1a1a2e' : '#e8f4f8', justifyContent: 'center', alignItems: 'center' }]}>
+          <Ionicons name="map-outline" size={normalize(48)} color={colors.gray} />
+          <Text style={{ color: colors.gray, fontSize: normalize(14), marginTop: 12, textAlign: 'center' }}>
+            Map unavailable{'\n'}Please rebuild the app with native modules
+          </Text>
+        </View>
+      ) : null}
       <MapView
-        style={styles.map}
-        styleURL="mapbox://styles/mapbox/streets-v12"
+        style={[styles.map, mapError && { display: 'none' }]}
+        styleURL={isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12'}
         logoEnabled={false}
         attributionEnabled={false}
         scaleBarEnabled={false}
+        onDidFailLoadingMap={() => setMapError(true)}
       >
         <Camera
           ref={cameraRef}
@@ -1346,6 +1423,40 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     marginTop: -2,
+  },
+  liveMarkerContainer: {
+    alignItems: 'center',
+  },
+  liveMarkerPulse: {
+    position: 'absolute',
+    width: normalize(48),
+    height: normalize(48),
+    borderRadius: normalize(24),
+    backgroundColor: 'rgba(255, 0, 0, 0.25)',
+  },
+  liveMarkerInner: {
+    width: normalize(40),
+    height: normalize(40),
+    borderRadius: normalize(20),
+    borderWidth: 3,
+    borderColor: '#FF0000',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  liveBadge: {
+    backgroundColor: '#FF0000',
+    borderRadius: normalize(6),
+    paddingHorizontal: normalize(4),
+    paddingVertical: normalize(1),
+    marginTop: normalize(2),
+  },
+  liveBadgeText: {
+    color: '#FFFFFF',
+    fontSize: normalize(8),
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
   // Event/Group detail popup

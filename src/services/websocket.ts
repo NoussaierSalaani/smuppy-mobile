@@ -5,6 +5,7 @@
 
 import { AWS_CONFIG } from '../config/aws-config';
 import { awsAuth } from './aws-auth';
+import { awsAPI } from './aws-api';
 
 type MessageHandler = (message: WebSocketMessage) => void;
 type ConnectionHandler = (connected: boolean) => void;
@@ -59,21 +60,21 @@ class WebSocketService {
     this.isConnecting = true;
 
     try {
-      // Get authentication token
-      const token = await awsAuth.getIdToken();
-      if (!token) {
+      // Get authentication token (needed for the ephemeral token request)
+      const idToken = await awsAuth.getIdToken();
+      if (!idToken) {
         throw new Error('No authentication token available');
       }
 
-      // Pass token via Sec-WebSocket-Protocol header instead of query string
-      // to avoid token exposure in server logs and browser history
-      // TODO: Use a short-lived ephemeral token via /auth/ws-token endpoint
-      // instead of the main access token (reduces exposure window)
+      // Get a short-lived ephemeral token for the WebSocket connection
+      // instead of exposing the full Cognito JWT (reduces exposure window)
+      const { token: wsToken } = await awsAPI.getWsToken();
+
       const wsUrl = AWS_CONFIG.api.websocketEndpoint;
 
       if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connecting to:', wsUrl);
 
-      this.socket = new WebSocket(wsUrl, ['access-token', token]);
+      this.socket = new WebSocket(wsUrl, ['access-token', wsToken]);
 
       this.socket.onopen = () => {
         if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connected successfully');

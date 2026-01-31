@@ -221,15 +221,29 @@ export default function NotificationsScreen(): React.JSX.Element {
     setRefreshing(false);
   };
 
-  const toggleFollow = (id: number | string): void => {
-    setNotifications(
-      notifications.map((notif) => {
-        if (notif.id === id && 'isFollowing' in notif) {
-          return { ...notif, isFollowing: !notif.isFollowing };
-        }
-        return notif;
-      })
+  const toggleFollow = async (id: number | string): Promise<void> => {
+    const notif = notifications.find(n => n.id === id);
+    if (!notif || !('isFollowing' in notif)) return;
+    const userNotif = notif as UserNotification;
+
+    // Optimistic update
+    setNotifications(prev =>
+      prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: !n.isFollowing } : n)
     );
+
+    try {
+      if (userNotif.isFollowing) {
+        await awsAPI.unfollowUser(userNotif.user.id);
+      } else {
+        await awsAPI.followUser(userNotif.user.id);
+      }
+    } catch (err) {
+      // Rollback
+      setNotifications(prev =>
+        prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: userNotif.isFollowing } : n)
+      );
+      if (__DEV__) console.error('Follow toggle error:', err);
+    }
   };
 
   const markAsRead = async (id: number | string): Promise<void> => {
@@ -398,6 +412,19 @@ export default function NotificationsScreen(): React.JSX.Element {
           <Ionicons name="chevron-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              await awsAPI.markAllNotificationsRead();
+              setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            } catch (err) {
+              if (__DEV__) console.error('Mark all read error:', err);
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="checkmark-done-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => navigation.navigate('NotificationSettings')}

@@ -135,7 +135,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                     tabs={tabs.map(t => ({ key: t.id, label: t.label }))}
                     activeTab={activeTab}
                     onTabChange={(key) => handleTabPress(key as TabId)}
-                    size="medium"
+                    size="small"
                     fullWidth={false}
                     style={styles.liquidTabsCompact}
                   />

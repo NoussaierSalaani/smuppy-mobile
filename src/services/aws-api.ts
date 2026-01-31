@@ -16,7 +16,7 @@ const API2_PREFIXES = [
   '/challenges', '/battles', '/events', '/settings', '/admin',
   '/businesses', '/spots', '/interests', '/expertise', '/hashtags',
   '/devices', '/contacts', '/support', '/account', '/categories',
-  '/groups', '/reviews', '/map', '/search/map',
+  '/groups', '/reviews', '/map', '/search/map', '/live-streams',
 ] as const;
 
 interface RequestOptions {
@@ -3000,6 +3000,17 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // WebSocket Auth
+  // ==========================================
+
+  /**
+   * Get a short-lived ephemeral token for WebSocket connections
+   */
+  async getWsToken(): Promise<{ token: string; expiresIn: number }> {
+    return this.request('/auth/ws-token', { method: 'POST' });
+  }
+
+  // ==========================================
   // Utility Methods
   // ==========================================
 
@@ -3183,6 +3194,22 @@ class AWSAPIService {
 
   async deleteLivePin(): Promise<{ success: boolean }> {
     return this.request('/map/live-pin', { method: 'DELETE' });
+  }
+
+  // ============================================
+  // LIVE STREAMS
+  // ============================================
+
+  async startLiveStream(title?: string): Promise<{ success: boolean; data?: { id: string; channelName: string; title: string; startedAt: string } }> {
+    return this.request('/live-streams/start', { method: 'POST', body: title ? { title } : {} });
+  }
+
+  async endLiveStream(): Promise<{ success: boolean; data?: { id: string; durationSeconds: number; maxViewers: number; totalComments: number; totalReactions: number } }> {
+    return this.request('/live-streams/end', { method: 'POST' });
+  }
+
+  async getActiveLiveStreams(): Promise<{ success: boolean; data?: Array<{ id: string; channelName: string; title: string; startedAt: string; viewerCount: number; host: { id: string; username: string; displayName: string; avatarUrl: string } }> }> {
+    return this.request('/live-streams/active');
   }
 
   async getNearbyLivePins(params: {

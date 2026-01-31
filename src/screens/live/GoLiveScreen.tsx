@@ -22,6 +22,7 @@ import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { awsAPI } from '../../services/aws-api';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -89,6 +90,8 @@ export default function GoLiveScreen(): React.JSX.Element {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (isCountdown && countdownValue === 0) {
+      // Register the live stream on backend (notifies fans)
+      awsAPI.startLiveStream(title || 'Live Session').catch(() => {});
       navigation.replace('LiveStreaming', {
         title: title || 'Live Session',
         audience: 'public',

@@ -87,6 +87,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       routeWaypoints,
     } = body;
 
+    // Sanitize user-provided text fields
+    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    const sanitizedTitle = sanitize(title || '');
+    const sanitizedDescription = description ? sanitize(description) : description;
+    const sanitizedLocationName = sanitize(locationName || '');
+    const sanitizedAddress = address ? sanitize(address) : address;
+
     // Validation
     if (!title || !categorySlug || !locationName || !latitude || !longitude || !startsAt) {
       return cors({
@@ -180,14 +187,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
       )
-      RETURNING *`,
+      RETURNING id, title, description, category_id, location_name, address, latitude, longitude, starts_at, ends_at, timezone, max_participants, min_participants, is_free, price, currency, is_public, is_fans_only, cover_image_url, images, has_route, route_distance_km, route_elevation_gain_m, route_difficulty, route_polyline, route_waypoints, status, created_at`,
       [
         userId,
-        title,
-        description,
+        sanitizedTitle,
+        sanitizedDescription,
         category.id,
-        locationName,
-        address,
+        sanitizedLocationName,
+        sanitizedAddress,
         latitude,
         longitude,
         startDate,

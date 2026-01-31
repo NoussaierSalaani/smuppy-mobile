@@ -160,7 +160,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `INSERT INTO challenge_responses (
         challenge_id, peak_id, user_id, score, time_seconds
       ) VALUES ($1, $2, $3, $4, $5)
-      RETURNING *`,
+      RETURNING id, challenge_id, peak_id, user_id, score, time_seconds, status, created_at`,
       [challengeId, peakId, userId, score || null, timeSeconds || null]
     );
 

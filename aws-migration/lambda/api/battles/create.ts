@@ -123,7 +123,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         host_id, title, description, battle_type, max_participants,
         duration_minutes, scheduled_at, agora_channel_name, status
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'invited')
-      RETURNING *`,
+      RETURNING id, title, description, battle_type, max_participants, duration_minutes, scheduled_at, agora_channel_name, status, created_at`,
       [
         userId,
         title || `${host.display_name}'s Battle`,

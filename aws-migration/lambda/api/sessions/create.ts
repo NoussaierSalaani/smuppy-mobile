@@ -163,7 +163,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         `INSERT INTO private_sessions (
           creator_id, fan_id, scheduled_at, duration, price, notes, status, pack_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING *`,
+        RETURNING id, creator_id, fan_id, scheduled_at, duration, price, status, created_at`,
         [
           creatorId,
           userId,

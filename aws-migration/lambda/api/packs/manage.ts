@@ -89,7 +89,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           creator_id, name, description, sessions_included, session_duration,
           validity_days, price, savings_percent, is_active
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-        RETURNING *`,
+        RETURNING id, name, description, sessions_included, session_duration, validity_days, price, savings_percent, is_active`,
         [userId, name, description || null, sessionsIncluded, sessionDuration, validityDays, price, savingsPercent || 0]
       );
 
@@ -180,7 +180,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       values.push(packId);
       const result = await pool.query(
         `UPDATE session_packs SET ${updates.join(', ')}, updated_at = NOW()
-         WHERE id = $${paramIndex} RETURNING *`,
+         WHERE id = $${paramIndex} RETURNING id, name, description, sessions_included, session_duration, validity_days, price, savings_percent, is_active`,
         values
       );
 

@@ -445,7 +445,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const userId = subscription.metadata?.userId;
           if (userId) {
             await client.query(
-              "UPDATE profiles SET account_type = 'xplorer', updated_at = NOW() WHERE id = $1",
+              "UPDATE profiles SET account_type = 'personal', updated_at = NOW() WHERE id = $1",
               [userId]
             );
           }

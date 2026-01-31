@@ -63,6 +63,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Sanitize content
+    const sanitizedContent = content.trim().replace(/<[^>]*>/g, '');
+
     const db = await getPool();
 
     // Get user's profile
@@ -96,21 +99,37 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Insert the message
-    const messageResult = await db.query(
-      `INSERT INTO messages (conversation_id, sender_id, content, read, created_at)
-       VALUES ($1, $2, $3, false, NOW())
-       RETURNING id, content, sender_id, read, created_at`,
-      [conversationId, profile.id, content.trim()]
-    );
+    const conversation = conversationResult.rows[0];
+    const recipientId = conversation.participant_1_id === profile.id
+      ? conversation.participant_2_id
+      : conversation.participant_1_id;
 
-    // Update conversation's last_message_at
-    await db.query(
-      'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',
-      [conversationId]
-    );
+    // Insert message and update conversation in a transaction
+    const client = await db.connect();
+    let message;
+    try {
+      await client.query('BEGIN');
 
-    const message = messageResult.rows[0];
+      const messageResult = await client.query(
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, read, created_at)
+         VALUES ($1, $2, $3, $4, false, NOW())
+         RETURNING id, content, sender_id, recipient_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent]
+      );
+
+      await client.query(
+        'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',
+        [conversationId]
+      );
+
+      await client.query('COMMIT');
+      message = messageResult.rows[0];
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
 
     return {
       statusCode: 201,

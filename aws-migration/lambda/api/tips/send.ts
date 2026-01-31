@@ -53,6 +53,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const client = await db.connect();
 
   try {
+    await client.query('BEGIN');
     const stripe = await getStripe();
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
@@ -265,6 +266,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [paymentIntent.id, tipId]
     );
 
+    await client.query('COMMIT');
+
     return cors({
       statusCode: 200,
       body: JSON.stringify({
@@ -284,6 +287,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     });
   } catch (error: unknown) {
+    await client.query('ROLLBACK');
     log.error('Send tip error', error);
     return cors({
       statusCode: 500,

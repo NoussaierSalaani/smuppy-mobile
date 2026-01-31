@@ -166,12 +166,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const comment = commentResult.rows[0];
 
-      // Update comments count on post
-      await client.query(
-        'UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1',
-        [postId]
-      );
-
       // Create notification for post author (if not self-comment)
       if (post.author_id !== profile.id) {
         await client.query(

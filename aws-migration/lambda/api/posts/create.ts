@@ -105,12 +105,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       post = result.rows[0];
 
-      // Update user's post count within the same transaction
-      await client.query(
-        `UPDATE profiles SET post_count = COALESCE(post_count, 0) + 1 WHERE id = $1`,
-        [userId]
-      );
-
       // Save tagged users
       const taggedUsers = body.taggedUsers || [];
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

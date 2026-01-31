@@ -312,7 +312,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       result = await db.query(
         `INSERT INTO profiles (${insertFields.join(', ')})
          VALUES (${insertParams.join(', ')})
-         RETURNING *`,
+         RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
         insertValues
       );
     } else {
@@ -324,7 +324,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `UPDATE profiles
          SET ${updateFields.join(', ')}
          WHERE id = $${paramIndex}
-         RETURNING *`,
+         RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
         values
       );
     }

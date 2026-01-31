@@ -133,7 +133,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         duration_seconds, ends_at, is_public, allow_anyone, max_participants,
         has_prize, prize_description, prize_amount, tips_enabled
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *`,
+      RETURNING id, peak_id, creator_id, challenge_type_id, title, description, rules, duration_seconds, ends_at, is_public, allow_anyone, max_participants, has_prize, prize_description, prize_amount, tips_enabled, status, created_at`,
       [
         peakId,
         userId,

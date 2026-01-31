@@ -62,7 +62,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       userId,
     } = event.queryStringParameters || {};
 
-    const parsedLimit = Math.min(parseInt(limit), 100);
+    const parsedLimit = Math.min(parseInt(limit), 50);
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const cacheKey = `posts:list:${type}:${userId || 'all'}:${cursor || 'first'}:${parsedLimit}`;
 

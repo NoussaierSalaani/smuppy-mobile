@@ -132,13 +132,18 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
         fullName,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string; status?: number };
     // Handle user cancellation
-    if (error.code === 'ERR_REQUEST_CANCELED') {
+    if (err.code === 'ERR_REQUEST_CANCELED') {
       return { success: false, error: 'cancelled' };
     }
+    // Handle rate limiting (429)
+    if (err.message?.includes('429') || err.status === 429) {
+      return { success: false, error: 'Too many attempts. Please wait a few minutes and try again.' };
+    }
     if (__DEV__) console.error('[AppleAuth] Error:', error);
-    return { success: false, error: error.message || 'Apple Sign-In failed' };
+    return { success: false, error: 'Apple Sign-In failed. Please try again.' };
   }
 };
 

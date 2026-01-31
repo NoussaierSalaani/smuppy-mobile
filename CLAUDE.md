@@ -14,6 +14,40 @@
 - AWS stacks: always use `--retain-resources` or `DeletionPolicy: Retain` on stateful resources (DB, S3, Cognito)
 - This rule applies to ALL Claude sessions — current and future. No exceptions.
 
+### AWS Infrastructure Protection
+- **NEVER** modify IAM policies to add `*` wildcard permissions — always use least-privilege
+- **NEVER** make S3 buckets public or change bucket policies to allow public access
+- **NEVER** open security groups to `0.0.0.0/0` on database ports (5432, 3306, 6379)
+- **NEVER** disable encryption on any resource (RDS, S3, DynamoDB, Secrets Manager)
+- **NEVER** remove VPC, subnets, or NAT gateways from existing stacks
+- **NEVER** change `DeletionPolicy` from `Retain`/`Snapshot` to `Delete` on stateful resources
+- **NEVER** rotate or delete Secrets Manager secrets without explicit user confirmation
+- **NEVER** modify Cognito user pool settings that could lock out existing users (password policy, MFA changes)
+- All CDK stacks MUST have `DeletionPolicy: Retain` on: RDS clusters, S3 buckets, Cognito user pools, DynamoDB tables
+- All CDK stacks MUST have `removalPolicy: cdk.RemovalPolicy.RETAIN` on stateful resources
+
+### Data Protection
+- **NEVER** run UPDATE or DELETE SQL without a WHERE clause
+- **NEVER** run migrations that drop columns containing user data — always rename to `_deprecated_<name>` first
+- **NEVER** truncate or clear tables in staging or production — only in local dev
+- **NEVER** export, print, or log full database dumps or user data
+- Before any migration that alters data: backup the table first with `CREATE TABLE <name>_backup_<date> AS SELECT * FROM <name>`
+- All migrations MUST be idempotent (IF NOT EXISTS, IF EXISTS, ON CONFLICT DO NOTHING)
+- All migrations MUST be reversible — include a rollback comment block at the bottom
+
+### Git & Code Protection
+- **NEVER** force push (`git push --force` or `git push -f`) to `main` or `master`
+- **NEVER** rebase `main` branch
+- **NEVER** commit secrets, API keys, tokens, or .env files — verify with `git diff --staged` before every commit
+- **NEVER** delete branches that haven't been merged without asking first
+- Always create a new branch for risky changes — never experiment directly on `main`
+
+### Confirmation Protocol
+- Any command that modifies AWS infrastructure (cdk deploy, aws cli write operations): **state what will change BEFORE running**
+- Any command that modifies the database schema: **show the SQL and ask for confirmation**
+- Any command that affects more than 5 files: **list the files and ask for confirmation**
+- If unsure whether an action is destructive: **ask the user first, don't guess**
+
 ## Architecture
 
 - React Native (Expo) mobile app with AWS Lambda backend

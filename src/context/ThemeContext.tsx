@@ -3,7 +3,7 @@ import { useColorScheme } from 'react-native';
 import { useThemeStore, type ThemePreference, type ThemeMode } from '../stores/themeStore';
 import { COLORS, GRADIENTS, FORM, SHADOWS, getThemeColors, getThemeGradients, getThemeForm, getThemeShadows } from '../config/theme';
 
-type ThemeColors = typeof COLORS;
+export type ThemeColors = typeof COLORS;
 
 interface ThemeContextValue {
   colors: ThemeColors;

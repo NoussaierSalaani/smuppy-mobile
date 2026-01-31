@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
@@ -50,8 +50,6 @@ interface FanFeedPost {
 // Loading state record type
 type LoadingRecord = Record<string, boolean>;
 
-const MOCK_FANFEED_POSTS: FanFeedPost[] = [];
-
 const PostDetailFanFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -67,7 +65,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Params
   const params = (route.params as { postId?: string; fanFeedPosts?: FanFeedPost[] }) || {};
-  const { postId, fanFeedPosts = MOCK_FANFEED_POSTS } = params;
+  const { postId, fanFeedPosts = [] } = params;
   // Find the correct post index - findIndex returns -1 if not found
   const foundIndex = fanFeedPosts.findIndex(p => p.id === postId);
   const initialIndex = foundIndex >= 0 ? foundIndex : 0;
@@ -834,7 +832,7 @@ const PostDetailFanFeedScreen = () => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

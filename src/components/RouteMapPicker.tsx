@@ -28,7 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import {
   searchNominatim,
   reverseGeocodeNominatim,
@@ -802,7 +802,7 @@ export default function RouteMapPicker({
 // STYLES
 // ============================================
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },

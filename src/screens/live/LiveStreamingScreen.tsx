@@ -27,7 +27,7 @@ import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -360,7 +360,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',

@@ -28,7 +28,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import type { IconName } from '../../types';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
   navigation: any;
@@ -667,7 +667,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

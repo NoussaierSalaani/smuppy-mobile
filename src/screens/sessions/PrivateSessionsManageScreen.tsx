@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -1118,7 +1118,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },

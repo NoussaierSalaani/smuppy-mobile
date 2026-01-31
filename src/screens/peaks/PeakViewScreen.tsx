@@ -25,7 +25,7 @@ import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { reportPost } from '../../services/database';
@@ -920,7 +920,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.dark,

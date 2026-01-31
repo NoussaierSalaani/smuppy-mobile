@@ -22,7 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -376,7 +376,7 @@ const TipModal: React.FC<TipModalProps> = ({
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -544,7 +544,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   anonymousText: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   totalContainer: {
     flexDirection: 'row',

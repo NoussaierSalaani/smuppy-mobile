@@ -9,7 +9,7 @@ import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 type AccountType = 'personal' | 'pro' | null;
 type ProType = 'creator' | 'business' | null;
@@ -289,7 +289,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   inner: { flex: 1, paddingHorizontal: SPACING.xl },
 

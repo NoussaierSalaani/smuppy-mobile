@@ -803,7 +803,7 @@ export const unsavePost = async (postId: string): Promise<{ error: string | null
   if (!user) return { error: 'Not authenticated' };
 
   try {
-    await awsAPI.request(`/posts/${postId}/unsave`, { method: 'POST' });
+    await awsAPI.request(`/posts/${postId}/save`, { method: 'DELETE' });
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
@@ -1566,8 +1566,8 @@ export const getPendingFollowRequests = async (): Promise<DbResponse<FollowReque
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: FollowRequest[] }>('/follows/requests/pending');
-    return { data: result.data, error: null };
+    const result = await awsAPI.request<{ requests: FollowRequest[] }>('/follow-requests');
+    return { data: result.requests || [], error: null };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -1578,7 +1578,7 @@ export const getPendingFollowRequests = async (): Promise<DbResponse<FollowReque
  */
 export const acceptFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/follows/requests/${requestId}/accept`, { method: 'POST' });
+    await awsAPI.request(`/follow-requests/${requestId}/accept`, { method: 'POST' });
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
@@ -1590,7 +1590,7 @@ export const acceptFollowRequest = async (requestId: string): Promise<{ error: s
  */
 export const declineFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/follows/requests/${requestId}/decline`, { method: 'POST' });
+    await awsAPI.request(`/follow-requests/${requestId}/decline`, { method: 'POST' });
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
@@ -1602,7 +1602,7 @@ export const declineFollowRequest = async (requestId: string): Promise<{ error: 
  */
 export const getPendingFollowRequestsCount = async (): Promise<number> => {
   try {
-    const result = await awsAPI.request<{ count: number }>('/follows/requests/count');
+    const result = await awsAPI.request<{ count: number }>('/follow-requests/count');
     return result.count;
   } catch {
     return 0;
@@ -1614,7 +1614,7 @@ export const getPendingFollowRequestsCount = async (): Promise<number> => {
  */
 export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ pending: boolean; hasPending: boolean }> => {
   try {
-    const result = await awsAPI.request<{ hasPending: boolean }>(`/follows/requests/pending/${targetUserId}`);
+    const result = await awsAPI.request<{ hasPending: boolean }>(`/follow-requests/pending/${targetUserId}`);
     return { pending: result.hasPending, hasPending: result.hasPending };
   } catch {
     return { pending: false, hasPending: false };
@@ -1626,7 +1626,7 @@ export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ p
  */
 export const cancelFollowRequest = async (targetUserId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/follows/requests/${targetUserId}/cancel`, { method: 'POST' });
+    await awsAPI.request(`/follow-requests/${targetUserId}/cancel`, { method: 'POST' });
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
@@ -1811,7 +1811,7 @@ export const saveSpot = async (spotId: string): Promise<{ error: string | null }
  */
 export const unsaveSpot = async (spotId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/spots/${spotId}/unsave`, { method: 'POST' });
+    await awsAPI.request(`/spots/${spotId}/save`, { method: 'DELETE' });
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };

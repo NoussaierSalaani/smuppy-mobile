@@ -25,7 +25,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -291,7 +291,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
 
 export default GroupDetailScreen;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: normalize(16), color: colors.gray, marginBottom: 12 },

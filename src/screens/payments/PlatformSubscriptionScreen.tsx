@@ -23,7 +23,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -334,7 +334,7 @@ export default function PlatformSubscriptionScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

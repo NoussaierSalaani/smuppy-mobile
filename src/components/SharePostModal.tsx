@@ -16,7 +16,7 @@ import { AvatarImage } from './OptimizedImage';
 import OptimizedImage from './OptimizedImage';
 import { AccountBadge } from './Badge';
 import { SPACING } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import {
   getConversations,
   searchProfiles,
@@ -279,7 +279,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -10,7 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import OptimizedImage, { AvatarImage } from './OptimizedImage';
 import { AccountBadge } from './Badge';
 import { SPACING } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { getPostById, Post } from '../services/database';
 
 interface SharedPostBubbleProps {
@@ -133,7 +133,7 @@ export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleP
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     width: 220,
     borderRadius: 16,

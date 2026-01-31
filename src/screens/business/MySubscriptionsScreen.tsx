@@ -22,7 +22,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Subscription {
   id: string;
@@ -354,7 +354,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

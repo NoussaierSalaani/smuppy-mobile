@@ -31,7 +31,7 @@ import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -702,7 +702,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1002,7 +1002,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   highlightText: {
     fontSize: 11,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   cardFooter: {
     flexDirection: 'row',

@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { GRADIENTS } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -136,7 +136,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',
@@ -203,7 +203,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   disclosureText: {
     flex: 1,
     fontSize: 13,
-    color: colors.lightGray,
+    color: colors.grayLight,
     lineHeight: 18,
   },
   infoSection: {
@@ -218,7 +218,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   appleNotice: {
     fontSize: 11,

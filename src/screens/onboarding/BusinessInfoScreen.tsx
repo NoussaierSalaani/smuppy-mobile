@@ -12,7 +12,7 @@ import { searchNominatim, NominatimSearchResult } from '../../config/api';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface BusinessInfoScreenProps {
   navigation: {
@@ -229,7 +229,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
@@ -241,15 +241,15 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   label: { ...TYPOGRAPHY.label, color: colors.dark, marginBottom: 4, fontSize: 12 },
   required: { color: colors.error },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: colors.surface },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: colors.backgroundSecondary },
   inputInnerValid: { backgroundColor: colors.backgroundValid },
   input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14, color: colors.dark },
   locationBtn: { padding: 2 },
-  suggestions: { backgroundColor: colors.surface, borderRadius: 12, marginTop: -SPACING.sm, marginBottom: SPACING.md, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  suggestions: { backgroundColor: colors.backgroundSecondary, borderRadius: 12, marginTop: -SPACING.sm, marginBottom: SPACING.md, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: SPACING.base, borderBottomWidth: 1, borderBottomColor: colors.grayLight },
   suggestionLast: { borderBottomWidth: 0 },
   suggestionText: { flex: 1, fontSize: 14, color: colors.dark, marginLeft: SPACING.sm },
-  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? colors.surface : '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
+  infoNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? colors.backgroundSecondary : '#F8F9FA', borderRadius: 10, padding: SPACING.base, marginTop: SPACING.md, gap: SPACING.sm },
   infoText: { flex: 1, fontSize: 13, color: colors.grayMuted, lineHeight: 18 },
   fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.lg, paddingTop: SPACING.sm, backgroundColor: colors.background },
 });

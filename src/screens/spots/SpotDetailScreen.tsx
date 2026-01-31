@@ -25,7 +25,7 @@ import { useUserStore } from '../../stores';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
 import AddReviewSheet from '../../components/AddReviewSheet';
 import type { ReviewData } from '../../components/AddReviewSheet';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -294,7 +294,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
 
 export default SpotDetailScreen;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: normalize(16), color: colors.gray, marginBottom: 12 },

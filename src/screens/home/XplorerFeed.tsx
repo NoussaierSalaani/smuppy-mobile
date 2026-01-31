@@ -111,9 +111,6 @@ const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
 ];
 
 // ============================================
-// MOCK MARKERS
-// ============================================
-const MOCK_MARKERS: { id: string; type: string; subcategory: string; category: string; name: string; avatar: string; bio?: string; fans: number; posts?: number; coordinate: { latitude: number; longitude: number }; coverImage?: string; address?: string; hours?: string; expertise?: string[] }[] = [];
 
 interface MockMarker {
   id: string;
@@ -487,7 +484,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, [navigation, accountType, isPremium, isVerified, businessLatitude, businessLongitude, businessAddress, showAlert]);
 
   const allMarkers = useMemo(() => {
-    return [...MOCK_MARKERS, ...eventGroupMarkers];
+    return [...eventGroupMarkers];
   }, [eventGroupMarkers]);
 
   const filteredMarkers = useMemo(() => {

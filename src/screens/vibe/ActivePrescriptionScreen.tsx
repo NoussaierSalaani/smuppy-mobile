@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { getPrescriptionById, PrescriptionCategory } from '../../services/prescriptionEngine';
 import { SPACING } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore, useVibeStore } from '../../stores';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -329,7 +329,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

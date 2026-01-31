@@ -15,7 +15,7 @@ import { useUserSafetyStore } from '../../stores';
 import { BlockedUser } from '../../services/database';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { resolveDisplayName } from '../../types/profile';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface BlockedUsersScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -149,7 +149,7 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

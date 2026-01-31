@@ -22,7 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import QualityPicker from './QualityPicker';
 
@@ -196,7 +196,7 @@ export default function AddReviewSheet({
 // STYLES
 // ============================================
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

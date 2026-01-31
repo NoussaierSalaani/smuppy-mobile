@@ -26,7 +26,7 @@ import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, NominatimSearchResult } from '../../config/api';
 import * as Location from 'expo-location';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -545,7 +545,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

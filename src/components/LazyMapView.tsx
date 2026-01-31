@@ -58,7 +58,7 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
 
   if (isLoading || !MapViewComponent) {
     return (
-      <View style={[styles.loadingContainer, props.style]}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.darkGray }, props.style]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -118,6 +118,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    // backgroundColor set inline via theme colors.darkGray
   },
 });

@@ -10,7 +10,7 @@ import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -308,7 +308,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },

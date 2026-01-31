@@ -12,7 +12,7 @@ import { useUserStore } from '../../stores';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface GuidelinesScreenProps {
   navigation: {
@@ -305,7 +305,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },

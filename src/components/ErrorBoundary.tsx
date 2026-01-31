@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -153,7 +153,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',

@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { AvatarImage } from './OptimizedImage';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import {
   getFollowing,
   getFollowers,
@@ -320,7 +320,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -400,7 +400,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5F5F5',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     marginHorizontal: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,

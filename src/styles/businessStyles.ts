@@ -3,6 +3,7 @@
  * Reduces duplication across business-related components
  */
 
+import { type ThemeColors } from '../hooks/useTheme';
 import { StyleSheet, Dimensions } from 'react-native';
 import { COLORS as LIGHT_COLORS, DARK_COLORS } from '../config/theme';
 
@@ -14,7 +15,7 @@ const fallbackColors = LIGHT_COLORS;
 /**
  * Factory function to create business styles with theme support
  */
-export const createBusinessStyles = (colors: any, isDark: boolean) => {
+export const createBusinessStyles = (colors: ThemeColors, isDark: boolean) => {
   const baseBackground = isDark ? '#0f0f1a' : '#FFFFFF';
   const cardBackground = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
   const textPrimary = isDark ? '#fff' : colors.dark;

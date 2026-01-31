@@ -17,7 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Calendar from 'expo-calendar';
 import { GRADIENTS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 export default function SessionBookedScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
@@ -181,7 +181,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

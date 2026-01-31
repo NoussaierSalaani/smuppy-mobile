@@ -30,7 +30,7 @@ import RouteMapPicker from '../../components/RouteMapPicker';
 import QualityPicker from '../../components/QualityPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -409,7 +409,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
 export default SuggestSpotScreen;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },

@@ -26,7 +26,7 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -39,7 +39,7 @@ interface StatusInfo {
   subtitle: string;
 }
 
-const getStatusInfo = (colors: any): Record<VerificationStatus, StatusInfo> => ({
+const getStatusInfo = (colors: ThemeColors): Record<VerificationStatus, StatusInfo> => ({
   not_started: {
     icon: 'shield-outline',
     color: colors.gray,
@@ -432,7 +432,7 @@ export default function IdentityVerificationScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

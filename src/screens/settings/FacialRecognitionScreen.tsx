@@ -6,7 +6,7 @@ import { SPACING, SIZES } from '../../config/theme';
 import { biometrics } from '../../utils/biometrics';
 import { awsAuth } from '../../services/aws-auth';
 import Button from '../../components/Button';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 type BiometricType = 'face' | 'fingerprint' | null;
 type PasswordAction = 'enable' | 'disable' | 'update';
@@ -319,7 +319,7 @@ export default function FacialRecognitionScreen({ navigation }: FacialRecognitio
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   backButton: { width: 40, height: 40, justifyContent: 'center' },

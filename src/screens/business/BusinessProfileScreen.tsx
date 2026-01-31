@@ -29,7 +29,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -707,7 +707,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -974,7 +974,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   bioSection: {},
   bioText: {
     fontSize: 15,
-    color: colors.lightGray,
+    color: colors.grayLight,
     lineHeight: 22,
   },
   featuresSection: {},
@@ -994,7 +994,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   featureText: {
     fontSize: 13,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   locationSection: {},
   mapContainer: {
@@ -1046,7 +1046,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   hourDay: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   hourTime: {
     fontSize: 14,
@@ -1262,7 +1262,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   reviewComment: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
     lineHeight: 20,
   },
 

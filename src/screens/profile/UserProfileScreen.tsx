@@ -17,7 +17,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
 import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
@@ -454,7 +454,7 @@ const UserProfileScreen = () => {
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
           <View style={[styles.postThumb, styles.postThumbEmpty]}>
-            <Ionicons name="image-outline" size={28} color="#6E6E73" />
+            <Ionicons name="image-outline" size={28} color={colors.gray} />
           </View>
         )}
         {/* Video indicator */}
@@ -476,7 +476,7 @@ const UserProfileScreen = () => {
         </View>
       </TouchableOpacity>
     );
-  }, [navigation, profile]);
+  }, [navigation, profile, colors, styles]);
 
   // States: missing userId or loading/error
   if (!userId) {
@@ -520,7 +520,7 @@ const UserProfileScreen = () => {
   const renderPrivateAccount = () => (
     <View style={styles.privateContainer}>
       <View style={styles.privateLockContainer}>
-        <Ionicons name="lock-closed" size={48} color="#8E8E93" />
+        <Ionicons name="lock-closed" size={48} color={colors.gray} />
       </View>
       <Text style={styles.privateTitle}>This Account is Private</Text>
       <Text style={styles.privateDesc}>
@@ -546,7 +546,7 @@ const UserProfileScreen = () => {
       <Ionicons
         name={type === 'posts' ? 'images-outline' : type === 'peaks' ? 'videocam-outline' : 'bookmark-outline'}
         size={48}
-        color="#8E8E93"
+        color={colors.gray}
         style={{ marginBottom: 16 }}
       />
       <Text style={styles.emptyTitle}>
@@ -607,7 +607,7 @@ const UserProfileScreen = () => {
                 <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
               ) : (
                 <View style={[styles.peakThumb, styles.postThumbEmpty]}>
-                  <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
+                  <Ionicons name="videocam-outline" size={24} color={colors.gray} />
                 </View>
               )}
               <View style={styles.peakDuration}>
@@ -649,7 +649,7 @@ const UserProfileScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-          <Ionicons name="calendar-outline" size={48} color="#8E8E93" style={{ marginBottom: 16 }} />
+          <Ionicons name="calendar-outline" size={48} color={colors.gray} style={{ marginBottom: 16 }} />
           <Text style={styles.emptyTitle}>
             {groupEventMode === 'event' ? 'No events yet' : 'No groups yet'}
           </Text>
@@ -728,7 +728,7 @@ const UserProfileScreen = () => {
                 <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarEmpty}>
-                  <Ionicons name="person" size={36} color="#6E6E73" />
+                  <Ionicons name="person" size={36} color={colors.gray} />
                 </View>
               )}
             </GradeFrame>
@@ -737,7 +737,7 @@ const UserProfileScreen = () => {
               <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
             ) : (
               <View style={styles.avatarEmpty}>
-                <Ionicons name="person" size={36} color="#6E6E73" />
+                <Ionicons name="person" size={36} color={colors.gray} />
               </View>
             )
           )}
@@ -771,7 +771,7 @@ const UserProfileScreen = () => {
           />
           {profile.isPrivate && (
             <View style={styles.privateBadge}>
-              <Ionicons name="lock-closed" size={12} color="#8E8E93" />
+              <Ionicons name="lock-closed" size={12} color={colors.gray} />
             </View>
           )}
           {(profile.isBot || profile.isTeam) && (
@@ -1214,7 +1214,7 @@ const UserProfileScreen = () => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1282,7 +1282,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.white,
   },
   avatarEmpty: {
     width: AVATAR_SIZE,
@@ -1384,7 +1384,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   username: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     paddingHorizontal: 20,
     marginTop: 2,
     zIndex: 2,
@@ -1666,7 +1666,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   pillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.gray,
   },
   pillTextActive: {
     fontSize: 14,
@@ -1745,7 +1745,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   postStatText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.gray,
   },
 
   // ===== PEAKS GRID =====
@@ -1981,7 +1981,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   menuItemDanger: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.border,
     marginTop: 8,
     paddingTop: 24,
   },
@@ -2003,7 +2003,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 });
 
-const createGeStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createGeStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   header: {
     width: '100%',
     marginBottom: 16,

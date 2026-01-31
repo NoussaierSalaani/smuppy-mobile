@@ -20,7 +20,7 @@ const GRID_SIZE = (width - 4) / 3;
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { AccountBadge } from '../../components/Badge';
 import OptimizedImage from '../../components/OptimizedImage';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -962,7 +962,7 @@ const SearchScreen = (): React.JSX.Element => {
 // STYLES
 // ============================================
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

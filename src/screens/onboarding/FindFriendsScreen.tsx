@@ -8,7 +8,7 @@ import Button from '../../components/Button';
 import { awsAPI } from '../../services/aws-api';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface FindFriendsScreenProps {
   navigation: {
@@ -191,7 +191,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm },
   closeBtn: { padding: SPACING.xs },

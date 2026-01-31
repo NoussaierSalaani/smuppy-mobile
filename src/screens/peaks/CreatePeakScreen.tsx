@@ -24,7 +24,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   FilterProvider,
@@ -619,7 +619,7 @@ const CreatePeakScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.dark,

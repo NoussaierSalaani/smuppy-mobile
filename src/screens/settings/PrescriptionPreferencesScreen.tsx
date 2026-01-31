@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { PrescriptionCategory } from '../../services/prescriptionEngine';
 import { SPACING } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -165,7 +165,7 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

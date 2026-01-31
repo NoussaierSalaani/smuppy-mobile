@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
@@ -373,7 +373,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -565,7 +565,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   breakdownValue: {
     fontSize: 14,

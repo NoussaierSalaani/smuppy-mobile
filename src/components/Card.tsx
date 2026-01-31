@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
 import { GRADIENTS, SIZES, SHADOWS } from '../config/theme';
 import OptimizedImage, { AvatarImage } from './OptimizedImage';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -211,7 +211,7 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
 
 export default Card;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   // Post Card Styles
   postCard: {
     width: SIZES.postCardWidth,

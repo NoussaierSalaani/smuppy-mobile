@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores';
 
 const { width } = Dimensions.get('window');
@@ -45,8 +45,6 @@ type RootStackParamList = {
   [key: string]: object | undefined;
 };
 
-const MOCK_PEAKS: Peak[] = [];
-
 const PeaksFeedScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -54,7 +52,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const user = useUserStore((state) => state.user);
   const isBusiness = user?.accountType === 'pro_business';
   const [refreshing, setRefreshing] = useState(false);
-  const [peaks] = useState<Peak[]>(MOCK_PEAKS);
+  const [peaks] = useState<Peak[]>([]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -168,7 +166,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.dark,

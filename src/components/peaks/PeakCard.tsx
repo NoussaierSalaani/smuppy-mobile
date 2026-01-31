@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import OptimizedImage from '../OptimizedImage';
 
 const { width } = Dimensions.get('window');
@@ -106,7 +106,7 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
 
 PeakCard.displayName = 'PeakCard';
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,

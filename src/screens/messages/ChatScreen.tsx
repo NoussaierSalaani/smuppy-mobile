@@ -26,7 +26,7 @@ import VoiceMessage from '../../components/VoiceMessage';
 import SharedPostBubble from '../../components/SharedPostBubble';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
@@ -564,7 +564,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.dark, marginTop: SPACING.md, textAlign: 'center' },

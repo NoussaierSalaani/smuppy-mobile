@@ -178,8 +178,8 @@ class AWSAPIService {
   }
 
   async unlikePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}/unlike`, {
-      method: 'POST',
+    return this.request(`/posts/${id}/like`, {
+      method: 'DELETE',
     });
   }
 
@@ -203,13 +203,11 @@ class AWSAPIService {
   }
 
   /**
-   * Upgrade account from Personal to Pro Creator
-   * This is a ONE-WAY process that cannot be reversed
+   * @deprecated Account type upgrades can ONLY happen via Stripe webhook — never via direct API call.
+   * This method is retained for reference but must not be used.
    */
   async upgradeToProCreator(): Promise<{ success: boolean; message?: string }> {
-    return this.request('/profiles/upgrade-to-pro', {
-      method: 'POST',
-    });
+    throw new Error('Account upgrades are handled via Stripe webhook only');
   }
 
   /**
@@ -307,8 +305,8 @@ class AWSAPIService {
   }
 
   async unlikePeak(id: string): Promise<void> {
-    return this.request(`/peaks/${id}/unlike`, {
-      method: 'POST',
+    return this.request(`/peaks/${id}/like`, {
+      method: 'DELETE',
     });
   }
 

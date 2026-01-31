@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
@@ -40,9 +40,9 @@ const VIEW_STATES = {
   GRID_ONLY: 'grid_only',
 };
 
-const MOCK_VIBESFEED_POSTS: { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; user: { id: string; name: string; avatar: string; followsMe: boolean } }[] = [];
+interface VibesFeedPost { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; user: { id: string; name: string; avatar: string; followsMe: boolean } }
 
-const MOCK_GRID_POSTS: { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }[] = [];
+interface GridPost { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }
 
 const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
@@ -60,7 +60,7 @@ const PostDetailVibesFeedScreen = () => {
   // Params
   const params = route.params as {
     postId?: string;
-    post?: typeof MOCK_VIBESFEED_POSTS[0];
+    post?: VibesFeedPost;
     startCondensed?: boolean;
   } || {};
   const { postId: _postId, post: initialPost, startCondensed } = params;
@@ -78,7 +78,7 @@ const PostDetailVibesFeedScreen = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
-  const [gridPosts, setGridPosts] = useState(MOCK_GRID_POSTS);
+  const [gridPosts, setGridPosts] = useState<GridPost[]>([]);
 
   // Loading states for anti spam-click
   const [likeLoading, setLikeLoading] = useState(false);
@@ -183,7 +183,7 @@ const PostDetailVibesFeedScreen = () => {
     } else if (viewState === VIEW_STATES.CONDENSED) {
       setViewState(VIEW_STATES.GRID_ONLY);
       // Shuffle grid posts for variety
-      setGridPosts([...MOCK_GRID_POSTS].sort(() => Math.random() - 0.5));
+      setGridPosts([...gridPosts].sort(() => Math.random() - 0.5));
     }
   };
 
@@ -457,7 +457,7 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // Navigate to post detail with animation
-  const _handleGridPostPress = (post: typeof MOCK_GRID_POSTS[number]) => {
+  const _handleGridPostPress = (post: GridPost) => {
     const scale = getCardScale(post.id);
 
     // Press animation
@@ -1042,7 +1042,7 @@ const PostDetailVibesFeedScreen = () => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

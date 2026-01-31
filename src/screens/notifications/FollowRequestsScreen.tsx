@@ -19,7 +19,7 @@ import {
   declineFollowRequest,
   FollowRequest,
 } from '../../services/database';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface FollowRequestsScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -199,7 +199,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

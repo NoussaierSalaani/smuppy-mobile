@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface ChannelTier {
   id: string;
@@ -187,7 +187,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -236,7 +236,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: colors.lightGray,
+    color: colors.grayLight,
     textAlign: 'center',
     marginBottom: 28,
   },
@@ -276,7 +276,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   perkText: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
     flex: 1,
   },
   morePerks: {

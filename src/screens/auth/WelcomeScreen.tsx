@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GRADIENTS } from '../../config/theme';
 import { SmuppyIcon, SmuppyText } from '../../components/SmuppyLogo';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { height } = Dimensions.get('window');
 
@@ -81,7 +81,7 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.dark },
   imageContainer: { ...StyleSheet.absoluteFillObject },
   backgroundImage: { flex: 1, width: '100%', height: '100%' },

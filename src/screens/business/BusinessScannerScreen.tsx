@@ -23,7 +23,7 @@ import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width, height: _height } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.7;
@@ -383,7 +383,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -639,7 +639,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   validityText: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   errorMessage: {
     fontSize: 14,

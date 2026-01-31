@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BreathingCircle from './BreathingCircle';
 import { SPACING } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface VibeGuardianOverlayProps {
   visible: boolean;
@@ -71,7 +71,7 @@ const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDi
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },

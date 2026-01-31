@@ -27,7 +27,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Activity {
   id: string;
@@ -768,7 +768,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -999,7 +999,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   slotActivity: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   slotInstructor: {
     fontSize: 12,
@@ -1146,7 +1146,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   categorySelectorText: {
     fontSize: 12,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   activitySelector: {
     flexDirection: 'row',

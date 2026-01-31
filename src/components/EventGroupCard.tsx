@@ -2,7 +2,7 @@ import React, { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from './OptimizedImage';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface EventGroupCardProps {
   type: 'event' | 'group';
@@ -100,7 +100,7 @@ const EventGroupCard = memo(({
 
 EventGroupCard.displayName = 'EventGroupCard';
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: colors.backgroundSecondary,

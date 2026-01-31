@@ -17,7 +17,7 @@ import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation
 import { GRADIENTS, SIZES, SPACING } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 // ============================================
 // TYPES
@@ -492,7 +492,7 @@ export default function NotificationsScreen(): React.JSX.Element {
 // STYLES
 // ============================================
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

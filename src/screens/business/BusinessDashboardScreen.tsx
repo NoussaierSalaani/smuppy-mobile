@@ -22,7 +22,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import type { IconName } from '../../types';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -390,7 +390,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -528,7 +528,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   actionLabel: {
     fontSize: 12,
-    color: colors.whiteGray,
+    color: colors.grayLight,
     textAlign: 'center',
   },
 

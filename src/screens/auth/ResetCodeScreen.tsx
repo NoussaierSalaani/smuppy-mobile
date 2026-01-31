@@ -7,7 +7,7 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const CODE_LENGTH = 6; // AWS Cognito OTP is 6 digits
 
@@ -239,7 +239,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 },

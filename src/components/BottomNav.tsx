@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTabBar } from '../context/TabBarContext';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useUserStore } from '../stores';
 import { SmuppyIcon } from './SmuppyLogo';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -619,7 +619,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
 export default BottomNav;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     position: 'absolute',
     left: 20,

@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { SPACING } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import ErrorModal from '../../components/ErrorModal';
 import { getCurrentProfile } from '../../services/database';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
@@ -513,7 +513,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean, ac: ReturnType<typeof createAuthColors>) =>
+const createStyles = (colors: ThemeColors, isDark: boolean, ac: ReturnType<typeof createAuthColors>) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     keyboardView: { flex: 1 },

@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
   route: {
@@ -187,7 +187,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -295,7 +295,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   benefitText: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   infoCard: {
     flexDirection: 'row',

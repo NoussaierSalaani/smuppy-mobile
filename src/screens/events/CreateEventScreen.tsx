@@ -45,7 +45,7 @@ import { LiquidTabs } from '../../components/LiquidTabs';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -96,7 +96,7 @@ const ROUTE_CATEGORIES = ['running', 'hiking', 'cycling'];
 const TOTAL_STEPS = 4;
 
 // ─── Segmented progress bar (4 discrete segments with gaps) ──────
-const ProgressSegments: React.FC<{ current: number; total: number; colors: any }> = ({ current, total, colors }) => {
+const ProgressSegments: React.FC<{ current: number; total: number; colors: ThemeColors }> = ({ current, total, colors }) => {
   const segmentWidth = (SCREEN_WIDTH - 32 - SEGMENT_GAP * (total - 1)) / total;
   return (
     <View style={{ flexDirection: 'row', gap: SEGMENT_GAP, paddingHorizontal: 16, marginBottom: 8 }}>
@@ -1083,7 +1083,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
 const CAPSULE_RADIUS = 28;
 const INPUT_HEIGHT = 52;
 
-const createStyles = (colors: any, isDark: boolean) => {
+const createStyles = (colors: ThemeColors, isDark: boolean) => {
   const TEAL_BORDER = colors.primary;
   const INACTIVE_BORDER = '#B5E8DC';
 

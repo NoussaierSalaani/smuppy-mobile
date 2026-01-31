@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 
@@ -221,7 +221,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

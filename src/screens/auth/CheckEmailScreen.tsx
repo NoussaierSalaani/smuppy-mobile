@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { useCooldown } from '../../hooks/useCooldown';
 import * as backend from '../../services/backend';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface CheckEmailScreenProps {
   navigation: {
@@ -191,7 +191,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.white,

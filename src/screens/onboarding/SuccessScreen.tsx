@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { GRADIENTS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
@@ -230,7 +230,7 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   animationLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },

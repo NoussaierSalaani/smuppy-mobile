@@ -1,7 +1,9 @@
 /**
  * ProfileScreen Styles
  * Extracted from ProfileScreen.tsx for better maintainability
+ * Uses theme colors for dark mode support
  */
+import { type ThemeColors } from '../../hooks/useTheme';
 
 import { StyleSheet, Dimensions } from 'react-native';
 
@@ -9,10 +11,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const COVER_HEIGHT = 282;
 export const AVATAR_SIZE = 96;
 
-export const styles = StyleSheet.create({
+export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
 
   // ===== HEADER =====
@@ -38,7 +40,7 @@ export const styles = StyleSheet.create({
   coverPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.gray200,
   },
   coverGradientOverlay: {
     position: 'absolute',
@@ -86,17 +88,17 @@ export const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.background,
   },
   avatarEmpty: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.background,
   },
   avatarGradientBorder: {
     width: AVATAR_SIZE + 6,
@@ -108,7 +110,7 @@ export const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     padding: 2,
     justifyContent: 'center',
     alignItems: 'center',
@@ -122,7 +124,7 @@ export const styles = StyleSheet.create({
     width: AVATAR_SIZE - 8,
     height: AVATAR_SIZE - 8,
     borderRadius: (AVATAR_SIZE - 8) / 2,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -154,12 +156,12 @@ export const styles = StyleSheet.create({
   statGlassValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0A252F',
+    color: colors.dark,
   },
   statGlassLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#555',
+    color: colors.gray500,
   },
 
   // ===== NAME ROW =====
@@ -179,7 +181,7 @@ export const styles = StyleSheet.create({
   displayName: {
     fontFamily: 'WorkSans-SemiBold',
     fontSize: 20,
-    color: '#0A252F',
+    color: colors.dark,
     letterSpacing: -0.2,
   },
   badge: {
@@ -193,7 +195,7 @@ export const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -209,13 +211,13 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
     gap: 5,
   },
   addBioText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   bioSection: {
     paddingHorizontal: 20,
@@ -225,11 +227,11 @@ export const styles = StyleSheet.create({
   bioText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0A252F',
+    color: colors.dark,
     lineHeight: 18,
   },
   bioLink: {
-    color: '#0EBF8A',
+    color: colors.primary,
     textDecorationLine: 'underline',
   },
   seeMoreBtn: {
@@ -238,7 +240,7 @@ export const styles = StyleSheet.create({
   seeMoreText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
     paddingVertical: 1,
   },
   locationRow: {
@@ -253,13 +255,13 @@ export const styles = StyleSheet.create({
   locationText: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray400,
   },
 
   // ===== TABS (LIQUID GLASS STYLE) =====
   tabsContainer: {
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     // Ensure tabs have shadow when sticky
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -279,7 +281,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   moreTabsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 8,
@@ -293,7 +295,7 @@ export const styles = StyleSheet.create({
   moreTabsTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: colors.gray400,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingHorizontal: 16,
@@ -308,16 +310,16 @@ export const styles = StyleSheet.create({
     gap: 14,
   },
   moreTabsItemActive: {
-    backgroundColor: '#F0FDF9',
+    backgroundColor: colors.primaryLight,
   },
   moreTabsItemText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: '#374151',
+    color: colors.gray500,
   },
   moreTabsItemTextActive: {
-    color: '#0EBF8A',
+    color: colors.primary,
     fontWeight: '600',
   },
 
@@ -330,20 +332,20 @@ export const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.gray900,
     marginBottom: 8,
   },
   emptyDesc: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray400,
     textAlign: 'center',
     lineHeight: 21,
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
@@ -353,7 +355,7 @@ export const styles = StyleSheet.create({
   createBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 
   // ===== SCROLL CONTENT =====
@@ -380,7 +382,7 @@ export const styles = StyleSheet.create({
     height: 140,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.gray100,
   },
   postThumb: {
     width: '100%',
@@ -424,12 +426,12 @@ export const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   likes: {
     fontSize: 11,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray400,
     marginLeft: 2,
   },
 
@@ -496,7 +498,7 @@ export const styles = StyleSheet.create({
   },
   collectionCard: {
     width: (SCREEN_WIDTH - 48) / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -548,7 +550,7 @@ export const styles = StyleSheet.create({
   collectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.gray900,
     lineHeight: 18,
     marginBottom: 8,
   },
@@ -561,12 +563,12 @@ export const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   collectionLikes: {
     fontSize: 11,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray400,
     marginLeft: 2,
   },
 
@@ -588,7 +590,7 @@ export const styles = StyleSheet.create({
     padding: 10,
   },
   qrContainer: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -640,7 +642,7 @@ export const styles = StyleSheet.create({
 
   // ===== FAN BUTTON =====
   fanButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -649,7 +651,7 @@ export const styles = StyleSheet.create({
   fanButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 
   // ===== COLLECTION MENU MODAL =====
@@ -659,7 +661,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   collectionMenuContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 16,
@@ -671,7 +673,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.gray100,
   },
   collectionMenuItemLast: {
     borderBottomWidth: 0,
@@ -679,7 +681,7 @@ export const styles = StyleSheet.create({
   collectionMenuText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#0A0A0F',
+    color: colors.gray900,
     marginLeft: 16,
   },
 
@@ -692,7 +694,7 @@ export const styles = StyleSheet.create({
   },
   liveCard: {
     width: (SCREEN_WIDTH - 48) / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -763,7 +765,7 @@ export const styles = StyleSheet.create({
   liveTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.gray900,
     lineHeight: 18,
     marginBottom: 6,
   },
@@ -779,11 +781,11 @@ export const styles = StyleSheet.create({
   },
   liveMetaText: {
     fontSize: 11,
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   liveDate: {
     fontSize: 11,
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   scheduleLiveBtn: {
     marginHorizontal: 16,
@@ -813,7 +815,7 @@ export const styles = StyleSheet.create({
   },
   videoCard: {
     width: (SCREEN_WIDTH - 48) / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -849,7 +851,7 @@ export const styles = StyleSheet.create({
   videoTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.gray900,
     lineHeight: 18,
     marginBottom: 6,
   },
@@ -872,7 +874,7 @@ export const styles = StyleSheet.create({
   },
   videoViews: {
     fontSize: 10,
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   uploadVideoBtn: {
     marginHorizontal: 16,
@@ -900,13 +902,13 @@ export const styles = StyleSheet.create({
   sessionsSection: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.gray900,
     marginBottom: 12,
     marginTop: 8,
   },
   sessionCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 14,
     marginBottom: 12,
     shadowColor: '#000',
@@ -918,7 +920,7 @@ export const styles = StyleSheet.create({
   },
   sessionDateBox: {
     width: 60,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.gray100,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
@@ -926,19 +928,19 @@ export const styles = StyleSheet.create({
   sessionDayName: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.gray400,
     textTransform: 'uppercase',
   },
   sessionDayNum: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.gray900,
     marginVertical: 2,
   },
   sessionMonth: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.gray400,
     textTransform: 'uppercase',
   },
   sessionInfo: {
@@ -956,11 +958,11 @@ export const styles = StyleSheet.create({
   sessionClientName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.gray900,
   },
   sessionTime: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.gray400,
     marginTop: 2,
   },
   sessionStatusBadge: {
@@ -972,7 +974,7 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(14, 191, 138, 0.15)',
   },
   sessionStatusCompleted: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.gray100,
   },
   sessionStatusText: {
     fontSize: 10,
@@ -982,7 +984,7 @@ export const styles = StyleSheet.create({
     color: '#0EBF8A',
   },
   sessionStatusTextCompleted: {
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   sessionFooter: {
     flexDirection: 'row',
@@ -993,10 +995,10 @@ export const styles = StyleSheet.create({
   sessionPrice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.gray900,
   },
   sessionJoinBtn: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 8,
@@ -1040,7 +1042,7 @@ export const styles = StyleSheet.create({
   },
   toggleChipsRow: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.gray100,
     borderRadius: 10,
     padding: 3,
   },
@@ -1050,7 +1052,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
   },
   toggleChipActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1060,10 +1062,10 @@ export const styles = StyleSheet.create({
   toggleChipText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.gray400,
   },
   toggleChipTextActive: {
-    color: '#0A252F',
+    color: colors.dark,
   },
   newButton: {
     flexDirection: 'row',
@@ -1073,7 +1075,7 @@ export const styles = StyleSheet.create({
   newButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   groupEventList: {
     gap: 0,

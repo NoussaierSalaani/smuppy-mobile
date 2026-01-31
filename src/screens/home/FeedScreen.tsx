@@ -4,6 +4,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeHeader from '../../components/HomeHeader';
 import { useTabBar } from '../../context/TabBarContext';
+import { useTheme } from '../../hooks/useTheme';
 import FanFeed from './FanFeed';
 import VibesFeed from './VibesFeed';
 import XplorerFeed from './XplorerFeed';
@@ -26,6 +27,7 @@ export default function FeedScreen() {
   const fanFeedRef = useRef<FeedRef>(null);
   const vibesFeedRef = useRef<FeedRef>(null);
   const { setBottomBarHidden, showBars } = useTabBar();
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState(0);
 
   // Track which tabs have been visited (for lazy loading)
@@ -86,7 +88,7 @@ export default function FeedScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Horizontal scroll for 3 tabs */}
       <ScrollView
         ref={scrollRef}
@@ -108,7 +110,7 @@ export default function FeedScreen() {
           {visitedTabs.has(1) ? (
             <VibesFeed ref={vibesFeedRef} headerHeight={totalHeaderHeight} />
           ) : (
-            <View style={styles.placeholder} />
+            <View style={[styles.placeholder, { backgroundColor: colors.background }]} />
           )}
         </View>
 
@@ -117,7 +119,7 @@ export default function FeedScreen() {
           {visitedTabs.has(2) ? (
             <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
           ) : (
-            <View style={styles.placeholder} />
+            <View style={[styles.placeholder, { backgroundColor: colors.background }]} />
           )}
         </View>
       </ScrollView>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Animated, ViewStyle } from 'react-native';
 import { BORDERS } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type ToggleSize = 'sm' | 'md' | 'lg';
 
@@ -136,7 +136,7 @@ export default function Toggle({
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   track: {
     justifyContent: 'center',
     borderWidth: BORDERS.thin,

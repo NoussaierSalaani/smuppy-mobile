@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { AccountBadge } from '../../components/Badge';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { SPACING } from '../../config/theme';
 import { resolveDisplayName } from '../../types/profile';
 import {
@@ -170,7 +170,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

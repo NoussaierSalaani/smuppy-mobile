@@ -7,7 +7,7 @@ import { SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const ALL_CATEGORIES = [
   { id: 'gym', icon: 'barbell-outline', label: 'Gym', color: '#1E90FF' },
@@ -277,7 +277,7 @@ export default function BusinessCategoryScreen({ navigation, route }: BusinessCa
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.xl },
@@ -298,7 +298,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     borderRadius: SIZES.radiusLg,
     alignItems: 'center',
     marginBottom: SPACING.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
   },
   categoryCardGradient: {
     width: '31%',
@@ -337,7 +337,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   // Custom Input
   customInputBox: { marginBottom: SPACING.md },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2 },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: colors.surface },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, backgroundColor: colors.backgroundSecondary },
   inputInnerValid: { backgroundColor: colors.backgroundValid },
   input: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, color: colors.dark },
 
@@ -353,7 +353,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.grayLight,
     borderRadius: SIZES.radiusLg,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     marginBottom: SPACING.xs,
   },
   locationCardGradient: { borderRadius: SIZES.radiusLg, padding: 2, marginBottom: SPACING.xs },

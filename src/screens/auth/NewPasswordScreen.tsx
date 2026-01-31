@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { GRADIENTS, FORM, SPACING } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import * as backend from '../../services/backend';
@@ -328,7 +328,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => {
+const createStyles = (colors: ThemeColors, isDark: boolean) => {
   const errorBg = isDark ? 'rgba(239,68,68,0.15)' : '#FEE2E2';
   const errorInputBg = isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2';
   const validBg = isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8';

@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { type ThemeColors } from '../../hooks/useTheme';
 import { SPACING } from '../../config/theme';
 
 /**
@@ -15,7 +16,7 @@ export const AUTH_FORM = {
 /**
  * Shared colors used across auth screens — now theme-aware.
  */
-export const createAuthColors = (colors: any, isDark: boolean) => ({
+export const createAuthColors = (colors: ThemeColors, isDark: boolean) => ({
   primary: colors.primary,
   primaryDark: colors.primaryDark,
   dark: colors.dark,
@@ -51,7 +52,7 @@ export const AUTH_COLORS = {
 /**
  * Shared styles for auth screens — now theme-aware via factory.
  */
-export const createAuthStyles = (colors: any, isDark: boolean) => {
+export const createAuthStyles = (colors: ThemeColors, isDark: boolean) => {
   const ac = createAuthColors(colors, isDark);
   return StyleSheet.create({
     // Container
@@ -261,7 +262,7 @@ export const authStyles = createAuthStyles(
     primary: '#00cdb5', primaryDark: '#0066ac', dark: '#0a252f',
     gray: '#676C75', grayMuted: '#9cadbc', grayBorder: '#CED3D5',
     error: '#FF3B30', background: '#FFFFFF', white: '#FFFFFF',
-  },
+  } as ThemeColors,
   false,
 );
 

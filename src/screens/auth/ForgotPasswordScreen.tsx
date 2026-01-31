@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GRADIENTS, FORM } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 
@@ -308,7 +308,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => {
+const createStyles = (colors: ThemeColors, isDark: boolean) => {
   const errorBg = isDark ? 'rgba(239,68,68,0.15)' : '#FEE2E2';
   const errorInputBg = isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2';
   const validBg = isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8';

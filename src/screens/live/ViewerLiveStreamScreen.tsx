@@ -26,7 +26,7 @@ import { GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
 import { RemoteVideoView } from '../../components/AgoraVideoView';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width, height: _height } = Dimensions.get('window');
 
@@ -465,7 +465,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',

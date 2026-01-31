@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ALERT_WIDTH = Math.min(SCREEN_WIDTH - 48, 340);
@@ -47,7 +47,8 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
   type = 'info',
   buttons = [{ text: 'OK' }],
 }) => {
-  const { colors, gradients } = useTheme();
+  const { colors, gradients, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -185,75 +186,76 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    width: ALERT_WIDTH,
-    borderRadius: 20,
-    paddingTop: 28,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontFamily: 'WorkSans-Bold',
-    fontSize: 20,
-    lineHeight: 26,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  message: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#AEAEB2',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  buttonsContainer: {
-    width: '100%',
-    gap: 10,
-    marginTop: 4,
-  },
-  buttonPrimary: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  buttonGradient: {
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonTextPrimary: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-  },
-  buttonSecondary: {
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#6E6E73',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonTextSecondary: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: '#AEAEB2',
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>['colors'], isDark: boolean) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    card: {
+      width: ALERT_WIDTH,
+      borderRadius: 20,
+      paddingTop: 28,
+      paddingBottom: 20,
+      paddingHorizontal: 24,
+      alignItems: 'center',
+    },
+    iconContainer: {
+      width: 70,
+      height: 70,
+      borderRadius: 35,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    title: {
+      fontFamily: 'WorkSans-Bold',
+      fontSize: 20,
+      lineHeight: 26,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    message: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.gray,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    buttonsContainer: {
+      width: '100%',
+      gap: 10,
+      marginTop: 4,
+    },
+    buttonPrimary: {
+      borderRadius: 24,
+      overflow: 'hidden',
+    },
+    buttonGradient: {
+      height: 48,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    buttonTextPrimary: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: 16,
+    },
+    buttonSecondary: {
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 1.5,
+      borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    buttonTextSecondary: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: 16,
+      color: colors.gray,
+    },
+  });
 
 export default SmuppyAlert;

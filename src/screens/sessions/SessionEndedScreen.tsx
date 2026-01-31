@@ -15,7 +15,7 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { GRADIENTS } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 export default function SessionEndedScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
@@ -138,7 +138,7 @@ export default function SessionEndedScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -172,7 +172,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: colors.lightGray,
+    color: colors.grayLight,
     marginBottom: 32,
   },
   creatorCard: {
@@ -202,7 +202,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   sessionType: {
     fontSize: 13,
-    color: colors.lightGray,
+    color: colors.grayLight,
     marginTop: 2,
   },
   statsContainer: {
@@ -227,7 +227,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   rateContainer: {
     alignItems: 'center',

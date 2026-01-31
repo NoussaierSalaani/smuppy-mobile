@@ -14,12 +14,12 @@ import { useNavigation } from '@react-navigation/native';
 import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface FeatureItemProps {
   icon: string;
   text: string;
-  colors: any;
+  colors: ThemeColors;
 }
 
 const FeatureItem = ({ icon, text, colors }: FeatureItemProps) => {
@@ -154,7 +154,7 @@ export default function GoLiveIntroScreen(): React.JSX.Element {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

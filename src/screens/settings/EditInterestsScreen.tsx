@@ -8,7 +8,7 @@ import { ALL_INTERESTS } from '../../config/interests';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditInterestsScreenProps {
   navigation: { goBack: () => void };
@@ -184,7 +184,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
   // Header

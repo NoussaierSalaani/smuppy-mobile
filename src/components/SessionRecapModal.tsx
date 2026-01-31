@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SessionRecap } from '../services/vibeGuardian';
 import { getMoodDisplay } from '../hooks/useMoodAI';
 import { SPACING } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface SessionRecapModalProps {
   visible: boolean;
@@ -99,7 +99,7 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

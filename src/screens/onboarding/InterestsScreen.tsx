@@ -8,7 +8,7 @@ import { ALL_INTERESTS } from '../../config/interests';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const INITIAL_CATEGORIES = 4;
 const EXPAND_BY = 4;
@@ -167,7 +167,7 @@ export default function InterestsScreen({ navigation, route }: InterestsScreenPr
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
   // Header
@@ -202,7 +202,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardBg,
     borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 18,

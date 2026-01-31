@@ -7,7 +7,7 @@
 import React, { memo, useCallback, forwardRef, ReactNode, ReactElement, useMemo } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator, ViewStyle, StyleProp } from 'react-native';
 import { FlashList, FlashListRef, ListRenderItem } from '@shopify/flash-list';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { SPACING, TYPOGRAPHY } from '../config/theme';
 
 interface OptimizedListProps<T> {
@@ -318,7 +318,7 @@ export const GridList = memo(forwardRef(GridListInner)) as <T extends ItemWithId
   props: GridListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
 ) => ReactElement;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   loadingFooter: {
     paddingVertical: SPACING.lg,
     alignItems: 'center',

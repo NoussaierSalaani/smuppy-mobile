@@ -27,7 +27,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface BusinessBookingScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
@@ -626,7 +626,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -653,7 +653,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -689,7 +689,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -710,7 +710,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   progressLine: {
     flex: 1,
     height: 2,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     marginHorizontal: 8,
   },
   progressLineActive: {
@@ -766,7 +766,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   serviceItem: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -836,7 +836,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     gap: 12,
@@ -863,7 +863,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   timeSlot: {
     width: '23%',
     paddingVertical: 14,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
@@ -896,7 +896,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
 
   // Confirm
   confirmCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 16,
   },
@@ -931,7 +931,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
 
   // Price Summary
   priceSummary: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginTop: 16,
@@ -1008,7 +1008,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     gap: 6,
   },

@@ -25,7 +25,7 @@ import {
   SIZES,
   SHADOWS,
 } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 // ============================================
 // COOLDOWN MODAL COMPONENT
@@ -250,7 +250,7 @@ export function useCooldown(cooldownSeconds = 30) {
 // STYLES
 // ============================================
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

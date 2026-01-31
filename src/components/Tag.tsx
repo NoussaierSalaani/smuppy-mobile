@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-nativ
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { GRADIENTS, SIZES, BORDERS } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type TagVariant = 'default' | 'filled' | 'outline' | 'filter';
 type TagSize = 'sm' | 'md' | 'lg';
@@ -234,7 +234,7 @@ export default function Tag({
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',

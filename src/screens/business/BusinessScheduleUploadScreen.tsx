@@ -25,7 +25,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import type { IconName } from '../../types';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
   navigation: any;
@@ -53,7 +53,7 @@ interface UploadedFile {
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const getActivityCategories = (colors: any) => [
+const getActivityCategories = (colors: ThemeColors) => [
   { id: 'fitness', name: 'Fitness', icon: 'barbell' as IconName, color: '#E74C3C' },
   { id: 'yoga', name: 'Yoga', icon: 'body' as IconName, color: '#9B59B6' },
   { id: 'cardio', name: 'Cardio', icon: 'heart' as IconName, color: '#FF6B35' },
@@ -607,7 +607,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -829,7 +829,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   formatTagText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
 
   // Review Step

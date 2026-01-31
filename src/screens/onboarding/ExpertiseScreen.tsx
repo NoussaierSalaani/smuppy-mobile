@@ -8,7 +8,7 @@ import { ALL_EXPERTISE } from '../../config/expertise';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const INITIAL_CATEGORIES = 4;
 const EXPAND_BY = 4;
@@ -168,7 +168,7 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
   // Header

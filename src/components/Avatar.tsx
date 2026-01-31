@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text, ViewStyle, StyleProp, ImageSt
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { GRADIENTS, SIZES } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import OptimizedImage from './OptimizedImage';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -230,7 +230,7 @@ Avatar.displayName = 'Avatar';
 
 export default Avatar;
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     position: 'relative',
   },

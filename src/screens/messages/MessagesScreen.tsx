@@ -14,7 +14,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { AccountBadge } from '../../components/Badge';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { resolveDisplayName } from '../../types/profile';
@@ -291,7 +291,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

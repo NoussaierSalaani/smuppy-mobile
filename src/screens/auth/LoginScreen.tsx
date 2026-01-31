@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { GRADIENTS, FORM } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import {
   createAuthStyles,
   createAuthColors,
@@ -43,7 +43,7 @@ interface LoginScreenProps {
   };
 }
 
-const createLocalStyles = (colors: any, authColors: any) => StyleSheet.create({
+const createLocalStyles = (colors: ThemeColors, authColors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 },

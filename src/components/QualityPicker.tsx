@@ -9,7 +9,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRADIENTS } from '../config/theme';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { SPOT_QUALITIES } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -77,7 +77,7 @@ export default function QualityPicker({ category, selected, onSelectionChange }:
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     marginVertical: 8,
   },

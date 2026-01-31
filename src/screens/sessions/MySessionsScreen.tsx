@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI, Session } from '../../services/aws-api';
 
 type TabType = 'upcoming' | 'past';
@@ -298,7 +298,7 @@ const MySessionsScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -428,7 +428,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
   },
   joinButton: {
     marginTop: 4,

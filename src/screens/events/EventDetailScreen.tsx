@@ -29,7 +29,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -668,7 +668,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f1a',
@@ -905,7 +905,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   description: {
     fontSize: 15,
-    color: colors.lightGray,
+    color: colors.grayLight,
     lineHeight: 22,
   },
   readMore: {

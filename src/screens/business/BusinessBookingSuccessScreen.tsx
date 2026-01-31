@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
   route: {
@@ -207,7 +207,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -250,7 +250,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   detailsCard: {
     width: '100%',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
@@ -284,13 +284,13 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   detailSubvalue: {
     fontSize: 14,
-    color: colors.lightGray,
+    color: colors.grayLight,
     marginTop: 2,
   },
   detailValueSmall: {
     fontSize: 13,
     fontWeight: '500',
-    color: colors.lightGray,
+    color: colors.grayLight,
     fontFamily: 'monospace',
   },
   detailDivider: {
@@ -325,7 +325,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.backgroundSecondary,
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,

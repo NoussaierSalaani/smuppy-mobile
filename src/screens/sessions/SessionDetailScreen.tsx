@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Calendar from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Session {
   id: string;
@@ -384,7 +384,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -595,7 +595,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   modalText: {
     fontSize: 15,
-    color: colors.lightGray,
+    color: colors.grayLight,
     textAlign: 'center',
     lineHeight: 22,
   },

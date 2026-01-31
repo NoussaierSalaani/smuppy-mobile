@@ -846,6 +846,26 @@ export class LambdaStack extends cdk.NestedStack {
     ];
     for (const fn of allPaymentLambdas) {
       stripeSecret.grantRead(fn);
+
+      // Grant Redis auth secret read permission
+      if (props.redisAuthSecret) {
+        props.redisAuthSecret.grantRead(fn);
+      }
+
+      // Grant DynamoDB rate limit table access
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['dynamodb:UpdateItem'],
+        resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+      }));
+
+      // Grant RDS Proxy IAM authentication permissions
+      if (props.rdsProxyArn) {
+        fn.addToRolePolicy(new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['rds-db:connect'],
+          resources: [props.rdsProxyArn],
+        }));
+      }
     }
 
     // DLQ for non-intent/webhook payment lambdas (intent & webhook have their own config)
@@ -998,6 +1018,7 @@ export class LambdaStack extends cdk.NestedStack {
       ],
       resources: [userPool.userPoolArn],
     }));
+    dbCredentials.grantRead(this.appleAuthFn);
 
     // SECURITY: Google OAuth credentials - use placeholder in staging to prevent runtime errors
     // Production requires real credentials (validated above)
@@ -1037,6 +1058,7 @@ export class LambdaStack extends cdk.NestedStack {
       ],
       resources: [userPool.userPoolArn],
     }));
+    dbCredentials.grantRead(this.googleAuthFn);
 
     this.signupAuthFn = new NodejsFunction(this, 'SignupAuthFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/signup.ts'),
@@ -1198,6 +1220,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
         USER_POOL_ID: userPool.userPoolId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -1207,6 +1230,10 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant ListUsers permission to lookup user by email
     userPool.grant(this.confirmForgotPasswordFn, 'cognito-idp:ListUsers');
+    this.confirmForgotPasswordFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.checkUserFn = new NodejsFunction(this, 'CheckUserFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/check-user.ts'),

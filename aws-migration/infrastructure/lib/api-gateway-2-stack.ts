@@ -234,6 +234,12 @@ export class ApiGateway2Stack extends cdk.NestedStack {
       timeout: cdk.Duration.seconds(29),
     }));
 
+    const checkProfiles = admin.addResource('check-profiles');
+    checkProfiles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkProfilesFn));
+
+    const migrateUsers = admin.addResource('migrate-users');
+    migrateUsers.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.userMigrationFn));
+
     // Auth + body validation for POST/PATCH mutations
     const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator2', {
       restApi: this.api,
@@ -325,8 +331,33 @@ export class ApiGateway2Stack extends cdk.NestedStack {
           },
         },
         {
-          name: 'AWSManagedRulesCommonRuleSet',
+          name: 'WriteOperationsRateLimit',
           priority: 2,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 5000 : 1000,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                orStatement: {
+                  statements: [
+                    { byteMatchStatement: { searchString: 'POST', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'PUT', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'DELETE', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                  ],
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'WriteOperationsRateLimit2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesCommonRuleSet',
+          priority: 3,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -337,6 +368,38 @@ export class ApiGateway2Stack extends cdk.NestedStack {
           visibilityConfig: {
             cloudWatchMetricsEnabled: true,
             metricName: 'AWSManagedRulesCommonRuleSet2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesSQLiRuleSet',
+          priority: 4,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesSQLiRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesSQLiRuleSet2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesKnownBadInputsRuleSet',
+          priority: 5,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesKnownBadInputsRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesKnownBadInputsRuleSet2',
             sampledRequestsEnabled: true,
           },
         },

@@ -11,10 +11,30 @@ import { hasStatusCode } from '../api/utils/error-handler';
 
 const log = createLogger('websocket-send-message');
 
+// In-memory rate limiter per connectionId (WebSocket connections are persistent)
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30; // messages per window
+const RATE_WINDOW = 10000; // 10 seconds
+
+function checkWsRateLimit(connectionId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(connectionId);
+  if (!entry || now > entry.resetAt) {
+    rateLimits.set(connectionId, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT;
+}
+
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const connectionId = event.requestContext.connectionId;
   const domainName = event.requestContext.domainName;
   const stage = event.requestContext.stage;
+
+  if (connectionId && !checkWsRateLimit(connectionId)) {
+    return { statusCode: 429, body: 'Rate limit exceeded' };
+  }
 
   try {
     const db = await getPool();

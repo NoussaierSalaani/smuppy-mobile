@@ -130,9 +130,8 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     user: credentials.username,
     password,
     // SSL configuration for AWS Aurora PostgreSQL
-    // TODO: re-enable rejectUnauthorized once RDS Proxy CA is verified
     ssl: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: process.env.NODE_ENV === 'production',
     },
     // Connection pool settings optimized for Lambda with RDS Proxy
     // RDS Proxy handles connection pooling, so Lambda can use fewer connections

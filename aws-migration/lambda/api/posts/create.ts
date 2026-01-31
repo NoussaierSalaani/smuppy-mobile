@@ -118,9 +118,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
         // Create notification for tagged user
         await client.query(
-          `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
-           VALUES ($1, 'post_tag', $2, $3, 'tagged you in a post', NOW())`,
-          [taggedUserId, userId, postId]
+          `INSERT INTO notifications (user_id, type, title, body, data, created_at)
+           VALUES ($1, 'post_tag', 'You were tagged', $2, $3, NOW())`,
+          [taggedUserId, 'tagged you in a post', JSON.stringify({ actor_id: userId, post_id: postId })]
         );
       }
 

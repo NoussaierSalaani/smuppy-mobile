@@ -16,6 +16,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const cognitoClient = new CognitoIdentityProviderClient({});
 const log = createLogger('auth/google');
@@ -208,6 +209,23 @@ export const handler = async (
         statusCode: 400,
         headers,
         body: JSON.stringify({ error: 'Missing ID token' }),
+      };
+    }
+
+    // Rate limit: 10 requests per minute per IP
+    const ip = event.requestContext.identity?.sourceIp || 'unknown';
+    const rateLimitResult = await checkRateLimit({
+      prefix: 'auth-google',
+      identifier: ip,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!rateLimitResult.allowed) {
+      log.warn('Rate limit exceeded for Google auth', { ip: ip.substring(0, 2) + '***' });
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
       };
     }
 

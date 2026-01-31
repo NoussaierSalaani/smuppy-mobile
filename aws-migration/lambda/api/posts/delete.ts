@@ -112,7 +112,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'Post deleted successfully',
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

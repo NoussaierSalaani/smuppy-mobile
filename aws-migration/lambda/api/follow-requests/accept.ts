@@ -142,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'Follow request accepted',
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

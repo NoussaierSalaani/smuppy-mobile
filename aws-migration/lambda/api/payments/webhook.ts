@@ -85,7 +85,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         signature,
         webhookSecret
       );
-    } catch (err) {
+    } catch (err: unknown) {
       log.error('Webhook signature verification failed', err);
       return {
         statusCode: 400,
@@ -802,7 +802,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     await client.query('COMMIT');
-    } catch (txError) {
+    } catch (txError: unknown) {
       await client.query('ROLLBACK');
       throw txError;
     } finally {
@@ -814,7 +814,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ received: true }),
     };
-  } catch (error) {
+  } catch (error: unknown) {
     log.error('Webhook error', error);
     return {
       statusCode: 500,

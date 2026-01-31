@@ -234,6 +234,67 @@ export class ApiGateway2Stack extends cdk.NestedStack {
       timeout: cdk.Duration.seconds(29),
     }));
 
+    // Auth + body validation for POST/PATCH mutations
+    const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator2', {
+      restApi: this.api,
+      requestValidatorName: `smuppy-body-validator-2-${environment}`,
+      validateRequestBody: true,
+      validateRequestParameters: true,
+    });
+
+    const authWithBodyValidation: apigateway.MethodOptions = {
+      ...authMethodOptions,
+      requestValidator: bodyValidator,
+    };
+
+    // ========================================
+    // Hashtags Endpoints
+    // ========================================
+    const hashtags = this.api.root.addResource('hashtags');
+    const hashtagsTrending = hashtags.addResource('trending');
+    hashtagsTrending.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.hashtagsTrendingFn), authMethodOptions);
+
+    // ========================================
+    // Interests & Expertise Endpoints
+    // ========================================
+    const interests = this.api.root.addResource('interests');
+    interests.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.interestsListFn), authMethodOptions);
+
+    const expertise = this.api.root.addResource('expertise');
+    expertise.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.expertiseListFn), authMethodOptions);
+
+    // ========================================
+    // Spots Endpoints
+    // ========================================
+    const spots = this.api.root.addResource('spots');
+    spots.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsListFn), authMethodOptions);
+    spots.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsCreateFn), authWithBodyValidation);
+
+    const spotsNearby = spots.addResource('nearby');
+    spotsNearby.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsNearbyFn), authMethodOptions);
+
+    const spotsSaved = spots.addResource('saved');
+    spotsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsSavedListFn), authMethodOptions);
+
+    const spotById = spots.addResource('{id}');
+    spotById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsGetFn), authMethodOptions);
+    spotById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.spotsUpdateFn), authWithBodyValidation);
+    spotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsDeleteFn), authMethodOptions);
+
+    const spotSave = spotById.addResource('save');
+    spotSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsSaveFn), authMethodOptions);
+    spotSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsUnsaveFn), authMethodOptions);
+
+    const spotIsSaved = spotById.addResource('is-saved');
+    spotIsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsIsSavedFn), authMethodOptions);
+
+    const spotReviews = spotById.addResource('reviews');
+    spotReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsListFn), authMethodOptions);
+    spotReviews.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsCreateFn), authWithBodyValidation);
+
+    const spotReviewById = spotReviews.addResource('{reviewId}');
+    spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsDeleteFn), authMethodOptions);
+
     // ========================================
     // WAF for Secondary API
     // ========================================

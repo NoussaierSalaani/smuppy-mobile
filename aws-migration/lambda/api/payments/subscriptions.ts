@@ -6,6 +6,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { Pool } from 'pg';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('payments-subscriptions');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -74,8 +77,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
-  } catch (error) {
-    console.error('Subscription error:', error);
+  } catch (error: unknown) {
+    log.error('Subscription error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

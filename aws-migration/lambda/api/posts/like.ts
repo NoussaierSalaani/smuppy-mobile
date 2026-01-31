@@ -151,7 +151,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           likesCount: updatedPost.rows[0].likes_count,
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

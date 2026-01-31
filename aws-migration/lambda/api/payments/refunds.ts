@@ -78,7 +78,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error) {
+  } catch (error: unknown) {
     log.error('Refunds error', error);
     return {
       statusCode: 500,
@@ -228,7 +228,7 @@ async function getRefund(
   if (refund.stripe_refund_id) {
     try {
       stripeDetails = await stripe.refunds.retrieve(refund.stripe_refund_id);
-    } catch (e) {
+    } catch (e: unknown) {
       log.warn('Failed to fetch Stripe refund details', e);
     }
   }

@@ -99,7 +99,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       await client.query('COMMIT');
-    } catch (txErr) {
+    } catch (txErr: unknown) {
       await client.query('ROLLBACK');
       throw txErr;
     } finally {

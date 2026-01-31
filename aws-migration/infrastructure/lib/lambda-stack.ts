@@ -189,6 +189,48 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly profilesGetBlockedFn: NodejsFunction;
   public readonly profilesGetMutedFn: NodejsFunction;
 
+  // Search & Discovery
+  public readonly postsSearchFn: NodejsFunction;
+  public readonly peaksSearchFn: NodejsFunction;
+  public readonly hashtagsTrendingFn: NodejsFunction;
+
+  // Feed Variants
+  public readonly feedOptimizedFn: NodejsFunction;
+  public readonly feedFollowingFn: NodejsFunction;
+  public readonly feedDiscoverFn: NodejsFunction;
+
+  // Posts Batch & Saved
+  public readonly postsLikesBatchFn: NodejsFunction;
+  public readonly postsSavesBatchFn: NodejsFunction;
+  public readonly postsSavedListFn: NodejsFunction;
+
+  // Interests & Expertise
+  public readonly interestsListFn: NodejsFunction;
+  public readonly expertiseListFn: NodejsFunction;
+
+  // Follow Requests - Extended
+  public readonly followRequestsCountFn: NodejsFunction;
+  public readonly followRequestsCheckPendingFn: NodejsFunction;
+  public readonly followRequestsCancelFn: NodejsFunction;
+
+  // Media - Voice Upload
+  public readonly mediaUploadVoiceFn: NodejsFunction;
+
+  // Spots
+  public readonly spotsListFn: NodejsFunction;
+  public readonly spotsGetFn: NodejsFunction;
+  public readonly spotsCreateFn: NodejsFunction;
+  public readonly spotsUpdateFn: NodejsFunction;
+  public readonly spotsDeleteFn: NodejsFunction;
+  public readonly spotsNearbyFn: NodejsFunction;
+  public readonly spotsSaveFn: NodejsFunction;
+  public readonly spotsUnsaveFn: NodejsFunction;
+  public readonly spotsIsSavedFn: NodejsFunction;
+  public readonly spotsSavedListFn: NodejsFunction;
+  public readonly spotsReviewsListFn: NodejsFunction;
+  public readonly spotsReviewsCreateFn: NodejsFunction;
+  public readonly spotsReviewsDeleteFn: NodejsFunction;
+
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
 
@@ -419,6 +461,57 @@ export class LambdaStack extends cdk.NestedStack {
     this.settingsCurrencyFn = createLambda('SettingsCurrencyFunction', 'settings/currency');
 
     // ========================================
+    // Search & Discovery Lambda Functions
+    // ========================================
+    this.postsSearchFn = createLambda('PostsSearchFunction', 'posts/search', { memory: 1024 });
+    this.peaksSearchFn = createLambda('PeaksSearchFunction', 'peaks/search', { memory: 1024 });
+    this.hashtagsTrendingFn = createLambda('HashtagsTrendingFunction', 'hashtags/trending');
+
+    // ========================================
+    // Feed Variants Lambda Functions
+    // ========================================
+    this.feedOptimizedFn = createLambda('FeedOptimizedFunction', 'feed/optimized', { memory: 2048, timeout: 60 });
+    this.feedFollowingFn = createLambda('FeedFollowingFunction', 'feed/following', { memory: 1024 });
+    this.feedDiscoverFn = createLambda('FeedDiscoverFunction', 'feed/discover', { memory: 1024 });
+
+    // ========================================
+    // Posts Batch & Saved Lambda Functions
+    // ========================================
+    this.postsLikesBatchFn = createLambda('PostsLikesBatchFunction', 'posts/likes-batch');
+    this.postsSavesBatchFn = createLambda('PostsSavesBatchFunction', 'posts/saves-batch');
+    this.postsSavedListFn = createLambda('PostsSavedListFunction', 'posts/saved-list');
+
+    // ========================================
+    // Interests & Expertise Lambda Functions
+    // ========================================
+    this.interestsListFn = createLambda('InterestsListFunction', 'interests/list');
+    this.expertiseListFn = createLambda('ExpertiseListFunction', 'expertise/list');
+
+    // ========================================
+    // Follow Requests Extended Lambda Functions
+    // ========================================
+    this.followRequestsCountFn = createLambda('FollowRequestsCountFunction', 'follow-requests/count');
+    this.followRequestsCheckPendingFn = createLambda('FollowRequestsCheckPendingFunction', 'follow-requests/check-pending');
+    this.followRequestsCancelFn = createLambda('FollowRequestsCancelFunction', 'follow-requests/cancel');
+
+    // ========================================
+    // Spots Lambda Functions
+    // ========================================
+    this.spotsListFn = createLambda('SpotsListFunction', 'spots/list', { memory: 1024 });
+    this.spotsGetFn = createLambda('SpotsGetFunction', 'spots/get');
+    this.spotsCreateFn = createLambda('SpotsCreateFunction', 'spots/create');
+    this.spotsUpdateFn = createLambda('SpotsUpdateFunction', 'spots/update');
+    this.spotsDeleteFn = createLambda('SpotsDeleteFunction', 'spots/delete');
+    this.spotsNearbyFn = createLambda('SpotsNearbyFunction', 'spots/nearby', { memory: 1024 });
+    this.spotsSaveFn = createLambda('SpotsSaveFunction', 'spots/save');
+    this.spotsUnsaveFn = createLambda('SpotsUnsaveFunction', 'spots/unsave');
+    this.spotsIsSavedFn = createLambda('SpotsIsSavedFunction', 'spots/is-saved');
+    this.spotsSavedListFn = createLambda('SpotsSavedListFunction', 'spots/saved-list');
+    this.spotsReviewsListFn = createLambda('SpotsReviewsListFunction', 'spots/reviews-list');
+    this.spotsReviewsCreateFn = createLambda('SpotsReviewsCreateFunction', 'spots/reviews-create');
+    this.spotsReviewsDeleteFn = createLambda('SpotsReviewsDeleteFunction', 'spots/reviews-delete');
+
+    // ========================================
     // Phase 5: Notifications Lambda Functions
     // ========================================
     this.notificationsListFn = createLambda('NotificationsListFunction', 'notifications/list');
@@ -460,6 +553,33 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant S3 PutObject for presigned URL generation
     mediaBucket.grantPut(this.mediaUploadUrlFn);
+
+    // Voice Upload Lambda - presigned S3 URL for voice messages
+    this.mediaUploadVoiceFn = new NodejsFunction(this, 'MediaUploadVoiceFunction', {
+      entry: path.join(__dirname, '../../lambda/api/media/upload-voice.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        MEDIA_BUCKET: mediaBucket.bucketName,
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.mediaUploadVoiceFn);
+    mediaBucket.grantPut(this.mediaUploadVoiceFn);
+    this.mediaUploadVoiceFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     // ========================================
     // Payment Lambda Functions (Stripe)

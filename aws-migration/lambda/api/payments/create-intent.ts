@@ -355,7 +355,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         publishableKey: await getStripePublishableKey(),
       }),
     };
-  } catch (error) {
+  } catch (error: unknown) {
     log.error('Error creating payment intent', error);
 
     // Handle Stripe-specific errors — don't leak internal details

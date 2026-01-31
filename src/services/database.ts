@@ -326,7 +326,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
   } catch (error: unknown) {
-    console.error('[Database] updateProfile error:', error);
+    if (__DEV__) console.error('[Database] updateProfile error:', error);
     return { data: null, error: getErrorMessage(error) };
   }
 };

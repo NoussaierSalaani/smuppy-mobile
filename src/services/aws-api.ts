@@ -7,7 +7,17 @@ import { AWS_CONFIG } from '../config/aws-config';
 import { awsAuth } from './aws-auth';
 
 const API_BASE_URL = AWS_CONFIG.api.restEndpoint;
+const API_BASE_URL_2 = AWS_CONFIG.api.restEndpoint2;
 const CDN_URL = AWS_CONFIG.storage.cdnDomain;
+
+// Endpoints routed to API Gateway 2 (secondary)
+const API2_PREFIXES = [
+  '/sessions', '/packs', '/payments', '/tips', '/earnings',
+  '/challenges', '/battles', '/events', '/settings', '/admin',
+  '/businesses', '/spots', '/interests', '/expertise', '/hashtags',
+  '/devices', '/contacts', '/support', '/account', '/categories',
+  '/groups', '/reviews', '/map', '/search/map',
+] as const;
 
 interface RequestOptions {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -33,7 +43,10 @@ class AWSAPIService {
   async request<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
 
-    const url = `${API_BASE_URL}${endpoint}`;
+    const baseUrl = API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
+      ? API_BASE_URL_2
+      : API_BASE_URL;
+    const url = `${baseUrl}${endpoint}`;
 
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',

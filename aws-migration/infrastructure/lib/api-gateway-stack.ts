@@ -337,6 +337,57 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const media = this.api.root.addResource('media');
     const mediaUploadUrl = media.addResource('upload-url');
     mediaUploadUrl.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadUrlFn), authWithBodyValidation);
+
+    const mediaUploadVoice = media.addResource('upload-voice');
+    mediaUploadVoice.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadVoiceFn), authWithBodyValidation);
+
+    // ========================================
+    // Search (nested under existing posts/peaks)
+    // ========================================
+    const postsSearch = posts.addResource('search');
+    postsSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsSearchFn), authMethodOptions);
+
+    const peaksSearch = peaks.addResource('search');
+    peaksSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksSearchFn), authMethodOptions);
+
+    // ========================================
+    // Feed Variants (nested under existing /feed)
+    // ========================================
+    const feedOptimized = feed.addResource('optimized');
+    feedOptimized.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedOptimizedFn), authMethodOptions);
+
+    const feedFollowing = feed.addResource('following');
+    feedFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedFollowingFn), authMethodOptions);
+
+    const feedDiscover = feed.addResource('discover');
+    feedDiscover.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedDiscoverFn), authMethodOptions);
+
+    // ========================================
+    // Posts Batch & Saved (nested under existing /posts)
+    // ========================================
+    const postsLikes = posts.addResource('likes');
+    const postsLikesBatch = postsLikes.addResource('batch');
+    postsLikesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsLikesBatchFn), authMethodOptions);
+
+    const postsSaves = posts.addResource('saves');
+    const postsSavesBatch = postsSaves.addResource('batch');
+    postsSavesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsSavesBatchFn), authMethodOptions);
+
+    const postsSaved = posts.addResource('saved');
+    postsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsSavedListFn), authMethodOptions);
+
+    // ========================================
+    // Follow Requests Extended (nested under existing /follow-requests)
+    // ========================================
+    const followRequestsCount = followRequests.addResource('count');
+    followRequestsCount.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.followRequestsCountFn), authMethodOptions);
+
+    const followRequestsPending = followRequests.addResource('pending');
+    const followRequestsPendingByUser = followRequestsPending.addResource('{userId}');
+    followRequestsPendingByUser.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.followRequestsCheckPendingFn), authMethodOptions);
+
+    const followRequestCancel = followRequestById.addResource('cancel');
+    followRequestCancel.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followRequestsCancelFn), authMethodOptions);
   }
 
   private createWaf(environment: string, isProduction: boolean) {

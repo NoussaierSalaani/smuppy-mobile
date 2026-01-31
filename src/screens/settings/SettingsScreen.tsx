@@ -10,11 +10,9 @@ import {
   Switch,
   ScrollView,
 } from 'react-native';
-import { AvatarImage } from '../../components/OptimizedImage';
-import OptimizedImage from '../../components/OptimizedImage';
+import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// CommonActions removed - signOut auto-triggers navigation via onAuthStateChange
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
@@ -429,8 +427,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               </TouchableOpacity>
             )}
 
+            {/* Creator Wallet - Not for personal accounts */}
+            {user?.accountType !== 'personal' && (
             <TouchableOpacity
-              style={[styles.menuItem, user?.accountType !== 'personal' ? styles.menuItemFirst : undefined]}
+              style={[styles.menuItem, styles.menuItemFirst]}
               onPress={() => navigation.navigate('CreatorWallet')}
               activeOpacity={0.7}
             >
@@ -440,7 +440,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Text style={styles.menuItemLabel}>Creator Wallet</Text>
               <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
             </TouchableOpacity>
+            )}
 
+            {/* Go Pro - Not for personal accounts */}
+            {user?.accountType !== 'personal' && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('PlatformSubscription')}
@@ -452,6 +455,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Text style={styles.menuItemLabel}>Go Pro</Text>
               <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
             </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.menuItem}

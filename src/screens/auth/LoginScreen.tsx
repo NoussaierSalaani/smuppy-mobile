@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { COLORS, GRADIENTS, FORM } from '../../config/theme';
+import { GRADIENTS, FORM } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
+import {
+  createAuthStyles,
+  createAuthColors,
+  createGetInputIconColor,
+  createGetButtonGradient,
+} from '../../components/auth/authStyles';
 import { biometrics } from '../../utils/biometrics';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -36,7 +43,95 @@ interface LoginScreenProps {
   };
 }
 
+const createLocalStyles = (colors: any, authColors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 },
+
+  // Header - sans flèche retour
+  header: { alignItems: 'center', marginBottom: 24 },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 6 },
+  subtitle: { fontSize: 13, color: colors.gray, textAlign: 'center', lineHeight: 18 },
+
+  // Biometric
+  biometricBtn: { alignItems: 'center', paddingVertical: 12, marginBottom: 6 },
+  biometricBtnDisabled: { opacity: 0.6 },
+  biometricIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: authColors.validBg, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: colors.primary, marginBottom: 8 },
+  biometricIconBoxDisabled: { backgroundColor: colors.grayLight, borderColor: colors.grayLight },
+  biometricText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  biometricTextDisabled: { color: colors.grayMuted },
+  enableBiometricBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.backgroundFocus, borderRadius: 14, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.grayBorder },
+  enableBiometricLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  enableBiometricIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: authColors.validBg, justifyContent: 'center', alignItems: 'center' },
+  enableBiometricTitle: { fontSize: 13, fontWeight: '600', color: colors.dark },
+  enableBiometricSubtitle: { fontSize: 10, color: colors.gray, marginTop: 1 },
+
+  // Field Group
+  fieldGroup: { marginBottom: 12 },
+  label: { fontSize: 13, fontWeight: '600', color: colors.dark, marginBottom: 8 },
+
+  // Input
+  inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: colors.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: colors.background },
+  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: colors.background },
+  inputInnerValid: { backgroundColor: authColors.validBg },
+  input: { flex: 1, fontSize: 16, color: colors.dark, marginLeft: 12 },
+
+  // Remember Me
+  rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.grayLight, justifyContent: 'center', alignItems: 'center', marginRight: 10, backgroundColor: colors.background },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  rememberText: { fontSize: 13, fontWeight: '500', color: colors.dark },
+
+  // Button
+  btnTouchable: { marginBottom: 16 },
+  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
+  btnInner: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  btnText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+
+  // Divider
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.grayBorder },
+  dividerText: { paddingHorizontal: 14, fontSize: 12, color: colors.gray },
+
+  // Social
+  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 16 },
+  socialBtn: { width: 64, height: 64, borderRadius: 18, borderWidth: 1.5, borderColor: colors.grayBorder, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+  socialBtnLoading: { opacity: 0.7 },
+
+  // Forgot Password
+  forgotBtn: { alignItems: 'center', marginBottom: 10 },
+  forgotText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+
+  // Link Row
+  linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  linkText: { fontSize: 13, color: colors.gray },
+  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  link: { fontSize: 13, fontWeight: '600', color: colors.primary },
+
+  // Footer
+
+  // Modals
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { width: '100%', backgroundColor: colors.background, borderRadius: 24, padding: 28, alignItems: 'center' },
+  modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
+  modalIconBox: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.dark, marginBottom: 12, textAlign: 'center' },
+  modalMessage: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
+  modalBtnGradient: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius },
+  modalBtnInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  modalBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+});
+
 export default function LoginScreen({ navigation }: LoginScreenProps) {
+  const { colors, isDark } = useTheme();
+  const authColors = useMemo(() => createAuthColors(colors, isDark), [colors, isDark]);
+  const authStylesThemed = useMemo(() => createAuthStyles(colors, isDark), [colors, isDark]);
+  const iconColor = useMemo(() => createGetInputIconColor(authColors), [authColors]);
+  const btnGradient = useMemo(() => createGetButtonGradient(authColors), [authColors]);
+  const styles = useMemo(() => createLocalStyles(colors, authColors), [colors, authColors]);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -396,10 +491,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             disabled={biometricBlocked}
           >
             <View style={[styles.biometricIconBox, biometricBlocked && styles.biometricIconBoxDisabled]}>
-              <Ionicons 
-                name={isFaceId ? 'scan-outline' : 'finger-print-outline'} 
-                size={28} 
-                color={biometricBlocked ? COLORS.grayMuted : COLORS.primary} 
+              <Ionicons
+                name={isFaceId ? 'scan-outline' : 'finger-print-outline'}
+                size={28}
+                color={biometricBlocked ? colors.grayMuted : colors.primary}
               />
             </View>
             <Text style={[styles.biometricText, biometricBlocked && styles.biometricTextDisabled]}>
@@ -428,7 +523,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <Ionicons
               name={isFaceId ? 'scan-outline' : 'finger-print-outline'}
               size={28}
-              color={COLORS.primary}
+              color={colors.primary}
             />
           </View>
           <Text style={styles.biometricText}>
@@ -463,17 +558,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Email address</Text>
               <LinearGradient
-                colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? COLORS.primary : COLORS.grayMuted} />
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? colors.primary : colors.grayMuted} />
                   <TextInput
                     style={styles.input}
                     placeholder="mailusersmuppy@mail.com"
-                    placeholderTextColor={COLORS.grayMuted}
+                    placeholderTextColor={colors.grayMuted}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -491,17 +586,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Password</Text>
               <LinearGradient
-                colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, password.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? COLORS.primary : COLORS.grayMuted} />
+                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? colors.primary : colors.grayMuted} />
                   <TextInput
                     style={styles.input}
                     placeholder="••••••••••"
-                    placeholderTextColor={COLORS.grayMuted}
+                    placeholderTextColor={colors.grayMuted}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -511,7 +606,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     testID="password-input"
                   />
                   <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -520,7 +615,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             {/* Remember Me */}
             <TouchableOpacity style={styles.rememberRow} onPress={toggleRememberMe} activeOpacity={0.7}>
               <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                {rememberMe && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
+                {rememberMe && <Ionicons name="checkmark" size={14} color={colors.white} />}
               </View>
               <Text style={styles.rememberText}>Remember me</Text>
             </TouchableOpacity>
@@ -546,7 +641,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               >
                 <View style={styles.btnInner}>
                   <Text style={styles.btnText}>{loading ? 'Logging in...' : 'Login'}</Text>
-                  {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
+                  {!loading && <Ionicons name="arrow-forward" size={20} color={colors.white} />}
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -567,7 +662,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 disabled={socialLoading !== null}
               >
                 {socialLoading === 'google' ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <GoogleLogo size={28} />
                 )}
@@ -580,9 +675,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   disabled={socialLoading !== null}
                 >
                   {socialLoading === 'apple' ? (
-                    <ActivityIndicator size="small" color={COLORS.dark} />
+                    <ActivityIndicator size="small" color={colors.dark} />
                   ) : (
-                    <Ionicons name="logo-apple" size={30} color={COLORS.dark} />
+                    <Ionicons name="logo-apple" size={30} color={colors.dark} />
                   )}
                 </TouchableOpacity>
               )}
@@ -598,7 +693,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               <Text style={styles.linkText}>Don't have an account? </Text>
               <TouchableOpacity onPress={handleGoToSignup} style={styles.linkBtn}>
                 <Text style={styles.link}>Signup</Text>
-                <Ionicons name="arrow-forward" size={14} color={COLORS.primary} />
+                <Ionicons name="arrow-forward" size={14} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -610,14 +705,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <TouchableOpacity style={styles.modalClose} onPress={closeErrorModal}>
-                <Ionicons name="close" size={24} color={COLORS.gray} />
+                <Ionicons name="close" size={24} color={colors.gray} />
               </TouchableOpacity>
-              <View style={[styles.modalIconBox, { backgroundColor: COLORS.errorLight }]}>
-                <Ionicons name="alert-circle" size={40} color={COLORS.error} />
+              <View style={[styles.modalIconBox, { backgroundColor: colors.errorLight }]}>
+                <Ionicons name="alert-circle" size={40} color={colors.error} />
               </View>
               <Text style={styles.modalTitle}>{errorModal.title}</Text>
               <Text style={styles.modalMessage}>{errorModal.message}</Text>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.error }]} onPress={closeErrorModal}>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.error }]} onPress={closeErrorModal}>
                 <Text style={styles.modalBtnText}>OK</Text>
               </TouchableOpacity>
             </View>
@@ -628,8 +723,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         <Modal visible={successModal.visible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <View style={[styles.modalIconBox, { backgroundColor: COLORS.backgroundValid }]}>
-                <Ionicons name="checkmark-circle" size={40} color={COLORS.primary} />
+              <View style={[styles.modalIconBox, { backgroundColor: authColors.validBg }]}>
+                <Ionicons name="checkmark-circle" size={40} color={colors.primary} />
               </View>
               <Text style={styles.modalTitle}>{successModal.title}</Text>
               <Text style={styles.modalMessage}>{successModal.message}</Text>
@@ -646,84 +741,3 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     </TouchableWithoutFeedback>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
-  flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 },
-
-  // Header - sans flèche retour
-  header: { alignItems: 'center', marginBottom: 24 },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 6 },
-  subtitle: { fontSize: 13, color: COLORS.gray, textAlign: 'center', lineHeight: 18 },
-
-  // Biometric
-  biometricBtn: { alignItems: 'center', paddingVertical: 12, marginBottom: 6 },
-  biometricBtnDisabled: { opacity: 0.6 },
-  biometricIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.backgroundValid, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.primary, marginBottom: 8 },
-  biometricIconBoxDisabled: { backgroundColor: COLORS.backgroundDisabled, borderColor: COLORS.grayLight },
-  biometricText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-  biometricTextDisabled: { color: COLORS.grayMuted },
-  enableBiometricBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.backgroundFocus, borderRadius: 14, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.buttonBorder },
-  enableBiometricLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  enableBiometricIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.backgroundValid, justifyContent: 'center', alignItems: 'center' },
-  enableBiometricTitle: { fontSize: 13, fontWeight: '600', color: COLORS.dark },
-  enableBiometricSubtitle: { fontSize: 10, color: COLORS.gray, marginTop: 1 },
-
-  // Field Group
-  fieldGroup: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.dark, marginBottom: 8 },
-  
-  // Input
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: COLORS.white },
-  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
-  input: { flex: 1, fontSize: 16, color: COLORS.dark, marginLeft: 12 },
-
-  // Remember Me
-  rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center', marginRight: 10, backgroundColor: COLORS.white },
-  checkboxChecked: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  rememberText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
-
-  // Button
-  btnTouchable: { marginBottom: 16 },
-  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
-  btnInner: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
-
-  // Divider
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.grayBorder },
-  dividerText: { paddingHorizontal: 14, fontSize: 12, color: COLORS.gray },
-
-  // Social
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 16 },
-  socialBtn: { width: 64, height: 64, borderRadius: 18, borderWidth: 1.5, borderColor: COLORS.grayBorder, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center' },
-  socialBtnLoading: { opacity: 0.7 },
-
-  // Forgot Password
-  forgotBtn: { alignItems: 'center', marginBottom: 10 },
-  forgotText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-
-  // Link Row
-  linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  linkText: { fontSize: 13, color: COLORS.gray },
-  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  link: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-
-  // Footer
-  
-  // Modals
-  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalContent: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },
-  modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
-  modalIconBox: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.dark, marginBottom: 12, textAlign: 'center' },
-  modalMessage: { fontSize: 14, color: COLORS.gray, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
-  modalBtnGradient: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius },
-  modalBtnInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
-});

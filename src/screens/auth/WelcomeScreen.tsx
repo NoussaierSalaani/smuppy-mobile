@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions, ImageBackground, Animated, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { SmuppyIcon, SmuppyText } from '../../components/SmuppyLogo';
+import { useTheme } from '../../hooks/useTheme';
 
 const { height } = Dimensions.get('window');
 
@@ -14,10 +15,13 @@ interface WelcomeScreenProps {
 }
 
 const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
+  const { colors, isDark } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(height * 0.4)).current;
   const scaleAnim = useRef(new Animated.Value(1.1)).current;
   const buttonsAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     const animation = Animated.sequence([
@@ -77,8 +81,8 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.dark },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.dark },
   imageContainer: { ...StyleSheet.absoluteFillObject },
   backgroundImage: { flex: 1, width: '100%', height: '100%' },
   gradientOverlay: { ...StyleSheet.absoluteFillObject },
@@ -87,17 +91,17 @@ const styles = StyleSheet.create({
   logoContainer: { alignItems: 'center', gap: 10 },
   centerContainer: { flex: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: height * 0.25 },
   contentContainer: { alignItems: 'center', paddingHorizontal: 24 },
-  welcomeText: { fontSize: 52, fontWeight: '700', color: COLORS.white, textAlign: 'center', marginBottom: 0 },
-  brandText: { fontSize: 52, fontWeight: '700', color: COLORS.white, textAlign: 'center', marginBottom: 20 },
+  welcomeText: { fontSize: 52, fontWeight: '700', color: colors.white, textAlign: 'center', marginBottom: 0 },
+  brandText: { fontSize: 52, fontWeight: '700', color: colors.white, textAlign: 'center', marginBottom: 20 },
   taglineText: { fontSize: 16, fontWeight: '400', color: 'rgba(255, 255, 255, 0.7)', textAlign: 'center', lineHeight: 24 },
   buttonContainer: { paddingHorizontal: 24, paddingBottom: height * 0.08, gap: 16 },
   primaryButtonWrapper: { borderRadius: 30, overflow: 'hidden' },
   primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 30, gap: 8 },
-  primaryButtonText: { fontSize: 16, fontWeight: '600', color: COLORS.dark },
-  arrowIcon: { fontSize: 18, color: COLORS.dark, marginLeft: 4 },
-  secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 30, borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: 'transparent', gap: 8 },
-  secondaryButtonText: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
-  arrowIconSecondary: { fontSize: 18, color: COLORS.primary, marginLeft: 4 },
+  primaryButtonText: { fontSize: 16, fontWeight: '600', color: colors.dark },
+  arrowIcon: { fontSize: 18, color: colors.dark, marginLeft: 4 },
+  secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 30, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: 'transparent', gap: 8 },
+  secondaryButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary },
+  arrowIconSecondary: { fontSize: 18, color: colors.primary, marginLeft: 4 },
   homeIndicator: { height: 8 },
 });
 

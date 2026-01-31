@@ -5,7 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { COLORS, SPACING, GRADIENTS } from '../../config/theme';
+import { SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import ErrorModal from '../../components/ErrorModal';
 import { getCurrentProfile } from '../../services/database';
 import { validate, isPasswordValid, getPasswordStrengthLevel, PASSWORD_RULES, isDisposableEmail, detectDomainTypo } from '../../utils/validation';
@@ -17,14 +18,12 @@ import {
   useGoogleAuth,
   handleGoogleSignIn,
 } from '../../services/socialAuth';
+import {
+  createAuthStyles,
+  createAuthColors,
+  AUTH_FORM,
+} from '../../components/auth/authStyles';
 
-// Style unifié Smuppy (même que LoginScreen)
-const FORM = {
-  inputHeight: 56,
-  inputRadius: 28,
-  buttonHeight: 56,
-  buttonRadius: 28,
-};
 
 const GoogleLogo = ({ size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -44,6 +43,7 @@ interface SignupScreenProps {
 }
 
 export default function SignupScreen({ navigation }: SignupScreenProps) {
+  const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +60,21 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   // Google OAuth hook
   const [googleRequest, googleResponse, googlePromptAsync] = useGoogleAuth();
+
+  // Theme-aware styles
+  const authColors = useMemo(() => createAuthColors(colors, isDark), [colors, isDark]);
+  const authStyles = useMemo(() => createAuthStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors, isDark, authColors), [colors, isDark, authColors]);
+  const buttonGradient = useMemo(() => {
+    const valid: [string, string] = [colors.primary, colors.primaryDark];
+    const disabled: [string, string] = [authColors.border, authColors.border];
+    return { valid, disabled };
+  }, [colors, authColors]);
+  const inputGradient = useMemo(() => {
+    const active: [string, string] = [colors.primary, colors.primaryDark];
+    const inactive: [string, string] = [authColors.border, authColors.border];
+    return { active, inactive };
+  }, [colors, authColors]);
 
   // Check Apple Sign-In availability
   useEffect(() => {
@@ -278,11 +293,11 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             <Text style={styles.label}>Email address</Text>
             {(!emailFocused && email.length > 0 && !emailValid) ? (
               <View style={[styles.inputBox, styles.inputError]}>
-                <Ionicons name="mail-outline" size={20} color="#FF3B30" />
+                <Ionicons name="mail-outline" size={20} color={authColors.error} />
                 <TextInput
                   style={styles.input}
                   placeholder="mailusersmuppy@mail.com"
-                  placeholderTextColor="#9cadbc"
+                  placeholderTextColor={authColors.grayLight}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -294,17 +309,17 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               </View>
             ) : (
               <LinearGradient
-                colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={(email.length > 0 || emailFocused) ? inputGradient.active : inputGradient.inactive}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? '#0EBF8A' : '#9cadbc'} />
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? authColors.primary : authColors.grayLight} />
                   <TextInput
                     style={styles.input}
                     placeholder="mailusersmuppy@mail.com"
-                    placeholderTextColor="#9cadbc"
+                    placeholderTextColor={authColors.grayLight}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -313,7 +328,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
                   />
-                  {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />}
+                  {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color={authColors.primary} />}
                 </View>
               </LinearGradient>
             )}
@@ -336,17 +351,17 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             <View style={styles.passwordSection}>
               <Text style={styles.labelPassword}>Password</Text>
               <LinearGradient
-                colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={(password.length > 0 || passwordFocused) ? inputGradient.active : inputGradient.inactive}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorderPassword}
               >
                 <View style={[styles.inputInnerPassword, password.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? '#0EBF8A' : '#9cadbc'} />
+                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? authColors.primary : authColors.grayLight} />
                   <TextInput
                     style={styles.input}
                     placeholder="••••••••••"
-                    placeholderTextColor="#9cadbc"
+                    placeholderTextColor={authColors.grayLight}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -354,7 +369,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     onBlur={() => setPasswordFocused(false)}
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#9cadbc" />
+                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={authColors.grayLight} />
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -369,7 +384,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                         <Ionicons
                           name={check.passed ? 'checkmark-circle' : 'ellipse-outline'}
                           size={16}
-                          color={check.passed ? '#0EBF8A' : '#9cadbc'}
+                          color={check.passed ? authColors.primary : authColors.grayLight}
                         />
                         <Text style={[styles.requirementText, check.passed && styles.requirementMet]}>
                           {check.label}
@@ -401,7 +416,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             <View style={styles.rememberRow}>
               <TouchableOpacity onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
                 <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
+                  {rememberMe && <Ionicons name="checkmark" size={14} color={colors.white} />}
                 </View>
               </TouchableOpacity>
               <Text style={styles.checkboxLabel}>Remember me</Text>
@@ -409,7 +424,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
             {/* Signup Button */}
             <LinearGradient
-              colors={isFormValid ? GRADIENTS.button : GRADIENTS.buttonDisabled}
+              colors={isFormValid ? buttonGradient.valid : buttonGradient.disabled}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.btn}
@@ -421,7 +436,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                 activeOpacity={0.8}
               >
                 <Text style={styles.btnText}>{loading ? 'Validating...' : 'Get Started'}</Text>
-                {!loading && <Ionicons name="arrow-forward" size={20} color={COLORS.white} />}
+                {!loading && <Ionicons name="arrow-forward" size={20} color={colors.white} />}
               </TouchableOpacity>
             </LinearGradient>
 
@@ -440,7 +455,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               disabled={socialLoading !== null}
             >
               {socialLoading === 'google' ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <GoogleLogo size={24} />
               )}
@@ -455,9 +470,9 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                 disabled={socialLoading !== null}
               >
                 {socialLoading === 'apple' ? (
-                  <ActivityIndicator size="small" color="#0a252f" />
+                  <ActivityIndicator size="small" color={authColors.dark} />
                 ) : (
-                  <Ionicons name="logo-apple" size={26} color="#0a252f" />
+                  <Ionicons name="logo-apple" size={26} color={authColors.dark} />
                 )}
                 <Text style={styles.socialBtnText}>Continue with Apple</Text>
               </TouchableOpacity>
@@ -468,7 +483,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               <Text style={styles.loginText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLinkRow}>
                 <Text style={styles.loginLink}>Log In</Text>
-                <Ionicons name="arrow-forward" size={14} color="#0EBF8A" />
+                <Ionicons name="arrow-forward" size={14} color={authColors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -476,7 +491,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             <View style={styles.termsRow}>
               <TouchableOpacity onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
                 <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
-                  {agreeTerms && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
+                  {agreeTerms && <Ionicons name="checkmark" size={14} color={colors.white} />}
                 </View>
               </TouchableOpacity>
               <Text style={styles.termsText}>
@@ -498,75 +513,75 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
-  keyboardView: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm },
-  backBtnSpacer: { height: 32 },
+const createStyles = (colors: any, isDark: boolean, ac: ReturnType<typeof createAuthColors>) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    keyboardView: { flex: 1 },
+    content: { flex: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm },
+    backBtnSpacer: { height: 32 },
 
-  // Header
-  headerContainer: { alignItems: 'center', marginBottom: 32 },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: '#0a252f', textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
+    // Header
+    headerContainer: { alignItems: 'center', marginBottom: 32 },
+    title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: ac.dark, textAlign: 'center', marginBottom: 4 },
+    subtitle: { fontSize: 14, color: ac.gray, textAlign: 'center' },
 
-  // Form
-  label: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginTop: 30, marginBottom: 8 },
-  labelPassword: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginBottom: 8, marginTop: 8 },
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: '#CED3D5', borderRadius: FORM.inputRadius, paddingHorizontal: 20, marginBottom: 16, backgroundColor: COLORS.white },
-  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 16 },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: COLORS.white },
-  inputGradientBorderPassword: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 8 },
-  inputInnerPassword: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E6FAF8' },
-  inputError: { borderColor: '#FF3B30', borderWidth: 2, backgroundColor: '#FEF2F2', marginBottom: 4 },
-  input: { flex: 1, fontSize: 16, color: '#0a252f', marginLeft: 12 },
-  errorText: { fontSize: 13, color: '#FF3B30', marginBottom: 16, marginLeft: 8 },
+    // Form
+    label: { fontSize: 14, fontWeight: '600', color: ac.dark, marginTop: 30, marginBottom: 8 },
+    labelPassword: { fontSize: 14, fontWeight: '600', color: ac.dark, marginBottom: 8, marginTop: 8 },
+    inputBox: { flexDirection: 'row', alignItems: 'center', height: AUTH_FORM.inputHeight, borderWidth: 1.5, borderColor: ac.border, borderRadius: AUTH_FORM.inputRadius, paddingHorizontal: 20, marginBottom: 16, backgroundColor: colors.background },
+    inputGradientBorder: { borderRadius: AUTH_FORM.inputRadius, padding: 2, marginBottom: 16 },
+    inputInner: { flexDirection: 'row', alignItems: 'center', height: AUTH_FORM.inputHeight - 4, borderRadius: AUTH_FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: colors.background },
+    inputGradientBorderPassword: { borderRadius: AUTH_FORM.inputRadius, padding: 2, marginBottom: 8 },
+    inputInnerPassword: { flexDirection: 'row', alignItems: 'center', height: AUTH_FORM.inputHeight - 4, borderRadius: AUTH_FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: colors.background },
+    inputInnerValid: { backgroundColor: ac.validBg },
+    inputError: { borderColor: ac.error, borderWidth: 2, backgroundColor: ac.errorInputBg, marginBottom: 4 },
+    input: { flex: 1, fontSize: 16, color: ac.dark, marginLeft: 12 },
+    errorText: { fontSize: 13, color: ac.error, marginBottom: 16, marginLeft: 8 },
 
-  // Password Section
-  passwordSection: { position: 'relative', zIndex: 100 },
-  requirementsOverlay: { position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 1000, paddingTop: 4 },
-  requirementsBox: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  requirementsTitle: { fontSize: 14, fontWeight: '600', color: '#0a252f', marginBottom: 12 },
-  requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  requirementText: { fontSize: 13, color: '#9cadbc' },
-  requirementMet: { color: '#0EBF8A' },
+    // Password Section
+    passwordSection: { position: 'relative', zIndex: 100 },
+    requirementsOverlay: { position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 1000, paddingTop: 4 },
+    requirementsBox: { backgroundColor: colors.background, borderRadius: 16, padding: 16, shadowColor: isDark ? '#000' : '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: isDark ? 0.3 : 0.15, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: ac.divider },
+    requirementsTitle: { fontSize: 14, fontWeight: '600', color: ac.dark, marginBottom: 12 },
+    requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    requirementText: { fontSize: 13, color: ac.grayLight },
+    requirementMet: { color: ac.primary },
 
-  // Strength
-  strengthContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
-  strengthBarBg: { flex: 1, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, overflow: 'hidden' },
-  strengthBar: { height: '100%', borderRadius: 2 },
-  strengthText: { fontSize: 12, fontWeight: '600', minWidth: 70 },
+    // Strength
+    strengthContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
+    strengthBarBg: { flex: 1, height: 4, backgroundColor: ac.divider, borderRadius: 2, overflow: 'hidden' },
+    strengthBar: { height: '100%', borderRadius: 2 },
+    strengthText: { fontSize: 12, fontWeight: '600', minWidth: 70 },
 
-  // Button
-  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginBottom: 28 },
-  btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
+    // Button
+    btn: { height: AUTH_FORM.buttonHeight, borderRadius: AUTH_FORM.buttonRadius, marginBottom: 28 },
+    btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+    btnText: { color: colors.white, fontSize: 16, fontWeight: '600' },
 
-  // Divider
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  dividerText: { paddingHorizontal: SPACING.sm, fontSize: 13, color: '#676C75' },
+    // Divider
+    dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: ac.divider },
+    dividerText: { paddingHorizontal: SPACING.sm, fontSize: 13, color: ac.gray },
 
-  // Social
-  socialBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: FORM.buttonHeight, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: FORM.buttonRadius, backgroundColor: COLORS.white, marginBottom: 12, gap: 10 },
-  socialBtnLoading: { opacity: 0.7 },
-  socialBtnText: { fontSize: 15, fontWeight: '500', color: '#0a252f' },
+    // Social
+    socialBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: AUTH_FORM.buttonHeight, borderWidth: 1.5, borderColor: ac.divider, borderRadius: AUTH_FORM.buttonRadius, backgroundColor: colors.background, marginBottom: 12, gap: 10 },
+    socialBtnLoading: { opacity: 0.7 },
+    socialBtnText: { fontSize: 15, fontWeight: '500', color: ac.dark },
 
-  // Login
-  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 8 },
-  loginText: { fontSize: 14, color: '#676C75' },
-  loginLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  loginLink: { fontSize: 14, fontWeight: '600', color: '#0EBF8A' },
+    // Login
+    loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 8 },
+    loginText: { fontSize: 14, color: ac.gray },
+    loginLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    loginLink: { fontSize: 14, fontWeight: '600', color: ac.primary },
 
-  // Checkbox
-  rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#CED3D5', borderRadius: 5, marginRight: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
-  checkboxChecked: { backgroundColor: '#0EBF8A', borderColor: '#0EBF8A' },
-  checkboxLabel: { fontSize: 13, fontWeight: '500', color: '#0a252f' },
+    // Checkbox
+    rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+    checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: ac.border, borderRadius: 5, marginRight: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+    checkboxChecked: { backgroundColor: ac.primary, borderColor: ac.primary },
+    checkboxLabel: { fontSize: 13, fontWeight: '500', color: ac.dark },
 
-  // Terms
-  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 16 },
-  termsText: { flex: 1, fontSize: 12, color: '#676C75', lineHeight: 18 },
-  termsLink: { color: '#0EBF8A', fontWeight: '500' },
-
-});
+    // Terms
+    termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 16 },
+    termsText: { flex: 1, fontSize: 12, color: ac.gray, lineHeight: 18 },
+    termsLink: { color: ac.primary, fontWeight: '500' },
+  });

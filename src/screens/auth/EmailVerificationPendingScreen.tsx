@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -31,12 +32,15 @@ export default function EmailVerificationPendingScreen({
 }: {
   route: RouteProp<EmailVerificationRouteParams, 'EmailVerificationPending'>
 }): React.ReactNode {
+  const { colors, isDark } = useTheme();
   const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   const email = route?.params?.email || 'your email';
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Countdown for resend cooldown
   useEffect(() => {
@@ -151,7 +155,7 @@ export default function EmailVerificationPendingScreen({
           end={GRADIENTS.primaryEnd}
           style={styles.iconContainer}
         >
-          <Ionicons name="mail" size={48} color={COLORS.white} />
+          <Ionicons name="mail" size={48} color={colors.white} />
         </LinearGradient>
 
         {/* Title */}
@@ -206,11 +210,11 @@ export default function EmailVerificationPendingScreen({
             activeOpacity={0.8}
           >
             {isCheckingStatus ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
                 <Text style={styles.btnText}>I've verified my email</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                <Ionicons name="arrow-forward" size={20} color={colors.white} />
               </>
             )}
           </TouchableOpacity>
@@ -225,7 +229,7 @@ export default function EmailVerificationPendingScreen({
           ) : (
             <TouchableOpacity onPress={handleResendEmail} disabled={isResending}>
               {isResending ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={styles.resendLink}>Didn't receive the email? Resend</Text>
               )}
@@ -235,7 +239,7 @@ export default function EmailVerificationPendingScreen({
 
         {/* Sign Out Option */}
         <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={18} color={COLORS.gray} />
+          <Ionicons name="log-out-outline" size={18} color={colors.gray} />
           <Text style={styles.signOutText}>Sign out and use a different email</Text>
         </TouchableOpacity>
 
@@ -247,10 +251,10 @@ export default function EmailVerificationPendingScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -267,7 +271,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.xl,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -278,13 +282,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: SPACING.xl,
@@ -292,7 +296,7 @@ const styles = StyleSheet.create({
 
   // Email Box
   emailBox: {
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     padding: SPACING.md,
     width: '100%',
@@ -301,18 +305,18 @@ const styles = StyleSheet.create({
   },
   emailLabel: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   emailText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Instructions
   instructionsBox: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: SPACING.lg,
     width: '100%',
@@ -321,7 +325,7 @@ const styles = StyleSheet.create({
   instructionsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: SPACING.md,
   },
   instructionRow: {
@@ -333,7 +337,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.sm,
@@ -342,12 +346,12 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   instructionText: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 20,
   },
 
@@ -366,7 +370,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -379,16 +383,16 @@ const styles = StyleSheet.create({
   },
   resendCooldownText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   resendCooldownTime: {
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   resendLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Sign Out
@@ -398,13 +402,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.grayLight,
+    borderTopColor: colors.grayLight,
     width: '100%',
     justifyContent: 'center',
   },
   signOutText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Footer

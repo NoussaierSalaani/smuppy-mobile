@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard,
@@ -7,13 +7,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { SIZES, SPACING } from '../../config/theme';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import * as backend from '../../services/backend';
 import { awsAuth } from '../../services/aws-auth';
+import { useTheme } from '../../hooks/useTheme';
 
 const CODE_LENGTH = 6;
 
@@ -36,6 +37,7 @@ interface VerifyCodeScreenProps {
 }
 
 export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
+  const { colors, isDark } = useTheme();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -54,6 +56,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Shake animation
   const triggerShake = useCallback(() => {
@@ -249,7 +253,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
           {/* Account Creation Progress */}
           {isCreatingAccount && (
             <View style={styles.creatingAccountBox}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.creatingAccountText}>Setting up your account...</Text>
             </View>
           )}
@@ -286,7 +290,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
                   return (
                     <LinearGradient
                       key={i}
-                      colors={(isFilled || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                      colors={(isFilled || isFocused) ? [colors.primary, colors.primaryDark] : [colors.grayBorder, colors.grayBorder]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.codeBoxGradient}
@@ -313,7 +317,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
               {error ? (
                 <View style={styles.errorBox}>
                   <View style={styles.errorIcon}>
-                    <Ionicons name="alert-circle" size={20} color={COLORS.white} />
+                    <Ionicons name="alert-circle" size={20} color={colors.white} />
                   </View>
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
@@ -332,7 +336,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
               {/* Verifying indicator */}
               {isVerifying && (
                 <View style={styles.verifyingBox}>
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={styles.verifyingText}>Verifying...</Text>
                 </View>
               )}
@@ -343,7 +347,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
           {!accountCreated && error ? (
             <View style={styles.errorBox}>
               <View style={styles.errorIcon}>
-                <Ionicons name="alert-circle" size={20} color={COLORS.white} />
+                <Ionicons name="alert-circle" size={20} color={colors.white} />
               </View>
               <Text style={styles.errorText}>{error}</Text>
             </View>
@@ -365,42 +369,42 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: '#0a252f', textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#676C75', textAlign: 'center' },
-  emailText: { color: COLORS.primary, fontWeight: '600' },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: colors.dark, textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: colors.gray, textAlign: 'center' },
+  emailText: { color: colors.primary, fontWeight: '600' },
 
   // Code Input
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: SPACING.md },
+  label: { fontSize: 14, fontWeight: '600', color: colors.dark, marginBottom: SPACING.md },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.md },
-  codeBox: { width: 48, height: 54, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
+  codeBox: { width: 48, height: 54, borderWidth: 1.5, borderColor: colors.grayMuted, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: colors.dark, backgroundColor: colors.background },
   codeBoxGradient: { width: 48, height: 54, borderRadius: SIZES.radiusMd, padding: 2 },
-  codeBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
-  codeBoxInnerFilled: { backgroundColor: '#E8FBF5' },
-  codeBoxError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEECEC' },
+  codeBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, textAlign: 'center', fontSize: 22, fontWeight: '700', color: colors.dark, backgroundColor: colors.background },
+  codeBoxInnerFilled: { backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : '#E8FBF5' },
+  codeBoxError: { borderColor: colors.error, borderWidth: 2, backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : '#FEECEC' },
 
   // Error
-  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: SPACING.lg, borderWidth: 1, borderColor: '#FECACA', gap: 10 },
-  errorIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.error, justifyContent: 'center', alignItems: 'center' },
-  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: COLORS.error },
+  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: SPACING.lg, borderWidth: 1, borderColor: isDark ? 'rgba(239,68,68,0.3)' : '#FECACA', gap: 10 },
+  errorIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center' },
+  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.error },
 
   // Resend
   resendRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  resendText: { fontSize: 14, fontWeight: '400', color: COLORS.dark },
-  resendLink: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
-  resendDisabled: { color: COLORS.gray },
+  resendText: { fontSize: 14, fontWeight: '400', color: colors.dark },
+  resendLink: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  resendDisabled: { color: colors.gray },
 
   // Verifying
   verifyingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: SPACING.lg },
-  verifyingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+  verifyingText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
 
   // Creating account
-  creatingAccountBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: SPACING.lg, paddingVertical: SPACING.sm, backgroundColor: '#E8FBF5', borderRadius: 12 },
-  creatingAccountText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+  creatingAccountBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: SPACING.lg, paddingVertical: SPACING.sm, backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : '#E8FBF5', borderRadius: 12 },
+  creatingAccountText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
 });

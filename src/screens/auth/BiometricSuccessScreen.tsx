@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING } from '../../config/theme';
+import { SPACING } from '../../config/theme';
 import Button from '../../components/Button';
+import { useTheme } from '../../hooks/useTheme';
 
 interface BiometricSuccessScreenProps {
   navigation: {
@@ -16,6 +17,9 @@ interface BiometricSuccessScreenProps {
 }
 
 export default function BiometricSuccessScreen({ navigation }: BiometricSuccessScreenProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const handleContinue = () => {
     navigation.replace('TellUsAboutYou');
   };
@@ -25,7 +29,7 @@ export default function BiometricSuccessScreen({ navigation }: BiometricSuccessS
       <View style={styles.content}>
         <View style={styles.iconContainer}>
           <View style={styles.iconBox}>
-            <Ionicons name="checkmark-circle" size={64} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={64} color={colors.primary} />
           </View>
         </View>
 
@@ -48,13 +52,13 @@ export default function BiometricSuccessScreen({ navigation }: BiometricSuccessS
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ReturnType<typeof useTheme>['colors'], isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1, paddingHorizontal: SPACING.xl, justifyContent: 'center', alignItems: 'center' },
   iconContainer: { marginBottom: SPACING['3xl'] },
-  iconBox: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#E8FBF5', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 28, fontFamily: 'WorkSans-Bold', color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.md },
-  subtitle: { fontSize: 14, color: COLORS.gray, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md, marginBottom: SPACING['3xl'] },
+  iconBox: { width: 120, height: 120, borderRadius: 60, backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#E8FBF5', justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 28, fontFamily: 'WorkSans-Bold', color: colors.dark, textAlign: 'center', marginBottom: SPACING.md },
+  subtitle: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md, marginBottom: SPACING['3xl'] },
   buttonContainer: { width: '100%' },
   footer: { alignItems: 'center', paddingBottom: SPACING.xl },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
+import { GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { useCooldown } from '../../hooks/useCooldown';
 import * as backend from '../../services/backend';
+import { useTheme } from '../../hooks/useTheme';
 
 interface CheckEmailScreenProps {
   navigation: {
@@ -58,6 +59,9 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
   const [resendSuccess, setResendSuccess] = useState(false);
   const { remaining: remainingTime, isCoolingDown, start: triggerCooldown } = useCooldown(30);
   const canAction = !isCoolingDown;
+  const { colors, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -92,7 +96,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
       <View style={styles.content}>
         {/* Back Button */}
         <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
-          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
 
         {/* Icon */}
@@ -103,7 +107,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
             end={GRADIENTS.primaryEnd}
             style={styles.iconCircle}
           >
-            <Ionicons name="mail-open-outline" size={48} color={COLORS.white} />
+            <Ionicons name="mail-open-outline" size={48} color={colors.white} />
           </LinearGradient>
         </View>
 
@@ -117,15 +121,15 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         {/* Instructions */}
         <View style={styles.instructionsBox}>
           <View style={styles.instructionRow}>
-            <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
             <Text style={styles.instructionText}>Open the email from Smuppy</Text>
           </View>
           <View style={styles.instructionRow}>
-            <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
             <Text style={styles.instructionText}>Copy the 6-digit verification code</Text>
           </View>
           <View style={styles.instructionRow}>
-            <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
             <Text style={styles.instructionText}>Enter the code to reset your password</Text>
           </View>
         </View>
@@ -133,7 +137,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         {/* Resend Success Message */}
         {resendSuccess && (
           <View style={styles.successMessage}>
-            <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
             <Text style={styles.successText}>Code sent successfully!</Text>
           </View>
         )}
@@ -145,14 +149,14 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
           disabled={!canAction || isResending}
         >
           {isResending ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : !canAction ? (
             <Text style={styles.resendTextDisabled}>
               Resend code in {remainingTime}s
             </Text>
           ) : (
             <>
-              <Ionicons name="refresh-outline" size={18} color={COLORS.primary} />
+              <Ionicons name="refresh-outline" size={18} color={colors.primary} />
               <Text style={styles.resendText}>Resend code</Text>
             </>
           )}
@@ -170,7 +174,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         >
           <TouchableOpacity style={styles.btnInner} onPress={() => navigation.navigate('ResetCode', { email })} activeOpacity={0.8}>
             <Text style={styles.btnText}>I have a code</Text>
-            <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+            <Ionicons name="arrow-forward" size={20} color={colors.white} />
           </TouchableOpacity>
         </LinearGradient>
 
@@ -187,10 +191,10 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
   },
   content: {
     flex: 1,
@@ -213,7 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -222,23 +226,23 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: SPACING.xl,
   },
   emailText: {
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   instructionsBox: {
-    backgroundColor: COLORS.backgroundValid,
+    backgroundColor: colors.backgroundValid,
     borderRadius: 16,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
@@ -251,7 +255,7 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     flex: 1,
   },
   successMessage: {
@@ -263,7 +267,7 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
   resendBtn: {
@@ -278,12 +282,12 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 15,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   resendTextDisabled: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   spacer: {
     flex: 1,
@@ -302,7 +306,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -313,7 +317,7 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     fontWeight: '500',
   },
   footer: {

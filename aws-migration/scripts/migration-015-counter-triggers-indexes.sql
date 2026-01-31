@@ -137,9 +137,9 @@ DECLARE
   tbl TEXT;
 BEGIN
   FOR tbl IN SELECT unnest(ARRAY[
-    'profiles', 'posts', 'comments', 'likes', 'follows',
-    'conversations', 'messages', 'notifications', 'reports',
-    'peak_challenges', 'events', 'event_participants', 'challenge_tags'
+    'profiles', 'posts', 'comments', 'follows',
+    'conversations',
+    'peak_challenges', 'events', 'challenge_tags'
   ])
   LOOP
     EXECUTE format(

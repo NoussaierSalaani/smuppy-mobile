@@ -27,40 +27,6 @@ CREATE INDEX IF NOT EXISTS idx_profiles_stripe_account ON profiles(stripe_accoun
 CREATE INDEX IF NOT EXISTS idx_profiles_identity_session ON profiles(identity_verification_session_id) WHERE identity_verification_session_id IS NOT NULL;
 
 -- ============================================
--- PAYMENTS TABLE (Sessions & Packs)
--- ============================================
-CREATE TABLE IF NOT EXISTS payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  stripe_payment_intent_id VARCHAR(255) UNIQUE NOT NULL,
-  stripe_charge_id VARCHAR(255),
-  buyer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  creator_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  session_id UUID REFERENCES private_sessions(id) ON DELETE SET NULL,
-  pack_id UUID REFERENCES monthly_packs(id) ON DELETE SET NULL,
-  type VARCHAR(50) DEFAULT 'session', -- session, pack
-  source VARCHAR(20) DEFAULT 'web', -- web, ios, android
-  gross_amount INTEGER NOT NULL, -- Original amount in cents
-  net_amount INTEGER NOT NULL, -- After app store fees
-  platform_fee INTEGER DEFAULT 0, -- Smuppy's share (20%)
-  creator_amount INTEGER NOT NULL, -- Creator's share (80%)
-  currency VARCHAR(3) DEFAULT 'usd',
-  status VARCHAR(50) DEFAULT 'pending', -- pending, succeeded, failed, refunded
-  error_message TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Indexes for payments
-CREATE INDEX IF NOT EXISTS idx_payments_buyer ON payments(buyer_id);
-CREATE INDEX IF NOT EXISTS idx_payments_creator ON payments(creator_id);
-CREATE INDEX IF NOT EXISTS idx_payments_session ON payments(session_id) WHERE session_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_payments_pack ON payments(pack_id) WHERE pack_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
-CREATE INDEX IF NOT EXISTS idx_payments_stripe_intent ON payments(stripe_payment_intent_id);
-CREATE INDEX IF NOT EXISTS idx_payments_type ON payments(type);
-CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at DESC);
-
--- ============================================
 -- PRIVATE SESSIONS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS private_sessions (
@@ -109,6 +75,40 @@ CREATE TABLE IF NOT EXISTS monthly_packs (
 CREATE INDEX IF NOT EXISTS idx_packs_creator ON monthly_packs(creator_id);
 CREATE INDEX IF NOT EXISTS idx_packs_buyer ON monthly_packs(buyer_id) WHERE buyer_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_packs_status ON monthly_packs(status);
+
+-- ============================================
+-- PAYMENTS TABLE (Sessions & Packs)
+-- ============================================
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_payment_intent_id VARCHAR(255) UNIQUE NOT NULL,
+  stripe_charge_id VARCHAR(255),
+  buyer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  creator_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES private_sessions(id) ON DELETE SET NULL,
+  pack_id UUID REFERENCES monthly_packs(id) ON DELETE SET NULL,
+  type VARCHAR(50) DEFAULT 'session', -- session, pack
+  source VARCHAR(20) DEFAULT 'web', -- web, ios, android
+  gross_amount INTEGER NOT NULL, -- Original amount in cents
+  net_amount INTEGER NOT NULL, -- After app store fees
+  platform_fee INTEGER DEFAULT 0, -- Smuppy's share (20%)
+  creator_amount INTEGER NOT NULL, -- Creator's share (80%)
+  currency VARCHAR(3) DEFAULT 'usd',
+  status VARCHAR(50) DEFAULT 'pending', -- pending, succeeded, failed, refunded
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for payments
+CREATE INDEX IF NOT EXISTS idx_payments_buyer ON payments(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_payments_creator ON payments(creator_id);
+CREATE INDEX IF NOT EXISTS idx_payments_session ON payments(session_id) WHERE session_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_payments_pack ON payments(pack_id) WHERE pack_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_stripe_intent ON payments(stripe_payment_intent_id);
+CREATE INDEX IF NOT EXISTS idx_payments_type ON payments(type);
+CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at DESC);
 
 -- ============================================
 -- PLATFORM SUBSCRIPTIONS (Pro Creator $99, Pro Business $49)

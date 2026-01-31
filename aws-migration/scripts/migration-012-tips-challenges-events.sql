@@ -1,6 +1,8 @@
 -- Migration 012: Tips, Peak Challenges, Live Battles, Events
 -- Smuppy - Production Ready
 
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 BEGIN;
 
 -- ============================================

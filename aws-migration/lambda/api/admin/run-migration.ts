@@ -692,6 +692,37 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Handle DDL migration action (admin only - for schema migrations)
+    if (action === 'run-ddl') {
+      const sql = body.sql?.trim();
+      if (!sql || typeof sql !== 'string') {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'SQL query required' }),
+        };
+      }
+      log.info('Running DDL migration...');
+      const requestId = getRequestId(event);
+      log.info(`[${requestId}] DDL migration requested`);
+      try {
+        await db.query(sql);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ message: 'DDL migration executed successfully' }),
+        };
+      } catch (ddlError: unknown) {
+        const errMsg = ddlError instanceof Error ? ddlError.message : 'Unknown error';
+        log.error('DDL migration failed', ddlError);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ message: 'DDL migration failed', error: errMsg }),
+        };
+      }
+    }
+
     // Handle custom SQL action (admin only - for one-off migrations)
     if (action === 'run-sql') {
       const sql = body.sql?.trim();

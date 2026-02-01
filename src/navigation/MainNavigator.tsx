@@ -99,7 +99,6 @@ import {
   BusinessProgramScreen,
   MySubscriptionsScreen,
   MemberAccessScreen,
-  BusinessScannerScreen,
   BusinessDashboardScreen,
   BusinessServicesManageScreen,
   BusinessScheduleUploadScreen,
@@ -130,6 +129,7 @@ import {
   PlatformSubscriptionScreen,
   ChannelSubscriptionScreen,
   IdentityVerificationScreen,
+  PaymentMethodsScreen,
 } from '../screens/payments';
 
 // WebView (lazy to avoid crash when native module not in dev client)
@@ -340,8 +340,6 @@ export default function MainNavigator() {
       <Stack.Screen name="BusinessServicesManage" component={BusinessServicesManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BusinessProgram" component={asScreen(BusinessProgramScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BusinessScheduleUpload" component={BusinessScheduleUploadScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="BusinessScanner" component={BusinessScannerScreen} options={{ animation: 'slide_from_bottom' }} />
-
       {/* Private Sessions - Fan Flow */}
       <Stack.Screen name="MySessions" component={MySessionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
@@ -368,6 +366,7 @@ export default function MainNavigator() {
       <Stack.Screen name="PlatformSubscription" component={PlatformSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="ChannelSubscription" component={ChannelSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="WebView" component={WebViewScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Find Friends (standalone popup) */}

@@ -708,8 +708,6 @@ export type MainStackParamList = {
   EditInterests: { currentInterests?: string[] } | undefined;
   EditExpertise: { currentExpertise?: string[]; returnTo?: string } | undefined;
   PasswordManager: undefined;
-  AccountSettings: undefined;
-  PrivacySettings: undefined;
   NotificationSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
@@ -722,6 +720,7 @@ export type MainStackParamList = {
   PlatformSubscription: undefined;
   ChannelSubscription: { creatorId: string; creatorName?: string; creatorAvatar?: string; creatorUsername?: string; subscriberCount?: number; tier?: string };
   IdentityVerification: undefined;
+  PaymentMethods: undefined;
 
   // Private Sessions - Fan
   MySessions: undefined;
@@ -807,9 +806,6 @@ export type MainStackParamList = {
   BusinessServicesManage: undefined;
   BusinessProgram: { tab?: 'activities' | 'schedule' | 'tags' } | undefined;
   BusinessScheduleUpload: undefined;
-  BusinessScanner: undefined;
-  BusinessMembers: undefined;
-  BusinessSettings: undefined;
 };
 
 // Alias for backward compatibility

@@ -264,6 +264,126 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         const subscriptionType = session.metadata?.subscriptionType;
 
+        // ── Business checkout events ──
+        const productType = session.metadata?.productType;
+
+        if (productType === 'business_drop_in') {
+          const userId = session.metadata?.userId;
+          const businessId = session.metadata?.businessId;
+          const serviceId = session.metadata?.serviceId;
+          const bookingDate = session.metadata?.date || null;
+          const slotId = session.metadata?.slotId || null;
+
+          if (isValidUUID(userId) && isValidUUID(businessId) && isValidUUID(serviceId)) {
+            const amountTotal = session.amount_total || 0;
+            const platformFee = Math.round(amountTotal * 0.15);
+            const qrCode = `smuppy-bk-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+
+            await client.query(
+              `INSERT INTO business_bookings (
+                user_id, business_id, service_id, stripe_checkout_session_id,
+                amount_cents, platform_fee_cents, status, booking_date, slot_time, qr_code
+              ) VALUES ($1, $2, $3, $4, $5, $6, 'confirmed', $7, $8, $9)`,
+              [userId, businessId, serviceId, session.id, amountTotal, platformFee, bookingDate, slotId, qrCode]
+            );
+
+            // Notify business
+            const buyerResult = await client.query('SELECT full_name, username FROM profiles WHERE id = $1', [userId]);
+            const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'business_booking', 'New Booking!', $2, $3)`,
+              [businessId, `${buyerName} booked a class`, JSON.stringify({ bookingDate, userId, serviceId })]
+            );
+
+            log.info('Business drop_in booking created', { businessId: businessId.substring(0, 8) + '***', userId: userId?.substring(0, 8) + '***' });
+          }
+          break;
+        }
+
+        if (productType === 'business_pass') {
+          const userId = session.metadata?.userId;
+          const businessId = session.metadata?.businessId;
+          const serviceId = session.metadata?.serviceId;
+
+          if (isValidUUID(userId) && isValidUUID(businessId) && isValidUUID(serviceId)) {
+            const amountTotal = session.amount_total || 0;
+            const platformFee = Math.round(amountTotal * 0.15);
+
+            // Get entries_total from the service
+            const serviceResult = await client.query(
+              'SELECT entries_total FROM business_services WHERE id = $1',
+              [serviceId]
+            );
+            const entriesTotal = serviceResult.rows[0]?.entries_total || 10;
+
+            await client.query(
+              `INSERT INTO business_passes (
+                user_id, business_id, service_id, stripe_checkout_session_id,
+                amount_cents, platform_fee_cents, entries_total, status
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')`,
+              [userId, businessId, serviceId, session.id, amountTotal, platformFee, entriesTotal]
+            );
+
+            // Notify business
+            const buyerResult = await client.query('SELECT full_name, username FROM profiles WHERE id = $1', [userId]);
+            const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'business_pass', 'New Pass Purchased!', $2, $3)`,
+              [businessId, `${buyerName} purchased a pass`, JSON.stringify({ userId, serviceId })]
+            );
+
+            log.info('Business pass created', { businessId: businessId.substring(0, 8) + '***' });
+          }
+          break;
+        }
+
+        if (productType === 'business_subscription') {
+          const userId = session.metadata?.userId;
+          const businessId = session.metadata?.businessId;
+          const serviceId = session.metadata?.serviceId;
+
+          if (isValidUUID(userId) && isValidUUID(businessId) && isValidUUID(serviceId)) {
+            const amountTotal = session.amount_total || 0;
+            const platformFee = Math.round(amountTotal * 0.15);
+
+            // Get subscription details
+            const subscription = session.subscription
+              ? await stripe.subscriptions.retrieve(session.subscription as string)
+              : null;
+
+            const period = session.metadata?.period || 'monthly';
+
+            await client.query(
+              `INSERT INTO business_subscriptions (
+                user_id, business_id, service_id, stripe_subscription_id,
+                stripe_checkout_session_id, amount_cents, platform_fee_cents,
+                period, status, current_period_end
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9)
+              ON CONFLICT DO NOTHING`,
+              [
+                userId, businessId, serviceId,
+                subscription?.id || null,
+                session.id, amountTotal, platformFee, period,
+                subscription ? new Date(subscription.current_period_end * 1000).toISOString() : null,
+              ]
+            );
+
+            // Notify business
+            const buyerResult = await client.query('SELECT full_name, username FROM profiles WHERE id = $1', [userId]);
+            const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'business_subscription', 'New Member!', $2, $3)`,
+              [businessId, `${buyerName} subscribed to your service`, JSON.stringify({ userId, serviceId, period })]
+            );
+
+            log.info('Business subscription created', { businessId: businessId.substring(0, 8) + '***' });
+          }
+          break;
+        }
+
         if (subscriptionType === 'platform') {
           // Platform subscription (Pro Creator or Pro Business)
           const userId = session.metadata?.userId;
@@ -372,33 +492,71 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             }
           }
         } else if (subscriptionType === 'platform') {
-          const hasCancelAt = subscription.cancel_at != null;
+          const status = subscription.cancel_at_period_end ? 'canceling' : subscription.status;
+          const params: (string | number | null)[] = [
+            status,
+            subscription.current_period_start,
+            subscription.current_period_end,
+          ];
+          const setClauses = [
+            'status = $1',
+            'current_period_start = to_timestamp($2)',
+            'current_period_end = to_timestamp($3)',
+          ];
+          if (subscription.cancel_at != null) {
+            params.push(subscription.cancel_at);
+            setClauses.push(`cancel_at = to_timestamp($${params.length})`);
+          } else {
+            setClauses.push('cancel_at = NULL');
+          }
+          setClauses.push('updated_at = NOW()');
+          params.push(subscription.id);
           await client.query(
-            `UPDATE platform_subscriptions
-             SET status = $1,
-                 current_period_start = to_timestamp($2),
-                 current_period_end = to_timestamp($3),
-                 cancel_at = ${hasCancelAt ? 'to_timestamp($4)' : 'NULL'},
-                 updated_at = NOW()
-             WHERE stripe_subscription_id = $${hasCancelAt ? 5 : 4}`,
-            hasCancelAt
-              ? [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.cancel_at, subscription.id]
-              : [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.id]
+            `UPDATE platform_subscriptions SET ${setClauses.join(', ')} WHERE stripe_subscription_id = $${params.length}`,
+            params
           );
         } else if (subscriptionType === 'channel') {
-          const hasCancelAt = subscription.cancel_at != null;
+          const status = subscription.cancel_at_period_end ? 'canceling' : subscription.status;
+          const params: (string | number | null)[] = [
+            status,
+            subscription.current_period_start,
+            subscription.current_period_end,
+          ];
+          const setClauses = [
+            'status = $1',
+            'current_period_start = to_timestamp($2)',
+            'current_period_end = to_timestamp($3)',
+          ];
+          if (subscription.cancel_at != null) {
+            params.push(subscription.cancel_at);
+            setClauses.push(`cancel_at = to_timestamp($${params.length})`);
+          } else {
+            setClauses.push('cancel_at = NULL');
+          }
+          setClauses.push('updated_at = NOW()');
+          params.push(subscription.id);
           await client.query(
-            `UPDATE channel_subscriptions
-             SET status = $1,
-                 current_period_start = to_timestamp($2),
-                 current_period_end = to_timestamp($3),
-                 cancel_at = ${hasCancelAt ? 'to_timestamp($4)' : 'NULL'},
-                 updated_at = NOW()
-             WHERE stripe_subscription_id = $${hasCancelAt ? 5 : 4}`,
-            hasCancelAt
-              ? [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.cancel_at, subscription.id]
-              : [subscription.cancel_at_period_end ? 'canceling' : subscription.status, subscription.current_period_start, subscription.current_period_end, subscription.id]
+            `UPDATE channel_subscriptions SET ${setClauses.join(', ')} WHERE stripe_subscription_id = $${params.length}`,
+            params
           );
+        } else if (subscriptionType === 'business') {
+          const status = subscription.cancel_at_period_end ? 'canceling' : subscription.status;
+          const hasCancelAt = subscription.cancel_at != null;
+          if (hasCancelAt) {
+            await client.query(
+              `UPDATE business_subscriptions
+               SET status = $1, current_period_end = to_timestamp($2), cancel_at = to_timestamp($3)
+               WHERE stripe_subscription_id = $4`,
+              [status, subscription.current_period_end, subscription.cancel_at, subscription.id]
+            );
+          } else {
+            await client.query(
+              `UPDATE business_subscriptions
+               SET status = $1, current_period_end = to_timestamp($2), cancel_at = NULL
+               WHERE stripe_subscription_id = $3`,
+              [status, subscription.current_period_end, subscription.id]
+            );
+          }
         }
         break;
       }
@@ -463,6 +621,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'subscriber_canceled', 'Subscriber Left', 'A subscriber has canceled their channel subscription', '{}')`,
               [creatorId]
+            );
+          }
+        } else if (subscriptionType === 'business') {
+          await client.query(
+            `UPDATE business_subscriptions
+             SET status = 'canceled', cancel_at = NOW()
+             WHERE stripe_subscription_id = $1`,
+            [subscription.id]
+          );
+
+          const businessId = subscription.metadata?.businessId;
+          if (businessId) {
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'business_sub_canceled', 'Member Left', 'A member has canceled their subscription', '{}')`,
+              [businessId]
             );
           }
         }

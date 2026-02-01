@@ -106,26 +106,26 @@ async function notifyFans(
   // Insert in-app notification for each fan
   const fanIds: string[] = fansResult.rows.map((r: { follower_id: string }) => r.follower_id);
 
-  // Batch insert notifications
-  const values: string[] = [];
-  const params: string[] = [];
-  let paramIndex = 1;
+  // Batch insert notifications (500 per batch)
+  const BATCH_SIZE = 500;
+  const notifMessage = `${displayName} is live now!`;
+  const notifData = JSON.stringify({ type: 'live', channelName: `live_${host.id}` });
 
-  for (const fanId of fanIds) {
-    values.push(`($${paramIndex}, $${paramIndex + 1}, 'live', $${paramIndex + 2}, $${paramIndex + 3})`);
-    params.push(fanId, host.id, `${displayName} is live now!`, JSON.stringify({ type: 'live', channelName: `live_${host.id}` }));
-    paramIndex += 4;
-  }
+  for (let i = 0; i < fanIds.length; i += BATCH_SIZE) {
+    const batch = fanIds.slice(i, i + BATCH_SIZE);
+    const placeholders: string[] = [];
+    const params: string[] = [];
 
-  // Insert in batches of 500
-  for (let i = 0; i < values.length; i += 500) {
-    const batchValues = values.slice(i, i + 500);
-    const batchParamCount = batchValues.length * 4;
-    const batchParams = params.slice(i * 4, (i + 500) * 4);
+    for (let j = 0; j < batch.length; j++) {
+      const base = j * 4 + 1;
+      placeholders.push(`($${base}, $${base + 1}, 'live', $${base + 2}, $${base + 3})`);
+      params.push(batch[j], host.id, notifMessage, notifData);
+    }
+
     await db.query(
       `INSERT INTO notifications (recipient_id, sender_id, type, message, data)
-       VALUES ${batchValues.join(', ')}`,
-      batchParams
+       VALUES ${placeholders.join(', ')}`,
+      params
     );
   }
 

@@ -181,15 +181,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
     if (taggedUserIds.length > 0) {
-      const tagValues = taggedUserIds
-        .map((_, i) => `($1, $${i + 2})`)
-        .join(', ');
+      const placeholders: string[] = [];
+      const params: (string)[] = [];
+
+      for (let i = 0; i < taggedUserIds.length; i++) {
+        const base = i * 2 + 1;
+        placeholders.push(`($${base}, $${base + 1})`);
+        params.push(challenge.id, taggedUserIds[i]);
+      }
 
       await client.query(
         `INSERT INTO challenge_tags (challenge_id, tagged_user_id)
-         VALUES ${tagValues}
+         VALUES ${placeholders.join(', ')}
          ON CONFLICT DO NOTHING`,
-        [challenge.id, ...taggedUserIds]
+        params
       );
 
       // Create notifications for tagged users

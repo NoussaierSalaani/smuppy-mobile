@@ -24,7 +24,7 @@ export default function OnboardingHeader({
   showProgress = true,
   showBackArrow = true,
 }: OnboardingHeaderProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   // Memoize segments to avoid recalculating on every render
   const segments = useMemo(() => {
@@ -40,7 +40,7 @@ export default function OnboardingHeader({
     });
   }, [totalSteps]);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
@@ -86,7 +86,7 @@ export default function OnboardingHeader({
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.sm,

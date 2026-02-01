@@ -103,8 +103,8 @@ function OptimizedListInner<T extends ItemWithId>(
   }: OptimizedListProps<T>,
   ref: React.Ref<FlashListRef<T>>
 ) {
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Default key extractor
   const defaultKeyExtractor = useCallback((item: T, index: number): string => {
@@ -318,7 +318,7 @@ export const GridList = memo(forwardRef(GridListInner)) as <T extends ItemWithId
   props: GridListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
 ) => ReactElement;
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   loadingFooter: {
     paddingVertical: SPACING.lg,
     alignItems: 'center',

@@ -25,8 +25,8 @@ interface QualityPickerProps {
 }
 
 export default function QualityPicker({ category, selected, onSelectionChange }: QualityPickerProps) {
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const key = category.toLowerCase().replace(/\s+/g, '_');
   const qualities = SPOT_QUALITIES[key] || SPOT_QUALITIES.general || [];
@@ -77,7 +77,7 @@ export default function QualityPicker({ category, selected, onSelectionChange }:
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginVertical: 8,
   },

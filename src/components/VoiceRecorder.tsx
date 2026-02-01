@@ -17,7 +17,7 @@ interface VoiceRecorderProps {
 }
 
 export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { showError } = useSmuppyAlert();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -27,7 +27,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Request permissions on mount
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

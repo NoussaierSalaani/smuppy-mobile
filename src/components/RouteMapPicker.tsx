@@ -106,7 +106,7 @@ export default function RouteMapPicker({
   onRouteCalculated,
   onRouteClear,
 }: RouteMapPickerProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const cameraRef = useRef<Camera>(null);
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -148,7 +148,7 @@ export default function RouteMapPicker({
 
   const profile = getRouteProfile(activityType);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // ============================================
   // INIT
@@ -802,7 +802,7 @@ export default function RouteMapPicker({
 // STYLES
 // ============================================
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },

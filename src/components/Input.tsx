@@ -67,7 +67,7 @@ export default function Input({
   inputStyle,
   ...props
 }: InputProps): React.JSX.Element {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isSecure, setIsSecure] = useState(secureTextEntry);
 
@@ -122,8 +122,7 @@ export default function Input({
   };
 
   const currentStyle = stateStyles[state];
-
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Handle password visibility toggle
   const handleToggleSecure = (): void => {
@@ -230,7 +229,7 @@ export default function Input({
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginBottom: 8,
   },

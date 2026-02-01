@@ -48,6 +48,14 @@ const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 const PEAK_CARD_WIDTH = 100;
 const PEAK_CARD_HEIGHT = 140;
 
+// Module-level cache — survives navigation but not app restart
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
+  posts: [],
+  timestamp: 0,
+  page: 0,
+};
+
 const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 
 // Build unified lookup from interests + expertise configs (icon + color per name)
@@ -235,11 +243,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [activeInterests, setActiveInterests] = useState<Set<string>>(new Set());
 
-  // Posts state - allPosts stores everything, posts is filtered view
-  const [allPosts, setAllPosts] = useState<UIVibePost[]>([]);
+  // Posts state - initialize from cache for instant display
+  const [allPosts, setAllPosts] = useState<UIVibePost[]>(vibesFeedCache.posts);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
-  const [, setIsLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [, setIsLoading] = useState(() => vibesFeedCache.posts.length === 0);
+  const [page, setPage] = useState(vibesFeedCache.page);
 
   const [selectedPost, setSelectedPost] = useState<UIVibePost | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -296,18 +304,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       if (error) {
         if (__DEV__) console.error('[VibesFeed] Error fetching posts:', error);
-        if (refresh || pageNum === 0) {
-          // Use mock data as fallback
-          if (__DEV__) console.log('[VibesFeed] Using mock data as fallback');
-          setAllPosts([]);
-          setHasMore(false);
-        }
+        // Keep existing posts on error — don't clear the feed
         return;
       }
 
       if (!data || data.length === 0) {
         if (refresh || pageNum === 0) {
-          setAllPosts([]);
           setHasMore(false);
         }
         return;
@@ -325,23 +327,30 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       if (refresh || pageNum === 0) {
         setAllPosts(transformedPosts);
         setLikedPostIds(likedIds);
+        vibesFeedCache = { posts: transformedPosts, timestamp: Date.now(), page: 0 };
       } else {
-        setAllPosts(prev => [...prev, ...transformedPosts]);
+        setAllPosts(prev => {
+          const updated = [...prev, ...transformedPosts];
+          vibesFeedCache = { posts: updated, timestamp: Date.now(), page: pageNum };
+          return updated;
+        });
         setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
 
       setHasMore(data.length >= 40);
     } catch (err) {
       if (__DEV__) console.error('[VibesFeed] Error:', err);
-      if (refresh) {
-        setAllPosts([]);
-        setHasMore(false);
-      }
+      // Keep existing posts on error — don't clear the feed
     }
   }, [activeInterests, userInterests]);
 
-  // Reload when interests change (initial load + preference/filter changes)
+  // Reload when interests change — skip if cache is fresh
   useEffect(() => {
+    const isCacheStale = Date.now() - vibesFeedCache.timestamp > CACHE_TTL;
+    if (vibesFeedCache.posts.length > 0 && !isCacheStale) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setPage(0);
     fetchPosts(0, true).finally(() => setIsLoading(false));
@@ -726,7 +735,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Render vibe card with double-tap to like and glassmorphism
   const renderVibeCard = (post: UIVibePost, index: number) => (
     <DoubleTapLike
-      key={`vibe-${index}-${post.id}`}
+      key={post.id}
       onDoubleTap={() => {
         if (!post.isLiked) {
           toggleLike(post.id);

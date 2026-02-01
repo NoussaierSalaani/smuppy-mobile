@@ -299,7 +299,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
               style={styles.trackBadge}
               onPress={() => handleFollow(item.id)}
             >
-              <Ionicons name="add" size={14} color={colors.dark} />
+              <Ionicons name="add" size={14} color="#FFFFFF" />
               <Text style={styles.trackBadgeText}>Track</Text>
             </TouchableOpacity>
           );
@@ -431,7 +431,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
@@ -440,7 +440,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
@@ -448,7 +448,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.white} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
 
         <Text style={styles.headerText}>Community</Text>
@@ -615,14 +615,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerText: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
 
   // Tabs
@@ -648,7 +648,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.gray,
   },
   tabTextActive: {
-    color: colors.white,
+    color: colors.dark,
   },
   tabCount: {
     fontSize: 13,
@@ -741,7 +741,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   trackBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.dark,
+    color: '#FFFFFF',
     marginLeft: 2,
   },
   fanBadge: {
@@ -778,7 +778,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
     marginTop: 16,
   },
   emptyDesc: {
@@ -797,7 +797,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
   },
   popupContainer: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : colors.background,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -807,7 +807,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   popupName: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
     marginTop: 12,
     marginBottom: 4,
   },
@@ -846,12 +846,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   unfollowButton: {
     flexDirection: 'row',

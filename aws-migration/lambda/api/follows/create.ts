@@ -166,6 +166,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       if (status === 'accepted') {
+        // Update fan_count and following_count
+        await client.query(
+          `UPDATE profiles SET fan_count = COALESCE(fan_count, 0) + 1 WHERE id = $1`,
+          [followingId]
+        );
+        await client.query(
+          `UPDATE profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = $1`,
+          [followerId]
+        );
+
         await client.query(
           `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
            VALUES ($1, $2, 'new_follower', 'New Follower', 'Someone started following you', $3, NOW())`,

@@ -116,13 +116,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [request.requester_id, profileId]
       );
 
-      // Update follower/following counts
+      // Update fan_count and following_count
       await client.query(
-        'UPDATE profiles SET followers_count = followers_count + 1 WHERE id = $1',
+        'UPDATE profiles SET fan_count = COALESCE(fan_count, 0) + 1 WHERE id = $1',
         [profileId]
       );
       await client.query(
-        'UPDATE profiles SET following_count = following_count + 1 WHERE id = $1',
+        'UPDATE profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = $1',
         [request.requester_id]
       );
 

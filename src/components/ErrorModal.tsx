@@ -65,7 +65,7 @@ export default function ErrorModal({
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 32 },
   container: { width: '100%', backgroundColor: colors.background, borderRadius: 24, padding: 28, alignItems: 'center' },
   closeBtn: { position: 'absolute', top: 16, right: 16, zIndex: 10 },

@@ -42,8 +42,8 @@ const Avatar = memo(function Avatar({
   onPress,
   style,
 }: AvatarProps): React.JSX.Element {
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const { colors, isDark: _isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, _isDark), [colors, _isDark]);
 
   // Size configurations
   const sizeConfig: Record<AvatarSize, SizeConfig> = {
@@ -230,7 +230,7 @@ Avatar.displayName = 'Avatar';
 
 export default Avatar;
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     position: 'relative',
   },

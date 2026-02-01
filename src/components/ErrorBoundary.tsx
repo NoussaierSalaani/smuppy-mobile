@@ -1,4 +1,4 @@
-import React, { Component, ReactNode, useMemo } from 'react';
+import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING } from '../config/theme';
@@ -13,7 +13,7 @@ interface ErrorBoundaryProps {
   title?: string;
   message?: string;
   showReportButton?: boolean;
-  colors?: any;
+  colors: ThemeColors;
   isDark?: boolean;
 }
 
@@ -80,8 +80,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   render() {
-    const { colors, isDark } = this.props;
-    const styles = createStyles(colors, isDark || false);
+    const { colors, isDark: _isDark } = this.props;
+    const styles = createStyles(colors, _isDark || false);
 
     if (this.state.hasError) {
       // Custom fallback UI from props
@@ -153,96 +153,96 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-    backgroundColor: colors.background,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.errorLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 20,
-    color: colors.dark,
-    textAlign: 'center',
-  },
-  message: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.gray,
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: SPACING.lg,
-  },
-  errorDetails: {
-    marginTop: SPACING.lg,
-    padding: SPACING.md,
-    backgroundColor: colors.errorLight,
-    borderRadius: 8,
-    maxWidth: '100%',
-  },
-  errorText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: colors.error,
-  },
-  buttonContainer: {
-    marginTop: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    backgroundColor: colors.primary,
-    borderRadius: 28,
-    gap: 8,
-  },
-  retryText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  reportButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  reportText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: colors.gray,
-    textDecorationLine: 'underline',
-  },
-  // Minimal styles
-  minimalContainer: {
-    padding: SPACING.lg,
-    alignItems: 'center',
-  },
-  minimalText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.gray,
-  },
-  minimalRetry: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: SPACING.sm,
-  },
-});
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: SPACING.xl,
+      backgroundColor: colors.background,
+    },
+    iconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.errorLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.lg,
+    },
+    title: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: 20,
+      color: colors.dark,
+      textAlign: 'center',
+    },
+    message: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 14,
+      color: colors.gray,
+      marginTop: SPACING.sm,
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingHorizontal: SPACING.lg,
+    },
+    errorDetails: {
+      marginTop: SPACING.lg,
+      padding: SPACING.md,
+      backgroundColor: colors.errorLight,
+      borderRadius: 8,
+      maxWidth: '100%',
+    },
+    errorText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 12,
+      color: colors.error,
+    },
+    buttonContainer: {
+      marginTop: SPACING.xl,
+      alignItems: 'center',
+      gap: SPACING.md,
+    },
+    retryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 28,
+      backgroundColor: colors.primary,
+      borderRadius: 28,
+      gap: 8,
+    },
+    retryText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: 15,
+      color: '#FFFFFF',
+    },
+    reportButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+    },
+    reportText: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: 14,
+      color: colors.gray,
+      textDecorationLine: 'underline',
+    },
+    // Minimal styles
+    minimalContainer: {
+      padding: SPACING.lg,
+      alignItems: 'center',
+    },
+    minimalText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 14,
+      color: colors.gray,
+    },
+    minimalRetry: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: 14,
+      color: colors.primary,
+      marginTop: SPACING.sm,
+    },
+  });
 
 // Wrapper to inject theme into class component
 function ErrorBoundaryWithTheme(props: Omit<ErrorBoundaryProps, 'colors' | 'isDark'>) {

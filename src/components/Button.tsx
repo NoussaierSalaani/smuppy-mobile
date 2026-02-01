@@ -227,7 +227,7 @@ export default function Button({
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   button: {
     flexDirection: 'row',
     justifyContent: 'center',

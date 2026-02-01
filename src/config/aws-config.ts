@@ -69,12 +69,14 @@ const getEnvironment = (): 'staging' | 'production' => {
 export const getAWSConfig = (): AWSConfig => {
   const currentEnv = getEnvironment();
   const isProduction = currentEnv === 'production';
+  // Treat any non-dev build (TestFlight/App Store/EAS prod) as release: no fallbacks allowed
+  const isReleaseBuild = typeof __DEV__ !== 'undefined' ? !__DEV__ : true;
 
   // In production, every value MUST come from env vars — no fallback to staging
   const resolve = (envKey: string, stagingDefault: string): string => {
     const value = env(envKey);
     if (value) return value;
-    if (isProduction) {
+    if (isProduction || isReleaseBuild) {
       throw new Error(
         `[AWS Config] FATAL: ${envKey} is not set in production. ` +
         'All AWS config must be injected via EAS Secrets for production builds.'

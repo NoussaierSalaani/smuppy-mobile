@@ -19,13 +19,6 @@ interface EventGroupCardProps {
   onMenuPress: () => void;
 }
 
-const PLACEHOLDER_COLORS: Record<string, string[]> = {
-  fitness: ['#FF6B6B', '#FF8E8E'],
-  sports: ['#4ECDC4', '#45B7A0'],
-  outdoor: ['#96CEB4', '#88D8A8'],
-  default: ['#A8DADC', '#457B9D'],
-};
-
 const formatDate = (dateStr?: string): string => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
@@ -49,8 +42,8 @@ const EventGroupCard = memo(({
   onPress,
   onMenuPress,
 }: EventGroupCardProps) => {
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const participantText = maxParticipants
     ? `${participantCount}/${maxParticipants}`
@@ -100,7 +93,7 @@ const EventGroupCard = memo(({
 
 EventGroupCard.displayName = 'EventGroupCard';
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: colors.backgroundSecondary,
@@ -113,7 +106,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 80,
   },
   placeholderThumb: {
-    backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -132,8 +132,13 @@ import {
   IdentityVerificationScreen,
 } from '../screens/payments';
 
-// WebView
-import WebViewScreen from '../screens/WebViewScreen';
+// WebView (lazy to avoid crash when native module not in dev client)
+const LazyWebViewScreen = React.lazy(() => import('../screens/WebViewScreen'));
+const WebViewScreen = (props: Record<string, unknown>) => (
+  <React.Suspense fallback={null}>
+    <LazyWebViewScreen {...props} />
+  </React.Suspense>
+);
 
 // Find Friends (standalone popup)
 import FindFriendsScreen from '../screens/onboarding/FindFriendsScreen';

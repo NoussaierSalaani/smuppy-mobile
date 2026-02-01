@@ -280,7 +280,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
   const { colors, isDark, gradients } = useTheme();
 
-  const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
 
   // Separate checks: creator-only features vs shared pro styling
   const user = useUserStore((state) => state.user);
@@ -369,7 +369,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     }
   };
 
-  const bottomPadding = isBusiness ? (insets.bottom > 0 ? insets.bottom : 0) : (insets.bottom > 0 ? insets.bottom : 20);
+  const bottomPadding = isBusiness ? 0 : (insets.bottom > 0 ? insets.bottom : 20);
+  const businessBottomInset = isBusiness ? insets.bottom : 0;
 
   return (
     <Animated.View
@@ -394,7 +395,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       ) : (
         <View style={styles.personalBorderWrapper} />
       )}
-      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isBusiness ? styles.businessBlurContainer : styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
+      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isBusiness ? styles.businessBlurContainer : styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)', paddingBottom: businessBottomInset }]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
@@ -622,7 +623,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
 export default BottomNav;
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     position: 'absolute',
     left: 20,

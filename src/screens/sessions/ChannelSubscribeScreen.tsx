@@ -3,7 +3,7 @@
  * Checkout screen for subscribing to a creator's channel
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -67,33 +67,27 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
   const [loading, setLoading] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
+  const mountedRef = useRef(true);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  useEffect(() => {
-    initializePayment();
-  }, []);
-
-  const initializePayment = async () => {
+  const initializePayment = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Create subscription checkout
       const response = await awsAPI.subscribeToChannel(creatorId);
+      if (!mountedRef.current) return;
 
       if (!response.success) {
         throw new Error('Failed to create subscription');
       }
-
-      // For subscriptions, we use Stripe's hosted checkout
-      // In a real app, you'd redirect to response.checkoutUrl
-      // For now, we'll use payment sheet for demo
 
       const intentResponse = await awsAPI.createPaymentIntent({
         creatorId,
         amount: Math.round(tier.price * 100),
         description: `Abonnement ${tier.name} - @${creator.username}`,
       });
+      if (!mountedRef.current) return;
 
       if (!intentResponse.success || !intentResponse.paymentIntent) {
         throw new Error('Failed to create payment intent');
@@ -117,6 +111,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           },
         },
       });
+      if (!mountedRef.current) return;
 
       if (error) {
         if (__DEV__) console.error('Payment sheet init error:', error);
@@ -124,14 +119,20 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         setPaymentReady(true);
       }
     } catch (error) {
+      if (!mountedRef.current) return;
       if (__DEV__) console.error('Payment init error:', error);
       showError('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  };
+  }, [creatorId, tier, creator.username, colors, initPaymentSheet, showError]);
 
-  const handleSubscribe = async () => {
+  useEffect(() => {
+    initializePayment();
+    return () => { mountedRef.current = false; };
+  }, [initializePayment]);
+
+  const handleSubscribe = useCallback(async () => {
     if (!paymentReady) {
       await initializePayment();
       return;
@@ -140,25 +141,26 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
     try {
       setLoading(true);
       const { error } = await presentPaymentSheet();
+      if (!mountedRef.current) return;
 
       if (error) {
         if (error.code !== 'Canceled') {
           showError('Erreur de paiement', error.message);
         }
       } else {
-        // Payment successful
         navigation.replace('SubscriptionSuccess', {
           tier,
           creator,
         });
       }
     } catch (error) {
+      if (!mountedRef.current) return;
       if (__DEV__) console.error('Payment error:', error);
       showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  };
+  }, [paymentReady, initializePayment, presentPaymentSheet, navigation, tier, creator, showError]);
 
   const renewalDate = new Date();
   renewalDate.setMonth(renewalDate.getMonth() + 1);

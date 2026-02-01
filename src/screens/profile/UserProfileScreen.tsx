@@ -1159,8 +1159,15 @@ const UserProfileScreen = () => {
         creatorName={profile.displayName}
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}
-        onSubscribe={(_tierId) => {
-          // TODO: Implement subscription logic with payment
+        onSubscribe={(tierId) => {
+          setShowSubscribeModal(false);
+          const tierMap: Record<string, { id: string; name: string; price: number; perks: string[] }> = {
+            basic: { id: 'basic', name: 'Fan', price: 4.99, perks: ['Access to exclusive posts', 'Join live streams', 'Fan badge on comments'] },
+            premium: { id: 'premium', name: 'Super Fan', price: 9.99, perks: ['All Fan benefits', 'Access to exclusive videos', 'Priority in live chat', 'Monthly 1-on-1 Q&A'] },
+            vip: { id: 'vip', name: 'VIP', price: 24.99, perks: ['All Super Fan benefits', 'Private Discord access', 'Early access to content', 'Personal shoutouts', '10% off private sessions'] },
+          };
+          const tier = tierMap[tierId] || tierMap.premium;
+          (navigation as any).navigate('ChannelSubscribe', { creatorId: profile.id, tier });
         }}
       />
     </View>

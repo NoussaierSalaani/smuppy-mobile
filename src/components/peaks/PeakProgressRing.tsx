@@ -1,15 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { AvatarImage } from '../OptimizedImage';
 import Svg, { Circle } from 'react-native-svg';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-const COLORS = {
-  primary: '#0EBF8A',
-  primaryFaded: 'rgba(17, 227, 163, 0.3)',
-  dark: '#0A0A0F',
-};
 
 interface PeakProgressRingProps {
   size?: number;
@@ -31,6 +26,8 @@ const PeakProgressRing = ({
   onComplete,
   isPaused = false,
 }: PeakProgressRingProps): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const animatedValue = useRef(new Animated.Value(1)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -68,6 +65,8 @@ const PeakProgressRing = ({
     outputRange: [circumference, 0],
   });
 
+  const primaryFaded = `${colors.primary}4D`; // ~30% opacity
+
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       {/* Background circle */}
@@ -76,7 +75,7 @@ const PeakProgressRing = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={COLORS.primaryFaded}
+          stroke={primaryFaded}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -92,7 +91,7 @@ const PeakProgressRing = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={COLORS.primary}
+          stroke={colors.primary}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={circumference}
@@ -115,7 +114,7 @@ const PeakProgressRing = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     justifyContent: 'center',
     alignItems: 'center',

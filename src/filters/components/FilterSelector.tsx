@@ -25,22 +25,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useFilters } from '../../stores/filterStore';
 import { FilterDefinition } from '../types';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 Dimensions.get('window');
 const FILTER_ITEM_SIZE = 72;
-
-// Smuppy brand colors
-const COLORS = {
-  primary: '#00E676',
-  primaryDark: '#00C853',
-  dark: '#0A0A0F',
-  darkCard: '#1A1A2E',
-  white: '#FFFFFF',
-  gray: 'rgba(255,255,255,0.6)',
-  grayLight: 'rgba(255,255,255,0.3)',
-  glassBg: 'rgba(20,20,30,0.85)',
-  glassLight: 'rgba(255,255,255,0.08)',
-};
 
 interface FilterSelectorProps {
   onFilterChange?: (filterId: string | null) => void;
@@ -63,6 +51,7 @@ export function FilterSelector({
   onOpenOverlays,
   compact = false,
 }: FilterSelectorProps) {
+  const { colors, isDark } = useTheme();
   const {
     activeFilter,
     activeOverlays,
@@ -73,6 +62,8 @@ export function FilterSelector({
   } = useFilters();
 
   const [selectedTab, setSelectedTab] = useState<TabType>('body');
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Get filters for current tab
   const filters = useMemo(
@@ -122,6 +113,8 @@ export function FilterSelector({
                   tab={tab}
                   isSelected={selectedTab === tab.id}
                   onPress={() => setSelectedTab(tab.id)}
+                  colors={colors}
+                  styles={styles}
                 />
               ))}
             </View>
@@ -138,7 +131,7 @@ export function FilterSelector({
               <Ionicons
                 name="layers"
                 size={18}
-                color={activeOverlays.length > 0 ? COLORS.primary : COLORS.white}
+                color={activeOverlays.length > 0 ? colors.primary : colors.white}
               />
               {activeOverlays.length > 0 && (
                 <View style={styles.overlaysBadge}>
@@ -163,6 +156,8 @@ export function FilterSelector({
                 clearFilter();
                 onFilterChange?.(null);
               }}
+              colors={colors}
+              styles={styles}
             />
 
             {/* Filter cards */}
@@ -172,6 +167,8 @@ export function FilterSelector({
                 filter={filter}
                 isSelected={activeFilter?.filterId === filter.id}
                 onPress={() => handleFilterSelect(filter)}
+                colors={colors}
+                styles={styles}
               />
             ))}
           </ScrollView>
@@ -196,9 +193,9 @@ export function FilterSelector({
                   maximumValue={1}
                   value={activeFilter.intensity}
                   onValueChange={handleIntensityChange}
-                  minimumTrackTintColor={COLORS.primary}
-                  maximumTrackTintColor={COLORS.grayLight}
-                  thumbTintColor={COLORS.white}
+                  minimumTrackTintColor={colors.primary}
+                  maximumTrackTintColor={'rgba(255,255,255,0.3)'}
+                  thumbTintColor={colors.white}
                 />
               </View>
             </Animated.View>
@@ -214,9 +211,11 @@ interface TabButtonProps {
   tab: { id: TabType; label: string; icon: string };
   isSelected: boolean;
   onPress: () => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function TabButton({ tab, isSelected, onPress }: TabButtonProps) {
+function TabButton({ tab, isSelected, onPress, colors, styles }: TabButtonProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -242,7 +241,7 @@ function TabButton({ tab, isSelected, onPress }: TabButtonProps) {
         <Ionicons
           name={tab.icon as any}
           size={16}
-          color={isSelected ? COLORS.dark : COLORS.gray}
+          color={isSelected ? colors.dark : 'rgba(255,255,255,0.6)'}
         />
         <Text style={[styles.tabLabel, isSelected && styles.tabLabelSelected]}>
           {tab.label}
@@ -257,9 +256,11 @@ interface FilterCardProps {
   filter: FilterDefinition | null;
   isSelected: boolean;
   onPress: () => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function FilterCard({ filter, isSelected, onPress }: FilterCardProps) {
+function FilterCard({ filter, isSelected, onPress, colors, styles }: FilterCardProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -285,7 +286,7 @@ function FilterCard({ filter, isSelected, onPress }: FilterCardProps) {
         {/* Selection indicator */}
         {isSelected && (
           <View style={styles.selectionIndicator}>
-            <Ionicons name="checkmark" size={12} color={COLORS.dark} />
+            <Ionicons name="checkmark" size={12} color={colors.dark} />
           </View>
         )}
 
@@ -308,7 +309,7 @@ function FilterCard({ filter, isSelected, onPress }: FilterCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     marginHorizontal: 12,
     borderRadius: 24,
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   innerContainer: {
-    backgroundColor: COLORS.glassBg,
+    backgroundColor: 'rgba(20,20,30,0.85)',
     paddingVertical: 16,
   },
 
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     padding: 4,
   },
@@ -349,15 +350,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabButtonSelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabLabel: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 13,
     fontWeight: '600',
   },
   tabLabelSelected: {
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Overlays button
@@ -365,7 +366,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
   },
   overlaysButtonActive: {
     backgroundColor: 'rgba(0,230,118,0.15)',
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   overlaysBadge: {
     position: 'absolute',
@@ -382,12 +383,12 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   overlaysBadgeText: {
-    color: COLORS.dark,
+    color: colors.dark,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
   filterCard: {
     width: FILTER_ITEM_SIZE,
     height: FILTER_ITEM_SIZE + 24,
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
   },
   filterCardSelected: {
     backgroundColor: 'rgba(0,230,118,0.12)',
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   selectionIndicator: {
     position: 'absolute',
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -444,13 +445,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   filterName: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
   },
   filterNameSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Slider
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.glassLight,
+    borderTopColor: 'rgba(255,255,255,0.08)',
     marginTop: 16,
   },
   sliderHeader: {
@@ -468,14 +469,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sliderLabel: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   sliderValue: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
   },

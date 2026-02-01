@@ -32,23 +32,6 @@ export const createAuthColors = (colors: ThemeColors, isDark: boolean) => ({
   validBg: isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8',
 }) as const;
 
-/** Legacy static AUTH_COLORS for screens not yet migrated */
-export const AUTH_COLORS = {
-  primary: '#00cdb5',
-  primaryDark: '#0066ac',
-  dark: '#0a252f',
-  gray: '#676C75',
-  grayLight: '#9cadbc',
-  border: '#CED3D5',
-  divider: '#E5E7EB',
-  error: '#FF3B30',
-  errorBg: '#FEE2E2',
-  errorInputBg: '#FEF2F2',
-  successBg: '#E6FAF8',
-  focusBg: '#F0FDFB',
-  validBg: '#E6FAF8',
-} as const;
-
 /**
  * Shared styles for auth screens — now theme-aware via factory.
  */
@@ -256,16 +239,6 @@ export const createAuthStyles = (colors: ThemeColors, isDark: boolean) => {
   });
 };
 
-/** Legacy static authStyles for screens not yet migrated */
-export const authStyles = createAuthStyles(
-  {
-    primary: '#00cdb5', primaryDark: '#0066ac', dark: '#0a252f',
-    gray: '#676C75', grayMuted: '#9cadbc', grayBorder: '#CED3D5',
-    error: '#FF3B30', background: '#FFFFFF', white: '#FFFFFF',
-  } as ThemeColors,
-  false,
-);
-
 /**
  * Get the appropriate icon color based on input state — now theme-aware.
  */
@@ -276,13 +249,6 @@ export const createGetInputIconColor = (ac: ReturnType<typeof createAuthColors>)
     return ac.grayLight;
   };
 
-/** Legacy static version */
-export const getInputIconColor = (value: string, isValid: boolean, isFocused: boolean): string => {
-  if (value.length > 0 && !isValid) return AUTH_COLORS.error;
-  if (isFocused) return AUTH_COLORS.primary;
-  return AUTH_COLORS.grayLight;
-};
-
 /**
  * Get gradient colors based on form validity — now theme-aware.
  */
@@ -292,8 +258,3 @@ export const createGetButtonGradient = (ac: ReturnType<typeof createAuthColors>)
       ? [ac.primary, ac.primaryDark]
       : [ac.border, ac.border];
 
-/** Legacy static version */
-export const getButtonGradient = (isValid: boolean): [string, string] =>
-  isValid
-    ? [AUTH_COLORS.primary, AUTH_COLORS.primaryDark]
-    : [AUTH_COLORS.border, AUTH_COLORS.border];

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,18 +13,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SmuppyPeaksIcon from './icons/SmuppyPeaksIcon';
 import { FEATURES } from '../config/featureFlags';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const { height } = Dimensions.get('window');
-
-const COLORS = {
-  primary: '#0EBF8A',
-  secondary: '#00B5C1',
-  accent: '#0081BE',
-  dark: '#0A0A0F',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-  cardBg: '#1C1C1E',
-};
 
 interface CreateOptionsPopupProps {
   visible: boolean;
@@ -36,6 +27,8 @@ interface CreateOptionsPopupProps {
 }
 
 const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSelectChallenge, onSelectEvent }: CreateOptionsPopupProps): React.JSX.Element | null => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
 
   // Animations
@@ -173,7 +166,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
         >
           {/* Gradient Header Accent */}
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary, COLORS.accent]}
+            colors={[colors.primary, colors.cyanBlue, colors.blueMedium]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerAccent}
@@ -203,7 +196,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
                       colors={['rgba(14, 191, 138, 0.15)', 'rgba(0, 181, 193, 0.15)']}
                       style={styles.optionIconBg}
                     >
-                      <Ionicons name="images" size={26} color={COLORS.primary} />
+                      <Ionicons name="images" size={26} color={colors.primary} />
                     </LinearGradient>
                   </View>
                   <View style={styles.optionInfo}>
@@ -212,7 +205,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
                   </View>
                 </View>
                 <View style={styles.optionArrow}>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                  <Ionicons name="chevron-forward" size={20} color={colors.gray} />
                 </View>
               </TouchableOpacity>
             </Animated.View>
@@ -232,14 +225,14 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={[COLORS.primary, COLORS.secondary]}
+                  colors={[colors.primary, colors.cyanBlue]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.peakGradient}
                 >
                   <View style={styles.optionContent}>
                     <View style={styles.peakIconContainer}>
-                      <SmuppyPeaksIcon size={32} color={COLORS.dark} filled />
+                      <SmuppyPeaksIcon size={32} color={colors.dark} filled />
                     </View>
                     <View style={styles.optionInfo}>
                       <View style={styles.peakTitleRow}>
@@ -252,7 +245,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
                     </View>
                   </View>
                   <View style={styles.peakArrow}>
-                    <Ionicons name="videocam" size={22} color={COLORS.dark} />
+                    <Ionicons name="videocam" size={22} color={colors.dark} />
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -281,7 +274,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
                     </View>
                   </View>
                   <View style={styles.optionArrow}>
-                    <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                    <Ionicons name="chevron-forward" size={20} color={colors.gray} />
                   </View>
                 </TouchableOpacity>
               </Animated.View>
@@ -310,7 +303,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
                     </View>
                   </View>
                   <View style={styles.optionArrow}>
-                    <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                    <Ionicons name="chevron-forward" size={20} color={colors.gray} />
                   </View>
                 </TouchableOpacity>
               </Animated.View>
@@ -319,7 +312,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
 
           {/* Feature Highlight */}
           <View style={styles.featureHighlight}>
-            <Ionicons name="sparkles" size={16} color={COLORS.primary} />
+            <Ionicons name="sparkles" size={16} color={colors.primary} />
             <Text style={styles.featureText}>Peaks get 5x more engagement!</Text>
           </View>
 
@@ -336,7 +329,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -346,7 +339,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: colors.darkGray,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -378,12 +371,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   options: {
@@ -419,12 +412,12 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 3,
   },
   optionDesc: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 18,
   },
   optionArrow: {
@@ -440,7 +433,7 @@ const styles = StyleSheet.create({
   peakOption: {
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -472,7 +465,7 @@ const styles = StyleSheet.create({
   peakTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   hotBadge: {
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
@@ -483,7 +476,7 @@ const styles = StyleSheet.create({
   hotBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   peakDesc: {
     fontSize: 13,
@@ -511,7 +504,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
 
@@ -525,7 +518,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });
 

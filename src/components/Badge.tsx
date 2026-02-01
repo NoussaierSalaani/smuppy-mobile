@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import Svg, { Path, Circle, G } from 'react-native-svg';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface BadgeProps {
   size?: number;
@@ -19,7 +19,10 @@ const BADGE_COLORS = {
  * ShutterBadge — Outline variant (fond blanc, segments + checkmark colorés)
  * Light mode: white bg, colored shutter blades + checkmark
  */
-const ShutterBadgeOutline: React.FC<BadgeProps & { color: string }> = ({ size = 20, style, color }) => (
+const ShutterBadgeOutline: React.FC<BadgeProps & { color: string }> = ({ size = 20, style, color }) => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  return (
   <View style={[styles.badgeContainer, styles.badgeShadow, { width: size, height: size }, style]}>
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <G>
@@ -34,13 +37,17 @@ const ShutterBadgeOutline: React.FC<BadgeProps & { color: string }> = ({ size = 
       </G>
     </Svg>
   </View>
-);
+  );
+};
 
 /**
  * ShutterBadgeFilled — Filled variant (fond coloré, segments légèrement transparents, checkmark blanc)
  * Dark mode: colored bg, semi-transparent white shutter blades, white checkmark
  */
-const ShutterBadgeFilled: React.FC<BadgeProps & { color: string }> = ({ size = 16, style, color }) => (
+const ShutterBadgeFilled: React.FC<BadgeProps & { color: string }> = ({ size = 16, style, color }) => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  return (
   <View style={[styles.badgeContainer, styles.badgeShadow, { width: size, height: size }, style]}>
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <G>
@@ -55,7 +62,8 @@ const ShutterBadgeFilled: React.FC<BadgeProps & { color: string }> = ({ size = 1
       </G>
     </Svg>
   </View>
-);
+  );
+};
 
 /**
  * ShutterBadge — Auto-selects variant based on theme
@@ -141,7 +149,7 @@ export const AccountBadge: React.FC<AccountBadgeProps> = ({
   }
 };
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   badgeContainer: {
     justifyContent: 'center',
     alignItems: 'center',

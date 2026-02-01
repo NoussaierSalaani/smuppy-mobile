@@ -3,7 +3,7 @@
  * Modern bottom sheet for adding and editing overlays
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,22 +33,9 @@ import { RepCounter } from '../overlays/RepCounter';
 import { DayChallenge } from '../overlays/DayChallenge';
 import { CalorieBurn } from '../overlays/CalorieBurn';
 import { HeartRatePulse } from '../overlays/HeartRatePulse';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Smuppy brand colors
-const COLORS = {
-  primary: '#00E676',
-  primaryDark: '#00C853',
-  dark: '#0A0A0F',
-  darkCard: '#1A1A2E',
-  white: '#FFFFFF',
-  gray: 'rgba(255,255,255,0.6)',
-  grayLight: 'rgba(255,255,255,0.3)',
-  glassBg: 'rgba(20,20,30,0.95)',
-  glassLight: 'rgba(255,255,255,0.08)',
-  danger: '#FF5252',
-};
 
 interface OverlayEditorProps {
   visible: boolean;
@@ -64,8 +51,11 @@ const OVERLAY_OPTIONS: { type: OverlayType; label: string; icon: string; descrip
 ];
 
 export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
+  const { colors, isDark } = useTheme();
   const { activeOverlays, addOverlay, removeOverlay, updateOverlayParams } = useFilters();
   const [editingOverlay, setEditingOverlay] = useState<string | null>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Handle add overlay
   const handleAddOverlay = useCallback((type: OverlayType) => {
@@ -122,7 +112,7 @@ export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
               <View style={styles.header}>
                 <Text style={styles.title}>Overlays</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Ionicons name="checkmark-circle" size={28} color={COLORS.primary} />
+                  <Ionicons name="checkmark-circle" size={28} color={colors.primary} />
                 </TouchableOpacity>
               </View>
 
@@ -139,6 +129,8 @@ export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
                     key={option.type}
                     option={option}
                     onPress={() => handleAddOverlay(option.type)}
+                    colors={colors}
+                    styles={styles}
                   />
                 ))}
               </ScrollView>
@@ -154,7 +146,7 @@ export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
               >
                 {activeOverlays.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Ionicons name="layers-outline" size={40} color={COLORS.grayLight} />
+                    <Ionicons name="layers-outline" size={40} color={'rgba(255,255,255,0.3)'} />
                     <Text style={styles.emptyText}>No overlays added yet</Text>
                     <Text style={styles.emptySubtext}>Tap an overlay above to add it</Text>
                   </View>
@@ -171,6 +163,8 @@ export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
                       )}
                       onRemove={() => handleRemoveOverlay(overlay.id)}
                       onUpdateParams={(params) => updateOverlayParams(overlay.id, params)}
+                      colors={colors}
+                      styles={styles}
                     />
                   ))
                 )}
@@ -187,9 +181,11 @@ export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
 interface OverlayOptionProps {
   option: typeof OVERLAY_OPTIONS[0];
   onPress: () => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function OverlayOption({ option, onPress }: OverlayOptionProps) {
+function OverlayOption({ option, onPress, colors, styles }: OverlayOptionProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -207,7 +203,7 @@ function OverlayOption({ option, onPress }: OverlayOptionProps) {
     <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
       <Animated.View style={[styles.overlayOption, animatedStyle]}>
         <View style={styles.overlayOptionIcon}>
-          <Ionicons name={option.icon as any} size={24} color={COLORS.primary} />
+          <Ionicons name={option.icon as any} size={24} color={colors.primary} />
         </View>
         <Text style={styles.overlayOptionLabel}>{option.label}</Text>
         <Text style={styles.overlayOptionDesc} numberOfLines={1}>{option.description}</Text>
@@ -225,6 +221,8 @@ interface ActiveOverlayCardProps {
   onEdit: () => void;
   onRemove: () => void;
   onUpdateParams: (params: Record<string, unknown>) => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }
 
 function ActiveOverlayCard({
@@ -235,6 +233,8 @@ function ActiveOverlayCard({
   onEdit,
   onRemove,
   onUpdateParams,
+  colors,
+  styles,
 }: ActiveOverlayCardProps) {
   const params = overlay.params as Record<string, unknown>;
 
@@ -243,7 +243,7 @@ function ActiveOverlayCard({
       <View style={styles.activeCardMain}>
         {/* Icon */}
         <View style={styles.activeCardIcon}>
-          <Ionicons name={icon as any} size={20} color={COLORS.primary} />
+          <Ionicons name={icon as any} size={20} color={colors.primary} />
         </View>
 
         {/* Info */}
@@ -257,12 +257,12 @@ function ActiveOverlayCard({
           <Ionicons
             name={isEditing ? 'chevron-up' : 'settings-outline'}
             size={18}
-            color={COLORS.gray}
+            color={'rgba(255,255,255,0.6)'}
           />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onRemove} style={styles.removeButton}>
-          <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+          <Ionicons name="trash-outline" size={18} color={'#FF5252'} />
         </TouchableOpacity>
       </View>
 
@@ -277,6 +277,8 @@ function ActiveOverlayCard({
             type={overlay.type}
             params={params}
             onUpdate={onUpdateParams}
+            colors={colors}
+            styles={styles}
           />
         </Animated.View>
       )}
@@ -289,9 +291,11 @@ interface OverlayEditFieldsProps {
   type: OverlayType;
   params: Record<string, unknown>;
   onUpdate: (params: Record<string, unknown>) => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
+function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEditFieldsProps) {
   switch (type) {
     case 'workout_timer':
       return (
@@ -306,6 +310,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
               }
             }}
             keyboardType="numeric"
+            colors={colors}
+            styles={styles}
           />
         </View>
       );
@@ -317,6 +323,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
             label="Exercise"
             value={String(params.exerciseName || 'Reps')}
             onChangeText={(text) => onUpdate({ exerciseName: text })}
+            colors={colors}
+            styles={styles}
           />
           <EditField
             label="Target"
@@ -328,6 +336,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
               }
             }}
             keyboardType="numeric"
+            colors={colors}
+            styles={styles}
           />
         </View>
       );
@@ -339,6 +349,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
             label="Challenge"
             value={String(params.challengeName || 'Challenge')}
             onChangeText={(text) => onUpdate({ challengeName: text })}
+            colors={colors}
+            styles={styles}
           />
           <View style={styles.editFieldRow}>
             <EditField
@@ -352,6 +364,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
               }}
               keyboardType="numeric"
               small
+              colors={colors}
+              styles={styles}
             />
             <EditField
               label="Total"
@@ -364,6 +378,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
               }}
               keyboardType="numeric"
               small
+              colors={colors}
+              styles={styles}
             />
           </View>
         </View>
@@ -382,6 +398,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
               }
             }}
             keyboardType="numeric"
+            colors={colors}
+            styles={styles}
           />
         </View>
       );
@@ -399,6 +417,8 @@ function OverlayEditFields({ type, params, onUpdate }: OverlayEditFieldsProps) {
               }
             }}
             keyboardType="numeric"
+            colors={colors}
+            styles={styles}
           />
         </View>
       );
@@ -415,9 +435,11 @@ interface EditFieldProps {
   onChangeText: (text: string) => void;
   keyboardType?: 'default' | 'numeric';
   small?: boolean;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function EditField({ label, value, onChangeText, keyboardType = 'default', small }: EditFieldProps) {
+function EditField({ label, value, onChangeText, keyboardType = 'default', small, colors, styles }: EditFieldProps) {
   return (
     <View style={[styles.editField, small && styles.editFieldSmall]}>
       <Text style={styles.editFieldLabel}>{label}</Text>
@@ -426,8 +448,8 @@ function EditField({ label, value, onChangeText, keyboardType = 'default', small
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
-        placeholderTextColor={COLORS.grayLight}
-        selectionColor={COLORS.primary}
+        placeholderTextColor={'rgba(255,255,255,0.3)'}
+        selectionColor={colors.primary}
       />
     </View>
   );
@@ -498,14 +520,22 @@ export function DraggableOverlay({
 
   return (
     <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.draggableOverlay, animatedStyle]}>
+      <Animated.View style={[draggableStyles.draggableOverlay, animatedStyle]}>
         {renderContent()}
       </Animated.View>
     </GestureDetector>
   );
 }
 
-const styles = StyleSheet.create({
+// Static style for DraggableOverlay (doesn't need theme)
+const draggableStyles = StyleSheet.create({
+  draggableOverlay: {
+    position: 'absolute',
+    zIndex: 100,
+  },
+});
+
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -525,7 +555,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
   },
   innerContainer: {
-    backgroundColor: COLORS.glassBg,
+    backgroundColor: 'rgba(20,20,30,0.95)',
     paddingBottom: 40,
   },
 
@@ -533,7 +563,7 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 40,
     height: 4,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -549,7 +579,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -559,7 +589,7 @@ const styles = StyleSheet.create({
 
   // Section
   sectionTitle: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -581,7 +611,7 @@ const styles = StyleSheet.create({
   // Overlay option
   overlayOption: {
     width: 100,
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     padding: 12,
     alignItems: 'center',
@@ -598,13 +628,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   overlayOptionLabel: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 2,
   },
   overlayOptionDesc: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 9,
     textAlign: 'center',
   },
@@ -625,20 +655,20 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   emptyText: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
     fontWeight: '500',
     marginTop: 12,
   },
   emptySubtext: {
-    color: COLORS.grayLight,
+    color: 'rgba(255,255,255,0.3)',
     fontSize: 12,
     marginTop: 4,
   },
 
   // Active card
   activeCard: {
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -662,12 +692,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   activeCardLabel: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
   activeCardMeta: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     marginTop: 2,
   },
@@ -675,7 +705,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -694,7 +724,7 @@ const styles = StyleSheet.create({
     padding: 14,
     paddingTop: 0,
     borderTopWidth: 1,
-    borderTopColor: COLORS.glassLight,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   editFields: {
     gap: 12,
@@ -710,7 +740,7 @@ const styles = StyleSheet.create({
     flex: 0.5,
   },
   editFieldLabel: {
-    color: COLORS.gray,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -722,15 +752,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-  },
-
-  // Draggable
-  draggableOverlay: {
-    position: 'absolute',
-    zIndex: 100,
   },
 });

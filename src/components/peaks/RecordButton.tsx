@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -14,15 +14,9 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-const COLORS = {
-  primary: '#0EBF8A',
-  white: '#FFFFFF',
-  dark: '#0A0A0F',
-  grayDark: '#2C2C2E',
-};
 
 // Taille du bouton
 const BUTTON_SIZE = 100;
@@ -54,6 +48,8 @@ const RecordButton = ({
   onRecordEnd,
   onRecordCancel,
 }: RecordButtonProps): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [recording, setRecording] = useState(false);
   const recordDurationRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -164,7 +160,7 @@ const RecordButton = ({
               cx={CENTER}
               cy={CENTER}
               r={RADIUS}
-              stroke={COLORS.grayDark}
+              stroke={colors.grayBorder}
               strokeWidth={STROKE_WIDTH}
               fill="none"
             />
@@ -173,7 +169,7 @@ const RecordButton = ({
               cx={CENTER}
               cy={CENTER}
               r={RADIUS}
-              stroke={COLORS.primary}
+              stroke={colors.primary}
               strokeWidth={STROKE_WIDTH}
               fill="none"
               strokeDasharray={CIRCUMFERENCE}
@@ -211,7 +207,7 @@ const RecordButton = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   wrapper: {
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,

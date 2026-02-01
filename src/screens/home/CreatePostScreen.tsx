@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  FlatList,
 } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -382,6 +383,52 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         )}
       </View>
 
+      {/* Selected Media Carousel */}
+      {selectedMedia.length > 1 && (
+        <View style={styles.carouselContainer}>
+          <FlatList
+            data={selectedMedia}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.carouselContent}
+            renderItem={({ item, index }) => {
+              const isActive = selectedPreview?.id === item.id;
+              return (
+                <TouchableOpacity
+                  style={[styles.carouselItem, isActive && styles.carouselItemActive]}
+                  onPress={() => setSelectedPreview(item)}
+                  activeOpacity={0.8}
+                >
+                  <OptimizedImage source={item.uri} style={styles.carouselImage} />
+                  {item.mediaType === 'video' && (
+                    <View style={styles.carouselVideoIcon}>
+                      <Ionicons name="play" size={10} color="#fff" />
+                    </View>
+                  )}
+                  <Text style={styles.carouselIndex}>{index + 1}</Text>
+                  <TouchableOpacity
+                    style={styles.carouselRemove}
+                    onPress={() => {
+                      const newSelection = selectedMedia.filter(m => m.id !== item.id);
+                      setSelectedMedia(newSelection);
+                      if (isActive && newSelection.length > 0) {
+                        setSelectedPreview(newSelection[0]);
+                      } else if (newSelection.length === 0) {
+                        setSelectedPreview(mediaAssets[0] || null);
+                      }
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={18} color="#FF3B30" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      )}
+
       {/* Gallery Header */}
       <View style={styles.galleryHeader}>
         <TouchableOpacity
@@ -529,6 +576,62 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 5,
+  },
+
+  // Selected Media Carousel
+  carouselContainer: {
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+  },
+  carouselContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  carouselItem: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  carouselItemActive: {
+    borderColor: colors.primary,
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  carouselVideoIcon: {
+    position: 'absolute',
+    bottom: 3,
+    left: 3,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselIndex: {
+    position: 'absolute',
+    top: 3,
+    left: 5,
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  carouselRemove: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: colors.background,
+    borderRadius: 9,
   },
 
   // Gallery Header

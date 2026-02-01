@@ -112,7 +112,7 @@ class AgoraService {
         this.callbacks.onJoinSuccess?.(connection.channelId || '', connection.localUid || 0);
       },
 
-      onLeaveChannel: (_connection: RtcConnection, _stats: any) => {
+      onLeaveChannel: (_connection: RtcConnection, _stats: unknown) => {
         if (__DEV__) console.log('[Agora] Left channel');
         this.currentChannel = null;
         this.currentUid = null;

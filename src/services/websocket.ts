@@ -18,7 +18,7 @@ export interface WebSocketMessage {
   senderId?: string;
   content?: string;
   timestamp?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface SendMessagePayload {

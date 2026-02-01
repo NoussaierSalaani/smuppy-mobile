@@ -21,7 +21,7 @@ const API2_PREFIXES = [
 
 interface RequestOptions {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
   authenticated?: boolean;
   timeout?: number;
@@ -43,23 +43,24 @@ class AWSAPIService {
   async request<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const MAX_RETRIES = 2;
     const RETRYABLE_STATUSES = [408, 429, 500, 502, 503, 504];
-    let lastError: Error | null = null;
+    let lastError: unknown = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         return await this._requestOnce<T>(endpoint, options);
-      } catch (error: any) {
-        lastError = error;
-        const status = error.statusCode || error.status;
-        const isRetryable = RETRYABLE_STATUSES.includes(status);
+      } catch (error: unknown) {
+        lastError = error as Error;
+        const apiErr = error as { statusCode?: number; status?: number; data?: { retryAfter?: number } };
+        const status = apiErr.statusCode || apiErr.status;
+        const isRetryable = status ? RETRYABLE_STATUSES.includes(status) : false;
 
         if (!isRetryable || attempt === MAX_RETRIES) {
           throw error;
         }
 
         // Exponential backoff: 1s, 2s
-        if (status === 429 && error.data?.retryAfter) {
-          await new Promise(r => setTimeout(r, error.data.retryAfter * 1000));
+        if (status === 429 && apiErr.data?.retryAfter) {
+          await new Promise(r => setTimeout(r, apiErr.data!.retryAfter! * 1000));
         } else {
           const delay = Math.pow(2, attempt) * 1000;
           await new Promise(r => setTimeout(r, delay));
@@ -132,9 +133,9 @@ class AWSAPIService {
               );
             }
             return await retryResponse.json() as T;
-          } catch (retryErr: any) {
+          } catch (retryErr: unknown) {
             clearTimeout(retryTimeoutId);
-            if (retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
+            if (retryErr instanceof Error && retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
             throw retryErr;
           }
         }
@@ -151,10 +152,10 @@ class AWSAPIService {
 
       const data = await response.json();
       return data as T;
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
 
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new APIError('Request timeout', 408);
       }
 
@@ -733,7 +734,10 @@ class AWSAPIService {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res: any) => res.following || res.data || []);
+    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res) => {
+      const result = res as { following?: Profile[]; data?: Profile[] };
+      return result.following || result.data || [];
+    });
   }
 
   // ==========================================
@@ -2720,7 +2724,7 @@ class AWSAPIService {
   /**
    * Create activity
    */
-  async createBusinessActivity(data: any): Promise<{
+  async createBusinessActivity(data: Record<string, unknown>): Promise<{
     success: boolean;
     activity?: any;
     message?: string;
@@ -2734,7 +2738,7 @@ class AWSAPIService {
   /**
    * Update activity
    */
-  async updateBusinessActivity(activityId: string, data: any): Promise<{
+  async updateBusinessActivity(activityId: string, data: Record<string, unknown>): Promise<{
     success: boolean;
     activity?: any;
     message?: string;
@@ -2758,7 +2762,7 @@ class AWSAPIService {
   /**
    * Create schedule slot
    */
-  async createBusinessScheduleSlot(data: any): Promise<{
+  async createBusinessScheduleSlot(data: Record<string, unknown>): Promise<{
     success: boolean;
     slot?: any;
     message?: string;
@@ -3290,7 +3294,7 @@ export class APIError extends Error {
   constructor(
     message: string,
     public statusCode: number,
-    public data?: any
+    public data?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'APIError';
@@ -3378,7 +3382,7 @@ export interface Notification {
   type: string;
   title: string;
   body: string;
-  data: any;
+  data: Record<string, unknown>;
   read: boolean;
   createdAt: string;
 }

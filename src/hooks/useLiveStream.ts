@@ -69,7 +69,8 @@ export function useLiveStream({
   // Handle incoming WebSocket messages
   useEffect(() => {
     const handleMessage = (message: WebSocketMessage) => {
-      const data = message.data || message;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (message.data || message) as any;
 
       switch (data.type) {
         case 'viewerJoined':

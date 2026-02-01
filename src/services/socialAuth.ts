@@ -12,8 +12,8 @@ import { ENV } from '../config/env';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 
 // Lazy load native modules to prevent crash in Expo Go
-let AppleAuthentication: any = null;
-let Crypto: any = null;
+let AppleAuthentication: typeof import('expo-apple-authentication') | null = null;
+let Crypto: typeof import('expo-crypto') | null = null;
 
 const getAppleAuth = async () => {
   if (!AppleAuthentication) {

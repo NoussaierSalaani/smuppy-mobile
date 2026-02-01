@@ -11,10 +11,13 @@ import * as SecureStore from 'expo-secure-store';
 import { AWS_CONFIG } from '../config/aws-config';
 
 // Lazy-loaded Cognito client to ensure crypto polyfill is ready
-let cognitoClient: any = null;
-let CognitoCommands: any = null;
+type CognitoClient = import('@aws-sdk/client-cognito-identity-provider').CognitoIdentityProviderClient;
+type CognitoModule = typeof import('@aws-sdk/client-cognito-identity-provider');
 
-const getCognitoClient = async () => {
+let cognitoClient: CognitoClient | null = null;
+let CognitoCommands: CognitoModule | null = null;
+
+const getCognitoClient = async (): Promise<CognitoClient> => {
   if (!cognitoClient) {
     const { CognitoIdentityProviderClient } = await import('@aws-sdk/client-cognito-identity-provider');
     cognitoClient = new CognitoIdentityProviderClient({
@@ -24,7 +27,7 @@ const getCognitoClient = async () => {
   return cognitoClient;
 };
 
-const getCognitoCommands = async () => {
+const getCognitoCommands = async (): Promise<CognitoModule> => {
   if (!CognitoCommands) {
     CognitoCommands = await import('@aws-sdk/client-cognito-identity-provider');
   }
@@ -227,11 +230,12 @@ class AWSAuthService {
         } : null,
         confirmationRequired: result.confirmationRequired,
       };
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
+      const err = apiError as { statusCode?: number; message?: string };
       // If API endpoint doesn't exist yet, fall back to direct Cognito signup
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', apiError.message);
+      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
 
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if (err.statusCode === 404 || err.message?.includes('Not Found')) {
         return this.signUpDirect(params);
       }
 
@@ -286,8 +290,8 @@ class AWSAuthService {
         } : null,
         confirmationRequired: !response.UserConfirmed,
       };
-    } catch (error: any) {
-      if (__DEV__) console.error('[AWS Auth] Direct SignUp error:', error.name, error.message);
+    } catch (error: unknown) {
+      if (__DEV__) console.error('[AWS Auth] Direct SignUp error:', (error as Error).name, (error as Error).message);
       throw error;
     }
   }
@@ -314,9 +318,9 @@ class AWSAuthService {
       }
 
       throw new Error(result.message || 'Confirmation failed');
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -334,7 +338,7 @@ class AWSAuthService {
         return true;
       }
 
-      if (__DEV__) console.error('[AWS Auth] Confirm signup error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Confirm signup error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -361,15 +365,15 @@ class AWSAuthService {
       }
 
       throw new Error(result.message || 'Resend failed');
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // Handle rate limiting
-      if (apiError.statusCode === 429) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Rate limited');
         throw apiError;
       }
 
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -386,7 +390,7 @@ class AWSAuthService {
         return true;
       }
 
-      if (__DEV__) console.error('[AWS Auth] Resend confirmation code error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Resend confirmation code error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -532,14 +536,14 @@ class AWSAuthService {
 
       // API returns success even for non-existent users (anti-enumeration)
       return true;
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // Handle rate limiting
-      if (apiError.statusCode === 429) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
         throw apiError;
       }
 
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -556,7 +560,7 @@ class AWSAuthService {
         return true;
       }
 
-      if (__DEV__) console.error('[AWS Auth] Forgot password error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Forgot password error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -582,9 +586,9 @@ class AWSAuthService {
       }
 
       throw new Error(result.message || 'Password reset failed');
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -603,7 +607,7 @@ class AWSAuthService {
         return true;
       }
 
-      if (__DEV__) console.error('[AWS Auth] Confirm forgot password error:', apiError.message);
+      if (__DEV__) console.error('[AWS Auth] Confirm forgot password error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -705,8 +709,8 @@ class AWSAuthService {
 
       await client.send(command);
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Password changed successfully');
-    } catch (error: any) {
-      if (__DEV__) console.error('[AWS Auth] Change password error:', error.name, error.message);
+    } catch (error: unknown) {
+      if (__DEV__) console.error('[AWS Auth] Change password error:', (error as Error).name, (error as Error).message);
       throw error;
     }
   }
@@ -750,7 +754,7 @@ class AWSAuthService {
 
       this.notifyAuthStateChange(result.user);
       return result.user;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('[AWS Auth] Apple Sign-In error:', error);
       throw error;
     }
@@ -788,7 +792,7 @@ class AWSAuthService {
 
       this.notifyAuthStateChange(result.user);
       return result.user;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('[AWS Auth] Google Sign-In error:', error);
       throw error;
     }

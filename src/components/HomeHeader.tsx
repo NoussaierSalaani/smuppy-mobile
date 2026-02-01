@@ -47,7 +47,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
 
   // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === 'pro_creator';
 
   const tabs: Tab[] = useMemo(() => [
     { id: 'Fan', label: 'Fan' },

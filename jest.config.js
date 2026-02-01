@@ -42,5 +42,6 @@ module.exports = {
   modulePathIgnorePatterns: [
     '<rootDir>/aws-migration/infrastructure/cdk.out/',
     '<rootDir>/aws-migration/lambda/layers/',
+    '<rootDir>/smuppy-mobile/',
   ],
 };

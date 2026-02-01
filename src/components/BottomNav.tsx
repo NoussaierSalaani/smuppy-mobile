@@ -369,12 +369,13 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     }
   };
 
-  const bottomPadding = insets.bottom > 0 ? insets.bottom : 20;
+  const bottomPadding = isBusiness ? (insets.bottom > 0 ? insets.bottom : 0) : (insets.bottom > 0 ? insets.bottom : 20);
 
   return (
     <Animated.View
       style={[
         styles.container,
+        isBusiness && styles.businessContainer,
         {
           bottom: bottomPadding,
           transform: [{ translateY: bottomBarTranslate }],
@@ -382,8 +383,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
         },
       ]}
     >
-      {/* Green border wrapper — pro gets gradient, personal gets solid green outline */}
-      {isPro ? (
+      {/* Green border wrapper — pro gets gradient, business gets none, personal gets solid green outline */}
+      {isBusiness ? null : isPro ? (
         <LinearGradient
           colors={gradients.primary}
           start={{ x: 0, y: 0 }}
@@ -393,7 +394,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       ) : (
         <View style={styles.personalBorderWrapper} />
       )}
-      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
+      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isBusiness ? styles.businessBlurContainer : styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
@@ -686,6 +687,15 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   profileImage: {
     width: '100%',
     height: '100%',
+  },
+
+  // ===== BUSINESS ACCOUNT STYLES =====
+  businessContainer: {
+    left: 0,
+    right: 0,
+  },
+  businessBlurContainer: {
+    borderRadius: 0,
   },
 
   // ===== PERSONAL ACCOUNT STYLES =====

@@ -70,11 +70,12 @@ describe('Error Response Parsing', () => {
     code?: string;
   }
 
-  const parseError = (status: number, body: any): APIError => {
+  const parseError = (status: number, body: unknown): APIError => {
+    const payload = (body && typeof body === 'object') ? body as Record<string, unknown> : {};
     return {
       statusCode: status,
-      message: body?.message || body?.error || 'Unknown error',
-      code: body?.code,
+      message: (payload.message as string) || (payload.error as string) || 'Unknown error',
+      code: payload.code as string | undefined,
     };
   };
 
@@ -183,12 +184,12 @@ describe('Pagination', () => {
     total: number;
   }
 
-  const hasMorePages = (response: PaginatedResponse<any>): boolean => {
+  const hasMorePages = <T>(response: PaginatedResponse<T>): boolean => {
     return response.hasMore && response.nextCursor !== null;
   };
 
   it('should detect more pages available', () => {
-    const response: PaginatedResponse<any> = {
+    const response: PaginatedResponse<number> = {
       data: [1, 2, 3],
       nextCursor: 'abc123',
       hasMore: true,
@@ -198,7 +199,7 @@ describe('Pagination', () => {
   });
 
   it('should detect no more pages', () => {
-    const response: PaginatedResponse<any> = {
+    const response: PaginatedResponse<number> = {
       data: [1, 2, 3],
       nextCursor: null,
       hasMore: false,
@@ -208,7 +209,7 @@ describe('Pagination', () => {
   });
 
   it('should handle edge case with hasMore but no cursor', () => {
-    const response: PaginatedResponse<any> = {
+    const response: PaginatedResponse<string> = {
       data: [],
       nextCursor: null,
       hasMore: true, // Inconsistent state

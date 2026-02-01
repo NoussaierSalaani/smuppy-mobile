@@ -142,12 +142,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
   // Separate checks for creator-only vs all pro features
   const isProCreator = user?.accountType === 'pro_creator';
-  const isPro = isProCreator || user?.accountType === 'pro_business';
+  const isProBusiness = user?.accountType === 'pro_business';
+  const isPro = isProCreator || isProBusiness;
 
   const ACCOUNT_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
     ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
-    ...(isProCreator ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
+    ...(isProBusiness ? [{ id: 'category', icon: 'storefront-outline' as const, label: 'Business Category', screen: 'EditBusinessCategory', params: { currentCategory: user?.businessCategory } }] : []),
+    ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
   ];
 

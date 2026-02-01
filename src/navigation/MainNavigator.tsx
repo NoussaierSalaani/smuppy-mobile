@@ -49,6 +49,7 @@ import SettingsScreen from '../screens/settings/SettingsScreen';
 import EditProfileScreen from '../screens/settings/EditProfileScreen';
 import EditInterestsScreen from '../screens/settings/EditInterestsScreen';
 import EditExpertiseScreen from '../screens/settings/EditExpertiseScreen';
+import EditBusinessCategoryScreen from '../screens/settings/EditBusinessCategoryScreen';
 import PasswordManagerScreen from '../screens/settings/PasswordManagerScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
@@ -283,6 +284,7 @@ export default function MainNavigator() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditInterests" component={EditInterestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditExpertise" component={EditExpertiseScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EditBusinessCategory" component={EditBusinessCategoryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

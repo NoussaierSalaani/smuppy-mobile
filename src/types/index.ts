@@ -707,6 +707,7 @@ export type MainStackParamList = {
   EditProfile: undefined;
   EditInterests: { currentInterests?: string[] } | undefined;
   EditExpertise: { currentExpertise?: string[]; returnTo?: string } | undefined;
+  EditBusinessCategory: { currentCategory?: string } | undefined;
   PasswordManager: undefined;
   NotificationSettings: undefined;
   ReportProblem: undefined;

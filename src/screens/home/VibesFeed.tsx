@@ -31,6 +31,7 @@ import { useShareModal } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
 import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
+import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useTheme } from '../../hooks/useTheme';
 
 import SharePostModal from '../../components/SharePostModal';
@@ -58,7 +59,7 @@ let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
 
 const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 
-// Build unified lookup from interests + expertise configs (icon + color per name)
+// Build unified lookup from interests + expertise + business categories (icon + color per name)
 const INTEREST_DATA: Record<string, { icon: string; color: string }> = (() => {
   const map: Record<string, { icon: string; color: string }> = {};
   for (const source of [ALL_INTERESTS, ALL_EXPERTISE]) {
@@ -68,6 +69,11 @@ const INTEREST_DATA: Record<string, { icon: string; color: string }> = (() => {
         map[item.name] = { icon: item.icon, color: item.color };
       }
     }
+  }
+  // Add business categories (keyed by id and label)
+  for (const biz of ALL_BUSINESS_CATEGORIES) {
+    map[biz.id] = { icon: biz.icon, color: biz.color };
+    map[biz.label] = { icon: biz.icon, color: biz.color };
   }
   return map;
 })();

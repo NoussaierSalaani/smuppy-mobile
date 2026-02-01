@@ -10,6 +10,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('follows-create');
 
@@ -185,6 +186,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
+
+    // Send push notification (non-blocking, best-effort)
+    const followerProfile = await db.query(
+      'SELECT username, full_name FROM profiles WHERE id = $1',
+      [followerId]
+    );
+    const followerName = followerProfile.rows[0]?.full_name || followerProfile.rows[0]?.username || 'Someone';
+    const isPrivate = targetUser.is_private;
+    sendPushToUser(db, followingId, {
+      title: isPrivate ? 'Follow Request' : 'New Fan!',
+      body: isPrivate
+        ? `${followerName} wants to follow you`
+        : `${followerName} is now your fan`,
+      data: {
+        type: isPrivate ? 'follow_request' : 'new_follower',
+        userId: followerId,
+      },
+    }).catch(err => log.error('Push notification failed', err));
 
     return {
       statusCode: 201,

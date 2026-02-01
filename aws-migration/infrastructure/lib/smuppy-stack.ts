@@ -1519,6 +1519,24 @@ export class SmuppyStack extends cdk.Stack {
 
     lambdaStack.notificationsPushTokenFn.addToRolePolicy(snsPlatformPolicy);
 
+    // Grant SNS Publish to all Lambdas that send push notifications
+    const pushSendPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['sns:Publish'],
+      resources: [
+        `arn:aws:sns:${this.region}:${this.account}:endpoint/APNS/smuppy-ios-${environment}/*`,
+        `arn:aws:sns:${this.region}:${this.account}:endpoint/APNS_SANDBOX/smuppy-ios-${environment}/*`,
+        `arn:aws:sns:${this.region}:${this.account}:endpoint/GCM/smuppy-android-${environment}/*`,
+      ],
+    });
+    lambdaStack.followsCreateFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.postsLikeFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.commentsCreateFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.peaksLikeFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.peaksCommentFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.followRequestsAcceptFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.liveStreamsStartFn.addToRolePolicy(pushSendPolicy);
+
     // ========================================
     // CloudWatch Alarms - Monitoring & Alerting
     // ========================================

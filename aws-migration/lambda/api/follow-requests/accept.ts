@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('follow-requests-accept');
 
@@ -125,6 +126,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [request.requester_id]
       );
 
+      // Get accepter's name for notification
+      const accepterResult = await client.query(
+        'SELECT name FROM profiles WHERE id = $1',
+        [profileId]
+      );
+      const accepterName = accepterResult.rows[0]?.name || 'Someone';
+
       // Create notification for the requester
       await client.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
@@ -133,6 +141,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       await client.query('COMMIT');
+
+      // Send push notification to requester (non-blocking)
+      sendPushToUser(db, request.requester_id, {
+        title: 'Follow Request Accepted',
+        body: `${accepterName} accepted your follow request`,
+        data: { type: 'follow_accepted', userId: profileId },
+      }).catch(err => log.error('Push notification failed', err));
 
       return {
         statusCode: 200,

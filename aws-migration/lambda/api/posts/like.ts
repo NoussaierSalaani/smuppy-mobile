@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('posts-like');
 
@@ -63,7 +64,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Get user's profile ID (check both id and cognito_sub for compatibility)
     const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      'SELECT id, username FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
 
@@ -140,6 +141,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       await client.query('COMMIT');
+
+      // Send push notification to post author (non-blocking)
+      const post = postResult.rows[0];
+      if (post.author_id !== profileId) {
+        sendPushToUser(db, post.author_id, {
+          title: 'New Like',
+          body: `${userResult.rows[0].username} liked your post`,
+          data: { type: 'like', postId },
+        }).catch(err => log.error('Push notification failed', err));
+      }
 
       return {
         statusCode: 200,

@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('comments-create');
 
@@ -180,6 +181,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       await client.query('COMMIT');
+
+      // Send push notification to post author (non-blocking)
+      if (post.author_id !== profile.id) {
+        sendPushToUser(db, post.author_id, {
+          title: 'New Comment',
+          body: `${profile.username} commented on your post`,
+          data: { type: 'comment', postId },
+        }).catch(err => log.error('Push notification failed', err));
+      }
 
       return {
         statusCode: 201,

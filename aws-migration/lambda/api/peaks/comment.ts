@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('peaks-comment');
 
@@ -146,6 +147,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       await client.query('COMMIT');
+
+      // Send push notification to peak author (non-blocking)
+      if (peak.author_id !== profile.id) {
+        sendPushToUser(db, peak.author_id, {
+          title: 'New Comment',
+          body: `${profile.username} commented on your peak`,
+          data: { type: 'peak_comment', peakId },
+        }).catch(err => log.error('Push notification failed', err));
+      }
 
       return {
         statusCode: 201,

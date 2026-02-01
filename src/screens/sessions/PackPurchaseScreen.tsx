@@ -102,6 +102,8 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       const response = await awsAPI.createPaymentIntent({
         creatorId,
         amount: Math.round(pack.price * 100), // cents
+        packId: pack.id,
+        type: 'pack',
         description: `Pack: ${pack.name}`,
       });
 

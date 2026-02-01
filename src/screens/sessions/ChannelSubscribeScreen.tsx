@@ -19,7 +19,7 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -58,100 +58,47 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'ChannelSubscribe'>>();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { colors, isDark } = useTheme();
 
-  const { showError } = useSmuppyAlert();
+  const { showError, showSuccess } = useSmuppyAlert();
   const { creatorId, tier } = route.params;
   const creator = getCreator(creatorId);
 
   const [loading, setLoading] = useState(false);
-  const [paymentReady, setPaymentReady] = useState(false);
   const mountedRef = useRef(true);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const initializePayment = useCallback(async () => {
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const handleSubscribe = useCallback(async () => {
     try {
       setLoading(true);
 
       const response = await awsAPI.subscribeToChannel(creatorId);
       if (!mountedRef.current) return;
 
-      if (!response.success) {
-        throw new Error('Failed to create subscription');
+      if (!response.success || !response.checkoutUrl) {
+        showError('Erreur', 'Impossible de créer l\'abonnement. Veuillez réessayer.');
+        return;
       }
 
-      const intentResponse = await awsAPI.createPaymentIntent({
-        creatorId,
-        amount: Math.round(tier.price * 100),
-        description: `Abonnement ${tier.name} - @${creator.username}`,
+      // Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+        dismissButtonStyle: 'cancel',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
       });
+
       if (!mountedRef.current) return;
 
-      if (!intentResponse.success || !intentResponse.paymentIntent) {
-        throw new Error('Failed to create payment intent');
-      }
-
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: 'Smuppy',
-        paymentIntentClientSecret: intentResponse.paymentIntent.clientSecret,
-        defaultBillingDetails: {
-          name: '',
-        },
-        appearance: {
-          colors: {
-            primary: colors.primary,
-            background: colors.background,
-            componentBackground: colors.backgroundSecondary,
-            componentText: colors.dark,
-            primaryText: colors.dark,
-            secondaryText: colors.gray,
-            placeholderText: colors.gray,
-          },
-        },
-      });
-      if (!mountedRef.current) return;
-
-      if (error) {
-        if (__DEV__) console.error('Payment sheet init error:', error);
+      if (result.type === 'cancel') {
+        // User dismissed — do nothing
       } else {
-        setPaymentReady(true);
-      }
-    } catch (error) {
-      if (!mountedRef.current) return;
-      if (__DEV__) console.error('Payment init error:', error);
-      showError('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  }, [creatorId, tier, creator.username, colors, initPaymentSheet, showError]);
-
-  useEffect(() => {
-    initializePayment();
-    return () => { mountedRef.current = false; };
-  }, [initializePayment]);
-
-  const handleSubscribe = useCallback(async () => {
-    if (!paymentReady) {
-      await initializePayment();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await presentPaymentSheet();
-      if (!mountedRef.current) return;
-
-      if (error) {
-        if (error.code !== 'Canceled') {
-          showError('Erreur de paiement', error.message);
-        }
-      } else {
-        navigation.replace('SubscriptionSuccess', {
-          tier,
-          creator,
-        });
+        // Assume success if browser closed normally (webhook handles the rest)
+        showSuccess('Abonnement en cours', 'Votre paiement est en cours de traitement.');
+        navigation.goBack();
       }
     } catch (error) {
       if (!mountedRef.current) return;
@@ -160,7 +107,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [paymentReady, initializePayment, presentPaymentSheet, navigation, tier, creator, showError]);
+  }, [creatorId, navigation, showError, showSuccess]);
 
   const renewalDate = new Date();
   renewalDate.setMonth(renewalDate.getMonth() + 1);
@@ -306,7 +253,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
-          style={[styles.subscribeButton, !paymentReady && styles.subscribeButtonDisabled]}
+          style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
           onPress={handleSubscribe}
           disabled={loading}
         >

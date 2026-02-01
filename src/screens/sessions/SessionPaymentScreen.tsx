@@ -58,6 +58,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
         creatorId: creator.id,
         amount: price * 100, // Convert to cents
         sessionId: sessionId,
+        type: 'session',
         description: `Session with ${creator.name} - ${duration} min`,
       });
 

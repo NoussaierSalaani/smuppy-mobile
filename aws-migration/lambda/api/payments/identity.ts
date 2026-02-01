@@ -24,9 +24,66 @@ async function getStripe(): Promise<Stripe> {
 // Verification subscription: $14.90/month (1490 cents) - 100% goes to Smuppy
 const VERIFICATION_FEE_CENTS = 1490;
 
-// Stripe Price ID for the verification subscription product
-// Must be created in Stripe Dashboard: Product "Smuppy Verified Account" → Price $14.90/month recurring
-const VERIFICATION_PRICE_ID = process.env.STRIPE_VERIFICATION_PRICE_ID || '';
+// Stripe Price ID — resolved lazily by getOrCreateVerificationPrice()
+let cachedVerificationPriceId: string | null = null;
+
+/**
+ * Get or create the Stripe Price for identity verification.
+ * Creates the Product + Price on first call, then caches the ID.
+ */
+async function getVerificationPriceId(): Promise<string> {
+  if (cachedVerificationPriceId) return cachedVerificationPriceId;
+
+  // Check env var first
+  if (process.env.STRIPE_VERIFICATION_PRICE_ID) {
+    cachedVerificationPriceId = process.env.STRIPE_VERIFICATION_PRICE_ID;
+    return cachedVerificationPriceId;
+  }
+
+  const stripe = await getStripe();
+
+  // Search for existing product
+  const products = await stripe.products.search({
+    query: 'metadata["type"]:"smuppy_identity_verification"',
+    limit: 1,
+  });
+
+  let productId: string;
+  if (products.data.length > 0 && products.data[0].active) {
+    productId = products.data[0].id;
+    // Find active price for this product
+    const prices = await stripe.prices.list({
+      product: productId,
+      active: true,
+      type: 'recurring',
+      limit: 1,
+    });
+    if (prices.data.length > 0) {
+      cachedVerificationPriceId = prices.data[0].id;
+      return cachedVerificationPriceId;
+    }
+  } else {
+    // Create product
+    const product = await stripe.products.create({
+      name: 'Smuppy Verified Account',
+      description: 'Monthly identity verification subscription for Smuppy creators',
+      metadata: { type: 'smuppy_identity_verification', platform: 'smuppy' },
+    });
+    productId = product.id;
+  }
+
+  // Create recurring price
+  const price = await stripe.prices.create({
+    product: productId,
+    unit_amount: VERIFICATION_FEE_CENTS,
+    currency: 'usd',
+    recurring: { interval: 'month' },
+    metadata: { type: 'smuppy_identity_verification' },
+  });
+
+  cachedVerificationPriceId = price.id;
+  return cachedVerificationPriceId;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -165,7 +222,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string): P
     // Create subscription (payment_behavior: 'default_incomplete' so we get clientSecret)
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
-      items: [{ price: VERIFICATION_PRICE_ID }],
+      items: [{ price: await getVerificationPriceId() }],
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
       expand: ['latest_invoice.payment_intent'],

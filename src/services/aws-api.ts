@@ -938,6 +938,8 @@ class AWSAPIService {
     creatorId: string;
     amount: number; // Amount in cents
     sessionId?: string;
+    packId?: string;
+    type?: 'session' | 'pack';
     description?: string;
   }): Promise<{
     success: boolean;

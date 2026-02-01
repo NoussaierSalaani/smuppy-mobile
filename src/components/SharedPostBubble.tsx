@@ -133,7 +133,7 @@ export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleP
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     width: 220,
     borderRadius: 16,

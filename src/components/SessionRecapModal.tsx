@@ -99,7 +99,7 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
   );
 };
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

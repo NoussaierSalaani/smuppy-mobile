@@ -234,7 +234,7 @@ export default function Tag({
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',

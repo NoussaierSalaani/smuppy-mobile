@@ -22,7 +22,7 @@
       "environment": "production",
       "env": {
         "APP_ENV": "production",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "false"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },

@@ -874,7 +874,6 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
  */
 export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & { requestCreated?: boolean }> => {
   const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
 
   clearFollowCache();
   // Invalidate feed cache so new follow's posts appear on next load
@@ -885,7 +884,7 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
     return {
       data: {
         id: '',
-        follower_id: user.id,
+        follower_id: user?.id ?? '',
         following_id: userIdToFollow,
         created_at: new Date().toISOString(),
       },
@@ -901,9 +900,6 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
  * Unfollow a user
  */
 export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
   clearFollowCache();
   // Invalidate feed cache so unfollowed user's posts are removed on next load
   useFeedStore.getState().clearFeed();

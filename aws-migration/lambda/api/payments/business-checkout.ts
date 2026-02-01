@@ -11,6 +11,7 @@ import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent, corsHeaders } from '../utils/auth';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/business-checkout');
 
@@ -62,6 +63,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
+    // Rate limit: 5 requests per minute per user
+    const rateCheck = await checkRateLimit({ prefix: 'biz-checkout', identifier: user.id, maxRequests: 5 });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
+      };
+    }
+
     const db = await getPool();
     return await createBusinessCheckout(db, user, event, headers);
   } catch (error) {
@@ -76,7 +87,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
 async function createBusinessCheckout(
   db: Pool,
-  user: { sub: string },
+  user: { id: string },
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
@@ -121,7 +132,7 @@ async function createBusinessCheckout(
   // Get user profile
   const userResult = await db.query(
     'SELECT id, email, full_name, username, stripe_customer_id FROM profiles WHERE id = $1',
-    [user.sub]
+    [user.id]
   );
 
   if (userResult.rows.length === 0) {
@@ -183,7 +194,7 @@ async function createBusinessCheckout(
       email: userProfile.email,
       name: userProfile.full_name || userProfile.username,
       metadata: {
-        userId: user.sub,
+        userId: user.id,
         platform: 'smuppy',
       },
     });
@@ -191,7 +202,7 @@ async function createBusinessCheckout(
 
     await db.query(
       'UPDATE profiles SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-      [customerId, user.sub]
+      [customerId, user.id]
     );
   }
 
@@ -235,7 +246,7 @@ async function createBusinessCheckout(
           subscriptionType: 'business',
           businessId,
           serviceId,
-          userId: user.sub,
+          userId: user.id,
           period,
         },
       },
@@ -243,7 +254,7 @@ async function createBusinessCheckout(
         productType: 'business_subscription',
         businessId,
         serviceId,
-        userId: user.sub,
+        userId: user.id,
         type: serviceType,
       },
       success_url: `${baseSuccessUrl}&type=business_subscription&businessId=${businessId}`,
@@ -278,7 +289,7 @@ async function createBusinessCheckout(
           type: serviceType,
           businessId,
           serviceId,
-          buyerId: user.sub,
+          buyerId: user.id,
           source: 'web',
           ...(date && { date }),
           ...(slotId && { slotId }),
@@ -288,7 +299,7 @@ async function createBusinessCheckout(
         productType: `business_${serviceType}`,
         businessId,
         serviceId,
-        userId: user.sub,
+        userId: user.id,
         type: serviceType,
         ...(date && { date }),
         ...(slotId && { slotId }),
@@ -309,7 +320,7 @@ async function createBusinessCheckout(
     sessionId: checkoutSession.id,
     serviceType,
     businessId: businessId.substring(0, 8) + '***',
-    userId: user.sub.substring(0, 8) + '***',
+    userId: user.id.substring(0, 8) + '***',
   });
 
   return {

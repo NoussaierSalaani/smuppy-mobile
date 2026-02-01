@@ -14,6 +14,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { checkRateLimit } from '../utils/rate-limit';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -80,6 +81,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers: corsHeaders,
         body: JSON.stringify({ error: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 5 requests per minute per user
+    const rateCheck = await checkRateLimit({ prefix: 'channel-sub', identifier: userId, maxRequests: 5 });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Too many requests, please try again later' }),
       };
     }
 

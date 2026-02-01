@@ -15,6 +15,7 @@ import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent, corsHeaders } from '../utils/auth';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/payment-methods');
 
@@ -43,6 +44,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 20 requests per minute per user
+    const rateCheck = await checkRateLimit({ prefix: 'payment-methods', identifier: user.sub, maxRequests: 20 });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
 

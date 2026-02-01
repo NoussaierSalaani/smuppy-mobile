@@ -701,7 +701,10 @@ const UserProfileScreen = () => {
       <View style={styles.coverAbsolute}>
         <OptimizedImage source={profile.coverImage} style={styles.coverImage} />
         <LinearGradient
-          colors={['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
+          colors={isDark
+            ? ['transparent', 'transparent', 'rgba(13, 13, 13, 0.5)', 'rgba(13, 13, 13, 0.85)', '#0D0D0D']
+            : ['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']
+          }
           locations={[0, 0.35, 0.55, 0.75, 1]}
           style={styles.coverGradientOverlay}
           pointerEvents="none"
@@ -789,7 +792,7 @@ const UserProfileScreen = () => {
           )}
         </View>
         <TouchableOpacity style={styles.actionBtn} onPress={handleShareProfile}>
-          <Ionicons name="share-outline" size={18} color="#0A0A0F" />
+          <Ionicons name="share-outline" size={18} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -852,7 +855,7 @@ const UserProfileScreen = () => {
               <Ionicons
                 name={isFan ? 'chatbubble-outline' : 'lock-closed-outline'}
                 size={18}
-                color="#0A0A0F"
+                color={colors.dark}
               />
               <Text style={styles.messageText}>Message</Text>
             </TouchableOpacity>
@@ -963,7 +966,7 @@ const UserProfileScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
 
       {/* Fixed Header */}
       {renderHeader()}
@@ -1128,12 +1131,12 @@ const UserProfileScreen = () => {
                 handleShareProfile();
               }}
             >
-              <Ionicons name="share-outline" size={22} color="#0A0A0F" />
+              <Ionicons name="share-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Share Profile</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleReportUser}>
-              <Ionicons name="flag-outline" size={22} color="#0A0A0F" />
+              <Ionicons name="flag-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Report</Text>
             </TouchableOpacity>
 
@@ -1267,8 +1270,8 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+    backgroundColor: isDark ? 'rgba(26,26,26,0.8)' : 'rgba(255,255,255,0.4)',
   },
   statGlassItem: {
     alignItems: 'center',
@@ -1277,17 +1280,17 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   statGlassDivider: {
     width: 1,
     height: 20,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
   },
   statGlassValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0A252F',
+    color: colors.dark,
   },
   statGlassLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#555',
+    color: colors.gray,
   },
 
   // ===== NAME ROW =====
@@ -1504,12 +1507,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   liveViewers: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
   },
   liveTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
     marginBottom: 12,
   },
   joinLiveButton: {
@@ -1554,20 +1557,20 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   nextLiveLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   nextLiveDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
     marginTop: 2,
   },
   nextLiveTitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
     marginTop: 2,
   },
   reminderButton: {
@@ -1981,7 +1984,7 @@ const createGeStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.crea
     borderRadius: 8,
   },
   chipActive: {
-    backgroundColor: colors.white,
+    backgroundColor: isDark ? colors.backgroundSecondary : colors.white,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

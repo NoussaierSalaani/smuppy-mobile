@@ -1011,7 +1011,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
 
   // ===== INLINE STYLE EXTRACTIONS =====
   postThumbEmpty: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.gray100,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },

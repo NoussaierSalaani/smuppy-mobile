@@ -630,7 +630,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flexDirection: 'row',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
   },
   tab: {
     flex: 1,
@@ -654,14 +654,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 13,
     fontWeight: '600',
     color: colors.gray,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     overflow: 'hidden',
   },
   tabCountActive: {
-    color: colors.dark,
+    color: '#FFFFFF',
     backgroundColor: colors.primary,
   },
   tabIndicator: {
@@ -681,7 +681,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : colors.gray100,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -689,7 +689,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: colors.white,
+    color: colors.dark,
     marginLeft: 10,
   },
 
@@ -705,7 +705,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
   },
   userInfo: {
     flex: 1,
@@ -718,7 +718,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   userUsername: {
     fontSize: 14,

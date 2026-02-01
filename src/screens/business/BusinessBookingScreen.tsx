@@ -1,10 +1,10 @@
 /**
  * BusinessBookingScreen
  * Book a service or session at a business
- * Supports one-time bookings and session packs
+ * Uses Stripe Checkout via WebBrowser (no PaymentSheet)
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,18 +20,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useStripe } from '@stripe/stripe-react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface BusinessBookingScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
-  navigation: any;
+  navigation: NavigationProp<ParamListBase>;
 }
 
 interface Service {
@@ -62,9 +62,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
-  const { formatAmount, currency } = useCurrency();
-  const user = useUserStore((state) => state.user);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { formatAmount } = useCurrency();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -80,22 +78,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Get today's date
   const today = new Date();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  useEffect(() => {
-    loadBusinessData();
-  }, [businessId]);
-
-  useEffect(() => {
-    if (selectedService && selectedDateString) {
-      loadTimeSlots();
-    }
-  }, [selectedService, selectedDateString]);
-
-  const loadBusinessData = async () => {
+  const loadBusinessData = useCallback(async () => {
     try {
       const [profileRes, servicesRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
@@ -112,10 +99,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       }
 
       if (servicesRes.success) {
-        const bookableServices = (servicesRes.services || []).filter((s: any) => !s.is_subscription);
+        const bookableServices = (servicesRes.services || []).filter(
+          (s: Service & { is_subscription?: boolean }) => !s.is_subscription
+        );
         setServices(bookableServices);
 
-        // Auto-select service if provided
         if (serviceId) {
           const preselected = bookableServices.find((s: Service) => s.id === serviceId);
           if (preselected) {
@@ -130,9 +118,9 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [businessId, serviceId, showError]);
 
-  const loadTimeSlots = async () => {
+  const loadTimeSlots = useCallback(async () => {
     if (!selectedService || !selectedDateString) return;
 
     setIsLoadingSlots(true);
@@ -150,7 +138,17 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     } finally {
       setIsLoadingSlots(false);
     }
-  };
+  }, [businessId, selectedDateString, selectedService]);
+
+  useEffect(() => {
+    loadBusinessData();
+  }, [loadBusinessData]);
+
+  useEffect(() => {
+    if (selectedService && selectedDateString) {
+      loadTimeSlots();
+    }
+  }, [loadTimeSlots, selectedDateString, selectedService]);
 
   const handleSelectService = (service: Service) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -159,7 +157,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     setStep('date');
   };
 
-  const handleDateChange = (event: any, date?: Date) => {
+  const handleDateChange = (_event: DateTimePickerEvent, date?: Date) => {
     setShowDatePicker(false);
     if (date) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -184,70 +182,42 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
-      // 1. Create payment intent
-      const paymentResponse = await awsAPI.createBusinessBookingPayment({
+      // Create Stripe Checkout session
+      const response = await awsAPI.createBusinessCheckout({
         businessId,
         serviceId: selectedService.id,
         date: selectedDateString,
         slotId: selectedSlot.id,
-        amount: selectedService.price_cents,
-        currency: currency.code,
       });
 
-      if (!paymentResponse.success || !paymentResponse.clientSecret || !paymentResponse.bookingId) {
-        throw new Error(paymentResponse.message || 'Failed to create payment');
+      if (!response.success || !response.checkoutUrl) {
+        throw new Error('Failed to create checkout session');
       }
 
-      const bookingId = paymentResponse.bookingId;
-
-      // 2. Initialize Stripe Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: paymentResponse.clientSecret,
-        merchantDisplayName: business?.name || 'Smuppy Business',
-        style: 'automatic',
-        googlePay: { merchantCountryCode: 'FR', testEnv: true },
-        applePay: { merchantCountryCode: 'FR' },
-        defaultBillingDetails: {
-          name: user?.fullName || user?.displayName || undefined,
-        },
+      // Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+        dismissButtonStyle: 'cancel',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
       });
 
-      if (initError) {
-        throw new Error(initError.message);
+      // User returned from browser
+      if (result.type === 'cancel') {
+        return;
       }
 
-      // 3. Present Payment Sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          return;
-        }
-        throw new Error(presentError.message);
-      }
-
-      // 4. Confirm booking
-      const confirmResponse = await awsAPI.confirmBusinessBooking({
-        bookingId,
-        paymentIntentId: paymentResponse.paymentIntentId || '',
+      // Navigate to success (webhook handles DB updates)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      (navigation as any).replace('BusinessBookingSuccess', {
+        businessName: business?.name || 'Business',
+        serviceName: selectedService.name,
+        date: selectedDateString,
+        time: selectedSlot.time,
       });
-
-      if (confirmResponse.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.replace('BusinessBookingSuccess', {
-          bookingId,
-          businessName: business?.name || 'Business',
-          serviceName: selectedService.name,
-          date: selectedDateString,
-          time: selectedSlot.time,
-        });
-      } else {
-        throw new Error(confirmResponse.message || 'Booking confirmation failed');
-      }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Booking error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showError('Booking Failed', error.message || 'Please try again');
+      const message = error instanceof Error ? error.message : 'Please try again';
+      showError('Booking Failed', message);
     } finally {
       setIsBooking(false);
     }

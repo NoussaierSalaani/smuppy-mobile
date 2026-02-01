@@ -23,6 +23,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+type OnPressEvent = { geometry: { coordinates: [number, number] } };
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,6 +45,7 @@ import {
   type RouteResult,
 } from '../services/mapbox-directions';
 import type { RouteProfile, DifficultyLevel } from '../types';
+import type { FeatureCollection } from 'geojson';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -144,7 +146,7 @@ export default function RouteMapPicker({
   // Route data
   const [waypoints, setWaypoints] = useState<Coordinate[]>([]);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
-  const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
+  const [routeGeoJSON, setRouteGeoJSON] = useState<FeatureCollection | null>(null);
 
   const profile = getRouteProfile(activityType);
 
@@ -274,6 +276,15 @@ export default function RouteMapPicker({
   // MAP INTERACTION
   // ============================================
 
+  const fitMapToPoints = useCallback((points: Coordinate[]) => {
+    if (!cameraRef.current || points.length < 2) return;
+    const lngs = points.map(p => p.lng);
+    const lats = points.map(p => p.lat);
+    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+    cameraRef.current.fitBounds(ne, sw, [60, 60, 60, 60], 600);
+  }, []);
+
   const handleMapPress = useCallback(async (event: any) => {
     if (lockedLocation) return;
 
@@ -325,16 +336,7 @@ export default function RouteMapPicker({
       const newWaypoints = [...waypoints, coord];
       setWaypoints(newWaypoints);
     }
-  }, [mode, lockedLocation, activeField, departureCoord, arrivalCoord, waypoints, reverseGeocode, onCoordinateSelect, onLocationNameChange]);
-
-  const fitMapToPoints = useCallback((points: Coordinate[]) => {
-    if (!cameraRef.current || points.length < 2) return;
-    const lngs = points.map(p => p.lng);
-    const lats = points.map(p => p.lat);
-    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
-    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
-    cameraRef.current.fitBounds(ne, sw, [60, 60, 60, 60], 600);
-  }, []);
+  }, [mode, lockedLocation, activeField, departureCoord, arrivalCoord, waypoints, reverseGeocode, onCoordinateSelect, onLocationNameChange, fitMapToPoints]);
 
   // ============================================
   // SUGGESTION SELECT

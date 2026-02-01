@@ -3,7 +3,7 @@
  * Subscribe to recurring services (gym membership, monthly pass, etc.)
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,17 +18,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useStripe } from '@stripe/stripe-react-native';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { NavigationProp, ParamListBase } from '@react-navigation/native';
+import type { IconName } from '../../types';
 
 interface BusinessSubscriptionScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
-  navigation: any;
+  navigation: NavigationProp<ParamListBase>;
 }
 
 interface SubscriptionPlan {
@@ -51,9 +52,16 @@ interface Business {
   logo_url?: string;
   category: {
     name: string;
-    icon: string;
+    icon: IconName;
     color: string;
   };
+}
+
+interface UserSubscription {
+  id: string;
+  plan_id?: string;
+  plan_name?: string;
+  status?: string;
 }
 
 const PERIOD_LABELS = {
@@ -63,27 +71,21 @@ const PERIOD_LABELS = {
 };
 
 export default function BusinessSubscriptionScreen({ route, navigation }: BusinessSubscriptionScreenProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { showError, showConfirm } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
-  const { formatAmount, currency } = useCurrency();
-  const user = useUserStore((state) => state.user);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { formatAmount } = useCurrency();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribing, setIsSubscribing] = useState(false);
-  const [existingSubscription, setExistingSubscription] = useState<any>(null);
+  const [existingSubscription, setExistingSubscription] = useState<UserSubscription | null>(null);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  useEffect(() => {
-    loadSubscriptionData();
-  }, [businessId]);
-
-  const loadSubscriptionData = async () => {
+  const loadSubscriptionData = useCallback(async () => {
     try {
       const [profileRes, plansRes, subRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
@@ -122,7 +124,11 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [businessId, serviceId, showError]);
+
+  useEffect(() => {
+    loadSubscriptionData();
+  }, [loadSubscriptionData]);
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -153,66 +159,39 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
-      // 1. Create subscription
-      const response = await awsAPI.createBusinessSubscription({
+      // Create Stripe Checkout session
+      const response = await awsAPI.createBusinessCheckout({
         businessId,
-        planId: selectedPlan.id,
-        currency: currency.code,
+        serviceId: selectedPlan.id,
       });
 
-      if (!response.success || !response.clientSecret) {
-        throw new Error(response.message || 'Failed to create subscription');
+      if (!response.success || !response.checkoutUrl) {
+        throw new Error('Failed to create checkout session');
       }
 
-      // 2. Initialize Stripe Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: response.clientSecret,
-        merchantDisplayName: business?.name || 'Smuppy Business',
-        style: 'automatic',
-        googlePay: { merchantCountryCode: 'FR', testEnv: true },
-        applePay: { merchantCountryCode: 'FR' },
-        defaultBillingDetails: {
-          name: user?.fullName || user?.displayName || undefined,
-        },
+      // Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+        dismissButtonStyle: 'cancel',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
       });
 
-      if (initError) {
-        throw new Error(initError.message);
+      if (result.type === 'cancel') {
+        return;
       }
 
-      // 3. Present Payment Sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          return;
-        }
-        throw new Error(presentError.message);
-      }
-
-      // 4. Confirm subscription
-      const subscriptionId = response.subscriptionId || '';
-      const confirmResponse = await awsAPI.confirmBusinessSubscription({
-        subscriptionId,
-        paymentIntentId: response.paymentIntentId || '',
+      // Navigate to success (webhook handles DB updates)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      (navigation as any).replace('BusinessSubscriptionSuccess', {
+        businessName: business?.name || 'Business',
+        planName: selectedPlan.name,
+        period: selectedPlan.period,
+        trialDays: selectedPlan.trial_days,
       });
-
-      if (confirmResponse.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.replace('BusinessSubscriptionSuccess', {
-          subscriptionId,
-          businessName: business?.name || 'Business',
-          planName: selectedPlan.name,
-          period: selectedPlan.period,
-          trialDays: selectedPlan.trial_days,
-        });
-      } else {
-        throw new Error(confirmResponse.message || 'Subscription confirmation failed');
-      }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Subscription error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showError('Subscription Failed', error.message || 'Please try again');
+      const message = error instanceof Error ? error.message : 'Please try again';
+      showError('Subscription Failed', message);
     } finally {
       setIsSubscribing(false);
     }
@@ -314,6 +293,9 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
     );
   }
 
+  const categoryColor = business?.category.color ?? colors.primary;
+  const categoryIcon = business?.category.icon ?? 'briefcase-outline';
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
@@ -334,15 +316,15 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
             {business?.logo_url ? (
               <Image source={{ uri: business.logo_url }} style={styles.businessLogo} />
             ) : (
-              <View style={[styles.businessLogoPlaceholder, { backgroundColor: business?.category.color }]}>
-                <Ionicons name={business?.category.icon as any} size={28} color="#fff" />
+              <View style={[styles.businessLogoPlaceholder, { backgroundColor: categoryColor }]}>
+                <Ionicons name={categoryIcon} size={28} color="#fff" />
               </View>
             )}
             <View style={styles.businessInfo}>
               <Text style={styles.businessName}>{business?.name}</Text>
               <View style={styles.businessCategory}>
-                <Ionicons name={business?.category.icon as any} size={12} color={business?.category.color} />
-                <Text style={[styles.businessCategoryText, { color: business?.category.color }]}>
+                <Ionicons name={categoryIcon} size={12} color={categoryColor} />
+                <Text style={[styles.businessCategoryText, { color: categoryColor }]}>
                   {business?.category.name}
                 </Text>
               </View>
@@ -457,7 +439,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

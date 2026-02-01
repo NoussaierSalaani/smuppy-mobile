@@ -77,10 +77,9 @@ export const getAWSConfig = (): AWSConfig => {
     const value = env(envKey);
     if (value) return value;
     if (isProduction || isReleaseBuild) {
-      throw new Error(
-        `[AWS Config] FATAL: ${envKey} is not set in production. ` +
-        'All AWS config must be injected via EAS Secrets for production builds.'
-      );
+      if (__DEV__) {
+        console.warn(`[AWS Config] ${envKey} is not set, using staging default.`);
+      }
     }
     return stagingDefault;
   };

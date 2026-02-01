@@ -57,10 +57,10 @@ interface RecentActivity {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { id: 'scanner', label: 'Scan Access', icon: 'qr-code', color: '#0EBF8A', screen: 'BusinessScanner' },
   { id: 'services', label: 'Services', icon: 'pricetags', color: '#FF6B35', screen: 'BusinessServicesManage' },
   { id: 'schedule', label: 'Schedule', icon: 'calendar', color: '#9B59B6', screen: 'BusinessProgram', params: { tab: 'schedule' } },
   { id: 'upload', label: 'Upload Program', icon: 'cloud-upload', color: '#3498DB', screen: 'BusinessScheduleUpload' },
+  { id: 'profile', label: 'My Profile', icon: 'storefront', color: '#0EBF8A', screen: 'BusinessProfile' },
 ];
 
 export default function BusinessDashboardScreen({ navigation }: Props) {

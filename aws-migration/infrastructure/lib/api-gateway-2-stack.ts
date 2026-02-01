@@ -318,6 +318,83 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsDeleteFn), authMethodOptions);
 
     // ========================================
+    // Business Endpoints
+    // ========================================
+    const businesses = this.api.root.addResource('businesses');
+
+    // Public: discover businesses
+    const businessDiscover = businesses.addResource('discover');
+    businessDiscover.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessDiscoverFn), authMethodOptions);
+
+    // Public: business profile by ID
+    const businessById = businesses.addResource('{businessId}');
+    businessById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessProfileGetFn), authMethodOptions);
+
+    // Public: business services
+    const businessServices = businessById.addResource('services');
+    businessServices.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessServicesListFn), authMethodOptions);
+
+    // Public: business schedule
+    const businessSchedule = businessById.addResource('schedule');
+    businessSchedule.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessScheduleGetFn), authMethodOptions);
+
+    // Public: business availability
+    const businessAvailability = businessById.addResource('availability');
+    businessAvailability.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessAvailabilityFn), authMethodOptions);
+
+    // Public: business reviews (reuse spots reviews pattern — placeholder for now)
+    const businessReviews = businessById.addResource('reviews');
+    businessReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessProfileGetFn), authMethodOptions);
+
+    // Public: business subscription plans (returns services with category=membership)
+    const businessSubPlans = businessById.addResource('subscription-plans');
+    businessSubPlans.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessServicesListFn), authMethodOptions);
+
+    // Auth: follow/unfollow business
+    const businessFollow = businessById.addResource('follow');
+    businessFollow.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followsCreateFn), authMethodOptions);
+    businessFollow.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.followsDeleteFn), authMethodOptions);
+
+    // Owner: /businesses/my/*
+    const businessMy = businesses.addResource('my');
+
+    const businessMyDashboard = businessMy.addResource('dashboard');
+    businessMyDashboard.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessDashboardFn), authMethodOptions);
+
+    const businessMyProgram = businessMy.addResource('program');
+    businessMyProgram.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessProgramGetFn), authMethodOptions);
+
+    const businessMyServices = businessMy.addResource('services');
+    businessMyServices.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessServicesCreateFn), authMethodOptions);
+
+    const businessMyServiceById = businessMyServices.addResource('{serviceId}');
+    businessMyServiceById.addMethod('PATCH', new apigateway.LambdaIntegration(lambdaStack.businessServicesUpdateFn), authMethodOptions);
+    businessMyServiceById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessServicesDeleteFn), authMethodOptions);
+
+    const businessMyActivities = businessMy.addResource('activities');
+    businessMyActivities.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyActivityById = businessMyActivities.addResource('{activityId}');
+    businessMyActivityById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+    businessMyActivityById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMySchedule = businessMy.addResource('schedule');
+    businessMySchedule.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyScheduleSlotById = businessMySchedule.addResource('{slotId}');
+    businessMyScheduleSlotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyTags = businessMy.addResource('tags');
+    businessMyTags.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyTagById = businessMyTags.addResource('{tagId}');
+    businessMyTagById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    // Payment: business checkout
+    const businessCheckout = payments.addResource('business-checkout');
+    businessCheckout.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessCheckoutFn), authMethodOptions);
+
+    // ========================================
     // Live Streams Endpoints
     // ========================================
     const liveStreams = this.api.root.addResource('live-streams');

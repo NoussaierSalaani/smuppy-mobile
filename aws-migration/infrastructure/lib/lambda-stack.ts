@@ -250,6 +250,20 @@ export class LambdaStack extends cdk.NestedStack {
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
 
+  // Business
+  public readonly businessServicesListFn: NodejsFunction;
+  public readonly businessServicesCreateFn: NodejsFunction;
+  public readonly businessServicesUpdateFn: NodejsFunction;
+  public readonly businessServicesDeleteFn: NodejsFunction;
+  public readonly businessDashboardFn: NodejsFunction;
+  public readonly businessProgramGetFn: NodejsFunction;
+  public readonly businessProgramUpdateFn: NodejsFunction;
+  public readonly businessAvailabilityFn: NodejsFunction;
+  public readonly businessProfileGetFn: NodejsFunction;
+  public readonly businessDiscoverFn: NodejsFunction;
+  public readonly businessScheduleGetFn: NodejsFunction;
+  public readonly businessCheckoutFn: NodejsFunction;
+
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
@@ -492,6 +506,44 @@ export class LambdaStack extends cdk.NestedStack {
     // Settings Lambda Functions
     // ========================================
     this.settingsCurrencyFn = createLambda('SettingsCurrencyFunction', 'settings/currency');
+
+    // ========================================
+    // Business Lambda Functions
+    // ========================================
+    this.businessServicesListFn = createLambda('BusinessServicesListFunction', 'business/services-list');
+    this.businessServicesCreateFn = createLambda('BusinessServicesCreateFunction', 'business/services-create');
+    this.businessServicesUpdateFn = createLambda('BusinessServicesUpdateFunction', 'business/services-update');
+    this.businessServicesDeleteFn = createLambda('BusinessServicesDeleteFunction', 'business/services-delete');
+    this.businessDashboardFn = createLambda('BusinessDashboardFunction', 'business/dashboard');
+    this.businessProgramGetFn = createLambda('BusinessProgramGetFunction', 'business/program-get');
+    this.businessProgramUpdateFn = createLambda('BusinessProgramUpdateFunction', 'business/program-update');
+    this.businessAvailabilityFn = createLambda('BusinessAvailabilityFunction', 'business/availability');
+    this.businessProfileGetFn = createLambda('BusinessProfileGetFunction', 'business/profile-get');
+    this.businessDiscoverFn = createLambda('BusinessDiscoverFunction', 'business/discover', { memory: 1024 });
+    this.businessScheduleGetFn = createLambda('BusinessScheduleGetFunction', 'business/schedule-get');
+
+    // Business Checkout (needs Stripe)
+    this.businessCheckoutFn = new NodejsFunction(this, 'BusinessCheckoutFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/business-checkout.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
+        WEB_DOMAIN: process.env.WEB_DOMAIN || 'https://smuppy.com',
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.businessCheckoutFn);
 
     // ========================================
     // Search & Discovery Lambda Functions
@@ -876,6 +928,7 @@ export class LambdaStack extends cdk.NestedStack {
       this.paymentRefundsFn,
       this.paymentMethodsFn,
       this.paymentWebCheckoutFn,
+      this.businessCheckoutFn,
     ];
     for (const fn of allPaymentLambdas) {
       stripeSecret.grantRead(fn);
@@ -912,6 +965,7 @@ export class LambdaStack extends cdk.NestedStack {
       this.paymentRefundsFn,
       this.paymentMethodsFn,
       this.paymentWebCheckoutFn,
+      this.businessCheckoutFn,
     ];
     for (const fn of paymentLambdasForDlq) {
       const cfnFn = fn.node.defaultChild as lambda.CfnFunction;

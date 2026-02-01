@@ -209,16 +209,6 @@ const MenuPlanningIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-const MenuScannerIcon = ({ size = 24, color = '#0EBF8A' }: IconProps & { color?: string }): React.JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M3 8V6C3 4.343 4.343 3 6 3H8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M16 3H18C19.657 3 21 4.343 21 6V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M21 16V18C21 19.657 19.657 21 18 21H16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M8 21H6C4.343 21 3 19.657 3 18V16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M4 12H20" stroke={color} strokeWidth="2" strokeLinecap="round" />
-  </Svg>
-);
-
 interface ProfileIconProps {
   imageUri?: string;
   isActive: boolean;
@@ -309,7 +299,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     }).start(() => setShowProMenu(false));
   };
 
-  const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions' | 'dashboard' | 'planning' | 'scanner') => {
+  const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions' | 'dashboard' | 'planning') => {
     closeProMenu();
     // Navigate based on option — gated by feature flags
     if (option === 'live' && FEATURES.GO_LIVE) {
@@ -322,8 +312,6 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       navigation.navigate('BusinessDashboard');
     } else if (option === 'planning') {
       navigation.navigate('BusinessScheduleUpload');
-    } else if (option === 'scanner') {
-      navigation.navigate('BusinessScanner');
     } else {
       navigation.navigate('CreatePost');
     }
@@ -585,19 +573,6 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                     <MenuPlanningIcon size={20} />
                   </LinearGradient>
                   <Text style={[styles.menuOptionText, { color: colors.dark }]}>Planning</Text>
-                </TouchableOpacity>
-                )}
-
-                {!isProCreator && FEATURES.BUSINESS_SCANNER && (
-                <TouchableOpacity
-                  style={styles.menuOption}
-                  onPress={() => handleMenuOption('scanner')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.menuIconBgLight}>
-                    <MenuScannerIcon size={20} color={colors.primary} />
-                  </View>
-                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Scanner</Text>
                 </TouchableOpacity>
                 )}
 

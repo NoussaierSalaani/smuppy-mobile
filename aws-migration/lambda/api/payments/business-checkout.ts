@@ -256,6 +256,7 @@ async function createBusinessCheckout(
         serviceId,
         userId: user.id,
         type: serviceType,
+        period,
       },
       success_url: `${baseSuccessUrl}&type=business_subscription&businessId=${businessId}`,
       cancel_url: `${baseCancelUrl}?type=business_subscription&businessId=${businessId}`,

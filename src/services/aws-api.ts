@@ -2851,7 +2851,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/validate-access', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: params,
     });
   }
 
@@ -2868,7 +2868,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/log-entry', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: params,
     });
   }
 
@@ -2926,7 +2926,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/my/services', {
       method: 'POST',
-      body: JSON.stringify(serviceData),
+      body: serviceData,
     });
   }
 
@@ -2951,7 +2951,7 @@ class AWSAPIService {
   }> {
     return this.request(`/businesses/my/services/${serviceId}`, {
       method: 'PATCH',
-      body: JSON.stringify(serviceData),
+      body: serviceData,
     });
   }
 
@@ -3028,7 +3028,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/my/import-schedule', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: params,
     });
   }
 

@@ -16,7 +16,6 @@ export { default as MySubscriptionsScreen } from './MySubscriptionsScreen';
 
 // QR Code Access System
 export { default as MemberAccessScreen } from './MemberAccessScreen';
-export { default as BusinessScannerScreen } from './BusinessScannerScreen';
 
 // Business Owner Dashboard
 export { default as BusinessDashboardScreen } from './BusinessDashboardScreen';

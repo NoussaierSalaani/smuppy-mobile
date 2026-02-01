@@ -744,6 +744,7 @@ class AWSAPIService {
     // Determine uploadType from the folder prefix in filename
     let uploadType = 'post';
     if (filename.startsWith('avatars/')) uploadType = 'avatar';
+    else if (filename.startsWith('covers/')) uploadType = 'cover';
     else if (filename.startsWith('peaks/')) uploadType = 'peak';
     else if (filename.startsWith('messages/')) uploadType = 'message';
 
@@ -950,6 +951,7 @@ class AWSAPIService {
       currency: string;
     };
     publishableKey?: string;
+    checkoutUrl?: string;
     message?: string;
   }> {
     return this.request('/payments/create-intent', {
@@ -1807,6 +1809,7 @@ class AWSAPIService {
       clientSecret: string;
       id: string;
     };
+    checkoutUrl?: string;
     message?: string;
   }> {
     return this.request('/payments/methods/setup-intent', {
@@ -1895,6 +1898,28 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Business Checkout
+  // ==========================================
+
+  async createBusinessCheckout(data: {
+    businessId: string;
+    serviceId?: string;
+    planId?: string;
+    date?: string;
+    slotId?: string;
+  }): Promise<{
+    success: boolean;
+    checkoutUrl?: string;
+    sessionId?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/business-checkout', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==========================================
   // Web Checkout (Avoids 30% App Store Fees)
   // ==========================================
 
@@ -1955,6 +1980,7 @@ class AWSAPIService {
     success: boolean;
     tipId?: string;
     clientSecret?: string;
+    checkoutUrl?: string;
     paymentIntentId?: string;
     amount?: number;
     currency?: string;
@@ -2292,6 +2318,7 @@ class AWSAPIService {
     success: boolean;
     clientSecret?: string;
     paymentIntentId?: string;
+    checkoutUrl?: string;
     message?: string;
   }> {
     return this.request(`/events/${data.eventId}/payment`, {

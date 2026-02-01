@@ -14,7 +14,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   ActivityIndicator,
   Linking,
 } from 'react-native';
@@ -22,13 +21,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-
-const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
 type VerificationStatus = 'not_started' | 'requires_input' | 'processing' | 'verified' | 'payment_required';
 
@@ -106,13 +103,11 @@ const BENEFITS = [
 export default function IdentityVerificationScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<VerificationStatus>('not_started');
-  const [_paymentReady, setPaymentReady] = useState(false);
   const { showError, showAlert } = useSmuppyAlert();
 
   const STATUS_INFO = useMemo(() => getStatusInfo(colors), [colors]);
@@ -142,7 +137,7 @@ export default function IdentityVerificationScreen() {
           setStatus('not_started');
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Failed to fetch status:', error);
     } finally {
       setLoading(false);
@@ -160,7 +155,7 @@ export default function IdentityVerificationScreen() {
       const response = await awsAPI.request<{
         success: boolean;
         subscriptionActive?: boolean;
-        clientSecret?: string;
+        checkoutUrl?: string;
         error?: string;
       }>('/payments/identity', {
         method: 'POST',
@@ -173,41 +168,15 @@ export default function IdentityVerificationScreen() {
         return;
       }
 
-      if (response.success && response.clientSecret) {
-        // Initialize payment sheet with subscription secret
-        const { error } = await initPaymentSheet({
-          paymentIntentClientSecret: response.clientSecret,
-          merchantDisplayName: 'Smuppy',
-          style: 'automatic',
-          returnURL: 'smuppy://verification-complete',
-        });
-
-        if (error) {
-          showError('Error', 'Something went wrong. Please try again.');
-        } else {
-          setPaymentReady(true);
-          await handlePayment();
+      if (response.success && response.checkoutUrl) {
+        // Open Stripe Checkout
+        const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+        
+        if (result.type === 'cancel') {
+          setProcessing(false);
+          return;
         }
-      } else {
-        showError('Error', 'Failed to initialize subscription. Please try again.');
-      }
-    } catch (error: unknown) {
-      showError('Error', 'Something went wrong. Please try again.');
-    } finally {
-      setProcessing(false);
-    }
-  };
 
-  const handlePayment = async () => {
-    setProcessing(true);
-    try {
-      const { error } = await presentPaymentSheet();
-
-      if (error) {
-        if (error.code !== 'Canceled') {
-          showError('Payment Failed', 'Something went wrong. Please try again.');
-        }
-      } else {
         // Subscription activated, start verification
         showAlert({
           title: 'Subscription Active',
@@ -215,9 +184,11 @@ export default function IdentityVerificationScreen() {
           type: 'success',
           buttons: [{ text: 'Continue', onPress: startVerification }],
         });
+      } else {
+        showError('Error', 'Failed to initialize subscription. Please try again.');
       }
     } catch (error: unknown) {
-      showError('Error', 'Payment failed. Please try again.');
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -263,8 +234,9 @@ export default function IdentityVerificationScreen() {
           showError('Error', sessionResponse.error || 'Failed to start verification');
         }
       }
-    } catch (error: any) {
-      showError('Error', error.message || 'Something went wrong');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Something went wrong';
+      showError('Error', message);
     } finally {
       setProcessing(false);
     }

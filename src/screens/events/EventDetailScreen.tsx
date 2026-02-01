@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -92,20 +92,12 @@ const DIFFICULTY_COLORS = {
   expert: '#9C27B0',
 };
 
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#0e1626' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
-];
 
 export default function EventDetailScreen({ route, navigation }: EventDetailScreenProps) {
   const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const { eventId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { colors, isDark } = useTheme();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -119,7 +111,9 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
-    loadEventDetails();
+    loadEventDetails().catch((err) => {
+      if (__DEV__) console.error('loadEventDetails error:', err);
+    });
   }, [eventId]);
 
   const loadEventDetails = async () => {
@@ -130,7 +124,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       } else {
         throw new Error(response.message || 'Failed to load event');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Load event error:', error);
       showError('Error', 'Failed to load event details');
       navigation.goBack();
@@ -176,9 +170,10 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       } else {
         throw new Error(response.message || 'Failed to join event');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Join event error:', error);
-      showError('Error', error.message || 'Failed to join event');
+      const message = error instanceof Error ? error.message : 'Failed to join event';
+      showError('Error', message);
     } finally {
       setIsJoining(false);
     }
@@ -189,65 +184,41 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
     setIsJoining(true);
     try {
-      // 1. Create payment intent for event participation
+      // 1. Create Stripe Checkout session for event participation
       const response = await awsAPI.createEventPayment({
         eventId: event.id,
         amount: event.price_cents || 0,
         currency: event.currency || 'eur',
       });
 
-      if (!response.success || !response.clientSecret) {
+      if (!response.success || !response.checkoutUrl) {
         throw new Error(response.message || 'Failed to create payment');
       }
 
-      // 2. Initialize Stripe Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: response.clientSecret,
-        merchantDisplayName: 'Smuppy',
-        style: 'automatic',
-        googlePay: { merchantCountryCode: 'FR', testEnv: true },
-        applePay: { merchantCountryCode: 'FR' },
-        defaultBillingDetails: {
-          name: user?.fullName || user?.displayName || undefined,
-        },
+      // 2. Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+
+      if (result.type === 'cancel') {
+        // User cancelled - do nothing
+        return;
+      }
+
+      // 3. Payment successful
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showAlert({
+        title: 'Payment Successful!',
+        message: `You're now registered for "${event.title}".
+
+See you there!`,
+        type: 'success',
+        buttons: [{ text: 'View Details', onPress: loadEventDetails }],
       });
-
-      if (initError) {
-        throw new Error(initError.message);
-      }
-
-      // 3. Present Payment Sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          // User cancelled - do nothing
-          return;
-        }
-        throw new Error(presentError.message);
-      }
-
-      // 4. Payment successful - confirm with backend
-      const confirmResponse = await awsAPI.confirmEventPayment({
-        eventId: event.id,
-        paymentIntentId: response.paymentIntentId!,
-      });
-
-      if (confirmResponse.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showAlert({
-          title: 'Payment Successful!',
-          message: `You're now registered for "${event.title}".\n\nSee you there!`,
-          type: 'success',
-          buttons: [{ text: 'View Details', onPress: loadEventDetails }],
-        });
-      } else {
-        throw new Error(confirmResponse.message || 'Payment confirmation failed');
-      }
-    } catch (error: any) {
+      await loadEventDetails();
+    } catch (error: unknown) {
       if (__DEV__) console.error('Event payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showError('Payment Failed', error.message || 'Please try again');
+      const message = error instanceof Error ? error.message : 'Please try again';
+      showError('Payment Failed', message);
     } finally {
       setIsJoining(false);
     }
@@ -269,8 +240,9 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
           } else {
             throw new Error(response.message);
           }
-        } catch (error: any) {
-          showError('Error', error.message || 'Failed to leave event');
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Failed to leave event';
+          showError('Error', message);
         } finally {
           setIsJoining(false);
         }
@@ -291,7 +263,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         title: event.title,
         url: shareUrl,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Share error:', error);
     }
   };
@@ -437,7 +409,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
           {/* Category Badge */}
           <View style={[styles.categoryBadge, { backgroundColor: event.category.color }]}>
-            <Ionicons name={event.category.icon as any} size={16} color="#fff" />
+            <Ionicons name={(event.category.icon || 'help-circle') as keyof typeof Ionicons.glyphMap} size={16} color="#fff" />
             <Text style={styles.categoryText}>{event.category.name}</Text>
           </View>
 

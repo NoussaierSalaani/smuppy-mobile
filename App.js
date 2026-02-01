@@ -8,7 +8,6 @@ SplashScreen.preventAutoHideAsync();
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
-import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Core
 import AppNavigator from './src/navigation/AppNavigator';
@@ -178,46 +177,22 @@ export default function App() {
     return <View style={{ flex: 1, backgroundColor: '#0EBF8A' }} />;
   }
 
-  // Stripe publishable key - will be set dynamically or from env
-  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
-
   return (
     <SafeAreaProvider>
       <ThemeProvider>
       <ErrorBoundary showReportButton>
-        {stripePublishableKey ? (
-          <StripeProvider
-            publishableKey={stripePublishableKey}
-            merchantIdentifier="merchant.com.smuppy.app"
-            urlScheme="smuppy"
-          >
-            <QueryClientProvider client={queryClient}>
-              <NetworkMonitor />
-              <UserContextSync />
-              <CachePersistence />
-              <PushNotificationHandler />
-              <SmuppyAlertProvider>
-                <View style={{ flex: 1 }}>
-                  <AppNavigator />
-                  <OfflineBanner />
-                </View>
-              </SmuppyAlertProvider>
-            </QueryClientProvider>
-          </StripeProvider>
-        ) : (
-          <QueryClientProvider client={queryClient}>
-            <NetworkMonitor />
-            <UserContextSync />
-            <CachePersistence />
-            <PushNotificationHandler />
-            <SmuppyAlertProvider>
-              <View style={{ flex: 1 }}>
-                <AppNavigator />
-                <OfflineBanner />
-              </View>
-            </SmuppyAlertProvider>
-          </QueryClientProvider>
-        )}
+        <QueryClientProvider client={queryClient}>
+          <NetworkMonitor />
+          <UserContextSync />
+          <CachePersistence />
+          <PushNotificationHandler />
+          <SmuppyAlertProvider>
+            <View style={{ flex: 1 }}>
+              <AppNavigator />
+              <OfflineBanner />
+            </View>
+          </SmuppyAlertProvider>
+        </QueryClientProvider>
       </ErrorBoundary>
         </ThemeProvider>
     </SafeAreaProvider>

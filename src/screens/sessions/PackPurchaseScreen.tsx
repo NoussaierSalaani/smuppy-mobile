@@ -19,7 +19,7 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -51,7 +51,6 @@ const PackPurchaseScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'PackPurchase'>>();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { colors, isDark } = useTheme();
 
   const { showError } = useSmuppyAlert();
@@ -59,7 +58,6 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
   const [creator, setCreator] = useState<Creator | null>(null);
   const [loading, setLoading] = useState(true);
-  const [paymentReady, setPaymentReady] = useState(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -76,8 +74,10 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           verified: profile.isVerified,
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Failed to fetch creator:', error);
+    } finally {
+      setLoading(false);
     }
   }, [creatorId]);
 
@@ -85,16 +85,9 @@ const PackPurchaseScreen = (): React.JSX.Element => {
     fetchCreator();
   }, [fetchCreator]);
 
-  const _platformFee = pack.price * 0.20; // 20% platform fee
-  const _creatorEarnings = pack.price * 0.80; // 80% to creator
+  const handlePurchase = async () => {
+    if (loading) return;
 
-  useEffect(() => {
-    if (creator) {
-      initializePayment();
-    }
-  }, [creator]);
-
-  const initializePayment = async () => {
     try {
       setLoading(true);
 
@@ -107,65 +100,24 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         description: `Pack: ${pack.name}`,
       });
 
-      if (!response.success || !response.paymentIntent) {
+      if (!response.success || !response.checkoutUrl) {
         throw new Error(response.message || 'Failed to create payment intent');
       }
 
-      // Initialize payment sheet
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: 'Smuppy',
-        paymentIntentClientSecret: response.paymentIntent.clientSecret,
-        defaultBillingDetails: {
-          name: '',
-        },
-        appearance: {
-          colors: {
-            primary: colors.primary,
-            background: colors.background,
-            componentBackground: colors.backgroundSecondary,
-            componentText: colors.dark,
-            primaryText: colors.dark,
-            secondaryText: colors.gray,
-            placeholderText: colors.gray,
-          },
-        },
+      // Open checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+
+      if (result.type === 'cancel') {
+        setLoading(false);
+        return;
+      }
+
+      // Payment successful
+      navigation.replace('PackPurchaseSuccess', {
+        pack,
+        creator,
       });
-
-      if (error) {
-        if (__DEV__) console.error('Payment sheet init error:', error);
-      } else {
-        setPaymentReady(true);
-      }
-    } catch (error) {
-      if (__DEV__) console.error('Payment init error:', error);
-      showError('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePurchase = async () => {
-    if (!paymentReady) {
-      await initializePayment();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await presentPaymentSheet();
-
-      if (error) {
-        if (error.code !== 'Canceled') {
-          showError('Erreur de paiement', error.message);
-        }
-      } else {
-        // Payment successful
-        navigation.replace('PackPurchaseSuccess', {
-          pack,
-          creator,
-        });
-      }
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Payment error:', error);
       showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
@@ -305,7 +257,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           <Text style={styles.priceValue}>{pack.price.toFixed(2)} €</Text>
         </View>
         <TouchableOpacity
-          style={[styles.payButton, !paymentReady && styles.payButtonDisabled]}
+          style={[styles.payButton, loading && styles.payButtonDisabled]}
           onPress={handlePurchase}
           disabled={loading}
         >

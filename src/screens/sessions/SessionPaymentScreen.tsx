@@ -1,5 +1,5 @@
 // src/screens/sessions/SessionPaymentScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { usePaymentSheet, PaymentSheetError } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -23,10 +23,9 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 export default function SessionPaymentScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
   const { colors, gradients, isDark } = useTheme();
 
-  const { showError, showWarning } = useSmuppyAlert();
+  const { showError } = useSmuppyAlert();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -38,120 +37,57 @@ export default function SessionPaymentScreen(): React.JSX.Element {
     price: 20,
   };
 
-  const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentReady, setPaymentReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Initialize payment sheet on mount
-  useEffect(() => {
-    initializePayment();
-  }, []);
-
-  const initializePayment = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Create payment intent on backend
-      const response = await awsAPI.createPaymentIntent({
-        creatorId: creator.id,
-        amount: price * 100, // Convert to cents
-        sessionId: sessionId,
-        type: 'session',
-        description: `Session with ${creator.name} - ${duration} min`,
-      });
-
-      if (!response.success || !response.paymentIntent) {
-        throw new Error(response.message || 'Failed to create payment');
-      }
-
-      const { clientSecret } = response.paymentIntent;
-
-      // Initialize the Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: 'Smuppy',
-        allowsDelayedPaymentMethods: false,
-        defaultBillingDetails: {
-          name: '',
-        },
-        applePay: {
-          merchantCountryCode: 'US',
-        },
-        googlePay: {
-          merchantCountryCode: 'US',
-          testEnv: __DEV__,
-        },
-        style: 'automatic',
-        returnURL: 'smuppy://payment-complete',
-      });
-
-      if (initError) {
-        if (__DEV__) console.error('Payment sheet init error:', initError);
-        setError(initError.message);
-      } else {
-        setPaymentReady(true);
-      }
-    } catch (err: unknown) {
-      if (__DEV__) console.error('Payment initialization error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initialize payment');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleBack = () => {
     navigation.goBack();
   };
 
   const handlePayment = async () => {
-    if (!paymentReady) {
-      showWarning('Please wait', 'Payment is still loading...');
-      return;
-    }
-
+    if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-      const { error: paymentError } = await presentPaymentSheet();
+      const response = await awsAPI.createPaymentIntent({
+        creatorId: creator.id,
+        amount: price * 100,
+        sessionId: sessionId,
+        type: 'session',
+        description: `Session with ${creator.name} - ${duration} min`,
+      });
 
-      if (paymentError) {
-        if (paymentError.code === PaymentSheetError.Canceled) {
-          // User cancelled - do nothing
-          if (__DEV__) console.log('Payment cancelled by user');
-        } else {
-          showError('Payment Failed', paymentError.message);
-        }
+      if (!response.success || !response.checkoutUrl) {
+        throw new Error(response.message || 'Failed to create payment');
+      }
+
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+
+      if (result.type === 'cancel') {
+        setIsProcessing(false);
+        return;
+      }
+
+      // After checkout, create booking
+      const bookingResponse = await awsAPI.bookSession({
+        creatorId: creator.id,
+        scheduledAt: route.params?.datetime || new Date(date.fullDate.setHours(
+          parseInt(time.split(':')[0]),
+          parseInt(time.split(':')[1])
+        )).toISOString(),
+        duration: duration,
+        price: price,
+      });
+
+      if (bookingResponse.success) {
+        navigation.replace('SessionBooked', {
+          creator,
+          date,
+          time,
+          duration,
+          sessionId: bookingResponse.session?.id,
+        });
       } else {
-        // Payment successful - now create the booking
-        try {
-          const bookingResponse = await awsAPI.bookSession({
-            creatorId: creator.id,
-            scheduledAt: route.params?.datetime || new Date(date.fullDate.setHours(
-              parseInt(time.split(':')[0]),
-              parseInt(time.split(':')[1])
-            )).toISOString(),
-            duration: duration,
-            price: price,
-          });
-
-          if (bookingResponse.success) {
-            navigation.replace('SessionBooked', {
-              creator,
-              date,
-              time,
-              duration,
-              sessionId: bookingResponse.session?.id,
-            });
-          } else {
-            // Payment succeeded but booking failed - rare edge case
-            showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
-          }
-        } catch (bookingError) {
-          if (__DEV__) console.error('Booking error:', bookingError);
-          showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
-        }
+        showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
       }
     } catch (err: unknown) {
       if (__DEV__) console.error('Payment error:', err);
@@ -172,28 +108,6 @@ export default function SessionPaymentScreen(): React.JSX.Element {
   };
 
   const renderContent = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Setting up payment...</Text>
-        </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
-          <Text style={styles.errorTitle}>Payment Setup Failed</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={initializePayment}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     return (
       <>
         {/* Session Summary */}
@@ -256,34 +170,32 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       </View>
 
       {/* Bottom Button */}
-      {!isLoading && !error && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            onPress={handlePayment}
-            disabled={isProcessing || !paymentReady}
-            activeOpacity={0.9}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity
+          onPress={handlePayment}
+          disabled={isProcessing}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.payButton}
           >
-            <LinearGradient
-              colors={paymentReady ? gradients.primary : ['#CCC', '#AAA']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.payButton}
-            >
-              {isProcessing ? (
-                <>
-                  <ActivityIndicator size="small" color="white" />
-                  <Text style={styles.payButtonText}>Processing...</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.payButtonText}>Pay ${price.toFixed(2)}</Text>
-                  <Ionicons name="arrow-forward" size={20} color="white" />
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
+            {isProcessing ? (
+              <>
+                <ActivityIndicator size="small" color="white" />
+                <Text style={styles.payButtonText}>Processing...</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.payButtonText}>Pay ${price.toFixed(2)}</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -320,46 +232,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: colors.dark,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  errorTitle: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.dark,
-  },
-  errorText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.gray,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
   },
   summaryCard: {
     flexDirection: 'row',

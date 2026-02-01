@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -85,7 +85,6 @@ const CARD_BRANDS: Record<string, {
 const PaymentMethodsScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { colors, isDark } = useTheme();
 
@@ -112,7 +111,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           setSelectedCard(defaultCard.id);
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Failed to fetch payment methods:', error);
     } finally {
       setLoading(false);
@@ -152,36 +151,13 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
       setAddingCard(true);
 
       const setupResponse = await awsAPI.createSetupIntent();
-      if (!setupResponse.success || !setupResponse.setupIntent) {
+      if (!setupResponse.success || !setupResponse.checkoutUrl) {
         throw new Error(setupResponse.message || 'Failed to create setup intent');
       }
 
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Smuppy',
-        setupIntentClientSecret: setupResponse.setupIntent.clientSecret,
-        appearance: {
-          colors: {
-            primary: colors.primary,
-            background: colors.dark,
-            componentBackground: colors.darkGray,
-            componentText: colors.white,
-            primaryText: colors.white,
-            secondaryText: colors.gray,
-            placeholderText: colors.gray,
-          },
-        },
-      });
+      const result = await WebBrowser.openBrowserAsync(setupResponse.checkoutUrl);
 
-      if (initError) {
-        throw new Error(initError.message);
-      }
-
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code !== 'Canceled') {
-          showError('Erreur', presentError.message);
-        }
+      if (result.type === 'cancel') {
         return;
       }
 
@@ -209,7 +185,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
       } else {
         showError('Erreur', response.message || 'Impossible de definir comme defaut');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Failed to set default:', error);
       showError('Erreur', 'Une erreur est survenue');
     }
@@ -230,7 +206,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           } else {
             showError('Erreur', response.message || 'Impossible de supprimer');
           }
-        } catch (error) {
+        } catch (error: unknown) {
           if (__DEV__) console.error('Failed to remove card:', error);
           showError('Erreur', 'Une erreur est survenue');
         }

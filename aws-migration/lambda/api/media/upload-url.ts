@@ -62,7 +62,7 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
 interface UploadRequest {
   contentType: string;
   fileSize?: number;
-  uploadType?: 'avatar' | 'post' | 'peak' | 'message';
+  uploadType?: 'avatar' | 'cover' | 'post' | 'peak' | 'message';
   filename?: string;
 }
 
@@ -86,6 +86,8 @@ function getUploadPath(userId: string, uploadType: string, filename: string): st
   switch (uploadType) {
     case 'avatar':
       return `users/${userId}/avatar/${filename}`;
+    case 'cover':
+      return `users/${userId}/cover/${filename}`;
     case 'post':
       return `posts/${userId}/${filename}`;
     case 'peak':
@@ -129,7 +131,7 @@ export async function handler(
       if (filename.startsWith('avatars/')) uploadType = 'avatar';
       else if (filename.startsWith('peaks/')) uploadType = 'peak';
       else if (filename.startsWith('messages/')) uploadType = 'message';
-      else if (filename.startsWith('covers/')) uploadType = 'avatar';
+      else if (filename.startsWith('covers/')) uploadType = 'cover';
     }
 
     // Validate content type
@@ -160,7 +162,7 @@ export async function handler(
     }
 
     // Validate upload type
-    const validUploadTypes = ['avatar', 'post', 'peak', 'message'];
+    const validUploadTypes = ['avatar', 'cover', 'post', 'peak', 'message'];
     if (!validUploadTypes.includes(uploadType)) {
       return {
         statusCode: 400,

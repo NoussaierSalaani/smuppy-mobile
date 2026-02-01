@@ -1,13 +1,13 @@
 /**
  * useTipPayment Hook
- * Handles the complete tip payment flow with Stripe
+ * Handles the complete tip payment flow with Stripe Checkout via WebBrowser
  */
 
 import { useState, useCallback } from 'react';
-import { useStripe } from '@stripe/stripe-react-native';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { awsAPI } from '../services/aws-api';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 
 interface TipRecipient {
   id: string;
@@ -34,7 +34,6 @@ interface UseTipPaymentReturn {
 
 export function useTipPayment(): UseTipPaymentReturn {
   const { showSuccess, showError } = useSmuppyAlert();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,11 +44,12 @@ export function useTipPayment(): UseTipPaymentReturn {
       context: TipContext,
       options?: { message?: string; isAnonymous?: boolean }
     ): Promise<boolean> => {
+      if (isProcessing) return false;
       setIsProcessing(true);
       setError(null);
 
       try {
-        // Step 1: Create tip and get PaymentIntent from backend
+        // Create tip checkout session via backend
         const response = await awsAPI.sendTip({
           receiverId: recipient.id,
           amount: amount,
@@ -59,72 +59,43 @@ export function useTipPayment(): UseTipPaymentReturn {
           isAnonymous: options?.isAnonymous,
         });
 
-        if (!response.success || !response.clientSecret) {
+        if (!response.success) {
           throw new Error(response.message || 'Failed to create tip');
         }
 
-        // Step 2: Initialize Stripe Payment Sheet
-        const { error: initError } = await initPaymentSheet({
-          paymentIntentClientSecret: response.clientSecret,
-          merchantDisplayName: 'Smuppy',
-          style: 'alwaysDark',
-          appearance: {
-            colors: {
-              primary: '#FF6B35',
-              background: '#1a1a2e',
-              componentBackground: '#2a2a3e',
-              componentBorder: '#3a3a4e',
-              componentDivider: '#3a3a4e',
-              primaryText: '#ffffff',
-              secondaryText: '#888888',
-              componentText: '#ffffff',
-              placeholderText: '#666666',
-              icon: '#FF6B35',
-              error: '#FF4444',
-            },
-            shapes: {
-              borderRadius: 12,
-              borderWidth: 1,
-            },
-          },
-        });
+        // If backend returns a checkout URL, open in WebBrowser
+        if (response.checkoutUrl) {
+          const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
 
-        if (initError) {
-          throw new Error(initError.message);
-        }
-
-        // Step 3: Present Payment Sheet
-        const { error: presentError } = await presentPaymentSheet();
-
-        if (presentError) {
-          if (presentError.code === 'Canceled') {
-            // User cancelled - not an error
+          if (result.type === 'cancel') {
             setIsProcessing(false);
             return false;
           }
-          throw new Error(presentError.message);
+
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
+          setIsProcessing(false);
+          return true;
         }
 
-        // Step 4: Payment successful!
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Fallback: if backend returned clientSecret (legacy PaymentSheet flow)
+        // Just show not available since we removed PaymentSheet dependency
+        if (response.clientSecret) {
+          throw new Error('Payment method not available. Please update the app.');
+        }
 
-        // Show success feedback
-        showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
-
-        setIsProcessing(false);
-        return true;
-      } catch (err: any) {
+        throw new Error('No payment method returned');
+      } catch (err: unknown) {
         if (__DEV__) console.error('Tip payment error:', err);
-        setError(err.message || 'Payment failed');
+        const message = err instanceof Error ? err.message : 'Payment failed';
+        setError(message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-
-        showError('Payment Failed', err.message || 'Could not process your tip. Please try again.');
-
+        showError('Payment Failed', message || 'Could not process your tip. Please try again.');
         setIsProcessing(false);
         return false;
       }
     },
-    [initPaymentSheet, presentPaymentSheet]
+    [isProcessing, showError, showSuccess]
   );
 
   return {

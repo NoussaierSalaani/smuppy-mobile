@@ -124,11 +124,17 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
 
   // String fields with rules
   if (rules) {
+    // Allow null or empty string for clearable URL fields (avatar, cover)
+    if (value === null || value === '') {
+      if (field === 'avatarUrl' || field === 'coverUrl') {
+        return { valid: true, sanitized: '' };
+      }
+    }
     if (typeof value !== 'string') {
       return { valid: false, sanitized: null, error: `${field} must be a string` };
     }
     const sanitized = sanitizeInput(value, rules.maxLength);
-    if (rules.pattern && !rules.pattern.test(sanitized)) {
+    if (rules.pattern && sanitized !== '' && !rules.pattern.test(sanitized)) {
       return { valid: false, sanitized: null, error: `${field} has invalid format` };
     }
     return { valid: true, sanitized };

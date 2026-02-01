@@ -143,7 +143,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query('COMMIT');
 
       // Send push notification to post author (non-blocking)
-      const post = postResult.rows[0];
       if (post.author_id !== profileId) {
         sendPushToUser(db, post.author_id, {
           title: 'New Like',

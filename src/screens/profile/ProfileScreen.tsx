@@ -451,6 +451,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             style={styles.badge}
             isVerified={user.isVerified}
             accountType={user.accountType as 'personal' | 'pro_creator' | 'pro_business'}
+            followerCount={user.stats?.fans ?? 0}
           />
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>

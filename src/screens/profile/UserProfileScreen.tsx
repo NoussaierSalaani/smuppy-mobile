@@ -779,6 +779,7 @@ const UserProfileScreen = () => {
             style={styles.badge}
             isVerified={profile.isVerified}
             accountType={profile.accountType}
+            followerCount={localFanCount ?? profile.fanCount ?? 0}
           />
           {profile.isPrivate && (
             <View style={styles.privateBadge}>

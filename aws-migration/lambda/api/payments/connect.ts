@@ -47,17 +47,28 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: ConnectBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'create-account':
-        return await createConnectAccount(userId);
+        return await createConnectAccount(profileId);
       case 'create-link':
-        return await createAccountLink(userId, body.returnUrl!, body.refreshUrl!);
+        return await createAccountLink(profileId, body.returnUrl!, body.refreshUrl!);
       case 'get-status':
-        return await getAccountStatus(userId);
+        return await getAccountStatus(profileId);
       case 'get-dashboard-link':
-        return await getDashboardLink(userId);
+        return await getDashboardLink(profileId);
       case 'get-balance':
-        return await getBalance(userId);
+        return await getBalance(profileId);
       default:
         return {
           statusCode: 400,

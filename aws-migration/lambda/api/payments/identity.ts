@@ -118,24 +118,49 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: IdentityBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
+    // Validate returnUrl if provided — must be smuppy:// deep link or https://smuppy.com
+    if (body.returnUrl && !/^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/.test(body.returnUrl)) {
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid return URL' }) };
+    }
+
     switch (body.action) {
       case 'create-subscription':
-        return await createVerificationSubscription(stripe, userId);
+        return await createVerificationSubscription(stripe, profileId);
       case 'confirm-subscription':
-        return await confirmSubscriptionAndStartVerification(stripe, userId, body.returnUrl!);
+        if (!body.returnUrl) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'returnUrl is required' }) };
+        }
+        return await confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl);
       case 'cancel-subscription':
-        return await cancelVerificationSubscription(stripe, userId);
+        return await cancelVerificationSubscription(stripe, profileId);
       // Legacy one-time payment (backward compat)
       case 'create-payment-intent':
-        return await createVerificationPaymentIntent(userId);
+        return await createVerificationPaymentIntent(profileId);
       case 'confirm-payment':
-        return await confirmPaymentAndStartVerification(userId, body.paymentIntentId!, body.returnUrl!);
+        if (!body.paymentIntentId || !body.returnUrl) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'paymentIntentId and returnUrl are required' }) };
+        }
+        return await confirmPaymentAndStartVerification(profileId, body.paymentIntentId, body.returnUrl);
       case 'create-session':
-        return await createVerificationSession(userId, body.returnUrl!);
+        if (!body.returnUrl) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'returnUrl is required' }) };
+        }
+        return await createVerificationSession(profileId, body.returnUrl);
       case 'get-status':
-        return await getVerificationStatus(userId);
+        return await getVerificationStatus(profileId);
       case 'get-report':
-        return await getVerificationReport(userId);
+        return await getVerificationReport(profileId);
       default:
         return {
           statusCode: 400,

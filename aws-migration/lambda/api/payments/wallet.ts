@@ -63,21 +63,32 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: WalletBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'get-dashboard':
-        return await getDashboard(userId);
+        return await getDashboard(profileId);
       case 'get-transactions':
-        return await getTransactions(userId, body);
+        return await getTransactions(profileId, body);
       case 'get-analytics':
-        return await getAnalytics(userId, body.period || 'month');
+        return await getAnalytics(profileId, body.period || 'month');
       case 'get-balance':
-        return await getBalance(userId);
+        return await getBalance(profileId);
       case 'get-payouts':
-        return await getPayouts(userId, body.limit || 10);
+        return await getPayouts(profileId, body.limit || 10);
       case 'create-payout':
-        return await createPayout(userId);
+        return await createPayout(profileId);
       case 'get-stripe-dashboard-link':
-        return await getStripeDashboardLink(userId);
+        return await getStripeDashboardLink(profileId);
       default:
         return {
           statusCode: 400,
@@ -106,7 +117,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     // Verify user is a creator
     const profileResult = await client.query(
       `SELECT id, account_type, stripe_account_id, is_verified,
-              (SELECT COUNT(*) FROM follows WHERE following_id = profiles.id) as fan_count
+              (SELECT COUNT(1) FROM follows WHERE following_id = profiles.id) as fan_count
        FROM profiles WHERE id = $1`,
       [userId]
     );
@@ -137,7 +148,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     const lifetimeResult = await client.query(
       `SELECT
          COALESCE(SUM(creator_amount), 0) as total_earnings,
-         COUNT(*) as total_transactions
+         COUNT(1) as total_transactions
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded'`,
       [userId]
@@ -147,7 +158,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     const monthResult = await client.query(
       `SELECT
          COALESCE(SUM(creator_amount), 0) as month_earnings,
-         COUNT(*) as month_transactions
+         COUNT(1) as month_transactions
        FROM payments
        WHERE creator_id = $1
          AND status = 'succeeded'
@@ -157,7 +168,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
 
     // Get channel subscriber count
     const subscriberResult = await client.query(
-      `SELECT COUNT(*) as subscriber_count
+      `SELECT COUNT(1) as subscriber_count
        FROM channel_subscriptions
        WHERE creator_id = $1 AND status = 'active'`,
       [userId]
@@ -168,7 +179,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
       `SELECT
          type,
          COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(*) as count
+         COUNT(1) as count
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded'
        GROUP BY type`,
@@ -244,7 +255,7 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
   const pool = await getPool();
   const client = await pool.connect();
   try {
-    const limit = Math.min(options.limit || 20, 100);
+    const limit = Math.min(options.limit || 20, 50);
     const offset = options.offset || 0;
     const type = options.type || 'all';
 
@@ -281,7 +292,7 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
     // Get total count
     const countParams = type !== 'all' ? [userId, type] : [userId];
     const countResult = await client.query(
-      `SELECT COUNT(*) as total
+      `SELECT COUNT(1) as total
        FROM payments
        WHERE creator_id = $1 ${type !== 'all' ? 'AND type = $2' : ''}`,
       countParams
@@ -366,7 +377,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
       `SELECT
          ${groupBy} as period,
          COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(*) as transactions
+         COUNT(1) as transactions
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
        GROUP BY ${groupBy}
@@ -382,7 +393,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
          buyer.full_name,
          buyer.avatar_url,
          COALESCE(SUM(p.creator_amount), 0) as total_spent,
-         COUNT(*) as transaction_count
+         COUNT(1) as transaction_count
        FROM payments p
        JOIN profiles buyer ON p.buyer_id = buyer.id
        WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodFilter}
@@ -397,7 +408,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
       `SELECT
          source,
          COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(*) as count
+         COUNT(1) as count
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
        GROUP BY source`,

@@ -95,6 +95,8 @@ class AWSAPIService {
       }
     }
 
+    if (__DEV__) console.warn(`[AWS API] ${method} ${url} auth=${!!requestHeaders['Authorization']}`);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -143,6 +145,7 @@ class AWSAPIService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (__DEV__) console.warn(`[AWS API] ERROR ${response.status}:`, JSON.stringify(errorData).substring(0, 200));
         throw new APIError(
           errorData.message || `Request failed with status ${response.status}`,
           response.status,

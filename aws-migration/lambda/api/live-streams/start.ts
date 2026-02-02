@@ -5,15 +5,15 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('live-streams-start');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return handleOptions(event);
-  const headers = cors(event);
+  if (event.httpMethod === 'OPTIONS') return handleOptions();
+  const headers = createHeaders(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
@@ -117,9 +117,9 @@ async function notifyFans(
     const params: string[] = [];
 
     for (let j = 0; j < batch.length; j++) {
-      const base = j * 4 + 1;
-      placeholders.push(`($${base}, $${base + 1}, 'live', $${base + 2}, $${base + 3})`);
-      params.push(batch[j], host.id, notifMessage, notifData);
+      const base = j * 5 + 1;
+      placeholders.push(`($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`);
+      params.push(batch[j], host.id, 'live', notifMessage, notifData);
     }
 
     await db.query(

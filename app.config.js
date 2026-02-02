@@ -136,12 +136,7 @@ plugins: [
     enableGooglePay: false,
   },
 ],
-[
-  '@rnmapbox/maps',
-  {
-    RNMapboxMapsDownloadToken: process.env.RNMAPBOX_MAPS_DOWNLOAD_TOKEN || process.env.MAPBOX_ACCESS_TOKEN,
-  },
-],
+'@rnmapbox/maps',
 ],
 extra: {
 eas: {

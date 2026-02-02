@@ -5,7 +5,6 @@
 
 import { awsAuth } from './aws-auth';
 import { awsAPI, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification } from './aws-api';
-import { useFeedStore } from '../stores';
 import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
@@ -857,6 +856,8 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
 
   clearFollowCache();
   // Invalidate feed cache so new follow's posts appear on next load
+  // Lazy import to avoid circular dependency (database → stores → contentStore → database)
+  const { useFeedStore } = require('../stores');
   useFeedStore.getState().clearFeed();
 
   try {
@@ -882,6 +883,7 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
 export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: string | null }> => {
   clearFollowCache();
   // Invalidate feed cache so unfollowed user's posts are removed on next load
+  const { useFeedStore } = require('../stores');
   useFeedStore.getState().clearFeed();
 
   try {
@@ -1871,12 +1873,15 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
 
   try {
     // Lambda returns { conversation: { id, ... }, created: boolean }
+    if (__DEV__) console.warn('[getOrCreateConversation] calling POST /conversations with participantId:', otherUserId);
     const result = await awsAPI.request<{ conversation: { id: string } }>('/conversations', {
       method: 'POST',
       body: { participantId: otherUserId },
     });
+    if (__DEV__) console.warn('[getOrCreateConversation] result:', JSON.stringify(result).substring(0, 200));
     return { data: result.conversation.id, error: null };
   } catch (error: unknown) {
+    if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
     return { data: null, error: getErrorMessage(error) };
   }
 };

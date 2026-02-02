@@ -64,15 +64,29 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: SubscriptionBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'subscribe':
-        return await createPlatformSubscription(userId, body.planType!);
+        if (!body.planType || !['pro_creator', 'pro_business'].includes(body.planType)) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid plan type' }) };
+        }
+        return await createPlatformSubscription(profileId, body.planType);
       case 'cancel':
-        return await cancelPlatformSubscription(userId);
+        return await cancelPlatformSubscription(profileId);
       case 'get-status':
-        return await getSubscriptionStatus(userId);
+        return await getSubscriptionStatus(profileId);
       case 'get-portal-link':
-        return await getCustomerPortalLink(userId);
+        return await getCustomerPortalLink(profileId);
       default:
         return {
           statusCode: 400,

@@ -96,19 +96,34 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: ChannelSubBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID (userId from JWT is cognito_sub, NOT profile.id)
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Profile not found' }),
+      };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'subscribe':
-        return await subscribeToChannel(userId, body.creatorId!);
+        return await subscribeToChannel(profileId, body.creatorId!);
       case 'cancel':
-        return await cancelChannelSubscription(userId, body.subscriptionId!);
+        return await cancelChannelSubscription(profileId, body.subscriptionId!);
       case 'list-subscriptions':
-        return await listMySubscriptions(userId);
+        return await listMySubscriptions(profileId);
       case 'get-channel-info':
         return await getChannelInfo(body.creatorId!);
       case 'set-price':
-        return await setChannelPrice(userId, body.pricePerMonth!);
+        return await setChannelPrice(profileId, body.pricePerMonth!);
       case 'get-subscribers':
-        return await getMySubscribers(userId);
+        return await getMySubscribers(profileId);
       default:
         return {
           statusCode: 400,
@@ -390,11 +405,14 @@ async function listMySubscriptions(userId: string): Promise<APIGatewayProxyResul
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT cs.*, p.username, p.full_name, p.avatar_url, p.is_verified
+      `SELECT cs.id, cs.creator_id, cs.status, cs.price_cents,
+              cs.current_period_start, cs.current_period_end, cs.cancel_at,
+              p.username, p.full_name, p.avatar_url, p.is_verified
        FROM channel_subscriptions cs
        JOIN profiles p ON cs.creator_id = p.id
        WHERE cs.fan_id = $1 AND cs.status IN ('active', 'canceling')
-       ORDER BY cs.created_at DESC`,
+       ORDER BY cs.created_at DESC
+       LIMIT 50`,
       [userId]
     );
 
@@ -535,11 +553,13 @@ async function getMySubscribers(userId: string): Promise<APIGatewayProxyResult> 
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT cs.*, p.username, p.full_name, p.avatar_url
+      `SELECT cs.id, cs.fan_id, cs.status, cs.price_cents, cs.created_at,
+              p.username, p.full_name, p.avatar_url
        FROM channel_subscriptions cs
        JOIN profiles p ON cs.fan_id = p.id
        WHERE cs.creator_id = $1 AND cs.status IN ('active', 'canceling')
-       ORDER BY cs.created_at DESC`,
+       ORDER BY cs.created_at DESC
+       LIMIT 50`,
       [userId]
     );
 

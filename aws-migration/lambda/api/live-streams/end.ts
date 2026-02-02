@@ -5,14 +5,14 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('live-streams-end');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return handleOptions(event);
-  const headers = cors(event);
+  if (event.httpMethod === 'OPTIONS') return handleOptions();
+  const headers = createHeaders(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
@@ -48,7 +48,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get current viewer count for max_viewers
     const viewerCountResult = await db.query(
-      'SELECT COUNT(*) as count FROM live_stream_viewers WHERE channel_name = $1',
+      'SELECT COUNT(1) as count FROM live_stream_viewers WHERE channel_name = $1',
       [stream.channel_name]
     );
     const currentViewers = parseInt(viewerCountResult.rows[0].count);

@@ -5,14 +5,14 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('live-streams-active');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return handleOptions(event);
-  const headers = cors(event);
+  if (event.httpMethod === 'OPTIONS') return handleOptions();
+  const headers = createHeaders(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
@@ -33,7 +33,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
          p.username AS host_username,
          p.display_name AS host_display_name,
          p.avatar_url AS host_avatar_url,
-         (SELECT COUNT(*) FROM live_stream_viewers v WHERE v.channel_name = ls.channel_name) AS viewer_count
+         (SELECT COUNT(1) FROM live_stream_viewers v WHERE v.channel_name = ls.channel_name) AS viewer_count
        FROM live_streams ls
        JOIN profiles p ON p.id = ls.host_id
        WHERE ls.status = 'live'

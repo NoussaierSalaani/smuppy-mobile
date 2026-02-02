@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,64 @@ import {
 } from '../../services/database';
 
 const { width } = Dimensions.get('window');
+
+interface MessageItemProps {
+  item: Message;
+  index: number;
+  currentUserId: string | null;
+  messages: Message[];
+  goToUserProfile: (userId: string) => void;
+  formatTime: (dateString: string) => string;
+  setSelectedImage: (uri: string | null) => void;
+  styles: ReturnType<typeof createStyles>;
+}
+
+const MessageItem = memo(({ item, index, currentUserId, messages, goToUserProfile, formatTime, setSelectedImage, styles }: MessageItemProps) => {
+  const isFromMe = item.sender_id === currentUserId;
+  const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
+
+  return (
+    <View style={[styles.messageRow, isFromMe ? styles.messageRowRight : styles.messageRowLeft]}>
+      {!isFromMe && (
+        <TouchableOpacity style={styles.avatarSpace} onPress={() => item.sender?.id && goToUserProfile(item.sender.id)}>
+          {showAvatar && item.sender && <AvatarImage source={item.sender.avatar_url} size={28} />}
+        </TouchableOpacity>
+      )}
+      <View style={[
+        styles.messageBubble,
+        isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
+        (item.shared_post_id || item.media_type === 'audio') && styles.messageBubbleNoPadding
+      ]}>
+        {item.is_deleted ? (
+          <Text style={[styles.deletedMessage, isFromMe && { color: 'rgba(255,255,255,0.6)' }]}>Message deleted</Text>
+        ) : (
+          <>
+            {item.shared_post_id && (
+              <SharedPostBubble postId={item.shared_post_id} isFromMe={isFromMe} />
+            )}
+            {item.media_type === 'audio' && item.media_url && (
+              <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
+            )}
+            {!item.shared_post_id && item.media_type !== 'audio' && item.content && (
+              <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
+            )}
+            {item.media_url && item.media_type === 'image' && (
+              <TouchableOpacity onPress={() => setSelectedImage(item.media_url || null)}>
+                <OptimizedImage source={item.media_url} style={styles.messageImage} />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+        {!item.shared_post_id && item.media_type !== 'audio' && (
+          <View style={styles.messageFooter}>
+            <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
+            {isFromMe && <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+});
 
 interface ChatScreenProps {
   route: {
@@ -276,61 +334,18 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
-    const isFromMe = item.sender_id === currentUserId;
-    const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
-
-    return (
-      <View style={[styles.messageRow, isFromMe ? styles.messageRowRight : styles.messageRowLeft]}>
-        {!isFromMe && (
-          <TouchableOpacity style={styles.avatarSpace} onPress={() => item.sender?.id && goToUserProfile(item.sender.id)}>
-            {showAvatar && item.sender && <AvatarImage source={item.sender.avatar_url} size={28} />}
-          </TouchableOpacity>
-        )}
-        <View style={[
-          styles.messageBubble,
-          isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
-          // Remove padding for special message types
-          (item.shared_post_id || item.media_type === 'audio') && styles.messageBubbleNoPadding
-        ]}>
-          {item.is_deleted ? (
-            <Text style={[styles.deletedMessage, isFromMe && { color: 'rgba(255,255,255,0.6)' }]}>Message deleted</Text>
-          ) : (
-            <>
-              {/* Shared Post */}
-              {item.shared_post_id && (
-                <SharedPostBubble postId={item.shared_post_id} isFromMe={isFromMe} />
-              )}
-
-              {/* Voice Message */}
-              {item.media_type === 'audio' && item.media_url && (
-                <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
-              )}
-
-              {/* Regular Text Message */}
-              {!item.shared_post_id && item.media_type !== 'audio' && item.content && (
-                <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
-              )}
-
-              {/* Image Message */}
-              {item.media_url && item.media_type === 'image' && (
-                <TouchableOpacity onPress={() => setSelectedImage(item.media_url || null)}>
-                  <OptimizedImage source={item.media_url} style={styles.messageImage} />
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-          {/* Footer - hide for special types that have their own styling */}
-          {!item.shared_post_id && item.media_type !== 'audio' && (
-            <View style={styles.messageFooter}>
-              <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
-              {isFromMe && <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  }, [currentUserId, messages, goToUserProfile, formatTime, styles]);
+  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => (
+    <MessageItem
+      item={item}
+      index={index}
+      currentUserId={currentUserId}
+      messages={messages}
+      goToUserProfile={goToUserProfile}
+      formatTime={formatTime}
+      setSelectedImage={setSelectedImage}
+      styles={styles}
+    />
+  ), [currentUserId, messages, goToUserProfile, formatTime, styles]);
 
   const displayName = resolveDisplayName(otherUserProfile);
 

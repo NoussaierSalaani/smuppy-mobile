@@ -715,7 +715,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Render Peak card
   type PeakData = typeof PEAKS_DATA[0];
-  const renderPeakCard = (peak: PeakData, index: number) => (
+  const renderPeakCard = useCallback((peak: PeakData, index: number) => (
     <TouchableOpacity
       key={`peak-${index}-${peak.id}`}
       style={styles.peakCard}
@@ -736,10 +736,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       
       <Text style={styles.peakUserName} numberOfLines={1}>{peak.user.name}</Text>
     </TouchableOpacity>
-  );
+  ), [goToPeakView, styles, colors]);
 
   // Render vibe card with double-tap to like and glassmorphism
-  const renderVibeCard = (post: UIVibePost, index: number) => (
+  const renderVibeCard = useCallback((post: UIVibePost, index: number) => (
     <DoubleTapLike
       key={post.id}
       onDoubleTap={() => {
@@ -793,7 +793,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         </BlurView>
       </View>
     </DoubleTapLike>
-  );
+  ), [toggleLike, openPostModal, goToUserProfile, formatNumber, colors, styles]);
 
   // Render modal - Full screen post
   const renderModal = () => (

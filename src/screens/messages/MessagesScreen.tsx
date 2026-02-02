@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,87 @@ interface MessagesScreenProps {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
   };
 }
+
+interface ConversationItemProps {
+  item: Conversation;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+  onNavigate: (screen: string, params?: Record<string, unknown>) => void;
+  onProfilePress: (userId: string) => void;
+  formatTime: (dateString: string) => string;
+}
+
+const ConversationItem = memo(({ item, colors, styles, onNavigate, onProfilePress, formatTime }: ConversationItemProps) => {
+  const otherUser = item.other_user;
+  if (!otherUser) return null;
+
+  return (
+    <TouchableOpacity
+      style={styles.conversationItem}
+      onPress={() => onNavigate('Chat', {
+        conversationId: item.id,
+        otherUser: otherUser
+      })}
+      activeOpacity={0.7}
+    >
+      <TouchableOpacity
+        style={styles.avatarContainer}
+        onPress={() => onProfilePress(otherUser.id)}
+      >
+        <AvatarImage source={otherUser.avatar_url} size={56} />
+      </TouchableOpacity>
+
+      <View style={styles.conversationContent}>
+        <View style={styles.conversationHeader}>
+          <TouchableOpacity
+            style={styles.nameContainer}
+            onPress={() => onProfilePress(otherUser.id)}
+          >
+            <Text style={[
+              styles.userName,
+              { color: colors.dark },
+              (item.unread_count || 0) > 0 && styles.userNameUnread
+            ]}>
+              {resolveDisplayName(otherUser)}
+            </Text>
+            <AccountBadge
+              size={16}
+              style={styles.verifiedBadge}
+              isVerified={otherUser.is_verified}
+              accountType={otherUser.account_type}
+            />
+          </TouchableOpacity>
+          <Text style={[
+            styles.messageTime,
+            { color: colors.gray },
+            (item.unread_count || 0) > 0 && { color: colors.primary, fontWeight: '600' as const }
+          ]}>
+            {formatTime(item.last_message_at || new Date().toISOString())}
+          </Text>
+        </View>
+
+        <View style={styles.messagePreview}>
+          <Text
+            style={[
+              styles.lastMessage,
+              { color: colors.gray },
+              (item.unread_count || 0) > 0 && { color: colors.dark, fontWeight: '500' as const }
+            ]}
+            numberOfLines={1}
+          >
+            {item.last_message_preview || 'Start a conversation'}
+          </Text>
+        </View>
+      </View>
+
+      {(item.unread_count || 0) > 0 && (
+        <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.unreadCount, { color: colors.white }]}>{item.unread_count}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
 
 export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const insets = useSafeAreaInsets();
@@ -97,9 +178,9 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   }, [loadConversations]);
 
   // Navigate to user profile
-  const goToUserProfile = (userId: string) => {
+  const goToUserProfile = useCallback((userId: string) => {
     navigation.navigate('UserProfile', { userId });
-  };
+  }, [navigation]);
 
   // Filter conversations
   const filteredConversations = conversations.filter(conv => {
@@ -110,7 +191,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   });
 
   // Format time
-  const formatTime = (dateString: string) => {
+  const formatTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -123,83 +204,19 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     if (diffHours < 24) return `${diffHours}h`;
     if (diffDays < 7) return `${diffDays}d`;
     return date.toLocaleDateString();
-  };
+  }, []);
 
   // Render conversation item
-  const renderConversation = ({ item }: { item: Conversation }) => {
-    const otherUser = item.other_user;
-    if (!otherUser) return null;
-
-    return (
-      <TouchableOpacity
-        style={styles.conversationItem}
-        onPress={() => navigation.navigate('Chat', {
-          conversationId: item.id,
-          otherUser: otherUser
-        })}
-        activeOpacity={0.7}
-      >
-        {/* Avatar */}
-        <TouchableOpacity
-          style={styles.avatarContainer}
-          onPress={() => goToUserProfile(otherUser.id)}
-        >
-          <AvatarImage source={otherUser.avatar_url} size={56} />
-        </TouchableOpacity>
-
-        {/* Content */}
-        <View style={styles.conversationContent}>
-          <View style={styles.conversationHeader}>
-            <TouchableOpacity
-              style={styles.nameContainer}
-              onPress={() => goToUserProfile(otherUser.id)}
-            >
-              <Text style={[
-                styles.userName,
-                { color: colors.dark },
-                (item.unread_count || 0) > 0 && styles.userNameUnread
-              ]}>
-                {resolveDisplayName(otherUser)}
-              </Text>
-              <AccountBadge
-                size={16}
-                style={styles.verifiedBadge}
-                isVerified={otherUser.is_verified}
-                accountType={otherUser.account_type}
-              />
-            </TouchableOpacity>
-            <Text style={[
-              styles.messageTime,
-              { color: colors.gray },
-              (item.unread_count || 0) > 0 && { color: colors.primary, fontWeight: '600' as const }
-            ]}>
-              {formatTime(item.last_message_at || new Date().toISOString())}
-            </Text>
-          </View>
-
-          <View style={styles.messagePreview}>
-            <Text
-              style={[
-                styles.lastMessage,
-                { color: colors.gray },
-                (item.unread_count || 0) > 0 && { color: colors.dark, fontWeight: '500' as const }
-              ]}
-              numberOfLines={1}
-            >
-              {item.last_message_preview || 'Start a conversation'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Unread badge */}
-        {(item.unread_count || 0) > 0 && (
-          <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.unreadCount, { color: colors.white }]}>{item.unread_count}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
+  const renderConversation = useCallback(({ item }: { item: Conversation }) => (
+    <ConversationItem
+      item={item}
+      colors={colors}
+      styles={styles}
+      onNavigate={navigation.navigate}
+      onProfilePress={goToUserProfile}
+      formatTime={formatTime}
+    />
+  ), [colors, styles, navigation.navigate, goToUserProfile, formatTime]);
 
   if (loading) {
     return (

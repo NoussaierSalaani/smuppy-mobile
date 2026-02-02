@@ -10,6 +10,9 @@ orientation: 'portrait',
 icon: './assets/icon.png',
 userInterfaceStyle: 'light',
 newArchEnabled: true,
+updates: {
+  url: 'https://u.expo.dev/f38cbb48-8255-45df-ab5b-097b70ee9fea',
+},
 splash: {
   image: './assets/Splashscreen.png',
   backgroundColor: '#0EBF8A',
@@ -19,6 +22,9 @@ ios: {
 supportsTablet: true,
 bundleIdentifier: 'com.nou09.Smuppy',
 buildNumber: '1',
+runtimeVersion: {
+  policy: 'appVersion',
+},
 usesAppleSignIn: true,
 // Universal Links - associate app with web domain
 associatedDomains: [

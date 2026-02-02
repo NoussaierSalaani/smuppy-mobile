@@ -20,7 +20,7 @@ import { rateLimiter } from './src/utils/rateLimiter';
 import { useUserStore, useAppStore } from './src/stores';
 
 // Push Notifications
-import { initializeNotifications, registerPushToken, clearBadge } from './src/services/notifications';
+import { initializeNotifications, registerPushToken, clearBadge, addNotificationReceivedListener, addNotificationResponseListener, parseNotificationData } from './src/services/notifications';
 
 // Backend Services
 import { initializeBackend } from './src/services/backend';
@@ -73,19 +73,43 @@ const UserContextSync = () => {
  */
 const PushNotificationHandler = () => {
   const user = useUserStore((state) => state.user);
+  const setUnreadNotifications = useAppStore((state) => state.setUnreadNotifications);
+  const setUnreadMessages = useAppStore((state) => state.setUnreadMessages);
 
   useEffect(() => {
     const setupPushNotifications = async () => {
       if (user?.id) {
-        // Register push token for this user
         await registerPushToken(user.id);
-        // Clear badge when app opens
         await clearBadge();
       }
     };
 
     setupPushNotifications();
   }, [user?.id]);
+
+  // Listen for incoming notifications (foreground)
+  useEffect(() => {
+    const receivedSub = addNotificationReceivedListener((notification) => {
+      if (__DEV__) console.log('[Push] Notification received:', notification.request.content.title);
+      const data = notification.request.content.data;
+      // Increment badge counts based on notification type
+      if (data?.type === 'message') {
+        setUnreadMessages((prev) => prev + 1);
+      } else {
+        setUnreadNotifications((prev) => prev + 1);
+      }
+    });
+
+    const responseSub = addNotificationResponseListener((response) => {
+      if (__DEV__) console.log('[Push] Notification tapped');
+      // Navigation is handled by useNotifications hook in MainNavigator
+    });
+
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
+  }, [setUnreadNotifications, setUnreadMessages]);
 
   return null;
 };

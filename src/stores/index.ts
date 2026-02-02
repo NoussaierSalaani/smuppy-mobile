@@ -97,11 +97,15 @@ interface AppState {
     title: string;
     message: string;
   };
+  unreadNotifications: number;
+  unreadMessages: number;
   setTabBarVisible: (visible: boolean) => void;
   setOnline: (online: boolean) => void;
   setGlobalLoading: (loading: boolean) => void;
   showError: (title: string, message: string) => void;
   hideError: () => void;
+  setUnreadNotifications: (countOrUpdater: number | ((prev: number) => number)) => void;
+  setUnreadMessages: (countOrUpdater: number | ((prev: number) => number)) => void;
 }
 
 interface Post {
@@ -270,6 +274,24 @@ export const useAppStore = create<AppState>()(
     hideError: () =>
       set((state) => {
         state.errorModal.visible = false;
+      }),
+
+    // Badge counts
+    unreadNotifications: 0,
+    unreadMessages: 0,
+
+    setUnreadNotifications: (countOrUpdater) =>
+      set((state) => {
+        state.unreadNotifications = typeof countOrUpdater === 'function'
+          ? countOrUpdater(state.unreadNotifications)
+          : countOrUpdater;
+      }),
+
+    setUnreadMessages: (countOrUpdater) =>
+      set((state) => {
+        state.unreadMessages = typeof countOrUpdater === 'function'
+          ? countOrUpdater(state.unreadMessages)
+          : countOrUpdater;
       }),
   }))
 );

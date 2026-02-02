@@ -22,6 +22,7 @@ import {
   getConversations,
   Conversation,
 } from '../../services/database';
+import { useAppStore } from '../../stores';
 
 interface MessagesScreenProps {
   navigation: {
@@ -131,9 +132,10 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     setRefreshing(false);
   }, []);
 
-  // Initial load
+  // Initial load + clear message badge
   useEffect(() => {
     loadConversations();
+    useAppStore.getState().setUnreadMessages(0);
   }, [loadConversations]);
 
   // Poll for conversation updates every 15s when app is active

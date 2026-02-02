@@ -1,8 +1,9 @@
 import React, { useState, useEffect, ComponentType } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUserStore } from '../stores';
+import { useUserStore, useAppStore } from '../stores';
 import { getCurrentProfile } from '../services/database';
+import { awsAPI } from '../services/aws-api';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
 import { FEATURES } from '../config/featureFlags';
@@ -246,6 +247,11 @@ export default function MainNavigator() {
     };
 
     syncProfile();
+
+    // Fetch initial unread counts
+    awsAPI.getUnreadCount()
+      .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
+      .catch(() => {});
   }, [setUser, currentUserId]);
 
   return (

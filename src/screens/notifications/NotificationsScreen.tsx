@@ -18,6 +18,7 @@ import { GRADIENTS, SIZES, SPACING } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useAppStore } from '../../stores';
 
 // ============================================
 // TYPES
@@ -155,7 +156,8 @@ export default function NotificationsScreen(): React.JSX.Element {
         cursor: isRefresh ? undefined : cursor || undefined,
       });
 
-      const transformed = (response as any).notifications?.map(transformNotification) || [];
+      const items = response.data || [];
+      const transformed = items.map(transformNotification);
 
       if (isRefresh) {
         setNotifications(transformed);
@@ -163,8 +165,8 @@ export default function NotificationsScreen(): React.JSX.Element {
         setNotifications(prev => [...prev, ...transformed]);
       }
 
-      setCursor((response as any).cursor || null);
-      setHasMore((response as any).hasMore || false);
+      setCursor(response.nextCursor || null);
+      setHasMore(response.hasMore || false);
     } catch (error) {
       if (__DEV__) console.error('Error fetching notifications:', error);
       // Keep existing notifications on error
@@ -192,11 +194,13 @@ export default function NotificationsScreen(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reload when screen comes into focus
+  // Reload when screen comes into focus + clear badge
   useFocusEffect(
     useCallback(() => {
       loadFollowRequestsCount();
       fetchNotifications(true);
+      useAppStore.getState().setUnreadNotifications(0);
+      awsAPI.markAllNotificationsRead().catch(() => {});
     }, [loadFollowRequestsCount, fetchNotifications])
   );
 

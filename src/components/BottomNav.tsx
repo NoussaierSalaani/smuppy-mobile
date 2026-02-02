@@ -18,7 +18,7 @@ import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTabBar } from '../context/TabBarContext';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
-import { useUserStore } from '../stores';
+import { useUserStore, useAppStore } from '../stores';
 import { SmuppyIcon } from './SmuppyLogo';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
@@ -274,6 +274,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
   // Separate checks: creator-only features vs shared pro styling
   const user = useUserStore((state) => state.user);
+  const unreadMessages = useAppStore((state) => state.unreadMessages);
   const isProCreator = user?.accountType === 'pro_creator';
   const isPro = isProCreator || user?.accountType === 'pro_business';
 
@@ -437,6 +438,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
             }
 
             const IconComponent = isActive ? tab.iconFilled! : tab.iconOutline!;
+            const badgeCount = tab.name === 'Messages' ? unreadMessages : 0;
 
             return (
               <TouchableOpacity
@@ -446,7 +448,14 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 activeOpacity={0.7}
                 testID={`${tab.name.toLowerCase()}-tab`}
               >
-                <IconComponent size={22} color={colors.dark} />
+                <View>
+                  <IconComponent size={22} color={colors.dark} />
+                  {badgeCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text>
+                    </View>
+                  )}
+                </View>
                 {isActive ? <View style={[styles.underline, { backgroundColor: colors.dark }]} /> : null}
               </TouchableOpacity>
             );
@@ -757,5 +766,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.dark,
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
 });

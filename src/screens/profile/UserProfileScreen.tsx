@@ -33,7 +33,6 @@ import { TipButton } from '../../components/tips';
 import { awsAPI } from '../../services/aws-api';
 import { FEATURES } from '../../config/featureFlags';
 import GradeFrame from '../../components/GradeFrame';
-import EventGroupCard from '../../components/EventGroupCard';
 import { getGrade } from '../../utils/gradeSystem';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

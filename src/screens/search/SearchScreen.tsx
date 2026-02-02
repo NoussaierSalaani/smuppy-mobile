@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Image,
   StatusBar,
   ActivityIndicator,
   Keyboard,

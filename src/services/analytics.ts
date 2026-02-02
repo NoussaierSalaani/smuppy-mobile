@@ -155,8 +155,10 @@ export const initAnalytics = async (options?: Partial<AnalyticsConfig>): Promise
     osVersion: Platform.Version?.toString() || 'unknown',
   });
 
-  if (__DEV__ && config.debugMode) {
-    console.log('[Analytics] Initialized with config:', config);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Initialized with config:', config);
+    }
   }
 };
 
@@ -178,8 +180,10 @@ export const identify = async (id: string, properties?: UserProperties): Promise
     if (__DEV__) console.warn('Failed to persist analytics user ID:', error);
   }
 
-  if (__DEV__ && config.debugMode) {
-    console.log('[Analytics] Identified user:', id.substring(0, 2) + '***');
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Identified user:', id.substring(0, 2) + '***');
+    }
   }
 };
 
@@ -189,8 +193,10 @@ export const identify = async (id: string, properties?: UserProperties): Promise
 export const setUserProperties = (properties: UserProperties): void => {
   userProperties = { ...userProperties, ...properties };
 
-  if (__DEV__ && config.debugMode) {
-    console.log('[Analytics] Set user properties:', properties);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Set user properties:', properties);
+    }
   }
 };
 
@@ -207,8 +213,10 @@ export const reset = async (): Promise<void> => {
     if (__DEV__) console.warn('Failed to reset analytics:', error);
   }
 
-  if (__DEV__ && config.debugMode) {
-    console.log('[Analytics] Reset user identity');
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Reset user identity');
+    }
   }
 };
 
@@ -236,8 +244,10 @@ export const track = async (
     timestamp: Date.now(),
   };
 
-  if (__DEV__ && config.debugMode) {
-    console.log('[Analytics] Track:', eventName, properties);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Track:', eventName, properties);
+    }
   }
 
   // Queue event for batch sending
@@ -346,8 +356,10 @@ export const trackError = (
 export const flush = async (): Promise<void> => {
   if (eventQueue.length === 0) return;
 
-  if (__DEV__ && config.debugMode) {
-    console.log('[Analytics] Flushing', eventQueue.length, 'events');
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Flushing', eventQueue.length, 'events');
+    }
   }
 
   // In production, send events to your analytics provider

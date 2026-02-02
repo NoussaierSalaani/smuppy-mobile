@@ -12,7 +12,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
   ActivityIndicator,
   FlatList,
   Modal,

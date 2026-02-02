@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -87,17 +87,29 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   // Load media from gallery
   const loadMedia = async () => {
     try {
-      const { assets } = await MediaLibrary.getAssetsAsync({
+      // Load first batch quickly, then load more in background
+      const { assets, endCursor, hasNextPage } = await MediaLibrary.getAssetsAsync({
         mediaType: ['photo', 'video'],
         sortBy: ['creationTime'],
-        first: 100,
+        first: 30,
       });
-      
+
       setMediaAssets(assets);
       if (assets.length > 0) {
         setSelectedPreview(assets[0]);
       }
       setLoading(false);
+
+      // Load remaining assets in background
+      if (hasNextPage && endCursor) {
+        const { assets: moreAssets } = await MediaLibrary.getAssetsAsync({
+          mediaType: ['photo', 'video'],
+          sortBy: ['creationTime'],
+          first: 70,
+          after: endCursor,
+        });
+        setMediaAssets(prev => [...prev, ...moreAssets]);
+      }
     } catch (_error) {
       setLoading(false);
     }

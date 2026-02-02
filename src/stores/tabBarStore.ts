@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Animated, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 
 // ============================================

@@ -88,7 +88,8 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
 
   const mountedRef = useRef(true);
 
-  // Setup callbacks
+  // Setup callbacks (use ref to avoid stale closures)
+  const callbacksRef = useRef<AgoraCallbacks>({} as AgoraCallbacks);
   const callbacks: AgoraCallbacks = {
     onJoinSuccess: (channel, joinedUid) => {
       if (!mountedRef.current) return;
@@ -125,6 +126,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
       setIsLoading(false);
     },
   };
+  callbacksRef.current = callbacks;
 
   // Initialize Agora engine
   const initialize = useCallback(async (): Promise<boolean> => {
@@ -147,7 +149,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
       return false;
     }
 
-    agoraService.setCallbacks(callbacks);
+    agoraService.setCallbacks(callbacksRef.current);
     setIsInitialized(true);
     setIsLoading(false);
     return true;
@@ -232,20 +234,16 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     if (autoJoin && initialChannel) {
       joinChannel();
     }
-
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoJoin, initialChannel]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isJoined) {
-        agoraService.leaveChannel();
-      }
+      mountedRef.current = false;
+      agoraService.leaveChannel();
     };
-  }, [isJoined]);
+  }, []);
 
   return {
     isInitialized,

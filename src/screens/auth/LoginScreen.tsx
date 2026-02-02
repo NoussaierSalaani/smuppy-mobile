@@ -139,7 +139,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   // Handle Google OAuth response
   useEffect(() => {
     if (googleResponse) {
-      handleGoogleAuthResponse();
+      handleGoogleAuthResponse().catch((err) => {
+        if (__DEV__) console.error('[Login] Google auth error:', err);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);

@@ -162,7 +162,7 @@ export const useVibeStore = create<VibeState>()(
 
           state.actionHistory.push({ type, timestamp: Date.now() });
           if (state.actionHistory.length > MAX_ACTION_HISTORY) {
-            state.actionHistory = state.actionHistory.slice(-MAX_ACTION_HISTORY);
+            state.actionHistory.splice(0, state.actionHistory.length - MAX_ACTION_HISTORY);
           }
         }),
 
@@ -277,7 +277,7 @@ export const useVibeStore = create<VibeState>()(
           state.rippleHistory.push({ action, timestamp: Date.now() });
 
           if (state.rippleHistory.length > MAX_RIPPLE_HISTORY) {
-            state.rippleHistory = state.rippleHistory.slice(-MAX_RIPPLE_HISTORY);
+            state.rippleHistory.splice(0, state.rippleHistory.length - MAX_RIPPLE_HISTORY);
           }
         }),
 
@@ -365,6 +365,7 @@ export const useVibeStore = create<VibeState>()(
         prescriptionPreferences: state.prescriptionPreferences,
         completedToday: state.completedToday,
         completedTodayDate: state.completedTodayDate,
+        prescriptionStartedAt: state.prescriptionStartedAt,
         rushedToday: state.rushedToday,
       }),
     },

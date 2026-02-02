@@ -216,7 +216,7 @@ const DISPOSABLE_EMAIL_DOMAINS = [
  * @returns {boolean} True if disposable (should be blocked)
  */
 export const isDisposableEmail = (email: string | undefined | null): boolean => {
-  if (!email) return false;
+  if (!email || !email.includes('@')) return false;
   const domain = email.toLowerCase().split('@')[1];
   return DISPOSABLE_EMAIL_DOMAINS.includes(domain);
 };
@@ -500,7 +500,7 @@ export const isPasswordValid = (password: string | undefined | null): boolean =>
  * @returns {number} Strength score 0-100
  */
 export const getPasswordStrength = (password: string | undefined | null): number => {
-  if (!password) return 0;
+  if (!password || password.length === 0) return 0;
   const passedRules = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
   const baseScore = (passedRules / PASSWORD_RULES.length) * 70;
   const lengthBonus = Math.min((password.length - 8) * 2, 20);

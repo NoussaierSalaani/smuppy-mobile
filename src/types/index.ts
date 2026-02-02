@@ -647,27 +647,6 @@ export type MainStackParamList = {
   Notifications: undefined;
   Profile: { userId?: string } | undefined;
 
-  // Auth
-  Login: undefined;
-  Signup: undefined;
-  ForgotPassword: undefined;
-  CheckEmail: { email: string };
-  ResetCode: { email: string };
-  NewPassword: { email?: string; code?: string } | undefined;
-  PasswordSuccess: undefined;
-  VerifyCode: { email: string; [key: string]: unknown };
-
-  // Onboarding
-  AccountType: { email: string; password: string; name?: string };
-  TellUsAboutYou: { accountType: 'personal' | 'pro_creator' | 'pro_business'; [key: string]: unknown };
-  CreatorInfo: { [key: string]: unknown };
-  BusinessCategory: { [key: string]: unknown };
-  BusinessInfo: { [key: string]: unknown };
-  Interests: { [key: string]: unknown } | undefined;
-  Expertise: { [key: string]: unknown } | undefined;
-  Guidelines: { [key: string]: unknown } | undefined;
-  Success: undefined;
-
   // Search & Messages
   Search: undefined;
   Messages: undefined;
@@ -694,6 +673,7 @@ export type MainStackParamList = {
 
   // Create
   CreatePost: { fromProfile?: boolean } | undefined;
+  VideoRecorder: undefined;
   AddPostDetails: { mediaAssets: MediaAsset[]; fromProfile?: boolean };
   PostSuccess: { postId?: string; mediaType?: string } | undefined;
 
@@ -701,6 +681,11 @@ export type MainStackParamList = {
   PeakView: { peakId?: string; peakData?: Peak[]; initialIndex?: number };
   CreatePeak: { replyToPeak?: Peak } | undefined;
   PeakPreview: { mediaUri: string; mediaType: 'image' | 'video'; duration?: number; replyToPeakId?: string };
+
+  // Vibe
+  Prescriptions: undefined;
+  ActivePrescription: { prescriptionId: string };
+  PrescriptionPreferences: undefined;
 
   // Settings
   Settings: undefined;
@@ -747,11 +732,16 @@ export type MainStackParamList = {
   // WebView (for Stripe checkout)
   WebView: { url: string; title?: string };
 
+  // Live Streaming
+  GoLiveIntro: undefined;
+  GoLive: { title?: string } | undefined;
+  LiveStreaming: { channelName?: string; hostName?: string; hostAvatar?: string | null } | undefined;
+  LiveEnded: { duration?: number; viewerCount?: number; peakViewers?: number } | undefined;
+  ViewerLiveStream: { channelName: string; hostUserId: string; hostName?: string; hostAvatar?: string | null };
+
   // Live Battles
   BattleLobby: { battleId: string };
   BattleStream: { battleId: string; agoraToken?: string; agoraUid?: number };
-  BattleResults: { battleId: string; winner?: Record<string, unknown>; participants?: Record<string, unknown>[] };
-  InviteToBattle: { battleId: string };
 
   // Events (Xplorer)
   EventList: undefined;
@@ -763,12 +753,12 @@ export type MainStackParamList = {
   CreateGroup: { lockedLocation?: { latitude: number; longitude: number; address: string } } | undefined;
   GroupDetail: { groupId: string };
 
+  // Activities
+  CreateActivity: undefined;
+
   // Spots
   SuggestSpot: undefined;
   SpotDetail: { spotId: string };
-
-  // Tips
-  TipLeaderboard: { creatorId: string; creatorUsername: string };
 
   // Find Friends (standalone popup)
   FindFriends: undefined;

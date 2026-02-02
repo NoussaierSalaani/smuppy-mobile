@@ -38,7 +38,7 @@ export default function EmailVerificationPendingScreen({
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
-  const email = route?.params?.email || 'your email';
+  const email = route?.params?.email ?? '';
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 

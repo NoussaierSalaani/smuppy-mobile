@@ -437,7 +437,7 @@ class AWSAuthService {
     // Store tokens and user profile in SecureStore (encrypted)
     await Promise.all([
       secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken),
-      RefreshToken && secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken),
+      ...(RefreshToken ? [secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken)] : []),
       secureStore.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
       secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
     ]);

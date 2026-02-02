@@ -3,7 +3,7 @@
  * Handles the complete tip payment flow with Stripe Checkout via WebBrowser
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { awsAPI } from '../services/aws-api';
 import * as Haptics from 'expo-haptics';
@@ -36,6 +36,7 @@ export function useTipPayment(): UseTipPaymentReturn {
   const { showSuccess, showError } = useSmuppyAlert();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const processingRef = useRef(false);
 
   const sendTip = useCallback(
     async (
@@ -44,7 +45,8 @@ export function useTipPayment(): UseTipPaymentReturn {
       context: TipContext,
       options?: { message?: string; isAnonymous?: boolean }
     ): Promise<boolean> => {
-      if (isProcessing) return false;
+      if (processingRef.current) return false;
+      processingRef.current = true;
       setIsProcessing(true);
       setError(null);
 
@@ -68,12 +70,14 @@ export function useTipPayment(): UseTipPaymentReturn {
           const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
 
           if (result.type === 'cancel') {
+            processingRef.current = false;
             setIsProcessing(false);
             return false;
           }
 
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
+          processingRef.current = false;
           setIsProcessing(false);
           return true;
         }
@@ -91,11 +95,12 @@ export function useTipPayment(): UseTipPaymentReturn {
         setError(message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         showError('Payment Failed', message || 'Could not process your tip. Please try again.');
+        processingRef.current = false;
         setIsProcessing(false);
         return false;
       }
     },
-    [isProcessing, showError, showSuccess]
+    [showError, showSuccess]
   );
 
   return {

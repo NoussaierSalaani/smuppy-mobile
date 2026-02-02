@@ -160,7 +160,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   // ============================================================================
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) return;  
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
         // App came to foreground - resume refresh

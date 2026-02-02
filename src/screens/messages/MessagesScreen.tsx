@@ -136,9 +136,9 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     loadConversations();
   }, [loadConversations]);
 
-  // Poll for conversation updates every 5s when app is active
+  // Poll for conversation updates every 15s when app is active
   useEffect(() => {
-    const POLL_INTERVAL_MS = 5000;
+    const POLL_INTERVAL_MS = 15000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {

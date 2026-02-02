@@ -95,7 +95,7 @@ class AWSAPIService {
       }
     }
 
-    if (__DEV__) console.warn(`[AWS API] ${method} ${url} auth=${!!requestHeaders['Authorization']}`);
+    if (__DEV__) console.log(`[AWS API] ${method} ${url} auth=${!!requestHeaders['Authorization']}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);

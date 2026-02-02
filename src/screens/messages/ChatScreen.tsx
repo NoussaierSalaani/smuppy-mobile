@@ -220,7 +220,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   // Poll for new messages every 3s when app is active
   useEffect(() => {
     if (!conversationId) return;
-    const POLL_INTERVAL_MS = 3000;
+    const POLL_INTERVAL_MS = 10000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {

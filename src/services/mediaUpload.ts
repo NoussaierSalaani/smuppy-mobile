@@ -3,7 +3,7 @@
  * Handles uploads to AWS S3 with presigned URLs and CloudFront CDN
  */
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { ENV } from '../config/env';
 import { captureException } from '../lib/sentry';
 import {

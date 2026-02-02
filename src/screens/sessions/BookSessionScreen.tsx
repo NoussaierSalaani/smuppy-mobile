@@ -64,6 +64,7 @@ export default function BookSessionScreen(): React.JSX.Element {
 
   // API state
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [creator, setCreator] = useState<CreatorInfo | null>(routeCreator || null);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [packs, setPacks] = useState<SessionPack[]>([]);
@@ -107,8 +108,12 @@ export default function BookSessionScreen(): React.JSX.Element {
       if (packsRes.success) {
         setPacks(packsRes.packs || []);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (__DEV__) console.error('Error fetching booking data:', error);
+      const message = error instanceof Error && 'response' in error
+        ? String((error as any).response?.message || error.message)
+        : error instanceof Error ? error.message : 'Failed to load booking data';
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -203,6 +208,23 @@ export default function BookSessionScreen(): React.JSX.Element {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading availability...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+          <Text style={[styles.loadingText, { color: colors.error, marginTop: 12 }]}>
+            {errorMessage}
+          </Text>
+          <TouchableOpacity onPress={handleBack} style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 12 }}>
+            <Text style={{ color: colors.white, fontWeight: '600', fontSize: 15 }}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

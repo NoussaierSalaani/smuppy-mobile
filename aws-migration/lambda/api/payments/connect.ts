@@ -25,9 +25,11 @@ const corsHeaders = {
 };
 
 interface ConnectBody {
-  action: 'create-account' | 'create-link' | 'get-status' | 'get-dashboard-link' | 'get-balance';
+  action: 'create-account' | 'create-link' | 'get-status' | 'get-dashboard-link' | 'get-balance' | 'admin-set-account';
   returnUrl?: string;
   refreshUrl?: string;
+  targetProfileId?: string;
+  stripeAccountId?: string;
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -70,6 +72,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await getDashboardLink(profileId);
       case 'get-balance':
         return await getBalance(profileId);
+      case 'admin-set-account': {
+        // Staging-only: set stripe_account_id on any profile
+        if (process.env.ENVIRONMENT === 'production') {
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Not available in production' }) };
+        }
+        if (!body.targetProfileId || !body.stripeAccountId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing targetProfileId or stripeAccountId' }) };
+        }
+        const pool = await getPool();
+        await pool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, targetProfileId: body.targetProfileId, stripeAccountId: body.stripeAccountId }) };
+      }
       default:
         return {
           statusCode: 400,

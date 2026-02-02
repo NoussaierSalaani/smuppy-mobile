@@ -272,11 +272,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // If creator has Stripe Connect, set up transfer
     if (receiver.stripe_account_id) {
-      const creatorAmountCents = Math.round(creatorAmount * 100);
-      paymentIntentParams.transfer_data = {
-        destination: receiver.stripe_account_id,
-        amount: creatorAmountCents,
-      };
+      try {
+        // Verify the connected account exists under the current Stripe key
+        await stripe.accounts.retrieve(receiver.stripe_account_id);
+        const creatorAmountCents = Math.round(creatorAmount * 100);
+        paymentIntentParams.transfer_data = {
+          destination: receiver.stripe_account_id,
+          amount: creatorAmountCents,
+        };
+      } catch (accountError) {
+        // Connected account not found under current key — skip transfer, log warning
+        log.error('Stripe connected account not reachable, skipping transfer_data', {
+          accountId: receiver.stripe_account_id,
+          receiverId,
+        });
+      }
     }
 
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);

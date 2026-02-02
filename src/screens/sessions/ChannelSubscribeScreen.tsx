@@ -45,15 +45,6 @@ type RouteParams = {
   ChannelSubscribe: { creatorId: string; tier: ChannelTier };
 };
 
-const getCreator = (_creatorId: string): Creator => ({
-  id: _creatorId,
-  name: '',
-  username: '',
-  avatar: null,
-  verified: false,
-  subscribersCount: 0,
-});
-
 const ChannelSubscribeScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -62,9 +53,12 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
   const { showError, showSuccess } = useSmuppyAlert();
   const { creatorId, tier } = route.params;
-  const creator = getCreator(creatorId);
 
+  const [creator, setCreator] = useState<Creator>({
+    id: creatorId, name: '', username: '', avatar: null, verified: false, subscribersCount: 0,
+  });
   const [loading, setLoading] = useState(false);
+  const [fetchingCreator, setFetchingCreator] = useState(true);
   const mountedRef = useRef(true);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -72,6 +66,33 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   useEffect(() => {
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Fetch creator info from API
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await awsAPI.request<{ success: boolean; channel?: { creatorId: string; username: string; fullName: string; avatarUrl: string | null; isVerified: boolean; subscriberCount: number } }>(
+          '/payments/channel-subscription',
+          { method: 'POST', body: { action: 'get-channel-info', creatorId } },
+        );
+        if (!mountedRef.current) return;
+        if (res.success && res.channel) {
+          setCreator({
+            id: res.channel.creatorId,
+            name: res.channel.fullName,
+            username: res.channel.username,
+            avatar: res.channel.avatarUrl,
+            verified: res.channel.isVerified,
+            subscribersCount: res.channel.subscriberCount,
+          });
+        }
+      } catch (err) {
+        if (__DEV__) console.error('Failed to fetch creator info:', err);
+      } finally {
+        if (mountedRef.current) setFetchingCreator(false);
+      }
+    })();
+  }, [creatorId]);
 
   const handleSubscribe = useCallback(async () => {
     try {

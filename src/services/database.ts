@@ -321,7 +321,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     // Onboarding flag
     if (updates.onboarding_completed !== undefined) updateData.onboardingCompleted = updates.onboarding_completed;
 
-    if (process.env.NODE_ENV === 'development') console.error('[Database] updateProfile');
+    if (__DEV__) console.log('[Database] updateProfile', Object.keys(updateData));
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
   } catch (error: unknown) {
@@ -1873,15 +1873,13 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
 
   try {
     // Lambda returns { conversation: { id, ... }, created: boolean }
-    if (__DEV__) console.warn('[getOrCreateConversation] calling POST /conversations with participantId:', otherUserId);
     const result = await awsAPI.request<{ conversation: { id: string } }>('/conversations', {
       method: 'POST',
       body: { participantId: otherUserId },
     });
-    if (__DEV__) console.warn('[getOrCreateConversation] result:', JSON.stringify(result).substring(0, 200));
     return { data: result.conversation.id, error: null };
   } catch (error: unknown) {
-    if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
+    if (__DEV__) console.error('[getOrCreateConversation] ERROR:', getErrorMessage(error));
     return { data: null, error: getErrorMessage(error) };
   }
 };

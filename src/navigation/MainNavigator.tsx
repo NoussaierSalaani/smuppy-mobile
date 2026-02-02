@@ -103,6 +103,7 @@ import {
   BusinessDashboardScreen,
   BusinessServicesManageScreen,
   BusinessScheduleUploadScreen,
+  BusinessScannerScreen,
 } from '../screens/business';
 
 // Private Sessions Screens
@@ -342,6 +343,7 @@ export default function MainNavigator() {
       <Stack.Screen name="BusinessServicesManage" component={BusinessServicesManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BusinessProgram" component={asScreen(BusinessProgramScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BusinessScheduleUpload" component={BusinessScheduleUploadScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BusinessScanner" component={BusinessScannerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       {/* Private Sessions - Fan Flow */}
       <Stack.Screen name="MySessions" component={MySessionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

@@ -50,8 +50,8 @@ const PROD_FEATURES = {
   BUSINESS_SCANNER: true,
 
   // ─── Account / Settings ──────────────────────────
-  UPGRADE_TO_PRO: false,    // Needs backend: Stripe webhook for account upgrade
-  IDENTITY_VERIFICATION: false,
+  UPGRADE_TO_PRO: true,     // Backend ready: platform-subscription + webhook handles account_type change
+  IDENTITY_VERIFICATION: true,  // Backend ready: identity verification via Stripe Checkout
   PLATFORM_SUBSCRIPTION: true,
 
   // ─── Vibe Ecosystem ────────────────────────────

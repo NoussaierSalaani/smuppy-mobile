@@ -512,6 +512,19 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               )}
             </TouchableOpacity>
 
+            {/* Payment Methods - All users */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('PaymentMethods')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: '#F3E5F5' }]}>
+                <Ionicons name="card-outline" size={20} color="#9C27B0" />
+              </View>
+              <Text style={styles.menuItemLabel}>Payment Methods</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            </TouchableOpacity>
+
             {/* Private Sessions - Creator only */}
             {isProCreator && (
             <TouchableOpacity

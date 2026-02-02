@@ -807,6 +807,7 @@ export type MainStackParamList = {
   BusinessServicesManage: undefined;
   BusinessProgram: { tab?: 'activities' | 'schedule' | 'tags' } | undefined;
   BusinessScheduleUpload: undefined;
+  BusinessScanner: undefined;
 };
 
 // Alias for backward compatibility

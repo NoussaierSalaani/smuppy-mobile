@@ -14,14 +14,17 @@ import {
   Animated,
   Dimensions,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useCurrentProfile } from '../../hooks';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width } = Dimensions.get('window');
@@ -160,31 +163,47 @@ export default function UpgradeToProScreen() {
     );
   };
 
+  const { refetch: refetchProfile } = useCurrentProfile();
+
   const performUpgrade = async () => {
     setIsLoading(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
     try {
-      const response = await awsAPI.upgradeToProCreator();
+      // Create Stripe Checkout session for Pro Creator subscription
+      const response = await awsAPI.request<{ success: boolean; checkoutUrl: string; sessionId: string }>(
+        '/payments/platform-subscription',
+        { method: 'POST', body: { action: 'subscribe', planType: 'pro_creator' } }
+      );
 
-      if (response.success) {
-        // Update local user state
-        if (user) {
-          setUser({
-            ...user,
-            accountType: 'pro_creator',
-          });
-        }
+      if (!response.checkoutUrl) {
+        throw new Error('No checkout URL received');
+      }
 
+      // Open Stripe Checkout in browser
+      const canOpen = await Linking.canOpenURL(response.checkoutUrl);
+      if (canOpen) {
+        await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          dismissButtonStyle: 'cancel',
+        });
+      } else {
+        await Linking.openURL(response.checkoutUrl);
+      }
+
+      // After returning from checkout, refresh profile to check if upgrade went through
+      await refetchProfile();
+      const updatedUser = useUserStore.getState().user;
+
+      if (updatedUser?.accountType === 'pro_creator') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
         showAlert({
           title: 'Welcome, Pro Creator!',
           message: 'Your account has been upgraded successfully!\n\nComplete your setup to start earning from your content.',
           type: 'success',
           buttons: [
             {
-              text: 'Set Up Stripe',
+              text: 'Set Up Verification',
               onPress: () => navigation.replace('IdentityVerification'),
             },
             {
@@ -194,7 +213,13 @@ export default function UpgradeToProScreen() {
           ],
         });
       } else {
-        throw new Error(response.message || 'Upgrade failed');
+        // Payment may still be processing via webhook
+        showAlert({
+          title: 'Processing',
+          message: 'Your payment is being processed. Your account will be upgraded shortly.',
+          type: 'info',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+        });
       }
     } catch (error: unknown) {
       if (__DEV__) console.error('Upgrade error:', error);
@@ -400,7 +425,7 @@ export default function UpgradeToProScreen() {
               <Text style={styles.upgradeButtonText}>Upgrade to Pro Creator</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <Text style={styles.freeText}>Free to upgrade • Start earning today</Text>
+          <Text style={styles.freeText}>$99/month • Cancel anytime</Text>
         </View>
       </SafeAreaView>
     </View>

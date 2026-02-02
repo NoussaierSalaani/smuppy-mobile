@@ -914,6 +914,22 @@ const UserProfileScreen = () => {
             )}
           </View>
         )}
+
+        {/* Row 3: Offerings button (pro_creator only) */}
+        {profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
+          <View style={styles.actionButtonsRow}>
+            <LiquidButton
+              label="View Offerings"
+              onPress={() => (navigation as any).navigate('CreatorOfferings', { creatorId: profile.id })}
+              size="sm"
+              variant="outline"
+              style={{ flex: 1 }}
+              icon={<Ionicons name="pricetag" size={14} color="#0EBF8A" />}
+              iconPosition="left"
+              colorScheme="green"
+            />
+          </View>
+        )}
       </View>
 
       {/* Pro Creator Live Section */}

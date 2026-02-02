@@ -674,8 +674,16 @@ export type MainStackParamList = {
   // Create
   CreatePost: { fromProfile?: boolean } | undefined;
   VideoRecorder: undefined;
-  AddPostDetails: { mediaAssets: MediaAsset[]; fromProfile?: boolean };
-  PostSuccess: { postId?: string; mediaType?: string } | undefined;
+  AddPostDetails: { media: MediaAsset[]; postType?: string; fromProfile?: boolean };
+  PostSuccess: {
+    media?: MediaAsset[];
+    postType?: string;
+    postId?: string;
+    description?: string;
+    visibility?: string;
+    location?: string;
+    taggedPeople?: { id: string; name?: string; full_name?: string; avatar?: string | null; avatar_url?: string | null }[];
+  } | undefined;
 
   // Peaks
   PeakView: { peakId?: string; peakData?: Peak[]; initialIndex?: number };

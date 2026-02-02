@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../../types';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,27 +107,8 @@ interface MediaItem {
   duration?: number;
 }
 
-// Route params type
-type AddPostDetailsRouteParams = {
-  media: MediaItem[];
-  postType: string;
-};
-
-type RootStackParamList = {
-  AddPostDetails: AddPostDetailsRouteParams;
-  PostSuccess: {
-    media: MediaItem[];
-    postType: string;
-    description: string;
-    visibility: string;
-    location: string;
-    taggedPeople: TaggedPerson[];
-    postId?: string;
-  };
-};
-
-type AddPostDetailsScreenRouteProp = RouteProp<RootStackParamList, 'AddPostDetails'>;
-type AddPostDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddPostDetails'>;
+type AddPostDetailsScreenRouteProp = RouteProp<MainStackParamList, 'AddPostDetails'>;
+type AddPostDetailsScreenNavigationProp = NativeStackNavigationProp<MainStackParamList, 'AddPostDetails'>;
 
 interface AddPostDetailsScreenProps {
   route: AddPostDetailsScreenRouteProp;

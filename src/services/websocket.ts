@@ -59,6 +59,12 @@ class WebSocketService {
 
     this.isConnecting = true;
 
+    // Clear any pending reconnect timer to avoid duplicate connections
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     try {
       // Get authentication token (needed for the ephemeral token request)
       const idToken = await awsAuth.getIdToken();

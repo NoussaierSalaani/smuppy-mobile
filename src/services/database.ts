@@ -4,7 +4,7 @@
 // ============================================
 
 import { awsAuth } from './aws-auth';
-import { awsAPI, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification, Conversation as AWSConversation } from './aws-api';
+import { awsAPI, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification } from './aws-api';
 import { useFeedStore } from '../stores';
 import type {
   Spot as SpotType,
@@ -322,7 +322,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     // Onboarding flag
     if (updates.onboarding_completed !== undefined) updateData.onboardingCompleted = updates.onboarding_completed;
 
-    if (process.env.NODE_ENV === 'development') console.log('[Database] updateProfile');
+    if (process.env.NODE_ENV === 'development') console.error('[Database] updateProfile');
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
   } catch (error: unknown) {
@@ -440,16 +440,6 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
 };
 
 /**
- * Optimized profile search with follow status included
- */
-export const searchProfilesOptimized = async (
-  query: string,
-  limit = 20
-): Promise<DbResponse<ProfileWithFollowStatus[]>> => {
-  return searchProfiles(query, limit) as Promise<DbResponse<ProfileWithFollowStatus[]>>;
-};
-
-/**
  * Get suggested profiles (for discovery/explore)
  */
 export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
@@ -558,19 +548,9 @@ export const getPostsByUser = async (userId: string, _page = 0, limit = 10): Pro
   }
 };
 
-// Shared cache for followed user IDs
- 
-let _followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
-  ids: [],
-  timestamp: 0,
-  userId: null,
-};
- 
-const _CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
-
-// Clear cache when user follows/unfollows someone
+// Clear cache when user follows/unfollows someone (no-op, cache removed)
 export const clearFollowCache = () => {
-  _followedUsersCacheShared = { ids: [], timestamp: 0, userId: null };
+  // Intentionally empty — legacy cache was removed
 };
 
 /**
@@ -1316,20 +1296,29 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: AWSConversation[] }>(`/messages/conversations?limit=${limit}`);
-    const conversations: Conversation[] = result.data.map((c) => {
-      const participants = c.participants?.map((p) => convertProfile(p)).filter(Boolean) as Profile[];
-      // Derive other_user: the participant that isn't the current user
-      const otherUser = participants.find(p => p.id !== user.id) || participants[0] || undefined;
+    // Lambda returns { conversations: [...], nextCursor, hasMore } with snake_case fields
+    const result = await awsAPI.request<{ conversations: Array<{
+      id: string;
+      created_at: string;
+      last_message: { id: string; content: string; created_at: string; sender_id: string } | null;
+      unread_count: number;
+      other_participant: { id: string; username: string; display_name: string; avatar_url: string; is_verified: boolean } | null;
+    }> }>(`/conversations?limit=${limit}`);
+    const conversations: Conversation[] = (result.conversations || []).map((c) => {
+      const op = c.other_participant;
+      const otherUser: Profile | undefined = op ? {
+        id: op.id, username: op.username, full_name: op.display_name || '',
+        display_name: op.display_name, avatar_url: op.avatar_url, is_verified: op.is_verified,
+      } as Profile : undefined;
       return {
         id: c.id,
-        participant_ids: c.participantIds,
-        participants,
+        participant_ids: [],
+        participants: otherUser ? [otherUser] : [],
         other_user: otherUser,
-        last_message_at: c.lastMessageAt ?? undefined,
-        last_message_preview: c.lastMessage?.content,
-        updated_at: c.updatedAt,
-        unread_count: c.unreadCount,
+        last_message_at: c.last_message?.created_at ?? c.created_at,
+        last_message_preview: c.last_message?.content,
+        updated_at: c.created_at,
+        unread_count: c.unread_count ?? 0,
       };
     });
     return { data: conversations, error: null };
@@ -1341,10 +1330,25 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
 /**
  * Get messages in a conversation
  */
-export const getMessages = async (conversationId: string, page = 0, limit = 50): Promise<DbResponse<Message[]>> => {
+export const getMessages = async (conversationId: string, _page = 0, limit = 50): Promise<DbResponse<Message[]>> => {
   try {
-    const result = await awsAPI.request<{ data: Message[] }>(`/messages/conversations/${conversationId}?page=${page}&limit=${limit}`);
-    return { data: result.data, error: null };
+    // Lambda returns { messages: [...], nextCursor, hasMore } with snake_case fields
+    const result = await awsAPI.request<{ messages: Array<{
+      id: string; content: string; sender_id: string; read: boolean; created_at: string;
+      sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+    }> }>(`/conversations/${conversationId}/messages?limit=${limit}`);
+    const messages: Message[] = (result.messages || []).map((m) => ({
+      id: m.id,
+      conversation_id: conversationId,
+      sender_id: m.sender_id,
+      content: m.content,
+      created_at: m.created_at,
+      sender: m.sender ? {
+        id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
+        display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
+      } as Profile : undefined,
+    }));
+    return { data: messages, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -1362,12 +1366,32 @@ export const sendMessage = async (
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
+  // Sanitize content: strip HTML and control characters
+  // eslint-disable-next-line no-control-regex
+  const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '');
+  if (!sanitizedContent) return { data: null, error: 'Message content is required' };
+
   try {
-    const result = await awsAPI.request<Message>(`/conversations/${conversationId}/messages`, {
+    // Lambda returns { message: {...} } with snake_case fields
+    const result = await awsAPI.request<{ message: {
+      id: string; content: string; sender_id: string; recipient_id: string; read: boolean; created_at: string;
+      sender: { id: string; username: string; display_name: string; avatar_url: string };
+    } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { content, mediaUrl, mediaType },
+      body: { content: sanitizedContent, mediaUrl, mediaType },
     });
-    return { data: result, error: null };
+    const m = result.message;
+    return { data: {
+      id: m.id,
+      conversation_id: conversationId,
+      sender_id: m.sender_id,
+      content: m.content,
+      created_at: m.created_at,
+      sender: m.sender ? {
+        id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
+        display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
+      } as Profile : undefined,
+    }, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -1846,11 +1870,12 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<Conversation>('/messages/conversations', {
+    // Lambda returns { conversation: { id, ... }, created: boolean }
+    const result = await awsAPI.request<{ conversation: { id: string } }>('/conversations', {
       method: 'POST',
       body: { participantId: otherUserId },
     });
-    return { data: result.id, error: null };
+    return { data: result.conversation.id, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -1861,9 +1886,10 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
  */
 export const sharePostToConversation = async (postId: string, conversationId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request('/messages/share', {
+    // Send the shared post as a message with a special content format
+    await awsAPI.request(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { postId, conversationId },
+      body: { content: `[shared_post:${postId}]`, messageType: 'text' },
     });
     return { error: null };
   } catch (error: unknown) {
@@ -1876,7 +1902,9 @@ export const sharePostToConversation = async (postId: string, conversationId: st
  */
 export const markConversationAsRead = async (conversationId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/messages/conversations/${conversationId}/read`, { method: 'POST' });
+    // Mark-as-read is handled automatically when fetching messages (GET /conversations/{id}/messages)
+    // No-op here since no dedicated endpoint exists; reading messages triggers the mark-as-read.
+    await awsAPI.request(`/conversations/${conversationId}/messages?limit=1`);
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
@@ -1891,39 +1919,24 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    // Upload the voice file to S3 and get the URL
-    const result = await awsAPI.request<{ url: string }>('/media/upload-voice', {
+    // Step 1: Get presigned upload URL from Lambda
+    const { url: presignedUrl, key } = await awsAPI.request<{ url: string; key: string }>('/media/upload-voice', {
       method: 'POST',
-      body: { audioUri, conversationId },
+      body: { conversationId },
     });
-    return { data: result.url, error: null };
+
+    // Step 2: Upload the audio file to S3 using the presigned URL
+    const { uploadWithFileSystem } = await import('./mediaUpload');
+    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedUrl, 'audio/mp4');
+    if (!uploadSuccess) {
+      return { data: null, error: 'Failed to upload voice message' };
+    }
+
+    // Step 3: Return the CDN URL for the uploaded file
+    const cdnUrl = awsAPI.getCDNUrl(key);
+    return { data: cdnUrl, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
 };
 
-/**
- * Subscribe to messages (real-time - returns unsubscribe function)
- * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
- */
-export const subscribeToMessages = (
-  _conversationId: string,
-  _callback: (message: Message) => void
-): (() => void) => {
-  // Real-time subscriptions would need WebSocket implementation
-  // For now, return a no-op unsubscribe function
-  if (process.env.NODE_ENV === 'development') console.log('[Database] subscribeToMessages called - WebSocket not implemented');
-  return () => {};
-};
-
-/**
- * Subscribe to conversations (real-time - returns unsubscribe function)
- * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
- */
-export const subscribeToConversations = (
-  _callback: (conversations: Conversation[]) => void
-): (() => void) => {
-  // Real-time subscriptions would need WebSocket implementation
-  if (process.env.NODE_ENV === 'development') console.log('[Database] subscribeToConversations called - WebSocket not implemented');
-  return () => {}
-};

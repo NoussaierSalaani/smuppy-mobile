@@ -180,7 +180,7 @@ class AWSAPIService {
     if (params?.userId) queryParams.set('userId', params.userId);
 
     const query = queryParams.toString();
-    const response = await this.request<any>(`/posts${query ? `?${query}` : ''}`);
+    const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(`/posts${query ? `?${query}` : ''}`);
 
     // Map API response (posts) to expected format (data)
     return {
@@ -400,33 +400,6 @@ class AWSAPIService {
     });
   }
 
-  /**
-   * Get tags on a peak
-   */
-  async getPeakTags(peakId: string): Promise<{
-    tags: Array<{
-      id: string;
-      taggedUser: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-      };
-      taggedBy: string;
-      createdAt: string;
-    }>;
-  }> {
-    return this.request(`/peaks/${peakId}/tags`);
-  }
-
-  /**
-   * Remove a tag from a peak
-   */
-  async removeTagFromPeak(peakId: string, userId: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${peakId}/tags/${userId}`, {
-      method: 'DELETE',
-    });
-  }
 
   /**
    * Hide a peak from feed (not interested)
@@ -442,112 +415,6 @@ class AWSAPIService {
     });
   }
 
-  /**
-   * Unhide a peak (restore to feed)
-   */
-  async unhidePeak(id: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}/hide`, {
-      method: 'DELETE',
-    });
-  }
-
-  /**
-   * Get list of hidden peaks
-   */
-  async getHiddenPeaks(): Promise<{
-    hiddenPeaks: Array<{
-      peakId: string;
-      reason: string;
-      hiddenAt: string;
-      thumbnail: string;
-      author: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-      };
-    }>;
-  }> {
-    return this.request('/peaks/hidden');
-  }
-
-  /**
-   * Create a peak reply (respond to a peak with another peak)
-   */
-  async createPeakReply(peakId: string, data: {
-    videoUrl: string;
-    thumbnailUrl?: string;
-    caption?: string;
-    duration: number;
-  }): Promise<{
-    success: boolean;
-    reply: {
-      id: string;
-      authorId: string;
-      videoUrl: string;
-      thumbnailUrl: string;
-      caption: string;
-      duration: number;
-      likesCount: number;
-      commentsCount: number;
-      viewsCount: number;
-      repliesCount: number;
-      isLiked: boolean;
-      replyToPeakId: string;
-      createdAt: string;
-      author: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-        isVerified: boolean;
-      };
-    };
-  }> {
-    return this.request(`/peaks/${peakId}/replies`, {
-      method: 'POST',
-      body: data,
-    });
-  }
-
-  /**
-   * Get replies to a peak (peak responses)
-   */
-  async getPeakReplies(peakId: string, params?: {
-    limit?: number;
-    cursor?: string;
-  }): Promise<{
-    replies: Array<{
-      id: string;
-      authorId: string;
-      videoUrl: string;
-      thumbnailUrl: string;
-      caption: string;
-      duration: number;
-      likesCount: number;
-      commentsCount: number;
-      viewsCount: number;
-      repliesCount: number;
-      isLiked: boolean;
-      createdAt: string;
-      author: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-        isVerified: boolean;
-      };
-    }>;
-    nextCursor: string | null;
-    hasMore: boolean;
-    total: number;
-  }> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/peaks/${peakId}/replies${query ? `?${query}` : ''}`);
-  }
 
   // ==========================================
   // Comments API
@@ -744,7 +611,7 @@ class AWSAPIService {
   // Media Upload
   // ==========================================
 
-  async getUploadUrl(filename: string, contentType: string): Promise<{ uploadUrl: string; fileUrl: string }> {
+  async getUploadUrl(filename: string, contentType: string, fileSize?: number): Promise<{ uploadUrl: string; fileUrl: string }> {
     // Determine uploadType from the folder prefix in filename
     let uploadType = 'post';
     if (filename.startsWith('avatars/')) uploadType = 'avatar';
@@ -752,34 +619,14 @@ class AWSAPIService {
     else if (filename.startsWith('peaks/')) uploadType = 'peak';
     else if (filename.startsWith('messages/')) uploadType = 'message';
 
+    if (__DEV__) console.error('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
+
     return this.request('/media/upload-url', {
       method: 'POST',
-      body: { filename, contentType, uploadType, fileSize: 0 },
+      body: { filename, contentType, uploadType, fileSize: fileSize || 0 },
     });
   }
 
-  async uploadMedia(file: Blob | File, filename: string): Promise<string> {
-    const contentType = file.type || 'application/octet-stream';
-
-    // Get presigned URL
-    const { uploadUrl, fileUrl } = await this.getUploadUrl(filename, contentType);
-
-    // Upload to S3
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType,
-      },
-      body: file,
-    });
-
-    if (!response.ok) {
-      throw new APIError('Failed to upload media', response.status);
-    }
-
-    // Return CDN URL
-    return `${CDN_URL}/${fileUrl}`;
-  }
 
   // ==========================================
   // Auth API (Server-side Cognito operations)
@@ -2996,7 +2843,7 @@ class AWSAPIService {
       uri: params.fileUri,
       type: params.mimeType,
       name: params.fileType === 'pdf' ? 'schedule.pdf' : 'schedule.jpg',
-    } as any);
+    } as unknown as Blob);
     formData.append('fileType', params.fileType);
 
     return this.request('/businesses/my/analyze-schedule', {

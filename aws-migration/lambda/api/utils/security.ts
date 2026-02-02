@@ -4,7 +4,6 @@
  */
 
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { getSecureHeaders } from './cors';
 import { createLogger } from './logger';
 
 const log = createLogger('security');
@@ -14,13 +13,6 @@ const secretsClient = new SecretsManagerClient({});
 // Cache for secrets (Lambda warm start optimization)
 const secretsCache: Map<string, { value: string; expiry: number }> = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-/**
- * SECURITY: Secure response headers for all API responses
- * @deprecated Use getSecureHeaders(origin) from cors.ts for dynamic CORS
- * This export is kept for backwards compatibility
- */
-export const secureHeaders = getSecureHeaders();
 
 /**
  * Get secret from AWS Secrets Manager with caching
@@ -124,32 +116,3 @@ export function logSecurityEvent(
   log.logSecurity(eventType, details);
 }
 
-/**
- * Create a secure error response
- */
-export function errorResponse(
-  statusCode: number,
-  message: string,
-  errorCode?: string
-) {
-  return {
-    statusCode,
-    headers: secureHeaders,
-    body: JSON.stringify({
-      message,
-      code: errorCode,
-      timestamp: new Date().toISOString(),
-    }),
-  };
-}
-
-/**
- * Create a secure success response
- */
-export function successResponse(data: unknown, statusCode: number = 200) {
-  return {
-    statusCode,
-    headers: secureHeaders,
-    body: JSON.stringify(data),
-  };
-}

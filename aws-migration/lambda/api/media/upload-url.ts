@@ -15,10 +15,16 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('media-upload-url');
 
-const s3Client = new S3Client({});
+const PRESIGNED_URL_EXPIRY_SECONDS = 300;
+
+const s3Client = new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
 
 // Validate required environment variables
 if (!process.env.MEDIA_BUCKET) {
@@ -115,6 +121,16 @@ export async function handler(
       };
     }
 
+    // Rate limit: 30 uploads per minute
+    const { allowed } = await checkRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: 60, maxRequests: 30 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+      };
+    }
+
     if (!event.body) {
       return {
         statusCode: 400,
@@ -202,15 +218,18 @@ export async function handler(
     const command = new PutObjectCommand(putObjectParams);
 
     // SECURITY: Short-lived presigned URL (5 minutes)
+    // unhoistableHeaders: prevent SDK from embedding checksum headers in the signed URL
+    // (mobile clients don't compute CRC32, so S3 would reject the upload)
     const uploadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 300, // 5 minutes
+      expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
+      unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm']),
     });
 
     // Generate the public URL for the uploaded file
     const publicUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
 
     // Log upload request (masked user ID for security)
-    log.info('Upload URL generated', { userId: userId.substring(0, 8) + '***', uploadType, mediaType });
+    log.info('Upload URL generated', { userId: userId.substring(0, 2) + '***', uploadType, mediaType });
 
     return {
       statusCode: 200,
@@ -220,7 +239,7 @@ export async function handler(
         publicUrl,
         fileUrl: key,
         key,
-        expiresIn: 300,
+        expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
         maxSize,
       }),
     };

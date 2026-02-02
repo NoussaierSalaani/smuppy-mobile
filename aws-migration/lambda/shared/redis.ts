@@ -141,34 +141,3 @@ export async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-/**
- * Close Redis connection
- * Call during graceful shutdown if needed
- */
-export async function closeRedis(): Promise<void> {
-  if (redis) {
-    try {
-      await redis.quit();
-    } catch {
-      // Ignore close errors
-    }
-    redis = null;
-  }
-  cachedAuthToken = null;
-}
-
-/**
- * Health check for Redis connectivity
- */
-export async function redisHealthCheck(): Promise<boolean> {
-  try {
-    const client = await getRedis();
-    if (!client) {
-      return false;
-    }
-    const pong = await client.ping();
-    return pong === 'PONG';
-  } catch {
-    return false;
-  }
-}

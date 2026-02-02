@@ -249,15 +249,8 @@ export function createLogger(handler: string): Logger {
 }
 
 /**
- * Default logger instance
- */
-export const logger = new Logger();
-
-/**
  * Extract request ID from API Gateway event
  */
 export function getRequestId(event: { requestContext?: { requestId?: string } }): string {
   return event.requestContext?.requestId || `local-${Date.now()}`;
 }
-
-export default logger;

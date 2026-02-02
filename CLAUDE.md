@@ -182,6 +182,41 @@
 - Never commit: `.env`, secrets, `node_modules`, build artifacts, `console.log` debug statements
 - Branch naming: `feat/feature-name`, `fix/bug-name`, `security/audit-batch-N`
 
+## Bug Prevention Rules (MANDATORY)
+
+### Dependency Safety
+- **NEVER** use `^` for AWS SDK or Stripe versions in Lambda `package.json` — use exact versions (e.g., `"3.975.0"` not `"^3.975.0"`)
+- After ANY `npm install` or dependency update in Lambda: test critical endpoints (upload, auth, payments) with `aws lambda invoke` before considering it done
+- After ANY `npm install` in the mobile app: test on simulator before pushing to TestFlight
+- When upgrading AWS SDK: check the changelog for breaking changes, especially around S3 checksums, presigned URLs, and auth flows
+- Always commit `package-lock.json` — it locks transitive dependencies
+
+### Screen & Navigation Wiring
+- When creating a NEW screen, you MUST update ALL 3 files in a single commit:
+  1. `src/screens/<category>/index.ts` — add the export
+  2. `src/types/index.ts` — add the route to `MainStackParamList`
+  3. `src/navigation/MainNavigator.tsx` — add the import AND the `<Stack.Screen>` route
+- **NEVER** create a screen file without wiring it into navigation — an unwired screen is a bug
+- After adding a screen: verify with `npx tsc --noEmit` AND visually confirm the screen is reachable
+
+### Deployment Verification
+- After EVERY `cdk deploy`: test the modified Lambda(s) with `aws lambda invoke` to confirm the fix is live
+- After EVERY frontend change intended for TestFlight: run `eas update --branch production` (or `eas build` + `eas submit` if native changes)
+- **NEVER** tell the user "it's fixed" without verifying the deployment is live
+- For presigned URL changes: always check that the generated URL does NOT contain unexpected headers (checksums, metadata)
+
+### S3 & Presigned URLs
+- Always create S3Client with `requestChecksumCalculation: 'WHEN_REQUIRED'` and `responseChecksumValidation: 'WHEN_REQUIRED'`
+- Always use `unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm'])` in `getSignedUrl()` options
+- Mobile clients (React Native) do NOT compute CRC32 checksums — presigned URLs must not require them
+
+### Immediate Bug Fix Policy
+- If you introduce or discover a bug during development, fix it IMMEDIATELY — do not leave it for later
+- If a bug is in backend code: fix + `cdk deploy` + verify with `aws lambda invoke`
+- If a bug is in frontend code: fix + `npx tsc --noEmit` + test on simulator
+- If a bug affects TestFlight users: fix + `eas update --branch production`
+- **NEVER** leave broken code in the codebase — every commit must leave the app in a working state
+
 ## Pre-Merge Checklist
 
 For every endpoint, verify:
@@ -198,3 +233,7 @@ For every endpoint, verify:
 - [ ] No dead code or commented-out code
 - [ ] Error paths tested mentally (null, empty, duplicate, concurrent)
 - [ ] `npx tsc --noEmit` passes with zero errors
+- [ ] New screens wired in all 3 files (index.ts, types/index.ts, MainNavigator.tsx)
+- [ ] Lambda changes deployed and verified with `aws lambda invoke`
+- [ ] No `^` on AWS SDK or Stripe versions in Lambda package.json
+- [ ] Presigned URLs tested — no unexpected checksum headers

@@ -22,7 +22,10 @@ import { randomUUID } from 'crypto';
 
 const log = createLogger('media-upload-voice');
 
-const s3Client = new S3Client({});
+const s3Client = new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
 
 if (!process.env.MEDIA_BUCKET) {
   throw new Error('MEDIA_BUCKET environment variable is required');
@@ -33,6 +36,7 @@ const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_VOICE_SIZE = 5 * 1024 * 1024; // 5 MB
+const PRESIGNED_URL_EXPIRY_SECONDS = 300;
 
 interface VoiceUploadRequest {
   conversationId: string;
@@ -118,6 +122,20 @@ export async function handler(
 
     const profileId: string = profileResult.rows[0].id;
 
+    // Verify user is participant in this conversation
+    const convCheck = await db.query(
+      `SELECT id FROM conversations
+       WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
+      [conversationId, profileId]
+    );
+    if (convCheck.rows.length === 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: 'Not a participant of this conversation' }),
+      };
+    }
+
     // Generate S3 key
     const fileId = randomUUID();
     const key = `voice-messages/${profileId}/${conversationId}/${fileId}.m4a`;
@@ -127,7 +145,7 @@ export async function handler(
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: 'audio/mp4',
-      ContentLength: MAX_VOICE_SIZE,
+      // Do NOT set ContentLength — it would force exact match and reject smaller files
       Metadata: {
         'uploaded-by': cognitoSub,
         'conversation-id': conversationId,
@@ -136,12 +154,13 @@ export async function handler(
     });
 
     const url = await getSignedUrl(s3Client, command, {
-      expiresIn: 300, // 5 minutes
+      expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
+      unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm']),
     });
 
     log.info('Voice upload URL generated', {
-      userId: cognitoSub.substring(0, 8) + '***',
-      conversationId: conversationId.substring(0, 8) + '***',
+      userId: cognitoSub.substring(0, 2) + '***',
+      conversationId: conversationId.substring(0, 2) + '***',
     });
 
     return {

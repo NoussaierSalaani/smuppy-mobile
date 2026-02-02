@@ -6,9 +6,13 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('conversations-send-message');
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_MESSAGE_LENGTH = 5000;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -23,6 +27,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Rate limit: 60 messages per minute
+    const { allowed } = await checkRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: 60, maxRequests: 60 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
+
     const conversationId = event.pathParameters?.id;
     if (!conversationId) {
       return {
@@ -32,9 +46,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(conversationId)) {
+    if (!UUID_REGEX.test(conversationId)) {
       return {
         statusCode: 400,
         headers,
@@ -54,17 +66,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Limit message length
-    if (content.length > 5000) {
+    if (content.length > MAX_MESSAGE_LENGTH) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'Message is too long (max 5000 characters)' }),
+        body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
       };
     }
 
-    // Sanitize content
-    const sanitizedContent = content.trim().replace(/<[^>]*>/g, '');
+    // Sanitize content: strip HTML tags and control characters
+    const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
 
     const db = await getPool();
 

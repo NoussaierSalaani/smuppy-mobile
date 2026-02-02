@@ -27,7 +27,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
-import { useShareModal } from '../../hooks';
+import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
 import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
@@ -39,7 +39,7 @@ import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
 import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
-import { getCurrentProfile, getDiscoveryFeed, likePost, unlikePost, savePost, unsavePost, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
@@ -500,79 +500,18 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     });
   }, [userInterests, activeInterests]);
 
-  // Like/unlike post with engagement tracking
-  const toggleLike = useCallback(async (postId: string) => {
-    // Get current like status and category from state
+  // Like/Save with optimistic update + rollback (shared hook)
+  // onLike callback tracks engagement for AI mood + Vibe Guardian
+  const onLikeCallback = useCallback((postId: string) => {
     const post = allPosts.find(p => p.id === postId);
-    const wasLiked = post?.isLiked || false;
-    const postCategory = post?.category || '';
-
-    // Optimistic update
-    setAllPosts(prevPosts => prevPosts.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          isLiked: !p.isLiked,
-          likes: p.isLiked ? p.likes - 1 : p.likes + 1,
-        };
-      }
-      return p;
-    }));
-
-    try {
-      if (wasLiked) {
-        await unlikePost(postId);
-        setLikedPostIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(postId);
-          return newSet;
-        });
-      } else {
-        await likePost(postId);
-        setLikedPostIds(prev => new Set([...prev, postId]));
-        // Track engagement for AI mood recommendations
-        trackLike(postId, postCategory);
-        // Track for Vibe Guardian
-        trackPositiveInteraction();
-      }
-    } catch (err) {
-      if (__DEV__) console.error('[VibesFeed] Like error:', err);
-    }
+    trackLike(postId, post?.category || '');
+    trackPositiveInteraction();
   }, [allPosts, trackLike, trackPositiveInteraction]);
 
-  // Toggle save (optimistic + API)
-  const toggleSave = useCallback(async (postId: string) => {
-    const post = allPosts.find(p => p.id === postId);
-    if (!post) return;
-
-    const wasSaved = post.isSaved;
-
-    // Optimistic update
-    setAllPosts(prevPosts => prevPosts.map(p => {
-      if (p.id === postId) {
-        return { ...p, isSaved: !wasSaved };
-      }
-      return p;
-    }));
-
-    try {
-      if (wasSaved) {
-        const { error } = await unsavePost(postId);
-        if (error) throw new Error(error);
-      } else {
-        const { error } = await savePost(postId);
-        if (error) throw new Error(error);
-      }
-    } catch {
-      // Rollback on failure
-      setAllPosts(prevPosts => prevPosts.map(p => {
-        if (p.id === postId) {
-          return { ...p, isSaved: wasSaved };
-        }
-        return p;
-      }));
-    }
-  }, [allPosts]);
+  const { toggleLike, toggleSave } = usePostInteractions({
+    setPosts: setAllPosts,
+    onLike: onLikeCallback,
+  });
 
   // Track post view start time for engagement tracking
   const postViewStartRef = useRef<number>(0);

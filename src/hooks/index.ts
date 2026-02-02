@@ -53,6 +53,9 @@ export {
 
 export { useCooldown } from './useCooldown';
 
+// Post Interactions (DRY like/save with optimistic updates)
+export { usePostInteractions } from './usePostInteractions';
+
 // Modal State Management
 export {
   useModalState,

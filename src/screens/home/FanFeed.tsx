@@ -23,10 +23,10 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
 import { useContentStore, useUserSafetyStore } from '../../stores';
-import { useShareModal } from '../../hooks';
+import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, likePost, unlikePost, savePost, unsavePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
+import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -310,108 +310,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     return num.toString();
   }, []);
 
-  // Toggle like with real API
-  const toggleLike = useCallback(async (postId: string) => {
-    // Get current like status from state using functional update
-    let wasLiked = false;
-
-    // Optimistic update and capture current state
-    setPosts(prevPosts => {
-      const post = prevPosts.find(p => p.id === postId);
-      if (post) wasLiked = post.isLiked;
-
-      return prevPosts.map(p => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            isLiked: !p.isLiked,
-            likes: p.isLiked ? p.likes - 1 : p.likes + 1,
-          };
-        }
-        return p;
-      });
-    });
-
-    try {
-      if (wasLiked) {
-        // Unlike
-        const { error } = await unlikePost(postId);
-        if (error) {
-          // Revert on error
-          setPosts(prevPosts => prevPosts.map(p => {
-            if (p.id === postId) {
-              return { ...p, isLiked: true, likes: p.likes + 1 };
-            }
-            return p;
-          }));
-        } else {
-          setLikedPostIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(postId);
-            return newSet;
-          });
-        }
-      } else {
-        // Like
-        const { error } = await likePost(postId);
-        if (error) {
-          // Revert on error
-          setPosts(prevPosts => prevPosts.map(p => {
-            if (p.id === postId) {
-              return { ...p, isLiked: false, likes: p.likes - 1 };
-            }
-            return p;
-          }));
-        } else {
-          setLikedPostIds(prev => new Set([...prev, postId]));
-        }
-      }
-    } catch (err) {
-      if (__DEV__) console.error('[FanFeed] Like toggle error:', err);
-    }
-  }, []);
-
-  // Toggle save (optimistic + API)
-  const toggleSave = useCallback(async (postId: string) => {
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
-
-    const wasSaved = post.isSaved;
-
-    // Optimistic update
-    setPosts(prevPosts => prevPosts.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          isSaved: !wasSaved,
-          saves: wasSaved ? p.saves - 1 : p.saves + 1,
-        };
-      }
-      return p;
-    }));
-
-    try {
-      if (wasSaved) {
-        const { error } = await unsavePost(postId);
-        if (error) throw new Error(error);
-      } else {
-        const { error } = await savePost(postId);
-        if (error) throw new Error(error);
-      }
-    } catch {
-      // Rollback on failure
-      setPosts(prevPosts => prevPosts.map(p => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            isSaved: wasSaved,
-            saves: wasSaved ? p.saves + 1 : p.saves - 1,
-          };
-        }
-        return p;
-      }));
-    }
-  }, [posts]);
+  // Like/Save with optimistic update + rollback (shared hook)
+  const { toggleLike, toggleSave } = usePostInteractions({ setPosts });
 
   // Handle share post
   const handleSharePost = useCallback((post: UIPost) => {

@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('conversations-send-message');
 
@@ -141,6 +142,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
+
+    // Send push notification to recipient (non-blocking)
+    const displayName = profile.display_name || profile.username;
+    sendPushToUser(db, recipientId, {
+      title: displayName,
+      body: sanitizedContent.length > 100 ? sanitizedContent.substring(0, 100) + '…' : sanitizedContent,
+      data: { type: 'message', conversationId, senderId: profile.id },
+    }).catch(err => log.error('Push notification failed', err));
 
     return {
       statusCode: 201,

@@ -13,6 +13,9 @@ newArchEnabled: true,
 updates: {
   url: 'https://u.expo.dev/f38cbb48-8255-45df-ab5b-097b70ee9fea',
 },
+runtimeVersion: {
+  policy: 'appVersion',
+},
 splash: {
   image: './assets/Splashscreen.png',
   backgroundColor: '#0EBF8A',

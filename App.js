@@ -30,7 +30,6 @@ import Mapbox from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 
 // UI Components
-import OfflineBanner from './src/components/OfflineBanner';
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 
@@ -189,7 +188,6 @@ export default function App() {
           <SmuppyAlertProvider>
             <View style={{ flex: 1 }}>
               <AppNavigator />
-              <OfflineBanner />
             </View>
           </SmuppyAlertProvider>
         </QueryClientProvider>

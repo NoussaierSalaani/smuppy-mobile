@@ -638,6 +638,11 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant S3 PutObject for presigned URL generation
     mediaBucket.grantPut(this.mediaUploadUrlFn);
+    // Grant DynamoDB rate limit table access
+    this.mediaUploadUrlFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     // Voice Upload Lambda - presigned S3 URL for voice messages
     this.mediaUploadVoiceFn = new NodejsFunction(this, 'MediaUploadVoiceFunction', {

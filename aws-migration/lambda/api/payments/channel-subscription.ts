@@ -15,6 +15,7 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { checkRateLimit } from '../utils/rate-limit';
+import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -201,7 +202,7 @@ async function subscribeToChannel(
 
     // Get fan (subscriber) info
     const fanResult = await client.query(
-      'SELECT stripe_customer_id, email, full_name FROM profiles WHERE id = $1',
+      'SELECT stripe_customer_id, email, full_name, cognito_sub FROM profiles WHERE id = $1',
       [fanUserId]
     );
 
@@ -214,6 +215,21 @@ async function subscribeToChannel(
     }
 
     const fan = fanResult.rows[0];
+
+    // If email missing in profiles, fetch from Cognito and sync
+    if (!fan.email && fan.cognito_sub) {
+      const cognitoClient = new CognitoIdentityProviderClient({});
+      const sanitizedSub = fan.cognito_sub.replace(/["\\]/g, '');
+      const cognitoResult = await cognitoClient.send(new ListUsersCommand({
+        UserPoolId: process.env.USER_POOL_ID,
+        Filter: `sub = "${sanitizedSub}"`,
+        Limit: 1,
+      }));
+      fan.email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
+      if (fan.email) {
+        await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
+      }
+    }
 
     // Create or get Stripe customer
     let customerId = fan.stripe_customer_id;

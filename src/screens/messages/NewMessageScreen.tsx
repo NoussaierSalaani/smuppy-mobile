@@ -96,7 +96,9 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
             accountType={item.account_type}
           />
         </View>
-        <Text style={styles.userUsername}>@{item.username}</Text>
+        {resolveDisplayName(item) !== item.username && (
+          <Text style={styles.userUsername}>@{item.username}</Text>
+        )}
       </View>
       {navigating === item.id ? (
         <ActivityIndicator size="small" color={colors.primary} />

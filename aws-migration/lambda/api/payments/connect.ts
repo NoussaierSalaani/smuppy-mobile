@@ -6,6 +6,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -93,7 +94,7 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
   try {
     // Check if user already has a Connect account
     const result = await client.query(
-      'SELECT stripe_account_id, email, full_name FROM profiles WHERE id = $1',
+      'SELECT stripe_account_id, email, full_name, cognito_sub FROM profiles WHERE id = $1',
       [userId]
     );
 
@@ -105,7 +106,8 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
       };
     }
 
-    const { stripe_account_id, email, full_name } = result.rows[0];
+    const { stripe_account_id, full_name, cognito_sub } = result.rows[0];
+    let email = result.rows[0].email as string | null;
 
     if (stripe_account_id) {
       return {
@@ -116,6 +118,29 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
           accountId: stripe_account_id,
           message: 'Account already exists',
         }),
+      };
+    }
+
+    // If email missing in profiles, fetch from Cognito and sync
+    if (!email && cognito_sub) {
+      const cognitoClient = new CognitoIdentityProviderClient({});
+      const sanitizedSub = cognito_sub.replace(/["\\]/g, '');
+      const cognitoResult = await cognitoClient.send(new ListUsersCommand({
+        UserPoolId: process.env.USER_POOL_ID,
+        Filter: `sub = "${sanitizedSub}"`,
+        Limit: 1,
+      }));
+      email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
+      if (email) {
+        await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [email, userId]);
+      }
+    }
+
+    if (!email) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'No email found for this account' }),
       };
     }
 

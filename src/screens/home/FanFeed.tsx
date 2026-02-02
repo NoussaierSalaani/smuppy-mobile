@@ -14,7 +14,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -226,6 +226,22 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Keep track of followed user IDs to exclude from suggestions
   const followedUserIds = useRef<Set<string>>(new Set());
+
+  // When screen regains focus (e.g. returning from UserProfile), refresh suggestions
+  // so that profiles followed from the profile screen are removed
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      // Reset and refetch suggestions — the API excludes already-followed profiles
+      suggestionsOffsetRef.current = 0;
+      hasMoreSuggestionsRef.current = true;
+      fetchSuggestions(false, true);
+    }, [fetchSuggestions])
+  );
 
   // Handle track/follow user - removes from list and immediately loads replacement
   const handleTrackUser = useCallback(async (userId: string) => {

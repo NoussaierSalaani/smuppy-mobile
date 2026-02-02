@@ -954,6 +954,10 @@ export class LambdaStack extends cdk.NestedStack {
       }
     }
 
+    // Grant Cognito ListUsers to payment Lambdas that need email fallback
+    userPool.grant(this.paymentConnectFn, 'cognito-idp:ListUsers');
+    userPool.grant(this.paymentChannelSubFn, 'cognito-idp:ListUsers');
+
     // DLQ for non-intent/webhook payment lambdas (intent & webhook have their own config)
     const paymentLambdasForDlq = [
       this.paymentSubscriptionsFn,

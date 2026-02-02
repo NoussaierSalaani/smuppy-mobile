@@ -74,6 +74,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           SELECT json_build_object(
             'id', p.id,
             'username', p.username,
+            'full_name', p.full_name,
             'display_name', p.display_name,
             'avatar_url', p.avatar_url,
             'is_verified', p.is_verified

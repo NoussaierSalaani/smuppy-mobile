@@ -395,7 +395,7 @@ const PostDetailProfileScreen = () => {
               },
             ]}
           >
-            <SmuppyHeartIcon size={100} color={colors.primary} filled />
+            <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
           </Animated.View>
         )}
         
@@ -534,7 +534,7 @@ const PostDetailProfileScreen = () => {
           {/* Stats bar */}
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
-              <SmuppyHeartIcon size={18} color={colors.primary} filled />
+              <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
               <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
             </View>
             <View style={styles.statItem}>

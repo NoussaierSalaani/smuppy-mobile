@@ -805,7 +805,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               }
             ]}
           >
-            <SmuppyHeartIcon size={100} color={colors.primary} filled />
+            <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
           </Animated.View>
 
           {/* Particles */}
@@ -824,7 +824,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 }
               ]}
             >
-              <SmuppyHeartIcon size={24} color={colors.primary} filled />
+              <SmuppyHeartIcon size={24} color={colors.heartRed} filled />
             </Animated.View>
           ))}
         </View>

@@ -39,7 +39,7 @@ import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
 import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
-import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, followUser, isFollowing } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
@@ -324,13 +324,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       }
 
       const postIds = data.map(post => post.id);
-      const likedMap = await hasLikedPostsBatch(postIds);
+      const [likedMap, savedMap] = await Promise.all([
+        hasLikedPostsBatch(postIds),
+        hasSavedPostsBatch(postIds),
+      ]);
 
       const likedIds = new Set<string>(
         postIds.filter(id => likedMap.get(id))
       );
+      const savedIds = new Set<string>(
+        postIds.filter(id => savedMap.get(id))
+      );
 
-      const transformedPosts = data.map(post => transformToVibePost(post, likedIds));
+      const transformedPosts = data.map(post => transformToVibePost(post, likedIds, savedIds));
 
       if (refresh || pageNum === 0) {
         setAllPosts(transformedPosts);

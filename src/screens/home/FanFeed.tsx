@@ -26,7 +26,7 @@ import { useContentStore, useUserSafetyStore } from '../../stores';
 import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
+import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -130,15 +130,21 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
 
       if (data.length > 0) {
-        // Use batch function for faster like checking (single query)
+        // Use batch functions for faster like/save checking (single query each)
         const postIds = data.map(post => post.id);
-        const likedMap = await hasLikedPostsBatch(postIds);
+        const [likedMap, savedMap] = await Promise.all([
+          hasLikedPostsBatch(postIds),
+          hasSavedPostsBatch(postIds),
+        ]);
 
         const likedIds = new Set<string>(
           postIds.filter(id => likedMap.get(id))
         );
+        const savedIds = new Set<string>(
+          postIds.filter(id => savedMap.get(id))
+        );
 
-        const transformedPosts = data.map(post => transformToFanPost(post, likedIds));
+        const transformedPosts = data.map(post => transformToFanPost(post, likedIds, savedIds));
 
         if (refresh || pageNum === 0) {
           setPosts(transformedPosts);

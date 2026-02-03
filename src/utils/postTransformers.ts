@@ -114,7 +114,8 @@ export interface UIVibePost extends UIPostBase {
  */
 export const transformToFanPost = (
   post: Post,
-  likedPostIds: Set<string>
+  likedPostIds: Set<string>,
+  savedPostIds?: Set<string>
 ): UIFanPost => {
   return {
     id: post.id,
@@ -136,7 +137,7 @@ export const transformToFanPost = (
     shares: 0,
     saves: 0,
     isLiked: likedPostIds.has(post.id),
-    isSaved: false,
+    isSaved: savedPostIds?.has(post.id) ?? false,
     timeAgo: getTimeAgo(post.created_at),
     location: post.location || null,
     tags: post.tags,
@@ -148,7 +149,8 @@ export const transformToFanPost = (
  */
 export const transformToVibePost = (
   post: Post,
-  likedPostIds: Set<string>
+  likedPostIds: Set<string>,
+  savedPostIds?: Set<string>
 ): UIVibePost => {
   // Generate varied heights for masonry layout based on post ID
   const heights = [180, 200, 220, 240, 260, 280];
@@ -168,7 +170,7 @@ export const transformToVibePost = (
     title: getContentText(post),
     likes: post.likes_count || 0,
     isLiked: likedPostIds.has(post.id),
-    isSaved: false,
+    isSaved: savedPostIds?.has(post.id) ?? false,
     category: post.tags?.[0] || 'Fitness',
     tags: post.tags || [],
   };

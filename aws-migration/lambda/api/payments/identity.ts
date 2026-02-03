@@ -11,6 +11,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -85,12 +86,7 @@ async function getVerificationPriceId(): Promise<string> {
   return cachedVerificationPriceId;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-};
+// CORS headers now dynamically created via createHeaders(event)
 
 interface IdentityBody {
   action: 'create-session' | 'get-status' | 'get-report' | 'create-subscription' | 'confirm-subscription' | 'cancel-subscription'
@@ -102,7 +98,7 @@ interface IdentityBody {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers: createHeaders(event), body: '' };
   }
 
   try {
@@ -111,7 +107,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Unauthorized' }),
       };
     }
@@ -125,13 +121,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers: createHeaders(event), body: JSON.stringify({ error: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
     // Validate returnUrl if provided — must be smuppy:// deep link or https://smuppy.com
     if (body.returnUrl && !/^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/.test(body.returnUrl)) {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid return URL' }) };
+      return { statusCode: 400, headers: createHeaders(event), body: JSON.stringify({ error: 'Invalid return URL' }) };
     }
 
     switch (body.action) {
@@ -139,7 +135,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await createVerificationSubscription(stripe, profileId);
       case 'confirm-subscription':
         if (!body.returnUrl) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'returnUrl is required' }) };
+          return { statusCode: 400, headers: createHeaders(event), body: JSON.stringify({ error: 'returnUrl is required' }) };
         }
         return await confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl);
       case 'cancel-subscription':
@@ -149,12 +145,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await createVerificationPaymentIntent(profileId);
       case 'confirm-payment':
         if (!body.paymentIntentId || !body.returnUrl) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'paymentIntentId and returnUrl are required' }) };
+          return { statusCode: 400, headers: createHeaders(event), body: JSON.stringify({ error: 'paymentIntentId and returnUrl are required' }) };
         }
         return await confirmPaymentAndStartVerification(profileId, body.paymentIntentId, body.returnUrl);
       case 'create-session':
         if (!body.returnUrl) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'returnUrl is required' }) };
+          return { statusCode: 400, headers: createHeaders(event), body: JSON.stringify({ error: 'returnUrl is required' }) };
         }
         return await createVerificationSession(profileId, body.returnUrl);
       case 'get-status':
@@ -164,7 +160,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: createHeaders(event),
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
@@ -172,7 +168,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Identity error:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
@@ -199,13 +195,13 @@ async function createVerificationSubscription(stripe: Stripe, userId: string): P
     );
 
     if (result.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'User not found' }) };
+      return { statusCode: 404, headers: createHeaders(event), body: JSON.stringify({ error: 'User not found' }) };
     }
 
     const { email, full_name, stripe_customer_id, is_verified, verification_subscription_id } = result.rows[0];
 
     if (is_verified) {
-      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+      return { statusCode: 200, headers: createHeaders(event), body: JSON.stringify({ success: true, subscriptionActive: true }) };
     }
 
     // Check existing subscription
@@ -213,7 +209,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string): P
       try {
         const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
         if (sub.status === 'active' || sub.status === 'trialing') {
-          return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+          return { statusCode: 200, headers: createHeaders(event), body: JSON.stringify({ success: true, subscriptionActive: true }) };
         }
         // incomplete — return the pending invoice client secret
         if (sub.status === 'incomplete' && sub.latest_invoice) {
@@ -222,7 +218,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string): P
           if (pi?.client_secret) {
             return {
               statusCode: 200,
-              headers: corsHeaders,
+              headers: createHeaders(event),
               body: JSON.stringify({ success: true, clientSecret: pi.client_secret }),
             };
           }
@@ -269,7 +265,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string): P
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         subscriptionId: subscription.id,
@@ -298,19 +294,19 @@ async function confirmSubscriptionAndStartVerification(
     );
 
     if (result.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'User not found' }) };
+      return { statusCode: 404, headers: createHeaders(event), body: JSON.stringify({ error: 'User not found' }) };
     }
 
     const { verification_subscription_id } = result.rows[0];
     if (!verification_subscription_id) {
-      return { statusCode: 402, headers: corsHeaders, body: JSON.stringify({ error: 'No subscription found' }) };
+      return { statusCode: 402, headers: createHeaders(event), body: JSON.stringify({ error: 'No subscription found' }) };
     }
 
     const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
     if (sub.status !== 'active' && sub.status !== 'trialing') {
       return {
         statusCode: 402,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Subscription not active', status: sub.status }),
       };
     }
@@ -341,7 +337,7 @@ async function cancelVerificationSubscription(stripe: Stripe, userId: string): P
     );
 
     if (!result.rows[0]?.verification_subscription_id) {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'No active subscription' }) };
+      return { statusCode: 400, headers: createHeaders(event), body: JSON.stringify({ error: 'No active subscription' }) };
     }
 
     // Cancel at period end so user keeps verified status until billing period expires
@@ -351,7 +347,7 @@ async function cancelVerificationSubscription(stripe: Stripe, userId: string): P
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         cancelAt: sub.cancel_at,
@@ -386,7 +382,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -397,7 +393,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
     if (is_verified) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'User is already verified' }),
       };
     }
@@ -409,7 +405,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
       if (paymentIntent.status === 'succeeded') {
         return {
           statusCode: 200,
-          headers: corsHeaders,
+          headers: createHeaders(event),
           body: JSON.stringify({
             success: true,
             paymentCompleted: true,
@@ -422,7 +418,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
       if (paymentIntent.status === 'requires_payment_method' || paymentIntent.status === 'requires_confirmation') {
         return {
           statusCode: 200,
-          headers: corsHeaders,
+          headers: createHeaders(event),
           body: JSON.stringify({
             success: true,
             paymentIntent: {
@@ -475,7 +471,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         paymentIntent: {
@@ -510,7 +506,7 @@ async function confirmPaymentAndStartVerification(
     if (paymentIntent.status !== 'succeeded') {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({
           error: 'Payment not completed',
           paymentStatus: paymentIntent.status,
@@ -522,7 +518,7 @@ async function confirmPaymentAndStartVerification(
     if (paymentIntent.metadata.userId !== userId) {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Payment does not belong to this user' }),
       };
     }
@@ -558,7 +554,7 @@ async function createVerificationSession(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -569,7 +565,7 @@ async function createVerificationSession(
     if (verification_payment_status !== 'paid') {
       return {
         statusCode: 402,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({
           error: 'Verification fee not paid',
           message: 'Please pay the $14.90 verification fee first',
@@ -589,7 +585,7 @@ async function createVerificationSession(
           // Session still valid, return existing URL
           return {
             statusCode: 200,
-            headers: corsHeaders,
+            headers: createHeaders(event),
             body: JSON.stringify({
               success: true,
               sessionId: existingSession.id,
@@ -633,7 +629,7 @@ async function createVerificationSession(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         sessionId: verificationSession.id,
@@ -659,7 +655,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -669,7 +665,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
     if (!identity_verification_session_id) {
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({
           success: true,
           hasSession: false,
@@ -693,7 +689,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         hasSession: true,
@@ -721,7 +717,7 @@ async function getVerificationReport(userId: string): Promise<APIGatewayProxyRes
     if (!result.rows[0]?.identity_verification_session_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'No verification session found' }),
       };
     }
@@ -734,7 +730,7 @@ async function getVerificationReport(userId: string): Promise<APIGatewayProxyRes
     if (session.status !== 'verified') {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Verification not completed' }),
       };
     }
@@ -742,7 +738,7 @@ async function getVerificationReport(userId: string): Promise<APIGatewayProxyRes
     // Return limited info for privacy
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         verified: true,

@@ -13,6 +13,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool, SqlParam } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -23,12 +24,7 @@ async function getStripe(): Promise<Stripe> {
   return stripeInstance;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-};
+// CORS headers now dynamically created via createHeaders(event)
 
 interface WalletBody {
   action:
@@ -47,7 +43,7 @@ interface WalletBody {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers: createHeaders(event), body: '' };
   }
 
   try {
@@ -56,7 +52,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Unauthorized' }),
       };
     }
@@ -70,7 +66,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers: createHeaders(event), body: JSON.stringify({ error: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
@@ -92,7 +88,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: createHeaders(event),
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
@@ -100,7 +96,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Wallet error:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
@@ -125,7 +121,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     if (profileResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -135,7 +131,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     if (!['pro_creator', 'pro_business'].includes(profile.account_type)) {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Only Pro accounts can access wallet' }),
       };
     }
@@ -210,7 +206,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         dashboard: {
@@ -300,7 +296,7 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         transactions: result.rows.map(row => ({
@@ -417,7 +413,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         analytics: {
@@ -465,7 +461,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -476,7 +472,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         balance: {
@@ -516,7 +512,7 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -528,7 +524,7 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         payouts: payouts.data.map(p => ({
@@ -564,7 +560,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -581,7 +577,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
     if (availableAmount <= 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'No available balance to payout' }),
       };
     }
@@ -597,7 +593,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         payout: {
@@ -631,7 +627,7 @@ async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyRe
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: createHeaders(event),
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -640,7 +636,7 @@ async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyRe
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: createHeaders(event),
       body: JSON.stringify({
         success: true,
         url: loginLink.url,

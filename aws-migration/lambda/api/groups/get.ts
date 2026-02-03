@@ -93,7 +93,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       FROM group_participants gp
       JOIN profiles p ON gp.user_id = p.id
       WHERE gp.group_id = $1
-      ORDER BY gp.joined_at ASC`,
+      ORDER BY gp.joined_at ASC
+      LIMIT 100`,
       [groupId]
     );
 

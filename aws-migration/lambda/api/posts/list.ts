@@ -11,6 +11,9 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('posts-list');
 
+// UUID validation regex (CLAUDE.md requirement)
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Redis connection (reused across Lambda invocations)
 let redis: Redis | null = null;
 
@@ -54,6 +57,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       type = 'all',
       userId,
     } = event.queryStringParameters || {};
+
+    // Validate userId if provided (prevents SQL injection via malformed input)
+    if (userId && !UUID_REGEX.test(userId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid userId format' }),
+      };
+    }
 
     const parsedLimit = Math.min(parseInt(limit), 50);
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;

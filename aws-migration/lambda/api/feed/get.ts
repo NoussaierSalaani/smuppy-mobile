@@ -125,7 +125,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // - private: only author can see
     const result = await db.query(
       `SELECT
-        p.*,
+        p.id, p.author_id, p.content, p.media_urls, p.media_type,
+        p.likes_count, p.comments_count, p.created_at, p.visibility,
         json_build_object(
           'id', pr.id,
           'username', pr.username,
@@ -146,7 +147,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         )
         ${cursorCondition}
       ORDER BY p.created_at DESC
-      LIMIT $${cursorCondition ? 4 : 3}`,
+      LIMIT $${queryParams.length}`,
       [...queryParams, userId, subscribedCreatorIds.length > 0 ? subscribedCreatorIds : []]
     );
 

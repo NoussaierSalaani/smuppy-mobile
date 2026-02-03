@@ -8,7 +8,10 @@ import {
   RefreshControl,
   ActivityIndicator,
   ScrollView,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import * as Clipboard from 'expo-clipboard';
 // FlashList import removed - not used
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -1338,10 +1341,25 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (posts.length === 0) {
         return renderEmpty();
       }
+      const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
+      const cardAspect = postColumns === 1 ? 0.9 : 1;
+      const gridPadding = 16 * 2;
+      const gridGap = 12;
+      const totalGaps = gridGap * (postColumns - 1);
+      const cardWidth = (SCREEN_WIDTH - gridPadding - totalGaps) / postColumns;
       return (
         <View style={styles.postsGrid}>
           {posts.map((post) => (
-            <View key={post.id} style={styles.postCardWrapper}>
+            <View
+              key={post.id}
+              style={[
+                styles.postCardWrapper,
+                {
+                  width: cardWidth,
+                  aspectRatio: cardAspect,
+                },
+              ]}
+            >
               {renderPostItem({ item: post })}
             </View>
           ))}

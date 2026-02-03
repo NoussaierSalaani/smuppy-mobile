@@ -368,15 +368,17 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 8,
+    columnGap: 12,
+    rowGap: 12,
+    alignItems: 'flex-start',
   },
   postCardWrapper: {
-    width: (SCREEN_WIDTH - 48) / 3,
+    // width is set dynamically via flexBasis/maxWidth inline styles
   },
   postCard: {
-    width: (SCREEN_WIDTH - 48) / 3,
-    height: 140,
-    borderRadius: 12,
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.gray100,
   },

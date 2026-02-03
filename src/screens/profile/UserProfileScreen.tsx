@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -131,10 +131,11 @@ const UserProfileScreen = () => {
   }, [profileData, userId]);
   
   // États
-  const [isFan, setIsFan] = useState(false);
+  // Initialize isFan from React Query cache so remounts show correct state instantly
+  const cachedProfile = queryClient.getQueryData<ProfileApiData>(queryKeys.user.profile(userId || ''));
+  const [isFan, setIsFan] = useState(cachedProfile?.is_following ?? false);
   const [isRequested, setIsRequested] = useState(false); // For private account follow requests
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
-  const hasUserInteracted = useRef(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -195,29 +196,23 @@ const UserProfileScreen = () => {
 
   // Sync follow status from profile data (API returns is_following)
   useEffect(() => {
-    const syncFollowStatus = async () => {
-      if (!profileData) return;
+    if (!profileData) return;
+    let cancelled = false;
 
-      // Skip sync if user just interacted (optimistic update takes precedence)
-      if (hasUserInteracted.current) {
-        hasUserInteracted.current = false;
-        return;
-      }
+    // Use is_following from profile API response (or cache)
+    const isFollowingFromApi = profileData.is_following ?? false;
+    setIsFan(isFollowingFromApi);
 
-      // Use is_following from profile API response
-      const isFollowingFromApi = profileData.is_following ?? false;
-      setIsFan(isFollowingFromApi);
+    // If not following and profile is private, check for pending request
+    if (!isFollowingFromApi && userId) {
+      hasPendingFollowRequest(userId).then(({ pending }) => {
+        if (!cancelled) setIsRequested(pending);
+      });
+    } else {
+      setIsRequested(false);
+    }
 
-      // If not following and profile is private, check for pending request
-      if (!isFollowingFromApi && userId) {
-        const { pending } = await hasPendingFollowRequest(userId);
-        if (hasUserInteracted.current) return;
-        setIsRequested(pending);
-      } else {
-        setIsRequested(false);
-      }
-    };
-    syncFollowStatus();
+    return () => { cancelled = true; };
   }, [profileData, userId]);
 
   // Load user's posts
@@ -329,7 +324,6 @@ const UserProfileScreen = () => {
   // Cancel follow request
   const handleCancelRequest = async () => {
     if (!userId || isLoadingFollow) return;
-    hasUserInteracted.current = true;
 
     setShowCancelRequestModal(false);
     setIsLoadingFollow(true);
@@ -360,7 +354,6 @@ const UserProfileScreen = () => {
   const becomeFan = async () => {
     // Guard: require userId and not loading
     if (!userId || isLoadingFollow || isOwnProfile) return;
-    hasUserInteracted.current = true;
 
     setIsLoadingFollow(true);
 
@@ -371,6 +364,11 @@ const UserProfileScreen = () => {
     } else {
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
+      // Optimistically update React Query cache so navigating away/back persists fan state
+      queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+        if (!old) return old;
+        return { ...old, is_following: true, fan_count: (old.fan_count ?? 0) + 1 };
+      });
     }
 
     try {
@@ -384,6 +382,8 @@ const UserProfileScreen = () => {
           setIsFan(false);
           setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
         }
+        // Revert cache to server truth
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
 
         if (cooldown?.blocked) {
           setBlockEndDate(new Date(cooldown.until));
@@ -405,6 +405,11 @@ const UserProfileScreen = () => {
         if (!wasPrivate) {
           setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
         }
+        // Update cache: not following yet (pending request)
+        queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+          if (!old) return old;
+          return { ...old, is_following: false };
+        });
       } else {
         // Direct follow was successful
         setIsFan(true);
@@ -412,6 +417,11 @@ const UserProfileScreen = () => {
         // Ensure fan count is incremented (may already be from optimistic update)
         if (wasPrivate) {
           setLocalFanCount(prev => (prev ?? 0) + 1);
+          // Update cache now that follow is confirmed
+          queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+            if (!old) return old;
+            return { ...old, is_following: true, fan_count: (old.fan_count ?? 0) + 1 };
+          });
         }
         if (useUserStore.getState().user?.accountType !== 'pro_business') {
           useVibeStore.getState().addVibeAction('follow_user');
@@ -420,10 +430,10 @@ const UserProfileScreen = () => {
 
       registerToggleAndMaybeBlock();
 
-      // Delay invalidation to let the backend commit the follow
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
-      }, 1000);
+      // NOTE: No invalidateQueries here — the setQueryData above already has the correct
+      // is_following value. Re-fetching too soon would hit the read replica which may not
+      // have replicated the follow yet, causing the button to revert. The natural staleTime
+      // (5 min) handles eventual consistency.
     } catch (err) {
       // Revert optimistic update on unexpected error
       if (wasPrivate) {
@@ -432,6 +442,8 @@ const UserProfileScreen = () => {
         setIsFan(false);
         setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
       }
+      // Revert cache to server truth
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
       showError('Follow Failed', 'Something went wrong. Please try again.');
       if (__DEV__) console.warn('[UserProfile] becomeFan unexpected error:', err);
     } finally {
@@ -442,22 +454,26 @@ const UserProfileScreen = () => {
   const confirmUnfan = async () => {
     // Guard: require userId and not loading
     if (!userId || isLoadingFollow || isOwnProfile) return;
-    hasUserInteracted.current = true;
 
     setShowUnfanModal(false);
 
     setIsLoadingFollow(true);
-    // Optimistic update
+    // Optimistic update: local state + cache
     setIsFan(false);
     setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+    queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+      if (!old) return old;
+      return { ...old, is_following: false, fan_count: Math.max((old.fan_count ?? 1) - 1, 0) };
+    });
 
     try {
       const { error, cooldown } = await unfollowUser(userId);
 
       if (error) {
-        // Revert on error
+        // Revert on error: local state + cache
         setIsFan(true);
         setLocalFanCount(prev => (prev ?? 0) + 1);
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
         showError('Unfollow Failed', 'Unable to unfollow this user. Please try again.');
         if (__DEV__) console.warn('[UserProfile] Unfollow error:', error);
         return;
@@ -472,14 +488,13 @@ const UserProfileScreen = () => {
 
       registerToggleAndMaybeBlock();
 
-      // Delay invalidation to let the backend commit the unfollow
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
-      }, 1000);
+      // NOTE: No invalidateQueries here — setQueryData above already has correct is_following.
+      // Re-fetching too soon would hit the read replica (replication lag) and revert the button.
     } catch (err) {
-      // Revert on unexpected error
+      // Revert on unexpected error: local state + cache
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
       showError('Unfollow Failed', 'Something went wrong. Please try again.');
       if (__DEV__) console.warn('[UserProfile] confirmUnfan unexpected error:', err);
     } finally {
@@ -686,7 +701,10 @@ const UserProfileScreen = () => {
       if (posts.length === 0) return renderEmpty('posts');
       const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
       const cardAspect = postColumns === 1 ? 0.9 : 1;
-      const columnWidthPct = 100 / postColumns;
+      const gridPadding = 16 * 2;
+      const gridGap = 12;
+      const totalGaps = gridGap * (postColumns - 1);
+      const cardWidth = (SCREEN_WIDTH - gridPadding - totalGaps) / postColumns;
       return (
         <View style={styles.postsGrid}>
           {posts.map((post, index) => (
@@ -695,8 +713,7 @@ const UserProfileScreen = () => {
               style={[
                 styles.postCardWrapper,
                 {
-                  flexBasis: `${columnWidthPct}%`,
-                  maxWidth: `${columnWidthPct}%`,
+                  width: cardWidth,
                   aspectRatio: cardAspect,
                 },
               ]}
@@ -794,23 +811,7 @@ const UserProfileScreen = () => {
         />
       </View>
 
-      {/* Back Button */}
-      <TouchableOpacity
-        style={[styles.backBtn, { top: insets.top + 8 }]}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
-
-      {/* Menu Button - only show for other users' profiles */}
-      {!isOwnProfile && (
-        <TouchableOpacity
-          style={[styles.menuBtn, { top: insets.top + 8 }]}
-          onPress={() => setShowMenuModal(true)}
-        >
-          <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
+      {/* Back & Menu buttons moved outside ScrollView for fixed positioning */}
 
       {/* Spacer for cover height */}
       <View style={styles.coverSpacer} />
@@ -855,7 +856,7 @@ const UserProfileScreen = () => {
         </View>
       </View>
 
-      {/* Name & Share Button */}
+      {/* Name & Action Icons */}
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
           <Text style={styles.displayName}>{profile.displayName}</Text>
@@ -866,6 +867,13 @@ const UserProfileScreen = () => {
             accountType={profile.accountType}
             followerCount={localFanCount ?? profile.fanCount ?? 0}
           />
+          {/* Fan badge when following */}
+          {!isOwnProfile && isFan && (
+            <View style={styles.fanBadge}>
+              <SmuppyHeartIcon size={10} color="#0EBF8A" filled />
+              <Text style={styles.fanBadgeText}>Fan</Text>
+            </View>
+          )}
           {profile.isPrivate && (
             <View style={styles.privateBadge}>
               <Ionicons name="lock-closed" size={12} color={colors.gray} />
@@ -877,9 +885,17 @@ const UserProfileScreen = () => {
             </View>
           )}
         </View>
-        <TouchableOpacity style={styles.actionBtn} onPress={handleShareProfile}>
-          <Ionicons name="share-outline" size={18} color={colors.dark} />
-        </TouchableOpacity>
+        <View style={styles.nameActions}>
+          {/* Message icon — only when fan and not own profile */}
+          {!isOwnProfile && isFan && (
+            <TouchableOpacity style={styles.actionBtn} onPress={handleMessagePress}>
+              <Ionicons name="chatbubble-outline" size={18} color={colors.dark} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.actionBtn} onPress={handleShareProfile}>
+            <Ionicons name="share-outline" size={18} color={colors.dark} />
+          </TouchableOpacity>
+        </View>
       </View>
 
 
@@ -908,9 +924,9 @@ const UserProfileScreen = () => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtonsContainer}>
-        {/* Row 1: Fan + Message (or Edit Profile if own profile) */}
-        <View style={styles.actionButtonsRow}>
-          {isOwnProfile ? (
+        {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
+        {isOwnProfile ? (
+          <View style={styles.actionButtonsRow}>
             <TouchableOpacity
               style={styles.editProfileButton}
               onPress={() => navigation.navigate('EditProfile' as never)}
@@ -918,47 +934,30 @@ const UserProfileScreen = () => {
               <Ionicons name="pencil-outline" size={18} color={colors.dark} />
               <Text style={styles.editProfileText}>Edit Profile</Text>
             </TouchableOpacity>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[
-                  styles.fanButton,
-                  isFan && styles.fanButtonActive,
-                  isRequested && styles.fanButtonRequested
-                ]}
-                onPress={handleFanPress}
-                disabled={isLoadingFollow}
-              >
-                {isLoadingFollow ? (
-                  <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
-                ) : (
-                  <Text style={[
-                    styles.fanButtonText,
-                    isFan && styles.fanButtonTextActive,
-                    isRequested && styles.fanButtonTextRequested
-                  ]}>
-                    {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {(isFan || profile.accountType === 'pro_creator') && (
-                <TouchableOpacity
-                  style={[styles.messageButton, !isFan && styles.messageButtonDisabled]}
-                  onPress={handleMessagePress}
-                  disabled={!isFan}
-                >
-                  <Ionicons
-                    name={isFan ? 'chatbubble-outline' : 'lock-closed-outline'}
-                    size={18}
-                    color={colors.dark}
-                  />
-                  <Text style={styles.messageText}>Message</Text>
-                </TouchableOpacity>
+          </View>
+        ) : !isFan ? (
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity
+              style={[
+                styles.fanButton,
+                isRequested && styles.fanButtonRequested
+              ]}
+              onPress={handleFanPress}
+              disabled={isLoadingFollow}
+            >
+              {isLoadingFollow ? (
+                <ActivityIndicator size="small" color={isRequested ? '#8E8E93' : '#0EBF8A'} />
+              ) : (
+                <Text style={[
+                  styles.fanButtonText,
+                  isRequested && styles.fanButtonTextRequested
+                ]}>
+                  {isRequested ? 'Requested' : 'Become a fan'}
+                </Text>
               )}
-            </>
-          )}
-        </View>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
         {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
@@ -1082,13 +1081,25 @@ const UserProfileScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
 
-      {/* Fixed Header */}
-      {renderHeader()}
+      {/* Back Button - Fixed on top */}
+      <TouchableOpacity
+        style={[styles.backBtnFixed, { top: insets.top + 8 }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
 
-      {/* Fixed Tabs */}
-      {renderTabs()}
+      {/* Menu Button - Fixed on top */}
+      {!isOwnProfile && (
+        <TouchableOpacity
+          style={[styles.menuBtnFixed, { top: insets.top + 8 }]}
+          onPress={() => setShowMenuModal(true)}
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
 
-      {/* Scrollable Content Area */}
+      {/* Fully Scrollable Profile - Header, Tabs, and Content all scroll together */}
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
@@ -1096,9 +1107,17 @@ const UserProfileScreen = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
+        stickyHeaderIndices={[1]}
       >
+        {/* Scrollable Header */}
+        {renderHeader()}
+
+        {/* Sticky Tabs */}
+        {renderTabs()}
+
+        {/* Tab Content */}
         {renderTabContent()}
-        <View style={{ height: 120 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Modal Unfan Confirmation */}
@@ -1249,6 +1268,19 @@ const UserProfileScreen = () => {
               <Text style={styles.menuItemText}>Share Profile</Text>
             </TouchableOpacity>
 
+            {isFan && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  setShowUnfanModal(true);
+                }}
+              >
+                <Ionicons name="heart-dislike-outline" size={22} color={colors.dark} />
+                <Text style={styles.menuItemText}>Unfan</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity style={styles.menuItem} onPress={handleReportUser}>
               <Ionicons name="flag-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Report</Text>
@@ -1323,27 +1355,27 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   coverSpacer: {
     height: COVER_HEIGHT - 60,
   },
-  backBtn: {
+  backBtnFixed: {
     position: 'absolute',
     left: 16,
     padding: 8,
-    zIndex: 10,
+    zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.5,
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 10,
   },
-  menuBtn: {
+  menuBtnFixed: {
     position: 'absolute',
     right: 16,
     padding: 8,
-    zIndex: 10,
+    zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.5,
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 10,
   },
 
   // ===== AVATAR ROW =====
@@ -1432,6 +1464,27 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   badge: {
     marginLeft: 6,
+  },
+  fanBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+    flexShrink: 0,
+  },
+  fanBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0EBF8A',
+  },
+  nameActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   teamBadge: {
     marginLeft: 6,
@@ -1775,6 +1828,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   scrollContentContainer: {
     paddingTop: 0,
     paddingBottom: 20,
+  },
+  bottomSpacer: {
+    height: 120,
   },
 
   // ===== POSTS GRID =====

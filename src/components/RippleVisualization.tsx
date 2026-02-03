@@ -95,7 +95,7 @@ const RippleVisualization: React.FC<RippleVisualizationProps> = ({ size, childre
   const ringColor = rippleLevel.color;
 
   return (
-    <View style={[styles.container, { width: size + 40, height: size + 40 }]}>
+    <View style={[styles.container, { width: size, height: size }]}>
       {/* Ripple rings */}
       {ringAnims.map((anim, i) => (
         <Animated.View
@@ -126,6 +126,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
   },
   ring: {
     position: 'absolute',

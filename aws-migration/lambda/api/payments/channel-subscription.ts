@@ -134,11 +134,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
   } catch (error: unknown) {
     console.error('Channel subscription error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'Internal server error', debug: process.env.ENVIRONMENT !== 'production' ? errorMessage : undefined }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 };
@@ -168,7 +167,7 @@ async function subscribeToChannel(
 
     // Get creator info (fan count, stripe account, channel price)
     const creatorResult = await client.query(
-      `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name, p.account_type,
+      `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name,
               (SELECT COUNT(*) FROM follows WHERE following_id = p.id) as fan_count
        FROM profiles p
        WHERE p.id = $1 AND p.account_type IN ('pro_creator', 'pro_business')`,
@@ -186,25 +185,10 @@ async function subscribeToChannel(
     const creator = creatorResult.rows[0];
 
     if (!creator.stripe_account_id) {
-      // Debug: also check what profileId the JWT resolves to
-      const debugFanProfile = await client.query(
-        'SELECT id, stripe_account_id, account_type FROM profiles WHERE id = $1',
-        [fanUserId]
-      );
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({
-          error: 'Creator has not set up payments yet',
-          debug: process.env.ENVIRONMENT !== 'production' ? {
-            creatorId,
-            creatorDbId: creator.id,
-            creatorAccountType: creator.account_type,
-            creatorStripeId: creator.stripe_account_id,
-            fanUserId,
-            fanStripeId: debugFanProfile.rows[0]?.stripe_account_id,
-          } : undefined,
-        }),
+        body: JSON.stringify({ error: 'Creator has not set up payments yet' }),
       };
     }
 

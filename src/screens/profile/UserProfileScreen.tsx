@@ -437,7 +437,6 @@ const UserProfileScreen = () => {
 
   // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-  // geStyles removed - unified Activities without Event/Group toggle
 
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {

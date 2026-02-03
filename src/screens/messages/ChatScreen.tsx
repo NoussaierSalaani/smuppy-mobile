@@ -415,9 +415,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 accountType={otherUserProfile?.account_type}
               />
             </View>
-            {otherUserProfile?.username && (
-              <Text style={styles.headerStatus}>@{otherUserProfile.username}</Text>
-            )}
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerIcon} onPress={() => setChatMenuVisible(true)}>

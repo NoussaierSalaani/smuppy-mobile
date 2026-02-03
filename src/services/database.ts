@@ -176,10 +176,12 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
   // Business accounts use businessName as their display name
   const isBusiness = p.accountType === 'pro_business';
   const businessDisplayName = isBusiness && p.businessName ? p.businessName : null;
+  // If fullName equals username, treat as empty (legacy data issue)
+  const effectiveFullName = p.fullName && p.fullName !== p.username ? p.fullName : '';
   return {
     id: p.id,
     username: p.username,
-    full_name: businessDisplayName || p.fullName || '',
+    full_name: businessDisplayName || effectiveFullName,
     display_name: businessDisplayName || p.displayName || undefined,
     avatar_url: p.avatarUrl,
     cover_url: p.coverUrl || undefined,
@@ -249,7 +251,7 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
       try {
         const newProfile = await awsAPI.updateProfile({
           username,
-          fullName: user.attributes?.name || username,
+          fullName: user.attributes?.name || '',
         });
         return { data: convertProfile(newProfile), error: null };
       } catch (createError: unknown) {
@@ -485,7 +487,7 @@ export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> =
       try {
         const newProfile = await awsAPI.updateProfile({
           username,
-          fullName: user.attributes?.name || username,
+          fullName: user.attributes?.name || '',
         });
         return { data: convertProfile(newProfile), error: null, created: true };
       } catch (createError: unknown) {

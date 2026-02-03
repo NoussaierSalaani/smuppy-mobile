@@ -237,3 +237,30 @@ For every endpoint, verify:
 - [ ] Lambda changes deployed and verified with `aws lambda invoke`
 - [ ] No `^` on AWS SDK or Stripe versions in Lambda package.json
 - [ ] Presigned URLs tested — no unexpected checksum headers
+
+## React Native Performance (Callstack Best Practices)
+
+Reference: `~/.claude/skills/react-native-best-practices/`
+
+### Critical Optimizations
+- **Lists**: Use FlashList/FlatList instead of ScrollView for large lists
+- **Re-renders**: Use React Compiler or manual memoization (useMemo, useCallback, React.memo)
+- **State**: Use atomic state (Zustand) to minimize re-renders
+- **Bundle**: Avoid barrel imports, enable tree shaking
+- **Animations**: Use Reanimated worklets for 60 FPS animations
+
+### Performance Commands
+```bash
+# Analyze bundle size
+npx react-native bundle --entry-file index.js --bundle-output output.js --platform ios --sourcemap-output output.js.map --dev false --minify true
+npx source-map-explorer output.js --no-border-checks
+
+# Profile React components (open DevTools: press 'j' in Metro)
+```
+
+### Priority Order
+1. FPS & Re-renders (CRITICAL)
+2. Bundle Size (CRITICAL)
+3. TTI/Startup Time (HIGH)
+4. Native Performance (HIGH)
+5. Memory Management (MEDIUM)

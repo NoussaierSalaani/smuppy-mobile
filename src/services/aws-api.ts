@@ -622,7 +622,7 @@ class AWSAPIService {
     else if (filename.startsWith('peaks/')) uploadType = 'peak';
     else if (filename.startsWith('messages/')) uploadType = 'message';
 
-    if (__DEV__) console.error('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
+    if (__DEV__) console.log('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
 
     return this.request('/media/upload-url', {
       method: 'POST',

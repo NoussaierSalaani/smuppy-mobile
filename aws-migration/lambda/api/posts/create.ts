@@ -15,7 +15,7 @@ const log = createLogger('posts-create');
 interface CreatePostInput {
   content?: string;
   mediaUrls?: string[];
-  mediaType?: 'image' | 'video';
+  mediaType?: 'image' | 'video' | 'multiple';
   visibility?: 'public' | 'followers' | 'fans' | 'private' | 'subscribers';
   taggedUsers?: string[];
 }

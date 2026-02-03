@@ -30,6 +30,7 @@ interface Participant {
   id: string;
   user_id: string;
   username: string;
+  full_name?: string;
   profile_picture_url?: string;
   is_verified: boolean;
   status: 'pending' | 'accepted' | 'declined' | 'ready';
@@ -289,7 +290,7 @@ export default function BattleLobbyScreen() {
           <View style={styles.participantInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.participantName}>
-                {isCurrentUser ? 'You' : participant.username}
+                {isCurrentUser ? 'You' : participant.full_name || participant.username}
               </Text>
               {participant.is_verified && (
                 <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />

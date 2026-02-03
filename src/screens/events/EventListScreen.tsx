@@ -53,6 +53,7 @@ interface Event {
   organizer: {
     id: string;
     username: string;
+    full_name?: string;
     profile_picture_url?: string;
     is_verified: boolean;
   };
@@ -480,7 +481,7 @@ export default function EventListScreen() {
                 }}
                 style={styles.organizerAvatar}
               />
-              <Text style={styles.organizerName}>{item.organizer.username}</Text>
+              <Text style={styles.organizerName}>{item.organizer.full_name || item.organizer.username}</Text>
               {item.organizer.is_verified && (
                 <Ionicons name="checkmark-circle" size={12} color="#00BFFF" />
               )}

@@ -109,6 +109,7 @@ interface Review {
   user: {
     id: string;
     username: string;
+    full_name?: string;
     avatar_url?: string;
   };
   rating: number;
@@ -318,7 +319,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
           style={styles.reviewAvatar}
         />
         <View style={styles.reviewUserInfo}>
-          <Text style={styles.reviewUsername}>{item.user.username}</Text>
+          <Text style={styles.reviewUsername}>{item.user.full_name || item.user.username}</Text>
           {renderStars(item.rating)}
         </View>
         <Text style={styles.reviewDate}>

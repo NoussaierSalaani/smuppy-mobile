@@ -36,6 +36,7 @@ interface Participant {
   id: string;
   user_id: string;
   username: string;
+  full_name?: string;
   profile_picture_url?: string;
   is_verified: boolean;
   tips_received: number;
@@ -46,6 +47,7 @@ interface Participant {
 interface TipEvent {
   id: string;
   sender_username: string;
+  sender_full_name?: string;
   receiver_username: string;
   amount: number;
   created_at: string;
@@ -55,6 +57,7 @@ interface Comment {
   id: string;
   user_id: string;
   username: string;
+  full_name?: string;
   profile_picture_url?: string;
   text: string;
   created_at: string;
@@ -221,7 +224,7 @@ export default function BattleStreamScreen() {
             }}
             style={styles.streamAvatar}
           />
-          <Text style={styles.streamUsername}>{participant.username}</Text>
+          <Text style={styles.streamUsername}>{participant.full_name || participant.username}</Text>
         </View>
 
         {/* Leading indicator */}
@@ -303,7 +306,7 @@ export default function BattleStreamScreen() {
         >
           <Ionicons name="gift" size={20} color="#000" />
           <View>
-            <Text style={styles.tipAnimationSender}>{tip.sender_username}</Text>
+            <Text style={styles.tipAnimationSender}>{tip.sender_full_name || tip.sender_username}</Text>
             <Text style={styles.tipAnimationAmount}>sent {formatAmount(tip.amount)}</Text>
           </View>
         </LinearGradient>
@@ -313,7 +316,7 @@ export default function BattleStreamScreen() {
 
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.comment}>
-      <Text style={styles.commentUsername}>{item.username}</Text>
+      <Text style={styles.commentUsername}>{item.full_name || item.username}</Text>
       <Text style={styles.commentText}>{item.text}</Text>
     </View>
   );
@@ -417,7 +420,7 @@ export default function BattleStreamScreen() {
           receiver={{
             id: selectedParticipant.user_id,
             username: selectedParticipant.username,
-            displayName: selectedParticipant.username,
+            displayName: selectedParticipant.full_name || selectedParticipant.username,
             avatarUrl: selectedParticipant.profile_picture_url,
           }}
           contextType="battle"

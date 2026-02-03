@@ -127,7 +127,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
         <Animated.View style={[styles.textContainer, { opacity: fadeAnim }]}>
           <Text style={styles.title}>Bienvenue dans la communauté !</Text>
           <Text style={styles.subtitle}>
-            Vous êtes maintenant abonné(e) à @{creator.username}
+            Vous êtes maintenant abonné(e) à {creator.name}
           </Text>
 
           {/* Tier Info */}

@@ -815,7 +815,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {post.author && (
             <View style={styles.collectionMeta}>
               <AvatarImage source={post.author.avatar_url} size={18} />
-              <Text style={styles.collectionAuthorName}>{post.author.full_name}</Text>
+              <Text style={styles.collectionAuthorName}>{post.author.full_name || post.author.username}</Text>
               <SmuppyHeartIcon size={12} color="#FF6B6B" filled />
               <Text style={styles.collectionLikes}>{post.likes_count || 0}</Text>
             </View>

@@ -438,7 +438,7 @@ See you there!`,
             />
             <View style={styles.organizerInfo}>
               <View style={styles.organizerNameRow}>
-                <Text style={styles.organizerName}>{event.organizer.full_name}</Text>
+                <Text style={styles.organizerName}>{event.organizer.full_name || event.organizer.username}</Text>
                 {event.organizer.is_verified && (
                   <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
                 )}

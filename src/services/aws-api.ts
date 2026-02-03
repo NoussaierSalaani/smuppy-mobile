@@ -3311,6 +3311,7 @@ export interface Post {
   mediaType: 'image' | 'video' | null;
   isPeak?: boolean;
   location?: string | null;
+  tags?: string[];
   taggedUsers?: TaggedUser[];
   likesCount: number;
   commentsCount: number;

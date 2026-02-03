@@ -25,8 +25,9 @@ interface TopTipper {
   rank: number;
   user_id: string;
   username: string;
+  display_name?: string;
   profile_picture_url?: string;
-  is_verified: boolean;
+  is_verified?: boolean;
   total_tips: number;
   tip_count: number;
 }
@@ -75,7 +76,17 @@ export default function TipLeaderboard({
       const response = await awsAPI.getTipsLeaderboard(creatorId, selectedPeriod);
 
       if (response.success) {
-        const tippers = (response.leaderboard || []).slice(0, maxItems);
+        // Transform API response to flat structure
+        const tippers: TopTipper[] = (response.leaderboard || []).slice(0, maxItems).map((item: any) => ({
+          rank: item.rank,
+          user_id: item.tipper?.id || item.user_id,
+          username: item.tipper?.username || item.username,
+          display_name: item.tipper?.displayName || item.display_name,
+          profile_picture_url: item.tipper?.avatarUrl || item.profile_picture_url,
+          is_verified: item.tipper?.isVerified || item.is_verified || false,
+          total_tips: item.totalAmount || item.total_tips || 0,
+          tip_count: item.tipCount || item.tip_count || 0,
+        }));
         setTopTippers(tippers);
 
         // Initialize animations
@@ -135,9 +146,9 @@ export default function TipLeaderboard({
             </View>
           </View>
 
-          {/* Username */}
+          {/* Display Name */}
           <Text style={styles.podiumUsername} numberOfLines={1}>
-            @{tipper.username}
+            {tipper.display_name || tipper.username}
           </Text>
 
           {/* Amount */}
@@ -182,7 +193,7 @@ export default function TipLeaderboard({
           <AvatarImage source={item.profile_picture_url} size={40} style={styles.listAvatar} />
           <View style={styles.listInfo}>
             <View style={styles.listNameRow}>
-              <Text style={styles.listUsername}>@{item.username}</Text>
+              <Text style={styles.listUsername}>{item.display_name || item.username}</Text>
               {item.is_verified && (
                 <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
               )}
@@ -238,7 +249,7 @@ export default function TipLeaderboard({
                     source={{
                       uri:
                         tipper.profile_picture_url ||
-                        `https://ui-avatars.com/api/?name=${tipper.username}&background=random`,
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(tipper.display_name || tipper.username)}&background=random`,
                     }}
                     style={styles.compactAvatar}
                   />
@@ -247,7 +258,7 @@ export default function TipLeaderboard({
                   </View>
                 </View>
                 <Text style={styles.compactUsername} numberOfLines={1}>
-                  {tipper.username}
+                  {tipper.display_name || tipper.username}
                 </Text>
                 <Text style={[styles.compactAmount, { color: RANK_COLORS[index] }]}>
                   {formatAmount(tipper.total_tips)}

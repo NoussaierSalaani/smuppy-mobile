@@ -73,8 +73,8 @@ export default function Button({
 
   const currentSize = sizeStyles[size];
 
-  // Get variant styles
-  const getVariantStyles = () => {
+  // Get variant styles - memoized to prevent recalculation on every render
+  const variantStyles = useMemo(() => {
     const variants = {
       primary: {
         gradient: disabled ? GRADIENTS.buttonDisabled : GRADIENTS.button,
@@ -131,9 +131,7 @@ export default function Button({
       },
     };
     return variants[variant] || variants.primary;
-  };
-
-  const variantStyles = getVariantStyles();
+  }, [variant, disabled, isDark, colors]);
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render icon

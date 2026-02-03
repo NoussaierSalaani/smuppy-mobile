@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -70,6 +70,11 @@ export default function Input({
   const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isSecure, setIsSecure] = useState(secureTextEntry);
+
+  // Sync isSecure state when secureTextEntry prop changes
+  useEffect(() => {
+    setIsSecure(secureTextEntry);
+  }, [secureTextEntry]);
 
   // Determine current state
   const getState = (): InputState => {

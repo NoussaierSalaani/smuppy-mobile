@@ -349,7 +349,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
               accountType={item.accountType}
             />
           </View>
-          <Text style={styles.userUsername}>{item.username}</Text>
         </View>
 
         {renderBadge(item)}

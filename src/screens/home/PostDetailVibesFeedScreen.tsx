@@ -147,8 +147,7 @@ const PostDetailVibesFeedScreen = () => {
 
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
       if (!isLiked) {
-        setIsLiked(true);
-        triggerLikeAnimation();
+        toggleLike(); // Call API to persist the like
       }
     } else {
       if (currentPost.type === 'video') {

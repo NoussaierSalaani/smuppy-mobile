@@ -34,10 +34,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         json_build_object(
           'id', pr.id,
           'username', pr.username,
-          'full_name', pr.full_name,
-          'avatar_url', pr.avatar_url,
-          'is_verified', pr.is_verified,
-          'account_type', pr.account_type
+          'fullName', pr.full_name,
+          'avatarUrl', pr.avatar_url,
+          'isVerified', pr.is_verified,
+          'accountType', pr.account_type
         ) as author
       FROM posts p
       LEFT JOIN profiles pr ON p.author_id = pr.id

@@ -235,11 +235,10 @@ const PeakViewScreen = (): React.JSX.Element => {
     if (isInChain) {
       setIsInChain(false);
     } else {
-      // Like the peak
+      // Like the peak (only if not already liked)
       if (!likedPeaks.has(currentPeak.id)) {
-        setLikedPeaks(prev => new Set(prev).add(currentPeak.id));
+        toggleLike(); // Call API to persist the like
       }
-      animateHeart();
       setCarouselVisible(true);
     }
   };

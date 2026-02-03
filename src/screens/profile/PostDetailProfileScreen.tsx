@@ -304,10 +304,9 @@ const PostDetailProfileScreen = () => {
     const DOUBLE_TAP_DELAY = 300;
 
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected
+      // Double tap detected - call API to persist
       if (!isLiked) {
-        setIsLiked(true);
-        triggerLikeAnimation();
+        toggleLike();
       }
     } else {
       // Single tap - toggle pause/play for video
@@ -436,11 +435,11 @@ const PostDetailProfileScreen = () => {
             disabled={likeLoading}
           >
             {likeLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={colors.heartRed} />
             ) : (
               <SmuppyHeartIcon
                 size={28}
-                color={isLiked ? colors.primary : '#FFF'}
+                color={isLiked ? colors.heartRed : '#FFF'}
                 filled={isLiked}
               />
             )}

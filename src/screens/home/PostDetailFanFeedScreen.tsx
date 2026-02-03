@@ -178,10 +178,9 @@ const PostDetailFanFeedScreen = () => {
     const DOUBLE_TAP_DELAY = 300;
 
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected - Like
+      // Double tap detected - Like (only if not already liked)
       if (!likedPosts[currentPost.id]) {
-        setLikedPosts(prev => ({ ...prev, [currentPost.id]: true }));
-        triggerLikeAnimation();
+        toggleLike(currentPost.id); // Call API to persist the like
       }
     } else {
       // Single tap - toggle pause/play for video

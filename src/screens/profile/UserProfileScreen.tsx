@@ -922,112 +922,114 @@ const UserProfileScreen = () => {
         </View>
       ) : null}
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
-        {isOwnProfile ? (
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity
-              style={styles.editProfileButton}
-              onPress={() => navigation.navigate('EditProfile' as never)}
-            >
-              <Ionicons name="pencil-outline" size={18} color={colors.dark} />
-              <Text style={styles.editProfileText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View>
-        ) : !isFan ? (
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity
-              style={[
-                styles.fanButton,
-                isRequested && styles.fanButtonRequested
-              ]}
-              onPress={handleFanPress}
-              disabled={isLoadingFollow}
-            >
-              {isLoadingFollow ? (
-                <ActivityIndicator size="small" color={isRequested ? '#8E8E93' : '#0EBF8A'} />
-              ) : (
-                <Text style={[
-                  styles.fanButtonText,
-                  isRequested && styles.fanButtonTextRequested
-                ]}>
-                  {isRequested ? 'Requested' : 'Become a fan'}
-                </Text>
+      {/* Action Buttons — only render container when there's content to show */}
+      {(isOwnProfile || !isFan || profile.accountType === 'pro_creator') && (
+        <View style={styles.actionButtonsContainer}>
+          {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
+          {isOwnProfile ? (
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={styles.editProfileButton}
+                onPress={() => navigation.navigate('EditProfile' as never)}
+              >
+                <Ionicons name="pencil-outline" size={18} color={colors.dark} />
+                <Text style={styles.editProfileText}>Edit Profile</Text>
+              </TouchableOpacity>
+            </View>
+          ) : !isFan ? (
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.fanButton,
+                  isRequested && styles.fanButtonRequested
+                ]}
+                onPress={handleFanPress}
+                disabled={isLoadingFollow}
+              >
+                {isLoadingFollow ? (
+                  <ActivityIndicator size="small" color={isRequested ? '#8E8E93' : '#0EBF8A'} />
+                ) : (
+                  <Text style={[
+                    styles.fanButtonText,
+                    isRequested && styles.fanButtonTextRequested
+                  ]}>
+                    {isRequested ? 'Requested' : 'Become a fan'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
+          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
+            <View style={styles.actionButtonsRow}>
+              {FEATURES.CHANNEL_SUBSCRIBE && (
+                <LiquidButton
+                  label="Subscribe"
+                  onPress={() => setShowSubscribeModal(true)}
+                  size="sm"
+                  variant="outline"
+                  style={{ flex: 1 }}
+                  icon={<Ionicons name="star" size={14} color="#E74C3C" />}
+                  iconPosition="left"
+                  colorScheme="green"
+                  textStyle={{ color: '#E74C3C' }}
+                />
               )}
-            </TouchableOpacity>
-          </View>
-        ) : null}
 
-        {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
-        {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
-          <View style={styles.actionButtonsRow}>
-            {FEATURES.CHANNEL_SUBSCRIBE && (
-              <LiquidButton
-                label="Subscribe"
-                onPress={() => setShowSubscribeModal(true)}
-                size="sm"
-                variant="outline"
-                style={{ flex: 1 }}
-                icon={<Ionicons name="star" size={14} color="#E74C3C" />}
-                iconPosition="left"
-                colorScheme="green"
-                textStyle={{ color: '#E74C3C' }}
-              />
-            )}
+              {FEATURES.PRIVATE_SESSIONS && (
+                <LiquidButton
+                  label="Book 1:1"
+                  onPress={() => (navigation as any).navigate('BookSession', {
+                    creator: {
+                      id: profile.id,
+                      name: profile.displayName,
+                      avatar: profile.avatar || '',
+                      specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
+                    }
+                  })}
+                  size="sm"
+                  variant="outline"
+                  style={{ flex: 1 }}
+                  icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
+                  iconPosition="left"
+                  colorScheme="green"
+                  textStyle={{ color: '#3B82F6' }}
+                />
+              )}
 
-            {FEATURES.PRIVATE_SESSIONS && (
-              <LiquidButton
-                label="Book 1:1"
-                onPress={() => (navigation as any).navigate('BookSession', {
-                  creator: {
+              {FEATURES.TIPPING && (
+                <TipButton
+                  recipient={{
                     id: profile.id,
-                    name: profile.displayName,
-                    avatar: profile.avatar || '',
-                    specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
-                  }
-                })}
+                    username: profile.username,
+                    displayName: profile.displayName,
+                    avatarUrl: profile.avatar || undefined,
+                  }}
+                  contextType="profile"
+                  variant="compact"
+                />
+              )}
+            </View>
+          )}
+
+          {/* Row 3: Offerings button (pro_creator only, not own profile) */}
+          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
+            <View style={styles.actionButtonsRow}>
+              <LiquidButton
+                label="View Offerings"
+                onPress={() => (navigation as any).navigate('CreatorOfferings', { creatorId: profile.id })}
                 size="sm"
                 variant="outline"
                 style={{ flex: 1 }}
-                icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
+                icon={<Ionicons name="pricetag" size={14} color="#0EBF8A" />}
                 iconPosition="left"
                 colorScheme="green"
-                textStyle={{ color: '#3B82F6' }}
               />
-            )}
-
-            {FEATURES.TIPPING && (
-              <TipButton
-                recipient={{
-                  id: profile.id,
-                  username: profile.username,
-                  displayName: profile.displayName,
-                  avatarUrl: profile.avatar || undefined,
-                }}
-                contextType="profile"
-                variant="compact"
-              />
-            )}
-          </View>
-        )}
-
-        {/* Row 3: Offerings button (pro_creator only, not own profile) */}
-        {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
-          <View style={styles.actionButtonsRow}>
-            <LiquidButton
-              label="View Offerings"
-              onPress={() => (navigation as any).navigate('CreatorOfferings', { creatorId: profile.id })}
-              size="sm"
-              variant="outline"
-              style={{ flex: 1 }}
-              icon={<Ionicons name="pricetag" size={14} color="#0EBF8A" />}
-              iconPosition="left"
-              colorScheme="green"
-            />
-          </View>
-        )}
-      </View>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Pro Creator Live Section (not own profile) */}
       {!isOwnProfile && FEATURES.VIEWER_LIVE_STREAM && profile.accountType === 'pro_creator' && (

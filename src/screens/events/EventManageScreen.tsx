@@ -190,8 +190,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
     <View style={styles.participantItem}>
       <AvatarImage source={item.avatar_url} size={44} />
       <View style={styles.participantInfo}>
-        <Text style={styles.participantName}>{item.full_name}</Text>
-        <Text style={styles.participantUsername}>@{item.username}</Text>
+        <Text style={styles.participantName}>{item.full_name || item.username}</Text>
       </View>
       <View style={styles.participantMeta}>
         {item.payment_status === 'paid' && (

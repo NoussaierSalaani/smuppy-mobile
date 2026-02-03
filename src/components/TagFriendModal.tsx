@@ -178,7 +178,6 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
         <View style={styles.friendInfo}>
           <Text style={styles.friendName}>{item.name}</Text>
-          <Text style={styles.friendUsername}>@{item.username}</Text>
         </View>
 
         {isTagged ? (

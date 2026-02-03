@@ -475,7 +475,6 @@ const SearchScreen = (): React.JSX.Element => {
             accountType={profile.account_type}
           />
         </View>
-        <Text style={[styles.resultFullName, { color: colors.gray }]}>@{profile.username}</Text>
         {profile.fan_count !== undefined && profile.fan_count > 0 && (
           <Text style={[styles.resultMutual, { color: colors.primary }]}>{profile.fan_count} fans</Text>
         )}
@@ -675,7 +674,6 @@ const SearchScreen = (): React.JSX.Element => {
                   accountType={profile.account_type}
                 />
               </View>
-              <Text style={[styles.resultFullName, { color: colors.gray }]}>@{profile.username}</Text>
               {profile.fan_count !== undefined && profile.fan_count > 0 && (
                 <Text style={[styles.resultMutual, { color: colors.primary }]}>{profile.fan_count} fans</Text>
               )}

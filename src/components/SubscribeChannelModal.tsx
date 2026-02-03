@@ -359,7 +359,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   termsText: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 12,
   },

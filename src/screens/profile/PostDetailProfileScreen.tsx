@@ -65,13 +65,15 @@ const PostDetailProfileScreen = () => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  
+
   // Params
   const params = route.params as { postId?: string; profilePosts?: typeof MOCK_PROFILE_POSTS } || {};
-  const { postId, profilePosts = MOCK_PROFILE_POSTS } = params;
-  const initialIndex = profilePosts.findIndex(p => p.id === postId) || 0;
-  
+  const { postId, profilePosts: passedPosts = MOCK_PROFILE_POSTS } = params;
+
   // States
+  const [posts, setPosts] = useState<PostItem[]>(passedPosts);
+  const [isLoadingPost, setIsLoadingPost] = useState(false);
+  const initialIndex = posts.findIndex(p => p.id === postId) || 0;
   const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -97,9 +99,30 @@ const PostDetailProfileScreen = () => {
   const flatListRef = useRef(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
-  
+
+  // Load post from API if not provided in params
+  useEffect(() => {
+    const loadPost = async () => {
+      if (posts.length > 0 || !postId) return;
+
+      setIsLoadingPost(true);
+      try {
+        const { data, error } = await getPostById(postId);
+        if (data && !error) {
+          setPosts([convertToPostItem(data)]);
+          setCurrentIndex(0);
+        }
+      } catch (err) {
+        if (__DEV__) console.warn('[PostDetailProfile] Failed to load post:', err);
+      } finally {
+        setIsLoadingPost(false);
+      }
+    };
+    loadPost();
+  }, [postId, posts.length]);
+
   // Current post
-  const currentPost = profilePosts[currentIndex];
+  const currentPost = posts[currentIndex];
 
   // Validate UUID format
   const isValidUUID = (id: string) => {
@@ -527,7 +550,7 @@ const PostDetailProfileScreen = () => {
       {/* Posts FlashList (vertical scroll) */}
       <FlashList
         ref={flatListRef}
-        data={profilePosts}
+        data={posts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
         pagingEnabled

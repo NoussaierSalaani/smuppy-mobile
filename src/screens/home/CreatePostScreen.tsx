@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  StatusBar,
 } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -357,8 +358,13 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
+      {/* Safe area fill - covers status bar area on modal presentations */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: colors.background, zIndex: 10 }} />
+
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.background, zIndex: 5 }]}>
         <TouchableOpacity onPress={handleClose}>
           <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
@@ -445,7 +451,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       )}
 
       {/* Gallery Header */}
-      <View style={styles.galleryHeader}>
+      <View style={[styles.galleryHeader, { backgroundColor: colors.background }]}>
         <TouchableOpacity
           style={styles.galleryTab}
           onPress={() => {

@@ -23,7 +23,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
-type OnPressEvent = { geometry: { coordinates: [number, number] } };
+type _OnPressEvent = { geometry: { coordinates: [number, number] } };
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

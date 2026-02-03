@@ -37,6 +37,13 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
 
   const loadSound = async () => {
     try {
+      // Configure audio mode for playback (required on iOS)
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+
       const { sound: newSound, status } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: false },

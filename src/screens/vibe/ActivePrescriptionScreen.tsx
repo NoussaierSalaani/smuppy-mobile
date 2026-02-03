@@ -329,7 +329,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

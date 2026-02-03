@@ -26,6 +26,7 @@ export interface AWSConfig {
   api: {
     restEndpoint: string;
     restEndpoint2: string;
+    restEndpoint3: string;
     graphqlEndpoint: string;
     websocketEndpoint: string;
   };
@@ -49,6 +50,7 @@ const STAGING_DEFAULTS = {
   identityPoolId: 'us-east-1:ff7c6b31-86c7-4bd1-8b91-f0f41adc828a',
   restEndpoint: 'https://90pg0i63ff.execute-api.us-east-1.amazonaws.com/staging',
   restEndpoint2: 'https://lhvm623909.execute-api.us-east-1.amazonaws.com/staging',
+  restEndpoint3: 'https://1e2fsip7a4.execute-api.us-east-1.amazonaws.com/staging',
   graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
   websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
   bucket: 'smuppy-media-staging-471112656108',
@@ -94,6 +96,7 @@ export const getAWSConfig = (): AWSConfig => {
     api: {
       restEndpoint: resolve('EXPO_PUBLIC_API_REST_ENDPOINT', STAGING_DEFAULTS.restEndpoint),
       restEndpoint2: resolve('EXPO_PUBLIC_API_REST_ENDPOINT_2', STAGING_DEFAULTS.restEndpoint2),
+      restEndpoint3: resolve('EXPO_PUBLIC_API_REST_ENDPOINT_3', STAGING_DEFAULTS.restEndpoint3),
       graphqlEndpoint: resolve('EXPO_PUBLIC_API_GRAPHQL_ENDPOINT', STAGING_DEFAULTS.graphqlEndpoint),
       websocketEndpoint: resolve('EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT', STAGING_DEFAULTS.websocketEndpoint),
     },

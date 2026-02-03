@@ -1326,13 +1326,16 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
       created_at: string;
       last_message: { id: string; content: string; created_at: string; sender_id: string } | null;
       unread_count: number;
-      other_participant: { id: string; username: string; display_name: string; avatar_url: string; is_verified: boolean } | null;
+      other_participant: { id: string; username: string; full_name?: string; display_name?: string; avatar_url: string; is_verified: boolean; account_type?: string } | null;
     }> }>(`/conversations?limit=${limit}`);
     const conversations: Conversation[] = (result.conversations || []).map((c) => {
       const op = c.other_participant;
       const otherUser: Profile | undefined = op ? {
-        id: op.id, username: op.username, full_name: op.display_name || '',
-        display_name: op.display_name, avatar_url: op.avatar_url, is_verified: op.is_verified,
+        id: op.id, username: op.username,
+        full_name: op.full_name || op.display_name || '',
+        display_name: op.display_name || op.full_name || '',
+        avatar_url: op.avatar_url, is_verified: op.is_verified,
+        account_type: op.account_type,
       } as Profile : undefined;
       return {
         id: c.id,

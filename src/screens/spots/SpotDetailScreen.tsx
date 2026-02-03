@@ -293,7 +293,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
 
 export default SpotDetailScreen;
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: normalize(16), color: colors.gray, marginBottom: 12 },

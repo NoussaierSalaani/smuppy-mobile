@@ -148,7 +148,7 @@ function getTodayKey(): string {
 
 export const useVibeStore = create<VibeState>()(
   persist(
-    immer((set, get) => ({
+    immer((set, _get) => ({
       // ── Score & Level ──
       vibeScore: 0,
       vibeLevel: 'newcomer' as VibeLevel,

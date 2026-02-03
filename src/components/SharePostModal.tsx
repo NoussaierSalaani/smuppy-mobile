@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -50,14 +50,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
 
-  // Load recent conversations
-  useEffect(() => {
-    if (visible) {
-      loadConversations();
-    }
-  }, [visible]);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await getConversations();
@@ -72,7 +65,14 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load recent conversations
+  useEffect(() => {
+    if (visible) {
+      loadConversations();
+    }
+  }, [visible, loadConversations]);
 
   // Search users
   useEffect(() => {

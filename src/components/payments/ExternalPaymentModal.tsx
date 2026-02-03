@@ -136,7 +136,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
   );
 };
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',

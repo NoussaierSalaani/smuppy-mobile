@@ -13,6 +13,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ViewToken,
+  ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -32,8 +33,9 @@ const { width, height } = Dimensions.get('window');
 // Post type for this screen
 interface FanFeedPost {
   id: string;
-  type: 'video' | 'image';
+  type: 'video' | 'image' | 'carousel';
   media: string;
+  allMedia?: string[]; // All media URLs for carousel posts
   thumbnail: string;
   description: string;
   likes: number;
@@ -81,6 +83,7 @@ const PostDetailFanFeedScreen = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
+  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({}); // Track carousel slide index per post
 
   // Loading states for anti spam-click
   const [likeLoading, setLikeLoading] = useState<LoadingRecord>({});

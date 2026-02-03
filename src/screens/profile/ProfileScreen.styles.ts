@@ -50,7 +50,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     bottom: 0,
   },
   coverSpacer: {
-    height: COVER_HEIGHT - 60,
+    height: COVER_HEIGHT - 40,
   },
   settingsBtn: {
     position: 'absolute',

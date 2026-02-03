@@ -1249,7 +1249,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     bottom: 0,
   },
   coverSpacer: {
-    height: COVER_HEIGHT - 60,
+    height: COVER_HEIGHT - 40,
   },
   backBtn: {
     position: 'absolute',

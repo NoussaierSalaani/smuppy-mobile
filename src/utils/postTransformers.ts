@@ -79,6 +79,7 @@ export interface UIPostBase {
   id: string;
   type: 'image' | 'video' | 'carousel';
   media: string | null;
+  allMedia?: string[]; // All media URLs for carousel posts
   slideCount?: number;
   duration?: string;
   user: UIPostUser;
@@ -117,11 +118,13 @@ export const transformToFanPost = (
   likedPostIds: Set<string>,
   savedPostIds?: Set<string>
 ): UIFanPost => {
+  const allMedia = post.media_urls?.filter(Boolean) || [];
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
     media: getMediaUrl(post, null),
-    slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
+    allMedia: allMedia.length > 0 ? allMedia : undefined,
+    slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || 'User',
@@ -155,13 +158,15 @@ export const transformToVibePost = (
   // Generate varied heights for masonry layout based on post ID
   const heights = [180, 200, 220, 240, 260, 280];
   const randomHeight = heights[Math.abs(post.id.charCodeAt(0)) % heights.length];
+  const allMedia = post.media_urls?.filter(Boolean) || [];
 
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
     media: getMediaUrl(post),
+    allMedia: allMedia.length > 0 ? allMedia : undefined,
     height: randomHeight,
-    slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
+    slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || post.author?.username || 'User',

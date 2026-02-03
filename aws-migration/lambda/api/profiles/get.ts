@@ -87,16 +87,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isOwner = resolvedUserId === profile.id;
 
       if (resolvedUserId && !isOwner) {
+        // Query actual follow rows instead of EXISTS() to avoid boolean conversion issues
         const followResult = await db.query(
-          `SELECT
-            EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_following,
-            EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = $1 AND status = 'accepted') as is_followed_by`,
+          `SELECT status, follower_id, following_id FROM follows
+           WHERE (follower_id = $1 AND following_id = $2)
+              OR (follower_id = $2 AND following_id = $1)`,
           [resolvedUserId, profile.id]
         );
 
-        if (followResult.rows.length > 0) {
-          isFollowing = followResult.rows[0].is_following;
-          isFollowedBy = followResult.rows[0].is_followed_by;
+        for (const row of followResult.rows) {
+          if (row.follower_id === resolvedUserId && row.following_id === profile.id && row.status === 'accepted') {
+            isFollowing = true;
+          }
+          if (row.follower_id === profile.id && row.following_id === resolvedUserId && row.status === 'accepted') {
+            isFollowedBy = true;
+          }
         }
       }
     }

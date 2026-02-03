@@ -2000,39 +2000,4 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
 });
 
-const createGeStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  header: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 10,
-    padding: 3,
-    alignSelf: 'center',
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  chipActive: {
-    backgroundColor: isDark ? colors.backgroundSecondary : colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray,
-  },
-  chipTextActive: {
-    color: colors.dark,
-  },
-});
-
 export default UserProfileScreen;

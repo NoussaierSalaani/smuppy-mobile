@@ -1036,33 +1036,6 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  toggleChipsRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.gray100,
-    borderRadius: 10,
-    padding: 3,
-  },
-  toggleChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  toggleChipActive: {
-    backgroundColor: colors.background,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  toggleChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray400,
-  },
-  toggleChipTextActive: {
-    color: colors.dark,
-  },
   newButton: {
     flexDirection: 'row',
     alignItems: 'center',

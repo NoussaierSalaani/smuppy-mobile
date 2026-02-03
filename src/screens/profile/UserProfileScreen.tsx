@@ -12,6 +12,7 @@ import {
   Share,
   RefreshControl,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUserStore, useUserSafetyStore } from '../../stores';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -20,7 +21,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
-import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
+import { queryKeys } from '../../lib/queryClient';
+import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { LiquidButton } from '../../components/LiquidButton';
@@ -39,7 +41,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
 
-// Type for profile data from API
+// Type for profile data from API (uses Profile type from database.ts)
 interface ProfileApiData {
   id?: string;
   username?: string;
@@ -49,6 +51,7 @@ interface ProfileApiData {
   cover_url?: string | null;
   bio?: string;
   fan_count?: number;
+  following_count?: number;
   post_count?: number;
   peak_count?: number;
   is_verified?: boolean;
@@ -58,6 +61,9 @@ interface ProfileApiData {
   interests?: string[];
   account_type?: 'personal' | 'pro_creator' | 'pro_business';
   business_name?: string;
+  // Follow status from API (set in convertProfile from isFollowing)
+  is_following?: boolean;
+  is_followed_by?: boolean;
 }
 
 const DEFAULT_PROFILE = {
@@ -89,12 +95,13 @@ const UserProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showAlert, showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
-  
+  const queryClient = useQueryClient();
+
   // Déterminer si c'est notre profil ou celui d'un autre
   const params = route?.params as { userId?: string } || {};
   const userId = params.userId;
   const isOwnProfile = !userId;
-  const { data: profileData, isLoading, isError } = useProfile(userId);
+  const { data: profileData, isLoading, isError, refetch } = useProfile(userId);
 
   const profile = useMemo(() => {
     const data: ProfileApiData = profileData || {};
@@ -182,28 +189,27 @@ const UserProfileScreen = () => {
   const posts = useMemo(() => userPosts.filter(p => !p.is_peak), [userPosts]);
   const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
 
-  // Check if current user is following this profile or has pending request
+  // Sync follow status from profile data (API returns is_following)
   useEffect(() => {
-    const checkFollowStatus = async () => {
-      if (userId) {
-        const { following } = await isFollowing(userId);
-        // Skip if user already tapped fan/unfan while we were loading
-        if (hasUserInteracted.current) return;
-        setIsFan(following);
+    const syncFollowStatus = async () => {
+      if (!profileData || hasUserInteracted.current) return;
 
-        // If not following and profile is private, check for pending request
-        if (!following) {
-          const { pending } = await hasPendingFollowRequest(userId);
-          if (hasUserInteracted.current) return;
-          setIsRequested(pending);
-        } else {
-          setIsRequested(false);
-        }
+      // Use is_following from profile API response
+      const isFollowingFromApi = profileData.is_following ?? false;
+      setIsFan(isFollowingFromApi);
+
+      // If not following and profile is private, check for pending request
+      if (!isFollowingFromApi && userId) {
+        const { pending } = await hasPendingFollowRequest(userId);
+        if (hasUserInteracted.current) return;
+        setIsRequested(pending);
+      } else {
+        setIsRequested(false);
       }
     };
     hasUserInteracted.current = false;
-    checkFollowStatus();
-  }, [userId]);
+    syncFollowStatus();
+  }, [profileData, userId]);
 
   // Load user's posts
   const loadUserPosts = useCallback(async () => {
@@ -363,6 +369,9 @@ const UserProfileScreen = () => {
         useVibeStore.getState().addVibeAction('follow_user');
       }
     }
+
+    // Invalidate profile cache to get fresh follow status and fan count
+    queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
   };
 
   const confirmUnfan = async () => {
@@ -397,6 +406,9 @@ const UserProfileScreen = () => {
       setLocalFanCount(prev => (prev ?? 0) + 1);
       if (__DEV__) console.warn('[UserProfile] Unfollow error:', error);
     }
+
+    // Invalidate profile cache to get fresh follow status and fan count
+    queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
   };
 
   const handleMessagePress = () => {

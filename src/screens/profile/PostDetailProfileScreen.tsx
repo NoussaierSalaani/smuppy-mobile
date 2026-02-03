@@ -543,10 +543,32 @@ const PostDetailProfileScreen = () => {
     </TouchableWithoutFeedback>
   );
   
+  // Loading state
+  if (isLoadingPost) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // No post found
+  if (posts.length === 0 || !currentPost) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Ionicons name="image-outline" size={48} color={colors.gray400} />
+        <Text style={{ color: colors.gray500, marginTop: 12 }}>Post not found</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12 }}>
+          <Text style={{ color: colors.primary }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+
       {/* Posts FlashList (vertical scroll) */}
       <FlashList
         ref={flatListRef}

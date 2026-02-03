@@ -175,13 +175,15 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
         <Text style={styles.headerTitle}>Peaks</Text>
 
-        {!isBusiness && (
+        {!isBusiness && peaks.length > 0 ? (
           <TouchableOpacity
             style={styles.createButton}
             onPress={handleCreatePeak}
           >
             <Ionicons name="add" size={28} color={colors.primary} />
           </TouchableOpacity>
+        ) : (
+          <View style={styles.createButton} />
         )}
       </View>
 

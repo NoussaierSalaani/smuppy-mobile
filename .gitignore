@@ -63,3 +63,6 @@ aws-migration/infrastructure/.env
 
 # Duplicate project folder
 smuppy-mobile/
+
+# Deprecated backup
+_deprecated_backup/

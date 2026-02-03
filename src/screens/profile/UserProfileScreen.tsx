@@ -762,13 +762,15 @@ const UserProfileScreen = () => {
         <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* Menu Button */}
-      <TouchableOpacity
-        style={[styles.menuBtn, { top: insets.top + 8 }]}
-        onPress={() => setShowMenuModal(true)}
-      >
-        <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Menu Button - only show for other users' profiles */}
+      {!isOwnProfile && (
+        <TouchableOpacity
+          style={[styles.menuBtn, { top: insets.top + 8 }]}
+          onPress={() => setShowMenuModal(true)}
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
 
       {/* Spacer for cover height */}
       <View style={styles.coverSpacer} />

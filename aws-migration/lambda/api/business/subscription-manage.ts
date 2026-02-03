@@ -1,9 +1,9 @@
 /**
  * Business Subscription Management
  * Combined handler for:
- * - DELETE /businesses/subscriptions/{subscriptionId} - Cancel subscription
+ * - POST /businesses/subscriptions/{subscriptionId}/cancel - Cancel subscription
  * - POST /businesses/subscriptions/{subscriptionId}/reactivate - Reactivate subscription
- * - GET /businesses/my/subscriptions - List user's subscriptions
+ * - GET /businesses/subscriptions/my - List user's subscriptions
  * - GET /businesses/subscriptions/{subscriptionId}/access-pass - Get access pass
  */
 
@@ -12,13 +12,20 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
+import { getStripeKey } from '../../shared/secrets';
 import Stripe from 'stripe';
 
 const log = createLogger('business/subscription-manage');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-11-20.acacia',
-});
+let stripe: Stripe | null = null;
+
+async function getStripe(): Promise<Stripe> {
+  if (!stripe) {
+    const key = await getStripeKey();
+    stripe = new Stripe(key, { apiVersion: '2024-11-20.acacia' });
+  }
+  return stripe;
+}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -31,13 +38,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const method = event.httpMethod;
 
   // Route based on path and method
-  if (path.endsWith('/my/subscriptions') && method === 'GET') {
+  if (path.endsWith('/subscriptions/my') && method === 'GET') {
     return handleListSubscriptions(event, headers);
   } else if (path.includes('/access-pass') && method === 'GET') {
     return handleGetAccessPass(event, headers);
   } else if (path.includes('/reactivate') && method === 'POST') {
     return handleReactivate(event, headers);
-  } else if (method === 'DELETE') {
+  } else if (path.includes('/cancel') && method === 'POST') {
     return handleCancel(event, headers);
   }
 
@@ -297,7 +304,8 @@ async function handleCancel(event: APIGatewayProxyEvent, headers: Record<string,
 
     if (subscription.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+        const stripeClient = await getStripe();
+        await stripeClient.subscriptions.update(subscription.stripe_subscription_id, {
           cancel_at_period_end: true,
         });
       } catch (stripeError) {
@@ -390,7 +398,8 @@ async function handleReactivate(event: APIGatewayProxyEvent, headers: Record<str
 
     if (subscription.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+        const stripeClient = await getStripe();
+        await stripeClient.subscriptions.update(subscription.stripe_subscription_id, {
           cancel_at_period_end: false,
         });
       } catch (stripeError) {

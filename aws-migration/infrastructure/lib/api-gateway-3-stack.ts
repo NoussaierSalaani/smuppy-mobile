@@ -81,21 +81,23 @@ export class ApiGateway3Stack extends cdk.NestedStack {
     const logEntry = businesses.addResource('log-entry');
     logEntry.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessLogEntryFn), authMethodOptions);
 
-    // GET /businesses/my/subscriptions - List user's subscriptions
-    const businessMy = businesses.addResource('my');
-    const mySubscriptions = businessMy.addResource('subscriptions');
+    // /businesses/subscriptions resources
+    const subscriptions = businesses.addResource('subscriptions');
+
+    // GET /businesses/subscriptions/my - List user's subscriptions
+    const mySubscriptions = subscriptions.addResource('my');
     mySubscriptions.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
 
     // /businesses/subscriptions/{subscriptionId}
-    const subscriptions = businesses.addResource('subscriptions');
     const subscriptionById = subscriptions.addResource('{subscriptionId}');
 
     // GET /businesses/subscriptions/{subscriptionId}/access-pass - Get member QR code
     const accessPass = subscriptionById.addResource('access-pass');
     accessPass.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
 
-    // DELETE /businesses/subscriptions/{subscriptionId} - Cancel subscription
-    subscriptionById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
+    // POST /businesses/subscriptions/{subscriptionId}/cancel - Cancel subscription
+    const cancelSubscription = subscriptionById.addResource('cancel');
+    cancelSubscription.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
 
     // POST /businesses/subscriptions/{subscriptionId}/reactivate - Reactivate subscription
     const reactivate = subscriptionById.addResource('reactivate');

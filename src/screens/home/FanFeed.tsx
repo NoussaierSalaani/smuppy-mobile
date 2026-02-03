@@ -506,25 +506,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             toggleLike(post.id);
           }
         }}
-        onSingleTap={() => navigation.navigate('PostDetailFanFeed', {
-          postId: post.id,
-          fanFeedPosts: visiblePosts.map(p => ({
-            id: p.id,
-            type: p.type,
-            media: p.media,
-            allMedia: p.allMedia,
-            thumbnail: p.media,
-            description: p.caption,
-            likes: p.likes,
-            comments: p.comments,
-            user: {
-              id: p.user.id,
-              name: p.user.name,
-              avatar: p.user.avatar,
-              followsMe: false,
-            },
-          }))
-        })}
         showAnimation={!post.isLiked}
       >
         <View style={styles.postMedia}>
@@ -578,6 +559,34 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.postAction}
+            onPress={() => navigation.navigate('PostDetailFanFeed', {
+              postId: post.id,
+              fanFeedPosts: visiblePosts.map(p => ({
+                id: p.id,
+                type: p.type,
+                media: p.media,
+                allMedia: p.allMedia,
+                thumbnail: p.media,
+                description: p.caption,
+                likes: p.likes,
+                comments: p.comments,
+                user: {
+                  id: p.user.id,
+                  name: p.user.name,
+                  avatar: p.user.avatar,
+                  followsMe: false,
+                },
+              }))
+            })}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="View comments"
+            accessibilityRole="button"
+            accessibilityHint="Opens post detail with comments"
+          >
+            <Ionicons name="chatbubble-outline" size={22} color={colors.dark} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.postAction}
             onPress={() => handleSharePost(post)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityLabel="Share this post"
@@ -604,7 +613,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       </View>
 
       {/* Likes */}
-      <Text style={styles.postLikes}>{formatNumber(post.likes)} likes</Text>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('PostLikers', { postId: post.id })}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.postLikes}>{formatNumber(post.likes)} likes</Text>
+      </TouchableOpacity>
 
       {/* Caption */}
       <View style={styles.postCaption}>
@@ -619,6 +633,35 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         </Text>
       </View>
 
+      {/* View comments */}
+      {post.comments > 0 && (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('PostDetailFanFeed', {
+            postId: post.id,
+            fanFeedPosts: visiblePosts.map(p => ({
+              id: p.id,
+              type: p.type,
+              media: p.media,
+              allMedia: p.allMedia,
+              thumbnail: p.media,
+              description: p.caption,
+              likes: p.likes,
+              comments: p.comments,
+              user: {
+                id: p.user.id,
+                name: p.user.name,
+                avatar: p.user.avatar,
+                followsMe: false,
+              },
+            }))
+          })}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.viewCommentsText}>
+            View all {formatNumber(post.comments)} comments
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
@@ -1108,6 +1151,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   postCaptionUser: {
     fontFamily: 'Poppins-SemiBold',
+  },
+  viewCommentsText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: colors.gray,
+    paddingHorizontal: SPACING.base,
+    marginTop: 4,
   },
   postDivider: {
     height: 8,

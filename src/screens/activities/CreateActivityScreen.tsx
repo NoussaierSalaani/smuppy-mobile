@@ -821,12 +821,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: colors.dark,
+    borderColor: colors.background,
   },
   limitTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -917,7 +917,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   stepTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
   },
   stepSubtitle: {
     fontSize: 15,
@@ -955,7 +955,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   categoryName: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
     textAlign: 'center',
   },
   categoryCheck: {
@@ -1010,7 +1010,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: colors.white,
+    color: colors.dark,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -1030,7 +1030,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: colors.white,
+    color: colors.dark,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -1051,7 +1051,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   dateButtonText: {
     fontSize: 16,
-    color: colors.white,
+    color: colors.dark,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1090,7 +1090,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   proBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.dark,
+    color: colors.white,
   },
   priceInputContainer: {
     flexDirection: 'row',
@@ -1113,7 +1113,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 14,
     fontSize: 20,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
 
   // Save & Share (Step 4)
@@ -1135,7 +1135,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: colors.dark,
+    backgroundColor: isDark ? colors.darkGray : colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1145,7 +1145,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   optionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
     marginBottom: 4,
   },
   optionDescription: {
@@ -1188,7 +1188,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   reviewTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
   },
   reviewCategory: {
     fontSize: 14,
@@ -1217,7 +1217,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     right: 0,
     padding: 16,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },

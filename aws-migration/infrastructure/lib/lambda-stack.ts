@@ -49,6 +49,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly profilesIsFollowingFn: NodejsFunction;
 
   // Phase 2: Posts & Comments
+  public readonly postsLikersFn: NodejsFunction;
   public readonly postsLikeFn: NodejsFunction;
   public readonly postsUnlikeFn: NodejsFunction;
   public readonly postsDeleteFn: NodejsFunction;
@@ -378,6 +379,7 @@ export class LambdaStack extends cdk.NestedStack {
     // ========================================
     // Phase 2: Posts & Comments Lambda Functions
     // ========================================
+    this.postsLikersFn = createLambda('PostsLikersFunction', 'posts/likers');
     this.postsLikeFn = createLambda('PostsLikeFunction', 'posts/like');
     this.postsUnlikeFn = createLambda('PostsUnlikeFunction', 'posts/unlike');
     this.postsDeleteFn = createLambda('PostsDeleteFunction', 'posts/delete');

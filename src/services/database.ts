@@ -903,6 +903,11 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
       requestCreated: result.type === 'request_created',
     };
   } catch (error: unknown) {
+    // Extract cooldown data from APIError (429 responses include cooldown info in error data)
+    const apiErr = error as { data?: { cooldown?: { blocked: boolean; until: string; daysRemaining: number } } };
+    if (apiErr.data?.cooldown) {
+      return { data: null, error: getErrorMessage(error), cooldown: apiErr.data.cooldown };
+    }
     return { data: null, error: getErrorMessage(error) };
   }
 };
@@ -991,6 +996,22 @@ export const getFollowingCount = async (userId: string): Promise<{ count: number
     return { count: profile.followingCount || 0 };
   } catch {
     return { count: 0 };
+  }
+};
+
+// ============================================
+// POST LIKERS
+// ============================================
+
+/**
+ * Get users who liked a post
+ */
+export const getPostLikers = async (postId: string, cursor?: string, limit = 20): Promise<DbResponse<Profile[]>> => {
+  try {
+    const result = await awsAPI.getPostLikers(postId, { limit, cursor });
+    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 

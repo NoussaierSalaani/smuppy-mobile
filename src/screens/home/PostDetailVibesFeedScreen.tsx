@@ -769,10 +769,14 @@ const PostDetailVibesFeedScreen = () => {
 
                 {/* Stats bar */}
                 <View style={styles.statsBar}>
-                  <View style={styles.statItem}>
+                  <TouchableOpacity
+                    style={styles.statItem}
+                    onPress={() => (navigation as any).navigate('PostLikers', { postId: currentPost.id })}
+                    activeOpacity={0.7}
+                  >
                     <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                     <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
-                  </View>
+                  </TouchableOpacity>
                   <View style={styles.statDot} />
                   <View style={styles.statItem}>
                     <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.7)" />
@@ -829,10 +833,14 @@ const PostDetailVibesFeedScreen = () => {
                     <Text style={styles.condensedCategory}>{currentPost.category}</Text>
                   </View>
                 </View>
-                <View style={styles.condensedStats}>
+                <TouchableOpacity
+                  style={styles.condensedStats}
+                  onPress={() => (navigation as any).navigate('PostLikers', { postId: currentPost.id })}
+                  activeOpacity={0.7}
+                >
                   <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                   <Text style={styles.condensedLikes}>{formatNumber(currentPost.likes)}</Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
 

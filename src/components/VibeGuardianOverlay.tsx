@@ -31,7 +31,7 @@ const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDi
       statusBarTranslucent
     >
       <LinearGradient
-        colors={['#0a252f', '#0d3d3d', '#0a252f']}
+        colors={isDark ? ['#0a252f', '#0d3d3d', '#0a252f'] : ['#E6FAF8', '#D4F5F0', '#E6FAF8']}
         style={styles.container}
       >
         <View style={[styles.content, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
@@ -71,7 +71,7 @@ const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDi
   );
 };
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -87,14 +87,14 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: colors.white,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   subtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(10,37,47,0.7)',
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -109,7 +109,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   tip: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
+    color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(10,37,47,0.5)',
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },

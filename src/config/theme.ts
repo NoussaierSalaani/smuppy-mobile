@@ -77,11 +77,11 @@ export const COLORS = {
     overlay: 'rgba(0, 0, 0, 0.5)',
     overlayLight: 'rgba(255, 255, 255, 0.9)',
 
-    // Dark theme compatibility aliases
+    // Dark theme compatibility aliases (light mode values)
     textMuted: '#6B7280',
-    darkBg: '#0D0D0D',
-    cardBg: '#1A1A1A',
-    border: '#2A2A2A',
+    darkBg: '#F9FAFB',
+    cardBg: '#FFFFFF',
+    border: '#E5E7EB',
   };
 
 // Dark theme colors — full parity with COLORS + legacy extras

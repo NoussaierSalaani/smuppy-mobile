@@ -274,6 +274,12 @@ class AWSAPIService {
     });
   }
 
+  async recordPostView(id: string): Promise<void> {
+    return this.request(`/posts/${id}/view`, {
+      method: 'POST',
+    });
+  }
+
   // ==========================================
   // Profiles API
   // ==========================================
@@ -383,6 +389,28 @@ class AWSAPIService {
       nextCursor: response.cursor,
       hasMore: response.hasMore,
       total: response.totalCount || 0,
+    };
+  }
+
+  // ==========================================
+  // Post Likers
+  // ==========================================
+
+  async getPostLikers(postId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    const query = queryParams.toString();
+    const response = await this.request<{
+      data: Profile[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    }>(`/posts/${postId}/likers${query ? `?${query}` : ''}`);
+    return {
+      data: response.data || [],
+      nextCursor: response.nextCursor || null,
+      hasMore: response.hasMore || false,
+      total: response.data?.length || 0,
     };
   }
 

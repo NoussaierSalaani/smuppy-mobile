@@ -721,10 +721,14 @@ const PostDetailFanFeedScreen = () => {
             
             {/* Stats bar */}
             <View style={styles.statsBar}>
-              <View style={styles.statItem}>
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() => (navigation as any).navigate('PostLikers', { postId: item.id })}
+                activeOpacity={0.7}
+              >
                 <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
                 <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
-              </View>
+              </TouchableOpacity>
               <View style={styles.statItem}>
                 <Ionicons name="eye-outline" size={18} color="#FFF" />
                 <Text style={styles.statCount}>{formatNumber(item.views || 0)}</Text>

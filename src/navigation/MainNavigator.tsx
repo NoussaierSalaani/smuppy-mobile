@@ -40,6 +40,7 @@ import PrescriptionPreferencesScreen from '../screens/settings/PrescriptionPrefe
 import FansListScreen from '../screens/profile/FansListScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import PostDetailProfileScreen from '../screens/profile/PostDetailProfileScreen';
+import PostLikersScreen from '../screens/profile/PostLikersScreen';
 
 // Post Detail Screens
 import PostDetailFanFeedScreen from '../screens/home/PostDetailFanFeedScreen';
@@ -282,6 +283,7 @@ export default function MainNavigator() {
 
       {/* Profile Stack */}
       <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PostLikers" component={PostLikersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Vibe */}

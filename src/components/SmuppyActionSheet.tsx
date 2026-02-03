@@ -124,7 +124,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
                   style={styles.cancelButton}
                 >
                   <LinearGradient
-                    colors={['#F5F5F5', '#EBEBEB']}
+                    colors={isDark ? [colors.backgroundSecondary, colors.backgroundSecondary] : ['#F5F5F5', '#EBEBEB']}
                     style={styles.cancelGradient}
                   >
                     <Text style={styles.cancelText}>{cancelLabel}</Text>

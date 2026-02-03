@@ -196,7 +196,13 @@ const UserProfileScreen = () => {
   // Sync follow status from profile data (API returns is_following)
   useEffect(() => {
     const syncFollowStatus = async () => {
-      if (!profileData || hasUserInteracted.current) return;
+      if (!profileData) return;
+
+      // Skip sync if user just interacted (optimistic update takes precedence)
+      if (hasUserInteracted.current) {
+        hasUserInteracted.current = false;
+        return;
+      }
 
       // Use is_following from profile API response
       const isFollowingFromApi = profileData.is_following ?? false;
@@ -211,7 +217,6 @@ const UserProfileScreen = () => {
         setIsRequested(false);
       }
     };
-    hasUserInteracted.current = false;
     syncFollowStatus();
   }, [profileData, userId]);
 
@@ -368,53 +373,70 @@ const UserProfileScreen = () => {
       setLocalFanCount(prev => (prev ?? 0) + 1);
     }
 
-    const { error, requestCreated, cooldown } = await followUser(userId);
-    setIsLoadingFollow(false);
+    try {
+      const { error, requestCreated, cooldown } = await followUser(userId);
 
-    if (error) {
-      // Revert optimistic update on error
+      if (error) {
+        // Revert optimistic update on error
+        if (wasPrivate) {
+          setIsRequested(false);
+        } else {
+          setIsFan(false);
+          setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+        }
+
+        if (cooldown?.blocked) {
+          setBlockEndDate(new Date(cooldown.until));
+          setIsBlocked(true);
+          setShowBlockedModal(true);
+        } else {
+          showError('Follow Failed', 'Unable to follow this user. Please try again.');
+        }
+        if (__DEV__) console.warn('[UserProfile] Follow error:', error);
+        return;
+      }
+
+      // Adjust state based on actual API response
+      if (requestCreated) {
+        // A follow request was created for a private account
+        setIsRequested(true);
+        setIsFan(false);
+        // Revert fan count if we optimistically added it
+        if (!wasPrivate) {
+          setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+        }
+      } else {
+        // Direct follow was successful
+        setIsFan(true);
+        setIsRequested(false);
+        // Ensure fan count is incremented (may already be from optimistic update)
+        if (wasPrivate) {
+          setLocalFanCount(prev => (prev ?? 0) + 1);
+        }
+        if (useUserStore.getState().user?.accountType !== 'pro_business') {
+          useVibeStore.getState().addVibeAction('follow_user');
+        }
+      }
+
+      registerToggleAndMaybeBlock();
+
+      // Delay invalidation to let the backend commit the follow
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
+      }, 1000);
+    } catch (err) {
+      // Revert optimistic update on unexpected error
       if (wasPrivate) {
         setIsRequested(false);
       } else {
         setIsFan(false);
         setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
       }
-
-      if (cooldown?.blocked) {
-        setBlockEndDate(new Date(cooldown.until));
-        setIsBlocked(true);
-        setShowBlockedModal(true);
-      }
-      if (__DEV__) console.warn('[UserProfile] Follow error:', error);
-      return;
+      showError('Follow Failed', 'Something went wrong. Please try again.');
+      if (__DEV__) console.warn('[UserProfile] becomeFan unexpected error:', err);
+    } finally {
+      setIsLoadingFollow(false);
     }
-
-    // Adjust state based on actual API response
-    if (requestCreated) {
-      // A follow request was created for a private account
-      setIsRequested(true);
-      setIsFan(false);
-      // Revert fan count if we optimistically added it
-      if (!wasPrivate) {
-        setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
-      }
-    } else {
-      // Direct follow was successful
-      setIsFan(true);
-      setIsRequested(false);
-      // Ensure fan count is incremented (may already be from optimistic update)
-      if (wasPrivate) {
-        setLocalFanCount(prev => (prev ?? 0) + 1);
-      }
-      if (useUserStore.getState().user?.accountType !== 'pro_business') {
-        useVibeStore.getState().addVibeAction('follow_user');
-      }
-    }
-
-    registerToggleAndMaybeBlock();
-
-    // Invalidate profile cache to get fresh follow status and fan count
-    queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
   };
 
   const confirmUnfan = async () => {
@@ -429,28 +451,40 @@ const UserProfileScreen = () => {
     setIsFan(false);
     setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
 
-    const { error, cooldown } = await unfollowUser(userId);
-    setIsLoadingFollow(false);
+    try {
+      const { error, cooldown } = await unfollowUser(userId);
 
-    if (error) {
-      // Revert on error
+      if (error) {
+        // Revert on error
+        setIsFan(true);
+        setLocalFanCount(prev => (prev ?? 0) + 1);
+        showError('Unfollow Failed', 'Unable to unfollow this user. Please try again.');
+        if (__DEV__) console.warn('[UserProfile] Unfollow error:', error);
+        return;
+      }
+
+      if (cooldown?.blocked) {
+        setBlockEndDate(new Date(cooldown.until));
+        setIsBlocked(true);
+        setTimeout(() => setShowBlockedModal(true), 300);
+        return;
+      }
+
+      registerToggleAndMaybeBlock();
+
+      // Delay invalidation to let the backend commit the unfollow
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
+      }, 1000);
+    } catch (err) {
+      // Revert on unexpected error
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
-      if (__DEV__) console.warn('[UserProfile] Unfollow error:', error);
-      return;
+      showError('Unfollow Failed', 'Something went wrong. Please try again.');
+      if (__DEV__) console.warn('[UserProfile] confirmUnfan unexpected error:', err);
+    } finally {
+      setIsLoadingFollow(false);
     }
-
-    if (cooldown?.blocked) {
-      setBlockEndDate(new Date(cooldown.until));
-      setIsBlocked(true);
-      setTimeout(() => setShowBlockedModal(true), 300);
-      return;
-    }
-
-    registerToggleAndMaybeBlock();
-
-    // Invalidate profile cache to get fresh follow status and fan count
-    queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
   };
 
   const handleMessagePress = () => {

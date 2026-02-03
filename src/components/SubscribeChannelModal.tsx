@@ -221,7 +221,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'flex-end',
   },
   content: {
-    backgroundColor: isDark ? '#1C1C1E' : colors.white,
+    backgroundColor: colors.cardBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,

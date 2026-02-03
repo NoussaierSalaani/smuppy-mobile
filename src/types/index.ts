@@ -670,6 +670,7 @@ export type MainStackParamList = {
   PostDetailVibesFeed: { postId: string; post?: unknown; startCondensed?: boolean };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
   FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
+  PostLikers: { postId: string };
 
   // Create
   CreatePost: { fromProfile?: boolean } | undefined;

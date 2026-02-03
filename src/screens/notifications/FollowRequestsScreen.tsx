@@ -111,7 +111,6 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
                 accountType={user.account_type}
               />
             </View>
-            <Text style={styles.userHandle}>@{user.username}</Text>
           </View>
         </TouchableOpacity>
 

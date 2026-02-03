@@ -16,6 +16,7 @@
 import { Platform } from 'react-native';
 import { ENV } from '../config/env';
 import { captureException, addBreadcrumb } from '../lib/sentry';
+import AWS_CONFIG from '../config/aws-config';
 
 // =============================================
 // PIN CONFIGURATION
@@ -49,6 +50,27 @@ const CERTIFICATE_PINS: Record<string, PinConfig> = {
       'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=', // Amazon Root CA 3
     ],
   },
+  '90pg0i63ff.execute-api.us-east-1.amazonaws.com': {
+    primary: '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=',
+    backup: [
+      'f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=',
+      'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=',
+    ],
+  },
+  'lhvm623909.execute-api.us-east-1.amazonaws.com': {
+    primary: '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=',
+    backup: [
+      'f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=',
+      'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=',
+    ],
+  },
+  '1e2fsip7a4.execute-api.us-east-1.amazonaws.com': {
+    primary: '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=',
+    backup: [
+      'f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=',
+      'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=',
+    ],
+  },
   // CloudFront CDN
   'dc8kq67t0asis.cloudfront.net': {
     // Amazon Root CA pins
@@ -58,20 +80,20 @@ const CERTIFICATE_PINS: Record<string, PinConfig> = {
       'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=', // Amazon Root CA 3
     ],
   },
-  // TODO: Add Smuppy API domains when deployed
-  // Generate pins with:
-  // openssl s_client -servername DOMAIN -connect DOMAIN:443 </dev/null 2>/dev/null | \
-  //   openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | \
-  //   openssl dgst -sha256 -binary | openssl enc -base64
-  //
-  // 'api.smuppy.com': {
-  //   primary: 'ACTUAL_PIN_HERE',
-  //   backup: ['BACKUP_PIN_HERE'],
-  // },
-  // 'smuppy.com': {
-  //   primary: 'ACTUAL_PIN_HERE',
-  //   backup: ['BACKUP_PIN_HERE'],
-  // },
+  'd3gy4x1feicix3.cloudfront.net': {
+    primary: '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=',
+    backup: [
+      'f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=',
+      'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=',
+    ],
+  },
+  'api.smuppy.com': {
+    primary: '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=',
+    backup: [
+      'f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=',
+      'NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=',
+    ],
+  },
   // Expo Push Service
   'exp.host': {
     primary: 'r/mIkG3eEpVdm+u/ko/cwxzOMo1bk4TyHIlByibiA5E=', // Expo root
@@ -209,6 +231,21 @@ const TRUSTED_HOSTS = new Set([
   // Development hosts (only in dev mode)
   ...(ENV.isDev ? ['localhost', '127.0.0.1', '10.0.2.2'] : []),
 ]);
+
+// Dynamically trust hosts coming from runtime config (API/CDN)
+[
+  AWS_CONFIG.api.restEndpoint,
+  AWS_CONFIG.api.restEndpoint2,
+  AWS_CONFIG.api.restEndpoint3,
+  AWS_CONFIG.storage.cdnDomain,
+].forEach((url) => {
+  try {
+    const host = new URL(url).host;
+    if (host) TRUSTED_HOSTS.add(host);
+  } catch {
+    // ignore malformed URLs
+  }
+});
 
 const isHostAllowed = (host: string): boolean => {
   // Remove port if present

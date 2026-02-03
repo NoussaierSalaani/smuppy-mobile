@@ -636,7 +636,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {isOwnProfile && (
         <TouchableOpacity
           style={styles.createBtn}
-          onPress={() => navigation.navigate('CreatePost')}
+          onPress={() => navigation.navigate('CreatePost', { fromProfile: true })}
           accessibilityLabel="Create a post"
           accessibilityRole="button"
           accessibilityHint="Opens the post creator"

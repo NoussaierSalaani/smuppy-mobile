@@ -89,7 +89,7 @@ async function getVerificationPriceId(): Promise<string> {
 // CORS headers now dynamically created via createHeaders(event)
 
 interface IdentityBody {
-  action: 'create-session' | 'get-status' | 'get-report' | 'create-subscription' | 'confirm-subscription' | 'cancel-subscription'
+  action: 'create-session' | 'get-status' | 'get-report' | 'get-config' | 'create-subscription' | 'confirm-subscription' | 'cancel-subscription'
     // Legacy one-time (kept for backward compat)
     | 'create-payment-intent' | 'confirm-payment';
   returnUrl?: string;
@@ -140,6 +140,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl);
       case 'cancel-subscription':
         return await cancelVerificationSubscription(stripe, profileId);
+      case 'get-config':
+        return await getVerificationConfig(stripe, event);
       // Legacy one-time payment (backward compat)
       case 'create-payment-intent':
         return await createVerificationPaymentIntent(profileId);
@@ -358,6 +360,30 @@ async function cancelVerificationSubscription(stripe: Stripe, userId: string): P
   } finally {
     client.release();
   }
+}
+
+/**
+ * Return the current verification pricing/config so clients don't hardcode amounts.
+ */
+async function getVerificationConfig(stripe: Stripe, event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const priceId = await getVerificationPriceId();
+  const price = await stripe.prices.retrieve(priceId);
+
+  const amount = price.unit_amount ?? VERIFICATION_FEE_CENTS;
+  const currency = price.currency ?? 'usd';
+  const interval = price.recurring?.interval ?? 'month';
+
+  return {
+    statusCode: 200,
+    headers: createHeaders(event),
+    body: JSON.stringify({
+      success: true,
+      priceId,
+      amount,
+      currency,
+      interval,
+    }),
+  };
 }
 
 // ============================================

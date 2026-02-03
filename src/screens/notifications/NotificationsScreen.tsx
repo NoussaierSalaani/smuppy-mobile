@@ -273,6 +273,14 @@ export default function NotificationsScreen(): React.JSX.Element {
       ? notifications
       : notifications.filter((n) => n.type === activeFilter);
 
+  const [recentNotifications, olderNotifications] = useMemo(() => {
+    const recent = filteredNotifications.filter(
+      (n) => n.time === 'Just now' || n.time.includes('ago')
+    );
+    const older = filteredNotifications.filter((n) => !recent.includes(n));
+    return [recent, older];
+  }, [filteredNotifications]);
+
   const _unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const getNotificationIcon = (
@@ -492,13 +500,19 @@ export default function NotificationsScreen(): React.JSX.Element {
           </TouchableOpacity>
         )}
 
-        <Text style={styles.sectionTitle}>Today</Text>
-        {filteredNotifications
-          .filter((n) => n.time.includes('m ago') || n.time.includes('h ago'))
-          .map(renderNotification)}
+        {recentNotifications.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Today</Text>
+            {recentNotifications.map(renderNotification)}
+          </>
+        )}
 
-        <Text style={styles.sectionTitle}>Earlier</Text>
-        {filteredNotifications.filter((n) => n.time.includes('d ago')).map(renderNotification)}
+        {olderNotifications.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Earlier</Text>
+            {olderNotifications.map(renderNotification)}
+          </>
+        )}
 
         {loading && notifications.length === 0 && (
           <View style={styles.loadingState}>

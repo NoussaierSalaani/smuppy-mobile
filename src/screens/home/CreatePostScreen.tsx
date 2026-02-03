@@ -37,10 +37,11 @@ interface MediaItem {
 
 // Route params type
 type RootStackParamList = {
-  CreatePost: undefined;
+  CreatePost: { fromProfile?: boolean } | undefined;
   AddPostDetails: {
     media: MediaItem[];
     postType: string;
+    fromProfile?: boolean;
   };
   VideoRecorder: undefined;
 };
@@ -56,6 +57,7 @@ interface CreatePostScreenProps {
 export default function CreatePostScreen({ navigation, route: _route }: CreatePostScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const fromProfile = _route?.params?.fromProfile ?? false;
   const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
   const alert = { error: errorAlert, warning: warningAlert };
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
@@ -221,6 +223,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
     navigation.navigate('AddPostDetails', {
       media: selectedMedia,
       postType: 'post',
+      fromProfile,
     });
   };
 
@@ -475,6 +478,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           numColumns={3}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.mediaGrid}
+          style={styles.mediaList}
         />
       )}
 
@@ -689,6 +693,9 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   // Media Grid
   mediaGrid: {
     paddingBottom: 150,
+  },
+  mediaList: {
+    flex: 1,
   },
   mediaItem: {
     width: ITEM_SIZE,

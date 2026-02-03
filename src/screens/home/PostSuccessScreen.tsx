@@ -18,16 +18,16 @@ interface MediaItem {
 }
 
 interface PostSuccessScreenProps {
-  route: { params: { media: MediaItem[]; postType: string } };
+  route: { params: { media: MediaItem[]; postType: string; fromProfile?: boolean } };
   navigation: {
     goBack: () => void;
     navigate: (screen: string) => void;
-    reset: (state: { index: number; routes: Array<{ name: string }> }) => void;
+    reset: (state: { index: number; routes: Array<{ name: string; params?: object }> }) => void;
   };
 }
 
 export default function PostSuccessScreen({ route, navigation }: PostSuccessScreenProps) {
-  const { media, postType } = route.params;
+  const { media, postType, fromProfile = false } = route.params;
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -72,7 +72,7 @@ export default function PostSuccessScreen({ route, navigation }: PostSuccessScre
     const timer = setTimeout(() => {
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Tabs' }],
+        routes: [{ name: 'Tabs', params: fromProfile ? { screen: 'Profile' } : undefined }],
       });
     }, 3000);
 

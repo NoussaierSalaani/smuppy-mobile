@@ -1,6 +1,6 @@
 /**
- * Decline Session Handler
- * POST /sessions/{id}/decline - Creator declines a session request
+ * Decline/Cancel Session Handler
+ * POST /sessions/{id}/decline - Creator declines OR fan cancels a session request
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
@@ -41,13 +41,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('BEGIN');
 
-    // Get session and verify creator
+    // Get session and determine role
     const sessionResult = await client.query(
-      `SELECT s.*, fp.full_name as fan_name
+      `SELECT s.*, fp.full_name as fan_name, cp.full_name as creator_name
        FROM private_sessions s
        JOIN profiles fp ON s.fan_id = fp.id
-       WHERE s.id = $1 AND s.creator_id = $2 AND s.status = 'pending'`,
-      [sessionId, userId]
+       JOIN profiles cp ON s.creator_id = cp.id
+       WHERE s.id = $1 AND s.status IN ('pending', 'confirmed')`,
+      [sessionId]
     );
 
     if (sessionResult.rows.length === 0) {
@@ -60,13 +61,35 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const session = sessionResult.rows[0];
+    const isCreator = session.creator_id === userId;
+    const isFan = session.fan_id === userId;
 
-    // Update session status to declined
+    if (!isCreator && !isFan) {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Forbidden' }),
+      };
+    }
+
+    if (isCreator && session.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Only pending sessions can be declined by creator' }),
+      };
+    }
+
+    const cancellationReason = body.reason || (isCreator ? 'Declined by creator' : 'Cancelled by fan');
+
+    // Update session status to cancelled
     await client.query(
       `UPDATE private_sessions
        SET status = 'cancelled', cancellation_reason = $1, updated_at = NOW()
        WHERE id = $2`,
-      [body.reason || 'Declined by creator', sessionId]
+      [cancellationReason, sessionId]
     );
 
     // If session was from a pack, refund the session credit
@@ -77,20 +100,36 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       );
     }
 
-    // Notify the fan
-    await client.query(
-      `INSERT INTO notifications (user_id, type, title, body, data)
-       VALUES ($1, 'session_declined', 'Session non disponible', $2, $3)`,
-      [
-        session.fan_id,
-        body.reason || 'Le createur n\'est pas disponible pour ce creneau',
-        JSON.stringify({
-          sessionId,
-          scheduledAt: session.scheduled_at,
-          creatorId: userId,
-        }),
-      ]
-    );
+    // Notify counterpart
+    if (isCreator) {
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'session_declined', 'Session non disponible', $2, $3)`,
+        [
+          session.fan_id,
+          cancellationReason,
+          JSON.stringify({
+            sessionId,
+            scheduledAt: session.scheduled_at,
+            creatorId: userId,
+          }),
+        ]
+      );
+    } else if (isFan) {
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'session_cancelled', 'Session annulee', $2, $3)`,
+        [
+          session.creator_id,
+          cancellationReason,
+          JSON.stringify({
+            sessionId,
+            scheduledAt: session.scheduled_at,
+            fanId: userId,
+          }),
+        ]
+      );
+    }
 
     await client.query('COMMIT');
 
@@ -99,7 +138,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        message: 'Session declined',
+        message: isCreator ? 'Session declined' : 'Session cancelled',
       }),
     };
   } catch (error) {

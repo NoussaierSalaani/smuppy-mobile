@@ -183,8 +183,8 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     username: p.username,
     full_name: businessDisplayName || effectiveFullName,
     display_name: businessDisplayName || p.displayName || undefined,
-    avatar_url: p.avatarUrl,
-    cover_url: p.coverUrl || undefined,
+    avatar_url: p.avatarUrl || (p as any)?.avatar_url,
+    cover_url: p.coverUrl || (p as any)?.cover_url || undefined,
     bio: p.bio || undefined,
     website: p.website || undefined,
     is_verified: p.isVerified,
@@ -215,18 +215,25 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
 
 // Helper to convert AWS API Post to local Post format
 const convertPost = (p: AWSPost): Post => {
+  const rawMedia = p.mediaUrls || (p as any)?.media_urls || (p as any)?.mediaUrl || (p as any)?.media_url || [];
+  const mediaArray = Array.isArray(rawMedia) ? rawMedia : rawMedia ? [rawMedia] : [];
+
   return {
     id: p.id,
     author_id: p.authorId,
     content: p.content,
-    media_urls: p.mediaUrls,
-    media_type: p.mediaType || undefined,
-    is_peak: p.isPeak || false,
+    media_urls: mediaArray,
+    media_type: p.mediaType || (p as any)?.media_type || (mediaArray.length > 1 ? 'multiple' : undefined),
+    is_peak: (p as any)?.is_peak ?? p.isPeak ?? false,
     visibility: 'public',
     likes_count: p.likesCount,
     comments_count: p.commentsCount,
     created_at: p.createdAt,
-    author: p.author ? convertProfile(p.author) || undefined : undefined,
+    author: p.author
+      ? convertProfile(p.author) || undefined
+      : (p as any)?.author_profile
+        ? convertProfile((p as any).author_profile) || undefined
+        : undefined,
   };
 };
 
@@ -1975,4 +1982,3 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
     return { data: null, error: getErrorMessage(error) };
   }
 };
-

@@ -5,6 +5,7 @@
 
 import { AWS_CONFIG } from '../config/aws-config';
 import { awsAuth } from './aws-auth';
+import { secureFetch } from '../utils/certificatePinning';
 
 const API_BASE_URL = AWS_CONFIG.api.restEndpoint;
 const API_BASE_URL_2 = AWS_CONFIG.api.restEndpoint2;
@@ -126,7 +127,7 @@ class AWSAPIService {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(url, {
+      const response = await secureFetch(url, {
         method,
         headers: requestHeaders,
         body: body ? JSON.stringify(body) : undefined,
@@ -144,7 +145,7 @@ class AWSAPIService {
           const retryController = new AbortController();
           const retryTimeoutId = setTimeout(() => retryController.abort(), timeout);
           try {
-            const retryResponse = await fetch(url, {
+            const retryResponse = await secureFetch(url, {
               method,
               headers: requestHeaders,
               body: body ? JSON.stringify(body) : undefined,
@@ -159,7 +160,16 @@ class AWSAPIService {
                 retryError
               );
             }
-            return await retryResponse.json() as T;
+            const retryRaw = await retryResponse.text();
+            if (!retryRaw) {
+              return {} as T;
+            }
+            try {
+              return JSON.parse(retryRaw) as T;
+            } catch (parseErr) {
+              if (__DEV__) console.warn('[AWS API] Invalid JSON response (retry)', (parseErr as Error).message);
+              throw new APIError('Invalid JSON response', retryResponse.status);
+            }
           } catch (retryErr: unknown) {
             clearTimeout(retryTimeoutId);
             if (retryErr instanceof Error && retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
@@ -178,8 +188,17 @@ class AWSAPIService {
         );
       }
 
-      const data = await response.json();
-      return data as T;
+      const raw = await response.text();
+      if (!raw) {
+        return {} as T;
+      }
+
+      try {
+        return JSON.parse(raw) as T;
+      } catch (parseErr) {
+        if (__DEV__) console.warn('[AWS API] Invalid JSON response', (parseErr as Error).message);
+        throw new APIError('Invalid JSON response', response.status);
+      }
     } catch (error: unknown) {
       clearTimeout(timeoutId);
 
@@ -1063,7 +1082,23 @@ class AWSAPIService {
   }
 
   /**
-   * Create payment intent for identity verification ($14.90)
+   * Get current verification pricing/config (amount, currency, interval)
+   */
+  async getVerificationConfig(): Promise<{
+    success: boolean;
+    priceId?: string;
+    amount?: number;
+    currency?: string;
+    interval?: string;
+  }> {
+    return this.request('/payments/identity', {
+      method: 'POST',
+      body: { action: 'get-config' },
+    });
+  }
+
+  /**
+   * Create payment intent for identity verification
    */
   async createVerificationPaymentIntent(): Promise<{
     success: boolean;

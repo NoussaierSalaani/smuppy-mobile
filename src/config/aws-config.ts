@@ -72,16 +72,17 @@ export const getAWSConfig = (): AWSConfig => {
   const currentEnv = getEnvironment();
   const isProduction = currentEnv === 'production';
   // Treat any non-dev build (TestFlight/App Store/EAS prod) as release: no fallbacks allowed
-  const isReleaseBuild = typeof __DEV__ !== 'undefined' ? !__DEV__ : true;
+  const isReleaseBuild = typeof __DEV__ !== 'undefined' ? !__DEV__ : process.env.NODE_ENV === 'production';
 
   // In production, every value MUST come from env vars — no fallback to staging
   const resolve = (envKey: string, stagingDefault: string): string => {
     const value = env(envKey);
     if (value) return value;
     if (isProduction || isReleaseBuild) {
-      if (__DEV__) {
-        console.warn(`[AWS Config] ${envKey} is not set, using staging default.`);
-      }
+      throw new Error(`[AWS Config] Missing required ${envKey} for ${currentEnv} build`);
+    }
+    if (__DEV__) {
+      console.warn(`[AWS Config] ${envKey} is not set, using staging default.`);
     }
     return stagingDefault;
   };

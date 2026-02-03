@@ -683,6 +683,7 @@ export type MainStackParamList = {
     visibility?: string;
     location?: string;
     taggedPeople?: { id: string; name?: string; full_name?: string; avatar?: string | null; avatar_url?: string | null }[];
+    fromProfile?: boolean;
   } | undefined;
 
   // Peaks

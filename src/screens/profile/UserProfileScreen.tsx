@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Share,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserStore, useUserSafetyStore } from '../../stores';
@@ -85,7 +86,10 @@ const DEFAULT_PROFILE = {
 
 // Get cover image based on interests
 const getCoverImage = (_interests: string[] = []): string | null => {
-  return null;
+  // Fallback cover to avoid empty space on profiles without custom cover
+   
+  const resolved = Image.resolveAssetSource(require('../../../assets/images/bg.png'));
+  return resolved?.uri || null;
 };
 
 
@@ -213,14 +217,14 @@ const UserProfileScreen = () => {
 
   // Load user's posts
   const loadUserPosts = useCallback(async () => {
-    if (userId) {
-      setIsLoadingPosts(true);
-      const { data, error } = await getPostsByUser(userId, 0, 50);
-      if (!error && data) {
-        setUserPosts(data);
-      }
-      setIsLoadingPosts(false);
+    if (!userId) return;
+
+    setIsLoadingPosts(true);
+    const { data, error } = await getPostsByUser(userId, 0, 50);
+    if (!error && data) {
+      setUserPosts(data);
     }
+    setIsLoadingPosts(false);
   }, [userId]);
 
   useEffect(() => {
@@ -299,6 +303,9 @@ const UserProfileScreen = () => {
 
   // Gestion du bouton Fan
   const handleFanPress = () => {
+    // Guard: don't allow on own profile or while loading
+    if (isOwnProfile || isLoadingFollow) return;
+
     if (isBlocked) {
       setShowBlockedModal(true);
       return;
@@ -331,73 +338,98 @@ const UserProfileScreen = () => {
     setIsLoadingFollow(false);
   };
   
-  const becomeFan = async () => {
-    if (!userId || isLoadingFollow) return;
-    hasUserInteracted.current = true;
-
-    const newCount = fanToggleCount + 1;
-    setFanToggleCount(newCount);
-
-    if (newCount > 2) {
-      // Bloquer pour 7 jours
+  const registerToggleAndMaybeBlock = () => {
+    const next = fanToggleCount + 1;
+    if (next > 2) {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 7);
       setBlockEndDate(endDate);
       setIsBlocked(true);
       setShowBlockedModal(true);
-      return;
+      return true;
     }
+    setFanToggleCount(next);
+    return false;
+  };
+
+  const becomeFan = async () => {
+    // Guard: require userId and not loading
+    if (!userId || isLoadingFollow || isOwnProfile) return;
+    hasUserInteracted.current = true;
 
     setIsLoadingFollow(true);
 
-    const { error, requestCreated } = await followUser(userId);
+    // Optimistic update for responsive UI (will revert on error)
+    const wasPrivate = profile.isPrivate;
+    if (wasPrivate) {
+      setIsRequested(true);
+    } else {
+      setIsFan(true);
+      setLocalFanCount(prev => (prev ?? 0) + 1);
+    }
+
+    const { error, requestCreated, cooldown } = await followUser(userId);
     setIsLoadingFollow(false);
 
     if (error) {
+      // Revert optimistic update on error
+      if (wasPrivate) {
+        setIsRequested(false);
+      } else {
+        setIsFan(false);
+        setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+      }
+
+      if (cooldown?.blocked) {
+        setBlockEndDate(new Date(cooldown.until));
+        setIsBlocked(true);
+        setShowBlockedModal(true);
+      }
       if (__DEV__) console.warn('[UserProfile] Follow error:', error);
       return;
     }
 
+    // Adjust state based on actual API response
     if (requestCreated) {
       // A follow request was created for a private account
       setIsRequested(true);
+      setIsFan(false);
+      // Revert fan count if we optimistically added it
+      if (!wasPrivate) {
+        setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+      }
     } else {
       // Direct follow was successful
       setIsFan(true);
-      setLocalFanCount(prev => (prev ?? 0) + 1);
+      setIsRequested(false);
+      // Ensure fan count is incremented (may already be from optimistic update)
+      if (wasPrivate) {
+        setLocalFanCount(prev => (prev ?? 0) + 1);
+      }
       if (useUserStore.getState().user?.accountType !== 'pro_business') {
         useVibeStore.getState().addVibeAction('follow_user');
       }
     }
+
+    registerToggleAndMaybeBlock();
 
     // Invalidate profile cache to get fresh follow status and fan count
     queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
   };
 
   const confirmUnfan = async () => {
-    if (!userId || isLoadingFollow) return;
+    // Guard: require userId and not loading
+    if (!userId || isLoadingFollow || isOwnProfile) return;
     hasUserInteracted.current = true;
 
     setShowUnfanModal(false);
-
-    const newCount = fanToggleCount + 1;
-    setFanToggleCount(newCount);
-
-    if (newCount > 2) {
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 7);
-      setBlockEndDate(endDate);
-      setIsBlocked(true);
-      setTimeout(() => setShowBlockedModal(true), 300);
-      return;
-    }
 
     setIsLoadingFollow(true);
     // Optimistic update
     setIsFan(false);
     setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
 
-    const { error } = await unfollowUser(userId);
+    const { error, cooldown } = await unfollowUser(userId);
     setIsLoadingFollow(false);
 
     if (error) {
@@ -405,7 +437,17 @@ const UserProfileScreen = () => {
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
       if (__DEV__) console.warn('[UserProfile] Unfollow error:', error);
+      return;
     }
+
+    if (cooldown?.blocked) {
+      setBlockEndDate(new Date(cooldown.until));
+      setIsBlocked(true);
+      setTimeout(() => setShowBlockedModal(true), 300);
+      return;
+    }
+
+    registerToggleAndMaybeBlock();
 
     // Invalidate profile cache to get fresh follow status and fan count
     queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
@@ -602,10 +644,23 @@ const UserProfileScreen = () => {
 
     if (activeTab === 'posts') {
       if (posts.length === 0) return renderEmpty('posts');
+      const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
+      const cardAspect = postColumns === 1 ? 0.9 : 1;
+      const columnWidthPct = 100 / postColumns;
       return (
         <View style={styles.postsGrid}>
           {posts.map((post, index) => (
-            <View key={`post-${index}-${post.id}`} style={styles.postCardWrapper}>
+            <View
+              key={`post-${index}-${post.id}`}
+              style={[
+                styles.postCardWrapper,
+                {
+                  flexBasis: `${columnWidthPct}%`,
+                  maxWidth: `${columnWidthPct}%`,
+                  aspectRatio: cardAspect,
+                },
+              ]}
+            >
               {renderPostItem(post, posts)}
             </View>
           ))}
@@ -1685,14 +1740,16 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 12,
+    columnGap: 12,
+    rowGap: 12,
+    alignItems: 'flex-start',
   },
   postCardWrapper: {
-    width: (SCREEN_WIDTH - 44) / 2,
+    width: '100%',
   },
   postCard: {
-    width: (SCREEN_WIDTH - 44) / 2,
-    height: 200,
+    width: '100%',
+    height: '100%',
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',

@@ -122,7 +122,7 @@ interface AddPostDetailsScreenProps {
 export default function AddPostDetailsScreen({ route, navigation }: AddPostDetailsScreenProps) {
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
-  const { media, postType } = route.params;
+  const { media, postType = 'post', fromProfile = false } = route.params;
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
 
@@ -549,6 +549,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         location,
         taggedPeople,
         postId: newPost?.id,
+        fromProfile,
       });
     } catch (error) {
       if (__DEV__) console.warn('Post creation error:', error);
@@ -556,7 +557,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       setIsPosting(false);
       setUploadProgress(0);
     }
-  }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople, showError]);
+  }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople, fromProfile, showError]);
 
   const handleBack = useCallback(() => {
     navigation.goBack();

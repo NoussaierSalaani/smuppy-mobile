@@ -5,9 +5,6 @@
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
-// TODO: Fetch from backend config API so price changes don't require app update
-const VERIFICATION_FEE = '$14.90';
-const VERIFICATION_PERIOD = '/month';
 import {
   View,
   Text,
@@ -69,12 +66,7 @@ const getStatusInfo = (colors: ThemeColors): Record<VerificationStatus, StatusIn
   },
 });
 
-const VERIFICATION_STEPS = [
-  {
-    icon: 'card',
-    title: 'Subscribe to verification',
-    subtitle: `${VERIFICATION_FEE}${VERIFICATION_PERIOD} subscription`,
-  },
+const STATIC_VERIFICATION_STEPS = [
   {
     icon: 'camera',
     title: 'Take a selfie',
@@ -108,31 +100,83 @@ export default function IdentityVerificationScreen() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<VerificationStatus>('not_started');
+  const [pricing, setPricing] = useState<{ amount: number; currency: string; interval: string } | null>(null);
   const { showError, showAlert } = useSmuppyAlert();
 
+  const formatPrice = useCallback((amountCents: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: (currency || 'usd').toUpperCase(),
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amountCents / 100);
+    } catch {
+      return `$${(amountCents / 100).toFixed(2)}`;
+    }
+  }, []);
+
+  const priceAmountText = pricing ? formatPrice(pricing.amount, pricing.currency) : '—';
+  const priceIntervalText = pricing?.interval ? `/${pricing.interval}` : '';
+  const priceLabel = pricing
+    ? `${priceAmountText}${priceIntervalText}`
+    : loading
+      ? 'Loading price...'
+      : 'Price unavailable';
+  const intervalReadable = pricing?.interval || 'billing period';
+  const ctaPriceText = pricing ? `${priceAmountText}${priceIntervalText}` : null;
+  const ctaLabel = status === 'requires_input'
+    ? 'Continue Verification'
+    : ctaPriceText
+      ? `Get Verified — ${ctaPriceText}`
+      : 'Get Verified';
+
   const STATUS_INFO = useMemo(() => getStatusInfo(colors), [colors]);
+  const steps = useMemo(
+    () => [
+      {
+        icon: 'card',
+        title: 'Subscribe to verification',
+        subtitle: priceLabel,
+      },
+      ...STATIC_VERIFICATION_STEPS,
+    ],
+    [priceLabel],
+  );
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchStatus = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await awsAPI.request<{
-        success: boolean;
-        isVerified?: boolean;
-        status?: string;
-        hasSession?: boolean;
-      }>('/payments/identity', {
-        method: 'POST',
-        body: { action: 'get-status' },
-      });
+      const [statusResponse, configResponse] = await Promise.all([
+        awsAPI.request<{
+          success: boolean;
+          isVerified?: boolean;
+          status?: string;
+          hasSession?: boolean;
+        }>('/payments/identity', {
+          method: 'POST',
+          body: { action: 'get-status' },
+        }),
+        awsAPI.getVerificationConfig().catch(() => null),
+      ]);
 
-      if (response.success) {
-        if (response.isVerified) {
+      if (configResponse?.success) {
+        setPricing({
+          amount: configResponse.amount ?? 0,
+          currency: configResponse.currency ?? 'usd',
+          interval: configResponse.interval ?? 'month',
+        });
+      }
+
+      if (statusResponse.success) {
+        if (statusResponse.isVerified) {
           setStatus('verified');
-        } else if (response.status === 'requires_input') {
+        } else if (statusResponse.status === 'requires_input') {
           setStatus('requires_input');
-        } else if (response.status === 'processing') {
+        } else if (statusResponse.status === 'processing') {
           setStatus('processing');
-        } else if (!response.hasSession) {
+        } else if (!statusResponse.hasSession) {
           // Check if payment was made
           setStatus('not_started');
         }
@@ -296,15 +340,15 @@ export default function IdentityVerificationScreen() {
               <View style={styles.priceHeader}>
                 <Text style={styles.priceLabel}>Verified Account</Text>
                 <View style={styles.priceTag}>
-                  <Text style={styles.priceAmount}>{VERIFICATION_FEE}</Text>
-                  <Text style={styles.priceOnce}>{VERIFICATION_PERIOD}</Text>
+                  <Text style={styles.priceAmount}>{priceAmountText}</Text>
+                  <Text style={styles.priceOnce}>{priceIntervalText}</Text>
                 </View>
               </View>
               <View style={styles.priceDivider} />
               <View style={styles.priceInfo}>
                 <Ionicons name="information-circle" size={18} color={colors.gray} />
                 <Text style={styles.priceInfoText}>
-                  Monthly subscription. Cancel anytime from your profile settings.
+                  Subscription billed every {intervalReadable}. Cancel anytime from your profile settings.
                 </Text>
               </View>
             </View>
@@ -312,7 +356,7 @@ export default function IdentityVerificationScreen() {
             {/* Steps */}
             <View style={styles.stepsSection}>
               <Text style={styles.sectionTitle}>How it works</Text>
-              {VERIFICATION_STEPS.map((step, index) => (
+              {steps.map((step, index) => (
                 <View key={index} style={styles.stepItem}>
                   <View style={styles.stepNumber}>
                     <Text style={styles.stepNumberText}>{index + 1}</Text>
@@ -327,7 +371,7 @@ export default function IdentityVerificationScreen() {
                     <Text style={styles.stepTitle}>{step.title}</Text>
                     <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
                   </View>
-                  {index < VERIFICATION_STEPS.length - 1 && (
+                  {index < steps.length - 1 && (
                     <View style={styles.stepLine} />
                   )}
                 </View>
@@ -385,7 +429,7 @@ export default function IdentityVerificationScreen() {
                     color="white"
                   />
                   <Text style={styles.ctaText}>
-                    {status === 'requires_input' ? 'Continue Verification' : `Get Verified — ${VERIFICATION_FEE}${VERIFICATION_PERIOD}`}
+                    {ctaLabel}
                   </Text>
                 </>
               )}

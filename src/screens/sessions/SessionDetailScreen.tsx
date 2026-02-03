@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Calendar from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { awsAPI } from '../../services/aws-api';
 
 interface Session {
   id: string;
@@ -131,8 +132,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
   const handleCancelSession = async () => {
     setCancelling(true);
     try {
-      // TODO: Call API to cancel session
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await awsAPI.declineSession(session.id, 'Cancelled by user');
       setShowCancelModal(false);
       showAlert({
         title: 'Session annulée',

@@ -216,7 +216,17 @@ interface ProfileIconProps {
   activeColor: string;
 }
 
+// CDN URL normalization - fix legacy URLs pointing to wrong CloudFront
+const WRONG_CDN = 'd3gy4x1feicix3.cloudfront.net';
+const CORRECT_CDN = 'dc8kq67t0asis.cloudfront.net';
+const normalizeCdnUrl = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  return url.includes(WRONG_CDN) ? url.replace(WRONG_CDN, CORRECT_CDN) : url;
+};
+
 const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIconProps): React.JSX.Element => {
+  const normalizedUri = normalizeCdnUrl(imageUri);
+
   const profileContainerStyle = React.useMemo(() => ({
     overflow: 'hidden' as const,
     borderWidth: 2,
@@ -233,9 +243,9 @@ const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIcon
 
   return (
     <View style={profileContainerStyle}>
-      {imageUri ? (
+      {normalizedUri ? (
         <Image
-          source={{ uri: imageUri }}
+          source={{ uri: normalizedUri }}
           style={profileImageStyle}
         />
       ) : (

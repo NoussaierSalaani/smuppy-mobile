@@ -723,7 +723,7 @@ export type MainStackParamList = {
   SessionPayment: { creatorId: string; sessionId?: string; date: string; time: string; duration: number; price: number };
   SessionBooked: { sessionId: string; creatorName: string; date: string; time: string };
   WaitingRoom: { sessionId: string };
-  PrivateCall: { sessionId: string; channelName: string; token: string };
+  PrivateCall: { sessionId: string; creator?: { id: string; name: string; avatar: string | null }; myUserId?: string; isIncoming?: boolean };
   SessionEnded: { sessionId: string; duration: number; creatorName: string };
 
   // Creator Offerings & Checkout (Fan)

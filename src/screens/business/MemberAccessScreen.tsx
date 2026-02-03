@@ -65,12 +65,9 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     loadAccessPass();
-    startAnimations();
-  }, []);
 
-  const startAnimations = () => {
     // Pulse animation for QR container
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.02,
@@ -83,10 +80,11 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulse.start();
 
     // Glow animation
-    Animated.loop(
+    const glow = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -99,8 +97,14 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
-  };
+    );
+    glow.start();
+
+    return () => {
+      pulse.stop();
+      glow.stop();
+    };
+  }, []);
 
   const loadAccessPass = async () => {
     try {

@@ -95,7 +95,8 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (error) {
         // Rollback
         set((state) => {
-          state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
+          const idx = state.mutedUserIds.indexOf(userId);
+          if (idx !== -1) state.mutedUserIds.splice(idx, 1);
         });
         return { error };
       }
@@ -117,8 +118,10 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       // Optimistic update
       const previousMutedUsers = get().mutedUsers;
       set((state) => {
-        state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
-        state.mutedUsers = state.mutedUsers.filter((m) => m.muted_user_id !== userId);
+        const muteIdx = state.mutedUserIds.indexOf(userId);
+        if (muteIdx !== -1) state.mutedUserIds.splice(muteIdx, 1);
+        const userIdx = state.mutedUsers.findIndex((m) => m.muted_user_id === userId);
+        if (userIdx !== -1) state.mutedUsers.splice(userIdx, 1);
       });
 
       const { error } = await dbUnmuteUser(userId);
@@ -160,9 +163,11 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (error) {
         // Rollback
         set((state) => {
-          state.blockedUserIds = state.blockedUserIds.filter((id) => id !== userId);
+          const blockIdx = state.blockedUserIds.indexOf(userId);
+          if (blockIdx !== -1) state.blockedUserIds.splice(blockIdx, 1);
           if (!wasMuted) {
-            state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
+            const muteIdx = state.mutedUserIds.indexOf(userId);
+            if (muteIdx !== -1) state.mutedUserIds.splice(muteIdx, 1);
           }
         });
         return { error };
@@ -192,8 +197,10 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       // Optimistic update
       const previousBlockedUsers = get().blockedUsers;
       set((state) => {
-        state.blockedUserIds = state.blockedUserIds.filter((id) => id !== userId);
-        state.blockedUsers = state.blockedUsers.filter((b) => b.blocked_user_id !== userId);
+        const blockIdx = state.blockedUserIds.indexOf(userId);
+        if (blockIdx !== -1) state.blockedUserIds.splice(blockIdx, 1);
+        const userIdx = state.blockedUsers.findIndex((b) => b.blocked_user_id === userId);
+        if (userIdx !== -1) state.blockedUsers.splice(userIdx, 1);
       });
 
       const { error } = await dbUnblockUser(userId);

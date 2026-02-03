@@ -3,7 +3,7 @@
  * Inspired by Revolut, Cash App, and modern fintech apps
  * Features: Earnings overview, transactions, analytics, payouts
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -84,7 +84,7 @@ export default function CreatorWalletScreen() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics'>('overview');
-  const scrollY = new Animated.Value(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

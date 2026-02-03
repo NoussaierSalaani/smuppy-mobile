@@ -1,6 +1,6 @@
 // src/screens/sessions/PrivateCallScreen.tsx
 // 1:1 Private Video Call Screen with Agora
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -81,7 +81,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const [agoraToken, setAgoraToken] = useState<string | null>(null);
   const [agoraChannelName, setAgoraChannelName] = useState<string | null>(null);
 
-  const pulseAnim = new Animated.Value(1);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Fetch Agora token from backend
   const fetchAgoraToken = useCallback(async (): Promise<boolean> => {

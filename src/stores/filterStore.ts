@@ -269,7 +269,8 @@ export const useFilterStore = create<FilterStoreState>()(
 
     removeOverlay: (overlayId) => {
       set((state) => {
-        state.activeOverlays = state.activeOverlays.filter((o) => o.id !== overlayId);
+        const idx = state.activeOverlays.findIndex((o) => o.id === overlayId);
+        if (idx !== -1) state.activeOverlays.splice(idx, 1);
       });
     },
 

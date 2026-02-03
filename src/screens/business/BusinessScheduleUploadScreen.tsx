@@ -179,12 +179,12 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
       useNativeDriver: false,
     }).start();
 
-    try {
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setAnalysisProgress((prev) => Math.min(prev + 10, 90));
-      }, 800);
+    // Simulate progress updates
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress((prev) => Math.min(prev + 10, 90));
+    }, 800);
 
+    try {
       // Call AI analysis API
       const response = await awsAPI.analyzeScheduleDocument({
         fileUri: uploadedFile.uri,
@@ -211,6 +211,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
+      clearInterval(progressInterval);
       if (__DEV__) console.error('Analysis error:', error);
       showError('Analysis Failed', 'Could not analyze the document. Please try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

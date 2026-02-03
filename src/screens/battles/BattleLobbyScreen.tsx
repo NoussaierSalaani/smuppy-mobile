@@ -73,7 +73,7 @@ export default function BattleLobbyScreen() {
 
   useEffect(() => {
     // Pulse animation
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.1,
@@ -86,10 +86,11 @@ export default function BattleLobbyScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulse.start();
 
     // Glow animation
-    Animated.loop(
+    const glow = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -102,7 +103,13 @@ export default function BattleLobbyScreen() {
           useNativeDriver: false,
         }),
       ])
-    ).start();
+    );
+    glow.start();
+
+    return () => {
+      pulse.stop();
+      glow.stop();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -159,14 +166,23 @@ export default function BattleLobbyScreen() {
     }
   };
 
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, []);
+
   const startCountdown = () => {
     setCountdown(3);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-    const timer = setInterval(() => {
+    countdownTimerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev === null || prev <= 1) {
-          clearInterval(timer);
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
           handleStartBattle();
           return null;
         }

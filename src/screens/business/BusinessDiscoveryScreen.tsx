@@ -322,8 +322,6 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
               </Text>
             </View>
 
-            <Text style={styles.cardUsername}>@{item.username}</Text>
-
             {/* Rating & Location */}
             <View style={styles.cardMeta}>
               <View style={styles.cardMetaItem}>

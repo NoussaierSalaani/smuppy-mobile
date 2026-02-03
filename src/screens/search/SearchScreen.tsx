@@ -715,7 +715,6 @@ const SearchScreen = (): React.JSX.Element => {
                     accountType={profile.account_type}
                   />
                 </View>
-                <Text style={[styles.resultFullName, { color: colors.gray }]}>@{profile.username}</Text>
               </View>
             </TouchableOpacity>
           ))}

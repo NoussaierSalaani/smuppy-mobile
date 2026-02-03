@@ -188,7 +188,6 @@ export default function InviteToBattleScreen() {
               <AccountBadge size={14} isVerified style={styles.badge} />
             )}
           </View>
-          <Text style={styles.username}>@{item.username}</Text>
           {item.fans_count !== undefined && (
             <Text style={styles.fansCount}>
               {item.fans_count.toLocaleString()} fans

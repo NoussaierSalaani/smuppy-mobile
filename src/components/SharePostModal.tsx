@@ -175,7 +175,6 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
             accountType={item.account_type}
           />
         </View>
-        <Text style={styles.userUsername}>@{item.username}</Text>
       </View>
       {sending === item.id ? (
         <ActivityIndicator size="small" color={colors.primary} />

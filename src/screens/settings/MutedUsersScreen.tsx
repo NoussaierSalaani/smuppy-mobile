@@ -82,7 +82,6 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
           <AvatarImage source={user.avatar_url} size={50} style={styles.avatar} />
           <View style={styles.userDetails}>
             <Text style={styles.userName}>{resolveDisplayName(user)}</Text>
-            {user.username && <Text style={styles.userHandle}>@{user.username}</Text>}
           </View>
         </TouchableOpacity>
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -70,6 +70,26 @@ type RootStackParamList = {
 // HELPERS
 // ============================================
 
+// Map backend notification types to frontend display types
+function mapNotificationType(backendType: string): UserNotification['type'] {
+  switch (backendType) {
+    case 'new_follower':
+    case 'follow_request':
+      return 'follow';
+    case 'like':
+    case 'peak_like':
+      return 'like';
+    case 'comment':
+    case 'peak_comment':
+    case 'peak_reply':
+      return 'peak_reply';
+    case 'live':
+      return 'live';
+    default:
+      return 'like';
+  }
+}
+
 // Transform API notification to display format
 function transformNotification(apiNotif: any): Notification {
   const baseNotif = {
@@ -89,18 +109,19 @@ function transformNotification(apiNotif: any): Notification {
     } as SystemNotification;
   }
 
-  // User notifications (follow, like, peak_reply, live, etc.)
+  // User notifications (follow, like, comment, peak_comment, peak_reply, live, etc.)
   const userData = apiNotif.data?.user || {};
+  const mappedType = mapNotificationType(apiNotif.type);
   return {
     ...baseNotif,
-    type: apiNotif.type || 'like',
+    type: mappedType,
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
       name: userData.name || userData.username || 'User',
       avatar: userData.avatar || userData.avatarUrl || null,
       isVerified: userData.isVerified || false,
     },
-    message: apiNotif.body || getDefaultMessage(apiNotif.type),
+    message: apiNotif.body || getDefaultMessage(mappedType),
     isFollowing: apiNotif.data?.isFollowing,
     postImage: apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
   } as UserNotification;
@@ -143,17 +164,17 @@ export default function NotificationsScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [followRequestsCount, setFollowRequestsCount] = useState(0);
-  const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  const cursorRef = useRef<string | null>(null);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  // Fetch notifications from API
+  // Fetch notifications from API — uses ref for cursor to avoid stale closure
   const fetchNotifications = useCallback(async (isRefresh = false) => {
     try {
       const response = await awsAPI.getNotifications({
         limit: 20,
-        cursor: isRefresh ? undefined : cursor || undefined,
+        cursor: isRefresh ? undefined : cursorRef.current || undefined,
       });
 
       const items = response.data || [];
@@ -165,13 +186,12 @@ export default function NotificationsScreen(): React.JSX.Element {
         setNotifications(prev => [...prev, ...transformed]);
       }
 
-      setCursor(response.nextCursor || null);
+      cursorRef.current = response.nextCursor || null;
       setHasMore(response.hasMore || false);
     } catch (error) {
       if (__DEV__) console.warn('Error fetching notifications:', error);
-      // Keep existing notifications on error
     }
-  }, [cursor]);
+  }, []);
 
   // Load follow requests count
   const loadFollowRequestsCount = useCallback(async () => {
@@ -268,10 +288,10 @@ export default function NotificationsScreen(): React.JSX.Element {
     }
   };
 
-  const filteredNotifications =
-    activeFilter === 'all'
-      ? notifications
-      : notifications.filter((n) => n.type === activeFilter);
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications;
+    return notifications.filter((n) => n.type === activeFilter);
+  }, [notifications, activeFilter]);
 
   const [recentNotifications, olderNotifications] = useMemo(() => {
     const recent = filteredNotifications.filter(
@@ -280,8 +300,6 @@ export default function NotificationsScreen(): React.JSX.Element {
     const older = filteredNotifications.filter((n) => !recent.includes(n));
     return [recent, older];
   }, [filteredNotifications]);
-
-  const _unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const getNotificationIcon = (
     type: string

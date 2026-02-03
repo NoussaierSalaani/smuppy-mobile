@@ -49,6 +49,8 @@ import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
 import { useVibeStore } from '../../stores/vibeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { queryClient, queryKeys } from '../../lib/queryClient';
+import { useFeedStore } from '../../stores';
 
 const { width } = Dimensions.get('window');
 
@@ -535,6 +537,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
       setUploadProgress(100);
 
+      // Invalidate caches so new post appears everywhere
+      const currentUserId = useUserStore.getState().user?.id;
+      if (newPost) {
+        useFeedStore.getState().prependToFeed(newPost);
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      if (currentUserId) {
+        queryClient.invalidateQueries({ queryKey: ['posts', 'user', currentUserId] });
+      }
+
       // Award vibe score for posting (not for business accounts)
       if (useUserStore.getState().user?.accountType !== 'pro_business') {
         useVibeStore.getState().addVibeAction('post');
@@ -1011,12 +1023,14 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             onPress={() => setShowVisibilityModal(true)}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name={currentVisibility.icon} size={22} color={colors.dark} />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name={currentVisibility.icon} size={20} color={colors.white} />
+              </View>
               <Text style={styles.optionLabel}>Visibility</Text>
             </View>
             <View style={styles.optionRight}>
               <Text style={styles.optionValue}>{currentVisibility.label}</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
 
@@ -1026,14 +1040,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             onPress={() => setShowLocationModal(true)}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="location-outline" size={22} color={colors.dark} />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name="location-outline" size={20} color={colors.white} />
+              </View>
               <Text style={styles.optionLabel}>Location</Text>
             </View>
             <View style={styles.optionRight}>
               <Text style={[styles.optionValue, location && styles.optionValueSet]}>
                 {location || 'Add location'}
               </Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
 
@@ -1043,14 +1059,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             onPress={() => setShowTagModal(true)}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="person-add-outline" size={22} color={colors.dark} />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name="person-add-outline" size={20} color={colors.white} />
+              </View>
               <Text style={styles.optionLabel}>Tag people</Text>
             </View>
             <View style={styles.optionRight}>
               <Text style={[styles.optionValue, taggedPeople.length > 0 && styles.optionValueSet]}>
                 {taggedPeople.length > 0 ? `${taggedPeople.length} people` : 'Add tags'}
               </Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -1089,7 +1107,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   headerTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: colors.dark,
+    color: colors.primary,
   },
   headerSpacer: {
     width: 28,
@@ -1178,13 +1196,18 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   currentUserName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: colors.dark,
+    color: colors.primary,
   },
 
   // Description
   descriptionContainer: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 14,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 191, 138, 0.15)',
   },
   descriptionInput: {
     fontFamily: 'Poppins-Regular',
@@ -1196,33 +1219,43 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   charCount: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: colors.gray,
+    color: colors.primary,
     textAlign: 'right',
     marginTop: 5,
+    opacity: 0.7,
   },
 
   // Options
   optionsContainer: {
     paddingHorizontal: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.grayBorder,
+    paddingTop: SPACING.sm,
+    gap: 10,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayBorder,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 14,
   },
   optionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  optionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   optionLabel: {
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: colors.dark,
+    color: colors.primary,
     marginLeft: SPACING.md,
   },
   optionRight: {

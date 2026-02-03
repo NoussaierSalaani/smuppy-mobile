@@ -558,7 +558,20 @@ class AWSAPIService {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
     const query = queryParams.toString();
-    return this.request(`/notifications${query ? `?${query}` : ''}`);
+    const response = await this.request<{
+      data?: Notification[];
+      notifications?: Notification[];
+      nextCursor?: string | null;
+      cursor?: string | null;
+      hasMore?: boolean;
+    }>(`/notifications${query ? `?${query}` : ''}`);
+    // Handle both new format (data/nextCursor) and old format (notifications/cursor)
+    return {
+      data: response.data || response.notifications || [],
+      nextCursor: response.nextCursor ?? response.cursor ?? null,
+      hasMore: response.hasMore || false,
+      total: 0,
+    };
   }
 
   async markNotificationRead(id: string): Promise<void> {
@@ -3283,6 +3296,13 @@ export class APIError extends Error {
 }
 
 // Types
+export interface TaggedUser {
+  id: string;
+  username: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}
+
 export interface Post {
   id: string;
   authorId: string;
@@ -3290,8 +3310,11 @@ export interface Post {
   mediaUrls: string[];
   mediaType: 'image' | 'video' | null;
   isPeak?: boolean;
+  location?: string | null;
+  taggedUsers?: TaggedUser[];
   likesCount: number;
   commentsCount: number;
+  viewsCount?: number;
   createdAt: string;
   isLiked?: boolean;
   author: Profile;

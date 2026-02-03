@@ -100,7 +100,7 @@ export interface Post {
   peak_duration?: number;
   peak_expires_at?: string;
   save_to_profile?: boolean;
-  tagged_users?: string[];
+  tagged_users?: Array<string | { id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>;
   created_at: string;
   author?: Profile;
   [key: string]: unknown; // Allow additional properties for store compatibility
@@ -226,8 +226,11 @@ const convertPost = (p: AWSPost): Post => {
     media_type: p.mediaType || (p as any)?.media_type || (mediaArray.length > 1 ? 'multiple' : undefined),
     is_peak: (p as any)?.is_peak ?? p.isPeak ?? false,
     visibility: 'public',
+    location: p.location || (p as any)?.location || null,
+    tagged_users: p.taggedUsers || (p as any)?.tagged_users || [],
     likes_count: p.likesCount,
     comments_count: p.commentsCount,
+    views_count: p.viewsCount || (p as any)?.views_count || 0,
     created_at: p.createdAt,
     author: p.author
       ? convertProfile(p.author) || undefined
@@ -618,6 +621,14 @@ export const getDiscoveryFeed = async (
     const interestsParam = interests.length > 0 ? `&interests=${encodeURIComponent(interests.join(','))}` : '';
     const result = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[] }>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
     const posts = result.posts || result.data || [];
+
+    // If interests filter returned empty results, retry without interests
+    if (posts.length === 0 && interestsParam && page === 0) {
+      const fallbackResult = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[] }>(`/feed/discover?limit=${limit}&page=${page}`);
+      const fallbackPosts = fallbackResult.posts || fallbackResult.data || [];
+      return { data: fallbackPosts.map(convertPost), error: null };
+    }
+
     return { data: posts.map(convertPost), error: null };
   } catch (error: unknown) {
     // Fallback to explore
@@ -659,6 +670,7 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
       mediaUrls: postData.media_urls,
       mediaType: postData.media_type,
       visibility: postData.visibility,
+      location: postData.location || null,
     };
 
     // Handle peak-specific fields
@@ -667,7 +679,6 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
       createData.peakDuration = postData.peak_duration;
       createData.peakExpiresAt = postData.peak_expires_at;
       createData.saveToProfile = postData.save_to_profile;
-      createData.location = postData.location;
     }
 
     if (postData.tags) {
@@ -694,6 +705,26 @@ export const deletePost = async (postId: string): Promise<{ error: string | null
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
+  }
+};
+
+// ============================================
+// VIEWS
+// ============================================
+
+/**
+ * Record a view on a post
+ */
+export const recordPostView = async (postId: string): Promise<{ error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  try {
+    await awsAPI.recordPostView(postId);
+    return { error: null };
+  } catch {
+    // Silently fail - view tracking is non-critical
+    return { error: null };
   }
 };
 

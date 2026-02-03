@@ -28,7 +28,7 @@ import PeakReactions, { ReactionType } from '../../components/PeakReactions';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
-import { reportPost } from '../../services/database';
+import { reportPost, savePost, unsavePost } from '../../services/database';
 import { useContentStore, useUserStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
 
@@ -281,18 +281,52 @@ const PeakViewScreen = (): React.JSX.Element => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeak.id, likedPeaks]);
 
-  const toggleSave = useCallback((): void => {
+  const toggleSave = useCallback(async (): Promise<void> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const wasSaved = savedPeaks.has(currentPeak.id);
+
+    // Optimistic update
     setSavedPeaks(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(currentPeak.id)) {
+      if (wasSaved) {
         newSet.delete(currentPeak.id);
       } else {
         newSet.add(currentPeak.id);
       }
       return newSet;
     });
-  }, [currentPeak.id]);
+
+    try {
+      if (wasSaved) {
+        const { error } = await unsavePost(currentPeak.id);
+        if (error) {
+          // Rollback
+          setSavedPeaks(prev => { const s = new Set(prev); s.add(currentPeak.id); return s; });
+        } else {
+          showSuccess('Removed', 'Post removed from saved.');
+        }
+      } else {
+        const { error } = await savePost(currentPeak.id);
+        if (error) {
+          // Rollback
+          setSavedPeaks(prev => { const s = new Set(prev); s.delete(currentPeak.id); return s; });
+        } else {
+          showSuccess('Saved', 'Post added to your collection.');
+        }
+      }
+    } catch {
+      // Rollback on network error
+      setSavedPeaks(prev => {
+        const newSet = new Set(prev);
+        if (wasSaved) {
+          newSet.add(currentPeak.id);
+        } else {
+          newSet.delete(currentPeak.id);
+        }
+        return newSet;
+      });
+    }
+  }, [currentPeak.id, savedPeaks, showSuccess]);
 
   const _handleOpenTagModal = useCallback((): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

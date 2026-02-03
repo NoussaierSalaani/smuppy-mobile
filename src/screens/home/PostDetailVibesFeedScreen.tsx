@@ -40,7 +40,7 @@ const VIEW_STATES = {
   GRID_ONLY: 'grid_only',
 };
 
-interface VibesFeedPost { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; user: { id: string; name: string; avatar: string; followsMe: boolean } }
+interface VibesFeedPost { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; location?: string | null; allMedia?: string[]; user: { id: string; name: string; avatar: string; followsMe: boolean } }
 
 interface GridPost { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }
 
@@ -87,6 +87,7 @@ const PostDetailVibesFeedScreen = () => {
   const [shareLoading, setShareLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [blockLoading, setBlockLoading] = useState(false);
 
   // Animation values
@@ -280,12 +281,16 @@ const PostDetailVibesFeedScreen = () => {
         if (error) {
           // Revert on error
           setIsBookmarked(true);
+        } else {
+          showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
         const { error } = await savePost(postId);
         if (error) {
           // Revert on error
           setIsBookmarked(false);
+        } else {
+          showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
@@ -605,6 +610,37 @@ const PostDetailVibesFeedScreen = () => {
                   posterSource={{ uri: currentPost.thumbnail }}
                   usePoster
                 />
+              ) : currentPost.allMedia && currentPost.allMedia.length > 1 ? (
+                <View style={{ flex: 1 }}>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={(e) => {
+                      const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                      setCarouselIndex(slideIndex);
+                    }}
+                  >
+                    {currentPost.allMedia.map((mediaUrl, mediaIndex) => (
+                      <OptimizedImage
+                        key={`${currentPost.id}-media-${mediaIndex}`}
+                        source={mediaUrl}
+                        style={{ width, height: '100%' }}
+                      />
+                    ))}
+                  </ScrollView>
+                  <View style={styles.carouselPagination}>
+                    {currentPost.allMedia.map((_, dotIndex) => (
+                      <View
+                        key={`dot-${dotIndex}`}
+                        style={[
+                          styles.carouselDot,
+                          carouselIndex === dotIndex && styles.carouselDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
               ) : (
                 <OptimizedImage source={currentPost.media || currentPost.thumbnail} style={styles.fullscreenMedia} />
               )}
@@ -753,6 +789,14 @@ const PostDetailVibesFeedScreen = () => {
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* Location */}
+                {currentPost.location ? (
+                  <View style={styles.locationRow}>
+                    <Ionicons name="location" size={14} color={colors.primary} />
+                    <Text style={styles.locationText}>{currentPost.location}</Text>
+                  </View>
+                ) : null}
 
                 {/* Description */}
                 <TouchableOpacity
@@ -1068,6 +1112,29 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: '100%',
     position: 'absolute',
   },
+  carouselPagination: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  carouselDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   gradientOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -1220,6 +1287,17 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 14,
     fontWeight: '700',
     color: colors.primaryGreen,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  locationText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
   },
   description: {
     fontSize: 14,

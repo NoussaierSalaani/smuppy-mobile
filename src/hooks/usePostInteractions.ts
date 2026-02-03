@@ -17,6 +17,8 @@ interface UsePostInteractionsOptions<T extends InteractablePost> {
   setPosts: Dispatch<SetStateAction<T[]>>;
   /** Optional callback fired after a successful like (not unlike). */
   onLike?: (postId: string) => void;
+  /** Optional callback fired after a successful save toggle. */
+  onSaveToggle?: (postId: string, saved: boolean) => void;
 }
 
 /**
@@ -26,6 +28,7 @@ interface UsePostInteractionsOptions<T extends InteractablePost> {
 export function usePostInteractions<T extends InteractablePost>({
   setPosts,
   onLike,
+  onSaveToggle,
 }: UsePostInteractionsOptions<T>) {
   const toggleLike = useCallback(async (postId: string) => {
     let wasLiked = false;
@@ -91,9 +94,11 @@ export function usePostInteractions<T extends InteractablePost>({
       if (wasSaved) {
         const { error } = await unsavePost(postId);
         if (error) throw new Error(error);
+        onSaveToggle?.(postId, false);
       } else {
         const { error } = await savePost(postId);
         if (error) throw new Error(error);
+        onSaveToggle?.(postId, true);
       }
     } catch {
       // Rollback
@@ -106,7 +111,7 @@ export function usePostInteractions<T extends InteractablePost>({
         };
       }));
     }
-  }, [setPosts]);
+  }, [setPosts, onSaveToggle]);
 
   return { toggleLike, toggleSave };
 }

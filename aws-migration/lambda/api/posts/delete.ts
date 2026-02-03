@@ -72,14 +72,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Delete the post (CASCADE handles related data)
+      // Delete the post (CASCADE handles related data, DB trigger auto-decrements post_count)
       await client.query('DELETE FROM posts WHERE id = $1', [postId]);
-
-      // Update user's post count
-      await client.query(
-        'UPDATE profiles SET post_count = GREATEST(post_count - 1, 0) WHERE id = $1',
-        [profileId]
-      );
 
       await client.query('COMMIT');
 

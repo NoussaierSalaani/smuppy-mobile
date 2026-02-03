@@ -71,15 +71,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Delete like
+      // Delete like (DB trigger auto-decrements posts.likes_count)
       await client.query(
         'DELETE FROM likes WHERE user_id = $1 AND post_id = $2',
         [profileId, postId]
       );
 
-      // Update likes count (ensure it doesn't go below 0)
+      // Read updated count (trigger has already fired)
       const updatedPost = await client.query(
-        'UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1 RETURNING likes_count',
+        'SELECT likes_count FROM posts WHERE id = $1',
         [postId]
       );
 

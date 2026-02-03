@@ -97,15 +97,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Insert like
+      // Insert like (DB trigger auto-increments posts.likes_count)
       await client.query(
         'INSERT INTO likes (user_id, post_id) VALUES ($1, $2)',
         [profileId, postId]
       );
 
-      // Update likes count
+      // Read updated count (trigger has already fired)
       const updatedPost = await client.query(
-        'UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1 RETURNING likes_count',
+        'SELECT likes_count FROM posts WHERE id = $1',
         [postId]
       );
 

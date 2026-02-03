@@ -41,6 +41,7 @@ interface FanFeedPost {
   likes: number;
   views?: number;
   comments?: number;
+  location?: string | null;
   user: {
     id: string;
     name: string;
@@ -299,11 +300,13 @@ const PostDetailFanFeedScreen = () => {
         const { error } = await unsavePost(postId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [postId]: false }));
+          showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
         const { error } = await savePost(postId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [postId]: true }));
+          showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
@@ -703,6 +706,14 @@ const PostDetailFanFeedScreen = () => {
               )}
             </View>
             
+            {/* Location */}
+            {item.location ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location" size={14} color={colors.primary} />
+                <Text style={styles.locationText}>{item.location}</Text>
+              </View>
+            ) : null}
+
             {/* Description */}
             <TouchableOpacity
               onPress={() => setExpandedDescription(!expandedDescription)}
@@ -718,7 +729,7 @@ const PostDetailFanFeedScreen = () => {
                 )}
               </Text>
             </TouchableOpacity>
-            
+
             {/* Stats bar */}
             <View style={styles.statsBar}>
               <TouchableOpacity
@@ -1126,6 +1137,19 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.primaryGreen,
   },
   
+  // Location
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  locationText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+
   // Description
   description: {
     fontSize: 14,

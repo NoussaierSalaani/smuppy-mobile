@@ -84,6 +84,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // Fetch tagged users for this post
+    const taggedResult = await db.query(
+      `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
+       FROM post_tags pt
+       JOIN profiles pr ON pt.tagged_user_id = pr.id
+       WHERE pt.post_id = $1`,
+      [postId]
+    );
+    const taggedUsers = taggedResult.rows.map((r: Record<string, unknown>) => ({
+      id: r.id,
+      username: r.username,
+      fullName: r.full_name,
+      avatarUrl: r.avatar_url,
+    }));
+
     return {
       statusCode: 200,
       headers,
@@ -93,8 +108,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         content: post.content,
         mediaUrls: post.media_urls || [],
         mediaType: post.media_type,
+        location: post.location || null,
+        taggedUsers,
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,
+        viewsCount: post.views_count || 0,
         createdAt: post.created_at,
         author: post.author,
       }),

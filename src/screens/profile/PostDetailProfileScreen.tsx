@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   Animated,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -20,11 +21,31 @@ import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, getPostById } from '../../services/database';
+import { useUserStore } from '../../stores';
+import {
+  followUser,
+  isFollowing,
+  likePost,
+  unlikePost,
+  hasLikedPost,
+  savePost,
+  unsavePost,
+  hasSavedPost,
+  getPostById,
+  deletePost,
+  recordPostView,
+} from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { useContentStore } from '../../stores';
 
 const { width, height } = Dimensions.get('window');
+
+interface TaggedUserInfo {
+  id: string;
+  username: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+}
 
 interface PostItem {
   id: string;
@@ -34,6 +55,9 @@ interface PostItem {
   description: string;
   likes: number;
   views: number;
+  location?: string | null;
+  taggedUsers?: TaggedUserInfo[];
+  allMedia?: string[];
   user: {
     id: string;
     name: string;
@@ -43,21 +67,49 @@ interface PostItem {
 
 const MOCK_PROFILE_POSTS: PostItem[] = [];
 
+// Validate UUID format
+const isValidUUID = (id: string) => {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return id && UUID_REGEX.test(id);
+};
+
 // Helper to convert API post to PostItem format
-const convertToPostItem = (post: any): PostItem => ({
-  id: post.id,
-  type: post.media_type === 'video' ? 'video' : 'image',
-  media: post.media_urls?.[0] || '',
-  thumbnail: post.media_urls?.[0] || '',
-  description: post.content || '',
-  likes: post.likes_count || 0,
-  views: post.views_count || 0,
-  user: {
-    id: post.author?.id || post.author_id || '',
-    name: post.author?.full_name || post.author?.username || '',
-    avatar: post.author?.avatar_url || '',
-  },
-});
+const convertToPostItem = (post: any): PostItem => {
+  const allMedia = post.media_urls?.filter(Boolean) || [];
+  // Normalize tagged users - can be string IDs or objects
+  const rawTagged = post.tagged_users || [];
+  const taggedUsers: TaggedUserInfo[] = rawTagged
+    .filter(Boolean)
+    .map((t: any) => typeof t === 'string'
+      ? { id: t, username: '' }
+      : { id: t.id, username: t.username || '', fullName: t.fullName || t.full_name, avatarUrl: t.avatarUrl || t.avatar_url }
+    );
+
+  return {
+    id: post.id,
+    type: post.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+    media: allMedia[0] || '',
+    thumbnail: allMedia[0] || '',
+    description: post.content || '',
+    likes: post.likes_count || 0,
+    views: post.views_count || 0,
+    location: post.location || null,
+    taggedUsers: taggedUsers.length > 0 ? taggedUsers : undefined,
+    allMedia: allMedia.length > 1 ? allMedia : undefined,
+    user: {
+      id: post.author?.id || post.author_id || '',
+      name: post.author?.full_name || post.author?.username || '',
+      avatar: post.author?.avatar_url || '',
+    },
+  };
+};
+
+// Format numbers
+const formatNumber = (num: number) => {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+  return num.toString();
+};
 
 
 const PostDetailProfileScreen = () => {
@@ -65,6 +117,7 @@ const PostDetailProfileScreen = () => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const currentUserId = useUserStore((state) => state.user?.id);
 
   // Params
   const params = route.params as { postId?: string; profilePosts?: typeof MOCK_PROFILE_POSTS } || {};
@@ -80,7 +133,6 @@ const PostDetailProfileScreen = () => {
   const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [isFan, setIsFan] = useState(false);
-  const [theyFollowMe, _setTheyFollowMe] = useState(false); // Est-ce qu'ils me suivent ?
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
@@ -89,16 +141,27 @@ const PostDetailProfileScreen = () => {
   const [shareLoading, setShareLoading] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
+  const [localViews, setLocalViews] = useState<Record<string, number>>({});
+  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
+  const viewedPosts = useRef<Set<string>>(new Set());
 
   // Content store for reports
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
-  const { showSuccess, showError, showWarning } = useSmuppyAlert();
+  const { showSuccess, showError, showWarning, showDestructiveConfirm } = useSmuppyAlert();
 
   // Refs
   const videoRef = useRef(null);
   const flatListRef = useRef(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
+
+  // Current post
+  const currentPost = posts[currentIndex];
+
+  // Check if this is the current user's own post
+  const isOwnPost = currentPost?.user?.id === currentUserId;
 
   // Load post from API if not provided in params
   useEffect(() => {
@@ -121,44 +184,49 @@ const PostDetailProfileScreen = () => {
     loadPost();
   }, [postId, posts.length]);
 
-  // Current post
-  const currentPost = posts[currentIndex];
+  // Record view when post becomes visible
+  useEffect(() => {
+    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
+    if (viewedPosts.current.has(currentPost.id)) return;
 
-  // Validate UUID format
-  const isValidUUID = (id: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return id && uuidRegex.test(id);
-  };
+    viewedPosts.current.add(currentPost.id);
+    // Optimistic local view increment
+    setLocalViews(prev => ({
+      ...prev,
+      [currentPost.id]: (prev[currentPost.id] ?? currentPost.views) + 1,
+    }));
+    recordPostView(currentPost.id);
+  }, [currentPost?.id]);
 
   // Check follow status on mount or post change
   useEffect(() => {
     const checkFollowStatus = async () => {
-      if (!currentPost?.user?.id) return;
+      if (!currentPost?.user?.id || isOwnPost) return;
       const { following } = await isFollowing(currentPost.user.id);
       setIsFan(following);
     };
     checkFollowStatus();
-  }, [currentPost?.user?.id]);
+  }, [currentPost?.user?.id, isOwnPost]);
 
   // Check like/bookmark status on mount or post change
   useEffect(() => {
     const checkPostStatus = async () => {
       if (!currentPost) return;
-      const postId = currentPost.id;
-      if (!postId || !isValidUUID(postId)) return;
+      const id = currentPost.id;
+      if (!id || !isValidUUID(id)) return;
 
-      const { hasLiked } = await hasLikedPost(postId);
+      const { hasLiked } = await hasLikedPost(id);
       setIsLiked(hasLiked);
 
-      const { saved } = await hasSavedPost(postId);
+      const { saved } = await hasSavedPost(id);
       setIsBookmarked(saved);
     };
     checkPostStatus();
   }, [currentPost?.id]);
 
   // Become fan with real database call
-  const becomeFan = async () => {
-    if (fanLoading || !currentPost?.user?.id) return;
+  const becomeFan = useCallback(async () => {
+    if (fanLoading || !currentPost?.user?.id || isOwnPost) return;
     setFanLoading(true);
     try {
       const { error } = await followUser(currentPost.user.id);
@@ -172,34 +240,39 @@ const PostDetailProfileScreen = () => {
     } finally {
       setFanLoading(false);
     }
-  };
+  }, [fanLoading, currentPost?.user?.id, isOwnPost]);
 
-  // Toggle like with anti spam-click - connected to database
-  const toggleLike = async () => {
+  // Toggle like with optimistic count update
+  const toggleLike = useCallback(async () => {
     if (likeLoading || !currentPost) return;
 
-    const postId = currentPost.id;
-    if (!postId || !isValidUUID(postId)) {
-      // For mock data, use local state only
+    const id = currentPost.id;
+    if (!id || !isValidUUID(id)) {
       setIsLiked(!isLiked);
-      if (!isLiked) {
-        triggerLikeAnimation();
-      }
+      if (!isLiked) triggerLikeAnimation();
       return;
     }
 
     setLikeLoading(true);
+    const currentLikes = localLikes[id] ?? currentPost.likes;
+
     try {
       if (isLiked) {
-        const { error } = await unlikePost(postId);
-        if (!error) {
-          setIsLiked(false);
+        setIsLiked(false);
+        setLocalLikes(prev => ({ ...prev, [id]: Math.max(currentLikes - 1, 0) }));
+        const { error } = await unlikePost(id);
+        if (error) {
+          setIsLiked(true);
+          setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
         }
       } else {
-        const { error } = await likePost(postId);
-        if (!error) {
-          setIsLiked(true);
-          triggerLikeAnimation();
+        setIsLiked(true);
+        setLocalLikes(prev => ({ ...prev, [id]: currentLikes + 1 }));
+        triggerLikeAnimation();
+        const { error } = await likePost(id);
+        if (error) {
+          setIsLiked(false);
+          setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
         }
       }
     } catch (error) {
@@ -207,15 +280,14 @@ const PostDetailProfileScreen = () => {
     } finally {
       setLikeLoading(false);
     }
-  };
+  }, [likeLoading, currentPost, isLiked, localLikes]);
 
-  // Toggle bookmark with anti spam-click - connected to database
-  const toggleBookmark = async () => {
+  // Toggle bookmark
+  const toggleBookmark = useCallback(async () => {
     if (bookmarkLoading || !currentPost) return;
 
-    const postId = currentPost.id;
-    if (!postId || !isValidUUID(postId)) {
-      // For mock data, use local state only
+    const id = currentPost.id;
+    if (!id || !isValidUUID(id)) {
       setIsBookmarked(!isBookmarked);
       return;
     }
@@ -223,14 +295,16 @@ const PostDetailProfileScreen = () => {
     setBookmarkLoading(true);
     try {
       if (isBookmarked) {
-        const { error } = await unsavePost(postId);
+        const { error } = await unsavePost(id);
         if (!error) {
           setIsBookmarked(false);
+          showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
-        const { error } = await savePost(postId);
+        const { error } = await savePost(id);
         if (!error) {
           setIsBookmarked(true);
+          showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
@@ -238,10 +312,38 @@ const PostDetailProfileScreen = () => {
     } finally {
       setBookmarkLoading(false);
     }
-  };
+  }, [bookmarkLoading, currentPost, isBookmarked]);
+
+  // Delete post (own posts only)
+  const handleDeletePost = useCallback(() => {
+    if (!currentPost || !isOwnPost) return;
+    setShowMenu(false);
+
+    showDestructiveConfirm(
+      'Delete Post?',
+      'This action cannot be undone. Your post will be permanently deleted.',
+      async () => {
+        setDeleteLoading(true);
+        try {
+          const { error } = await deletePost(currentPost.id);
+          if (error) {
+            showError('Error', 'Failed to delete post. Please try again.');
+          } else {
+            showSuccess('Deleted', 'Your post has been deleted.');
+            navigation.goBack();
+          }
+        } catch {
+          showError('Error', 'Something went wrong. Please try again.');
+        } finally {
+          setDeleteLoading(false);
+        }
+      },
+      'Delete'
+    );
+  }, [currentPost, isOwnPost, showDestructiveConfirm, showError, showSuccess, navigation]);
 
   // Share post
-  const handleShare = async () => {
+  const handleShare = useCallback(async () => {
     if (shareLoading || !currentPost) return;
     setShareLoading(true);
     try {
@@ -251,25 +353,25 @@ const PostDetailProfileScreen = () => {
         currentPost.description,
         currentPost.user?.name || ''
       );
-    } catch (_error) {
+    } catch {
       // User cancelled or error - silent fail
     } finally {
       setShareLoading(false);
     }
-  };
+  }, [shareLoading, currentPost]);
 
   // Copy link to clipboard
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
     if (!currentPost) return;
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
       showSuccess('Copied!', 'Post link copied to clipboard');
     }
-  };
+  }, [currentPost, showSuccess]);
 
   // Report post
-  const handleReport = () => {
+  const handleReport = useCallback(() => {
     if (!currentPost) return;
     setShowMenu(false);
     if (hasUserReported(currentPost.id)) {
@@ -281,10 +383,10 @@ const PostDetailProfileScreen = () => {
       return;
     }
     setShowReportModal(true);
-  };
+  }, [currentPost, hasUserReported, isUnderReview, showWarning]);
 
   // Submit report
-  const submitReport = (reason: string) => {
+  const submitReport = useCallback((reason: string) => {
     if (!currentPost) return;
     setShowReportModal(false);
     const result = storeSubmitReport(currentPost.id, reason);
@@ -295,33 +397,29 @@ const PostDetailProfileScreen = () => {
     } else {
       showError('Error', 'An error occurred. Please try again.');
     }
-  };
+  }, [currentPost, storeSubmitReport, showWarning, showSuccess, showError]);
 
   // Double tap to like
-  const handleDoubleTap = () => {
+  const handleDoubleTap = useCallback(() => {
     if (!currentPost) return;
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
 
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected - call API to persist
-      if (!isLiked) {
-        toggleLike();
-      }
+      if (!isLiked) toggleLike();
     } else {
-      // Single tap - toggle pause/play for video
       if (currentPost.type === 'video') {
-        setIsPaused(!isPaused);
+        setIsPaused(prev => !prev);
       }
     }
     lastTap.current = now;
-  };
-  
+  }, [currentPost, isLiked, toggleLike]);
+
   // Like animation
-  const triggerLikeAnimation = () => {
+  const triggerLikeAnimation = useCallback(() => {
     setShowLikeAnimation(true);
     likeAnimationScale.setValue(0);
-    
+
     Animated.sequence([
       Animated.spring(likeAnimationScale, {
         toValue: 1,
@@ -335,8 +433,8 @@ const PostDetailProfileScreen = () => {
         useNativeDriver: true,
       }),
     ]).start(() => setShowLikeAnimation(false));
-  };
-  
+  }, [likeAnimationScale]);
+
   // Handle swipe to next/prev post
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
     if (viewableItems.length > 0 && viewableItems[0].index !== null) {
@@ -344,208 +442,262 @@ const PostDetailProfileScreen = () => {
       setIsPaused(false);
     }
   }).current;
-  
+
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
   }).current;
-  
-  // Format numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
-  };
 
   // Create styles with theme
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render post item
-  const renderPostItem = ({ item, index }: { item: PostItem; index: number }) => (
-    <TouchableWithoutFeedback onPress={handleDoubleTap}>
-      <View style={[styles.postContainer, { height: height }]}>
-        {/* Media */}
-        {item.type === 'video' ? (
-          <Video
-            ref={index === currentIndex ? videoRef : null}
-            source={{ uri: item.media }}
-            style={styles.media}
-            resizeMode={ResizeMode.COVER}
-            isLooping
-            isMuted={isMuted}
-            shouldPlay={index === currentIndex && !isPaused}
-            posterSource={{ uri: item.thumbnail }}
-            usePoster
-          />
-        ) : (
-          <OptimizedImage source={item.media} style={styles.media} />
-        )}
-        
-        {/* Gradient overlay bottom */}
-        <View style={styles.gradientOverlay} />
-        
-        {/* Like animation */}
-        {showLikeAnimation && index === currentIndex && (
-          <Animated.View
-            style={[
-              styles.likeAnimation,
-              {
-                transform: [{ scale: likeAnimationScale }],
-                opacity: likeAnimationScale,
-              },
-            ]}
-          >
-            <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
-          </Animated.View>
-        )}
-        
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={28} color="#FFF" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => setShowMenu(true)}
-          >
-            <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Right actions */}
-        <View style={styles.rightActions}>
-          <TouchableOpacity
-            style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
-            onPress={handleShare}
-            disabled={shareLoading}
-          >
-            {shareLoading ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <Ionicons name="share-social-outline" size={24} color="#FFF" />
-            )}
-          </TouchableOpacity>
+  const renderPostItem = useCallback(({ item, index }: { item: PostItem; index: number }) => {
+    const displayLikes = localLikes[item.id] ?? item.likes;
+    const displayViews = localViews[item.id] ?? item.views;
+    const itemIsOwn = item.user?.id === currentUserId;
 
-          <TouchableOpacity
-            style={[styles.actionBtn, likeLoading && styles.actionBtnDisabled]}
-            onPress={toggleLike}
-            disabled={likeLoading}
-          >
-            {likeLoading ? (
-              <ActivityIndicator size="small" color={colors.heartRed} />
-            ) : (
-              <SmuppyHeartIcon
-                size={28}
-                color={isLiked ? colors.heartRed : '#FFF'}
-                filled={isLiked}
-              />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, bookmarkLoading && styles.actionBtnDisabled]}
-            onPress={toggleBookmark}
-            disabled={bookmarkLoading}
-          >
-            {bookmarkLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons
-                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                size={28}
-                color={isBookmarked ? colors.primary : '#FFF'}
-              />
-            )}
-          </TouchableOpacity>
-
-          {item.type === 'video' && (
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setIsMuted(!isMuted)}
-            >
-              <Ionicons
-                name={isMuted ? 'volume-mute' : 'volume-high'}
-                size={28}
-                color="#FFF"
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        {/* Bottom content */}
-        <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 10 }]}>
-          {/* User info */}
-          <View style={styles.userRow}>
-            <TouchableOpacity
-              style={styles.userInfo}
-              onPress={() => navigation.navigate('UserProfile', { userId: item.user.id })}
-            >
-              <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
-              <Text style={styles.userName}>{item.user.name}</Text>
-            </TouchableOpacity>
-            
-            {/* Bouton Fan - logique:
-                - Si déjà fan → pas de bouton (rien)
-                - Si pas fan + ils me suivent → "Track"
-                - Si pas fan + ils me suivent pas → "+ Fan"
-            */}
-            {!isFan && (
-              <TouchableOpacity
-                style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
-                onPress={becomeFan}
-                disabled={fanLoading}
+    return (
+      <TouchableWithoutFeedback onPress={handleDoubleTap}>
+        <View style={[styles.postContainer, { height }]}>
+          {/* Media */}
+          {item.type === 'video' ? (
+            <Video
+              ref={index === currentIndex ? videoRef : null}
+              source={{ uri: item.media }}
+              style={styles.media}
+              resizeMode={ResizeMode.COVER}
+              isLooping
+              isMuted={isMuted}
+              shouldPlay={index === currentIndex && !isPaused}
+              posterSource={{ uri: item.thumbnail }}
+              usePoster
+            />
+          ) : item.allMedia && item.allMedia.length > 1 ? (
+            <View style={{ flex: 1 }}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                  setCarouselIndexes(prev => ({ ...prev, [item.id]: slideIndex }));
+                }}
               >
-                {fanLoading ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <>
-                    {!theyFollowMe && (
-                      <Ionicons name="add" size={16} color={colors.primary} />
-                    )}
-                    <Text style={styles.fanBtnText}>
-                      {theyFollowMe ? 'Track' : 'Fan'}
-                    </Text>
-                  </>
-                )}
+                {item.allMedia.map((mediaUrl, mediaIndex) => (
+                  <OptimizedImage
+                    key={`${item.id}-media-${mediaIndex}`}
+                    source={mediaUrl}
+                    style={{ width, height: '100%' }}
+                  />
+                ))}
+              </ScrollView>
+              <View style={styles.carouselPagination}>
+                {item.allMedia.map((_, dotIndex) => (
+                  <View
+                    key={`dot-${dotIndex}`}
+                    style={[
+                      styles.carouselDot,
+                      (carouselIndexes[item.id] || 0) === dotIndex && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : (
+            <OptimizedImage source={item.media} style={styles.media} />
+          )}
+
+          {/* Gradient overlay bottom */}
+          <View style={styles.gradientOverlay} />
+
+          {/* Like animation */}
+          {showLikeAnimation && index === currentIndex && (
+            <Animated.View
+              style={[
+                styles.likeAnimation,
+                {
+                  transform: [{ scale: likeAnimationScale }],
+                  opacity: likeAnimationScale,
+                },
+              ]}
+            >
+              <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
+            </Animated.View>
+          )}
+
+          {/* Header */}
+          <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => setShowMenu(true)}
+            >
+              <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Right actions */}
+          <View style={styles.rightActions}>
+            <TouchableOpacity
+              style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+              onPress={handleShare}
+              disabled={shareLoading}
+            >
+              {shareLoading ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="share-social-outline" size={24} color="#FFF" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionBtn, likeLoading && styles.actionBtnDisabled]}
+              onPress={toggleLike}
+              disabled={likeLoading}
+            >
+              {likeLoading ? (
+                <ActivityIndicator size="small" color={colors.heartRed} />
+              ) : (
+                <SmuppyHeartIcon
+                  size={28}
+                  color={isLiked ? colors.heartRed : '#FFF'}
+                  filled={isLiked}
+                />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionBtn, bookmarkLoading && styles.actionBtnDisabled]}
+              onPress={toggleBookmark}
+              disabled={bookmarkLoading}
+            >
+              {bookmarkLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={28}
+                  color={isBookmarked ? colors.primary : '#FFF'}
+                />
+              )}
+            </TouchableOpacity>
+
+            {item.type === 'video' && (
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => setIsMuted(!isMuted)}
+              >
+                <Ionicons
+                  name={isMuted ? 'volume-mute' : 'volume-high'}
+                  size={28}
+                  color="#FFF"
+                />
               </TouchableOpacity>
             )}
           </View>
-          
-          {/* Description */}
-          <TouchableOpacity
-            onPress={() => setExpandedDescription(!expandedDescription)}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={styles.description}
-              numberOfLines={expandedDescription ? undefined : 2}
-            >
-              {item.description}
-              {!expandedDescription && item.description.length > 80 && (
-                <Text style={styles.moreText}> ...more</Text>
+
+          {/* Bottom content */}
+          <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 10 }]}>
+            {/* User info */}
+            <View style={styles.userRow}>
+              <TouchableOpacity
+                style={styles.userInfo}
+                onPress={() => {
+                  if (itemIsOwn) {
+                    navigation.navigate('ProfileTab' as never);
+                  } else {
+                    (navigation as any).navigate('UserProfile', { userId: item.user.id });
+                  }
+                }}
+              >
+                <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
+                <Text style={styles.userName}>{item.user.name}</Text>
+              </TouchableOpacity>
+
+              {/* Fan button - hidden on own posts */}
+              {!itemIsOwn && !isFan && (
+                <TouchableOpacity
+                  style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
+                  onPress={becomeFan}
+                  disabled={fanLoading}
+                >
+                  {fanLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="add" size={16} color={colors.primary} />
+                      <Text style={styles.fanBtnText}>Fan</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               )}
-            </Text>
-          </TouchableOpacity>
-          
-          {/* Stats bar */}
-          <View style={styles.statsBar}>
-            <View style={styles.statItem}>
-              <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
-              <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
             </View>
-            <View style={styles.statItem}>
-              <Ionicons name="eye-outline" size={18} color="#FFF" />
-              <Text style={styles.statCount}>{formatNumber(item.views || 0)}</Text>
+
+            {/* Location */}
+            {item.location ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location" size={14} color={colors.primary} />
+                <Text style={styles.locationText}>{item.location}</Text>
+              </View>
+            ) : null}
+
+            {/* Description */}
+            {item.description ? (
+              <TouchableOpacity
+                onPress={() => setExpandedDescription(!expandedDescription)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={styles.description}
+                  numberOfLines={expandedDescription ? undefined : 2}
+                >
+                  {item.description}
+                  {!expandedDescription && item.description.length > 80 && (
+                    <Text style={styles.moreText}> ...more</Text>
+                  )}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {/* Tagged users */}
+            {item.taggedUsers && item.taggedUsers.length > 0 ? (
+              <View style={styles.taggedRow}>
+                <Ionicons name="people" size={14} color={colors.primary} />
+                <Text style={styles.taggedText}>
+                  {item.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Stats bar */}
+            <View style={styles.statsBar}>
+              <View style={styles.statItem}>
+                <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
+                <Text style={styles.statCount}>{formatNumber(displayLikes)}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="eye-outline" size={18} color="#FFF" />
+                <Text style={styles.statCount}>{formatNumber(displayViews)}</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
-    </TouchableWithoutFeedback>
-  );
-  
+      </TouchableWithoutFeedback>
+    );
+  }, [
+    currentIndex, isMuted, isPaused, showLikeAnimation, likeAnimationScale,
+    isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoading,
+    bookmarkLoading, expandedDescription, localLikes, localViews, currentUserId,
+    colors, styles, insets, navigation, handleDoubleTap, handleShare,
+    toggleLike, toggleBookmark, becomeFan,
+  ]);
+
   // Loading state
   if (isLoadingPost) {
     return (
@@ -572,6 +724,14 @@ const PostDetailProfileScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
+      {/* Delete loading overlay */}
+      {deleteLoading && (
+        <View style={styles.deleteOverlay}>
+          <ActivityIndicator size="large" color="#FFF" />
+          <Text style={styles.deleteOverlayText}>Deleting...</Text>
+        </View>
+      )}
+
       {/* Posts FlashList (vertical scroll) */}
       <FlashList
         ref={flatListRef}
@@ -586,7 +746,7 @@ const PostDetailProfileScreen = () => {
         viewabilityConfig={viewabilityConfig}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
       />
-      
+
       {/* Menu Modal */}
       <Modal
         visible={showMenu}
@@ -612,10 +772,17 @@ const PostDetailProfileScreen = () => {
               <Text style={styles.menuItemText}>Copy Link</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
-            </TouchableOpacity>
+            {isOwnPost ? (
+              <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost}>
+                <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+                <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>Delete Post</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+                <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.menuCancel}
@@ -692,19 +859,42 @@ const PostDetailProfileScreen = () => {
   );
 };
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   postContainer: {
-    width: width,
+    width,
     position: 'relative',
   },
   media: {
     width: '100%',
     height: '100%',
     position: 'absolute',
+  },
+  carouselPagination: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  carouselDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   gradientOverlay: {
     position: 'absolute',
@@ -714,7 +904,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 200,
     backgroundColor: 'transparent',
   },
-  
+
   // Like animation
   likeAnimation: {
     position: 'absolute',
@@ -724,7 +914,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginLeft: -50,
     zIndex: 100,
   },
-  
+
   // Header
   header: {
     position: 'absolute',
@@ -745,7 +935,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // Right actions
   rightActions: {
     position: 'absolute',
@@ -783,6 +973,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   avatar: {
     width: 40,
@@ -805,10 +996,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     borderColor: colors.primary,
     gap: 4,
   },
-  fanBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
   fanBtnDisabled: {
     opacity: 0.6,
   },
@@ -817,10 +1004,20 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontWeight: '600',
     color: colors.primary,
   },
-  fanBtnTextActive: {
-    color: colors.background,
+
+  // Location
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
   },
-  
+  locationText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+
   // Description
   description: {
     fontSize: 14,
@@ -830,6 +1027,19 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   moreText: {
     color: colors.gray,
+  },
+
+  // Tagged users
+  taggedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  taggedText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
   },
 
   // Stats bar
@@ -848,6 +1058,21 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 14,
     fontWeight: '600',
     color: '#FFF',
+  },
+
+  // Delete overlay
+  deleteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  deleteOverlayText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
   },
 
   // Modal handle

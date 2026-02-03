@@ -105,6 +105,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Post menu state
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPost, setMenuPost] = useState<UIPost | null>(null);
+  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
 
   // Memoized styles to prevent re-renders
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -244,9 +245,11 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Keep track of followed user IDs to exclude from suggestions
   const followedUserIds = useRef<Set<string>>(new Set());
 
-  // When screen regains focus (e.g. returning from UserProfile), refresh suggestions
-  // so that profiles followed from the profile screen are removed
+  // When screen regains focus (e.g. returning from PostDetail or UserProfile),
+  // re-sync like/save state and refresh suggestions
   const isFirstFocus = useRef(true);
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
   useFocusEffect(
     useCallback(() => {
       if (isFirstFocus.current) {
@@ -257,6 +260,22 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       suggestionsOffsetRef.current = 0;
       hasMoreSuggestionsRef.current = true;
       fetchSuggestions(false, true);
+
+      // Re-sync like/save state from database
+      const currentPosts = postsRef.current;
+      if (currentPosts.length > 0) {
+        const postIds = currentPosts.map(p => p.id);
+        Promise.all([
+          hasLikedPostsBatch(postIds),
+          hasSavedPostsBatch(postIds),
+        ]).then(([likedMap, savedMap]) => {
+          setPosts(prev => prev.map(p => ({
+            ...p,
+            isLiked: likedMap.get(p.id) ?? p.isLiked,
+            isSaved: savedMap.get(p.id) ?? p.isSaved,
+          })));
+        }).catch(() => {});
+      }
     }, [fetchSuggestions])
   );
 
@@ -353,7 +372,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, []);
 
   // Like/Save with optimistic update + rollback (shared hook)
-  const { toggleLike, toggleSave } = usePostInteractions({ setPosts });
+  const { toggleLike, toggleSave } = usePostInteractions({
+    setPosts,
+    onSaveToggle: (_postId, saved) => {
+      showSuccess(saved ? 'Saved' : 'Removed', saved ? 'Post added to your collection.' : 'Post removed from saved.');
+    },
+  });
 
   // Handle share post
   const handleSharePost = useCallback((post: UIPost) => {
@@ -509,31 +533,59 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         showAnimation={!post.isLiked}
       >
         <View style={styles.postMedia}>
-          <OptimizedImage
-            source={post.media}
-            style={styles.postImage}
-            contentFit="cover"
-            recyclingKey={`post-${post.id}`}
-          />
-
-          {/* Video overlay */}
-          {post.type === 'video' && (
-            <View style={styles.videoOverlay}>
-              <View style={styles.playButton}>
-                <Ionicons name="play" size={30} color="#fff" />
+          {post.allMedia && post.allMedia.length > 1 ? (
+            <>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                  setCarouselIndexes(prev => ({ ...prev, [post.id]: slideIndex }));
+                }}
+              >
+                {post.allMedia.map((mediaUrl, mediaIndex) => (
+                  <OptimizedImage
+                    key={`${post.id}-media-${mediaIndex}`}
+                    source={mediaUrl}
+                    style={{ width, height: width * 1.1 }}
+                    contentFit="cover"
+                  />
+                ))}
+              </ScrollView>
+              <View style={styles.carouselPagination}>
+                {post.allMedia.map((_, dotIndex) => (
+                  <View
+                    key={`dot-${dotIndex}`}
+                    style={[
+                      styles.carouselDot,
+                      (carouselIndexes[post.id] || 0) === dotIndex && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
               </View>
-              <View style={styles.videoDuration}>
-                <Text style={styles.videoDurationText}>{post.duration}</Text>
-              </View>
-            </View>
-          )}
+            </>
+          ) : (
+            <>
+              <OptimizedImage
+                source={post.media}
+                style={styles.postImage}
+                contentFit="cover"
+                recyclingKey={`post-${post.id}`}
+              />
 
-          {/* Carousel indicator */}
-          {post.type === 'carousel' && (
-            <View style={styles.carouselIndicator}>
-              <Ionicons name="copy" size={16} color="#fff" />
-              <Text style={styles.carouselCount}>{post.slideCount}</Text>
-            </View>
+              {/* Video overlay */}
+              {post.type === 'video' && (
+                <View style={styles.videoOverlay}>
+                  <View style={styles.playButton}>
+                    <Ionicons name="play" size={30} color="#fff" />
+                  </View>
+                  <View style={styles.videoDuration}>
+                    <Text style={styles.videoDurationText}>{post.duration}</Text>
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </View>
       </DoubleTapLike>
@@ -556,34 +608,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
               color={post.isLiked ? "#FF6B6B" : colors.dark}
               filled={post.isLiked}
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.postAction}
-            onPress={() => navigation.navigate('PostDetailFanFeed', {
-              postId: post.id,
-              fanFeedPosts: visiblePosts.map(p => ({
-                id: p.id,
-                type: p.type,
-                media: p.media,
-                allMedia: p.allMedia,
-                thumbnail: p.media,
-                description: p.caption,
-                likes: p.likes,
-                comments: p.comments,
-                user: {
-                  id: p.user.id,
-                  name: p.user.name,
-                  avatar: p.user.avatar,
-                  followsMe: false,
-                },
-              }))
-            })}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityLabel="View comments"
-            accessibilityRole="button"
-            accessibilityHint="Opens post detail with comments"
-          >
-            <Ionicons name="chatbubble-outline" size={22} color={colors.dark} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.postAction}
@@ -632,36 +656,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           {'  '}{post.caption}
         </Text>
       </View>
-
-      {/* View comments */}
-      {post.comments > 0 && (
-        <TouchableOpacity
-          onPress={() => navigation.navigate('PostDetailFanFeed', {
-            postId: post.id,
-            fanFeedPosts: visiblePosts.map(p => ({
-              id: p.id,
-              type: p.type,
-              media: p.media,
-              allMedia: p.allMedia,
-              thumbnail: p.media,
-              description: p.caption,
-              likes: p.likes,
-              comments: p.comments,
-              user: {
-                id: p.user.id,
-                name: p.user.name,
-                avatar: p.user.avatar,
-                followsMe: false,
-              },
-            }))
-          })}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.viewCommentsText}>
-            View all {formatNumber(post.comments)} comments
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
@@ -1114,6 +1108,28 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     color: '#fff',
     marginLeft: 4,
   },
+  carouselPagination: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  carouselDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   postActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1151,13 +1167,6 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   postCaptionUser: {
     fontFamily: 'Poppins-SemiBold',
-  },
-  viewCommentsText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.gray,
-    paddingHorizontal: SPACING.base,
-    marginTop: 4,
   },
   postDivider: {
     height: 8,

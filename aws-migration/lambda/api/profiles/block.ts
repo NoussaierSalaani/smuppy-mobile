@@ -67,26 +67,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [blockerId, targetUserId]
       );
 
-      // Remove mutual follows and decrement counts
+      // Remove mutual follows (DB trigger auto-decrements fan_count/following_count)
       // 1) blocker was following target
-      const follow1 = await client.query(
-        `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted' RETURNING id`,
+      await client.query(
+        `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
         [blockerId, targetUserId]
       );
-      if (follow1.rowCount && follow1.rowCount > 0) {
-        await client.query('UPDATE profiles SET following_count = GREATEST(COALESCE(following_count, 0) - 1, 0) WHERE id = $1', [blockerId]);
-        await client.query('UPDATE profiles SET fan_count = GREATEST(COALESCE(fan_count, 0) - 1, 0) WHERE id = $1', [targetUserId]);
-      }
 
       // 2) target was following blocker
-      const follow2 = await client.query(
-        `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted' RETURNING id`,
+      await client.query(
+        `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
         [targetUserId, blockerId]
       );
-      if (follow2.rowCount && follow2.rowCount > 0) {
-        await client.query('UPDATE profiles SET following_count = GREATEST(COALESCE(following_count, 0) - 1, 0) WHERE id = $1', [targetUserId]);
-        await client.query('UPDATE profiles SET fan_count = GREATEST(COALESCE(fan_count, 0) - 1, 0) WHERE id = $1', [blockerId]);
-      }
 
       // Also remove any pending follow requests both ways
       await client.query(

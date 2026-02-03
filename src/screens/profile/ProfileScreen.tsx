@@ -648,6 +648,30 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     </View>
   );
 
+  // Transform posts array for detail screen
+  const transformPostsForDetail = useCallback((allPosts: typeof posts) => {
+    return allPosts.map(p => {
+      const allMedia = p.media_urls?.filter(Boolean) || [];
+      return {
+        id: p.id,
+        type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+        media: allMedia[0] || '',
+        thumbnail: allMedia[0] || '',
+        description: (p as any).content || '',
+        likes: p.likes_count || 0,
+        views: (p as any).views_count || 0,
+        location: p.location || null,
+        taggedUsers: p.tagged_users || [],
+        allMedia: allMedia.length > 1 ? allMedia : undefined,
+        user: {
+          id: user.id || '',
+          name: user.displayName || '',
+          avatar: user.avatar || '',
+        },
+      };
+    });
+  }, [user.id, user.displayName, user.avatar]);
+
   // ==================== RENDER POST ITEM (Simple grid style) ====================
   const renderPostItem = useCallback(({ item: post }: { item: { id: string; media_urls?: string[]; media_type?: string; likes_count?: number } }) => {
     const thumbnail = post.media_urls?.[0] || null;
@@ -656,7 +680,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return (
       <TouchableOpacity
         style={styles.postCard}
-        onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
+        onPress={() => navigation.navigate('PostDetailProfile', {
+          postId: post.id,
+          profilePosts: transformPostsForDetail(posts) as any,
+        })}
         accessibilityLabel={`Post with ${post.likes_count || 0} likes`}
         accessibilityRole="button"
         accessibilityHint="Opens the post details"
@@ -682,7 +709,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       </TouchableOpacity>
     );
-  }, [navigation]);
+  }, [navigation, posts, transformPostsForDetail]);
 
   // ==================== RENDER PEAK ITEM ====================
   const renderPeakItem = useCallback((peak: { id: string; media_urls?: string[]; likes_count?: number; views_count?: number; replies_count?: number; peak_duration?: number; tags_count?: number }) => {
@@ -782,7 +809,33 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       <TouchableOpacity
         key={post.id}
         style={styles.collectionCard}
-        onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
+        onPress={() => {
+          const collectionForDetail = collections.map(p => {
+            const allMedia = p.media_urls?.filter(Boolean) || [];
+            const author = p.author || (p as any).user;
+            return {
+              id: p.id,
+              type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+              media: allMedia[0] || '',
+              thumbnail: allMedia[0] || '',
+              description: (p as any).content || '',
+              likes: p.likes_count || 0,
+              views: (p as any).views_count || 0,
+              location: p.location || null,
+              taggedUsers: p.tagged_users || [],
+              allMedia: allMedia.length > 1 ? allMedia : undefined,
+              user: {
+                id: author?.id || '',
+                name: author?.full_name || author?.username || '',
+                avatar: author?.avatar_url || '',
+              },
+            };
+          });
+          navigation.navigate('PostDetailProfile', {
+            postId: post.id,
+            profilePosts: collectionForDetail as any,
+          });
+        }}
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.collectionThumb} />
@@ -823,7 +876,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       </TouchableOpacity>
     );
-  }, [navigation]);
+  }, [navigation, collections]);
 
   // ==================== RENDER COLLECTIONS ====================
   const renderCollections = () => {
@@ -1197,7 +1250,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, [menuItem, navigation]);
 
   const handleNewActivity = useCallback(() => {
-    navigation.navigate('CreateEvent');
+    navigation.navigate('CreateActivity');
   }, [navigation]);
 
   // ==================== RENDER GROUP/EVENT ====================

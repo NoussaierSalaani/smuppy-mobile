@@ -521,20 +521,26 @@ const UserProfileScreen = () => {
     const isVideo = post.media_type === 'video';
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
-    const transformedPosts = allPosts.map(p => ({
-      id: p.id,
-      type: p.media_type === 'video' ? 'video' : 'image',
-      media: p.media_urls?.[0] || (p as any).media_url || '',
-      thumbnail: p.media_urls?.[0] || (p as any).media_url || '',
-      description: p.content || (p as any).caption || '',
-      likes: p.likes_count || 0,
-      views: p.views_count || 0,
-      user: {
-        id: profile.id,
-        name: profile.displayName,
-        avatar: profile.avatar || '',
-      },
-    }));
+    const transformedPosts = allPosts.map(p => {
+      const pAllMedia = p.media_urls?.filter(Boolean) || [(p as any).media_url].filter(Boolean);
+      return {
+        id: p.id,
+        type: p.media_type === 'video' ? 'video' : pAllMedia.length > 1 ? 'carousel' : 'image',
+        media: pAllMedia[0] || '',
+        thumbnail: pAllMedia[0] || '',
+        description: p.content || (p as any).caption || '',
+        likes: p.likes_count || 0,
+        views: p.views_count || 0,
+        location: p.location || null,
+        taggedUsers: p.tagged_users || [],
+        allMedia: pAllMedia.length > 1 ? pAllMedia : undefined,
+        user: {
+          id: profile.id,
+          name: profile.displayName,
+          avatar: profile.avatar || '',
+        },
+      };
+    });
 
     return (
       <TouchableOpacity

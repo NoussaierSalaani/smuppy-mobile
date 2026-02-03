@@ -33,6 +33,7 @@ import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useTheme } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 import SharePostModal from '../../components/SharePostModal';
 import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
@@ -198,6 +199,7 @@ export interface VibesFeedRef {
 
 const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }, ref) => {
   const { colors, isDark } = useTheme();
+  const { showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll, showBars } = useTabBar();
@@ -271,6 +273,34 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Follow state for modal
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
+
+  // Re-sync like/save state when screen regains focus
+  const isFirstVibesFocus = useRef(true);
+  const allPostsRef = useRef(allPosts);
+  allPostsRef.current = allPosts;
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstVibesFocus.current) {
+        isFirstVibesFocus.current = false;
+        return;
+      }
+      const currentPosts = allPostsRef.current;
+      if (currentPosts.length > 0) {
+        const postIds = currentPosts.map(p => p.id);
+        Promise.all([
+          hasLikedPostsBatch(postIds),
+          hasSavedPostsBatch(postIds),
+        ]).then(([likedMap, savedMap]) => {
+          setAllPosts(prev => prev.map(p => ({
+            ...p,
+            isLiked: likedMap.get(p.id) ?? p.isLiked,
+            isSaved: savedMap.get(p.id) ?? p.isSaved,
+          })));
+        }).catch(() => {});
+      }
+    }, [])
+  );
 
   // Load user interests/expertise based on account type
   // Personal → interests, Pro_creator → expertise, Pro_business → business_category + expertise
@@ -528,6 +558,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const { toggleLike, toggleSave } = usePostInteractions({
     setPosts: setAllPosts,
     onLike: onLikeCallback,
+    onSaveToggle: (_postId, saved) => {
+      showSuccess(saved ? 'Saved' : 'Removed', saved ? 'Post added to your collection.' : 'Post removed from saved.');
+    },
   });
 
   // Track post view start time for engagement tracking
@@ -768,14 +801,48 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         >
           {selectedPost && (
             <>
-              {/* Full screen image with close button */}
+              {/* Full screen image/carousel with close button */}
               <View style={styles.modalImageContainer}>
-                <Image
-                  source={{ uri: selectedPost.media || undefined }}
-                  style={styles.modalImage}
-                  resizeMode="cover"
-                />
-                
+                {selectedPost.allMedia && selectedPost.allMedia.length > 1 ? (
+                  <>
+                    <ScrollView
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                      onMomentumScrollEnd={(e) => {
+                        const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                        setCarouselIndexes(prev => ({ ...prev, [selectedPost.id]: slideIndex }));
+                      }}
+                    >
+                      {selectedPost.allMedia.map((mediaUrl, mediaIndex) => (
+                        <Image
+                          key={`${selectedPost.id}-media-${mediaIndex}`}
+                          source={{ uri: mediaUrl }}
+                          style={styles.modalImage}
+                          resizeMode="cover"
+                        />
+                      ))}
+                    </ScrollView>
+                    <View style={styles.modalCarouselPagination}>
+                      {selectedPost.allMedia.map((_, dotIndex) => (
+                        <View
+                          key={`dot-${dotIndex}`}
+                          style={[
+                            styles.modalCarouselDot,
+                            (carouselIndexes[selectedPost.id] || 0) === dotIndex && styles.modalCarouselDotActive,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <Image
+                    source={{ uri: selectedPost.media || undefined }}
+                    style={styles.modalImage}
+                    resizeMode="cover"
+                  />
+                )}
+
                 {/* Close button on image */}
                 <TouchableOpacity
                   style={[styles.closeButton, { top: insets.top + 12 }]}
@@ -1457,8 +1524,30 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     height: width * 1.25,
   },
   modalImage: {
-    width: '100%',
+    width: width,
     height: '100%',
+  },
+  modalCarouselPagination: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCarouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  modalCarouselDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   closeButton: {
     position: 'absolute',

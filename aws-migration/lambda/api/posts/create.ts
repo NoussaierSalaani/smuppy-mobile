@@ -17,6 +17,7 @@ interface CreatePostInput {
   mediaUrls?: string[];
   mediaType?: 'image' | 'video' | 'multiple';
   visibility?: 'public' | 'followers' | 'fans' | 'private' | 'subscribers';
+  location?: string;
   taggedUsers?: string[];
 }
 
@@ -89,10 +90,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
+      const sanitizedLocation = body.location
+        ? body.location.replace(/<[^>]*>/g, '').trim().slice(0, 200)
+        : null;
+
       const result = await client.query(
-        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
-         RETURNING id, author_id, content, media_urls, media_type, visibility, likes_count, comments_count, created_at`,
+        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, location, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         RETURNING id, author_id, content, media_urls, media_type, visibility, location, likes_count, comments_count, created_at`,
         [
           postId,
           userId,
@@ -100,6 +105,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body.mediaUrls || [],
           body.mediaType || null,
           body.visibility || 'public',
+          sanitizedLocation,
         ]
       );
 
@@ -141,6 +147,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     author = authorResult.rows[0] || null;
 
+    // Collect tagged user IDs for the response
+    const taggedUserIds = (body.taggedUsers || []).filter(
+      (tid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tid) && tid !== userId
+    );
+
     return {
       statusCode: 201,
       headers,
@@ -150,6 +161,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         content: post.content,
         mediaUrls: post.media_urls || [],
         mediaType: post.media_type,
+        location: post.location || null,
+        taggedUsers: taggedUserIds,
         likesCount: 0,
         commentsCount: 0,
         createdAt: post.created_at,

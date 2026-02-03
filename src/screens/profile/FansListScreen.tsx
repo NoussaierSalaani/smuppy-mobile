@@ -136,7 +136,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       setFans(transformedFans);
       setTracking(transformedTracking);
     } catch (error) {
-      if (__DEV__) console.error('[FansListScreen] Error loading data:', error);
+      if (__DEV__) console.warn('[FansListScreen] Error loading data:', error);
       showError('Error', 'Failed to load data. Please try again.');
     } finally {
       setIsLoading(false);
@@ -214,7 +214,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           );
         });
       } catch (error) {
-        if (__DEV__) console.error('[FansListScreen] Follow error:', error);
+        if (__DEV__) console.warn('[FansListScreen] Follow error:', error);
         showError('Error', 'Failed to follow. Please try again.');
       } finally {
         setActionLoading(null);
@@ -263,7 +263,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
       closePopups();
     } catch (error) {
-      if (__DEV__) console.error('[FansListScreen] Unfollow error:', error);
+      if (__DEV__) console.warn('[FansListScreen] Unfollow error:', error);
       showError('Error', 'Failed to unfollow. Please try again.');
     } finally {
       setActionLoading(null);

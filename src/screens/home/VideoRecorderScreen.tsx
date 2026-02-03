@@ -133,7 +133,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('Recording error:', error);
+      if (__DEV__) console.warn('Recording error:', error);
       stopRecording();
       showError('Error', 'Failed to record video. Please try again.');
     }
@@ -170,7 +170,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
       // Show brief confirmation
       setSegmentCount(prev => prev + 1);
     } catch (error) {
-      if (__DEV__) console.error('Failed to save to library:', error);
+      if (__DEV__) console.warn('Failed to save to library:', error);
     }
   };
 

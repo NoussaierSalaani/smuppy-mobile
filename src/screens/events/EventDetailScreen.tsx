@@ -111,7 +111,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
   useEffect(() => {
     loadEventDetails().catch((err) => {
-      if (__DEV__) console.error('loadEventDetails error:', err);
+      if (__DEV__) console.warn('loadEventDetails error:', err);
     });
   }, [eventId]);
 
@@ -124,7 +124,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         throw new Error(response.message || 'Failed to load event');
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Load event error:', error);
+      if (__DEV__) console.warn('Load event error:', error);
       showError('Error', 'Failed to load event details');
       navigation.goBack();
     } finally {
@@ -170,7 +170,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         throw new Error(response.message || 'Failed to join event');
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Join event error:', error);
+      if (__DEV__) console.warn('Join event error:', error);
       const message = error instanceof Error ? error.message : 'Failed to join event';
       showError('Error', message);
     } finally {
@@ -214,7 +214,7 @@ See you there!`,
       });
       await loadEventDetails();
     } catch (error: unknown) {
-      if (__DEV__) console.error('Event payment error:', error);
+      if (__DEV__) console.warn('Event payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message = error instanceof Error ? error.message : 'Please try again';
       showError('Payment Failed', message);
@@ -263,7 +263,7 @@ See you there!`,
         url: shareUrl,
       });
     } catch (error: unknown) {
-      if (__DEV__) console.error('Share error:', error);
+      if (__DEV__) console.warn('Share error:', error);
     }
   };
 

@@ -69,7 +69,7 @@ async function requestPermissions(): Promise<boolean> {
       return cameraStatus === 'granted' && audioStatus === 'granted';
     }
   } catch (error) {
-    if (__DEV__) console.error('[useAgora] Permission error:', error);
+    if (__DEV__) console.warn('[useAgora] Permission error:', error);
     return false;
   }
 }
@@ -121,7 +121,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     },
     onError: (errorMsg) => {
       if (!mountedRef.current) return;
-      if (__DEV__) console.error('[useAgora] Error:', errorMsg);
+      if (__DEV__) console.warn('[useAgora] Error:', errorMsg);
       setError(errorMsg);
       setIsLoading(false);
     },

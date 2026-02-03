@@ -97,7 +97,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
         onRecoveryComplete();
       }, 1500);
     } catch (err: any) {
-      if (__DEV__) console.error('[NewPassword] Update error:', err);
+      if (__DEV__) console.warn('[NewPassword] Update error:', err);
       const errorMessage = err?.message || '';
 
       if (errorMessage.includes('ExpiredCodeException') || errorMessage.includes('expired')) {

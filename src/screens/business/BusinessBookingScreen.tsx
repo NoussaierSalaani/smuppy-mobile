@@ -113,7 +113,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('Load business data error:', error);
+      if (__DEV__) console.warn('Load business data error:', error);
       showError('Error', 'Failed to load business information');
     } finally {
       setIsLoading(false);
@@ -134,7 +134,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         setTimeSlots(response.slots || []);
       }
     } catch (error) {
-      if (__DEV__) console.error('Load time slots error:', error);
+      if (__DEV__) console.warn('Load time slots error:', error);
     } finally {
       setIsLoadingSlots(false);
     }
@@ -214,7 +214,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         time: selectedSlot.time,
       });
     } catch (error: unknown) {
-      if (__DEV__) console.error('Booking error:', error);
+      if (__DEV__) console.warn('Booking error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message = error instanceof Error ? error.message : 'Please try again';
       showError('Booking Failed', message);

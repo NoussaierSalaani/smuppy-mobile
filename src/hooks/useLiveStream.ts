@@ -144,7 +144,7 @@ export function useLiveStream({
     try {
       websocketService.send({ action, channelName, ...data });
     } catch (error) {
-      if (__DEV__) console.error('[useLiveStream] Failed to send:', error);
+      if (__DEV__) console.warn('[useLiveStream] Failed to send:', error);
     }
   }, [channelName]);
 

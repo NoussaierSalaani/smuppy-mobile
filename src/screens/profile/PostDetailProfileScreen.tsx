@@ -126,10 +126,10 @@ const PostDetailProfileScreen = () => {
       if (!error) {
         setIsFan(true);
       } else {
-        if (__DEV__) console.error('[PostDetailProfile] Follow error:', error);
+        if (__DEV__) console.warn('[PostDetailProfile] Follow error:', error);
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailProfile] Follow error:', error);
+      if (__DEV__) console.warn('[PostDetailProfile] Follow error:', error);
     } finally {
       setFanLoading(false);
     }
@@ -164,7 +164,7 @@ const PostDetailProfileScreen = () => {
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailProfile] Like error:', error);
+      if (__DEV__) console.warn('[PostDetailProfile] Like error:', error);
     } finally {
       setLikeLoading(false);
     }
@@ -195,7 +195,7 @@ const PostDetailProfileScreen = () => {
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailProfile] Bookmark error:', error);
+      if (__DEV__) console.warn('[PostDetailProfile] Bookmark error:', error);
     } finally {
       setBookmarkLoading(false);
     }

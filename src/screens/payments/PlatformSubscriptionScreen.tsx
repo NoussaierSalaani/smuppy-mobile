@@ -120,7 +120,7 @@ export default function PlatformSubscriptionScreen() {
         setCurrentPlan(response.subscription?.planType || null);
       }
     } catch (error) {
-      if (__DEV__) console.error('Failed to fetch subscription:', error);
+      if (__DEV__) console.warn('Failed to fetch subscription:', error);
     }
   };
 

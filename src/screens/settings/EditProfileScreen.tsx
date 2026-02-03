@@ -55,7 +55,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         setUserEmail(authUser.email);
       }
     };
-    loadEmail().catch(err => { if (__DEV__) console.error('[EditProfileScreen] Load error:', err); });
+    loadEmail().catch(err => { if (__DEV__) console.warn('[EditProfileScreen] Load error:', err); });
   }, []);
 
   // Merge profile data from DB and local context
@@ -166,7 +166,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         setHasChanges(true);
       }
     } catch (error) {
-      if (__DEV__) console.error('Location error:', error);
+      if (__DEV__) console.warn('Location error:', error);
     } finally {
       setIsLoadingLocation(false);
     }
@@ -298,7 +298,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       setAvatarChanged(false);
       navigation.goBack();
     } catch (error) {
-      if (__DEV__) console.error('Save profile error:', error);
+      if (__DEV__) console.warn('Save profile error:', error);
       alert.error('Save Failed', 'Failed to save profile. Please try again.');
     } finally {
       setIsSaving(false);

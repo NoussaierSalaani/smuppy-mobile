@@ -83,7 +83,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
         throw new Error('Failed to sync contacts');
       }
     } catch (error) {
-      if (__DEV__) console.error('[FindFriends] Error:', error);
+      if (__DEV__) console.warn('[FindFriends] Error:', error);
       showAlert({
         title: 'Error',
         message: 'Something went wrong. You can try again later from Settings.',

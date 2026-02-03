@@ -73,7 +73,7 @@ export const useUserSafetyStore = create<UserSafetyState>()(
           s.isLoading = false;
         });
       } catch (error) {
-        if (__DEV__) console.error('[UserSafetyStore] Initialize error:', error);
+        if (__DEV__) console.warn('[UserSafetyStore] Initialize error:', error);
         set({ isLoading: false });
       }
     },
@@ -183,7 +183,7 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       try {
         await dbMuteUser(userId);
       } catch (muteErr) {
-        if (__DEV__) console.error('[UserSafetyStore] Mute after block failed (non-critical):', muteErr);
+        if (__DEV__) console.warn('[UserSafetyStore] Mute after block failed (non-critical):', muteErr);
       }
 
       return { error: null };

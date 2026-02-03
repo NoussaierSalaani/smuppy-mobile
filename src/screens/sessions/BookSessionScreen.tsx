@@ -109,7 +109,7 @@ export default function BookSessionScreen(): React.JSX.Element {
         setPacks(packsRes.packs || []);
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Error fetching booking data:', error);
+      if (__DEV__) console.warn('Error fetching booking data:', error);
       const message = error instanceof Error && 'response' in error
         ? String((error as any).response?.message || error.message)
         : error instanceof Error ? error.message : 'Failed to load booking data';

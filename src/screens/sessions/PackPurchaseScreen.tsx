@@ -75,7 +75,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         });
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Failed to fetch creator:', error);
+      if (__DEV__) console.warn('Failed to fetch creator:', error);
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         creator,
       });
     } catch (error: unknown) {
-      if (__DEV__) console.error('Payment error:', error);
+      if (__DEV__) console.warn('Payment error:', error);
       showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
       setLoading(false);

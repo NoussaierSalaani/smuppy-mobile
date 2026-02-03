@@ -110,7 +110,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       const { data, error } = await getFeedFromFollowed(pageNum, 10);
 
       if (error) {
-        if (__DEV__) console.error('[FanFeed] Error fetching posts:', error);
+        if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
         // On error, use mock data as fallback
         if (refresh || pageNum === 0) {
           if (__DEV__) console.log('[FanFeed] Using mock data as fallback');
@@ -158,7 +158,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         setHasMore(false);
       }
     } catch (err) {
-      if (__DEV__) console.error('[FanFeed] Error:', err);
+      if (__DEV__) console.warn('[FanFeed] Error:', err);
       // On exception, also clear loading state
       if (refresh) {
         setPosts([]);
@@ -180,7 +180,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       // Stop retrying on error
       if (error) {
-        if (__DEV__) console.error('[FanFeed] Error fetching suggestions:', error);
+        if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', error);
         // Don't set hasMore to false on error - allow retry
         loadingSuggestionsRef.current = false;
         return;
@@ -217,7 +217,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         hasMoreSuggestionsRef.current = false;
       }
     } catch (err) {
-      if (__DEV__) console.error('[FanFeed] Error fetching suggestions:', err);
+      if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', err);
       // Don't disable hasMore on error - allow retry
     } finally {
       loadingSuggestionsRef.current = false;
@@ -271,7 +271,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           fetchPosts(0, true);
         }
       }).catch(err => {
-        if (__DEV__) console.error('[FanFeed] Error following user:', err);
+        if (__DEV__) console.warn('[FanFeed] Error following user:', err);
         // On error, remove from followed set
         followedUserIds.current.delete(userId);
       });
@@ -586,7 +586,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         title: 'Join Smuppy',
       });
     } catch (error) {
-      if (__DEV__) console.error('Error sharing:', error);
+      if (__DEV__) console.warn('Error sharing:', error);
     }
   }, []);
 

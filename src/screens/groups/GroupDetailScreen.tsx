@@ -55,7 +55,7 @@ const GroupDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigati
         setHasJoined(response.group.participants?.some((p: any) => p.id === userId) || false);
       }
     } catch (err) {
-      if (__DEV__) console.error('Failed to load group:', err);
+      if (__DEV__) console.warn('Failed to load group:', err);
     } finally {
       setIsLoading(false);
     }

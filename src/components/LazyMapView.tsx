@@ -42,7 +42,7 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
           setIsLoading(false);
         }
       } catch (error) {
-        if (__DEV__) console.error('Failed to load MapView:', error);
+        if (__DEV__) console.warn('Failed to load MapView:', error);
         if (mounted) {
           setIsLoading(false);
         }

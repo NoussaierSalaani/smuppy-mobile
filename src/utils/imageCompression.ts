@@ -205,7 +205,7 @@ export const compressImage = async (
       mimeType: getMimeType(format),
     };
   } catch (error) {
-    if (__DEV__) console.error('Image compression failed:', error);
+    if (__DEV__) console.warn('Image compression failed:', error);
     throw error;
   }
 };

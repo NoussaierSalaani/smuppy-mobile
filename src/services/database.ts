@@ -325,7 +325,7 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
   } catch (error: unknown) {
-    if (__DEV__) console.error('[Database] updateProfile error:', error);
+    if (__DEV__) console.warn('[Database] updateProfile error:', error);
     return { data: null, error: getErrorMessage(error) };
   }
 };
@@ -1879,7 +1879,7 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
     });
     return { data: result.conversation.id, error: null };
   } catch (error: unknown) {
-    if (__DEV__) console.error('[getOrCreateConversation] ERROR:', getErrorMessage(error));
+    if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
     return { data: null, error: getErrorMessage(error) };
   }
 };

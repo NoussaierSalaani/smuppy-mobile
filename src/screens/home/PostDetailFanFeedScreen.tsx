@@ -269,7 +269,7 @@ const PostDetailFanFeedScreen = () => {
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailFanFeed] Like error:', error);
+      if (__DEV__) console.warn('[PostDetailFanFeed] Like error:', error);
     } finally {
       setLikeLoading(prev => ({ ...prev, [postId]: false }));
     }
@@ -302,7 +302,7 @@ const PostDetailFanFeedScreen = () => {
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailFanFeed] Bookmark error:', error);
+      if (__DEV__) console.warn('[PostDetailFanFeed] Bookmark error:', error);
     } finally {
       setBookmarkLoading(prev => ({ ...prev, [postId]: false }));
     }
@@ -322,10 +322,10 @@ const PostDetailFanFeedScreen = () => {
       if (!error) {
         setFanStatus(prev => ({ ...prev, [userId]: true }));
       } else {
-        if (__DEV__) console.error('[PostDetailFanFeed] Follow error:', error);
+        if (__DEV__) console.warn('[PostDetailFanFeed] Follow error:', error);
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailFanFeed] Follow error:', error);
+      if (__DEV__) console.warn('[PostDetailFanFeed] Follow error:', error);
     } finally {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }

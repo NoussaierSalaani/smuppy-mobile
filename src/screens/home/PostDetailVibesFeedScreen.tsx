@@ -250,7 +250,7 @@ const PostDetailVibesFeedScreen = () => {
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailVibesFeed] Like error:', error);
+      if (__DEV__) console.warn('[PostDetailVibesFeed] Like error:', error);
       // Revert on error
       setIsLiked(!newLikedState);
     } finally {
@@ -290,7 +290,7 @@ const PostDetailVibesFeedScreen = () => {
         }
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetailVibesFeed] Bookmark error:', error);
+      if (__DEV__) console.warn('[PostDetailVibesFeed] Bookmark error:', error);
       // Revert on error
       setIsBookmarked(!newBookmarkState);
     } finally {
@@ -307,10 +307,10 @@ const PostDetailVibesFeedScreen = () => {
       if (!error) {
         setIsFan(true);
       } else {
-        if (__DEV__) console.error('[PostDetail] Follow error:', error);
+        if (__DEV__) console.warn('[PostDetail] Follow error:', error);
       }
     } catch (error) {
-      if (__DEV__) console.error('[PostDetail] Follow error:', error);
+      if (__DEV__) console.warn('[PostDetail] Follow error:', error);
     } finally {
       setFanLoading(false);
     }

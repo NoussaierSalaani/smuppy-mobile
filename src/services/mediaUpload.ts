@@ -514,7 +514,7 @@ export const uploadImage = async (
       fileSize,
     };
   } catch (error) {
-    if (__DEV__) console.error('[uploadImage] Error:', error);
+    if (__DEV__) console.warn('[uploadImage] Error:', error);
     captureException(error as Error, { context: 'uploadImage', folder });
     return { success: false, error: 'Upload failed' };
   }
@@ -581,7 +581,7 @@ export const uploadVideo = async (
       fileSize: fileInfo.size,
     };
   } catch (error) {
-    if (__DEV__) console.error('[uploadVideo] Error:', error);
+    if (__DEV__) console.warn('[uploadVideo] Error:', error);
     captureException(error as Error, { context: 'uploadVideo', folder });
     return { success: false, error: 'Upload failed' };
   }
@@ -663,7 +663,7 @@ export const deleteFromS3 = async (key: string): Promise<boolean> => {
 
     return response.ok;
   } catch (error) {
-    if (__DEV__) console.error('Delete error:', error);
+    if (__DEV__) console.warn('Delete error:', error);
     captureException(error as Error, { context: 'deleteFromS3', key });
     return false;
   }

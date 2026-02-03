@@ -172,7 +172,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       // Show success and navigate
       setShowSuccessModal(true);
     } catch (error) {
-      if (__DEV__) console.error('Peak publish error:', error);
+      if (__DEV__) console.warn('Peak publish error:', error);
       alert.error('Publish Failed', (error as Error).message || 'Unable to publish Peak');
     } finally {
       setIsPublishing(false);
@@ -226,7 +226,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         selectLocation(parts.join(', '));
       }
     } catch (error) {
-      if (__DEV__) console.error('Location detection error:', error);
+      if (__DEV__) console.warn('Location detection error:', error);
     } finally {
       setIsLoadingLocation(false);
     }

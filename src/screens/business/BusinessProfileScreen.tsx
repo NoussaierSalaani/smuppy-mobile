@@ -166,7 +166,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
       if (scheduleRes.success) setSchedule(scheduleRes.activities || []);
       if (reviewsRes.success) setReviews(reviewsRes.reviews || []);
     } catch (error) {
-      if (__DEV__) console.error('Load business profile error:', error);
+      if (__DEV__) console.warn('Load business profile error:', error);
     } finally {
       setIsLoading(false);
     }

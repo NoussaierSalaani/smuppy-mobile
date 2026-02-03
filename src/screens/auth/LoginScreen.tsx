@@ -140,7 +140,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   useEffect(() => {
     if (googleResponse) {
       handleGoogleAuthResponse().catch((err) => {
-        if (__DEV__) console.error('[Login] Google auth error:', err);
+        if (__DEV__) console.warn('[Login] Google auth error:', err);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

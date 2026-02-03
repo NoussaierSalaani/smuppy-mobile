@@ -99,7 +99,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         setDuration(prev => prev + 1);
       }, 1000);
     } catch (err) {
-      if (__DEV__) console.error('Failed to start recording:', err);
+      if (__DEV__) console.warn('Failed to start recording:', err);
       showError('Error', 'Failed to start recording');
     }
   };
@@ -128,7 +128,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         onCancel();
       }
     } catch (err) {
-      if (__DEV__) console.error('Failed to stop recording:', err);
+      if (__DEV__) console.warn('Failed to stop recording:', err);
       onCancel();
     }
   };
@@ -141,7 +141,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         }
         await recording.stopAndUnloadAsync();
       } catch (err) {
-        if (__DEV__) console.error('Error canceling recording:', err);
+        if (__DEV__) console.warn('Error canceling recording:', err);
       }
     }
     setRecording(null);

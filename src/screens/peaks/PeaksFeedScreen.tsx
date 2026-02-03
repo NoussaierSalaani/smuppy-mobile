@@ -82,7 +82,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
     } catch (error) {
-      if (__DEV__) console.error('Failed to fetch peaks:', error);
+      if (__DEV__) console.warn('Failed to fetch peaks:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);

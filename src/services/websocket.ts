@@ -108,7 +108,7 @@ class WebSocketService {
           if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Received message:', message.type);
           this.notifyMessageHandlers(message);
         } catch (error) {
-          if (__DEV__) console.error('[WebSocket] Failed to parse message:', error);
+          if (__DEV__) console.warn('[WebSocket] Failed to parse message:', error);
         }
       };
 
@@ -125,13 +125,13 @@ class WebSocketService {
       };
 
       this.socket.onerror = (error) => {
-        if (__DEV__) console.error('[WebSocket] Error:', error);
+        if (__DEV__) console.warn('[WebSocket] Error:', error);
         this.isConnecting = false;
         this.notifyErrorHandlers(new Error('WebSocket connection error'));
       };
     } catch (error) {
       this.isConnecting = false;
-      if (__DEV__) console.error('[WebSocket] Failed to connect:', error);
+      if (__DEV__) console.warn('[WebSocket] Failed to connect:', error);
       throw error;
     }
   }
@@ -161,7 +161,7 @@ class WebSocketService {
    */
   sendMessage(payload: SendMessagePayload): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      if (__DEV__) console.error('[WebSocket] Cannot send message - not connected');
+      if (__DEV__) console.warn('[WebSocket] Cannot send message - not connected');
       throw new Error('WebSocket is not connected');
     }
 
@@ -252,7 +252,7 @@ class WebSocketService {
       try {
         handler(message);
       } catch (error) {
-        if (__DEV__) console.error('[WebSocket] Error in message handler:', error);
+        if (__DEV__) console.warn('[WebSocket] Error in message handler:', error);
       }
     });
   }
@@ -262,7 +262,7 @@ class WebSocketService {
       try {
         handler(connected);
       } catch (error) {
-        if (__DEV__) console.error('[WebSocket] Error in connection handler:', error);
+        if (__DEV__) console.warn('[WebSocket] Error in connection handler:', error);
       }
     });
   }
@@ -272,7 +272,7 @@ class WebSocketService {
       try {
         handler(error);
       } catch (err) {
-        if (__DEV__) console.error('[WebSocket] Error in error handler:', err);
+        if (__DEV__) console.warn('[WebSocket] Error in error handler:', err);
       }
     });
   }
@@ -290,7 +290,7 @@ class WebSocketService {
         await awsAuth.getIdToken();
         await this.connect();
       } catch (error) {
-        if (__DEV__) console.error('[WebSocket] Reconnection failed:', error);
+        if (__DEV__) console.warn('[WebSocket] Reconnection failed:', error);
       }
     }, delay);
   }

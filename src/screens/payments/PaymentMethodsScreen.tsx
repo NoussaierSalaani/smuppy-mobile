@@ -112,7 +112,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         }
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Failed to fetch payment methods:', error);
+      if (__DEV__) console.warn('Failed to fetch payment methods:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -164,7 +164,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
       showSuccess('Succes', 'Carte ajoutee avec succes');
       fetchPaymentMethods();
     } catch (error: unknown) {
-      if (__DEV__) console.error('Failed to add card:', error);
+      if (__DEV__) console.warn('Failed to add card:', error);
       showError('Erreur', 'Impossible d\'ajouter la carte. Veuillez reessayer.');
     } finally {
       setAddingCard(false);
@@ -186,7 +186,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         showError('Erreur', response.message || 'Impossible de definir comme defaut');
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Failed to set default:', error);
+      if (__DEV__) console.warn('Failed to set default:', error);
       showError('Erreur', 'Une erreur est survenue');
     }
   };
@@ -207,7 +207,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             showError('Erreur', response.message || 'Impossible de supprimer');
           }
         } catch (error: unknown) {
-          if (__DEV__) console.error('Failed to remove card:', error);
+          if (__DEV__) console.warn('Failed to remove card:', error);
           showError('Erreur', 'Une erreur est survenue');
         }
       }

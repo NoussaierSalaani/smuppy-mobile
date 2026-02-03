@@ -119,7 +119,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         setExistingSubscription(subRes.subscription);
       }
     } catch (error) {
-      if (__DEV__) console.error('Load subscription data error:', error);
+      if (__DEV__) console.warn('Load subscription data error:', error);
       showError('Error', 'Failed to load subscription plans');
     } finally {
       setIsLoading(false);
@@ -188,7 +188,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         trialDays: selectedPlan.trial_days,
       });
     } catch (error: unknown) {
-      if (__DEV__) console.error('Subscription error:', error);
+      if (__DEV__) console.warn('Subscription error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message = error instanceof Error ? error.message : 'Please try again';
       showError('Subscription Failed', message);

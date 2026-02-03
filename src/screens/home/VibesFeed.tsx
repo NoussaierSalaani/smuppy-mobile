@@ -309,7 +309,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       const { data, error } = await getDiscoveryFeed(selectedArr, userInterests, pageNum, 40);
 
       if (error) {
-        if (__DEV__) console.error('[VibesFeed] Error fetching posts:', error);
+        if (__DEV__) console.warn('[VibesFeed] Error fetching posts:', error);
         // Keep existing posts on error — don't clear the feed
         return;
       }
@@ -345,7 +345,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       setHasMore(data.length >= 40);
     } catch (err) {
-      if (__DEV__) console.error('[VibesFeed] Error:', err);
+      if (__DEV__) console.warn('[VibesFeed] Error:', err);
       // Keep existing posts on error — don't clear the feed
     }
   }, [activeInterests, userInterests]);
@@ -591,7 +591,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setIsFollowingUser(true);
       }
     } catch (err) {
-      if (__DEV__) console.error('[VibesFeed] Follow error:', err);
+      if (__DEV__) console.warn('[VibesFeed] Follow error:', err);
     } finally {
       setFollowLoading(false);
     }

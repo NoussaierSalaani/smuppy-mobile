@@ -74,7 +74,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
         setEarningsData(response.earnings);
       }
     } catch (error) {
-      if (__DEV__) console.error('Failed to fetch earnings:', error);
+      if (__DEV__) console.warn('Failed to fetch earnings:', error);
     } finally {
       setLoading(false);
     }

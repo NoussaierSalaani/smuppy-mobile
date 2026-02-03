@@ -195,7 +195,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         setCanCreate(allowed);
         setEventsThisMonth(response.eventsThisMonth || 0);
       } catch (error) {
-        if (__DEV__) console.error('Error checking limits:', error);
+        if (__DEV__) console.warn('Error checking limits:', error);
         setCanCreate(true);
       } finally {
         setCheckingLimits(false);
@@ -358,7 +358,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : `Failed to create ${mode}`;
-      if (__DEV__) console.error(`Create ${mode} error:`, error);
+      if (__DEV__) console.warn(`Create ${mode} error:`, error);
       showError('Error', message);
     } finally {
       setIsLoading(false);

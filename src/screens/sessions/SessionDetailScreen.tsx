@@ -123,7 +123,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
       showSuccess('Ajouté', 'La session a été ajoutée à votre calendrier.');
     } catch (error) {
-      if (__DEV__) console.error('Calendar error:', error);
+      if (__DEV__) console.warn('Calendar error:', error);
       showError('Erreur', "Impossible d'ajouter au calendrier.");
     }
   };

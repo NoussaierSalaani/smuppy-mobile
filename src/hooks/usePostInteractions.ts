@@ -66,7 +66,7 @@ export function usePostInteractions<T extends InteractablePost>({
         }
       }
     } catch (err) {
-      if (__DEV__) console.error('[usePostInteractions] Like error:', err);
+      if (__DEV__) console.warn('[usePostInteractions] Like error:', err);
     }
   }, [setPosts, onLike]);
 

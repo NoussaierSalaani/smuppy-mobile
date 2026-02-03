@@ -90,7 +90,7 @@ export function useTipPayment(): UseTipPaymentReturn {
 
         throw new Error('No payment method returned');
       } catch (err: unknown) {
-        if (__DEV__) console.error('Tip payment error:', err);
+        if (__DEV__) console.warn('Tip payment error:', err);
         const message = err instanceof Error ? err.message : 'Payment failed';
         setError(message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

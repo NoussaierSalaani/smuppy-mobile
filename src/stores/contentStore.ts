@@ -180,7 +180,7 @@ export const useContentStore = create<ContentState>()(
       });
 
       // Fire and forget
-      dbReportPost(contentId, reason).catch((err) => { if (__DEV__) console.error(err); });
+      dbReportPost(contentId, reason).catch((err) => { if (__DEV__) console.warn(err); });
 
       return {
         success: true,

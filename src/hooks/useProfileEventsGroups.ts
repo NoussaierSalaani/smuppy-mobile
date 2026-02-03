@@ -59,7 +59,7 @@ export const useProfileEventsGroups = (): UseProfileEventsGroupsResult => {
         setGroups(groupsResult.value.groups);
       }
     } catch (error) {
-      if (__DEV__) console.error('[useProfileEventsGroups] Failed to fetch:', error);
+      if (__DEV__) console.warn('[useProfileEventsGroups] Failed to fetch:', error);
     } finally {
       setIsLoading(false);
     }

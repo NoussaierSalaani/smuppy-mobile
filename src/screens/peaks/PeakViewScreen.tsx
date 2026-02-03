@@ -267,7 +267,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         await awsAPI.likePeak(currentPeak.id);
       }
     } catch (error) {
-      if (__DEV__) console.error('[Peak] Failed to toggle like:', error);
+      if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);
       // Rollback on error
       setLikedPeaks(prev => {
         const newSet = new Set(prev);
@@ -316,7 +316,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (__DEV__) console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
     } catch (error) {
-      if (__DEV__) console.error('[Peak] Failed to tag friend:', error);
+      if (__DEV__) console.warn('[Peak] Failed to tag friend:', error);
       // Rollback on error
       setPeakTags(prev => {
         const newMap = new Map(prev);
@@ -355,7 +355,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       }
       if (__DEV__) console.log(`[Peak] ${isRemovingReaction ? 'Removed' : 'Added'} reaction ${reactionType} on peak ${currentPeak.id}`);
     } catch (error) {
-      if (__DEV__) console.error('[Peak] Failed to update reaction:', error);
+      if (__DEV__) console.warn('[Peak] Failed to update reaction:', error);
       // Rollback on error
       setPeakReactions(prev => {
         const newMap = new Map(prev);
@@ -453,7 +453,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
               showSuccess('Reported', 'Thank you for your report. We will review this content.');
             } catch (error) {
-              if (__DEV__) console.error('[Peak] Failed to report:', error);
+              if (__DEV__) console.warn('[Peak] Failed to report:', error);
               showError('Error', 'Failed to submit report. Please try again.');
             }
           },
@@ -476,7 +476,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           await awsAPI.hidePeak(currentPeak.id, 'not_interested');
           showSuccess('Got it', "We won't show you similar content.");
         } catch (error) {
-          if (__DEV__) console.error('[Peak] Failed to hide peak:', error);
+          if (__DEV__) console.warn('[Peak] Failed to hide peak:', error);
           // Rollback on error
           setHiddenPeaks(prev => {
             const newSet = new Set(prev);

@@ -100,7 +100,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         try {
           const { error: profileError } = await createProfile(profileData);
           if (profileError) {
-            if (__DEV__) console.error('[Guidelines] Profile creation error:', profileError);
+            if (__DEV__) console.warn('[Guidelines] Profile creation error:', profileError);
             lastError = profileError;
             retryCount++;
             if (retryCount < maxRetries) {
@@ -110,7 +110,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
             profileCreated = true;
           }
         } catch (retryErr: any) {
-          if (__DEV__) console.error('[Guidelines] Profile creation exception:', retryErr);
+          if (__DEV__) console.warn('[Guidelines] Profile creation exception:', retryErr);
           lastError = retryErr?.message || String(retryErr);
           retryCount++;
           if (retryCount < maxRetries) {

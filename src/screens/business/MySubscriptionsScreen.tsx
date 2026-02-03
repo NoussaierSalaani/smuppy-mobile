@@ -86,7 +86,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
         setSubscriptions(response.subscriptions || []);
       }
     } catch (error) {
-      if (__DEV__) console.error('Load subscriptions error:', error);
+      if (__DEV__) console.warn('Load subscriptions error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

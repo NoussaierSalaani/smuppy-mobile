@@ -87,7 +87,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           });
         }
       } catch (err) {
-        if (__DEV__) console.error('Failed to fetch creator info:', err);
+        if (__DEV__) console.warn('Failed to fetch creator info:', err);
       } finally {
         if (mountedRef.current) setFetchingCreator(false);
       }
@@ -123,7 +123,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       }
     } catch (error) {
       if (!mountedRef.current) return;
-      if (__DEV__) console.error('Payment error:', error);
+      if (__DEV__) console.warn('Payment error:', error);
       showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
       if (mountedRef.current) setLoading(false);

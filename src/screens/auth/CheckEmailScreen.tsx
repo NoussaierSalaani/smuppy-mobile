@@ -83,7 +83,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
       setResendSuccess(true);
       triggerCooldown();
     } catch (error) {
-      if (__DEV__) console.error('[CheckEmail] Resend error:', error);
+      if (__DEV__) console.warn('[CheckEmail] Resend error:', error);
       // Still trigger cooldown to prevent spam
       triggerCooldown();
     } finally {

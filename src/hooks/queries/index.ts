@@ -30,7 +30,7 @@ export const useCurrentProfile = () => {
           return null;
         }
         // For other errors, log but don't throw - return null for resilience
-        if (__DEV__) console.error('[useCurrentProfile] Error fetching profile:', error);
+        if (__DEV__) console.warn('[useCurrentProfile] Error fetching profile:', error);
         return null;
       }
       return data;

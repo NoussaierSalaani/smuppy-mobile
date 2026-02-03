@@ -90,7 +90,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
         showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
       }
     } catch (err: unknown) {
-      if (__DEV__) console.error('Payment error:', err);
+      if (__DEV__) console.warn('Payment error:', err);
       showError('Error', err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsProcessing(false);

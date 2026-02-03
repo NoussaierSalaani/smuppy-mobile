@@ -87,7 +87,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
         message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDate(date)} at ${time}`,
       });
     } catch (error) {
-      if (__DEV__) console.error('Share error:', error);
+      if (__DEV__) console.warn('Share error:', error);
     }
   };
 

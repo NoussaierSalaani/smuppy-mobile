@@ -85,7 +85,7 @@ export const shareContent = async (content: ShareContent): Promise<boolean> => {
 
     return false;
   } catch (error) {
-    if (__DEV__) console.error('[Share] Error sharing content:', error);
+    if (__DEV__) console.warn('[Share] Error sharing content:', error);
     return false;
   }
 };
@@ -100,7 +100,7 @@ export const copyLinkToClipboard = async (content: ShareContent): Promise<boolea
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     return true;
   } catch (error) {
-    if (__DEV__) console.error('[Share] Error copying link:', error);
+    if (__DEV__) console.warn('[Share] Error copying link:', error);
     return false;
   }
 };

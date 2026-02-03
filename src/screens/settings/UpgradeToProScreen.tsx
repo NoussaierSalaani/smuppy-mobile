@@ -222,7 +222,7 @@ export default function UpgradeToProScreen() {
         });
       }
     } catch (error: unknown) {
-      if (__DEV__) console.error('Upgrade error:', error);
+      if (__DEV__) console.warn('Upgrade error:', error);
       showError('Upgrade Failed', 'Please try again later.');
     } finally {
       setIsLoading(false);

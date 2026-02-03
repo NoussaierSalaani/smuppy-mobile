@@ -133,7 +133,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setIsPrivate(newValue);
       await refetch();
     } catch (error) {
-      if (__DEV__) console.error('Toggle privacy error:', error);
+      if (__DEV__) console.warn('Toggle privacy error:', error);
       showError('Error', 'Failed to update privacy setting.');
     } finally {
       setTogglingPrivacy(false);
@@ -189,7 +189,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // No need for manual navigation.reset - it causes "action not handled" warning
       await backend.signOut();
     } catch (error) {
-      if (__DEV__) console.error('Logout error:', error);
+      if (__DEV__) console.warn('Logout error:', error);
       setShowLogoutModal(false);
     } finally {
       setLoggingOut(false);
@@ -229,7 +229,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       // No need for manual navigation.reset - it causes "action not handled" warning
       await backend.signOut();
     } catch (error) {
-      if (__DEV__) console.error('Delete account error:', error);
+      if (__DEV__) console.warn('Delete account error:', error);
       showError('Error', 'Failed to delete account. Please try again.');
     } finally {
       setDeleting(false);

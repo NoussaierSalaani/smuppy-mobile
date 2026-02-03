@@ -242,7 +242,7 @@ export default function MainNavigator() {
           });
         }
       } catch (err) {
-        if (__DEV__) console.error('[MainNavigator] Error syncing profile:', err);
+        if (__DEV__) console.warn('[MainNavigator] Error syncing profile:', err);
       }
     };
 

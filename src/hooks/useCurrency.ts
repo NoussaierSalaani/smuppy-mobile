@@ -138,7 +138,7 @@ export function useCurrency() {
         isLoading: false,
       }));
     } catch (error) {
-      if (__DEV__) console.error('Load currency error:', error);
+      if (__DEV__) console.warn('Load currency error:', error);
       setState((prev) => ({ ...prev, isLoading: false }));
     }
   };

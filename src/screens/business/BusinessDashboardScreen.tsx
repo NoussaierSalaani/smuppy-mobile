@@ -94,7 +94,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
         setStats({ todayBookings: 0, activeMembers: 0 });
       }
     } catch (error) {
-      if (__DEV__) console.error('Load dashboard error:', error);
+      if (__DEV__) console.warn('Load dashboard error:', error);
       setStats({ todayBookings: 0, activeMembers: 0 });
     } finally {
       setIsLoading(false);

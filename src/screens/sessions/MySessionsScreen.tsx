@@ -48,7 +48,7 @@ const MySessionsScreen = (): React.JSX.Element => {
         setPastSessions(pastRes.sessions || []);
       }
     } catch (error) {
-      if (__DEV__) console.error('Error fetching sessions:', error);
+      if (__DEV__) console.warn('Error fetching sessions:', error);
     } finally {
       setLoading(false);
     }

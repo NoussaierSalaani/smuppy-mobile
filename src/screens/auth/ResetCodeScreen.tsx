@@ -98,7 +98,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
         triggerShake();
       }
     } catch (err) {
-      if (__DEV__) console.error('[ResetCode] Verification error:', err);
+      if (__DEV__) console.warn('[ResetCode] Verification error:', err);
       setError('An error occurred. Please try again.');
       triggerShake();
     } finally {
@@ -143,7 +143,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
       tryAction(() => clearCode(false));
       setShowModal(true);
     } catch (err) {
-      if (__DEV__) console.error('[ResetCode] Resend error:', err);
+      if (__DEV__) console.warn('[ResetCode] Resend error:', err);
       // Still show modal even on error (security: don't reveal if email exists)
       setShowModal(true);
     }

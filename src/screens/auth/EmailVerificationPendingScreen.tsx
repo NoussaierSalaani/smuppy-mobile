@@ -61,7 +61,7 @@ export default function EmailVerificationPendingScreen({
           return;
         }
       } catch (err) {
-        if (__DEV__) console.error('[EmailPending] Error checking status:', err);
+        if (__DEV__) console.warn('[EmailPending] Error checking status:', err);
       }
     };
 
@@ -88,7 +88,7 @@ export default function EmailVerificationPendingScreen({
       setResendCooldown(60);
       showSuccess('Code Sent', 'A new verification code has been sent to your inbox.');
     } catch (err: any) {
-      if (__DEV__) console.error('[EmailPending] Resend error:', err);
+      if (__DEV__) console.warn('[EmailPending] Resend error:', err);
       const errorMessage = err?.message || '';
 
       if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
@@ -119,7 +119,7 @@ export default function EmailVerificationPendingScreen({
         });
       }
     } catch (err) {
-      if (__DEV__) console.error('[EmailPending] Check status error:', err);
+      if (__DEV__) console.warn('[EmailPending] Check status error:', err);
     } finally {
       setIsCheckingStatus(false);
     }
@@ -138,7 +138,7 @@ export default function EmailVerificationPendingScreen({
           ]);
           await backend.signOut();
         } catch (err) {
-          if (__DEV__) console.error('[EmailPending] Sign out error:', err);
+          if (__DEV__) console.warn('[EmailPending] Sign out error:', err);
         }
       },
       'Sign Out'

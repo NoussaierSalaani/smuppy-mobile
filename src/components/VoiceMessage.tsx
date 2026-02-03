@@ -48,7 +48,7 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
         setIsLoaded(true);
       }
     } catch (err) {
-      if (__DEV__) console.error('Error loading sound:', err);
+      if (__DEV__) console.warn('Error loading sound:', err);
     }
   };
 

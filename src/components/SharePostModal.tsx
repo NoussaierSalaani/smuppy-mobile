@@ -67,7 +67,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
         setConversations([]);
       }
     } catch (err) {
-      if (__DEV__) console.error('[SharePostModal] Error loading conversations:', err);
+      if (__DEV__) console.warn('[SharePostModal] Error loading conversations:', err);
       setConversations([]);
     } finally {
       setLoading(false);

@@ -189,7 +189,7 @@ export default function EventListScreen() {
         lng: location.coords.longitude,
       });
     } catch (error) {
-      if (__DEV__) console.error('Get location error:', error);
+      if (__DEV__) console.warn('Get location error:', error);
     }
   };
 
@@ -215,7 +215,7 @@ export default function EventListScreen() {
         setEvents(response.events || []);
       }
     } catch (error) {
-      if (__DEV__) console.error('Load events error:', error);
+      if (__DEV__) console.warn('Load events error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

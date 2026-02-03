@@ -84,7 +84,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   useEffect(() => {
     if (googleResponse) {
       handleGoogleAuthResponse().catch((err) => {
-        if (__DEV__) console.error('[Signup] Google auth error:', err);
+        if (__DEV__) console.warn('[Signup] Google auth error:', err);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

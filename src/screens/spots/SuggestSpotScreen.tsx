@@ -137,7 +137,7 @@ const SuggestSpotScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         awsAPI.suggestSubcategory({
           parent_category: selectedCategory.key,
           name: customSubcategory.trim(),
-        }).catch((err) => { if (__DEV__) console.error('[SuggestSpotScreen]', err); });
+        }).catch((err) => { if (__DEV__) console.warn('[SuggestSpotScreen]', err); });
       }
 
       if (response.success) {

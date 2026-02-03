@@ -173,7 +173,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         const { data, error } = await getOrCreateConversation(userId);
         if (!mounted) return;
         if (error) {
-          if (__DEV__) console.error('[ChatScreen] Failed to create conversation:', error);
+          if (__DEV__) console.warn('[ChatScreen] Failed to create conversation:', error);
           setInitError(error);
           setLoading(false);
         } else if (data) {

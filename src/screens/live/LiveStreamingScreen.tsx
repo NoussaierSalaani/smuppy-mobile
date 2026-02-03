@@ -157,7 +157,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const endStream = async () => {
     // End stream on backend (records stats)
     const result = await awsAPI.endLiveStream().catch((err) => {
-      if (__DEV__) console.error('[LiveStreaming] Failed to end stream:', err);
+      if (__DEV__) console.warn('[LiveStreaming] Failed to end stream:', err);
       return null;
     });
     await leaveStream().catch(() => {});

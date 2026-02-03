@@ -287,7 +287,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
         setEventGroupMarkers(markers);
       } catch (error) {
-        if (__DEV__) console.error('[XplorerFeed] Failed to fetch events/groups:', error);
+        if (__DEV__) console.warn('[XplorerFeed] Failed to fetch events/groups:', error);
       }
     };
     fetchEventsGroups();
@@ -451,12 +451,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       const eventId = marker.id.replace('event_', '');
       awsAPI.getEventDetail(eventId).then(res => {
         if (res.success && res.event) setSelectedEventData(res.event);
-      }).catch((err) => { if (__DEV__) console.error('[XplorerFeed]', err); });
+      }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
     } else if (marker.category === 'group') {
       const groupId = marker.id.replace('group_', '');
       awsAPI.getGroup(groupId).then(res => {
         if (res.success && res.group) setSelectedEventData(res.group);
-      }).catch((err) => { if (__DEV__) console.error('[XplorerFeed]', err); });
+      }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
     } else {
       setSelectedEventData(null);
     }
@@ -767,7 +767,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (res.success && res.group) setSelectedEventData(res.group);
       }
     } catch (error) {
-      if (__DEV__) console.error('Join error:', error);
+      if (__DEV__) console.warn('Join error:', error);
     } finally {
       setJoiningEvent(false);
     }
@@ -791,7 +791,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (res.success && res.group) setSelectedEventData(res.group);
       }
     } catch (error) {
-      if (__DEV__) console.error('Leave error:', error);
+      if (__DEV__) console.warn('Leave error:', error);
     } finally {
       setJoiningEvent(false);
     }

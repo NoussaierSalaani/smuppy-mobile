@@ -134,7 +134,7 @@ export const addBreadcrumb = (message: string, category = 'app', data = {}) => {
  */
 export const captureException = (error: Error, context: Record<string, any> = {}) => {
   if (!Sentry || !SENTRY_DSN || isExpoGo) {
-    if (__DEV__) console.error('Captured exception:', error);
+    if (__DEV__) console.warn('Captured exception:', error);
     return;
   }
 

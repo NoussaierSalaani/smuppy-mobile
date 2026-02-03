@@ -168,7 +168,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       setCursor(response.nextCursor || null);
       setHasMore(response.hasMore || false);
     } catch (error) {
-      if (__DEV__) console.error('Error fetching notifications:', error);
+      if (__DEV__) console.warn('Error fetching notifications:', error);
       // Keep existing notifications on error
     }
   }, [cursor]);
@@ -188,7 +188,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       if (mounted) setLoading(false);
     };
     loadInitial().catch(err => {
-      if (mounted && __DEV__) console.error('[NotificationsScreen] Load error:', err);
+      if (mounted && __DEV__) console.warn('[NotificationsScreen] Load error:', err);
     });
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,7 +246,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       setNotifications(prev =>
         prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: userNotif.isFollowing } : n)
       );
-      if (__DEV__) console.error('Follow toggle error:', err);
+      if (__DEV__) console.warn('Follow toggle error:', err);
     }
   };
 
@@ -264,7 +264,7 @@ export default function NotificationsScreen(): React.JSX.Element {
     try {
       await awsAPI.markNotificationRead(String(id));
     } catch (error) {
-      if (__DEV__) console.error('Error marking notification as read:', error);
+      if (__DEV__) console.warn('Error marking notification as read:', error);
     }
   };
 
@@ -422,7 +422,7 @@ export default function NotificationsScreen(): React.JSX.Element {
               await awsAPI.markAllNotificationsRead();
               setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             } catch (err) {
-              if (__DEV__) console.error('Mark all read error:', err);
+              if (__DEV__) console.warn('Mark all read error:', err);
             }
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

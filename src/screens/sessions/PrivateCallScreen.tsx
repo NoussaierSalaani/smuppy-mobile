@@ -97,11 +97,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
         setAgoraChannelName(response.channelName || `private_${sessionId}`);
         return true;
       } else {
-        if (__DEV__) console.error('Failed to get Agora token:', response.message);
+        if (__DEV__) console.warn('Failed to get Agora token:', response.message);
         return false;
       }
     } catch (err) {
-      if (__DEV__) console.error('Error fetching Agora token:', err);
+      if (__DEV__) console.warn('Error fetching Agora token:', err);
       return false;
     }
   }, [sessionId]);

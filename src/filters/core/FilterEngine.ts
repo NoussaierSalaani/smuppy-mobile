@@ -101,7 +101,7 @@ export class FilterEngine {
 
       return paint;
     } catch (error) {
-      if (__DEV__) console.error(`Error creating filter paint for ${filterId}:`, error);
+      if (__DEV__) console.warn(`Error creating filter paint for ${filterId}:`, error);
       return null;
     }
   }
@@ -171,7 +171,7 @@ export class FilterEngine {
       // Create offscreen surface
       const surface = Skia.Surface.MakeOffscreen(width, height);
       if (!surface) {
-        if (__DEV__) console.error('Failed to create offscreen surface');
+        if (__DEV__) console.warn('Failed to create offscreen surface');
         return null;
       }
 
@@ -186,7 +186,7 @@ export class FilterEngine {
 
       return resultImage;
     } catch (error) {
-      if (__DEV__) console.error('Error processing image:', error);
+      if (__DEV__) console.warn('Error processing image:', error);
       return null;
     }
   }

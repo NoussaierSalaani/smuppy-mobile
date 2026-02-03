@@ -28,6 +28,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(creatorId)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
+      });
+    }
+
     if (!['all_time', 'monthly', 'weekly'].includes(period)) {
       return cors({
         statusCode: 400,

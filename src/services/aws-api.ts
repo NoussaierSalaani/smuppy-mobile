@@ -280,14 +280,23 @@ class AWSAPIService {
   // Follows API
   // ==========================================
 
-  async followUser(userId: string): Promise<{ success: boolean; type: string; message: string }> {
+  async followUser(userId: string): Promise<{
+    success: boolean;
+    type: string;
+    message: string;
+    cooldown?: { blocked: boolean; until: string; daysRemaining: number };
+  }> {
     return this.request('/follows', {
       method: 'POST',
       body: { followingId: userId },
     });
   }
 
-  async unfollowUser(userId: string): Promise<void> {
+  async unfollowUser(userId: string): Promise<{
+    success: boolean;
+    message: string;
+    cooldown?: { blocked: boolean; until: string; message: string };
+  }> {
     return this.request(`/follows/${userId}`, {
       method: 'DELETE',
     });

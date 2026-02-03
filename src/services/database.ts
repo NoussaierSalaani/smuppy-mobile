@@ -850,8 +850,12 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
 
 /**
  * Follow a user
+ * Returns cooldown info if user is blocked from following (7 days after 2+ unfollows)
  */
-export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & { requestCreated?: boolean }> => {
+export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & {
+  requestCreated?: boolean;
+  cooldown?: { blocked: boolean; until: string; daysRemaining: number };
+}> => {
   const user = await awsAuth.getCurrentUser();
 
   clearFollowCache();
@@ -862,6 +866,16 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
 
   try {
     const result = await awsAPI.followUser(userIdToFollow);
+
+    // Check for cooldown block
+    if (result.cooldown?.blocked) {
+      return {
+        data: null,
+        error: result.message,
+        cooldown: result.cooldown,
+      };
+    }
+
     return {
       data: {
         id: '',
@@ -879,16 +893,23 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
 
 /**
  * Unfollow a user
+ * Returns cooldown info if user will be blocked from re-following (7 days after 2+ unfollows)
  */
-export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: string | null }> => {
+export const unfollowUser = async (userIdToUnfollow: string): Promise<{
+  error: string | null;
+  cooldown?: { blocked: boolean; until: string; message: string };
+}> => {
   clearFollowCache();
   // Invalidate feed cache so unfollowed user's posts are removed on next load
   const { useFeedStore } = require('../stores');
   useFeedStore.getState().clearFeed();
 
   try {
-    await awsAPI.unfollowUser(userIdToUnfollow);
-    return { error: null };
+    const result = await awsAPI.unfollowUser(userIdToUnfollow);
+    return {
+      error: null,
+      cooldown: result.cooldown,
+    };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };
   }

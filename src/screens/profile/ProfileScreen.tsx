@@ -386,6 +386,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           activeOpacity={0.95}
           onPress={() => isOwnProfile && showImageOptions('cover')}
           style={styles.coverTouchable}
+          accessibilityLabel={isOwnProfile ? "Change cover photo" : "Cover photo"}
+          accessibilityRole={isOwnProfile ? "button" : "image"}
+          accessibilityHint={isOwnProfile ? "Opens options to change your cover photo" : undefined}
         >
           {user.coverImage ? (
             <OptimizedImage source={user.coverImage} style={styles.coverImage} />
@@ -413,6 +416,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => isOwnProfile && showImageOptions('avatar')}
+          accessibilityLabel={isOwnProfile ? "Change profile photo" : `${user.displayName}'s profile photo`}
+          accessibilityRole={isOwnProfile ? "button" : "image"}
+          accessibilityHint={isOwnProfile ? "Opens options to change your profile photo" : undefined}
         >
           {renderAvatarContent()}
         </TouchableOpacity>
@@ -420,7 +426,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         {/* Stats - Glassmorphism Style */}
         <View style={styles.statsGlass}>
           <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={styles.statsBlurContainer}>
-            <TouchableOpacity style={styles.statGlassItem} onPress={handleFansPress}>
+            <TouchableOpacity
+              style={styles.statGlassItem}
+              onPress={handleFansPress}
+              accessibilityLabel={`${user.stats.fans} fans`}
+              accessibilityRole="button"
+              accessibilityHint="View list of fans"
+            >
               <Text style={styles.statGlassValue}>{user.stats.fans}</Text>
               <Text style={styles.statGlassLabel}>Fans</Text>
             </TouchableOpacity>
@@ -432,7 +444,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             {user.accountType !== 'pro_business' && (
               <>
                 <View style={styles.statGlassDivider} />
-                <TouchableOpacity style={styles.statGlassItem} onPress={() => navigation.navigate('Prescriptions')}>
+                <TouchableOpacity
+                  style={styles.statGlassItem}
+                  onPress={() => navigation.navigate('Prescriptions')}
+                  accessibilityLabel={`Vibe score ${vibeScore}`}
+                  accessibilityRole="button"
+                  accessibilityHint="View your prescriptions and vibe details"
+                >
                   <Text style={styles.statGlassValue}>{vibeScore}</Text>
                   <Text style={styles.statGlassLabel}>Vibe</Text>
                 </TouchableOpacity>
@@ -455,7 +473,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           />
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => setShowQRModal(true)}
+          accessibilityLabel="Show QR code"
+          accessibilityRole="button"
+          accessibilityHint="Opens your profile QR code to share"
+        >
           <Ionicons name="qr-code-outline" size={18} color={colors.gray900} />
         </TouchableOpacity>
       </View>
@@ -474,6 +498,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               onPress={() => setBioExpanded(!bioExpanded)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={styles.seeMoreBtn}
+              accessibilityLabel={bioExpanded ? "Show less bio" : "Show more bio"}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: bioExpanded }}
             >
               <Text style={styles.seeMoreText}>
                 {bioExpanded ? 'Voir moins' : 'Voir plus'}
@@ -491,6 +518,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           style={styles.addBioBtn}
           onPress={() => navigation.navigate('EditProfile')}
+          accessibilityLabel="Add Bio"
+          accessibilityRole="button"
+          accessibilityHint="Opens your profile editor to add a bio"
         >
           <Ionicons name="add" size={16} color={colors.primary} />
           <Text style={styles.addBioText}>Add Bio</Text>
@@ -572,6 +602,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                     setActiveTab(tab.key);
                     setShowMoreTabs(false);
                   }}
+                  accessibilityLabel={tab.label}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === tab.key }}
                 >
                   <Ionicons
                     name={tab.icon as any}
@@ -610,6 +643,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           style={styles.createBtn}
           onPress={() => navigation.navigate('CreatePost')}
+          accessibilityLabel="Create a post"
+          accessibilityRole="button"
+          accessibilityHint="Opens the post creator"
         >
           <Text style={styles.createBtnText}>Create a post</Text>
           <Ionicons name="arrow-forward" size={16} color="#FFF" />
@@ -627,6 +663,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       <TouchableOpacity
         style={styles.postCard}
         onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
+        accessibilityLabel={`Post with ${post.likes_count || 0} likes`}
+        accessibilityRole="button"
+        accessibilityHint="Opens the post details"
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
@@ -664,6 +703,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         key={peak.id}
         style={styles.peakCard}
         onPress={() => navigation.navigate('PeakView', { peakId: peak.id })}
+        accessibilityLabel={`Peak video, ${likes} likes, ${views} views`}
+        accessibilityRole="button"
+        accessibilityHint="Opens the peak video"
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.peakThumb} />
@@ -717,6 +759,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <TouchableOpacity
               style={styles.createBtn}
               onPress={() => navigation.navigate('CreatePeak')}
+              accessibilityLabel="Create a Peak"
+              accessibilityRole="button"
+              accessibilityHint="Opens the peak video creator"
             >
               <Text style={styles.createBtnText}>Create a Peak</Text>
               <Ionicons name="arrow-forward" size={16} color="#FFF" />
@@ -760,7 +805,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <View style={styles.collectionSaveIcon}>
           <Ionicons name="bookmark" size={12} color="#FFF" />
         </View>
-        <TouchableOpacity style={styles.collectionMenu} onPress={(e) => handleCollectionMenu(post, e)}>
+        <TouchableOpacity
+          style={styles.collectionMenu}
+          onPress={(e) => handleCollectionMenu(post, e)}
+          accessibilityLabel="Collection options"
+          accessibilityRole="button"
+          accessibilityHint="Opens options for this saved post"
+        >
           <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.collectionInfo}>
@@ -996,6 +1047,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           style={styles.createBtn}
           onPress={() => navigation.navigate('GoLive')}
+          accessibilityLabel="Go Live"
+          accessibilityRole="button"
+          accessibilityHint="Start a live video broadcast"
         >
           <Text style={styles.createBtnText}>Go Live</Text>
           <Ionicons name="arrow-forward" size={16} color="#FFF" />
@@ -1091,6 +1145,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <TouchableOpacity
             style={styles.qrCloseBtn}
             onPress={() => setShowQRModal(false)}
+            accessibilityLabel="Close QR code"
+            accessibilityRole="button"
           >
             <Ionicons name="close" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -1112,7 +1168,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.qrCopyBtn} onPress={handleCopyLink}>
+          <TouchableOpacity
+            style={styles.qrCopyBtn}
+            onPress={handleCopyLink}
+            accessibilityLabel="Copy profile link"
+            accessibilityRole="button"
+            accessibilityHint="Copies your profile link to the clipboard"
+          >
             <Ionicons name="copy-outline" size={20} color="#FFF" />
             <Text style={styles.qrCopyText}>Copy profile link</Text>
           </TouchableOpacity>
@@ -1170,6 +1232,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <TouchableOpacity
               style={[styles.toggleChip, groupEventMode === 'group' && styles.toggleChipActive]}
               onPress={() => setGroupEventMode(groupEventMode === 'group' ? 'all' : 'group')}
+              accessibilityLabel="Filter by groups"
+              accessibilityRole="button"
+              accessibilityState={{ selected: groupEventMode === 'group' }}
             >
               <Ionicons
                 name="people-outline"
@@ -1183,6 +1248,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <TouchableOpacity
               style={[styles.toggleChip, groupEventMode === 'event' && styles.toggleChipActive]}
               onPress={() => setGroupEventMode(groupEventMode === 'event' ? 'all' : 'event')}
+              accessibilityLabel="Filter by events"
+              accessibilityRole="button"
+              accessibilityState={{ selected: groupEventMode === 'event' }}
             >
               <Ionicons
                 name="calendar-outline"
@@ -1196,7 +1264,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           </View>
 
           {isOwnProfile && (
-            <TouchableOpacity style={styles.newButton} onPress={handleNewEventGroup}>
+            <TouchableOpacity
+              style={styles.newButton}
+              onPress={handleNewEventGroup}
+              accessibilityLabel="Create new event or group"
+              accessibilityRole="button"
+            >
               <Ionicons name="add-circle" size={20} color={colors.primary} />
               <Text style={styles.newButtonText}>New</Text>
             </TouchableOpacity>
@@ -1219,7 +1292,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <Text style={styles.emptyTitle}>No events or groups yet</Text>
             <Text style={styles.emptyDesc}>Create your first event or group to get started</Text>
             {isOwnProfile && (
-              <TouchableOpacity style={styles.createBtn} onPress={handleNewEventGroup}>
+              <TouchableOpacity
+                style={styles.createBtn}
+                onPress={handleNewEventGroup}
+                accessibilityLabel="Create new event or group"
+                accessibilityRole="button"
+              >
                 <Text style={styles.createBtnText}>Create New</Text>
                 <Ionicons name="arrow-forward" size={16} color="#FFF" />
               </TouchableOpacity>
@@ -1312,6 +1390,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           style={[styles.settingsBtnFixed, { top: insets.top + 8 }]}
           onPress={() => navigation.navigate('Settings')}
           testID="settings-button"
+          accessibilityLabel="Settings"
+          accessibilityRole="button"
+          accessibilityHint="Opens app settings"
         >
           <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -1385,13 +1466,20 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           onPress={() => setCollectionMenuVisible(false)}
         >
           <View style={styles.collectionMenuContainer}>
-            <TouchableOpacity style={styles.collectionMenuItem} onPress={handleRemoveFromCollection}>
+            <TouchableOpacity
+              style={styles.collectionMenuItem}
+              onPress={handleRemoveFromCollection}
+              accessibilityLabel="Remove from saved"
+              accessibilityRole="button"
+            >
               <Ionicons name="bookmark-outline" size={22} color={colors.dark} />
               <Text style={styles.collectionMenuText}>Remove from saved</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.collectionMenuItem, styles.collectionMenuItemLast]}
               onPress={() => setCollectionMenuVisible(false)}
+              accessibilityLabel="Cancel"
+              accessibilityRole="button"
             >
               <Ionicons name="close" size={22} color={colors.grayMuted} />
               <Text style={[styles.collectionMenuText, { color: colors.grayMuted }]}>Cancel</Text>

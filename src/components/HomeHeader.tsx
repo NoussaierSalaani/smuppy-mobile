@@ -125,6 +125,9 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                   onPress={handleSearchPress}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   testID="search-button"
+                  accessibilityLabel="Search"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens the search screen"
                 >
                   <Ionicons name="search-outline" size={20} color={colors.dark} />
                 </TouchableOpacity>
@@ -147,6 +150,9 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                   onPress={handleNotificationsPress}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   testID="notifications-button"
+                  accessibilityLabel="Notifications"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens your notifications"
                 >
                   <Ionicons name="notifications-outline" size={20} color={colors.dark} />
                 </TouchableOpacity>
@@ -178,6 +184,9 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 onPress={handleSearchPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 testID="search-button"
+                accessibilityLabel="Search"
+                accessibilityRole="button"
+                accessibilityHint="Opens the search screen"
               >
                 <Ionicons name="search-outline" size={24} color={iconColor} />
               </TouchableOpacity>
@@ -191,6 +200,9 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 onPress={handleNotificationsPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 testID="notifications-button"
+                accessibilityLabel="Notifications"
+                accessibilityRole="button"
+                accessibilityHint="Opens your notifications"
               >
                 <Ionicons name="notifications-outline" size={24} color={iconColor} />
               </TouchableOpacity>

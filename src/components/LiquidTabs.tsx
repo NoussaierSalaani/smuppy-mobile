@@ -196,6 +196,9 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
                   height: config.height - containerPadding * 2,
                 },
               ]}
+              accessibilityLabel={tab.label}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
             >
               <Text
                 style={[

@@ -53,6 +53,11 @@ export const COLORS = {
     orange: '#FF6B35',            // Fire reaction, categories
     yellow: '#FFD93D',            // Joy reaction, warnings
 
+    // Badge colors (verified, creator, premium)
+    badgeVerified: '#2D8EFF',     // Blue - Verified personal accounts
+    badgeCreator: '#0BCF93',      // Green - Pro/Creator accounts (100M+ followers)
+    badgePremium: '#D7B502',      // Gold - Premium/Pro Business accounts
+
     // Backgrounds
     background: '#FFFFFF',
     backgroundSecondary: '#F9FAFB',
@@ -133,6 +138,11 @@ export const DARK_COLORS = {
     teal: '#4ECDC4',
     purple: '#9B59B6',
     yellow: '#FFD93D',
+
+    // Badge colors (verified, creator, premium)
+    badgeVerified: '#2D8EFF',     // Blue - Verified personal accounts
+    badgeCreator: '#0BCF93',      // Green - Pro/Creator accounts (100M+ followers)
+    badgePremium: '#D7B502',      // Gold - Premium/Pro Business accounts
 
     // Backgrounds
     background: '#0D0D0D',

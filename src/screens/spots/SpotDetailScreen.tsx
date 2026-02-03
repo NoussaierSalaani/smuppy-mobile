@@ -19,6 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import { GRADIENTS, COLORS } from '../../config/theme';
+
+const STAR_COLOR = COLORS.gold;
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
@@ -169,7 +171,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
           {/* Name + Rating */}
           <Text style={styles.spotName}>{spot.name}</Text>
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={normalize(16)} color="#FFD700" />
+            <Ionicons name="star" size={normalize(16)} color={STAR_COLOR} />
             <Text style={styles.ratingText}>
               {spot.rating_average?.toFixed(1) || 'N/A'} ({spot.rating_count || 0} reviews)
             </Text>
@@ -265,7 +267,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
                             key={s}
                             name={s <= rev.rating ? 'star' : 'star-outline'}
                             size={normalize(12)}
-                            color={s <= rev.rating ? '#FFD700' : colors.grayBorder}
+                            color={s <= rev.rating ? STAR_COLOR : colors.grayBorder}
                           />
                         ))}
                       </View>

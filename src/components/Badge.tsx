@@ -2,17 +2,18 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { COLORS } from '../config/theme';
 
 interface BadgeProps {
   size?: number;
   style?: ViewStyle;
 }
 
-// Badge colors from UI Kit
+// Badge colors from theme
 const BADGE_COLORS = {
-  verified: '#2D8EFF',   // Blue - Verified personal accounts
-  creator: '#0BCF93',    // Green - Pro/Creator accounts
-  premium: '#D7B502',    // Gold - Premium/Pro Local accounts
+  verified: COLORS.badgeVerified,   // Blue - Verified personal accounts
+  creator: COLORS.badgeCreator,     // Green - Pro/Creator accounts (100M+ followers)
+  premium: COLORS.badgePremium,     // Gold - Premium/Pro Business accounts
 };
 
 /**

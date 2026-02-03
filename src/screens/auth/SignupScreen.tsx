@@ -350,7 +350,12 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
                   />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                    accessibilityRole="button"
+                    accessibilityHint="Toggles password visibility"
+                  >
                     <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={authColors.grayLight} />
                   </TouchableOpacity>
                 </View>
@@ -396,7 +401,14 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
             {/* Remember Me */}
             <View style={styles.rememberRow}>
-              <TouchableOpacity onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setRememberMe(!rememberMe)}
+                activeOpacity={0.7}
+                accessibilityLabel="Remember me"
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: rememberMe }}
+                accessibilityHint="Keep me signed in on this device"
+              >
                 <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                   {rememberMe && <Ionicons name="checkmark" size={14} color={colors.white} />}
                 </View>
@@ -416,6 +428,10 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                 onPress={handleSignup}
                 disabled={!isFormValid || loading}
                 activeOpacity={0.8}
+                accessibilityLabel={loading ? "Validating account" : "Get Started"}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !isFormValid || loading }}
+                accessibilityHint="Creates your account and continues to verification"
               >
                 <Text style={styles.btnText}>{loading ? 'Validating...' : 'Get Started'}</Text>
                 {!loading && <Ionicons name="arrow-forward" size={20} color={colors.white} />}
@@ -435,6 +451,10 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               activeOpacity={0.7}
               onPress={handleGoogleSignInPress}
               disabled={socialLoading !== null}
+              accessibilityLabel="Continue with Google"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: socialLoading !== null, busy: socialLoading === 'google' }}
+              accessibilityHint="Sign up using your Google account"
             >
               {socialLoading === 'google' ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -450,6 +470,10 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                 activeOpacity={0.7}
                 onPress={handleAppleSignIn}
                 disabled={socialLoading !== null}
+                accessibilityLabel="Continue with Apple"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: socialLoading !== null, busy: socialLoading === 'apple' }}
+                accessibilityHint="Sign up using your Apple ID"
               >
                 {socialLoading === 'apple' ? (
                   <ActivityIndicator size="small" color={authColors.dark} />
@@ -463,7 +487,13 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             {/* Login Link */}
             <View style={styles.loginRow}>
               <Text style={styles.loginText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLinkRow}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Login')}
+                style={styles.loginLinkRow}
+                accessibilityLabel="Log In"
+                accessibilityRole="link"
+                accessibilityHint="Navigate to the login screen"
+              >
                 <Text style={styles.loginLink}>Log In</Text>
                 <Ionicons name="arrow-forward" size={14} color={authColors.primary} />
               </TouchableOpacity>
@@ -471,18 +501,25 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
             {/* Terms */}
             <View style={styles.termsRow}>
-              <TouchableOpacity onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setAgreeTerms(!agreeTerms)}
+                activeOpacity={0.7}
+                accessibilityLabel="I agree to the Terms and Conditions, Privacy Policy, and Content Policy"
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreeTerms }}
+                accessibilityHint="Required to create an account"
+              >
                 <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
                   {agreeTerms && <Ionicons name="checkmark" size={14} color={colors.white} />}
                 </View>
               </TouchableOpacity>
               <Text style={styles.termsText}>
                 I agree to the{' '}
-                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/terms')}>Terms and Conditions</Text>
+                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/terms')} accessibilityRole="link">Terms and Conditions</Text>
                 ,{' '}
-                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/privacy')}>Privacy Policy</Text>
+                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/privacy')} accessibilityRole="link">Privacy Policy</Text>
                 {' '}and{' '}
-                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/content-policy')}>Content Policy</Text>.
+                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/content-policy')} accessibilityRole="link">Content Policy</Text>.
               </Text>
             </View>
           </View>

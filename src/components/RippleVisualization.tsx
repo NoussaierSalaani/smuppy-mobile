@@ -15,6 +15,7 @@ interface RippleVisualizationProps {
 }
 
 const MAX_RINGS = 5;
+const RING_OVERFLOW = 60; // Extra space for ring animations to render without clipping
 
 const RippleVisualization: React.FC<RippleVisualizationProps> = ({ size, children }) => {
   const { rippleLevel, animationIntensity, enabled } = useRipple();
@@ -96,28 +97,32 @@ const RippleVisualization: React.FC<RippleVisualizationProps> = ({ size, childre
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Ripple rings */}
-      {ringAnims.map((anim, i) => (
-        <Animated.View
-          key={`ring-${i}`}
-          style={[
-            styles.ring,
-            {
-              width: size + 8 + i * 12,
-              height: size + 8 + i * 12,
-              borderRadius: (size + 8 + i * 12) / 2,
-              borderColor: ringColor,
-              transform: [{ scale: anim.scale }],
-              opacity: anim.opacity,
-            },
-          ]}
-        />
-      ))}
+      {/* Rings layer — larger than avatar, absolutely positioned and centered.
+          Uses explicit size instead of overflow:visible for iOS device compatibility. */}
+      <View
+        style={[styles.ringsLayer, { width: size + RING_OVERFLOW, height: size + RING_OVERFLOW }]}
+        pointerEvents="none"
+      >
+        {ringAnims.map((anim, i) => (
+          <Animated.View
+            key={`ring-${i}`}
+            style={[
+              styles.ring,
+              {
+                width: size + 8 + i * 12,
+                height: size + 8 + i * 12,
+                borderRadius: (size + 8 + i * 12) / 2,
+                borderColor: ringColor,
+                transform: [{ scale: anim.scale }],
+                opacity: anim.opacity,
+              },
+            ]}
+          />
+        ))}
+      </View>
 
       {/* Avatar content */}
-      <View style={styles.content}>
-        {children}
-      </View>
+      {children}
     </View>
   );
 };
@@ -126,14 +131,15 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'visible',
+  },
+  ringsLayer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ring: {
     position: 'absolute',
     borderWidth: 1.5,
-  },
-  content: {
-    // Avatar sits on top of rings
   },
 });
 

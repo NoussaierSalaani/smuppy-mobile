@@ -98,6 +98,7 @@ const PostDetailVibesFeedScreen = () => {
 
   // Card press animation refs
   const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
+  const viewedPosts = useRef<Set<string>>(new Set());
   const getCardScale = (id: string) => {
     if (!cardScales[id]) {
       cardScales[id] = new Animated.Value(1);
@@ -136,9 +137,12 @@ const PostDetailVibesFeedScreen = () => {
     checkPostStatus();
   }, [currentPost?.id]);
 
-  // Record post view on mount
+  // Record post view (deduped per session)
   useEffect(() => {
     if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
+    if (viewedPosts.current.has(currentPost.id)) return;
+
+    viewedPosts.current.add(currentPost.id);
     recordPostView(currentPost.id);
   }, [currentPost?.id]);
 

@@ -104,25 +104,31 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [followerId, followingId]
       );
 
-      // Track unfollow for anti-spam cooldown
-      const cooldownResult = await client.query(
-        `INSERT INTO follow_cooldowns (follower_id, following_id, unfollow_count, last_unfollow_at, cooldown_until)
-         VALUES ($1, $2, 1, NOW(), NULL)
-         ON CONFLICT (follower_id, following_id)
-         DO UPDATE SET
-           unfollow_count = follow_cooldowns.unfollow_count + 1,
-           last_unfollow_at = NOW(),
-           cooldown_until = CASE
-             WHEN follow_cooldowns.unfollow_count + 1 >= $3
-             THEN NOW() + INTERVAL '${COOLDOWN_DAYS} days'
-             ELSE follow_cooldowns.cooldown_until
-           END
-         RETURNING unfollow_count, cooldown_until`,
-        [followerId, followingId, COOLDOWN_THRESHOLD]
-      );
+      // Track unfollow for anti-spam cooldown (optional - table might not exist)
+      let cooldownInfo: { unfollow_count: number; cooldown_until: string | null } | null = null;
+      try {
+        const cooldownResult = await client.query(
+          `INSERT INTO follow_cooldowns (follower_id, following_id, unfollow_count, last_unfollow_at, cooldown_until)
+           VALUES ($1, $2, 1, NOW(), NULL)
+           ON CONFLICT (follower_id, following_id)
+           DO UPDATE SET
+             unfollow_count = follow_cooldowns.unfollow_count + 1,
+             last_unfollow_at = NOW(),
+             cooldown_until = CASE
+               WHEN follow_cooldowns.unfollow_count + 1 >= $3
+               THEN NOW() + INTERVAL '${COOLDOWN_DAYS} days'
+               ELSE follow_cooldowns.cooldown_until
+             END
+           RETURNING unfollow_count, cooldown_until`,
+          [followerId, followingId, COOLDOWN_THRESHOLD]
+        );
+        cooldownInfo = cooldownResult.rows[0];
+      } catch (cooldownErr) {
+        // Table might not exist - continue without cooldown tracking
+        log.warn('Cooldown tracking failed (table may not exist)', cooldownErr);
+      }
 
-      const cooldownInfo = cooldownResult.rows[0];
-      const isNowBlocked = cooldownInfo?.unfollow_count >= COOLDOWN_THRESHOLD;
+      const isNowBlocked = cooldownInfo && cooldownInfo.unfollow_count >= COOLDOWN_THRESHOLD;
 
       await client.query('COMMIT');
 

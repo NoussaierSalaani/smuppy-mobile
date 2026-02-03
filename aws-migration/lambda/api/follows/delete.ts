@@ -1,15 +1,20 @@
 /**
  * Unfollow User Lambda Handler
  * Removes a follow relationship between users
+ * Tracks unfollows for anti-spam cooldown (7 days after 2+ unfollows)
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('follows-delete');
+
+// Cooldown: 7 days after 2+ unfollows
+const COOLDOWN_THRESHOLD = 2;
+const COOLDOWN_DAYS = 7;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -109,7 +114,44 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
       }
 
+      // Track unfollow for anti-spam cooldown
+      const cooldownResult = await client.query(
+        `INSERT INTO follow_cooldowns (follower_id, following_id, unfollow_count, last_unfollow_at, cooldown_until)
+         VALUES ($1, $2, 1, NOW(), NULL)
+         ON CONFLICT (follower_id, following_id)
+         DO UPDATE SET
+           unfollow_count = follow_cooldowns.unfollow_count + 1,
+           last_unfollow_at = NOW(),
+           cooldown_until = CASE
+             WHEN follow_cooldowns.unfollow_count + 1 >= $3
+             THEN NOW() + INTERVAL '${COOLDOWN_DAYS} days'
+             ELSE follow_cooldowns.cooldown_until
+           END
+         RETURNING unfollow_count, cooldown_until`,
+        [followerId, followingId, COOLDOWN_THRESHOLD]
+      );
+
+      const cooldownInfo = cooldownResult.rows[0];
+      const isNowBlocked = cooldownInfo?.unfollow_count >= COOLDOWN_THRESHOLD;
+
       await client.query('COMMIT');
+
+      // Return with cooldown info if user is now blocked
+      if (isNowBlocked && cooldownInfo?.cooldown_until) {
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: 'Successfully unfollowed user',
+            cooldown: {
+              blocked: true,
+              until: cooldownInfo.cooldown_until,
+              message: `You can follow this user again after ${new Date(cooldownInfo.cooldown_until).toLocaleDateString()}`,
+            },
+          }),
+        };
+      }
     } catch (txError) {
       await client.query('ROLLBACK');
       throw txError;

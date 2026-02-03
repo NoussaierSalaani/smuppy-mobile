@@ -2,13 +2,14 @@
  * Follow User Lambda Handler
  * Creates a follow relationship between users
  * Handles both public and private accounts
+ * Enforces 7-day cooldown after 2+ unfollows (anti-spam)
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 
@@ -98,6 +99,34 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const targetUser = targetResult.rows[0];
+
+    // Check for anti-spam cooldown (7 days after 2+ unfollows)
+    const cooldownResult = await db.query(
+      `SELECT unfollow_count, cooldown_until FROM follow_cooldowns
+       WHERE follower_id = $1 AND following_id = $2`,
+      [followerId, followingId]
+    );
+
+    if (cooldownResult.rows.length > 0) {
+      const cooldown = cooldownResult.rows[0];
+      if (cooldown.cooldown_until && new Date(cooldown.cooldown_until) > new Date()) {
+        const cooldownDate = new Date(cooldown.cooldown_until);
+        const daysRemaining = Math.ceil((cooldownDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        return {
+          statusCode: 429,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            message: `You've changed your fan status too many times. Please wait ${daysRemaining} day${daysRemaining > 1 ? 's' : ''} before following this user again.`,
+            cooldown: {
+              blocked: true,
+              until: cooldown.cooldown_until,
+              daysRemaining,
+            },
+          }),
+        };
+      }
+    }
 
     // Check if already following, pending, or recently unfollowed (anti-spam)
     const existingResult = await db.query(

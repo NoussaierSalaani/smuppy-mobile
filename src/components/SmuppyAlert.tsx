@@ -102,7 +102,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
         <Animated.View
           style={[
             styles.card,
-            { backgroundColor: colors.darkGray },
+            { backgroundColor: colors.cardBg },
             {
               opacity: opacityAnim,
               transform: [{ scale: scaleAnim }],
@@ -115,7 +115,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
           </View>
 
           {/* Title */}
-          <Text style={[styles.title, { color: colors.white }]}>{title}</Text>
+          <Text style={[styles.title, { color: colors.dark }]}>{title}</Text>
 
           {/* Message */}
           {message ? <Text style={styles.message}>{message}</Text> : null}

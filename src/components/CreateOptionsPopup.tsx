@@ -329,7 +329,7 @@ const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSe
   );
 };
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -339,7 +339,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     flex: 1,
   },
   container: {
-    backgroundColor: colors.darkGray,
+    backgroundColor: colors.cardBg,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -358,7 +358,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.15)',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -371,7 +371,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
     letterSpacing: -0.5,
   },
   subtitle: {
@@ -385,11 +385,11 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
     padding: 16,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
   },
   optionContent: {
     flex: 1,
@@ -412,7 +412,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   optionTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
     marginBottom: 3,
   },
   optionDesc: {
@@ -424,7 +424,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -513,7 +513,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     paddingVertical: 14,
     alignItems: 'center',
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
   },
   cancelText: {
     fontSize: 16,

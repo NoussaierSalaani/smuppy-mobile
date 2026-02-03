@@ -236,7 +236,7 @@ const TipModal: React.FC<TipModalProps> = ({
               </View>
               <Text style={styles.title}>Send a Tip</Text>
               <Text style={styles.subtitle}>
-                to <Text style={styles.username}>@{receiver.username}</Text>
+                to <Text style={styles.username}>{receiver.displayName || receiver.username}</Text>
               </Text>
             </View>
 
@@ -391,7 +391,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   modal: {
     width: SCREEN_WIDTH - 40,
-    backgroundColor: colors.darkGray,
+    backgroundColor: colors.cardBg,
     borderRadius: 28,
     padding: 24,
     shadowColor: '#000',
@@ -417,7 +417,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
     marginBottom: 4,
   },
   subtitle: {
@@ -441,7 +441,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     width: (SCREEN_WIDTH - 100) / 2,
     height: 56,
     borderRadius: 16,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'center',
@@ -460,12 +460,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   amountButtonText: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   amountButtonTextSelected: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   customToggle: {
     flexDirection: 'row',
@@ -481,7 +481,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   customInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     paddingHorizontal: 20,
     marginTop: 8,
@@ -499,7 +499,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 56,
     fontSize: 24,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   errorText: {
     fontSize: 13,
@@ -511,12 +511,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginTop: 16,
   },
   messageInput: {
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: colors.white,
+    color: colors.dark,
     minHeight: 60,
     maxHeight: 100,
     borderWidth: 1,
@@ -573,7 +573,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flex: 1,
     height: 54,
     borderRadius: 16,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -582,7 +582,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   confirmButton: {
     flex: 1.5,
@@ -603,7 +603,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   secureRow: {
     flexDirection: 'row',

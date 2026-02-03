@@ -145,7 +145,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   container: {
     width: SCREEN_WIDTH - 48,
-    backgroundColor: colors.darkGray,
+    backgroundColor: colors.cardBg,
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
@@ -163,13 +163,13 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.dark,
     marginBottom: 16,
     textAlign: 'center',
   },
   productCard: {
     width: '100%',
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -178,7 +178,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   productName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   creatorName: {
     fontSize: 14,
@@ -195,7 +195,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
@@ -238,7 +238,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
@@ -246,7 +246,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.dark,
   },
   confirmButton: {
     flex: 1.5,
@@ -264,7 +264,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   confirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.white,
+    color: '#FFFFFF',
   },
 });
 

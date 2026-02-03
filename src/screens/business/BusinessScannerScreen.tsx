@@ -58,28 +58,36 @@ export default function BusinessScannerScreen({ navigation }: Props) {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  const scanAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
   useEffect(() => {
     if (isScanning) {
-      startScanAnimation();
+      scanAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanLineAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scanLineAnim, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      scanAnimRef.current.start();
+    } else if (scanAnimRef.current) {
+      scanAnimRef.current.stop();
+      scanAnimRef.current = null;
     }
+    return () => {
+      if (scanAnimRef.current) {
+        scanAnimRef.current.stop();
+        scanAnimRef.current = null;
+      }
+    };
   }, [isScanning]);
-
-  const startScanAnimation = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scanLineAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanLineAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  };
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     if (!isScanning || isValidating) return;

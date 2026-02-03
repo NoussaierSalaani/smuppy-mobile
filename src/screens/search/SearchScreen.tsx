@@ -62,7 +62,7 @@ const SMUPPY_URL_PATTERNS = {
 type RootStackParamList = {
   UserProfile: { userId: string };
   PostDetailFanFeed: { postId: string; fanFeedPosts: any[] };
-  PeakView: { peaks: any[]; initialIndex: number };
+  PeakView: { peakData?: any[]; initialIndex?: number };
   [key: string]: object | undefined;
 };
 
@@ -447,7 +447,7 @@ const SearchScreen = (): React.JSX.Element => {
       textOverlay: p.content || p.caption || '',
       createdAt: p.created_at, // Keep as ISO string for React Navigation serialization
     }));
-    navigation.navigate('PeakView', { peaks: transformedPeaks, initialIndex: index });
+    navigation.navigate('PeakView', { peakData: transformedPeaks, initialIndex: index });
   };
 
   const handleHashtagPress = (tag: string): void => {

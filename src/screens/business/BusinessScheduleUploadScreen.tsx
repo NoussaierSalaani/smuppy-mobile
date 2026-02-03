@@ -3,7 +3,7 @@
  * AI-powered program/schedule extraction from PDF or images
  */
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -81,8 +81,11 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const ACTIVITY_CATEGORIES = useMemo(() => getActivityCategories(colors), [colors]);
 
+  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
   const startPulseAnimation = () => {
-    Animated.loop(
+    if (pulseAnimRef.current) pulseAnimRef.current.stop();
+    pulseAnimRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.05,
@@ -95,8 +98,15 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulseAnimRef.current.start();
   };
+
+  useEffect(() => {
+    return () => {
+      if (pulseAnimRef.current) pulseAnimRef.current.stop();
+    };
+  }, []);
 
   const handlePickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

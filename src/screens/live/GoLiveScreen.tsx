@@ -49,7 +49,7 @@ export default function GoLiveScreen(): React.JSX.Element {
         buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
       });
     }
-  }, [user?.accountType, navigation]);
+  }, [user?.accountType, navigation, showAlert]);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const countdownAnim = useRef(new Animated.Value(1)).current;
@@ -103,7 +103,7 @@ export default function GoLiveScreen(): React.JSX.Element {
         hostAvatar: user?.avatar || null,
       });
     }
-  }, [isCountdown, countdownValue]);
+  }, [isCountdown, countdownValue, title, user, navigation]);
 
   const handleClose = () => {
     navigation.goBack();

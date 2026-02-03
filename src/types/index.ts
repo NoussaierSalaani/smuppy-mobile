@@ -743,7 +743,7 @@ export type MainStackParamList = {
   // Live Streaming
   GoLiveIntro: undefined;
   GoLive: { title?: string } | undefined;
-  LiveStreaming: { channelName?: string; hostName?: string; hostAvatar?: string | null } | undefined;
+  LiveStreaming: { channelName?: string; title?: string; audience?: string; isPrivate?: boolean; hostId?: string; hostName?: string; hostAvatar?: string | null } | undefined;
   LiveEnded: { duration?: number; viewerCount?: number; peakViewers?: number } | undefined;
   ViewerLiveStream: { channelName: string; hostUserId: string; hostName?: string; hostAvatar?: string | null };
 

@@ -157,7 +157,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
   };
 
   const handleMessageCreator = () => {
-    navigation.navigate('Chat', { recipientId: session.creatorId });
+    navigation.navigate('Chat', { userId: session.creatorId });
   };
 
   const handleViewCreatorProfile = () => {

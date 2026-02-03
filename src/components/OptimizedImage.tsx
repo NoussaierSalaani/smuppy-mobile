@@ -15,6 +15,19 @@ const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 // Cache policy
 const CACHE_POLICY = 'memory-disk';
 
+// CDN URL normalization - fix legacy URLs pointing to wrong CloudFront
+const WRONG_CDN = 'd3gy4x1feicix3.cloudfront.net';
+const CORRECT_CDN = 'dc8kq67t0asis.cloudfront.net';
+
+const normalizeCdnUrl = (url: string | undefined | null): string | undefined => {
+  if (!url || typeof url !== 'string') return undefined;
+  // Fix URLs with wrong CDN domain
+  if (url.includes(WRONG_CDN)) {
+    return url.replace(WRONG_CDN, CORRECT_CDN);
+  }
+  return url;
+};
+
 interface OptimizedImageProps {
   source: any;
   style?: StyleProp<ImageStyle>;
@@ -67,10 +80,12 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   onError,
   ...props
 }) => {
-  // Handle different source formats
+  // Handle different source formats and normalize CDN URLs
+  const rawUri = typeof source === 'string' ? source : source?.uri;
+  const normalizedUri = normalizeCdnUrl(rawUri);
   const imageSource = typeof source === 'string'
-    ? { uri: source }
-    : source;
+    ? { uri: normalizedUri }
+    : source?.uri ? { ...source, uri: normalizedUri } : source;
 
   // Skip rendering if no valid source
   if (!imageSource || (!imageSource?.uri && typeof source !== 'number')) {

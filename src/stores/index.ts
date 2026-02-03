@@ -331,7 +331,8 @@ export const useFeedStore = create<FeedState>()(
 
     removeFromFeed: (postId: string) =>
       set((state) => {
-        state.feedCache = state.feedCache.filter((p) => p.id !== postId);
+        const idx = state.feedCache.findIndex((p) => p.id === postId);
+        if (idx !== -1) state.feedCache.splice(idx, 1);
       }),
 
     // Optimistic like

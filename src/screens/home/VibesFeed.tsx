@@ -111,7 +111,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.02,
@@ -124,7 +124,9 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulse.start();
+    return () => pulse.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -557,7 +559,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setIsFollowingUser(following);
       }
     };
-    checkFollowStatus();
+    checkFollowStatus().catch((err) => {
+      if (__DEV__) console.warn('Check follow status error:', err);
+    });
   }, [selectedPost?.user?.id, modalVisible]);
 
   // Get related posts (same category/tags, excluding current post)

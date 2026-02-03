@@ -240,7 +240,10 @@ export default function BattleLobbyScreen() {
 
   const renderParticipant = (participant: Participant, index: number) => {
     const isCurrentUser = participant.user_id === user?.id;
-    const scaleAnim = scaleAnims[index] || new Animated.Value(1);
+    if (!scaleAnims[index]) {
+      scaleAnims[index] = new Animated.Value(1);
+    }
+    const scaleAnim = scaleAnims[index];
 
     return (
       <Animated.View

@@ -518,6 +518,39 @@ const PostDetailFanFeedScreen = () => {
               posterSource={{ uri: item.thumbnail }}
               usePoster
             />
+          ) : item.allMedia && item.allMedia.length > 1 ? (
+            // Carousel with multiple images
+            <View style={styles.carouselContainer}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                  setCarouselIndexes(prev => ({ ...prev, [item.id]: slideIndex }));
+                }}
+              >
+                {item.allMedia.map((mediaUrl, mediaIndex) => (
+                  <OptimizedImage
+                    key={`${item.id}-media-${mediaIndex}`}
+                    source={mediaUrl}
+                    style={styles.carouselImage}
+                  />
+                ))}
+              </ScrollView>
+              {/* Carousel pagination dots */}
+              <View style={styles.carouselPagination}>
+                {item.allMedia.map((_, dotIndex) => (
+                  <View
+                    key={`dot-${dotIndex}`}
+                    style={[
+                      styles.carouselDot,
+                      (carouselIndexes[item.id] || 0) === dotIndex && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
           ) : (
             <OptimizedImage source={item.media} style={styles.media} />
           )}
@@ -920,6 +953,38 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     width: '100%',
     height: '100%',
     position: 'absolute',
+  },
+  // Carousel styles
+  carouselContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  carouselImage: {
+    width: width,
+    height: '100%',
+  },
+  carouselPagination: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  carouselDotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   gradientOverlay: {
     position: 'absolute',

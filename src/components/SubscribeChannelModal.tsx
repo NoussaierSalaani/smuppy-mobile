@@ -214,14 +214,14 @@ export default function SubscribeChannelModal({
   );
 }
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   content: {
-    backgroundColor: 'white',
+    backgroundColor: isDark ? '#1C1C1E' : colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -257,7 +257,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   creatorUsername: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 4,
   },
   tiersContainer: {
@@ -266,7 +266,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   tierCard: {
     borderWidth: 2,
-    borderColor: 'rgba(10, 37, 47, 0.1)',
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(10, 37, 47, 0.1)',
     borderRadius: 16,
     padding: 16,
     position: 'relative',
@@ -317,7 +317,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   tierPeriod: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   featuresContainer: {
     gap: 8,
@@ -329,7 +329,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   featureText: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
   },
   featureTextSelected: {
     color: colors.dark,

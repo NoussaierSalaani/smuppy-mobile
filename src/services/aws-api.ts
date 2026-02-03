@@ -2013,6 +2013,16 @@ class AWSAPIService {
     });
   }
 
+  /**
+   * Invite creators to a battle
+   */
+  async inviteToBattle(battleId: string, invitedUserIds: string[]): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/battles/${battleId}/invite`, {
+      method: 'POST',
+      body: { invitedUserIds },
+    });
+  }
+
   async getBattle(battleId: string): Promise<{
     success: boolean;
     battle?: any;

@@ -72,6 +72,8 @@ import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen, 
 // Battles Screens
 import BattleLobbyScreen from '../screens/battles/BattleLobbyScreen';
 import BattleStreamScreen from '../screens/battles/BattleStreamScreen';
+import BattleResultsScreen from '../screens/battles/BattleResultsScreen';
+import InviteToBattleScreen from '../screens/battles/InviteToBattleScreen';
 
 // Events Screens
 import CreateEventScreen from '../screens/events/CreateEventScreen';
@@ -316,6 +318,8 @@ export default function MainNavigator() {
       {/* Live Battles */}
       <Stack.Screen name="BattleLobby" component={BattleLobbyScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="BattleStream" component={BattleStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="BattleResults" component={BattleResultsScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="InviteToBattle" component={InviteToBattleScreen} options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
 
       {/* Events (Xplorer) */}
       <Stack.Screen name="EventList" component={EventListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

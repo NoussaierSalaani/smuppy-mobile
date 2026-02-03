@@ -750,6 +750,8 @@ export type MainStackParamList = {
   // Live Battles
   BattleLobby: { battleId: string };
   BattleStream: { battleId: string; agoraToken?: string; agoraUid?: number };
+  BattleResults: { battleId: string; winner?: { id: string; user_id: string; username: string; display_name?: string; avatar_url?: string; profile_picture_url?: string; is_verified: boolean; tips_received: number; tip_count: number; is_host: boolean }; participants: { id: string; user_id: string; username: string; display_name?: string; avatar_url?: string; profile_picture_url?: string; is_verified: boolean; tips_received: number; tip_count: number; is_host: boolean }[] };
+  InviteToBattle: { battleId: string };
 
   // Events (Xplorer)
   EventList: undefined;

@@ -235,7 +235,7 @@ export default function BattleLobbyScreen() {
   };
 
   const handleInvite = () => {
-    // TODO: InviteToBattle screen not yet implemented
+    navigation.navigate('InviteToBattle', { battleId });
   };
 
   const renderParticipant = (participant: Participant, index: number) => {

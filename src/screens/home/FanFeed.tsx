@@ -58,10 +58,10 @@ export interface FanFeedRef {
 
 const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
   const { colors, isDark } = useTheme();
-  const { showSuccess, showDestructiveConfirm } = useSmuppyAlert();
+  const { showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll, showBars } = useTabBar();
-  const listRef = useRef<any>(null);
+  const listRef = useRef<React.ElementRef<typeof FlashList<UIPost>>>(null);
 
   // Expose scrollToTop method to parent
   useImperativeHandle(ref, () => ({
@@ -88,6 +88,15 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const loadingSuggestionsRef = useRef(false);
   const hasMoreSuggestionsRef = useRef(true);
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
+  const trackingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Cleanup tracking timeouts on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      trackingTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      trackingTimeoutsRef.current.clear();
+    };
+  }, []);
 
   // Share modal state (using shared hook)
   const shareModal = useShareModal();
@@ -111,9 +120,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       if (error) {
         if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
-        // On error, use mock data as fallback
+        if (refresh) {
+          showError('Refresh failed', 'Unable to load new posts. Please try again.');
+        }
         if (refresh || pageNum === 0) {
-          if (__DEV__) console.log('[FanFeed] Using mock data as fallback');
           setPosts([]);
           setHasMore(false);
         }
@@ -283,13 +293,17 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       });
     } finally {
       // Remove from tracking set after a short delay to prevent rapid re-clicks
-      setTimeout(() => {
+      // Store timeout ID for cleanup on unmount
+      const timeoutId = setTimeout(() => {
         setTrackingUserIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(userId);
           return newSet;
         });
+        // Remove from timeout map after it fires
+        trackingTimeoutsRef.current.delete(userId);
       }, 500);
+      trackingTimeoutsRef.current.set(userId, timeoutId);
     }
   }, [trackingUserIds, posts.length, fetchPosts, fetchSuggestions]);
 
@@ -401,11 +415,20 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Render suggestion item
   const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => {
     const isTracking = trackingUserIds.has(suggestion.id);
+    const firstName = suggestion.name.split(' ')[0] || suggestion.name;
     return (
-      <View key={`suggestion-${index}-${suggestion.id}`} style={styles.suggestionItem}>
+      <View
+        key={`suggestion-${index}-${suggestion.id}`}
+        style={styles.suggestionItem}
+        accessible={true}
+        accessibilityLabel={`${suggestion.name}${suggestion.isVerified ? ', verified' : ''}`}
+      >
         <TouchableOpacity
           style={styles.suggestionAvatarWrapper}
           onPress={() => goToUserProfile(suggestion.id)}
+          accessibilityLabel={`View ${suggestion.name}'s profile`}
+          accessibilityRole="button"
+          accessibilityHint="Opens user profile"
         >
           <LinearGradient
             colors={GRADIENTS.primary}
@@ -423,7 +446,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           />
         </TouchableOpacity>
         <Text style={styles.suggestionName} numberOfLines={1}>
-          {suggestion.name.split(' ')[0]}
+          {firstName}
         </Text>
         <LiquidButton
           label={isTracking ? '...' : 'Track'}
@@ -535,6 +558,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             onPress={() => toggleLike(post.id)}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             activeOpacity={0.7}
+            accessibilityLabel={post.isLiked ? 'Unlike this post' : 'Like this post'}
+            accessibilityRole="button"
+            accessibilityState={{ selected: post.isLiked }}
+            accessibilityHint="Double tap to toggle like"
           >
             <SmuppyHeartIcon
               size={26}
@@ -546,6 +573,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             style={styles.postAction}
             onPress={() => handleSharePost(post)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Share this post"
+            accessibilityRole="button"
+            accessibilityHint="Opens share options"
           >
             <Ionicons name="paper-plane-outline" size={22} color={colors.dark} />
           </TouchableOpacity>
@@ -553,6 +583,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         <TouchableOpacity
           onPress={() => toggleSave(post.id)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel={post.isSaved ? 'Remove from saved' : 'Save this post'}
+          accessibilityRole="button"
+          accessibilityState={{ selected: post.isSaved }}
+          accessibilityHint="Double tap to toggle save"
         >
           <Ionicons
             name={post.isSaved ? "bookmark" : "bookmark-outline"}
@@ -598,10 +632,15 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // List header with suggestions - ALWAYS show (even without suggestions)
   const ListHeader = useMemo(() => (
-    <View style={styles.suggestionsSection}>
+    <View style={styles.suggestionsSection} accessible={true} accessibilityLabel="Suggested users to follow">
       <View style={styles.suggestionsSectionHeader}>
         <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Search')}
+          accessibilityLabel="See all suggestions"
+          accessibilityRole="button"
+          accessibilityHint="Opens search to find more users"
+        >
           <Text style={styles.seeAllText}>See all</Text>
         </TouchableOpacity>
       </View>
@@ -611,6 +650,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <TouchableOpacity
             style={styles.inviteButton}
             onPress={inviteFriends}
+            accessibilityLabel="Invite friends to Smuppy"
+            accessibilityRole="button"
+            accessibilityHint="Opens share dialog to invite friends"
           >
             <LinearGradient
               colors={isDark ? ['#1A2A1F', '#2A3A2F'] : ['#E8F5E9', '#C8E6C9']}
@@ -633,6 +675,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.suggestionsScrollContent}
+          accessibilityRole="list"
+          accessibilityLabel="Suggested users"
         >
           {suggestions.map(renderSuggestion)}
         </ScrollView>

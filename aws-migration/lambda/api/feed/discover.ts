@@ -44,12 +44,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const params: SqlParam[] = [];
     let paramIndex = 1;
+    let userIdParamIndex: number | null = null;
 
     // Build WHERE clauses
     const whereClauses: string[] = [];
 
     if (userId) {
       params.push(userId);
+      userIdParamIndex = paramIndex;
       whereClauses.push(
         `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
       );
@@ -67,13 +69,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
-    // Build is_liked/is_saved subqueries
+    // Build is_liked/is_saved subqueries using correct parameter index
     let isLikedExpr = 'false as is_liked';
     let isSavedExpr = 'false as is_saved';
 
-    if (userId) {
-      isLikedExpr = `EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked`;
-      isSavedExpr = `EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as is_saved`;
+    if (userId && userIdParamIndex !== null) {
+      isLikedExpr = `EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${userIdParamIndex}) as is_liked`;
+      isSavedExpr = `EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${userIdParamIndex}) as is_saved`;
     }
 
     params.push(limit);

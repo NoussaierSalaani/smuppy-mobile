@@ -101,12 +101,14 @@ const PostDetailFanFeedScreen = () => {
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   
-  // Current post
-  const currentPost = fanFeedPosts[currentIndex];
-  
-  // Check if already fan of current post user
-  const _isAlreadyFan = fanStatus[currentPost.user.id] === true;
-  const _theyFollowMe = currentPost.user.followsMe;
+  // Current post - with bounds check to prevent crash on empty array
+  const currentPost = fanFeedPosts.length > 0 && currentIndex < fanFeedPosts.length
+    ? fanFeedPosts[currentIndex]
+    : null;
+
+  // Check if already fan of current post user (with null check)
+  const _isAlreadyFan = currentPost ? fanStatus[currentPost.user.id] === true : false;
+  const _theyFollowMe = currentPost?.user.followsMe ?? false;
 
   // Validate UUID format
   const isValidUUID = (id: string) => {
@@ -117,7 +119,7 @@ const PostDetailFanFeedScreen = () => {
   // Check follow status when post changes
   useEffect(() => {
     const checkFollowStatus = async () => {
-      const userId = currentPost.user?.id;
+      const userId = currentPost?.user?.id;
       if (userId && isValidUUID(userId) && fanStatus[userId] === undefined && !fanStatusChecking[userId]) {
         // Mark as checking to prevent flicker
         setFanStatusChecking(prev => ({ ...prev, [userId]: true }));
@@ -130,32 +132,32 @@ const PostDetailFanFeedScreen = () => {
       }
     };
     checkFollowStatus();
-  }, [currentPost.user?.id, fanStatus, fanStatusChecking]);
+  }, [currentPost?.user?.id, fanStatus, fanStatusChecking]);
 
   // Check like/bookmark status when post changes
   useEffect(() => {
     const checkPostStatus = async () => {
-      const postId = currentPost.id;
-      if (!postId || !isValidUUID(postId)) return;
+      const postIdVal = currentPost?.id;
+      if (!postIdVal || !isValidUUID(postIdVal)) return;
 
       // Only check if we haven't already checked this post
-      if (likedPosts[postId] === undefined) {
-        const { hasLiked } = await hasLikedPost(postId);
+      if (likedPosts[postIdVal] === undefined) {
+        const { hasLiked } = await hasLikedPost(postIdVal);
         if (hasLiked) {
-          setLikedPosts(prev => ({ ...prev, [postId]: true }));
+          setLikedPosts(prev => ({ ...prev, [postIdVal]: true }));
         }
       }
 
-      if (bookmarkedPosts[postId] === undefined) {
-        const { saved } = await hasSavedPost(postId);
+      if (bookmarkedPosts[postIdVal] === undefined) {
+        const { saved } = await hasSavedPost(postIdVal);
         if (saved) {
-          setBookmarkedPosts(prev => ({ ...prev, [postId]: true }));
+          setBookmarkedPosts(prev => ({ ...prev, [postIdVal]: true }));
         }
       }
     };
     checkPostStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPost.id]);
+  }, [currentPost?.id]);
 
   // Navigate to user profile (only if valid UUID)
   const navigateToProfile = (userId: string) => {
@@ -168,9 +170,10 @@ const PostDetailFanFeedScreen = () => {
 
   // Double tap to like
   const handleDoubleTap = () => {
+    if (!currentPost) return;
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
-    
+
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
       // Double tap detected - Like
       if (!likedPosts[currentPost.id]) {
@@ -333,7 +336,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Share post with anti spam-click
   const handleShare = async () => {
-    if (shareLoading) return;
+    if (shareLoading || !currentPost) return;
     setShareLoading(true);
     try {
       setShowMenu(false);
@@ -351,6 +354,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Copy link to clipboard
   const handleCopyLink = async () => {
+    if (!currentPost) return;
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
@@ -360,7 +364,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Report post with anti spam-click
   const handleReport = async () => {
-    if (reportLoading) return;
+    if (reportLoading || !currentPost) return;
     setReportLoading(true);
     try {
       setShowMenu(false);
@@ -386,6 +390,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Submit report to store
   const submitReport = (reason: string) => {
+    if (!currentPost) return;
     setShowReportModal(false);
 
     // Submit to content store
@@ -402,7 +407,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Mute user with anti spam-click
   const handleMute = async () => {
-    if (muteLoading) return;
+    if (muteLoading || !currentPost) return;
     const userId = currentPost.user?.id;
     if (!userId) return;
 
@@ -435,7 +440,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Block user with anti spam-click
   const handleBlock = async () => {
-    if (blockLoading) return;
+    if (blockLoading || !currentPost) return;
     const userId = currentPost.user?.id;
     if (!userId) return;
 
@@ -537,13 +542,17 @@ const PostDetailFanFeedScreen = () => {
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => navigation.goBack()}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
             >
               <Ionicons name="chevron-back" size={28} color="#FFF" />
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setShowMenu(true)}
+              accessibilityLabel="Open menu"
+              accessibilityRole="button"
             >
               <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
             </TouchableOpacity>
@@ -555,6 +564,8 @@ const PostDetailFanFeedScreen = () => {
               style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
               onPress={handleShare}
               disabled={shareLoading}
+              accessibilityLabel="Share post"
+              accessibilityRole="button"
             >
               {shareLoading ? (
                 <ActivityIndicator size="small" color="#FFF" />
@@ -567,6 +578,9 @@ const PostDetailFanFeedScreen = () => {
               style={[styles.actionBtn, likeLoading[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleLike(item.id)}
               disabled={likeLoading[item.id]}
+              accessibilityLabel={isLiked ? 'Unlike this post' : 'Like this post'}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isLiked }}
             >
               {likeLoading[item.id] ? (
                 <ActivityIndicator size="small" color={colors.primaryGreen} />
@@ -583,6 +597,9 @@ const PostDetailFanFeedScreen = () => {
               style={[styles.actionBtn, bookmarkLoading[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleBookmark(item.id)}
               disabled={bookmarkLoading[item.id]}
+              accessibilityLabel={isBookmarked ? 'Remove from saved' : 'Save this post'}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isBookmarked }}
             >
               {bookmarkLoading[item.id] ? (
                 <ActivityIndicator size="small" color={colors.primaryGreen} />
@@ -599,6 +616,8 @@ const PostDetailFanFeedScreen = () => {
               <TouchableOpacity
                 style={styles.actionBtn}
                 onPress={() => setIsAudioMuted(!isAudioMuted)}
+                accessibilityLabel={isAudioMuted ? 'Unmute audio' : 'Mute audio'}
+                accessibilityRole="button"
               >
                 <Ionicons
                   name={isAudioMuted ? 'volume-mute' : 'volume-high'}
@@ -681,7 +700,28 @@ const PostDetailFanFeedScreen = () => {
       </TouchableWithoutFeedback>
     );
   };
-  
+
+  // Early return for empty posts array
+  if (fanFeedPosts.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+        <Ionicons name="images-outline" size={64} color={colors.gray} />
+        <Text style={{ color: colors.gray, marginTop: 16, fontSize: 16 }}>No posts available</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -718,7 +758,12 @@ const PostDetailFanFeedScreen = () => {
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleShare}
+              accessibilityLabel="Share post"
+              accessibilityRole="button"
+            >
               <Ionicons name="share-social-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Share</Text>
             </TouchableOpacity>
@@ -726,6 +771,8 @@ const PostDetailFanFeedScreen = () => {
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleCopyLink}
+              accessibilityLabel="Copy post link"
+              accessibilityRole="button"
             >
               <Ionicons name="link-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Copy Link</Text>
@@ -734,25 +781,48 @@ const PostDetailFanFeedScreen = () => {
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
+                if (!currentPost) return;
                 setShowMenu(false);
                 navigateToProfile(currentPost.user.id);
               }}
+              accessibilityLabel="View user profile"
+              accessibilityRole="button"
             >
               <Ionicons name="person-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>View Profile</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleMute}
+              disabled={muteLoading}
+              accessibilityLabel="Mute this user"
+              accessibilityRole="button"
+              accessibilityHint="Hide content from this user"
+            >
               <Ionicons name="eye-off-outline" size={24} color="#FFF" />
               <Text style={styles.menuItemText}>Mute user</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleBlock}
+              disabled={blockLoading}
+              accessibilityLabel="Block this user"
+              accessibilityRole="button"
+              accessibilityHint="Block all interactions with this user"
+            >
               <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
               <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Block user</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleReport}
+              accessibilityLabel="Report this post"
+              accessibilityRole="button"
+              accessibilityHint="Report inappropriate content"
+            >
               <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
               <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
             </TouchableOpacity>
@@ -760,6 +830,8 @@ const PostDetailFanFeedScreen = () => {
             <TouchableOpacity
               style={styles.menuCancel}
               onPress={() => setShowMenu(false)}
+              accessibilityLabel="Cancel"
+              accessibilityRole="button"
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>

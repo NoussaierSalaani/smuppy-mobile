@@ -1238,7 +1238,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 startDate={item.starts_at}
                 participantCount={item.current_participants}
                 maxParticipants={item.max_participants}
-                isOwner={isOwnProfile}
+                isOwner={item.creator_id === storeUser?.id}
                 onPress={() => handleEventGroupCardPress(item._type, item.id)}
                 onMenuPress={() => handleEventGroupMenuPress(item._type, item.id)}
               />

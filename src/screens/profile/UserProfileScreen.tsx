@@ -484,7 +484,7 @@ const UserProfileScreen = () => {
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
     // Support both media_urls array and legacy media_url string
     const thumbnail = post.media_urls?.[0] || (post as any).media_url || null;
-    const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
+    const isVideo = post.media_type === 'video';
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
     const transformedPosts = allPosts.map(p => ({
@@ -1747,7 +1747,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'flex-start',
   },
   postCardWrapper: {
-    width: '100%',
+    // width is set dynamically via flexBasis/maxWidth inline styles
   },
   postCard: {
     width: '100%',

@@ -22,7 +22,7 @@ import { AccountBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
-import { useContentStore, useUserSafetyStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
 import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
@@ -72,6 +72,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }));
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
+  const currentUser = useUserStore((state) => state.user);
 
   // State for real posts from API
   const [posts, setPosts] = useState<UIPost[]>([]);
@@ -334,10 +335,15 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     [posts, isUnderReview, isHidden]
   );
 
-  // Navigate to user profile
+  // Navigate to user profile (or Profile tab if it's current user)
   const goToUserProfile = useCallback((userId: string) => {
-    navigation.navigate('UserProfile', { userId });
-  }, [navigation]);
+    if (userId === currentUser?.id) {
+      // Navigate to the Profile tab for current user
+      navigation.navigate('Tabs', { screen: 'Profile' });
+    } else {
+      navigation.navigate('UserProfile', { userId });
+    }
+  }, [navigation, currentUser?.id]);
 
   // Format numbers
   const formatNumber = useCallback((num: number) => {

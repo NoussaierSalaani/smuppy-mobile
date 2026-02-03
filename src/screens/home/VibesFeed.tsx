@@ -215,8 +215,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
 
-  // Account type (needed before useMoodAI to gate it)
+  // Account type and user ID (needed before useMoodAI to gate it)
   const accountType = useUserStore((state) => state.user?.accountType);
+  const currentUserId = useUserStore((state) => state.user?.id);
   const isBusiness = accountType === 'pro_business';
 
   // Advanced Mood AI System (disabled for business accounts)
@@ -388,7 +389,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     useVibeStore.getState().checkDailyLogin();
   }, []);
 
-  // Navigate to user profile
+  // Navigate to user profile (or Profile tab if it's current user)
   const goToUserProfile = useCallback((userId: string) => {
     // Close modal properly with engagement tracking
     if (modalVisible && selectedPost) {
@@ -399,12 +400,20 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       setIsFollowingUser(false);
       // Wait for modal to close before navigating
       setTimeout(() => {
-        navigation.navigate('UserProfile', { userId });
+        if (userId === currentUserId) {
+          navigation.navigate('Tabs', { screen: 'Profile' });
+        } else {
+          navigation.navigate('UserProfile', { userId });
+        }
       }, 300);
     } else {
-      navigation.navigate('UserProfile', { userId });
+      if (userId === currentUserId) {
+        navigation.navigate('Tabs', { screen: 'Profile' });
+      } else {
+        navigation.navigate('UserProfile', { userId });
+      }
     }
-  }, [navigation, modalVisible, selectedPost, trackPostExit]);
+  }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId]);
 
   // Navigate to Peak view
   const goToPeakView = useCallback((_peak: typeof PEAKS_DATA[number], index: number) => {

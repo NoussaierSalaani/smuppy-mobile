@@ -157,6 +157,11 @@ const PostDetailProfileScreen = () => {
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
 
+  const getItemType = useCallback((item: PostItem) => {
+    if (item.allMedia && item.allMedia.length > 1) return 'carousel';
+    return item.type === 'video' ? 'video' : 'image';
+  }, []);
+
   // Current post
   const currentPost = posts[currentIndex];
 
@@ -738,7 +743,7 @@ const PostDetailProfileScreen = () => {
         data={posts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
-        getItemType={(item) => item.allMedia && item.allMedia.length > 1 ? 'carousel' : item.type === 'video' ? 'video' : 'image'}
+        getItemType={getItemType}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={height}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -253,7 +253,12 @@ const PostDetailFanFeedScreen = () => {
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
   }).current;
-  
+
+  const getItemType = useCallback((item: FanFeedPost) => {
+    if (item.allMedia && item.allMedia.length > 1) return 'carousel';
+    return item.type === 'video' ? 'video' : 'image';
+  }, []);
+
   // Toggle like with anti spam-click - connected to database
   const toggleLike = async (postId: string) => {
     if (likeLoading[postId]) return;
@@ -792,7 +797,7 @@ const PostDetailFanFeedScreen = () => {
         data={fanFeedPosts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
-        getItemType={(item) => item.allMedia && item.allMedia.length > 1 ? 'carousel' : item.type === 'video' ? 'video' : 'image'}
+        getItemType={getItemType}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={height}

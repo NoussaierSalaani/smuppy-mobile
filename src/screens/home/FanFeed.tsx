@@ -78,6 +78,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [posts, setPosts] = useState<UIPost[]>([]);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -118,6 +119,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Fetch posts from tracked users
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
     try {
+      if (pageNum === 0) setLoadError(null);
       const { data, error } = await getFeedFromFollowed(pageNum, 10);
 
       if (error) {
@@ -128,6 +130,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         if (refresh || pageNum === 0) {
           setPosts([]);
           setHasMore(false);
+          setLoadError(error);
         }
         return;
       }
@@ -177,10 +180,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
     } catch (err) {
       if (__DEV__) console.warn('[FanFeed] Error:', err);
-      // On exception, also clear loading state
-      if (refresh) {
+      if (refresh || pageNum === 0) {
         setPosts([]);
         setHasMore(false);
+        setLoadError('Unable to load feed. Check your connection and try again.');
       }
     }
   }, []);
@@ -764,24 +767,36 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [loadingMore, hasMore, posts.length, styles, colors]);
 
   const keyExtractor = useCallback((item: UIPost) => String(item.id), []);
-
+  const getItemType = useCallback((item: UIPost) => {
+    if (item.allMedia && item.allMedia.length > 1) return 'carousel';
+    return item.type === 'video' ? 'video' : 'image';
+  }, []);
 
   // Empty state component
   const EmptyState = useCallback(() => (
     <View style={styles.emptyState}>
-      <Ionicons name="people-outline" size={64} color={colors.grayMuted} />
-      <Text style={styles.emptyStateTitle}>No Posts Yet</Text>
+      <Ionicons name={loadError ? "cloud-offline-outline" : "people-outline"} size={64} color={colors.grayMuted} />
+      <Text style={styles.emptyStateTitle}>{loadError ? 'Connection Issue' : 'No Posts Yet'}</Text>
       <Text style={styles.emptyStateSubtitle}>
-        Track some users to see their posts here
+        {loadError || 'Track some users to see their posts here'}
       </Text>
-      <TouchableOpacity
-        style={styles.emptyStateButton}
-        onPress={() => navigation.navigate('Search')}
-      >
-        <Text style={styles.emptyStateButtonText}>Find People</Text>
-      </TouchableOpacity>
+      {loadError ? (
+        <TouchableOpacity
+          style={styles.emptyStateButton}
+          onPress={() => fetchPosts(0, true)}
+        >
+          <Text style={styles.emptyStateButtonText}>Retry</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.emptyStateButton}
+          onPress={() => navigation.navigate('Search')}
+        >
+          <Text style={styles.emptyStateButtonText}>Find People</Text>
+        </TouchableOpacity>
+      )}
     </View>
-  ), [navigation, styles, colors]);
+  ), [navigation, styles, colors, loadError, fetchPosts]);
 
   // Navigate to Peaks screen - MUST be before any conditional returns (Rules of Hooks)
   const openPeaks = useCallback(() => {
@@ -808,7 +823,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           data={visiblePosts}
           renderItem={renderPost}
           keyExtractor={keyExtractor}
-          getItemType={(item) => item.allMedia && item.allMedia.length > 1 ? 'carousel' : item.type === 'video' ? 'video' : 'image'}
+          getItemType={getItemType}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={EmptyState}

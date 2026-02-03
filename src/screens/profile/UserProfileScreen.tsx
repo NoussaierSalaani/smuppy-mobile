@@ -922,8 +922,8 @@ const UserProfileScreen = () => {
         </View>
       ) : null}
 
-      {/* Action Buttons — only render container when there's content to show */}
-      {(isOwnProfile || !isFan || profile.accountType === 'pro_creator') && (
+      {/* Action Buttons — only render when profile data loaded (avoids fan button flash on device) */}
+      {(isOwnProfile || (!isFan && !!profileData) || profile.accountType === 'pro_creator') && (
         <View style={styles.actionButtonsContainer}>
           {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
           {isOwnProfile ? (
@@ -936,7 +936,7 @@ const UserProfileScreen = () => {
                 <Text style={styles.editProfileText}>Edit Profile</Text>
               </TouchableOpacity>
             </View>
-          ) : !isFan ? (
+          ) : !isFan && !!profileData ? (
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 style={[

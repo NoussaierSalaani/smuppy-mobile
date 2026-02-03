@@ -24,7 +24,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 const _CARD_WIDTH = (width - 48) / 2;
@@ -134,6 +134,12 @@ const PostDetailVibesFeedScreen = () => {
       setIsBookmarked(saved);
     };
     checkPostStatus();
+  }, [currentPost?.id]);
+
+  // Record post view on mount
+  useEffect(() => {
+    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
+    recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);

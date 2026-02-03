@@ -797,6 +797,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           data={visiblePosts}
           renderItem={renderPost}
           keyExtractor={keyExtractor}
+          getItemType={(item) => item.allMedia && item.allMedia.length > 1 ? 'carousel' : item.type === 'video' ? 'video' : 'image'}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={EmptyState}

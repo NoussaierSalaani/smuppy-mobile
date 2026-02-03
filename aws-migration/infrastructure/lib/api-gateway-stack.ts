@@ -120,6 +120,9 @@ export class ApiGatewayStack extends cdk.NestedStack {
     postLike.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsLikeFn), authMethodOptions);
     postLike.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsUnlikeFn), authMethodOptions);
 
+    const postView = postById.addResource('view');
+    postView.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsViewFn), authMethodOptions);
+
     const postSave = postById.addResource('save');
     postSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsSaveFn), authMethodOptions);
     postSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsUnsaveFn), authMethodOptions);

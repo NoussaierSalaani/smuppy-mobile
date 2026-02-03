@@ -738,6 +738,7 @@ const PostDetailProfileScreen = () => {
         data={posts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
+        getItemType={(item) => item.allMedia && item.allMedia.length > 1 ? 'carousel' : item.type === 'video' ? 'video' : 'image'}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={height}

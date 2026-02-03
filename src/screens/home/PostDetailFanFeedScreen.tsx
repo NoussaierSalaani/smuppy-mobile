@@ -26,7 +26,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');
 
@@ -104,6 +104,7 @@ const PostDetailFanFeedScreen = () => {
   const flatListRef = useRef<any>(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
+  const viewedPosts = useRef<Set<string>>(new Set());
   
   // Current post - with bounds check to prevent crash on empty array
   const currentPost = fanFeedPosts.length > 0 && currentIndex < fanFeedPosts.length
@@ -161,6 +162,15 @@ const PostDetailFanFeedScreen = () => {
     };
     checkPostStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPost?.id]);
+
+  // Record post view (deduped per session)
+  useEffect(() => {
+    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
+    if (viewedPosts.current.has(currentPost.id)) return;
+
+    viewedPosts.current.add(currentPost.id);
+    recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
   // Navigate to user profile (only if valid UUID)
@@ -782,6 +792,7 @@ const PostDetailFanFeedScreen = () => {
         data={fanFeedPosts}
         renderItem={renderPostItem}
         keyExtractor={(item) => item.id}
+        getItemType={(item) => item.allMedia && item.allMedia.length > 1 ? 'carousel' : item.type === 'video' ? 'video' : 'image'}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={height}

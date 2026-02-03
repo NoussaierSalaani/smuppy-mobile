@@ -100,7 +100,8 @@ const UserProfileScreen = () => {
   // Déterminer si c'est notre profil ou celui d'un autre
   const params = route?.params as { userId?: string } || {};
   const userId = params.userId;
-  const isOwnProfile = !userId;
+  const currentUser = useUserStore((state) => state.user);
+  const isOwnProfile = !userId || userId === currentUser?.id;
   const { data: profileData, isLoading, isError, refetch } = useProfile(userId);
 
   const profile = useMemo(() => {
@@ -835,48 +836,60 @@ const UserProfileScreen = () => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtonsContainer}>
-        {/* Row 1: Fan + Message */}
+        {/* Row 1: Fan + Message (or Edit Profile if own profile) */}
         <View style={styles.actionButtonsRow}>
-          <TouchableOpacity
-            style={[
-              styles.fanButton,
-              isFan && styles.fanButtonActive,
-              isRequested && styles.fanButtonRequested
-            ]}
-            onPress={handleFanPress}
-            disabled={isLoadingFollow}
-          >
-            {isLoadingFollow ? (
-              <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
-            ) : (
-              <Text style={[
-                styles.fanButtonText,
-                isFan && styles.fanButtonTextActive,
-                isRequested && styles.fanButtonTextRequested
-              ]}>
-                {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {(isFan || profile.accountType === 'pro_creator') && (
+          {isOwnProfile ? (
             <TouchableOpacity
-              style={[styles.messageButton, !isFan && styles.messageButtonDisabled]}
-              onPress={handleMessagePress}
-              disabled={!isFan}
+              style={styles.editProfileButton}
+              onPress={() => navigation.navigate('EditProfile' as never)}
             >
-              <Ionicons
-                name={isFan ? 'chatbubble-outline' : 'lock-closed-outline'}
-                size={18}
-                color={colors.dark}
-              />
-              <Text style={styles.messageText}>Message</Text>
+              <Ionicons name="pencil-outline" size={18} color={colors.dark} />
+              <Text style={styles.editProfileText}>Edit Profile</Text>
             </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.fanButton,
+                  isFan && styles.fanButtonActive,
+                  isRequested && styles.fanButtonRequested
+                ]}
+                onPress={handleFanPress}
+                disabled={isLoadingFollow}
+              >
+                {isLoadingFollow ? (
+                  <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
+                ) : (
+                  <Text style={[
+                    styles.fanButtonText,
+                    isFan && styles.fanButtonTextActive,
+                    isRequested && styles.fanButtonTextRequested
+                  ]}>
+                    {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {(isFan || profile.accountType === 'pro_creator') && (
+                <TouchableOpacity
+                  style={[styles.messageButton, !isFan && styles.messageButtonDisabled]}
+                  onPress={handleMessagePress}
+                  disabled={!isFan}
+                >
+                  <Ionicons
+                    name={isFan ? 'chatbubble-outline' : 'lock-closed-outline'}
+                    size={18}
+                    color={colors.dark}
+                  />
+                  <Text style={styles.messageText}>Message</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
-        {/* Row 2: Monetization buttons (pro_creator only) */}
-        {profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
+        {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
+        {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
           <View style={styles.actionButtonsRow}>
             {FEATURES.CHANNEL_SUBSCRIBE && (
               <LiquidButton
@@ -928,8 +941,8 @@ const UserProfileScreen = () => {
           </View>
         )}
 
-        {/* Row 3: Offerings button (pro_creator only) */}
-        {profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
+        {/* Row 3: Offerings button (pro_creator only, not own profile) */}
+        {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
           <View style={styles.actionButtonsRow}>
             <LiquidButton
               label="View Offerings"
@@ -945,8 +958,8 @@ const UserProfileScreen = () => {
         )}
       </View>
 
-      {/* Pro Creator Live Section */}
-      {FEATURES.VIEWER_LIVE_STREAM && profile.accountType === 'pro_creator' && (
+      {/* Pro Creator Live Section (not own profile) */}
+      {!isOwnProfile && FEATURES.VIEWER_LIVE_STREAM && profile.accountType === 'pro_creator' && (
         <>
           {/* LIVE NOW Section */}
           {creatorLiveStatus.isLive && (
@@ -1461,6 +1474,21 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   messageButtonDisabled: {
     opacity: 0.5,
   },
+  editProfileButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  editProfileText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.dark,
+  },
   sessionButton: {
     flex: 1,
     borderRadius: 10,
@@ -1625,8 +1653,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
 
   // ===== TABS (PILLS STYLE) =====
   tabsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+    paddingTop: 4,
     backgroundColor: colors.background,
   },
   pillsContainer: {

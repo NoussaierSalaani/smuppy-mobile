@@ -53,20 +53,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const result = await db.query(
       `SELECT
         p.id,
-        p.title,
+        p.author_id,
         p.content,
-        p.media_url,
+        p.media_urls,
         p.media_type,
         p.likes_count,
         p.comments_count,
+        p.views_count,
+        p.is_peak,
         p.created_at,
         p.updated_at,
         sp.created_at AS saved_at,
-        pr.id AS author_id,
+        pr.id AS profile_id,
         pr.username AS author_username,
-        pr.display_name AS author_display_name,
+        pr.full_name AS author_full_name,
         pr.avatar_url AS author_avatar_url,
-        pr.account_type AS author_account_type
+        pr.account_type AS author_account_type,
+        pr.is_verified AS author_is_verified
       FROM saved_posts sp
       INNER JOIN posts p ON p.id = sp.post_id
       INNER JOIN profiles pr ON pr.id = p.author_id
@@ -78,21 +81,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const data = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
-      title: row.title,
+      authorId: row.author_id,
       content: row.content,
-      mediaUrl: row.media_url,
+      mediaUrls: row.media_urls || [],
       mediaType: row.media_type,
-      likesCount: row.likes_count,
-      commentsCount: row.comments_count,
+      likesCount: row.likes_count || 0,
+      commentsCount: row.comments_count || 0,
+      viewsCount: row.views_count || 0,
+      isPeak: row.is_peak || false,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       savedAt: row.saved_at,
       author: {
-        id: row.author_id,
+        id: row.profile_id,
         username: row.author_username,
-        displayName: row.author_display_name,
+        fullName: row.author_full_name,
         avatarUrl: row.author_avatar_url,
         accountType: row.author_account_type,
+        isVerified: row.author_is_verified || false,
       },
     }));
 

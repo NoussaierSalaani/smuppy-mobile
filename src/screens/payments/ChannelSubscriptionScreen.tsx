@@ -201,7 +201,6 @@ export default function ChannelSubscriptionScreen() {
 
           {/* Creator Info */}
           <Text style={styles.creatorName}>{channelInfo.fullName}</Text>
-          <Text style={styles.creatorUsername}>@{channelInfo.username}</Text>
 
           {/* Stats */}
           <View style={styles.statsRow}>

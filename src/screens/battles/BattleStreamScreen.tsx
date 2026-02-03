@@ -217,11 +217,11 @@ export default function BattleStreamScreen() {
             source={{
               uri:
                 participant.profile_picture_url ||
-                `https://ui-avatars.com/api/?name=${participant.username}&background=random`,
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.username)}&background=random`,
             }}
             style={styles.streamAvatar}
           />
-          <Text style={styles.streamUsername}>@{participant.username}</Text>
+          <Text style={styles.streamUsername}>{participant.username}</Text>
         </View>
 
         {/* Leading indicator */}
@@ -303,7 +303,7 @@ export default function BattleStreamScreen() {
         >
           <Ionicons name="gift" size={20} color="#000" />
           <View>
-            <Text style={styles.tipAnimationSender}>@{tip.sender_username}</Text>
+            <Text style={styles.tipAnimationSender}>{tip.sender_username}</Text>
             <Text style={styles.tipAnimationAmount}>sent {formatAmount(tip.amount)}</Text>
           </View>
         </LinearGradient>
@@ -313,7 +313,7 @@ export default function BattleStreamScreen() {
 
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.comment}>
-      <Text style={styles.commentUsername}>@{item.username}</Text>
+      <Text style={styles.commentUsername}>{item.username}</Text>
       <Text style={styles.commentText}>{item.text}</Text>
     </View>
   );

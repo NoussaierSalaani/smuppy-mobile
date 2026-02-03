@@ -162,7 +162,6 @@ const PackPurchaseScreen = (): React.JSX.Element => {
                 <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
               )}
             </View>
-            <Text style={styles.creatorUsername}>@{creator.username}</Text>
           </View>
         </View>
 

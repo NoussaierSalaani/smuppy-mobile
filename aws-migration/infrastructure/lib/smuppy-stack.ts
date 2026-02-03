@@ -21,8 +21,10 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import { LambdaStack } from './lambda-stack';
+import { LambdaStack2 } from './lambda-stack-2';
 import { ApiGatewayStack } from './api-gateway-stack';
 import { ApiGateway2Stack } from './api-gateway-2-stack';
+import { ApiGateway3Stack } from './api-gateway-3-stack';
 
 /**
  * Smuppy AWS Infrastructure Stack
@@ -995,6 +997,33 @@ export class SmuppyStack extends cdk.Stack {
 
     // Get secondary API reference
     const api2 = apiGateway2Stack.api;
+
+    // ========================================
+    // Lambda Stack 2 - Business Access Handlers
+    // ========================================
+    const lambdaStack2 = new LambdaStack2(this, 'LambdaStack2', {
+      vpc,
+      lambdaSecurityGroup,
+      dbCredentials,
+      stripeSecret,
+      lambdaEnvironment,
+      environment,
+      isProduction,
+      apiLogGroup,
+    });
+
+    // ========================================
+    // API Gateway 3 - Business Access Endpoints
+    // ========================================
+    const apiGateway3Stack = new ApiGateway3Stack(this, 'ApiGateway3Stack', {
+      userPool,
+      lambdaStack2,
+      environment,
+      isProduction,
+    });
+
+    // Get third API reference
+    const api3 = apiGateway3Stack.api;
 
     // ========================================
     // WebSocket API Gateway - Real-time Messaging

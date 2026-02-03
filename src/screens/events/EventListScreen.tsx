@@ -476,11 +476,11 @@ export default function EventListScreen() {
                 source={{
                   uri:
                     item.organizer.profile_picture_url ||
-                    `https://ui-avatars.com/api/?name=${item.organizer.username}&background=random`,
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.username)}&background=random`,
                 }}
                 style={styles.organizerAvatar}
               />
-              <Text style={styles.organizerName}>@{item.organizer.username}</Text>
+              <Text style={styles.organizerName}>{item.organizer.username}</Text>
               {item.organizer.is_verified && (
                 <Ionicons name="checkmark-circle" size={12} color="#00BFFF" />
               )}

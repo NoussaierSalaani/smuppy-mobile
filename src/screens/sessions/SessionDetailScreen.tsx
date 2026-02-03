@@ -194,7 +194,6 @@ const SessionDetailScreen = (): React.JSX.Element => {
                 <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
               )}
             </View>
-            <Text style={styles.username}>@{session.creatorUsername}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.gray} />
         </TouchableOpacity>

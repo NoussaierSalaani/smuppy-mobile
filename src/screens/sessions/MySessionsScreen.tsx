@@ -152,7 +152,6 @@ const MySessionsScreen = (): React.JSX.Element => {
               <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
             )}
           </View>
-          <Text style={styles.username}>@{session.creator.username}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(session.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(session.status) }]}>

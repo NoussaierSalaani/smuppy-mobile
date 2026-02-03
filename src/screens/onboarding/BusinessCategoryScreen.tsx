@@ -2,6 +2,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
@@ -32,17 +34,17 @@ interface BusinessCategoryScreenProps {
 }
 
 export default function BusinessCategoryScreen({ navigation, route }: BusinessCategoryScreenProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [customCategory, setCustomCategory] = useState('');
   const [locationsMode, setLocationsMode] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
 
-  const params = route?.params || {};
+  const params = useMemo(() => route?.params || {}, [route?.params]);
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const visibleCategories = ALL_CATEGORIES.slice(0, visibleCount);
   const hasMoreCategories = visibleCount < ALL_CATEGORIES.length;
@@ -90,7 +92,7 @@ export default function BusinessCategoryScreen({ navigation, route }: BusinessCa
                     activeOpacity={0.7}
                   >
                     <View style={[styles.categoryIcon, { backgroundColor: `${cat.color}15` }]}>
-                      <Ionicons name={cat.icon as any} size={26} color={cat.color} />
+                      <Ionicons name={cat.icon as IoniconName} size={26} color={cat.color} />
                     </View>
                     <Text style={styles.categoryLabel}>
                       {cat.label}
@@ -110,7 +112,7 @@ export default function BusinessCategoryScreen({ navigation, route }: BusinessCa
                 activeOpacity={0.7}
               >
                 <View style={[styles.categoryIcon, { backgroundColor: `${cat.color}15` }]}>
-                  <Ionicons name={cat.icon as any} size={26} color={cat.color} />
+                  <Ionicons name={cat.icon as IoniconName} size={26} color={cat.color} />
                 </View>
                 <Text style={styles.categoryLabel}>
                   {cat.label}
@@ -254,7 +256,7 @@ export default function BusinessCategoryScreen({ navigation, route }: BusinessCa
   );
 }
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.xl },

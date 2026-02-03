@@ -443,7 +443,7 @@ See you there!`,
                   <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
                 )}
               </View>
-              <Text style={styles.organizerUsername}>@{event.organizer.username} • Organizer</Text>
+              <Text style={styles.organizerUsername}>Organizer</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.gray} />
           </TouchableOpacity>

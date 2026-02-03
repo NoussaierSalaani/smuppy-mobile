@@ -160,7 +160,6 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
                 <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
               )}
             </View>
-            <Text style={styles.heroUsername}>@{creator.username}</Text>
             <Text style={styles.subscribersCount}>
               {creator.subscribersCount.toLocaleString()} abonnés
             </Text>

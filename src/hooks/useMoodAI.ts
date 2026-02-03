@@ -180,7 +180,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, [isActive, setRefreshInterval, analyzeMoodAndUpdate]);
+  }, [enabled, isActive, setRefreshInterval, analyzeMoodAndUpdate]);
 
   // ============================================================================
   // SESSION MANAGEMENT

@@ -313,12 +313,12 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         <Image
           source={{
             uri: item.user.avatar_url ||
-              `https://ui-avatars.com/api/?name=${item.user.username}&background=random`,
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user.username)}&background=random`,
           }}
           style={styles.reviewAvatar}
         />
         <View style={styles.reviewUserInfo}>
-          <Text style={styles.reviewUsername}>@{item.user.username}</Text>
+          <Text style={styles.reviewUsername}>{item.user.username}</Text>
           {renderStars(item.rating)}
         </View>
         <Text style={styles.reviewDate}>
@@ -448,8 +448,6 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
               </Text>
             </View>
           </View>
-
-          <Text style={styles.username}>@{business.username}</Text>
 
           {/* Stats */}
           <View style={styles.statsRow}>

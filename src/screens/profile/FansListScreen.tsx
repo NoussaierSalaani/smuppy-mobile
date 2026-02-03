@@ -504,7 +504,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                   <>
                     <AvatarImage source={selectedUser.avatar} size={70} />
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
-                    <Text style={styles.popupUsername}>{selectedUser.username}</Text>
                     <Text style={styles.popupInfo}>
                       Are you sure you want to unfan?
                     </Text>
@@ -547,7 +546,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                       <Ionicons name="warning" size={40} color={'#FFA500'} />
                     </View>
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
-                    <Text style={styles.popupUsername}>{selectedUser.username}</Text>
                     <Text style={styles.popupWarning}>
                       If you unfan now, you'll have to wait 7 days before becoming a fan again.
                     </Text>

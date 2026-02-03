@@ -431,7 +431,6 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
                 <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
               )}
             </View>
-            <Text style={styles.creatorUsername}>@{creator.username}</Text>
             <Text style={styles.subscribersCount}>
               {creator.subscribersCount.toLocaleString()} abonnés
             </Text>

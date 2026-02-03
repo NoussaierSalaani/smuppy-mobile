@@ -263,9 +263,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly businessDiscoverFn: NodejsFunction;
   public readonly businessScheduleGetFn: NodejsFunction;
   public readonly businessCheckoutFn: NodejsFunction;
-  // Note: businessValidateAccessFn, businessLogEntryFn, businessSubscriptionManageFn
-  // handlers exist in lambda/api/business/ but are not deployed due to CloudFormation limits.
-  // TODO: Split into a third nested stack or use Lambda@Edge when infrastructure allows.
+  // Business access handlers moved to LambdaStack2 to stay under CloudFormation limits
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -526,8 +524,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.businessScheduleGetFn = createLambda('BusinessScheduleGetFunction', 'business/schedule-get');
 
     // Note: Business access handlers (validate-access, log-entry, subscription-manage)
-    // exist but are not deployed due to CloudFormation 500 resource limit.
-    // TODO: Create LambdaStack3 or use API Gateway Lambda proxy integration.
+    // are deployed via LambdaStack2 to stay under CloudFormation limits
 
     // Business Checkout (needs Stripe)
     this.businessCheckoutFn = new NodejsFunction(this, 'BusinessCheckoutFunction', {

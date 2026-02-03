@@ -255,7 +255,6 @@ export default function BookSessionScreen(): React.JSX.Element {
             />
             <View style={styles.creatorInfo}>
               <Text style={styles.creatorName}>{creator.name}</Text>
-              <Text style={styles.creatorSpecialty}>@{creator.username}</Text>
             </View>
           </View>
         )}

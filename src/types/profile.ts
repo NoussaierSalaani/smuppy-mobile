@@ -166,6 +166,7 @@ export const resolveProfile = (
 /**
  * Resolve display name for any user object from the API.
  * Business accounts use business_name; others use full_name/display_name.
+ * Properly handles empty strings as falsy values.
  */
 export const resolveDisplayName = (user: {
   account_type?: string;
@@ -179,8 +180,21 @@ export const resolveDisplayName = (user: {
   username?: string;
 } | null | undefined, fallback = 'User'): string => {
   if (!user) return fallback;
+
+  // Business accounts use business_name
   const isBusiness = (user.account_type || user.accountType) === 'pro_business';
   const bName = user.business_name || user.businessName;
-  if (isBusiness && bName) return bName;
-  return user.full_name || user.fullName || user.display_name || user.displayName || user.username || fallback;
+  if (isBusiness && bName && bName.trim()) return bName;
+
+  // Check each field explicitly, treating empty/whitespace strings as falsy
+  const fullName = user.full_name || user.fullName;
+  if (fullName && fullName.trim()) return fullName;
+
+  const displayName = user.display_name || user.displayName;
+  if (displayName && displayName.trim()) return displayName;
+
+  // Fallback to username
+  if (user.username && user.username.trim()) return user.username;
+
+  return fallback;
 };

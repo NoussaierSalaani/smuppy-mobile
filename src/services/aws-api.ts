@@ -8,7 +8,21 @@ import { awsAuth } from './aws-auth';
 
 const API_BASE_URL = AWS_CONFIG.api.restEndpoint;
 const API_BASE_URL_2 = AWS_CONFIG.api.restEndpoint2;
+const API_BASE_URL_3 = AWS_CONFIG.api.restEndpoint3;
 const CDN_URL = AWS_CONFIG.storage.cdnDomain;
+
+// Endpoints routed to API Gateway 3 (business access)
+// These specific endpoints use the dedicated business access API
+const API3_ENDPOINTS = [
+  '/businesses/validate-access',
+  '/businesses/log-entry',
+  '/businesses/subscriptions/my',
+] as const;
+
+// Endpoint prefixes routed to API Gateway 3 (for dynamic routes with IDs)
+const API3_PREFIXES = [
+  '/businesses/subscriptions/',
+] as const;
 
 // Endpoints routed to API Gateway 2 (secondary)
 const API2_PREFIXES = [
@@ -74,9 +88,20 @@ class AWSAPIService {
   private async _requestOnce<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
 
-    const baseUrl = API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
-      ? API_BASE_URL_2
-      : API_BASE_URL;
+    // Determine which API to use:
+    // 1. Check for specific API 3 endpoints first (business access)
+    // 2. Then check for API 3 prefix patterns (subscription routes with IDs)
+    // 3. Then check for API 2 prefixes
+    // 4. Default to API 1
+    const isApi3Endpoint = API3_ENDPOINTS.some(ep => endpoint === ep) ||
+      API3_PREFIXES.some(prefix => endpoint.startsWith(prefix) &&
+        (endpoint.includes('/access-pass') || endpoint.includes('/cancel') || endpoint.includes('/reactivate')));
+
+    const baseUrl = isApi3Endpoint
+      ? API_BASE_URL_3
+      : API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
+        ? API_BASE_URL_2
+        : API_BASE_URL;
     const url = `${baseUrl}${endpoint}`;
 
     const requestHeaders: Record<string, string> = {
@@ -307,7 +332,19 @@ class AWSAPIService {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/followers${query ? `?${query}` : ''}`);
+    const response = await this.request<{
+      followers: Profile[];
+      cursor: string | null;
+      hasMore: boolean;
+      totalCount: number;
+    }>(`/profiles/${userId}/followers${query ? `?${query}` : ''}`);
+    // Map backend response to PaginatedResponse format
+    return {
+      data: response.followers || [],
+      nextCursor: response.cursor,
+      hasMore: response.hasMore,
+      total: response.totalCount || 0,
+    };
   }
 
   async getFollowing(userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
@@ -315,7 +352,19 @@ class AWSAPIService {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`);
+    const response = await this.request<{
+      following: Profile[];
+      cursor: string | null;
+      hasMore: boolean;
+      totalCount: number;
+    }>(`/profiles/${userId}/following${query ? `?${query}` : ''}`);
+    // Map backend response to PaginatedResponse format
+    return {
+      data: response.following || [],
+      nextCursor: response.cursor,
+      hasMore: response.hasMore,
+      total: response.totalCount || 0,
+    };
   }
 
   // ==========================================

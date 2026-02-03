@@ -44,6 +44,7 @@ interface ProfileApiData {
   id?: string;
   username?: string;
   full_name?: string;
+  display_name?: string;
   avatar_url?: string | null;
   cover_url?: string | null;
   bio?: string;
@@ -101,7 +102,7 @@ const UserProfileScreen = () => {
     return {
       id: data.id || userId || DEFAULT_PROFILE.id,
       username: data.username || DEFAULT_PROFILE.username,
-      displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.full_name || data.username || DEFAULT_PROFILE.displayName),
+      displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.full_name || data.display_name || data.username || DEFAULT_PROFILE.displayName),
       avatar: data.avatar_url || DEFAULT_PROFILE.avatar,
       coverImage: data.cover_url || getCoverImage(interests),
       bio: data.bio || DEFAULT_PROFILE.bio,

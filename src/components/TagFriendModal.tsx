@@ -239,7 +239,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.white} />
+              <Ionicons name="close" size={24} color={isDark ? colors.white : colors.dark} />
             </TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={styles.title}>Tag a Friend</Text>

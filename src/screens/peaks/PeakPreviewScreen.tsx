@@ -454,9 +454,9 @@ const PeakPreviewScreen = (): React.JSX.Element => {
               <Switch
                 value={saveToProfile}
                 onValueChange={setSaveToProfile}
-                trackColor={{ false: '#3A3A3C', true: colors.primary }}
+                trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: colors.primary }}
                 thumbColor={colors.white}
-                ios_backgroundColor="#3A3A3C"
+                ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
               />
             </View>
 
@@ -469,9 +469,9 @@ const PeakPreviewScreen = (): React.JSX.Element => {
               <Switch
                 value={isChallenge}
                 onValueChange={setIsChallenge}
-                trackColor={{ false: '#3A3A3C', true: '#FFD700' }}
+                trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: '#FFD700' }}
                 thumbColor={colors.white}
-                ios_backgroundColor="#3A3A3C"
+                ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
               />
             </View>
 
@@ -663,7 +663,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 12,
@@ -677,7 +677,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   optionLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   optionRight: {
     flexDirection: 'row',
@@ -692,7 +692,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
 
   // Location input
   locationInputContainer: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     borderRadius: 12,
     marginBottom: 10,
     overflow: 'hidden',
@@ -704,12 +704,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 10,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder,
   },
   locationInput: {
     flex: 1,
     fontSize: 14,
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   locationSuggestions: {
     maxHeight: 140,
@@ -721,11 +721,11 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 10,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : colors.grayBorder,
   },
   locationSuggestionText: {
     fontSize: 13,
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   locationSecondaryText: {
     fontSize: 11,
@@ -735,7 +735,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
 
   // Caption
   captionContainer: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -750,15 +750,15 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   captionInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : colors.white,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(17, 227, 163, 0.3)',
+    borderColor: isDark ? 'rgba(17, 227, 163, 0.3)' : colors.grayBorder,
   },
   captionInput: {
     flex: 1,
     fontSize: 14,
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -790,7 +790,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : colors.gray200,
   },
   visibilityOptionActive: {
     backgroundColor: colors.primary,
@@ -798,7 +798,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   visibilityOptionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   visibilityOptionTextActive: {
     color: colors.dark,
@@ -811,11 +811,11 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginBottom: 8,
   },
   challengeInput: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
     fontSize: 14,
   },
 

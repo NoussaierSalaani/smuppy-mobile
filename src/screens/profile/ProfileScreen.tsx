@@ -621,7 +621,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER POST ITEM (Simple grid style) ====================
   const renderPostItem = useCallback(({ item: post }: { item: { id: string; media_urls?: string[]; media_type?: string; likes_count?: number } }) => {
     const thumbnail = post.media_urls?.[0] || null;
-    const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
+    const isVideo = post.media_type === 'video';
 
     return (
       <TouchableOpacity

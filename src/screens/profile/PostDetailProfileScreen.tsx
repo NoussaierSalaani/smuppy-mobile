@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, getPostById } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { useContentStore } from '../../stores';
 
@@ -42,6 +42,22 @@ interface PostItem {
 }
 
 const MOCK_PROFILE_POSTS: PostItem[] = [];
+
+// Helper to convert API post to PostItem format
+const convertToPostItem = (post: any): PostItem => ({
+  id: post.id,
+  type: post.media_type === 'video' ? 'video' : 'image',
+  media: post.media_urls?.[0] || '',
+  thumbnail: post.media_urls?.[0] || '',
+  description: post.content || '',
+  likes: post.likes_count || 0,
+  views: post.views_count || 0,
+  user: {
+    id: post.author?.id || post.author_id || '',
+    name: post.author?.full_name || post.author?.username || '',
+    avatar: post.author?.avatar_url || '',
+  },
+});
 
 
 const PostDetailProfileScreen = () => {

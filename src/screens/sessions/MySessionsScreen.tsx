@@ -246,7 +246,7 @@ const MySessionsScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.white} />
+          <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Mes Sessions</Text>
         <View style={styles.placeholder} />
@@ -322,7 +322,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   placeholder: {
     width: 40,

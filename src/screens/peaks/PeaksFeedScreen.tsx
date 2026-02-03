@@ -161,7 +161,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -169,7 +169,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           style={styles.backButton}
           onPress={handleGoBack}
         >
-          <Ionicons name="chevron-back" size={28} color={colors.white} />
+          <Ionicons name="chevron-back" size={28} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Peaks</Text>
@@ -225,7 +225,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -243,7 +243,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   createButton: {
     width: 44,

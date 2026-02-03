@@ -875,7 +875,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               style={styles.menuItem}
               onPress={() => handleMenuAction('not_interested')}
             >
-              <Ionicons name="eye-off-outline" size={24} color={colors.white} />
+              <Ionicons name="eye-off-outline" size={24} color={isDark ? colors.white : colors.dark} />
               <Text style={styles.menuItemText}>Pas intéressé</Text>
             </TouchableOpacity>
 
@@ -1233,11 +1233,11 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   // Menu Modal
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -1249,7 +1249,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#3A3A3C',
+    backgroundColor: isDark ? '#3A3A3C' : colors.gray300,
     borderRadius: 2,
   },
   menuItem: {
@@ -1261,12 +1261,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   menuItemText: {
     fontSize: 17,
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
     fontWeight: '500',
   },
   menuItemDanger: {
     borderTopWidth: 1,
-    borderTopColor: '#2C2C2E',
+    borderTopColor: isDark ? '#2C2C2E' : colors.grayBorder,
     marginTop: 8,
     paddingTop: 24,
   },
@@ -1277,14 +1277,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginTop: 16,
     marginHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
     borderRadius: 14,
     alignItems: 'center',
   },
   menuCancelText: {
     fontSize: 17,
     fontWeight: '600',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
 });
 

@@ -651,7 +651,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={colors.white} />
+            <Ionicons name="arrow-back" size={24} color={isDark ? colors.white : colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Create Activity</Text>
           <View style={styles.headerSpacer} />
@@ -691,7 +691,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={goBack}>
-          <Ionicons name="arrow-back" size={24} color={colors.white} />
+          <Ionicons name="arrow-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Activity</Text>
         <View style={styles.stepIndicator}>
@@ -877,7 +877,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   headerSpacer: {
     width: 40,

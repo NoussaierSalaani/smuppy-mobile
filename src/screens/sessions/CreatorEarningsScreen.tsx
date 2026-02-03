@@ -179,11 +179,11 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.white} />
+          <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Mes Revenus</Text>
         <TouchableOpacity style={styles.settingsButton}>
-          <Ionicons name="settings-outline" size={22} color={colors.white} />
+          <Ionicons name="settings-outline" size={22} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -394,7 +394,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   settingsButton: {
     width: 40,

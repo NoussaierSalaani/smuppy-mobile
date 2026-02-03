@@ -129,7 +129,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={22} color={colors.white} />
+            <Ionicons name="arrow-back" size={22} color={isDark ? colors.white : colors.dark} />
           </TouchableOpacity>
           <View style={styles.headerTitleBlock}>
             <Text style={styles.businessName} numberOfLines={1}>
@@ -140,7 +140,7 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             style={styles.settingsButton}
             onPress={() => navigation.navigate('Settings')}
           >
-            <Ionicons name="settings-outline" size={22} color={colors.white} />
+            <Ionicons name="settings-outline" size={22} color={isDark ? colors.white : colors.dark} />
           </TouchableOpacity>
         </View>
 
@@ -238,7 +238,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   businessName: {
     fontSize: 22,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   settingsButton: {
     width: 44,

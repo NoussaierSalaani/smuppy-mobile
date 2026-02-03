@@ -3177,6 +3177,7 @@ export interface Post {
   content: string;
   mediaUrls: string[];
   mediaType: 'image' | 'video' | null;
+  isPeak?: boolean;
   likesCount: number;
   commentsCount: number;
   createdAt: string;

@@ -213,6 +213,7 @@ const convertPost = (p: AWSPost): Post => {
     content: p.content,
     media_urls: p.mediaUrls,
     media_type: p.mediaType || undefined,
+    is_peak: p.isPeak || false,
     visibility: 'public',
     likes_count: p.likesCount,
     comments_count: p.commentsCount,

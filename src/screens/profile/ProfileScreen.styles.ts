@@ -50,7 +50,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     bottom: 0,
   },
   coverSpacer: {
-    height: COVER_HEIGHT - 20,
+    height: COVER_HEIGHT - 60,
   },
   settingsBtn: {
     position: 'absolute',
@@ -81,6 +81,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginTop: 15,
     zIndex: 2,
   },
   avatar: {
@@ -170,7 +171,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 4,
+    marginTop: 2,
     zIndex: 2,
   },
   nameWithBadges: {

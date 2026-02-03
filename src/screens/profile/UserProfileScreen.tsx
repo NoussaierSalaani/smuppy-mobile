@@ -1249,7 +1249,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     bottom: 0,
   },
   coverSpacer: {
-    height: COVER_HEIGHT - 20,
+    height: COVER_HEIGHT - 60,
   },
   backBtn: {
     position: 'absolute',
@@ -1280,6 +1280,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginTop: 15,
     zIndex: 2,
   },
   avatar: {
@@ -1341,7 +1342,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 4,
+    marginTop: 2,
     zIndex: 2,
   },
   nameWithBadges: {

@@ -369,7 +369,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     onBlur={() => setPasswordFocused(false)}
                     testID="password-input"
                   />
-                  <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <TouchableOpacity
+                    onPress={togglePassword}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    accessibilityHint="Double-tap to toggle password visibility"
+                  >
                     <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
                   </TouchableOpacity>
                 </View>
@@ -377,7 +384,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             </View>
 
             {/* Remember Me */}
-            <TouchableOpacity style={styles.rememberRow} onPress={toggleRememberMe} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.rememberRow}
+              onPress={toggleRememberMe}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="checkbox"
+              accessibilityLabel="Remember me"
+              accessibilityState={{ checked: rememberMe }}
+            >
               <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                 {rememberMe && <Ionicons name="checkmark" size={14} color={colors.white} />}
               </View>
@@ -394,8 +409,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               style={styles.btnTouchable}
               testID="submit-login-button"
               accessible={true}
-              accessibilityLabel="submit-login-button"
+              accessibilityLabel={loading ? 'Logging in, please wait' : 'Login'}
               accessibilityRole="button"
+              accessibilityState={{ disabled: !isFormValid || loading }}
             >
               <LinearGradient
                 colors={isFormValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled}
@@ -424,6 +440,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 activeOpacity={0.7}
                 onPress={handleGoogleSignInPress}
                 disabled={socialLoading !== null}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={socialLoading === 'google' ? 'Signing in with Google' : 'Sign in with Google'}
+                accessibilityState={{ disabled: socialLoading !== null }}
               >
                 {socialLoading === 'google' ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -437,6 +457,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   activeOpacity={0.7}
                   onPress={handleAppleSignIn}
                   disabled={socialLoading !== null}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={socialLoading === 'apple' ? 'Signing in with Apple' : 'Sign in with Apple'}
+                  accessibilityState={{ disabled: socialLoading !== null }}
                 >
                   {socialLoading === 'apple' ? (
                     <ActivityIndicator size="small" color={colors.dark} />
@@ -448,14 +472,28 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             </View>
 
             {/* Forgot Password - PAS de cooldown */}
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotBtn}>
+            <TouchableOpacity
+              onPress={handleForgotPassword}
+              style={styles.forgotBtn}
+              accessible={true}
+              accessibilityRole="link"
+              accessibilityLabel="Forgot password"
+              accessibilityHint="Double-tap to reset your password"
+            >
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
             {/* Signup Link */}
             <View style={styles.linkRow}>
               <Text style={styles.linkText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={handleGoToSignup} style={styles.linkBtn}>
+              <TouchableOpacity
+                onPress={handleGoToSignup}
+                style={styles.linkBtn}
+                accessible={true}
+                accessibilityRole="link"
+                accessibilityLabel="Sign up"
+                accessibilityHint="Double-tap to create a new account"
+              >
                 <Text style={styles.link}>Signup</Text>
                 <Ionicons name="arrow-forward" size={14} color={colors.primary} />
               </TouchableOpacity>
@@ -465,10 +503,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         </KeyboardAvoidingView>
 
         {/* Error Modal */}
-        <Modal visible={errorModal.visible} transparent animationType="fade">
+        <Modal visible={errorModal.visible} transparent animationType="fade" accessibilityViewIsModal={true}>
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <TouchableOpacity style={styles.modalClose} onPress={closeErrorModal}>
+            <View style={styles.modalContent} accessibilityRole="alert">
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={closeErrorModal}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Close error message"
+              >
                 <Ionicons name="close" size={24} color={colors.gray} />
               </TouchableOpacity>
               <View style={[styles.modalIconBox, { backgroundColor: colors.errorLight }]}>
@@ -476,7 +520,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               </View>
               <Text style={styles.modalTitle}>{errorModal.title}</Text>
               <Text style={styles.modalMessage}>{errorModal.message}</Text>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.error }]} onPress={closeErrorModal}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: colors.error }]}
+                onPress={closeErrorModal}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss error"
+              >
                 <Text style={styles.modalBtnText}>OK</Text>
               </TouchableOpacity>
             </View>

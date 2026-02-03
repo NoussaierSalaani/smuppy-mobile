@@ -189,7 +189,14 @@ const DoubleTapLike = memo(function DoubleTapLike({
   }, [disabled, onDoubleTap, onSingleTap, showAnimation, triggerHeartAnimation]);
 
   return (
-    <Pressable onPress={handlePress} style={style}>
+    <Pressable
+      onPress={handlePress}
+      style={style}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel="Post content"
+      accessibilityHint="Double-tap to like this post"
+    >
       {children}
 
       {/* Heart Animation Overlay */}

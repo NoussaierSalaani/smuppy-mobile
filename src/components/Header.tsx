@@ -50,6 +50,10 @@ export default function Header({
           onPress={onBack}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Double-tap to go back to previous screen"
         >
           <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
@@ -68,6 +72,9 @@ export default function Header({
           onPress={onRightPress}
           style={styles.rightTextButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={rightText}
         >
           <Text style={styles.rightText}>{rightText}</Text>
         </TouchableOpacity>
@@ -80,6 +87,9 @@ export default function Header({
           onPress={onRightPress}
           style={styles.rightButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={rightIcon.replace(/-/g, ' ').replace('outline', '').trim()}
         >
           <Ionicons name={rightIcon} size={24} color={colors.dark} />
         </TouchableOpacity>

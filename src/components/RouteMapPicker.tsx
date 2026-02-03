@@ -28,7 +28,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { GRADIENTS } from '../config/theme';
+import { GRADIENTS, COLORS } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import {
   searchNominatim,
@@ -83,16 +83,13 @@ export interface RouteMapPickerRef {
 }
 
 const DIFFICULTY_COLORS: Record<DifficultyLevel, string> = {
-  easy: '#4ECDC4',
-  medium: '#FFD700',
-  hard: '#FF6B6B',
-  expert: '#9B59B6',
+  easy: COLORS.teal,
+  medium: COLORS.gold,
+  hard: COLORS.heartRed,
+  expert: COLORS.purple,
 };
 
 type ActiveField = 'departure' | 'arrival' | 'location';
-
-// Debounce timer ref
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ============================================
 // COMPONENT
@@ -110,6 +107,7 @@ export default function RouteMapPicker({
 }: RouteMapPickerProps) {
   const { colors } = useTheme();
   const cameraRef = useRef<Camera>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
@@ -176,12 +174,19 @@ export default function RouteMapPicker({
     }
   }, [lockedLocation, getUserLocation]);
 
+  // Cleanup search timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
   // ============================================
   // NOMINATIM SEARCH (debounced)
   // ============================================
 
   const searchAddress = useCallback((query: string, field: ActiveField) => {
-    if (searchTimer) clearTimeout(searchTimer);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
 
     if (query.length < 3) {
       if (field === 'departure') setDepartureSuggestions([]);
@@ -196,7 +201,7 @@ export default function RouteMapPicker({
 
     setSearching(true);
 
-    searchTimer = setTimeout(async () => {
+    searchTimerRef.current = setTimeout(async () => {
       try {
         const results = await searchNominatim(query, { limit: 5 });
         if (field === 'departure') setDepartureSuggestions(results);

@@ -409,6 +409,10 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                     onPress={openProMenu}
                     activeOpacity={0.8}
                     testID="create-tab"
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open create menu"
+                    accessibilityHint="Double-tap to open creation options"
                   >
                     <View style={[styles.proSmuppyButton, { shadowColor: colors.dark }]}>
                       <SmuppyIcon size={46} variant="dark" />
@@ -424,6 +428,10 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   onPress={() => handlePress(tab, index)}
                   activeOpacity={0.7}
                   testID="create-tab"
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create new post"
+                  accessibilityHint="Double-tap to create a new post"
                 >
                   <View style={[styles.createButton, { backgroundColor: isDark ? 'rgba(13,13,13,0.95)' : 'rgba(255,255,255,0.95)', borderColor: colors.primary, shadowColor: colors.primary }]}>
                     <CreateIcon size={22} />
@@ -440,6 +448,11 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   onPress={() => handlePress(tab, index)}
                   activeOpacity={0.7}
                   testID="profile-tab"
+                  accessible={true}
+                  accessibilityRole="tab"
+                  accessibilityLabel="Profile"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityHint="Double-tap to view your profile"
                 >
                   <ProfileIcon imageUri={user?.avatar || undefined} isActive={isActive} size={26} activeColor={colors.dark} />
                   {isActive ? <View style={[styles.underline, { backgroundColor: colors.dark }]} /> : null}
@@ -449,6 +462,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
             const IconComponent = isActive ? tab.iconFilled! : tab.iconOutline!;
             const badgeCount = tab.name === 'Messages' ? unreadMessages : 0;
+            const badgeAccessibilityLabel = badgeCount > 0 ? `, ${badgeCount} unread` : '';
 
             return (
               <TouchableOpacity
@@ -457,11 +471,15 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                 onPress={() => handlePress(tab, index)}
                 activeOpacity={0.7}
                 testID={`${tab.name.toLowerCase()}-tab`}
+                accessible={true}
+                accessibilityRole="tab"
+                accessibilityLabel={`${tab.name}${badgeAccessibilityLabel}`}
+                accessibilityState={{ selected: isActive }}
               >
                 <View>
                   <IconComponent size={22} color={colors.dark} />
                   {badgeCount > 0 && (
-                    <View style={styles.badge}>
+                    <View style={styles.badge} accessibilityElementsHidden={true}>
                       <Text style={styles.badgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text>
                     </View>
                   )}
@@ -480,6 +498,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
           visible={showProMenu}
           animationType="none"
           onRequestClose={closeProMenu}
+          accessibilityViewIsModal={true}
         >
           <Pressable style={styles.menuOverlay} onPress={closeProMenu}>
             <Animated.View
@@ -512,6 +531,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('live')}
                   activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Start a live stream"
                 >
                   <LinearGradient
                     colors={gradients.primary}
@@ -531,6 +553,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('sessions')}
                   activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create a private session"
                 >
                   <LinearGradient
                     colors={['#0081BE', '#00B5C1']}
@@ -550,6 +575,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('peaks')}
                   activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create a new peak"
                 >
                   <View style={styles.menuIconBgLight}>
                     <MenuPeaksIcon size={20} color={colors.primary} />
@@ -564,6 +592,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('dashboard')}
                   activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go to dashboard"
                 >
                   <LinearGradient
                     colors={gradients.primary}
@@ -582,6 +613,9 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   style={styles.menuOption}
                   onPress={() => handleMenuOption('planning')}
                   activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go to planning"
                 >
                   <LinearGradient
                     colors={['#0081BE', '#00B5C1']}

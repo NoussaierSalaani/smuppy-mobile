@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
-import { GRADIENTS } from '../../config/theme';
+import { GRADIENTS, COLORS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
@@ -30,10 +30,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: '#4ECDC4',
-  medium: '#FFD700',
-  hard: '#FF6B6B',
-  expert: '#9B59B6',
+  easy: COLORS.teal,
+  medium: COLORS.gold,
+  hard: COLORS.heartRed,
+  expert: COLORS.purple,
 };
 
 const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {

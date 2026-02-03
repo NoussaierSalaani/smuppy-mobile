@@ -18,6 +18,7 @@ interface ToggleProps {
   disabled?: boolean;
   size?: ToggleSize;
   style?: ViewStyle;
+  accessibilityLabel?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export default function Toggle({
   disabled = false,
   size = 'md',
   style,
+  accessibilityLabel,
 }: ToggleProps): React.JSX.Element {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -105,6 +107,11 @@ export default function Toggle({
       onPress={handlePress}
       disabled={disabled}
       style={style}
+      accessible={true}
+      accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ checked: value, disabled }}
+      accessibilityHint={value ? 'Double-tap to turn off' : 'Double-tap to turn on'}
     >
       <Animated.View
         style={[

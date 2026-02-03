@@ -10,3 +10,8 @@ jest.setTimeout(10000);
 if (!process.env.DEBUG) {
   global.console.warn = jest.fn();
 }
+
+// Mock AsyncStorage for Zustand persist middleware
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);

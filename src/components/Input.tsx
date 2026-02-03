@@ -138,7 +138,15 @@ export default function Input({
   const renderRightIcon = (): React.JSX.Element | null => {
     if (secureTextEntry) {
       return (
-        <TouchableOpacity onPress={handleToggleSecure} style={styles.iconButton}>
+        <TouchableOpacity
+          onPress={handleToggleSecure}
+          style={styles.iconButton}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={isSecure ? 'Show password' : 'Hide password'}
+          accessibilityHint="Double-tap to toggle password visibility"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons
             name={isSecure ? 'eye-off-outline' : 'eye-outline'}
             size={SIZES.iconMd}
@@ -153,6 +161,9 @@ export default function Input({
           onPress={onRightIconPress}
           disabled={!onRightIconPress}
           style={styles.iconButton}
+          accessible={true}
+          accessibilityRole="button"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons
             name={rightIcon}
@@ -219,6 +230,9 @@ export default function Input({
           multiline={multiline}
           numberOfLines={numberOfLines}
           textAlignVertical={multiline ? 'top' : 'center'}
+          accessible={true}
+          accessibilityLabel={label || placeholder}
+          accessibilityState={{ disabled }}
           {...props}
         />
 
@@ -228,7 +242,13 @@ export default function Input({
 
       {/* Error Message */}
       {error && (
-        <Text style={styles.errorText}>{error}</Text>
+        <Text
+          style={styles.errorText}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+        >
+          {error}
+        </Text>
       )}
     </View>
   );

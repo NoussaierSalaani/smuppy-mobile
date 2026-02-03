@@ -26,6 +26,7 @@ interface AvatarProps {
   isOnline?: boolean;
   onPress?: () => void;
   style?: ViewStyle;
+  accessibilityLabel?: string;
 }
 
 /**
@@ -41,6 +42,7 @@ const Avatar = memo(function Avatar({
   isOnline = false,
   onPress,
   style,
+  accessibilityLabel,
 }: AvatarProps): React.JSX.Element {
   const { colors, isDark: _isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, _isDark), [colors, _isDark]);
@@ -164,6 +166,8 @@ const Avatar = memo(function Avatar({
             bottom: 2,
           },
         ]}
+        accessible={true}
+        accessibilityLabel="Online"
       />
     );
   };
@@ -203,7 +207,20 @@ const Avatar = memo(function Avatar({
 
   // Main container
   const Container = onPress ? TouchableOpacity : View;
-  const containerProps = onPress ? { onPress, activeOpacity: 0.8 } : {};
+  const containerProps = onPress
+    ? {
+        onPress,
+        activeOpacity: 0.8,
+        accessible: true,
+        accessibilityRole: 'imagebutton' as const,
+        accessibilityLabel: accessibilityLabel || 'User avatar',
+        accessibilityHint: 'Double-tap to view profile',
+      }
+    : {
+        accessible: true,
+        accessibilityRole: 'image' as const,
+        accessibilityLabel: accessibilityLabel || 'User avatar',
+      };
 
   return (
     <Container style={[styles.container, style]} {...containerProps}>

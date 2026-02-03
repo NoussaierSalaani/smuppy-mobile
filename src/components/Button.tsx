@@ -20,6 +20,8 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   children?: ReactNode;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 /**
@@ -36,6 +38,8 @@ export default function Button({
   style,
   textStyle,
   children,
+  accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
   const { colors, isDark } = useTheme();
 
@@ -171,6 +175,10 @@ export default function Button({
     </View>
   );
 
+  // Derive accessibility label from children if not provided
+  const derivedLabel = accessibilityLabel || (typeof children === 'string' ? children : undefined);
+  const loadingLabel = loading ? 'Loading, please wait' : undefined;
+
   // Button with gradient
   if (variantStyles.gradient) {
     return (
@@ -179,6 +187,11 @@ export default function Button({
         disabled={disabled || loading}
         activeOpacity={0.8}
         style={[style]}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={loadingLabel || derivedLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: disabled || loading }}
       >
         <LinearGradient
           colors={variantStyles.gradient}
@@ -206,6 +219,11 @@ export default function Button({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={loadingLabel || derivedLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading }}
       style={[
         styles.button,
         {

@@ -46,6 +46,13 @@ export const COLORS = {
     heartRed: '#FF6B6B',          // Red for heart/like icons
     heartRedDark: '#E55555',      // Darker shade for pressed state
 
+    // Accent colors (for categories, badges, etc.)
+    gold: '#FFD700',              // Stars, premium badges, ratings
+    teal: '#4ECDC4',              // Easy difficulty, categories
+    purple: '#9B59B6',            // Expert difficulty, yoga
+    orange: '#FF6B35',            // Fire reaction, categories
+    yellow: '#FFD93D',            // Joy reaction, warnings
+
     // Backgrounds
     background: '#FFFFFF',
     backgroundSecondary: '#F9FAFB',
@@ -120,6 +127,12 @@ export const DARK_COLORS = {
     // Heart/Like colors
     heartRed: '#FF6B6B',
     heartRedDark: '#E55555',
+
+    // Accent colors (for categories, badges, etc.)
+    gold: '#FFD700',
+    teal: '#4ECDC4',
+    purple: '#9B59B6',
+    yellow: '#FFD93D',
 
     // Backgrounds
     background: '#0D0D0D',

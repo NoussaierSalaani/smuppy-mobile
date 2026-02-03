@@ -1,0 +1,126 @@
+/**
+ * Reactivate Business Subscription
+ * POST /businesses/subscriptions/{subscriptionId}/reactivate
+ * Reactivates a cancelled subscription (before period end)
+ */
+
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+import { getUserFromEvent } from '../utils/auth';
+import Stripe from 'stripe';
+
+const log = createLogger('business/subscription-reactivate');
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2024-11-20.acacia',
+});
+
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const headers = createHeaders(event);
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers, body: '' };
+  }
+
+  try {
+    const user = getUserFromEvent(event);
+    if (!user) {
+      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
+    }
+
+    const subscriptionId = event.pathParameters?.subscriptionId;
+    if (!subscriptionId) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing subscription ID' }) };
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(subscriptionId)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid subscription ID format' }) };
+    }
+
+    const db = await getPool();
+
+    // First resolve cognito_sub to profile.id
+    const profileResult = await db.query(
+      `SELECT id FROM profiles WHERE cognito_sub = $1`,
+      [user.sub]
+    );
+
+    if (profileResult.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    }
+
+    const profileId = profileResult.rows[0].id;
+
+    // Get subscription and verify ownership
+    const subscriptionResult = await db.query(
+      `SELECT id, user_id, stripe_subscription_id, status, cancel_at_period_end, current_period_end
+       FROM business_subscriptions
+       WHERE id = $1`,
+      [subscriptionId]
+    );
+
+    if (subscriptionResult.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Subscription not found' }) };
+    }
+
+    const subscription = subscriptionResult.rows[0];
+
+    // Verify ownership
+    if (subscription.user_id !== profileId) {
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, message: 'You do not own this subscription' }) };
+    }
+
+    // Check if can be reactivated
+    if (!subscription.cancel_at_period_end) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Subscription is not scheduled for cancellation' }) };
+    }
+
+    // Check if period has already ended
+    const now = new Date();
+    const periodEnd = new Date(subscription.current_period_end);
+    if (periodEnd < now) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Subscription period has ended. Please create a new subscription.' }) };
+    }
+
+    // If there's a Stripe subscription, reactivate it
+    if (subscription.stripe_subscription_id) {
+      try {
+        await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+          cancel_at_period_end: false,
+        });
+      } catch (stripeError) {
+        log.error('Stripe reactivation failed', stripeError);
+        // Continue anyway to update our DB
+      }
+    }
+
+    // Update our database
+    await db.query(
+      `UPDATE business_subscriptions
+       SET cancel_at_period_end = false,
+           cancelled_at = NULL,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [subscriptionId]
+    );
+
+    log.info('Subscription reactivated', { subscriptionId, profileId });
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ success: true, message: 'Subscription has been reactivated' }),
+    };
+  } catch (error) {
+    log.error('Failed to reactivate subscription', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
+    };
+  }
+}

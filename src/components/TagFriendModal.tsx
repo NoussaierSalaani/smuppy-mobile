@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -69,14 +69,8 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
 
-  // Load friends on mount
-  useEffect(() => {
-    if (visible) {
-      loadFriends();
-    }
-  }, [visible]);
-
-  const loadFriends = async () => {
+  // Load friends function - defined before useEffect that uses it
+  const loadFriends = useCallback(async () => {
     setLoading(true);
     try {
       // Get current user
@@ -110,7 +104,14 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [showError]);
+
+  // Load friends on mount
+  useEffect(() => {
+    if (visible) {
+      loadFriends();
+    }
+  }, [visible, loadFriends]);
 
   // Filter friends based on search
   const filteredFriends = friends.filter(friend => {

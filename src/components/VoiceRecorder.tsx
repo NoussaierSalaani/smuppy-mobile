@@ -44,7 +44,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         clearInterval(durationInterval.current);
       }
     };
-  }, []);
+  }, [showError]);
 
   // Pulse animation while recording
   useEffect(() => {

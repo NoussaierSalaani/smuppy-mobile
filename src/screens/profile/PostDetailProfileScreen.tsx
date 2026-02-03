@@ -133,17 +133,17 @@ const PostDetailProfileScreen = () => {
   // Check follow status on mount or post change
   useEffect(() => {
     const checkFollowStatus = async () => {
-      if (currentPost.user?.id) {
-        const { following } = await isFollowing(currentPost.user.id);
-        setIsFan(following);
-      }
+      if (!currentPost?.user?.id) return;
+      const { following } = await isFollowing(currentPost.user.id);
+      setIsFan(following);
     };
     checkFollowStatus();
-  }, [currentPost.user?.id]);
+  }, [currentPost?.user?.id]);
 
   // Check like/bookmark status on mount or post change
   useEffect(() => {
     const checkPostStatus = async () => {
+      if (!currentPost) return;
       const postId = currentPost.id;
       if (!postId || !isValidUUID(postId)) return;
 
@@ -154,11 +154,11 @@ const PostDetailProfileScreen = () => {
       setIsBookmarked(saved);
     };
     checkPostStatus();
-  }, [currentPost.id]);
+  }, [currentPost?.id]);
 
   // Become fan with real database call
   const becomeFan = async () => {
-    if (fanLoading || !currentPost.user?.id) return;
+    if (fanLoading || !currentPost?.user?.id) return;
     setFanLoading(true);
     try {
       const { error } = await followUser(currentPost.user.id);
@@ -176,7 +176,7 @@ const PostDetailProfileScreen = () => {
 
   // Toggle like with anti spam-click - connected to database
   const toggleLike = async () => {
-    if (likeLoading) return;
+    if (likeLoading || !currentPost) return;
 
     const postId = currentPost.id;
     if (!postId || !isValidUUID(postId)) {
@@ -211,7 +211,7 @@ const PostDetailProfileScreen = () => {
 
   // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = async () => {
-    if (bookmarkLoading) return;
+    if (bookmarkLoading || !currentPost) return;
 
     const postId = currentPost.id;
     if (!postId || !isValidUUID(postId)) {
@@ -242,14 +242,14 @@ const PostDetailProfileScreen = () => {
 
   // Share post
   const handleShare = async () => {
-    if (shareLoading) return;
+    if (shareLoading || !currentPost) return;
     setShareLoading(true);
     try {
       setShowMenu(false);
       await sharePost(
         currentPost.id,
         currentPost.description,
-        currentPost.user.name
+        currentPost.user?.name || ''
       );
     } catch (_error) {
       // User cancelled or error - silent fail
@@ -260,6 +260,7 @@ const PostDetailProfileScreen = () => {
 
   // Copy link to clipboard
   const handleCopyLink = async () => {
+    if (!currentPost) return;
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
@@ -269,6 +270,7 @@ const PostDetailProfileScreen = () => {
 
   // Report post
   const handleReport = () => {
+    if (!currentPost) return;
     setShowMenu(false);
     if (hasUserReported(currentPost.id)) {
       showWarning('Already reported', 'You have already reported this content. It is under review.');
@@ -283,6 +285,7 @@ const PostDetailProfileScreen = () => {
 
   // Submit report
   const submitReport = (reason: string) => {
+    if (!currentPost) return;
     setShowReportModal(false);
     const result = storeSubmitReport(currentPost.id, reason);
     if (result.alreadyReported) {
@@ -296,9 +299,10 @@ const PostDetailProfileScreen = () => {
 
   // Double tap to like
   const handleDoubleTap = () => {
+    if (!currentPost) return;
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
-    
+
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
       // Double tap detected
       if (!isLiked) {

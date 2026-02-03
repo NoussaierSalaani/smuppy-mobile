@@ -94,7 +94,7 @@ export default function AddReviewSheet({
     setRating(0);
     setComment('');
     setQualities([]);
-  }, [rating, comment, qualities, onSubmit]);
+  }, [rating, comment, qualities, onSubmit, showError]);
 
   const handleClose = useCallback(() => {
     setRating(0);

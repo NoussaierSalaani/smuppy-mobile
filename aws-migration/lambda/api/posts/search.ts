@@ -10,8 +10,45 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('posts-search');
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // Max 30 searches per minute
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
 const MAX_QUERY_LENGTH = 100;
 const MAX_LIMIT = 50;
+
+// Clean up old rate limit entries periodically (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (now > value.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 300000);
+
+/**
+ * Check rate limit for a given IP or user
+ * @returns true if request should be allowed, false if rate limited
+ */
+function checkRateLimit(identifier: string): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(identifier);
+
+  if (!entry || now > entry.resetTime) {
+    // New window
+    rateLimitMap.set(identifier, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1 };
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count };
+}
 
 function sanitizeQuery(raw: string): string {
   return raw
@@ -23,6 +60,21 @@ function sanitizeQuery(raw: string): string {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+
+  // Rate limiting - use cognito_sub (authenticated user) or IP (anonymous)
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  const sourceIp = event.requestContext.identity?.sourceIp || 'unknown';
+  const rateLimitKey = cognitoSub || `ip:${sourceIp}`;
+
+  const { allowed, remaining } = checkRateLimit(rateLimitKey);
+  if (!allowed) {
+    log.warn('Rate limit exceeded', { identifier: rateLimitKey.substring(0, 8) + '***' });
+    return {
+      statusCode: 429,
+      headers: { ...headers, 'Retry-After': '60' },
+      body: JSON.stringify({ success: false, error: 'Too many requests. Please try again later.' }),
+    };
+  }
 
   try {
     const {

@@ -80,9 +80,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const result = await db.query(query, params);
 
-    // Check if there are more results
+    // Check if there are more results (fetched limit+1 to detect hasMore)
     const hasMore = result.rows.length > limit;
-    const notifications = hasMore ? result.rows.slice(0, -1) : result.rows;
+    const notifications = result.rows.slice(0, limit);
 
     // Format response
     const formattedNotifications = notifications.map(n => ({

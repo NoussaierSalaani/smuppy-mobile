@@ -21,14 +21,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     // Rate limiting by IP address
     const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
-    const rateLimitKey = `search:${clientIp}`;
-    const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT, RATE_WINDOW_SECONDS);
+    const { allowed, retryAfter } = await checkRateLimit({
+      prefix: 'profile-search',
+      identifier: clientIp,
+      windowSeconds: RATE_WINDOW_SECONDS,
+      maxRequests: RATE_LIMIT,
+    });
 
     if (!allowed) {
       log.warn('Rate limit exceeded for search', { clientIp });
       return {
         statusCode: 429,
-        headers: { ...headers, 'Retry-After': String(RATE_WINDOW_SECONDS) },
+        headers: { ...headers, 'Retry-After': String(retryAfter || RATE_WINDOW_SECONDS) },
         body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }

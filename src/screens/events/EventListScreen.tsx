@@ -418,7 +418,7 @@ export default function EventListScreen() {
       <Animated.View style={[styles.eventCard, viewMode === 'map' ? { transform: [{ scale }] } : undefined]}>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+          onPress={() => navigation.navigate('ActivityDetail', { activityId: item.id, activityType: 'event' })}
         >
           {/* Cover Image */}
           <View style={styles.cardImageContainer}>
@@ -524,7 +524,7 @@ export default function EventListScreen() {
               <TouchableOpacity
                 style={[styles.joinButton, isFull ? styles.joinButtonDisabled : undefined]}
                 disabled={isFull ? true : false}
-                onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+                onPress={() => navigation.navigate('ActivityDetail', { activityId: item.id, activityType: 'event' })}
               >
                 <LinearGradient
                   colors={isFull ? ['#666', '#444'] : ['#FF6B35', '#FF4500']}

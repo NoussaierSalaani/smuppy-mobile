@@ -354,7 +354,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
 
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => navigation.navigate('EventDetail', { eventId })}
+                  onPress={() => navigation.navigate('ActivityDetail', { activityId: eventId, activityType: 'event' })}
                 >
                   <View style={styles.actionIcon}>
                     <Ionicons name="eye" size={22} color={colors.primary} />

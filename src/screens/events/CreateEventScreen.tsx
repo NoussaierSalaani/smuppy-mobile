@@ -401,14 +401,14 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
           const shareMessage = `Join me at "${title}"!\n\n📅 ${startDate.toLocaleDateString()}\n📍 ${locationName || 'Location on map'}\n${isFree ? '🆓 Free event!' : `💰 ${currency.symbol}${price}`}\n\n${audienceText}\n\n${shareUrl}`;
           await Share.share({ message: shareMessage, title: `Join: ${title}`, url: shareUrl });
         } catch { /* cancelled */ }
-        navigation.replace('EventDetail', { eventId });
+        navigation.replace('ActivityDetail', { activityId: eventId, activityType: 'event' });
       };
       showAlert({
         title: 'Event Created!',
         message: 'Your event is now live. How would you like to share it?',
         type: 'success',
         buttons: [
-          { text: 'View Event', style: 'cancel', onPress: () => navigation.replace('EventDetail', { eventId }) },
+          { text: 'View Event', style: 'cancel', onPress: () => navigation.replace('ActivityDetail', { activityId: eventId, activityType: 'event' }) },
           { text: 'Share Publicly', onPress: () => shareEvent('public') },
         ],
       });
@@ -456,7 +456,7 @@ const CreateEventScreen: React.FC<{ navigation: any; route?: any }> = ({ navigat
         message: 'Your group activity is now visible on the map.',
         type: 'success',
         buttons: [
-          { text: 'View', onPress: () => navigation.replace('GroupDetail', { groupId: response.group?.id }) },
+          { text: 'View', onPress: () => navigation.replace('ActivityDetail', { activityId: response.group?.id, activityType: 'group' }) },
           { text: 'Done', onPress: () => navigation.goBack() },
         ],
       });

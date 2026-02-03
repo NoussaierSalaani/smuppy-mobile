@@ -538,7 +538,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return [
       { key: 'posts', label: 'Posts', icon: 'grid-outline' },
       { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
-      { key: 'groupevent', label: 'Community', icon: 'people-outline' },
+      { key: 'groupevent', label: 'Activities', icon: 'flash-outline' },
     ];
   }, []) as { key: string; label: string; icon: string }[];
 
@@ -1185,11 +1185,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== GROUP/EVENT HANDLERS ====================
   const handleEventGroupCardPress = useCallback((type: 'event' | 'group', id: string) => {
-    if (type === 'event') {
-      navigation.navigate('EventDetail', { eventId: id });
-    } else {
-      navigation.navigate('GroupDetail', { groupId: id });
-    }
+    navigation.navigate('ActivityDetail', { activityId: id, activityType: type });
   }, [navigation]);
 
   const handleEventGroupMenuPress = useCallback((type: 'event' | 'group', id: string) => {

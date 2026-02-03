@@ -679,7 +679,7 @@ const UserProfileScreen = () => {
   const TABS = [
     { key: 'posts', label: 'Posts' },
     { key: 'peaks', label: 'Peaks' },
-    { key: 'groupevent', label: 'Group/Event' },
+    { key: 'groupevent', label: 'Activities' },
     { key: 'collections', label: 'Collections' },
   ] as const;
 

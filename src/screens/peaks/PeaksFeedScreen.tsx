@@ -202,9 +202,20 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         onEndReachedThreshold={0.5}
         ListEmptyComponent={
           !loading ? (
-            <View style={{ alignItems: 'center', paddingTop: 80 }}>
-              <Ionicons name="videocam-outline" size={48} color={colors.gray} />
-              <Text style={{ color: colors.gray, marginTop: 12, fontSize: 15 }}>No peaks yet</Text>
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="videocam-outline" size={56} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>Aucun Peak pour l'instant</Text>
+              <Text style={styles.emptySubtitle}>
+                Les Peaks sont des vidéos courtes de 6 à 60 secondes pour partager tes moments fitness
+              </Text>
+              {!isBusiness && (
+                <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
+                  <Ionicons name="add-circle" size={22} color={colors.white} />
+                  <Text style={styles.emptyButtonText}>Créer mon premier Peak</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null
         }
@@ -271,6 +282,53 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: isDark ? colors.white : colors.dark,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: colors.gray,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
+    gap: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.white,
   },
 });
 

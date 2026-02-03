@@ -657,6 +657,17 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         </Text>
       </View>
 
+      {/* Tags */}
+      {post.tags && post.tags.length > 0 && (
+        <View style={styles.postTags}>
+          {post.tags.map((tag, tagIndex) => (
+            <Text key={`tag-${tagIndex}`} style={styles.postTag}>
+              #{tag}
+            </Text>
+          ))}
+        </View>
+      )}
+
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
     </View>
@@ -1168,6 +1179,18 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   postCaptionUser: {
     fontFamily: 'Poppins-SemiBold',
+  },
+  postTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SPACING.base,
+    marginTop: 4,
+    gap: 6,
+  },
+  postTag: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: colors.primary,
   },
   postDivider: {
     height: 8,

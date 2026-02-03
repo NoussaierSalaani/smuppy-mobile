@@ -231,6 +231,7 @@ const convertPost = (p: AWSPost): Post => {
     likes_count: p.likesCount,
     comments_count: p.commentsCount,
     views_count: p.viewsCount || (p as any)?.views_count || 0,
+    tags: p.tags || [],
     created_at: p.createdAt,
     author: p.author
       ? convertProfile(p.author) || undefined

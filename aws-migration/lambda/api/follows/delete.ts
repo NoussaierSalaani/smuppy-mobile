@@ -97,22 +97,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const existingFollow = existingResult.rows[0];
 
       // Delete follow record
+      // Note: fan_count and following_count are updated automatically by database triggers
+      // (see migration-015-counter-triggers-indexes.sql)
       await client.query(
         `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
         [followerId, followingId]
       );
-
-      // Update follower counts only if was accepted
-      if (existingFollow.status === 'accepted') {
-        await client.query(
-          `UPDATE profiles SET fan_count = GREATEST(COALESCE(fan_count, 0) - 1, 0) WHERE id = $1`,
-          [followingId]
-        );
-        await client.query(
-          `UPDATE profiles SET following_count = GREATEST(COALESCE(following_count, 0) - 1, 0) WHERE id = $1`,
-          [followerId]
-        );
-      }
 
       // Track unfollow for anti-spam cooldown
       const cooldownResult = await client.query(

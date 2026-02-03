@@ -109,21 +109,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       // Create the follow relationship with accepted status
+      // Note: fan_count and following_count are updated automatically by database triggers
+      // (see migration-015-counter-triggers-indexes.sql)
       await client.query(
         `INSERT INTO follows (follower_id, following_id, status)
          VALUES ($1, $2, 'accepted')
          ON CONFLICT (follower_id, following_id) DO UPDATE SET status = 'accepted'`,
         [request.requester_id, profileId]
-      );
-
-      // Update fan_count and following_count
-      await client.query(
-        'UPDATE profiles SET fan_count = COALESCE(fan_count, 0) + 1 WHERE id = $1',
-        [profileId]
-      );
-      await client.query(
-        'UPDATE profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = $1',
-        [request.requester_id]
       );
 
       // Get accepter's name for notification

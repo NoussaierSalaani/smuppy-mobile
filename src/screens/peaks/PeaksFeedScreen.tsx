@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
@@ -184,51 +185,62 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         )}
       </View>
 
-      {/* Grid */}
-      <FlatList
-        data={[1]}
-        keyExtractor={() => 'grid'}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-        contentContainerStyle={styles.gridContainer}
-        renderItem={renderItem}
-        onEndReached={() => { if (hasMore && !loading) fetchPeaks(false); }}
-        onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          !loading ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="videocam-outline" size={56} color={colors.primary} />
+      {/* Empty State */}
+      {!loading && peaks.length === 0 ? (
+        <ScrollView
+          contentContainerStyle={styles.emptyScrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="videocam-outline" size={56} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>Aucun Peak pour l'instant</Text>
+            <Text style={styles.emptySubtitle}>
+              Les Peaks sont des vidéos courtes de 6 à 60 secondes pour partager tes moments fitness
+            </Text>
+            {!isBusiness && (
+              <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
+                <Ionicons name="add-circle" size={22} color={colors.white} />
+                <Text style={styles.emptyButtonText}>Créer mon premier Peak</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        /* Grid */
+        <FlatList
+          data={[1]}
+          keyExtractor={() => 'grid'}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          contentContainerStyle={styles.gridContainer}
+          renderItem={renderItem}
+          onEndReached={() => { if (hasMore && !loading) fetchPeaks(false); }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loading ? (
+              <View style={{ paddingVertical: 20 }}>
+                <ActivityIndicator color={colors.primary} />
               </View>
-              <Text style={styles.emptyTitle}>Aucun Peak pour l'instant</Text>
-              <Text style={styles.emptySubtitle}>
-                Les Peaks sont des vidéos courtes de 6 à 60 secondes pour partager tes moments fitness
-              </Text>
-              {!isBusiness && (
-                <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
-                  <Ionicons name="add-circle" size={22} color={colors.white} />
-                  <Text style={styles.emptyButtonText}>Créer mon premier Peak</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : null
-        }
-        ListFooterComponent={
-          loading ? (
-            <View style={{ paddingVertical: 20 }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : (
-            <View style={{ height: 100 }} />
-          )
-        }
-      />
+            ) : (
+              <View style={{ height: 100 }} />
+            )
+          }
+        />
+      )}
     </View>
   );
 };
@@ -282,6 +294,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyScrollContent: {
+    flexGrow: 1,
   },
   emptyContainer: {
     alignItems: 'center',

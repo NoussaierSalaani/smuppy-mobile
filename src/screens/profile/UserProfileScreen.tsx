@@ -141,7 +141,6 @@ const UserProfileScreen = () => {
   const [showFanRequiredModal, setShowFanRequiredModal] = useState(false);
   const [showCancelRequestModal, setShowCancelRequestModal] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
-  const [groupEventMode, setGroupEventMode] = useState<'group' | 'event'>('event');
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
@@ -438,7 +437,7 @@ const UserProfileScreen = () => {
 
   // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-  const geStyles = useMemo(() => createGeStyles(colors, isDark), [colors, isDark]);
+  // geStyles removed - unified Activities without Event/Group toggle
 
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
@@ -650,35 +649,12 @@ const UserProfileScreen = () => {
       );
     }
     if (activeTab === 'groupevent') {
-      // V1: API my-events/my-groups returns current user's data only.
-      // For other users, show a placeholder until backend supports userId param.
+      // Unified Activities - no Event/Group toggle
       return (
         <View style={styles.emptyContainer}>
-          <View style={geStyles.header}>
-            <View style={geStyles.toggleRow}>
-              <TouchableOpacity
-                style={[geStyles.chip, groupEventMode === 'event' && geStyles.chipActive]}
-                onPress={() => setGroupEventMode('event')}
-              >
-                <Text style={[geStyles.chipText, groupEventMode === 'event' && geStyles.chipTextActive]}>Event</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[geStyles.chip, groupEventMode === 'group' && geStyles.chipActive]}
-                onPress={() => setGroupEventMode('group')}
-              >
-                <Text style={[geStyles.chipText, groupEventMode === 'group' && geStyles.chipTextActive]}>Group</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <Ionicons name="calendar-outline" size={48} color={colors.gray} style={{ marginBottom: 16 }} />
-          <Text style={styles.emptyTitle}>
-            {groupEventMode === 'event' ? 'No events yet' : 'No groups yet'}
-          </Text>
-          <Text style={styles.emptyDesc}>
-            {groupEventMode === 'event'
-              ? "This user hasn't created any events yet"
-              : "This user hasn't created any groups yet"}
-          </Text>
+          <Ionicons name="flash-outline" size={48} color={colors.gray} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>No activities yet</Text>
+          <Text style={styles.emptyDesc}>This user hasn't created any activities yet</Text>
         </View>
       );
     }

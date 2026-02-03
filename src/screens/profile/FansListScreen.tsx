@@ -319,7 +319,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
             style={styles.fanBadge}
             onPress={() => handleUnfollowPress(item)}
           >
-            <SmuppyHeartIcon size={12} color={colors.primary} filled />
+            <SmuppyHeartIcon size={12} color={colors.heartRed} filled />
             <Text style={styles.fanBadgeText}>Fan</Text>
           </TouchableOpacity>
         );

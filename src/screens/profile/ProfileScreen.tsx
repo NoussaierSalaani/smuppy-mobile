@@ -40,11 +40,6 @@ import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
-// ProfileDataSource is now imported from ../../types/profile
-
-// INITIAL_USER_PROFILE is now imported from ../../types/profile
-// Using alias for backward compatibility
-const INITIAL_USER = INITIAL_USER_PROFILE;
 
 const BIO_MAX_LINES = 2;
 const BIO_EXPANDED_MAX_LINES = 6;
@@ -72,7 +67,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const [bioExpanded, setBioExpanded] = useState(false);
 
   // User state
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [user, setUser] = useState<UserProfile>(INITIAL_USER_PROFILE);
 
   // Get user's posts from database
   const userId = profileData?.id || storeUser?.id;
@@ -141,7 +136,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const [imageSheetType, setImageSheetType] = useState<'avatar' | 'cover'>('avatar');
   const [collectionMenuVisible, setCollectionMenuVisible] = useState(false);
   const [selectedCollectionPost, setSelectedCollectionPost] = useState<any>(null);
-  const [groupEventMode, setGroupEventMode] = useState<'all' | 'group' | 'event'>('all');
   const [menuItem, setMenuItem] = useState<{ type: 'event' | 'group'; id: string } | null>(null);
 
   const isOwnProfile = route?.params?.userId === undefined;
@@ -1202,75 +1196,37 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     setMenuItem(null);
   }, [menuItem, navigation]);
 
-  const handleNewEventGroup = useCallback(() => {
-    navigation.navigate('CreateEvent', {
-      initialMode: groupEventMode === 'group' ? 'group' : 'event',
-    });
-  }, [groupEventMode, navigation]);
+  const handleNewActivity = useCallback(() => {
+    navigation.navigate('CreateEvent');
+  }, [navigation]);
 
   // ==================== RENDER GROUP/EVENT ====================
   const renderGroupEvent = () => {
     // Build merged + filtered list
     const taggedEvents = events.map(e => ({ ...e, _type: 'event' as const, _title: e.title }));
     const taggedGroups = groups.map(g => ({ ...g, _type: 'group' as const, _title: g.name }));
-    const allItems = [...taggedEvents, ...taggedGroups].sort(
+    // Unified Activities - show all events and groups together
+    const items = [...taggedEvents, ...taggedGroups].sort(
       (a, b) => new Date(b.starts_at || 0).getTime() - new Date(a.starts_at || 0).getTime()
     );
-    const items = groupEventMode === 'all'
-      ? allItems
-      : allItems.filter(i => i._type === groupEventMode);
 
     return (
       <View style={styles.groupEventContainer}>
-        {/* Header: Toggle chips + New button */}
-        <View style={styles.groupEventHeader}>
-          <View style={styles.toggleChipsRow}>
-            <TouchableOpacity
-              style={[styles.toggleChip, groupEventMode === 'group' && styles.toggleChipActive]}
-              onPress={() => setGroupEventMode(groupEventMode === 'group' ? 'all' : 'group')}
-              accessibilityLabel="Filter by groups"
-              accessibilityRole="button"
-              accessibilityState={{ selected: groupEventMode === 'group' }}
-            >
-              <Ionicons
-                name="people-outline"
-                size={16}
-                color={groupEventMode === 'group' ? colors.white : colors.dark}
-              />
-              <Text style={[styles.toggleChipText, groupEventMode === 'group' && styles.toggleChipTextActive]}>
-                Group
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleChip, groupEventMode === 'event' && styles.toggleChipActive]}
-              onPress={() => setGroupEventMode(groupEventMode === 'event' ? 'all' : 'event')}
-              accessibilityLabel="Filter by events"
-              accessibilityRole="button"
-              accessibilityState={{ selected: groupEventMode === 'event' }}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={16}
-                color={groupEventMode === 'event' ? colors.white : colors.dark}
-              />
-              <Text style={[styles.toggleChipText, groupEventMode === 'event' && styles.toggleChipTextActive]}>
-                Event
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {isOwnProfile && (
+        {/* Header: New button only (no filter - unified as Activities) */}
+        {isOwnProfile && (
+          <View style={styles.groupEventHeader}>
+            <View />
             <TouchableOpacity
               style={styles.newButton}
-              onPress={handleNewEventGroup}
-              accessibilityLabel="Create new event or group"
+              onPress={handleNewActivity}
+              accessibilityLabel="Create new activity"
               accessibilityRole="button"
             >
               <Ionicons name="add-circle" size={20} color={colors.primary} />
               <Text style={styles.newButtonText}>New</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
 
         {/* Content */}
         {isEventsGroupsLoading ? (
@@ -1285,12 +1241,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               color={colors.grayMuted}
               style={styles.emptyIconMargin}
             />
-            <Text style={styles.emptyTitle}>No events or groups yet</Text>
-            <Text style={styles.emptyDesc}>Create your first event or group to get started</Text>
+            <Text style={styles.emptyTitle}>No activities yet</Text>
+            <Text style={styles.emptyDesc}>Create your first activity to get started</Text>
             {isOwnProfile && (
               <TouchableOpacity
                 style={styles.createBtn}
-                onPress={handleNewEventGroup}
+                onPress={handleNewActivity}
                 accessibilityLabel="Create new event or group"
                 accessibilityRole="button"
               >

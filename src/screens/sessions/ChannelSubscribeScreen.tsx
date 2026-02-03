@@ -182,7 +182,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
           <View style={styles.tierHeader}>
             <View style={styles.tierIconContainer}>
-              <Ionicons name="heart" size={28} color={colors.primary} />
+              <Ionicons name="heart" size={28} color={colors.heartRed} />
             </View>
             <View style={styles.tierTitleContainer}>
               <Text style={styles.tierName}>{tier.name}</Text>

@@ -619,7 +619,7 @@ const PostDetailFanFeedScreen = () => {
               accessibilityState={{ selected: isLiked }}
             >
               {likeLoading[item.id] ? (
-                <ActivityIndicator size="small" color={colors.primaryGreen} />
+                <ActivityIndicator size="small" color={colors.heartRed} />
               ) : (
                 <SmuppyHeartIcon
                   size={28}

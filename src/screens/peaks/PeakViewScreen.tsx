@@ -695,7 +695,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
               <SmuppyHeartIcon
                 size={26}
-                color={isLiked ? colors.primary : colors.white}
+                color={isLiked ? colors.heartRed : colors.white}
                 filled={isLiked}
               />
             </View>

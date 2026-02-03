@@ -260,17 +260,12 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
 
   // ===== TABS (LIQUID GLASS STYLE) =====
   tabsContainer: {
-    paddingVertical: 8,
+    paddingTop: 4,
+    paddingBottom: 2,
     backgroundColor: colors.background,
-    // Ensure tabs have shadow when sticky
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   liquidProfileTabs: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
   },
 
   // ===== MORE TABS MODAL =====

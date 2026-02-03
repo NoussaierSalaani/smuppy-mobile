@@ -206,18 +206,22 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
 export default function MainNavigator() {
   const setUser = useUserStore((state) => state.setUser);
   const currentUserId = useUserStore((state) => state.user?.id);
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated);
 
   // Sync profile from database to Zustand store on mount
-  // This ensures fresh data after login, not stale persisted data
+  // Skip fetch if user is already loaded from persistence (avoid double fetch)
   useEffect(() => {
     const syncProfile = async () => {
+      // Skip if user already exists in store (loaded from AsyncStorage)
+      // AppNavigator already fetched fresh data, no need to duplicate
+      if (currentUserId && isAuthenticated) {
+        if (__DEV__) console.log('[MainNavigator] User already in store, skipping fetch');
+        return;
+      }
+
       try {
         const { data, error } = await getCurrentProfile();
         if (data && !error) {
-          // Check if user ID changed (different account logged in)
-          if (currentUserId && currentUserId !== data.id) {
-            if (__DEV__) console.log('[MainNavigator] Different user detected, updating store');
-          }
           // Update Zustand with fresh profile data
           setUser({
             id: data.id,
@@ -254,7 +258,8 @@ export default function MainNavigator() {
     awsAPI.getUnreadCount()
       .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
       .catch(() => {});
-  }, [setUser, currentUserId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>

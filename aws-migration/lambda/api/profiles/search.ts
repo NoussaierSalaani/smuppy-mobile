@@ -7,13 +7,31 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('profiles-search');
+
+// Rate limit: 60 requests per minute per IP (generous for search)
+const RATE_LIMIT = 60;
+const RATE_WINDOW_SECONDS = 60;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
   try {
+    // Rate limiting by IP address
+    const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
+    const rateLimitKey = `search:${clientIp}`;
+    const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT, RATE_WINDOW_SECONDS);
+
+    if (!allowed) {
+      log.warn('Rate limit exceeded for search', { clientIp });
+      return {
+        statusCode: 429,
+        headers: { ...headers, 'Retry-After': String(RATE_WINDOW_SECONDS) },
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
     const rawQuery = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
 

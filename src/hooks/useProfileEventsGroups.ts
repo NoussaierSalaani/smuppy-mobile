@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import awsAPI from '../services/aws-api';
 import { useUserStore } from '../stores';
 
@@ -57,65 +58,89 @@ interface APIGroup {
   creator?: { id?: string };
 }
 
+// Query keys for cache management
+const profileEventsGroupsKeys = {
+  events: (userId: string) => ['profile', 'events', userId] as const,
+  groups: (userId: string) => ['profile', 'groups', userId] as const,
+};
+
+// Map API response (camelCase, nested) to frontend format (snake_case, flat)
+const mapEvent = (e: APIEvent): EventItem => ({
+  id: e.id,
+  title: e.title,
+  address: e.location?.address,
+  cover_image_url: e.coverImageUrl,
+  starts_at: e.startsAt,
+  current_participants: e.participants?.current ?? 0,
+  max_participants: e.participants?.max,
+  category: e.category?.slug,
+  creator_id: e.creator?.id,
+});
+
+const mapGroup = (g: APIGroup): GroupItem => ({
+  id: g.id,
+  name: g.name,
+  address: g.address,
+  cover_image_url: g.coverImageUrl,
+  starts_at: g.startsAt,
+  current_participants: g.currentParticipants ?? 0,
+  max_participants: g.maxParticipants,
+  category: g.category,
+  creator_id: g.creator?.id,
+});
+
+/**
+ * Fetch user's events and groups with React Query caching
+ * - 5 minute stale time
+ * - Automatic background refetch
+ * - Proper cache invalidation
+ */
 export const useProfileEventsGroups = (): UseProfileEventsGroupsResult => {
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [groups, setGroups] = useState<GroupItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const user = useUserStore((state) => state.user);
+  const userId = user?.id;
+  const queryClient = useQueryClient();
 
-  const fetchData = useCallback(async () => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const [eventsResult, groupsResult] = await Promise.allSettled([
-        awsAPI.getEvents({ filter: 'my-events' }),
-        awsAPI.getGroups({ filter: 'my-groups' }),
-      ]);
-
-      if (eventsResult.status === 'fulfilled' && eventsResult.value.success && eventsResult.value.events) {
-        // Map API response (camelCase, nested) to frontend format (snake_case, flat)
-        const mappedEvents: EventItem[] = eventsResult.value.events.map((e: APIEvent) => ({
-          id: e.id,
-          title: e.title,
-          address: e.location?.address,
-          cover_image_url: e.coverImageUrl,
-          starts_at: e.startsAt,
-          current_participants: e.participants?.current ?? 0,
-          max_participants: e.participants?.max,
-          category: e.category?.slug,
-          creator_id: e.creator?.id,
-        }));
-        setEvents(mappedEvents);
+  // Fetch events
+  const eventsQuery = useQuery({
+    queryKey: profileEventsGroupsKeys.events(userId || ''),
+    queryFn: async () => {
+      const result = await awsAPI.getEvents({ filter: 'my-events' });
+      if (result.success && result.events) {
+        return result.events.map(mapEvent);
       }
-      if (groupsResult.status === 'fulfilled' && groupsResult.value.success && groupsResult.value.groups) {
-        // Map API response (camelCase) to frontend format (snake_case)
-        const mappedGroups: GroupItem[] = groupsResult.value.groups.map((g: APIGroup) => ({
-          id: g.id,
-          name: g.name,
-          address: g.address,
-          cover_image_url: g.coverImageUrl,
-          starts_at: g.startsAt,
-          current_participants: g.currentParticipants ?? 0,
-          max_participants: g.maxParticipants,
-          category: g.category,
-          creator_id: g.creator?.id,
-        }));
-        setGroups(mappedGroups);
+      return [];
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch groups
+  const groupsQuery = useQuery({
+    queryKey: profileEventsGroupsKeys.groups(userId || ''),
+    queryFn: async () => {
+      const result = await awsAPI.getGroups({ filter: 'my-groups' });
+      if (result.success && result.groups) {
+        return result.groups.map(mapGroup);
       }
-    } catch (error) {
-      if (__DEV__) console.warn('[useProfileEventsGroups] Failed to fetch:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id]);
+      return [];
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Refresh function that invalidates both queries
+  const refresh = useCallback(async () => {
+    if (!userId) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: profileEventsGroupsKeys.events(userId) }),
+      queryClient.invalidateQueries({ queryKey: profileEventsGroupsKeys.groups(userId) }),
+    ]);
+  }, [queryClient, userId]);
 
-  return { events, groups, isLoading, refresh: fetchData };
+  return {
+    events: eventsQuery.data || [],
+    groups: groupsQuery.data || [],
+    isLoading: eventsQuery.isLoading || groupsQuery.isLoading,
+    refresh,
+  };
 };

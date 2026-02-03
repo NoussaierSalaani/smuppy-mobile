@@ -7,13 +7,31 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('profiles-suggested');
+
+// Rate limit: 30 requests per minute per IP
+const RATE_LIMIT = 30;
+const RATE_WINDOW_SECONDS = 60;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
   try {
+    // Rate limiting by IP address
+    const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
+    const rateLimitKey = `suggested:${clientIp}`;
+    const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT, RATE_WINDOW_SECONDS);
+
+    if (!allowed) {
+      log.warn('Rate limit exceeded for suggested', { clientIp });
+      return {
+        statusCode: 429,
+        headers: { ...headers, 'Retry-After': String(RATE_WINDOW_SECONDS) },
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
     // Get Cognito sub from authorizer
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
@@ -71,6 +89,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         params = [limit, offset];
       } else {
         // Authenticated: exclude users already in FanFeed relationship (following or followed by)
+        // Use NOT EXISTS instead of NOT IN for better performance
         query = `
           SELECT
             p.id,
@@ -90,15 +109,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           WHERE p.id != $1
             AND p.is_private = false
             AND p.onboarding_completed = true
-            -- Exclude people I follow
-            AND p.id NOT IN (
-              SELECT following_id FROM follows
-              WHERE follower_id = $1 AND status = 'accepted'
+            -- Exclude people I follow (NOT EXISTS is faster than NOT IN)
+            AND NOT EXISTS (
+              SELECT 1 FROM follows f
+              WHERE f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
             )
             -- Exclude people who follow me
-            AND p.id NOT IN (
-              SELECT follower_id FROM follows
-              WHERE following_id = $1 AND status = 'accepted'
+            AND NOT EXISTS (
+              SELECT 1 FROM follows f
+              WHERE f.following_id = $1 AND f.follower_id = p.id AND f.status = 'accepted'
             )
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,

@@ -6,8 +6,8 @@
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryClient';
 import * as database from '../../services/database';
-import type { Post } from '../../services/database';
-import { useFeedStore } from '../../stores';
+import type { Post, Profile } from '../../services/database';
+import { useFeedStore, useUserStore } from '../../stores';
 
 // ============================================
 // USER HOOKS
@@ -58,7 +58,36 @@ export const useProfile = (userId: string | null | undefined) => {
 };
 
 /**
+ * Helper to convert database Profile to Zustand User format
+ */
+const convertProfileToUser = (profile: Profile) => ({
+  id: profile.id,
+  username: profile.username,
+  fullName: profile.full_name,
+  displayName: profile.display_name || profile.full_name,
+  avatar: profile.avatar_url || null,
+  coverImage: profile.cover_url || null,
+  bio: profile.bio || '',
+  accountType: profile.account_type as 'personal' | 'pro_creator' | 'pro_business',
+  isVerified: profile.is_verified || false,
+  isPremium: profile.is_premium || false,
+  interests: profile.interests || [],
+  expertise: profile.expertise || [],
+  businessName: profile.business_name || '',
+  businessCategory: profile.business_category || '',
+  businessAddress: profile.business_address || '',
+  businessLatitude: profile.business_latitude,
+  businessLongitude: profile.business_longitude,
+  stats: {
+    fans: profile.fan_count || 0,
+    posts: profile.post_count || 0,
+    following: profile.following_count || 0,
+  },
+});
+
+/**
  * Update profile mutation
+ * Auto-syncs with Zustand store and invalidates relevant caches
  */
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
@@ -70,8 +99,27 @@ export const useUpdateProfile = () => {
       return data;
     },
     onSuccess: (data) => {
-      // Update cache
+      if (!data) return;
+
+      // 1. Update React Query cache for current user
       queryClient.setQueryData(queryKeys.user.current(), data);
+
+      // 2. Auto-sync with Zustand store (no manual call needed in components)
+      const userStore = useUserStore.getState();
+      userStore.setUser(convertProfileToUser(data));
+
+      // 3. Invalidate profile cache for this user (others viewing this profile)
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.user.profile(data.id),
+      });
+
+      // 4. Invalidate followers/following lists that may display this profile
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === 'follows';
+        },
+      });
     },
   });
 };

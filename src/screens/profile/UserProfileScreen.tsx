@@ -215,6 +215,12 @@ const UserProfileScreen = () => {
     return () => { cancelled = true; };
   }, [profileData, userId]);
 
+  // Effective fan status: profileData.is_following is updated immediately by both
+  // API responses and optimistic cache updates (setQueryData), while isFan state
+  // lags by one render cycle due to useEffect. This prevents the "Become a fan"
+  // button flash when navigating to a profile you already follow.
+  const effectiveIsFan = profileData?.is_following ?? isFan;
+
   // Load user's posts
   const loadUserPosts = useCallback(async () => {
     if (!userId) return;
@@ -311,7 +317,7 @@ const UserProfileScreen = () => {
       return;
     }
 
-    if (isFan) {
+    if (effectiveIsFan) {
       setShowUnfanModal(true);
     } else if (isRequested) {
       // Show cancel request modal
@@ -503,7 +509,7 @@ const UserProfileScreen = () => {
   };
 
   const handleMessagePress = () => {
-    if (isFan) {
+    if (effectiveIsFan) {
       // Pass userId so ChatScreen can get/create the real conversation
       navigation.navigate('Chat', {
         userId: profile.id,
@@ -682,7 +688,7 @@ const UserProfileScreen = () => {
   // ==================== RENDER TAB CONTENT ====================
   const renderTabContent = () => {
     // Check if profile is private and user is not a fan
-    const isPrivateAndNotFan = profile.isPrivate && !isFan && !isOwnProfile;
+    const isPrivateAndNotFan = profile.isPrivate && !effectiveIsFan && !isOwnProfile;
 
     if (isPrivateAndNotFan) {
       return renderPrivateAccount();
@@ -868,7 +874,7 @@ const UserProfileScreen = () => {
             followerCount={localFanCount ?? profile.fanCount ?? 0}
           />
           {/* Fan badge when following */}
-          {!isOwnProfile && isFan && (
+          {!isOwnProfile && effectiveIsFan && (
             <View style={styles.fanBadge}>
               <SmuppyHeartIcon size={10} color="#0EBF8A" filled />
               <Text style={styles.fanBadgeText}>Fan</Text>
@@ -887,7 +893,7 @@ const UserProfileScreen = () => {
         </View>
         <View style={styles.nameActions}>
           {/* Message icon — only when fan and not own profile */}
-          {!isOwnProfile && isFan && (
+          {!isOwnProfile && effectiveIsFan && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleMessagePress}>
               <Ionicons name="chatbubble-outline" size={18} color={colors.dark} />
             </TouchableOpacity>
@@ -923,7 +929,7 @@ const UserProfileScreen = () => {
       ) : null}
 
       {/* Action Buttons — only render when profile data loaded (avoids fan button flash on device) */}
-      {(isOwnProfile || (!isFan && !!profileData) || profile.accountType === 'pro_creator') && (
+      {(isOwnProfile || (!effectiveIsFan && !!profileData) || profile.accountType === 'pro_creator') && (
         <View style={styles.actionButtonsContainer}>
           {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
           {isOwnProfile ? (
@@ -936,7 +942,7 @@ const UserProfileScreen = () => {
                 <Text style={styles.editProfileText}>Edit Profile</Text>
               </TouchableOpacity>
             </View>
-          ) : !isFan && !!profileData ? (
+          ) : !effectiveIsFan && !!profileData ? (
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 style={[
@@ -1270,7 +1276,7 @@ const UserProfileScreen = () => {
               <Text style={styles.menuItemText}>Share Profile</Text>
             </TouchableOpacity>
 
-            {isFan && (
+            {effectiveIsFan && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {

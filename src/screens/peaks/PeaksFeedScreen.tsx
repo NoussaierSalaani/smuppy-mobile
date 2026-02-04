@@ -50,6 +50,8 @@ type RootStackParamList = {
 };
 
 const PeaksFeedScreen = (): React.JSX.Element => {
+  // Use a lightweight remote placeholder to avoid require path issues in prod builds
+  const placeholder = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -68,16 +70,17 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       const response = await awsAPI.getPeaks(params);
       const mapped: Peak[] = (response.data || []).map((p) => ({
         id: p.id,
-        thumbnail: p.thumbnailUrl || p.videoUrl,
-        duration: p.duration,
+        // Never use videoUrl as an image source; fallback to author avatar if no thumbnail
+        thumbnail: p.thumbnailUrl || p.author?.avatarUrl || placeholder,
+        duration: p.duration || 0,
         user: {
           id: p.author?.id || p.authorId,
           name: p.author?.fullName || p.author?.username || 'User',
           avatar: p.author?.avatarUrl || '',
         },
-        views: p.viewsCount,
-        reactions: p.likesCount,
-        repliesCount: p.commentsCount,
+        views: p.viewsCount ?? 0,
+        reactions: p.likesCount ?? 0,
+        repliesCount: p.commentsCount ?? 0,
         createdAt: p.createdAt,
         isChallenge: !!p.challenge?.id,
         challengeTitle: p.challenge?.title,

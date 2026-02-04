@@ -8,19 +8,20 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   StatusBar,
-  Image,
   Animated,
   PanResponder,
   GestureResponderEvent,
   PanResponderGestureState,
   Modal,
   Pressable,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -119,6 +120,15 @@ const PeakViewScreen = (): React.JSX.Element => {
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentPeak = peaks[currentIndex] || {} as Peak;
+
+  // Hardware back handler (Android) as a fail-safe
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation.goBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [navigation]);
 
   useEffect(() => {
     if (showOnboarding) {
@@ -610,6 +620,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const currentUserIndex = uniqueUsers.findIndex(u => u.id === currentPeak.user?.id);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const placeholder = useMemo(() => require('../../../assets/images/bg.png'), []);
 
   return (
     <View style={styles.container}>
@@ -622,10 +633,11 @@ const PeakViewScreen = (): React.JSX.Element => {
         delayLongPress={300}
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
-          <Image
-            source={{ uri: currentPeak.thumbnail }}
+          <OptimizedImage
+            source={currentPeak.thumbnail || placeholder}
             style={styles.media}
-            resizeMode="cover"
+            contentFit="cover"
+            priority="high"
           />
         </View>
       </TouchableWithoutFeedback>

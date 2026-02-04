@@ -57,7 +57,7 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
     >
       {/* Thumbnail */}
       <OptimizedImage
-        source={peak.thumbnail}
+        source={peak.thumbnail || undefined}
         style={styles.thumbnail as StyleProp<ImageStyle>}
         contentFit="cover"
         priority="normal"

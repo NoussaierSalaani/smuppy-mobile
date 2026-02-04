@@ -434,7 +434,7 @@ class AWSAPIService {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.userId) queryParams.set('userId', params.userId);
+    if (params?.userId) queryParams.set('authorId', params.userId);
     const query = queryParams.toString();
     return this.request(`/peaks${query ? `?${query}` : ''}`);
   }

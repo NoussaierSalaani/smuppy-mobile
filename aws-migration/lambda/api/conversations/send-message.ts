@@ -57,7 +57,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { content } = body;
+    const { content, mediaUrl, mediaType } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return {
@@ -74,6 +74,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
       };
     }
+
+    // Validate optional media fields
+    const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
+    const validMediaType = mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
+      ? mediaType
+      : null;
+    const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
+      ? mediaUrl
+      : null;
 
     // Sanitize content: strip HTML tags and control characters
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
@@ -123,10 +132,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query('BEGIN');
 
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, read, created_at)
-         VALUES ($1, $2, $3, $4, false, NOW())
-         RETURNING id, content, sender_id, recipient_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent]
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
+         RETURNING id, content, media_url, media_type, sender_id, recipient_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType]
       );
 
       await client.query(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,57 +15,39 @@ interface VoiceMessageProps {
   isFromMe: boolean;
 }
 
+const BAR_COUNT = 20;
+
 export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
   const { colors } = useTheme();
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadSound();
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Stable random bar heights — generated once per URI
+  const barHeights = useMemo(() => {
+    const heights: number[] = [];
+    let seed = 0;
+    for (let i = 0; i < uri.length; i++) seed = ((seed << 5) - seed + uri.charCodeAt(i)) | 0;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      seed = (seed * 16807 + 0) % 2147483647;
+      heights.push(8 + (seed % 17));
+    }
+    return heights;
   }, [uri]);
 
-  const loadSound = async () => {
-    try {
-      // Configure audio mode for playback (required on iOS)
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
-
-      const { sound: newSound, status } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: false },
-        onPlaybackStatusUpdate
-      );
-      setSound(newSound);
-      if (status.isLoaded && status.durationMillis) {
-        setDuration(status.durationMillis);
-        setIsLoaded(true);
-      }
-    } catch (err) {
-      if (__DEV__) console.warn('Error loading sound:', err);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+  const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
 
     setPosition(status.positionMillis || 0);
     setIsPlaying(status.isPlaying);
 
     if (status.durationMillis) {
+      setDuration(status.durationMillis);
       const progress = status.positionMillis / status.durationMillis;
       progressAnim.setValue(progress);
     }
@@ -75,17 +57,83 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
       setPosition(0);
       progressAnim.setValue(0);
     }
-  };
+  }, [progressAnim]);
 
-  const togglePlayback = async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSound = async () => {
+      // Unload previous sound if any
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+
+      setIsLoaded(false);
+      setLoadError(false);
+
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+        });
+
+        const { sound: newSound, status } = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: false },
+          onPlaybackStatusUpdate
+        );
+
+        if (cancelled) {
+          await newSound.unloadAsync();
+          return;
+        }
+
+        soundRef.current = newSound;
+
+        if (status.isLoaded) {
+          setIsLoaded(true);
+          if (status.durationMillis) {
+            setDuration(status.durationMillis);
+          }
+        }
+      } catch (err) {
+        if (__DEV__) console.warn('[VoiceMessage] Error loading sound:', err);
+        if (!cancelled) setLoadError(true);
+      }
+    };
+
+    loadSound();
+
+    return () => {
+      cancelled = true;
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+    };
+  }, [uri, onPlaybackStatusUpdate]);
+
+  const togglePlayback = useCallback(async () => {
+    const sound = soundRef.current;
     if (!sound) return;
 
-    if (isPlaying) {
-      await sound.pauseAsync();
-    } else {
-      await sound.playAsync();
+    try {
+      if (isPlaying) {
+        await sound.pauseAsync();
+      } else {
+        // If finished, replay from start
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded && status.durationMillis && status.positionMillis >= status.durationMillis) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[VoiceMessage] Playback error:', err);
     }
-  };
+  }, [isPlaying]);
 
   const formatTime = (millis: number): string => {
     const totalSeconds = Math.floor(millis / 1000);
@@ -95,6 +143,7 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
   };
 
   const displayTime = isPlaying || position > 0 ? position : duration;
+  const progress = duration > 0 ? position / duration : 0;
 
   return (
     <View style={[
@@ -117,30 +166,28 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
       </TouchableOpacity>
 
       <View style={styles.waveformContainer}>
-        {/* Waveform bars (visual representation) */}
         <View style={styles.waveform}>
-          {[...Array(20)].map((_, i) => (
+          {barHeights.map((h, i) => (
             <View
               key={i}
               style={[
                 styles.waveformBar,
                 {
-                  height: 8 + Math.random() * 16,
+                  height: h,
                   backgroundColor: isFromMe
-                    ? `rgba(255,255,255,${i / 20 < (position / duration || 0) ? 1 : 0.4})`
-                    : `rgba(14,191,138,${i / 20 < (position / duration || 0) ? 1 : 0.4})`,
+                    ? `rgba(255,255,255,${i / BAR_COUNT < progress ? 1 : 0.4})`
+                    : `rgba(14,191,138,${i / BAR_COUNT < progress ? 1 : 0.4})`,
                 },
               ]}
             />
           ))}
         </View>
 
-        {/* Duration */}
         <Text style={[
           styles.duration,
           { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
         ]}>
-          {formatTime(displayTime)}
+          {loadError ? 'Error' : formatTime(displayTime)}
         </Text>
       </View>
     </View>

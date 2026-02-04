@@ -84,6 +84,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       SELECT
         m.id,
         m.content,
+        m.media_url,
+        m.media_type,
         m.sender_id,
         m.read,
         m.created_at,

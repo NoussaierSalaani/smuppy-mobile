@@ -328,9 +328,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     if (error) {
       showError('Error', 'Failed to send voice message');
+    } else {
+      loadMessages();
     }
     setSending(false);
-  }, [conversationId]);
+  }, [conversationId, loadMessages]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

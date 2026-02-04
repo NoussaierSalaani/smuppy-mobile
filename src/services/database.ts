@@ -1401,7 +1401,7 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
     const result = await awsAPI.request<{ conversations: Array<{
       id: string;
       created_at: string;
-      last_message: { id: string; content: string; created_at: string; sender_id: string } | null;
+      last_message: { id: string; content: string; media_type?: string; created_at: string; sender_id: string } | null;
       unread_count: number;
       other_participant: { id: string; username: string; full_name?: string; display_name?: string; avatar_url: string; is_verified: boolean; account_type?: string } | null;
     }> }>(`/conversations?limit=${limit}`);
@@ -1420,7 +1420,9 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
         participants: otherUser ? [otherUser] : [],
         other_user: otherUser,
         last_message_at: c.last_message?.created_at ?? c.created_at,
-        last_message_preview: c.last_message?.content,
+        last_message_preview: c.last_message?.media_type === 'audio' || c.last_message?.media_type === 'voice'
+          ? 'Voice message'
+          : c.last_message?.content,
         updated_at: c.created_at,
         unread_count: c.unread_count ?? 0,
       };
@@ -1438,7 +1440,8 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
   try {
     // Lambda returns { messages: [...], nextCursor, hasMore } with snake_case fields
     const result = await awsAPI.request<{ messages: Array<{
-      id: string; content: string; sender_id: string; read: boolean; created_at: string;
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; read: boolean; created_at: string;
       sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
     }> }>(`/conversations/${conversationId}/messages?limit=${limit}`);
     const messages: Message[] = (result.messages || []).map((m) => ({
@@ -1446,6 +1449,8 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
       conversation_id: conversationId,
       sender_id: m.sender_id,
       content: m.content,
+      media_url: m.media_url,
+      media_type: m.media_type as Message['media_type'],
       created_at: m.created_at,
       sender: m.sender ? {
         id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
@@ -1478,7 +1483,8 @@ export const sendMessage = async (
   try {
     // Lambda returns { message: {...} } with snake_case fields
     const result = await awsAPI.request<{ message: {
-      id: string; content: string; sender_id: string; recipient_id: string; read: boolean; created_at: string;
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; recipient_id: string; read: boolean; created_at: string;
       sender: { id: string; username: string; display_name: string; avatar_url: string };
     } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
@@ -1490,6 +1496,8 @@ export const sendMessage = async (
       conversation_id: conversationId,
       sender_id: m.sender_id,
       content: m.content,
+      media_url: m.media_url,
+      media_type: m.media_type as Message['media_type'],
       created_at: m.created_at,
       sender: m.sender ? {
         id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',

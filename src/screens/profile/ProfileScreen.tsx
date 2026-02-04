@@ -107,6 +107,25 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return realPosts;
   }, [allUserPosts]);
 
+  // Fallback peaks from posts table (if peaks API fails or filters incorrectly)
+  const peaksFromPosts = useMemo(() => {
+    const peaksOnly = allUserPosts.filter(post => post.is_peak);
+    return peaksOnly.map(p => ({
+      id: p.id,
+      videoUrl: p.media_urls?.[0],
+      media_urls: p.media_urls || [],
+      media_type: p.media_type || 'video',
+      is_peak: true,
+      content: p.content || '',
+      created_at: p.created_at,
+      peak_duration: 15,
+      likes_count: p.likes_count,
+      comments_count: p.comments_count,
+      views_count: p.views_count,
+      author_id: p.author_id,
+    }));
+  }, [allUserPosts]);
+
   const [peaks, setPeaks] = useState<any[]>([]);
   useEffect(() => {
     if (!userId) return;
@@ -846,15 +865,17 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       );
     }
 
+    const displayPeaks = peaks.length > 0 ? peaks : peaksFromPosts;
+
     // Show peaks grid
     return (
       <View style={styles.peaksGrid}>
-        {peaks.map((peak, index) => (
+        {displayPeaks.map((peak, index) => (
           <TouchableOpacity
             key={`peak-${index}-${peak.id}`}
             style={styles.peakCard}
             onPress={() => {
-              const transformed = peaks.map(p => ({
+              const transformed = displayPeaks.map(p => ({
                 id: p.id,
                 videoUrl: p.videoUrl,
                 thumbnail: p.media_urls?.[0],

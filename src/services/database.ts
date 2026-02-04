@@ -181,8 +181,8 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
 
   // Follow flags come back in mixed casing depending on the backend handler.
   // Normalize to our snake_case fields to keep React Query caches consistent.
-  const isFollowing = p.isFollowing ?? (p as any)?.is_following ?? false;
-  const isFollowedBy = p.isFollowedBy ?? (p as any)?.is_followed_by ?? false;
+  const isFollowing = p.isFollowing ?? (p as any)?.is_following;
+  const isFollowedBy = p.isFollowedBy ?? (p as any)?.is_followed_by;
 
   return {
     id: p.id,

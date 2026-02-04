@@ -209,7 +209,31 @@ const UserProfileScreen = () => {
     if (Date.now() < followGraceUntilRef.current) return;
 
     // Use is_following from profile API response (or cache)
-    const isFollowingFromApi = profileData.is_following ?? false;
+    const isFollowingFromApi = profileData.is_following;
+
+    // If API doesn't include the field (unauthenticated/stale), don't overwrite local state.
+    if (isFollowingFromApi === undefined) {
+      // Opportunistic verification if we think we're a fan
+      if (isFan && userId && !isVerifyingFollow) {
+        setIsVerifyingFollow(true);
+        checkIsFollowing(userId).then(({ isFollowing }) => {
+          if (cancelled) return;
+          setIsFan(isFollowing);
+          if (!isFollowing) {
+            hasPendingFollowRequest(userId).then(({ pending }) => {
+              if (!cancelled) setIsRequested(pending);
+            });
+          } else {
+            setIsRequested(false);
+          }
+        }).catch(() => {
+          // keep optimistic state on error
+        }).finally(() => {
+          if (!cancelled) setIsVerifyingFollow(false);
+        });
+      }
+      return;
+    }
 
     // If API says "not following" but local state says we are, double-check with the
     // dedicated endpoint to avoid false negatives from stale/anonymous responses.

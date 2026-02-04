@@ -14,7 +14,17 @@
  */
 
 import * as Sentry from '@sentry/react-native';
+
 import { ENV } from '../config/env';
+
+// =============================================
+// CONSTANTS
+// =============================================
+
+const TRACES_SAMPLE_RATE_DEV = 1.0;
+const TRACES_SAMPLE_RATE_PROD = 0.2;
+const PROFILES_SAMPLE_RATE_DEV = 1.0;
+const PROFILES_SAMPLE_RATE_PROD = 0.1;
 
 // =============================================
 // PII SCRUBBING
@@ -52,6 +62,38 @@ const scrubObject = (obj: Record<string, unknown>): Record<string, unknown> => {
   return scrubbed;
 };
 
+/**
+ * Scrub PII from a Sentry event before it is sent.
+ * Masks emails in exception values, breadcrumbs, and extra context.
+ * Redacts sensitive keys (token, password, etc.).
+ */
+const scrubEvent = (event: Sentry.ErrorEvent): Sentry.ErrorEvent => {
+  if (event.exception?.values) {
+    for (const ex of event.exception.values) {
+      if (ex.value) {
+        ex.value = scrubValue(ex.value) as string;
+      }
+    }
+  }
+
+  if (event.breadcrumbs) {
+    for (const bc of event.breadcrumbs) {
+      if (bc.message) {
+        bc.message = scrubValue(bc.message) as string;
+      }
+      if (bc.data) {
+        bc.data = scrubObject(bc.data as Record<string, unknown>);
+      }
+    }
+  }
+
+  if (event.extra) {
+    event.extra = scrubObject(event.extra as Record<string, unknown>);
+  }
+
+  return event;
+};
+
 // =============================================
 // NAVIGATION INTEGRATION (created before init, registered after)
 // =============================================
@@ -86,7 +128,6 @@ export const initSentry = (): void => {
 
   const isDev = __DEV__;
 
-  // Build integrations list — include navigation if created successfully
   const integrations: ReturnType<typeof Sentry.reactNavigationIntegration>[] = [];
   if (_navigationIntegration) {
     integrations.push(_navigationIntegration);
@@ -97,39 +138,11 @@ export const initSentry = (): void => {
     debug: isDev,
     sendDefaultPii: false,
     integrations,
-    tracesSampleRate: isDev ? 1.0 : 0.2,
-    profilesSampleRate: isDev ? 1.0 : 0.1,
+    tracesSampleRate: isDev ? TRACES_SAMPLE_RATE_DEV : TRACES_SAMPLE_RATE_PROD,
+    profilesSampleRate: isDev ? PROFILES_SAMPLE_RATE_DEV : PROFILES_SAMPLE_RATE_PROD,
     environment: ENV.APP_ENV,
     release: `com.nou09.Smuppy@${ENV.APP_VERSION}`,
-    beforeSend(event) {
-      // Scrub PII from exception messages
-      if (event.exception?.values) {
-        for (const ex of event.exception.values) {
-          if (ex.value) {
-            ex.value = scrubValue(ex.value) as string;
-          }
-        }
-      }
-
-      // Scrub PII from breadcrumbs
-      if (event.breadcrumbs) {
-        for (const bc of event.breadcrumbs) {
-          if (bc.message) {
-            bc.message = scrubValue(bc.message) as string;
-          }
-          if (bc.data) {
-            bc.data = scrubObject(bc.data as Record<string, unknown>);
-          }
-        }
-      }
-
-      // Scrub extra context
-      if (event.extra) {
-        event.extra = scrubObject(event.extra as Record<string, unknown>);
-      }
-
-      return event;
-    },
+    beforeSend: scrubEvent,
   });
 
   initialized = true;

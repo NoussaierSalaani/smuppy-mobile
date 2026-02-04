@@ -151,8 +151,6 @@ googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
 apiUrlDev: process.env.API_URL_DEV,
 apiUrlProd: process.env.API_URL_PROD,
 appEnv: process.env.APP_ENV || 'dev',
-// Sentry for error tracking
-sentryDsn: process.env.SENTRY_DSN,
 // Agora for live streaming
 agoraAppId: process.env.AGORA_APP_ID,
 // AWS S3 & CloudFront

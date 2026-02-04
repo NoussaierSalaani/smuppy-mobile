@@ -38,9 +38,6 @@ export const ENV = {
   S3_BUCKET_NAME: extra.s3BucketName || '',
   CLOUDFRONT_URL: extra.cloudfrontUrl || '',
 
-  // Sentry (Error Tracking)
-  SENTRY_DSN: extra.sentryDsn || '',
-
   // Agora (Live Streaming & Video Calls)
   AGORA_APP_ID: extra.agoraAppId || '',
 
@@ -60,10 +57,6 @@ if (__DEV__) {
   if (!ENV.GOOGLE_API_KEY) {
     missingVars.push('GOOGLE_API_KEY');
   }
-  if (!ENV.SENTRY_DSN) {
-    if (__DEV__) console.log('[ENV] Sentry DSN not configured. Error tracking disabled.');
-  }
-
   if (missingVars.length > 0) {
     if (__DEV__) console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);
   }

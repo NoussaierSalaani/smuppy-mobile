@@ -2,9 +2,18 @@
  * AWS Configuration for Smuppy
  *
  * All config values are loaded from EXPO_PUBLIC_* environment variables.
- * In local dev, hardcoded staging defaults are used as fallback.
- * In production (EAS Build), values MUST be injected via EAS Secrets —
- * no sensitive IDs are embedded in the release bundle.
+ *
+ * SAFETY RULE: This module NEVER throws at import/startup time.
+ * A crash here kills the app before ErrorBoundary mounts — instant death on iOS.
+ *
+ * Behavior:
+ * - Production / Release builds: use env vars. If missing, fall back to staging
+ *   defaults and log a single console.error (app stays alive).
+ * - Dev with DEV_USE_STAGING=true in .env: silently use staging defaults for
+ *   any missing EXPO_PUBLIC_* vars, log one consolidated warning.
+ * - Dev WITHOUT DEV_USE_STAGING: log an error for each missing var so the
+ *   developer knows their .env is incomplete, but still use staging defaults
+ *   (never crash).
  */
 
 // Helper: read Expo env var (works with Expo's inline substitution)
@@ -40,8 +49,7 @@ export interface AWSConfig {
   };
 }
 
-// SECURITY: Staging defaults — used ONLY in local dev when EXPO_PUBLIC_* vars are missing.
-// In production (EAS builds), resolve() throws if any value is missing.
+// SECURITY: Staging defaults — used ONLY as fallback when EXPO_PUBLIC_* vars are missing.
 // These IDs are for the staging environment only and have no access to production data.
 const STAGING_DEFAULTS = {
   region: 'us-east-1',
@@ -67,27 +75,24 @@ const getEnvironment = (): 'staging' | 'production' => {
   return 'staging';
 };
 
-// Build config from env vars, falling back to staging defaults only in non-production
+// Build config from env vars, always falling back to staging defaults (NEVER throw)
 export const getAWSConfig = (): AWSConfig => {
   const currentEnv = getEnvironment();
   const isProduction = currentEnv === 'production';
-  // Treat any non-dev build (TestFlight/App Store/EAS prod) as release: no fallbacks allowed
   const isReleaseBuild = typeof __DEV__ !== 'undefined' ? !__DEV__ : process.env.NODE_ENV === 'production';
+  const devUsesStaging = __DEV__ && env('DEV_USE_STAGING') === 'true';
 
-  // In production, every value MUST come from env vars — no fallback to staging
+  // Track which vars fell back to staging defaults
+  const fallbackVars: string[] = [];
+
   const resolve = (envKey: string, stagingDefault: string): string => {
     const value = env(envKey);
     if (value) return value;
-    if (isProduction || isReleaseBuild) {
-      throw new Error(`[AWS Config] Missing required ${envKey} for ${currentEnv} build`);
-    }
-    if (__DEV__) {
-      console.warn(`[AWS Config] ${envKey} is not set, using staging default.`);
-    }
+    fallbackVars.push(envKey);
     return stagingDefault;
   };
 
-  return {
+  const config: AWSConfig = {
     region: resolve('EXPO_PUBLIC_AWS_REGION', STAGING_DEFAULTS.region),
     cognito: {
       userPoolId: resolve('EXPO_PUBLIC_COGNITO_USER_POOL_ID', STAGING_DEFAULTS.userPoolId),
@@ -110,6 +115,31 @@ export const getAWSConfig = (): AWSConfig => {
       likesTable: resolve('EXPO_PUBLIC_DYNAMODB_LIKES_TABLE', STAGING_DEFAULTS.likesTable),
     },
   };
+
+  // Consolidated logging — one message, never a throw
+  if (fallbackVars.length > 0) {
+    if ((isProduction || isReleaseBuild) && !__DEV__) {
+      // PRODUCTION: log error but NEVER crash — app must start
+      console.error(
+        `[AWS Config] PRODUCTION BUILD: ${fallbackVars.length} config value(s) missing, using staging fallbacks. ` +
+        `Missing: ${fallbackVars.join(', ')}. ` +
+        'Ensure all EXPO_PUBLIC_* vars are set in EAS Secrets.'
+      );
+    } else if (devUsesStaging) {
+      // DEV with opt-in: single consolidated warning
+      console.warn(
+        `[AWS Config] DEV_USE_STAGING=true — ${fallbackVars.length} config value(s) using staging defaults.`
+      );
+    } else if (__DEV__) {
+      // DEV without opt-in: clear error telling developer what to do
+      console.error(
+        `[AWS Config] ${fallbackVars.length} EXPO_PUBLIC_* variable(s) missing: ${fallbackVars.join(', ')}. ` +
+        'Either set them in your .env file, or add DEV_USE_STAGING=true to your .env to acknowledge staging defaults.'
+      );
+    }
+  }
+
+  return config;
 };
 
 export const AWS_CONFIG = getAWSConfig();

@@ -157,6 +157,8 @@ agoraAppId: process.env.AGORA_APP_ID,
 awsRegion: process.env.AWS_REGION,
 s3BucketName: process.env.S3_BUCKET_NAME,
 cloudfrontUrl: process.env.CLOUDFRONT_URL,
+// Sentry
+sentryDsn: process.env.SENTRY_DSN,
 // Mapbox
 mapboxAccessToken: process.env.MAPBOX_ACCESS_TOKEN,
     },

@@ -41,6 +41,9 @@ export const ENV = {
   // Agora (Live Streaming & Video Calls)
   AGORA_APP_ID: extra.agoraAppId || '',
 
+  // Sentry
+  SENTRY_DSN: extra.sentryDsn || '',
+
   // App info
   APP_ENV: extra.appEnv || (__DEV__ ? 'development' : 'production'),
   APP_VERSION: Constants.expoConfig?.version || '1.0.0',
@@ -50,14 +53,16 @@ export const ENV = {
   appVersion: Constants.expoConfig?.version || '1.0.0',
 };
 
-// Validation: warn if critical env vars are missing
+// Validation: warn if critical env vars are missing (dev only, never crash)
 if (__DEV__) {
-  const missingVars = [];
+  const missingVars: string[] = [];
 
-  if (!ENV.GOOGLE_API_KEY) {
-    missingVars.push('GOOGLE_API_KEY');
-  }
+  if (!ENV.GOOGLE_API_KEY) missingVars.push('GOOGLE_API_KEY');
+  if (!extra.apiUrlDev) missingVars.push('API_URL_DEV');
+  if (!extra.apiUrlProd) missingVars.push('API_URL_PROD');
+  if (!ENV.SENTRY_DSN) missingVars.push('SENTRY_DSN');
+
   if (missingVars.length > 0) {
-    if (__DEV__) console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);
+    console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator, StackCardInterpolationProps } from '@react-navigation/stack';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import * as Linking from 'expo-linking';
@@ -17,6 +17,7 @@ import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
 import { useTheme } from '../hooks/useTheme';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { sentryNavigationIntegration } from '../lib/sentry';
 
 /**
  * Root Stack Param List
@@ -160,6 +161,14 @@ type AppState = 'loading' | 'auth' | 'emailPending' | 'main';
 
 export default function AppNavigator(): React.JSX.Element {
   const { colors, isDark } = useTheme();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+
+  // Register navigation container with Sentry for automatic screen tracking
+  useEffect(() => {
+    if (sentryNavigationIntegration && navigationRef) {
+      sentryNavigationIntegration.registerNavigationContainer(navigationRef);
+    }
+  }, [navigationRef]);
 
   const navigationTheme = useMemo<Theme>(() => {
     const base = isDark ? DarkTheme : DefaultTheme;
@@ -326,7 +335,7 @@ export default function AppNavigator(): React.JSX.Element {
         <AuthCallbackProvider value={{ onRecoveryComplete: handleRecoveryComplete, onProfileCreated: handleProfileCreated }}>
         <TabBarProvider>
           <ErrorBoundary name="AppNavigator">
-          <NavigationContainer linking={linking} theme={navigationTheme}>
+          <NavigationContainer ref={navigationRef} linking={linking} theme={navigationTheme}>
             <RootStack.Navigator
                 id="RootStack"
                 screenOptions={{

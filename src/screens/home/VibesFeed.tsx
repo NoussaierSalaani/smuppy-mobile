@@ -42,6 +42,7 @@ import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
+import type { Peak } from '../../types';
 import { awsAPI } from '../../services/aws-api';
 import { usePrefetchProfile } from '../../hooks';
 import { formatNumber } from '../../utils/formatters';
@@ -321,7 +322,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             isLiked: likedMap.get(p.id) ?? p.isLiked,
             isSaved: savedMap.get(p.id) ?? p.isSaved,
           })));
-        }).catch(() => {});
+        }).catch((err) => {
+          if (__DEV__) console.warn('[VibesFeed] Error syncing likes/saves:', err);
+        });
       }
     }, [])
   );
@@ -448,7 +451,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           hasNew: true,
         };
       }));
-    }).catch(() => { /* silent */ });
+    }).catch((err) => {
+      if (__DEV__) console.warn('[VibesFeed] Error loading peaks:', err);
+    });
   }, []);
 
   // Passive daily login streak tracking
@@ -490,7 +495,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Navigate to Peak view
   const goToPeakView = useCallback((_peak: typeof PEAKS_DATA[number], index: number) => {
     navigation.navigate('PeakView', {
-      peaks: peaksData as any,
+      peaks: peaksData as unknown as Peak[],
       initialIndex: index,
     });
   }, [navigation, peaksData]);
@@ -1035,7 +1040,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           <MoodIndicator
             mood={mood}
             onRefresh={refreshMood}
-            onVibePress={() => navigation.navigate('Prescriptions' as any)}
+            onVibePress={() => navigation.navigate('Prescriptions')}
           />
         )}
 

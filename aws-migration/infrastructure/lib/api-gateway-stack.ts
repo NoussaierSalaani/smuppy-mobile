@@ -155,7 +155,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
     profiles.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesSearchFn));
 
     const profileById = profiles.addResource('{id}');
-    profileById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetFn));
+    profileById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetFn), authMethodOptions);
 
     const profileIsFollowing = profileById.addResource('is-following');
     profileIsFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesIsFollowingFn), authMethodOptions);

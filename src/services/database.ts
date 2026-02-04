@@ -579,17 +579,31 @@ export const clearFollowCache = () => {
 };
 
 /**
- * Get posts from followed users (FanFeed)
+ * Get posts from followed users (FanFeed) — cursor-based pagination
  */
-export const getFeedFromFollowed = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: number }): Promise<{
+  data: Post[] | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+  error: string | null;
+}> => {
   const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+  if (!user) return { data: null, nextCursor: null, hasMore: false, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.getPosts({ type: 'following', limit });
-    return { data: result.data.map(convertPost), error: null };
+    const result = await awsAPI.getPosts({
+      type: 'following',
+      limit: options?.limit ?? 10,
+      cursor: options?.cursor,
+    });
+    return {
+      data: result.data.map(convertPost),
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
+      error: null,
+    };
   } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, nextCursor: null, hasMore: false, error: getErrorMessage(error) };
   }
 };
 
@@ -609,7 +623,7 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
     }));
     return { data: posts, error: null };
   } catch {
-    const fallback = await getFeedFromFollowed(page, limit);
+    const fallback = await getFeedFromFollowed({ limit });
     return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
   }
 };

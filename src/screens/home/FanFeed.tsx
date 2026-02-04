@@ -82,7 +82,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  const nextCursorRef = useRef<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -123,17 +123,21 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }), [headerHeight, styles]);
 
   // Fetch posts from tracked users
-  const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
+  const fetchPosts = useCallback(async (cursor?: string, refresh = false) => {
+    const isInitial = !cursor;
     try {
-      if (pageNum === 0) setLoadError(null);
-      const { data, error } = await getFeedFromFollowed(pageNum, 10);
+      if (isInitial) setLoadError(null);
+      const { data, nextCursor, hasMore: more, error } = await getFeedFromFollowed({
+        cursor,
+        limit: 10,
+      });
 
       if (error) {
         if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
         if (refresh) {
           showError('Refresh failed', 'Unable to load new posts. Please try again.');
         }
-        if (refresh || pageNum === 0) {
+        if (refresh || isInitial) {
           setPosts([]);
           setHasMore(false);
           setLoadError(error);
@@ -143,50 +147,51 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       // Handle null or undefined data
       if (!data || data.length === 0) {
-        if (refresh || pageNum === 0) {
+        if (refresh || isInitial) {
           setPosts([]);
           setHasMore(false);
+        } else {
+          setHasMore(false);
         }
+        nextCursorRef.current = null;
         return;
       }
 
-      if (data.length > 0) {
-        // Use batch functions for faster like/save checking (single query each)
-        const postIds = data.map(post => post.id);
-        const [likedMap, savedMap] = await Promise.all([
-          hasLikedPostsBatch(postIds),
-          hasSavedPostsBatch(postIds),
-        ]);
+      // Use batch functions for faster like/save checking (single query each)
+      const postIds = data.map(post => post.id);
+      const [likedMap, savedMap] = await Promise.all([
+        hasLikedPostsBatch(postIds),
+        hasSavedPostsBatch(postIds),
+      ]);
 
-        const likedIds = new Set<string>(
-          postIds.filter(id => likedMap.get(id))
-        );
-        const savedIds = new Set<string>(
-          postIds.filter(id => savedMap.get(id))
-        );
+      const likedIds = new Set<string>(
+        postIds.filter(id => likedMap.get(id))
+      );
+      const savedIds = new Set<string>(
+        postIds.filter(id => savedMap.get(id))
+      );
 
-        const transformedPosts = data.map(post => transformToFanPost(post, likedIds, savedIds));
+      const transformedPosts = data.map(post => transformToFanPost(post, likedIds, savedIds));
 
-        if (refresh || pageNum === 0) {
-          setPosts(transformedPosts);
-          setLikedPostIds(likedIds);
-        } else {
-          setPosts(prev => [...prev, ...transformedPosts]);
-          setLikedPostIds(prev => new Set([...prev, ...likedIds]));
-        }
-
-        setHasMore(data.length >= 10);
+      if (refresh || isInitial) {
+        setPosts(transformedPosts);
+        setLikedPostIds(likedIds);
       } else {
-        // This shouldn't be reached due to the check above, but as fallback
-        if (refresh || pageNum === 0) {
-          setPosts([]);
-          setLikedPostIds(new Set());
-        }
-        setHasMore(false);
+        // Deduplicate when appending — cursor pagination guarantees no overlap,
+        // but guard against edge cases (e.g. posts created between requests)
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = transformedPosts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+        setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
+
+      nextCursorRef.current = nextCursor;
+      setHasMore(more);
     } catch (err) {
       if (__DEV__) console.warn('[FanFeed] Error:', err);
-      if (refresh || pageNum === 0) {
+      if (refresh || isInitial) {
         setPosts([]);
         setHasMore(false);
         setLoadError('Unable to load feed. Check your connection and try again.');
@@ -348,7 +353,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       followUser(userId).then(() => {
         // If feed is empty, refresh to show new posts from followed user
         if (posts.length === 0) {
-          fetchPosts(0, true);
+          fetchPosts(undefined, true);
         }
       }).catch(err => {
         if (__DEV__) console.warn('[FanFeed] Error following user:', err);
@@ -385,7 +390,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Initial load
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([fetchPosts(0), fetchSuggestions(false)]).finally(() => setIsLoading(false));
+    Promise.all([fetchPosts(), fetchSuggestions(false)]).finally(() => setIsLoading(false));
   }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)
@@ -501,20 +506,18 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setPage(0);
-    await fetchPosts(0, true);
+    nextCursorRef.current = null;
+    await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);
 
-  // Load more posts
+  // Load more posts (cursor-based)
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || !nextCursorRef.current) return;
     setLoadingMore(true);
-    const nextPage = page + 1;
-    setPage(nextPage);
-    await fetchPosts(nextPage);
+    await fetchPosts(nextCursorRef.current);
     setLoadingMore(false);
-  }, [loadingMore, hasMore, page, fetchPosts]);
+  }, [loadingMore, hasMore, fetchPosts]);
 
   // Render suggestion item
   const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => {
@@ -871,7 +874,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       {loadError ? (
         <TouchableOpacity
           style={styles.emptyStateButton}
-          onPress={() => fetchPosts(0, true)}
+          onPress={() => fetchPosts(undefined, true)}
         >
           <Text style={styles.emptyStateButtonText}>Retry</Text>
         </TouchableOpacity>

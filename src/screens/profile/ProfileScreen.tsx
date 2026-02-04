@@ -154,17 +154,19 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (!isMounted) return;
       let list = mapPeaks(res.data || []);
 
-      // Fallback: if the API ignored the author filter, filter client-side
+      // Filter client-side by author when userId is provided
       if (userId && list.length > 0) {
-        list = list.filter(p => !p.author_id || p.author_id === userId);
+        const filtered = list.filter(p => p.author_id === userId);
+        list = filtered.length > 0 ? filtered : list; // if author missing, keep full list to avoid empty state
       }
 
       // If still empty, try an unfiltred fetch and filter client-side (handles gateways that ignore author params)
       if (userId && list.length === 0) {
         awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
           if (!isMounted) return;
-          const filtered = mapPeaks(allRes.data || []).filter(p => p.author_id === userId);
-          setPeaks(filtered);
+          const mapped = mapPeaks(allRes.data || []);
+          const filtered = mapped.filter(p => p.author_id === userId);
+          setPeaks(filtered.length > 0 ? filtered : mapped); // last resort: show whatever we have
         }).catch(() => {});
         return;
       }

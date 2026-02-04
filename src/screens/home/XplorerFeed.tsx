@@ -495,13 +495,11 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
         if (accountType === 'pro_business' && businessLatitude != null && businessLongitude != null) {
           // Pro Business: locked to business address + business category
-          navigation.navigate('CreateEvent', {
+          navigation.navigate('CreateActivity', {
             lockedLocation: { address: businessAddress, latitude: businessLatitude, longitude: businessLongitude },
-            businessName: useUserStore.getState().user?.businessName,
-            businessCategory: useUserStore.getState().user?.businessCategory,
           });
         } else {
-          navigation.navigate('CreateEvent');
+          navigation.navigate('CreateActivity');
         }
         break;
       }

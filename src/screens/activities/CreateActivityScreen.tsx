@@ -174,7 +174,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
       const response = await awsAPI.createGroup({
         name: title.trim(),
         description: description.trim(),
-        category: selectedCategory.slug as any,
+        category: selectedCategory.slug,
         subcategory: sub,
         sport_type: selectedCategory.slug,
         latitude: coordinates.lat,
@@ -192,7 +192,7 @@ const CreateActivityScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         route_start: routeData?.start,
         route_end: routeData?.end,
         route_waypoints: routeData?.waypoints,
-        route_geojson: routeData?.geojson as any,
+        route_geojson: routeData?.geojson,
         route_profile: routeData?.profile,
         route_distance_km: routeData?.distanceKm,
         route_duration_min: routeData?.durationMin,

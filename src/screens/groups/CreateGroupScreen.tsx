@@ -1,6 +1,6 @@
 /**
  * CreateGroupScreen
- * Redirects to CreateEventScreen with initialMode='group'.
+ * Redirects to CreateActivityScreen (unified events + groups).
  * Keeps backward compatibility for any code navigating to 'CreateGroup'.
  */
 
@@ -8,8 +8,7 @@ import React, { useEffect } from 'react';
 
 const CreateGroupScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
   useEffect(() => {
-    navigation.replace('CreateEvent', {
-      initialMode: 'group',
+    navigation.replace('CreateActivity', {
       ...route?.params,
     });
   }, [navigation, route?.params]);

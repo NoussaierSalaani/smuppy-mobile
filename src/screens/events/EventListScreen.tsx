@@ -566,7 +566,7 @@ export default function EventListScreen() {
 
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => navigation.navigate('CreateEvent')}
+              onPress={() => navigation.navigate('CreateActivity')}
             >
               <LinearGradient
                 colors={['#FF6B35', '#FF4500']}
@@ -672,7 +672,7 @@ export default function EventListScreen() {
                   </Text>
                   <TouchableOpacity
                     style={styles.emptyButton}
-                    onPress={() => navigation.navigate('CreateEvent')}
+                    onPress={() => navigation.navigate('CreateActivity')}
                   >
                     <LinearGradient
                       colors={['#FF6B35', '#FF4500']}

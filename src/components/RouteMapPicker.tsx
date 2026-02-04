@@ -1,7 +1,7 @@
 /**
  * RouteMapPicker
  * Reusable map component for selecting locations and drawing routes.
- * Used in: CreateEventScreen (event + group modes)
+ * Used in: CreateActivityScreen (unified events + groups)
  *
  * UX:
  * - Map on top, address fields below

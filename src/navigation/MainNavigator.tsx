@@ -145,7 +145,6 @@ const BattleResultsScreen = lazyScreen(() => import('../screens/battles/BattleRe
 const InviteToBattleScreen = lazyScreen(() => import('../screens/battles/InviteToBattleScreen'));
 
 // Events Screens
-const CreateEventScreen = lazyScreen(() => import('../screens/events/CreateEventScreen'));
 const EventListScreen = lazyScreen(() => import('../screens/events/EventListScreen'));
 const EventDetailScreen = lazyScreen(() => import('../screens/events/EventDetailScreen'));
 const EventManageScreen = lazyScreen(() => import('../screens/events/EventManageScreen'));
@@ -263,7 +262,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
         onSelectChallenge={undefined}
-        onSelectEvent={FEATURES.CREATE_EVENT && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateEvent'); } : undefined}
+        onSelectEvent={FEATURES.CREATE_EVENT && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
       />
     </>
   );
@@ -443,7 +442,6 @@ export default function MainNavigator() {
       <Stack.Screen name="EventList" component={EventListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EventManage" component={EventManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="CreateEvent" component={CreateEventScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Groups */}
       <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ animation: 'slide_from_bottom' }} />

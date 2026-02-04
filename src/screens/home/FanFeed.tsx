@@ -319,7 +319,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             isLiked: likedMap.get(p.id) ?? p.isLiked,
             isSaved: savedMap.get(p.id) ?? p.isSaved,
           })));
-        }).catch(() => {});
+        }).catch((err) => {
+          if (__DEV__) console.warn('[FanFeed] Error syncing like/save state:', err);
+        });
       }
     }, [fetchSuggestions])
   );
@@ -528,6 +530,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         key={`suggestion-${index}-${suggestion.id}`}
         style={styles.suggestionItem}
         accessible={true}
+        accessibilityRole="summary"
         accessibilityLabel={`${suggestion.name}${suggestion.isVerified ? ', verified' : ''}`}
       >
         <TouchableOpacity
@@ -626,7 +629,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
                   <OptimizedImage
                     key={`${post.id}-media-${mediaIndex}`}
                     source={mediaUrl}
-                    style={{ width, height: width * 1.1 }}
+                    style={styles.carouselMediaItem}
                     contentFit="cover"
                   />
                 ))}
@@ -964,7 +967,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
               onPress={() => setMenuVisible(false)}
             >
               <Ionicons name="close-outline" size={22} color={colors.gray} />
-              <Text style={[styles.menuItemText, { color: colors.gray }]}>Cancel</Text>
+              <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -1184,6 +1187,10 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     width: width,
     height: width * 1.1,
     backgroundColor: colors.grayBorder,
+  },
+  carouselMediaItem: {
+    width: width,
+    height: width * 1.1,
   },
   postImage: {
     width: '100%',
@@ -1505,5 +1512,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontSize: 16,
     color: colors.dark,
     marginLeft: SPACING.md,
+  },
+  menuItemTextCancel: {
+    color: colors.gray,
   },
 });

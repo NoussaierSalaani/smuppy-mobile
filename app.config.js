@@ -73,6 +73,8 @@ infoPlist: {
   NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
   NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
   NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  // Bluetooth — required by Agora for speaker/Bluetooth audio routing
+  NSBluetoothAlwaysUsageDescription: 'Smuppy uses Bluetooth to connect to audio devices during live streaming and video calls.',
 },
     },
 android: {

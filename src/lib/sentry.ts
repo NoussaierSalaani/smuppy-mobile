@@ -117,6 +117,30 @@ export const sentryNavigationIntegration = _navigationIntegration;
 
 let initialized = false;
 
+// Buffer for messages/exceptions captured before Sentry.init() completes.
+// aws-config.ts (and other module-level code) may call captureMessage at
+// import time — before App.js runs initSentry().  Without a buffer those
+// calls are silently dropped.
+const pendingMessages: Array<{ message: string; level: Sentry.SeverityLevel; context?: Record<string, unknown> }> = [];
+const pendingExceptions: Array<{ error: Error; context?: Record<string, unknown> }> = [];
+
+const flushPendingCaptures = (): void => {
+  for (const m of pendingMessages) {
+    Sentry.captureMessage(scrubValue(m.message) as string, {
+      level: (m.level as Sentry.SeverityLevel) || 'info',
+      extra: m.context ? scrubObject(m.context) : undefined,
+    });
+  }
+  pendingMessages.length = 0;
+
+  for (const e of pendingExceptions) {
+    Sentry.captureException(e.error, {
+      extra: e.context ? scrubObject(e.context) : undefined,
+    });
+  }
+  pendingExceptions.length = 0;
+};
+
 export const initSentry = (): void => {
   if (initialized) return;
 
@@ -147,6 +171,9 @@ export const initSentry = (): void => {
 
   initialized = true;
   if (isDev) console.log('[Sentry] Initialized');
+
+  // Flush any messages/exceptions that were captured before init
+  flushPendingCaptures();
 };
 
 // =============================================
@@ -161,7 +188,11 @@ export const setUserContext = (user: unknown): void => {
   }
   const u = user as Record<string, unknown>;
   // Only send user ID — never email, username, or other PII
-  Sentry.setUser({ id: u.id as string });
+  if (typeof u.id === 'string') {
+    Sentry.setUser({ id: u.id });
+  } else {
+    Sentry.setUser(null);
+  }
 };
 
 // =============================================
@@ -186,7 +217,11 @@ export const captureException = (
   context?: Record<string, unknown>,
 ): void => {
   if (__DEV__) console.warn('[Error]', error?.message || error);
-  if (!initialized) return;
+  if (!initialized) {
+    // Buffer for flush after initSentry()
+    pendingExceptions.push({ error, context });
+    return;
+  }
   Sentry.captureException(error, {
     extra: context ? scrubObject(context) : undefined,
   });
@@ -194,10 +229,14 @@ export const captureException = (
 
 export const captureMessage = (
   message: string,
-  level?: string,
+  level?: Sentry.SeverityLevel,
   context?: Record<string, unknown>,
 ): void => {
-  if (!initialized) return;
+  if (!initialized) {
+    // Buffer for flush after initSentry()
+    pendingMessages.push({ message, level: level || 'info', context });
+    return;
+  }
   Sentry.captureMessage(scrubValue(message) as string, {
     level: (level as Sentry.SeverityLevel) || 'info',
     extra: context ? scrubObject(context) : undefined,

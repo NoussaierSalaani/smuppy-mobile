@@ -434,12 +434,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       setPeaksData((res.data || []).map((p) => {
         const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
         const videoUrl = toCdn(p.videoUrl) || undefined;
+        const createdAt = p.createdAt || new Date().toISOString();
         return {
           id: p.id,
           videoUrl,
           thumbnail,
           user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: toCdn(p.author?.avatarUrl) || null },
           duration: p.duration || 0,
+          createdAt,
           hasNew: true,
         };
       }));

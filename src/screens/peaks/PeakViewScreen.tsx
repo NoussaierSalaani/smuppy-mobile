@@ -138,6 +138,11 @@ const PeakViewScreen = (): React.JSX.Element => {
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentPeak = peaks[currentIndex] || {} as Peak;
+  const createdDate = useMemo(() => {
+    const value = currentPeak?.createdAt || new Date().toISOString();
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+  }, [currentPeak]);
 
   useEffect(() => {
     if (!currentPeak.videoUrl) {
@@ -962,7 +967,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         <View style={styles.pauseInfo}>
           <Text style={styles.pauseUserName}>{currentPeak.user?.name}</Text>
           <Text style={styles.pauseDate}>
-            {new Date(currentPeak.createdAt).toLocaleDateString()}
+            {createdDate}
           </Text>
         </View>
       )}

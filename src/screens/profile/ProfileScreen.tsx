@@ -124,7 +124,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         media_type: p.videoUrl ? 'video' : 'image',
         is_peak: true,
         content: p.caption || '',
-        created_at: p.createdAt,
+        created_at: p.createdAt || new Date().toISOString(),
         peak_duration: p.duration || 15,
         likes_count: p.likesCount,
         comments_count: p.commentsCount,

@@ -295,9 +295,14 @@ const PeakViewScreen = (): React.JSX.Element => {
       if (isCurrentlyLiked) {
         await awsAPI.unlikePeak(currentPeak.id);
         useFeedStore.getState().setPeakLikeOverride(currentPeak.id, false);
+        // Sync current peak likes
+        peaks[currentIndex].likes = Math.max((currentPeak.likes || 1) - 1, 0);
+        peaks[currentIndex].isLiked = false;
       } else {
         await awsAPI.likePeak(currentPeak.id);
         useFeedStore.getState().setPeakLikeOverride(currentPeak.id, true);
+        peaks[currentIndex].likes = (currentPeak.likes || 0) + 1;
+        peaks[currentIndex].isLiked = true;
       }
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);

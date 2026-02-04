@@ -127,6 +127,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         created_at: p.createdAt || new Date().toISOString(),
         peak_duration: p.duration || 15,
         likes_count: p.likesCount,
+        is_liked: p.isLiked || false,
         comments_count: p.commentsCount,
         views_count: p.viewsCount,
       })));

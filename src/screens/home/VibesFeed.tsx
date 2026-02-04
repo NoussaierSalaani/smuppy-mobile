@@ -442,6 +442,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: toCdn(p.author?.avatarUrl) || null },
           duration: p.duration || 0,
           createdAt,
+          isLiked: !!p.isLiked,
+          likes: p.likesCount ?? 0,
           hasNew: true,
         };
       }));

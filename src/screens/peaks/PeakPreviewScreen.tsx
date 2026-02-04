@@ -173,7 +173,11 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         caption: textOverlay || undefined,
         duration: duration,
         replyToPeakId: replyTo || undefined,
-      }) as unknown as { success: boolean; peak: { id: string } };
+      }) as unknown as { success?: boolean; peak?: { id: string }; message?: string };
+
+      if (!peakResult || peakResult.success === false || !peakResult.peak?.id) {
+        throw new Error(peakResult?.message || 'Peak publish failed');
+      }
 
       // Create challenge if enabled (separate try/catch so peak success is preserved)
       if (isChallenge && challengeTitle.trim()) {

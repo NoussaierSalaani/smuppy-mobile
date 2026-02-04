@@ -434,7 +434,11 @@ class AWSAPIService {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.userId) queryParams.set('authorId', params.userId);
+    if (params?.userId) {
+      // Support both camelCase and snake_case author filters (some gateways expect one or the other)
+      queryParams.set('authorId', params.userId);
+      queryParams.set('author_id', params.userId);
+    }
     const query = queryParams.toString();
     return this.request(`/peaks${query ? `?${query}` : ''}`);
   }

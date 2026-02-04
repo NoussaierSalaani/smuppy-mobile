@@ -72,7 +72,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         duration: p.duration,
         user: {
           id: p.author?.id || p.authorId,
-          name: p.author?.displayName || p.author?.username || 'User',
+          name: p.author?.fullName || p.author?.username || 'User',
           avatar: p.author?.avatarUrl || '',
         },
         views: p.viewsCount,

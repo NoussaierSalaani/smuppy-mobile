@@ -147,9 +147,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        peaks: formattedPeaks,
-        cursor: nextCursor,
+        data: formattedPeaks,
+        nextCursor,
         hasMore,
+        total: formattedPeaks.length,
       }),
     };
   } catch (error: unknown) {

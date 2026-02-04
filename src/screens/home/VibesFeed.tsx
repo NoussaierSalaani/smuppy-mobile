@@ -409,7 +409,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       setPeaksData((res.data || []).map((p) => ({
         id: p.id,
         thumbnail: p.thumbnailUrl || p.videoUrl,
-        user: { id: p.author?.id || p.authorId, name: p.author?.displayName || p.author?.username || 'User', avatar: p.author?.avatarUrl || null },
+        user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: p.author?.avatarUrl || null },
         duration: p.duration,
         hasNew: true,
       })));

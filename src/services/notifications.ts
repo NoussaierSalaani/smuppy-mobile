@@ -7,6 +7,8 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { v4 as uuidv4 } from 'uuid';
 import { awsAPI } from './aws-api';
 import { captureException } from '../lib/sentry';
 
@@ -90,27 +92,70 @@ export const requestPermissions = async (): Promise<boolean> => {
  * Get the Expo push token for this device
  * @returns Push token or null
  */
-export const getExpoPushToken = async (): Promise<string | null> => {
+// Persistent device identifier (per install)
+const DEVICE_ID_KEY = 'smuppy_device_id';
+export const getDeviceId = async (): Promise<string> => {
+  try {
+    const existing = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const id = uuidv4();
+    await SecureStore.setItemAsync(DEVICE_ID_KEY, id);
+    return id;
+  } catch {
+    return uuidv4();
+  }
+};
+
+/**
+ * Get native push token (APNs/FCM) for production apps.
+ * Falls back to Expo token in dev if native token unavailable.
+ */
+export const getNativePushToken = async (): Promise<{ token: string; platform: 'ios' | 'android' } | null> => {
   if (!Device.isDevice) {
     if (__DEV__) console.log('Must use physical device for Push Notifications');
     return null;
   }
 
-  try {
-    // Request permissions first
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) {
-      return null;
-    }
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return null;
 
-    // Get the token
+  try {
+    const native = await Notifications.getDevicePushTokenAsync();
+    const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+    const token = typeof native.data === 'string'
+      ? native.data
+      : (native as any)?.data?.pushToken || '';
+
+    if (token) return { token, platform };
+  } catch (error) {
+    captureException(error as Error, { context: 'getDevicePushToken' });
+  }
+
+  // Dev fallback to Expo token to keep push working in Expo Go
+  try {
+    const expoToken = await Notifications.getExpoPushTokenAsync({
+      projectId: process.env.EXPO_PUBLIC_PROJECT_ID || Constants.expoConfig?.extra?.eas?.projectId || undefined,
+    });
+    if (expoToken?.data) {
+      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+      return { token: expoToken.data, platform };
+    }
+  } catch (err) {
+    captureException(err as Error, { context: 'getExpoPushToken-fallback' });
+  }
+
+  return null;
+};
+
+// Backwards-compatible helper (used only in default export to avoid runtime errors)
+export const getExpoPushToken = async (): Promise<string | null> => {
+  try {
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId: process.env.EXPO_PUBLIC_PROJECT_ID || Constants.expoConfig?.extra?.eas?.projectId || undefined,
     });
-
-    return tokenData.data;
+    return tokenData?.data || null;
   } catch (error) {
-    captureException(error as Error, { context: 'getExpoPushToken' });
+    captureException(error as Error, { context: 'getExpoPushToken-compat' });
     return null;
   }
 };
@@ -121,18 +166,14 @@ export const getExpoPushToken = async (): Promise<string | null> => {
  */
 export const registerPushToken = async (_userId: string): Promise<boolean> => {
   try {
-    const token = await getExpoPushToken();
-    if (!token) {
-      return false;
-    }
+    const native = await getNativePushToken();
+    if (!native) return false;
 
-    const deviceId = Device.deviceName || 'unknown';
-    const platform = Platform.OS as 'ios' | 'android';
+    const deviceId = await getDeviceId();
 
-    // Save to AWS
     await awsAPI.registerPushToken({
-      token,
-      platform,
+      token: native.token,
+      platform: native.platform,
       deviceId,
     });
 
@@ -150,7 +191,7 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
  */
 export const unregisterPushToken = async (_userId: string): Promise<void> => {
   try {
-    const deviceId = Device.deviceName || 'unknown';
+    const deviceId = await getDeviceId();
     await awsAPI.unregisterPushToken(deviceId);
     if (__DEV__) console.log('Push token unregistered');
   } catch (error) {

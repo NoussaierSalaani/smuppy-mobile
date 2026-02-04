@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode, AVPlaybackStatusSuccess } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
@@ -52,6 +53,7 @@ interface PeakTag {
 interface Peak {
   id: string;
   thumbnail: string;
+  videoUrl?: string;
   duration: number;
   user: PeakUser;
   views: number;
@@ -100,6 +102,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [likedPeaks, setLikedPeaks] = useState<Set<string>>(new Set());
   const [savedPeaks, setSavedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
+  const videoRef = useRef<Video | null>(null);
+  const [videoDuration, setVideoDuration] = useState(0);
   const [showTagModal, setShowTagModal] = useState(false);
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
@@ -139,31 +143,16 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   }, [showOnboarding]);
 
-  // Progress bar effect
+  // Reset progress and play when peak changes
   useEffect(() => {
-    if (!isPaused && !showMenu && currentPeak.duration) {
-      setProgress(0);
-      const duration = currentPeak.duration * 1000;
-      const interval = 50;
-      const step = (interval / duration) * 100;
-
-      progressInterval.current = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(progressInterval.current!);
-            return 100;
-          }
-          return prev + step;
-        });
-      }, interval);
-
-      return () => {
-        if (progressInterval.current) {
-          clearInterval(progressInterval.current);
-        }
-      };
+    setProgress(0);
+    setVideoDuration(0);
+    if (videoRef.current) {
+      videoRef.current.setPositionAsync(0).then(() => {
+        videoRef.current?.playAsync().catch(() => {});
+      }).catch(() => {});
     }
-  }, [currentIndex, isPaused, showMenu, currentPeak.duration]);
+  }, [currentIndex]);
 
   // Reset progress when changing peak
   useEffect(() => {
@@ -238,6 +227,12 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleSingleTap = (): void => {
+    // Toggle play/pause and carousel visibility
+    const nextPaused = !isPaused;
+    setIsPaused(nextPaused);
+    if (videoRef.current) {
+      nextPaused ? videoRef.current.pauseAsync() : videoRef.current.playAsync();
+    }
     setCarouselVisible(!carouselVisible);
   };
 
@@ -622,6 +617,25 @@ const PeakViewScreen = (): React.JSX.Element => {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const placeholder = useMemo(() => require('../../../assets/images/bg.png'), []);
 
+  const onVideoStatus = (status: any) => {
+    const s = status as AVPlaybackStatusSuccess;
+    if (!s.isLoaded) return;
+    if (s.durationMillis) setVideoDuration(s.durationMillis);
+    if (s.positionMillis && s.durationMillis) {
+      const pct = Math.min(100, Math.max(0, (s.positionMillis / s.durationMillis) * 100));
+      setProgress(pct);
+    }
+    if (s.didJustFinish) {
+      // Advance to next peak if available
+      if (currentIndex < peaks.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setIsPaused(true);
+        videoRef.current?.pauseAsync().catch(() => {});
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar hidden />
@@ -633,11 +647,17 @@ const PeakViewScreen = (): React.JSX.Element => {
         delayLongPress={300}
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
-          <OptimizedImage
-            source={currentPeak.thumbnail || placeholder}
+          <Video
+            ref={(r) => { videoRef.current = r; }}
+            source={{ uri: currentPeak.videoUrl || currentPeak.thumbnail || placeholder as any }}
             style={styles.media}
-            contentFit="cover"
-            priority="high"
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping
+            isMuted={false}
+            onPlaybackStatusUpdate={onVideoStatus}
+            posterSource={{ uri: currentPeak.thumbnail || undefined }}
+            usePoster
           />
         </View>
       </TouchableWithoutFeedback>

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Animated,
+  Text,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +16,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { SmuppyText } from './SmuppyLogo';
 import { useTabBar } from '../context/TabBarContext';
 import { useTheme } from '../hooks/useTheme';
-import { useUserStore } from '../stores';
+import { useUserStore, useAppStore } from '../stores';
 import { LiquidTabs } from './LiquidTabs';
 
 // Constants for tab bar calculations (kept for reference, LiquidTabs handles rendering now)
@@ -44,6 +45,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity, xplorerFullscreen } = useTabBar();
   const { colors, gradients, isDark } = useTheme();
+  const unreadNotifications = useAppStore((state) => state.unreadNotifications);
 
   // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
@@ -204,7 +206,16 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 accessibilityRole="button"
                 accessibilityHint="Opens your notifications"
               >
-                <Ionicons name="notifications-outline" size={24} color={iconColor} />
+                <View>
+                  <Ionicons name="notifications-outline" size={24} color={iconColor} />
+                  {unreadNotifications > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -323,5 +334,23 @@ const styles = StyleSheet.create({
   },
   liquidTabsCompact: {
     marginHorizontal: 0,
+  },
+
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    minWidth: 20,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

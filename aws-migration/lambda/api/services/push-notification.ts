@@ -131,7 +131,7 @@ async function sendToAndroid(
         priority: 'high',
         notification: {
           sound: payload.sound || 'default',
-          channelId: 'smuppy_notifications',
+          channelId: (payload.data as any)?.channelId || 'default',
         },
       },
     };
@@ -266,7 +266,7 @@ export async function sendPushNotificationBatch(
             priority: 'high' as const,
             notification: {
               sound: payload.sound || 'default',
-              channelId: 'smuppy_notifications',
+              channelId: (payload.data as any)?.channelId || 'default',
             },
           },
         }));

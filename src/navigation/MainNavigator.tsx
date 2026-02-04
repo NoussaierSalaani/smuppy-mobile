@@ -297,10 +297,22 @@ export default function MainNavigator() {
 
     syncProfile();
 
-    // Fetch initial unread counts
+    // Fetch initial unread counts (notifications)
     awsAPI.getUnreadCount()
       .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
       .catch(() => {});
+
+    // Fetch initial unread messages count by summing conversation unread_count
+    const loadUnreadMessages = async () => {
+      try {
+        const res = await awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=100');
+        const total = (res.conversations || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
+        useAppStore.getState().setUnreadMessages(total);
+      } catch {
+        // ignore
+      }
+    };
+    loadUnreadMessages();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

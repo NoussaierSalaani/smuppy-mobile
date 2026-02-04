@@ -33,6 +33,7 @@ import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useTheme } from '../../hooks/useTheme';
+import { PeakGridSkeleton } from '../../components/skeleton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 import SharePostModal from '../../components/SharePostModal';
@@ -258,7 +259,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Posts state - initialize from cache for instant display
   const [allPosts, setAllPosts] = useState<UIVibePost[]>(vibesFeedCache.posts);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
-  const [, setIsLoading] = useState(() => vibesFeedCache.posts.length === 0);
+  const [isLoading, setIsLoading] = useState(() => vibesFeedCache.posts.length === 0);
   const [page, setPage] = useState(vibesFeedCache.page);
 
   const [selectedPost, setSelectedPost] = useState<UIVibePost | null>(null);
@@ -1110,11 +1111,15 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           </View>
 
           {filteredPosts.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="images-outline" size={64} color={colors.gray} />
-              <Text style={styles.emptyTitle}>No vibes found</Text>
-              <Text style={styles.emptySubtitle}>Try selecting different interests</Text>
-            </View>
+            isLoading ? (
+              <PeakGridSkeleton />
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="images-outline" size={64} color={colors.gray} />
+                <Text style={styles.emptyTitle}>No vibes found</Text>
+                <Text style={styles.emptySubtitle}>Try selecting different interests</Text>
+              </View>
+            )
           )}
 
           {loadingMore && (

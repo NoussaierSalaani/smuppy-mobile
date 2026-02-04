@@ -32,6 +32,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { MapListSkeleton } from '../../components/skeleton';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -679,9 +680,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
             }
             ListEmptyComponent={
               isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
+                <MapListSkeleton />
               ) : (
                 <View style={styles.emptyContainer}>
                   <Ionicons name="business-outline" size={64} color={colors.gray} />

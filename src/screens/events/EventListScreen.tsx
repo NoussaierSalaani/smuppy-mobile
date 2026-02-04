@@ -30,6 +30,7 @@ import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { MapListSkeleton } from '../../components/skeleton';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -681,9 +682,7 @@ export default function EventListScreen() {
             }
             ListEmptyComponent={
               isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#FF6B35" />
-                </View>
+                <MapListSkeleton />
               ) : (
                 <View style={styles.emptyContainer}>
                   <Ionicons name="calendar-outline" size={64} color="#444" />

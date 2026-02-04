@@ -3,7 +3,7 @@ import { ActivityIndicator, AppState, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserStore, useAppStore } from '../stores';
-import { getCurrentProfile } from '../services/database';
+import { getCurrentProfile, getConversations } from '../services/database';
 import { awsAPI } from '../services/aws-api';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
@@ -17,19 +17,26 @@ const asScreen = <T,>(component: T): ComponentType<any> => component as Componen
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
+  // Notification badge
   awsAPI.getUnreadCount()
     .then(({ unreadCount }) => {
       if (__DEV__) console.log('[Badges] notifications:', unreadCount);
       useAppStore.getState().setUnreadNotifications(unreadCount ?? 0);
     })
-    .catch((err) => { if (__DEV__) console.warn('[Badges] Failed to fetch notification count:', err); });
-  awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=50')
-    .then((res) => {
-      const total = (res.conversations || []).reduce((sum: number, c: { unread_count?: number }) => sum + (c.unread_count || 0), 0);
-      if (__DEV__) console.log('[Badges] messages:', total);
+    .catch((err) => { if (__DEV__) console.warn('[Badges] notif fetch failed:', err); });
+
+  // Message badge — use the same getConversations as MessagesScreen (proven code path)
+  getConversations(50)
+    .then(({ data, error }) => {
+      if (error || !data) {
+        if (__DEV__) console.warn('[Badges] msg fetch failed:', error);
+        return;
+      }
+      const total = data.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      if (__DEV__) console.log('[Badges] messages:', total, `(${data.length} convos)`);
       useAppStore.getState().setUnreadMessages(total);
     })
-    .catch((err) => { if (__DEV__) console.warn('[Badges] Failed to fetch message count:', err); });
+    .catch((err) => { if (__DEV__) console.warn('[Badges] msg fetch error:', err); });
 };
 
 // ============================================

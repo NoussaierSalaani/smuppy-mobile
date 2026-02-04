@@ -115,6 +115,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     return initial;
   });
   const [savedPeaks, setSavedPeaks] = useState<Set<string>>(new Set());
+  const [viewedPeaks, setViewedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
   const videoRef = useRef<Video | null>(null);
   const [videoDuration, setVideoDuration] = useState(0);
@@ -178,6 +179,12 @@ const PeakViewScreen = (): React.JSX.Element => {
       videoRef.current.setPositionAsync(0).then(() => {
         videoRef.current?.playAsync().catch(() => {});
       }).catch(() => {});
+    }
+
+    // Count a view locally (once per peak in this session)
+    if (currentPeak.id && !viewedPeaks.has(currentPeak.id)) {
+      setViewedPeaks(prev => new Set(prev).add(currentPeak.id));
+      peaks[currentIndex] = { ...currentPeak, views: (currentPeak.views || 0) + 1 };
     }
   }, [currentIndex]);
 
@@ -296,13 +303,13 @@ const PeakViewScreen = (): React.JSX.Element => {
         await awsAPI.unlikePeak(currentPeak.id);
         useFeedStore.getState().setPeakLikeOverride(currentPeak.id, false);
         // Sync current peak likes
-        peaks[currentIndex].likes = Math.max((currentPeak.likes || 1) - 1, 0);
-        peaks[currentIndex].isLiked = false;
+        const updatedLikes = Math.max((currentPeak.likes || 1) - 1, 0);
+        peaks[currentIndex] = { ...currentPeak, likes: updatedLikes, isLiked: false };
       } else {
         await awsAPI.likePeak(currentPeak.id);
         useFeedStore.getState().setPeakLikeOverride(currentPeak.id, true);
-        peaks[currentIndex].likes = (currentPeak.likes || 0) + 1;
-        peaks[currentIndex].isLiked = true;
+        const updatedLikes = (currentPeak.likes || 0) + 1;
+        peaks[currentIndex] = { ...currentPeak, likes: updatedLikes, isLiked: true };
       }
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);
@@ -629,7 +636,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
-  const likesCount = (currentPeak.likes || 0) + (isLiked ? 1 : 0);
+  const likesCount = currentPeak.likes ?? 0;
   const repliesCount = currentPeak.repliesCount || 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
   const _tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;

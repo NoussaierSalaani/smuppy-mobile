@@ -112,7 +112,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     const peaksOnly = allUserPosts.filter(post => post.is_peak);
     return peaksOnly.map(p => ({
       id: p.id,
-      videoUrl: p.media_urls?.[0],
+      videoUrl: p.media_urls?.find(m => m?.endsWith('.mp4') || m?.includes('video')) || p.media_urls?.[0],
       media_urls: p.media_urls || [],
       media_type: p.media_type || 'video',
       is_peak: true,

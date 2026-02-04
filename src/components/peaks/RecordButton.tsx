@@ -51,6 +51,7 @@ const RecordButton = ({
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [recording, setRecording] = useState(false);
+  const recordingRef = useRef(false);
   const recordDurationRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -79,6 +80,7 @@ const RecordButton = ({
   });
 
   const handlePressIn = (): void => {
+    recordingRef.current = true;
     setRecording(true);
     recordDurationRef.current = 0;
     startTimeRef.current = Date.now();
@@ -112,10 +114,11 @@ const RecordButton = ({
   };
 
   const handlePressOut = (): void => {
-    if (!recording) return;
+    if (!recordingRef.current) return;
 
     const finalDuration = recordDurationRef.current;
 
+    recordingRef.current = false;
     setRecording(false);
 
     // S logo deflate animation - dégonfle avec spring

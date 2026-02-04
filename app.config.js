@@ -69,6 +69,10 @@ infoPlist: {
   NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
   NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
   NSContactsUsageDescription: 'Smuppy can help you find friends from your contacts.',
+  // Calendar — required by expo-calendar (SessionDetail, SessionBooked, BusinessBookingSuccess)
+  NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
 },
     },
 android: {
@@ -129,6 +133,7 @@ plugins: [
 'expo-location',
 'expo-image-picker',
 'expo-contacts',
+'expo-calendar',
 [
   '@stripe/stripe-react-native',
   {

@@ -107,6 +107,10 @@ export async function calculateRoute(
   waypoints: Coordinate[] = [],
   profile: RouteProfile = 'walking',
 ): Promise<RouteResult> {
+  if (!MAPBOX_TOKEN) {
+    throw new Error('Mapbox access token not configured');
+  }
+
   // Build coordinates string: start;waypoint1;waypoint2;...;end
   const allPoints = [start, ...waypoints, end];
   const coordsString = allPoints

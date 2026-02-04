@@ -139,6 +139,11 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
   // Publish
   const handlePublish = async (): Promise<void> => {
+    if (isChallenge && !challengeTitle.trim()) {
+      alert.error('Challenge Title Required', 'Please enter a title for your challenge');
+      return;
+    }
+
     setIsPublishing(true);
 
     if (videoRef.current) {
@@ -163,11 +168,23 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
       // Create peak via dedicated peaks API
       const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
-      await awsAPI.createPeak({
+      const peakResult = await awsAPI.createPeak({
         videoUrl: mediaUrl,
         caption: textOverlay || undefined,
         duration: duration,
-      });
+        replyToPeakId: replyTo || undefined,
+      }) as unknown as { success: boolean; peak: { id: string } };
+
+      // Create challenge if enabled
+      if (isChallenge && challengeTitle.trim()) {
+        await awsAPI.createChallenge({
+          peakId: peakResult.peak.id,
+          title: challengeTitle.trim(),
+          rules: challengeRules.trim() || undefined,
+          isPublic: true,
+          allowAnyone: true,
+        });
+      }
 
       // Show success and navigate
       setShowSuccessModal(true);

@@ -3405,6 +3405,7 @@ export interface CreatePeakInput {
   thumbnailUrl?: string;
   caption?: string;
   duration: number;
+  replyToPeakId?: string;
 }
 
 export interface UpdateProfileInput {

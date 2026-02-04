@@ -95,7 +95,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Verify peak exists and belongs to user
     const peakResult = await client.query(
-      `SELECT id, user_id FROM peaks WHERE id = $1`,
+      `SELECT id, author_id FROM peaks WHERE id = $1`,
       [peakId]
     );
 
@@ -106,7 +106,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    if (peakResult.rows[0].user_id !== profileId) {
+    if (peakResult.rows[0].author_id !== profileId) {
       return cors({
         statusCode: 403,
         body: JSON.stringify({

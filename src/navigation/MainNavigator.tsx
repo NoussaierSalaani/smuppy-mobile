@@ -9,6 +9,7 @@ import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
 import { FEATURES } from '../config/featureFlags';
 import { useAutoRegisterPushNotifications, useNotifications } from '../hooks/useNotifications';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // Type helper to cast screen components for React Navigation compatibility
 
@@ -28,9 +29,11 @@ const LazyFallback = () => (
 function lazyScreen(importFn: () => Promise<{ default: ComponentType<any> }>) {
   const Lazy = React.lazy(importFn);
   return (props: Record<string, unknown>) => (
-    <React.Suspense fallback={<LazyFallback />}>
-      <Lazy {...props} />
-    </React.Suspense>
+    <ErrorBoundary name="LazyScreen" minimal>
+      <React.Suspense fallback={<LazyFallback />}>
+        <Lazy {...props} />
+      </React.Suspense>
+    </ErrorBoundary>
   );
 }
 
@@ -178,9 +181,11 @@ const PaymentMethodsScreen = lazyScreen(() => import('../screens/payments').then
 // WebView (already lazy)
 const LazyWebViewScreen = React.lazy(() => import('../screens/WebViewScreen'));
 const WebViewScreen = (props: Record<string, unknown>) => (
-  <React.Suspense fallback={<LazyFallback />}>
-    <LazyWebViewScreen {...props} />
-  </React.Suspense>
+  <ErrorBoundary name="WebView" minimal>
+    <React.Suspense fallback={<LazyFallback />}>
+      <LazyWebViewScreen {...props} />
+    </React.Suspense>
+  </ErrorBoundary>
 );
 
 // Find Friends (standalone popup)

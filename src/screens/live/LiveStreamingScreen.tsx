@@ -122,8 +122,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const startStream = async () => {
     setIsStarting(true);
     const success = await joinChannel(channelName, null);
-    if (!success && error) {
-      showError('Error', error || 'Failed to start stream');
+    if (!success) {
+      showError('Error', 'Failed to start stream. Please try again.');
       navigation.goBack();
       return;
     }

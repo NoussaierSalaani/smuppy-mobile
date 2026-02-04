@@ -61,7 +61,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { videoUrl, thumbnailUrl, caption, duration } = body;
+    const { videoUrl, thumbnailUrl, caption, duration, replyToPeakId } = body;
 
     // Validate required fields
     if (!videoUrl || typeof videoUrl !== 'string') {
@@ -85,6 +85,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'Invalid thumbnail URL format' }),
+      };
+    }
+
+    // Validate replyToPeakId if provided
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (replyToPeakId && (typeof replyToPeakId !== 'string' || !uuidRegex.test(replyToPeakId))) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid reply peak ID format' }),
       };
     }
 
@@ -112,12 +122,27 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Sanitize caption
     const sanitizedCaption = caption ? sanitizeText(caption, 500) : null;
 
+    // Validate reply parent exists if provided
+    if (replyToPeakId) {
+      const parentResult = await db.query(
+        'SELECT id FROM peaks WHERE id = $1',
+        [replyToPeakId]
+      );
+      if (parentResult.rows.length === 0) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Reply target peak not found' }),
+        };
+      }
+    }
+
     // Create peak
     const result = await db.query(
-      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, video_url, thumbnail_url, caption, duration, likes_count, comments_count, views_count, created_at`,
-      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration]
+      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, likes_count, comments_count, views_count, created_at`,
+      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null]
     );
 
     const peak = result.rows[0];
@@ -133,6 +158,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           thumbnailUrl: peak.thumbnail_url,
           caption: peak.caption,
           duration: peak.duration,
+          replyToPeakId: peak.reply_to_peak_id || null,
           likesCount: peak.likes_count,
           commentsCount: peak.comments_count,
           viewsCount: peak.views_count,

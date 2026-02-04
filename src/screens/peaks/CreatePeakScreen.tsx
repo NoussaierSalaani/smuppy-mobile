@@ -88,6 +88,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [selectedDuration, setSelectedDuration] = useState(10);
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
   const [recordedVideo, setRecordedVideo] = useState<RecordedVideo | null>(null);
   const [cameraKey, setCameraKey] = useState(1);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
@@ -162,6 +163,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Full reset
   const resetCamera = (): void => {
+    isRecordingRef.current = false;
     setIsRecording(false);
     setRecordedVideo(null);
     setIsPreviewPlaying(false);
@@ -208,6 +210,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
       filterPanelProgress.value = withTiming(0, { duration: 200 });
     }
 
+    isRecordingRef.current = true;
     setIsRecording(true);
     setRecordedVideo(null);
 
@@ -220,9 +223,11 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         if (video) {
           setRecordedVideo(video);
         }
+        isRecordingRef.current = false;
         setIsRecording(false);
         setIsPreviewPlaying(false);
       } catch (_error) {
+        isRecordingRef.current = false;
         setIsRecording(false);
         const isSimulator = !cameraRef.current;
         showCustomAlert(
@@ -236,7 +241,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // End recording
   const handleRecordEnd = async (_recordedDuration: number): Promise<void> => {
-    if (cameraRef.current && isRecording) {
+    if (cameraRef.current && isRecordingRef.current) {
       try {
         cameraRef.current.stopRecording();
       } catch (_error) {
@@ -247,6 +252,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Recording too short - show toast instead of invasive modal
   const handleRecordCancel = (message: string): void => {
+    isRecordingRef.current = false;
     setIsRecording(false);
     setRecordedVideo(null);
 

@@ -2032,20 +2032,32 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    // Step 1: Get presigned upload URL from Lambda
+    // Step 1: Verify the audio file exists and is non-empty
+    const FileSystem = await import('expo-file-system/legacy');
+    const fileInfo = await FileSystem.getInfoAsync(audioUri);
+    if (!fileInfo.exists) {
+      if (__DEV__) console.warn('[uploadVoiceMessage] Audio file does not exist:', audioUri);
+      return { data: null, error: 'Recording file not found' };
+    }
+    if ('size' in fileInfo && typeof fileInfo.size === 'number' && fileInfo.size === 0) {
+      if (__DEV__) console.warn('[uploadVoiceMessage] Audio file is empty (0 bytes):', audioUri);
+      return { data: null, error: 'Recording file is empty' };
+    }
+
+    // Step 2: Get presigned upload URL from Lambda
     const { url: presignedUrl, key } = await awsAPI.request<{ url: string; key: string }>('/media/upload-voice', {
       method: 'POST',
       body: { conversationId },
     });
 
-    // Step 2: Upload the audio file to S3 using the presigned URL
+    // Step 3: Upload the audio file to S3 using the presigned URL
     const { uploadWithFileSystem } = await import('./mediaUpload');
     const uploadSuccess = await uploadWithFileSystem(audioUri, presignedUrl, 'audio/mp4');
     if (!uploadSuccess) {
       return { data: null, error: 'Failed to upload voice message' };
     }
 
-    // Step 3: Return the CDN URL for the uploaded file
+    // Step 4: Return the CDN URL for the uploaded file
     const cdnUrl = awsAPI.getCDNUrl(key);
     return { data: cdnUrl, error: null };
   } catch (error: unknown) {

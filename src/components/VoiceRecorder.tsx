@@ -26,6 +26,8 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationRef = useRef(0);
+  const recordingUriRef = useRef<string | null>(null);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -90,13 +92,17 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
 
+      // Capture URI immediately while recording object is fully initialized
+      recordingUriRef.current = newRecording.getURI();
       setRecording(newRecording);
       setIsRecording(true);
       setDuration(0);
+      durationRef.current = 0;
 
       // Start duration counter
       durationInterval.current = setInterval(() => {
-        setDuration(prev => prev + 1);
+        durationRef.current += 1;
+        setDuration(durationRef.current);
       }, 1000);
     } catch (err) {
       if (__DEV__) console.warn('Failed to start recording:', err);
@@ -112,23 +118,37 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         clearInterval(durationInterval.current);
       }
 
-      await recording.stopAndUnloadAsync();
+      // Get the actual recording status for real duration
+      const status = await recording.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
       });
 
-      const uri = recording.getURI();
+      // Use URI captured at creation (safe) or try getURI as fallback
+      const uri = recordingUriRef.current || recording.getURI();
+
+      // Use real duration from recording status, fall back to manual timer
+      const realDurationSec = status.durationMillis
+        ? Math.floor(status.durationMillis / 1000)
+        : durationRef.current;
+
       setRecording(null);
       setIsRecording(false);
+      recordingUriRef.current = null;
 
-      if (uri && duration >= 1) {
-        onSend(uri, duration);
-      } else if (duration < 1) {
+      if (uri && realDurationSec >= 1) {
+        onSend(uri, realDurationSec);
+      } else if (!uri) {
+        if (__DEV__) console.warn('[VoiceRecorder] No recording URI available');
+        showError('Error', 'Recording failed. Please try again.');
+        onCancel();
+      } else {
         showError('Too Short', 'Voice message must be at least 1 second');
         onCancel();
       }
     } catch (err) {
       if (__DEV__) console.warn('Failed to stop recording:', err);
+      showError('Error', 'Recording failed. Please try again.');
       onCancel();
     }
   };
@@ -146,6 +166,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
     }
     setRecording(null);
     setIsRecording(false);
+    recordingUriRef.current = null;
     onCancel();
   };
 

@@ -1,3 +1,4 @@
+/// <reference path="../types/global.d.ts" />
 /**
  * AWS Configuration for Smuppy
  *
@@ -9,9 +10,9 @@
  * Behavior:
  * - Production / Release builds: use env vars. If missing, fall back to staging
  *   defaults and log a single console.error (app stays alive).
- * - Dev with DEV_USE_STAGING=true in .env: silently use staging defaults for
+ * - Dev with EXPO_PUBLIC_DEV_USE_STAGING=true in .env: silently use staging defaults for
  *   any missing EXPO_PUBLIC_* vars, log one consolidated warning.
- * - Dev WITHOUT DEV_USE_STAGING: log an error for each missing var so the
+ * - Dev WITHOUT EXPO_PUBLIC_DEV_USE_STAGING: log an error for each missing var so the
  *   developer knows their .env is incomplete, but still use staging defaults
  *   (never crash).
  */
@@ -80,7 +81,7 @@ export const getAWSConfig = (): AWSConfig => {
   const currentEnv = getEnvironment();
   const isProduction = currentEnv === 'production';
   const isReleaseBuild = typeof __DEV__ !== 'undefined' ? !__DEV__ : process.env.NODE_ENV === 'production';
-  const devUsesStaging = __DEV__ && env('DEV_USE_STAGING') === 'true';
+  const devUsesStaging = __DEV__ && env('EXPO_PUBLIC_DEV_USE_STAGING') === 'true';
 
   // Track which vars fell back to staging defaults
   const fallbackVars: string[] = [];
@@ -134,7 +135,7 @@ export const getAWSConfig = (): AWSConfig => {
       // DEV without opt-in: clear error telling developer what to do
       console.error(
         `[AWS Config] ${fallbackVars.length} EXPO_PUBLIC_* variable(s) missing: ${fallbackVars.join(', ')}. ` +
-        'Either set them in your .env file, or add DEV_USE_STAGING=true to your .env to acknowledge staging defaults.'
+        'Either set them in your .env file, or add EXPO_PUBLIC_DEV_USE_STAGING=true to your .env to acknowledge staging defaults.'
       );
     }
   }

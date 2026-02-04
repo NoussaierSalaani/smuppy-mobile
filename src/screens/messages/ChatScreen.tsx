@@ -27,6 +27,7 @@ import SharedPostBubble from '../../components/SharedPostBubble';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useAppStore } from '../../stores';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
@@ -112,6 +113,7 @@ interface ChatScreenProps {
       conversationId?: string | null;
       otherUser?: Profile | null;
       userId?: string;
+      unreadCount?: number;
     };
   };
   navigation: {
@@ -124,7 +126,7 @@ interface ChatScreenProps {
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { colors, isDark } = useTheme();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
-  const { conversationId: initialConversationId, otherUser, userId } = route.params;
+  const { conversationId: initialConversationId, otherUser, userId, unreadCount: routeUnreadCount } = route.params;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<typeof FlashList.prototype | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -235,6 +237,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         if (!hasMarkedReadRef.current) {
           hasMarkedReadRef.current = true;
           markConversationAsRead(conversationId);
+          // Decrement the global unread messages badge
+          if (routeUnreadCount && routeUnreadCount > 0) {
+            useAppStore.getState().setUnreadMessages((prev) => Math.max(0, prev - routeUnreadCount));
+          }
         }
       }
     }

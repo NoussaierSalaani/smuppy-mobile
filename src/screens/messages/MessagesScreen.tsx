@@ -13,6 +13,7 @@ import { FlashList } from '@shopify/flash-list';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { AccountBadge } from '../../components/Badge';
@@ -51,7 +52,8 @@ const ConversationItem = memo(({ item, colors, styles, onNavigate, onProfilePres
       style={styles.conversationItem}
       onPress={() => onNavigate('Chat', {
         conversationId: item.id,
-        otherUser: otherUser
+        otherUser: otherUser,
+        unreadCount: item.unread_count || 0,
       })}
       activeOpacity={0.7}
     >
@@ -124,21 +126,29 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load conversations
+  // Load conversations and sync unread badge to accurate total
   const loadConversations = useCallback(async () => {
     const { data, error } = await getConversations();
     if (!error && data) {
       setConversations(data);
+      const total = data.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      useAppStore.getState().setUnreadMessages(total);
     }
     setLoading(false);
     setRefreshing(false);
   }, []);
 
-  // Initial load + clear message badge
+  // Initial load
   useEffect(() => {
     loadConversations();
-    useAppStore.getState().setUnreadMessages(0);
   }, [loadConversations]);
+
+  // Reload and resync badge when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      loadConversations();
+    }, [loadConversations])
+  );
 
   // Poll for conversation updates every 15s when app is active
   useEffect(() => {

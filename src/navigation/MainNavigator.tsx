@@ -1,5 +1,5 @@
-import React, { useState, useEffect, ComponentType } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { useState, useEffect, useCallback, ComponentType } from 'react';
+import { ActivityIndicator, AppState, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserStore, useAppStore } from '../stores';
@@ -297,24 +297,33 @@ export default function MainNavigator() {
 
     syncProfile();
 
-    // Fetch initial unread counts (notifications)
-    awsAPI.getUnreadCount()
-      .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
-      .catch(() => {});
-
-    // Fetch initial unread messages count by summing conversation unread_count
-    const loadUnreadMessages = async () => {
-      try {
-        const res = await awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=100');
-        const total = (res.conversations || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
-        useAppStore.getState().setUnreadMessages(total);
-      } catch {
-        // ignore
-      }
-    };
-    loadUnreadMessages();
+    // Fetch initial unread counts
+    refreshBadgeCounts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reusable function to refresh both badge counts
+  const refreshBadgeCounts = useCallback(() => {
+    awsAPI.getUnreadCount()
+      .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
+      .catch(() => { /* best-effort */ });
+    awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=100')
+      .then((res) => {
+        const total = (res.conversations || []).reduce((sum: number, c: { unread_count?: number }) => sum + (c.unread_count || 0), 0);
+        useAppStore.getState().setUnreadMessages(total);
+      })
+      .catch(() => { /* best-effort */ });
+  }, []);
+
+  // Refresh badges when app returns from background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        refreshBadgeCounts();
+      }
+    });
+    return () => subscription.remove();
+  }, [refreshBadgeCounts]);
 
   // Register for push notifications when user is logged in
   useAutoRegisterPushNotifications();
@@ -325,6 +334,8 @@ export default function MainNavigator() {
       const data = notification.request.content.data as { type?: string } | undefined;
       if (data?.type === 'message') {
         useAppStore.getState().setUnreadMessages((prev) => prev + 1);
+      } else {
+        useAppStore.getState().setUnreadNotifications((prev) => prev + 1);
       }
     },
   });

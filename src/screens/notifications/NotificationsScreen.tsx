@@ -216,13 +216,21 @@ export default function NotificationsScreen(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reload when screen comes into focus + clear badge
+  // Reload when screen comes into focus + mark all read and sync badge
   useFocusEffect(
     useCallback(() => {
       loadFollowRequestsCount();
       fetchNotifications(true);
+      // Optimistically clear badge, then mark all read on server
       useAppStore.getState().setUnreadNotifications(0);
-      awsAPI.markAllNotificationsRead().catch(() => {});
+      awsAPI.markAllNotificationsRead()
+        .then(() => {
+          // Confirm accurate count from server (catches race with new notifications)
+          awsAPI.getUnreadCount()
+            .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
+            .catch(() => { /* best-effort */ });
+        })
+        .catch(() => { /* best-effort */ });
     }, [loadFollowRequestsCount, fetchNotifications])
   );
 

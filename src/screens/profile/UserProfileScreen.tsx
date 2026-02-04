@@ -154,6 +154,26 @@ const UserProfileScreen = () => {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
 
+  // On mount, if cache says not fan, double-check with follow-check endpoint to avoid stale flashes
+  useEffect(() => {
+    if (!userId || isFan) return;
+    let cancelled = false;
+    setIsVerifyingFollow(true);
+    checkIsFollowing(userId).then(({ isFollowing }) => {
+      if (cancelled) return;
+      if (isFollowing) {
+        setIsFan(true);
+        queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
+          old ? { ...old, is_following: true } : old
+        );
+      }
+    }).finally(() => {
+      if (!cancelled) setIsVerifyingFollow(false);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   // Live status for pro_creator
   const [creatorLiveStatus, setCreatorLiveStatus] = useState<{
     isLive: boolean;

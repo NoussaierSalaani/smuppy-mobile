@@ -73,6 +73,8 @@ interface LiquidButtonProps {
   iconOnly?: boolean;
   variant?: 'filled' | 'outline';
   colorScheme?: ColorScheme;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const SIZE_CONFIG = {
@@ -94,6 +96,8 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   iconOnly = false,
   variant = 'filled',
   colorScheme = 'green',
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const config = SIZE_CONFIG[size];
   const scheme = COLOR_SCHEMES[colorScheme];
@@ -119,6 +123,9 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
         onPress={onPress}
         disabled={disabled}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || label}
+        accessibilityHint={accessibilityHint}
         style={[
           styles.outlineContainer,
           {
@@ -147,6 +154,9 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || label}
+      accessibilityHint={accessibilityHint}
       style={[
         styles.container,
         { borderRadius: iconOnly ? config.height / 2 : config.radius, opacity: disabled ? 0.5 : 1, shadowColor: scheme.shadow },

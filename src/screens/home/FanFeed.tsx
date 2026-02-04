@@ -530,8 +530,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         key={`suggestion-${index}-${suggestion.id}`}
         style={styles.suggestionItem}
         accessible={true}
-        accessibilityRole="summary"
-        accessibilityLabel={`${suggestion.name}${suggestion.isVerified ? ', verified' : ''}`}
+        accessibilityLabel={`${suggestion.name}${suggestion.isVerified ? ', verified' : ''}, suggested user`}
       >
         <TouchableOpacity
           style={styles.suggestionAvatarWrapper}
@@ -563,6 +562,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           onPress={() => handleTrackUser(suggestion.id)}
           disabled={isTracking}
           size="xs"
+          accessibilityLabel={`Follow ${suggestion.name}`}
+          accessibilityHint="Double tap to follow this user"
         />
       </View>
     );
@@ -820,6 +821,16 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         {suggestions.length === 0 && suggestionsExhausted ? (
           <View style={styles.suggestionsEmpty}>
             <Text style={styles.suggestionsEmptyText}>No recommendations available right now</Text>
+            <TouchableOpacity
+              style={styles.suggestionsEmptyCTA}
+              onPress={() => navigation.navigate('Search')}
+              accessibilityRole="button"
+              accessibilityLabel="Explore users"
+              accessibilityHint="Opens search to find people to follow"
+            >
+              <Ionicons name="search-outline" size={16} color={colors.primary} />
+              <Text style={styles.suggestionsEmptyCTAText}>Explore</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <ScrollView
@@ -1026,6 +1037,22 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontSize: 13,
     color: colors.gray,
     textAlign: 'center',
+  },
+  suggestionsEmptyCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    gap: 6,
+  },
+  suggestionsEmptyCTAText: {
+    fontSize: 13,
+    fontFamily: 'Poppins-SemiBold',
+    color: colors.primary,
   },
   suggestionItem: {
     alignItems: 'center',

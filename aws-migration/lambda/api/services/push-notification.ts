@@ -287,6 +287,37 @@ export async function sendPushNotificationBatch(
 }
 
 /**
+ * Map notification type to preference column name.
+ * Returns null for types that should always be sent.
+ */
+function getPreferenceColumn(notificationType: string | undefined): string | null {
+  if (!notificationType) return null;
+
+  switch (notificationType) {
+    case 'like':
+    case 'peak_like':
+      return 'likes_enabled';
+    case 'comment':
+    case 'peak_comment':
+    case 'peak_reply':
+      return 'comments_enabled';
+    case 'new_follower':
+    case 'follow_request':
+    case 'follow_accepted':
+      return 'follows_enabled';
+    case 'message':
+      return 'messages_enabled';
+    case 'post_tag':
+      return 'mentions_enabled';
+    case 'live':
+      return 'live_enabled';
+    default:
+      // session, challenge, battle, event, etc. — always send
+      return null;
+  }
+}
+
+/**
  * Send push notification to a user (all their devices)
  */
 export async function sendPushToUser(
@@ -294,6 +325,27 @@ export async function sendPushToUser(
   userId: string,
   payload: PushNotificationPayload
 ): Promise<{ success: number; failed: number }> {
+  // Check user's notification preferences before sending push
+  const notificationType = payload.data?.type;
+  const prefColumn = getPreferenceColumn(notificationType);
+
+  if (prefColumn) {
+    const prefResult = await db.query(
+      `SELECT ${prefColumn} FROM notification_preferences WHERE user_id = $1`,
+      [userId]
+    );
+
+    // If a row exists and the preference is explicitly false, skip push
+    if (prefResult.rows.length > 0 && prefResult.rows[0][prefColumn] === false) {
+      log.info('Push skipped — user preference disabled', {
+        userId,
+        type: notificationType,
+        preference: prefColumn,
+      });
+      return { success: 0, failed: 0 };
+    }
+  }
+
   // Get all push tokens for the user
   const result = await db.query(
     `SELECT token, platform, sns_endpoint_arn

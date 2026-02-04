@@ -4,10 +4,12 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
+import { LambdaStack2 } from './lambda-stack-2';
 
 export interface ApiGatewayStackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack: LambdaStack;
+  lambdaStack2: LambdaStack2;
   environment: string;
   isProduction: boolean;
 }
@@ -23,7 +25,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API with Throttling
@@ -77,13 +79,13 @@ export class ApiGatewayStack extends cdk.NestedStack {
     });
 
     // Create all API routes
-    this.createRoutes(lambdaStack, isProduction, bodyValidator);
+    this.createRoutes(lambdaStack, lambdaStack2, isProduction, bodyValidator);
 
     // Create WAF
     this.createWaf(environment, isProduction);
   }
 
-  private createRoutes(lambdaStack: LambdaStack, isProduction: boolean, bodyValidator: apigateway.RequestValidator) {
+  private createRoutes(lambdaStack: LambdaStack, lambdaStack2: LambdaStack2, isProduction: boolean, bodyValidator: apigateway.RequestValidator) {
     const authMethodOptions: apigateway.MethodOptions = {
       authorizer: this.authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
@@ -278,6 +280,10 @@ export class ApiGatewayStack extends cdk.NestedStack {
 
     const notificationsPushToken = notifications.addResource('push-token');
     notificationsPushToken.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsPushTokenFn), authWithBodyValidation);
+
+    const notificationsPreferences = notifications.addResource('preferences');
+    notificationsPreferences.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.notificationsPreferencesGetFn), authMethodOptions);
+    notificationsPreferences.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack2.notificationsPreferencesUpdateFn), authWithBodyValidation);
 
     const notificationById = notifications.addResource('{id}');
     const notificationRead = notificationById.addResource('read');

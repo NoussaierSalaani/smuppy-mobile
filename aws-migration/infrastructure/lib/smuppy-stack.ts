@@ -975,11 +975,26 @@ export class SmuppyStack extends cdk.Stack {
     // This avoids CloudFormation circular/timing dependency issues
 
     // ========================================
+    // Lambda Stack 2 - Business Access & Notification Preferences Handlers
+    // ========================================
+    const lambdaStack2 = new LambdaStack2(this, 'LambdaStack2', {
+      vpc,
+      lambdaSecurityGroup,
+      dbCredentials,
+      stripeSecret,
+      lambdaEnvironment,
+      environment,
+      isProduction,
+      apiLogGroup,
+    });
+
+    // ========================================
     // API Gateway - Nested Stack (to stay under 500 resource limit)
     // ========================================
     const apiGatewayStack = new ApiGatewayStack(this, 'ApiGatewayStack', {
       userPool,
       lambdaStack,
+      lambdaStack2,
       environment,
       isProduction,
     });
@@ -997,20 +1012,6 @@ export class SmuppyStack extends cdk.Stack {
 
     // Get secondary API reference
     const api2 = apiGateway2Stack.api;
-
-    // ========================================
-    // Lambda Stack 2 - Business Access Handlers
-    // ========================================
-    const lambdaStack2 = new LambdaStack2(this, 'LambdaStack2', {
-      vpc,
-      lambdaSecurityGroup,
-      dbCredentials,
-      stripeSecret,
-      lambdaEnvironment,
-      environment,
-      isProduction,
-      apiLogGroup,
-    });
 
     // ========================================
     // API Gateway 3 - Business Access Endpoints

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -55,12 +55,68 @@ interface CreatePostScreenProps {
   route: CreatePostScreenRouteProp;
 }
 
+// --- Memoized grid item to prevent full-list re-renders on selection change ---
+interface MediaGridItemProps {
+  item: MediaLibrary.Asset;
+  selectionIndex: number | null;
+  isPreview: boolean;
+  onPress: (item: MediaLibrary.Asset) => void;
+  onSelectionToggle: (item: MediaLibrary.Asset) => void;
+  styles: ReturnType<typeof createStyles>;
+}
+
+const MediaGridItem = React.memo(function MediaGridItem({
+  item,
+  selectionIndex,
+  isPreview,
+  onPress,
+  onSelectionToggle,
+  styles,
+}: MediaGridItemProps) {
+  const isSelected = selectionIndex !== null;
+
+  return (
+    <TouchableOpacity
+      style={[styles.mediaItem, isPreview && styles.mediaItemPreview]}
+      onPress={() => onPress(item)}
+      onLongPress={() => onSelectionToggle(item)}
+      activeOpacity={0.8}
+    >
+      <OptimizedImage source={item.uri} style={styles.mediaThumbnail} />
+
+      {item.mediaType === 'video' && (
+        <View style={styles.videoDuration}>
+          <Ionicons name="play" size={10} color="#fff" />
+          <Text style={styles.videoDurationText}>
+            {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.selectionCircle, isSelected && styles.selectionCircleActive]}
+        onPress={() => onSelectionToggle(item)}
+      >
+        {isSelected ? (
+          <Text style={styles.selectionNumber}>{selectionIndex}</Text>
+        ) : (
+          <View style={styles.selectionCircleInner} />
+        )}
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+}, (prev, next) => (
+  prev.item.id === next.item.id &&
+  prev.selectionIndex === next.selectionIndex &&
+  prev.isPreview === next.isPreview &&
+  prev.styles === next.styles
+));
+
 export default function CreatePostScreen({ navigation, route: _route }: CreatePostScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const fromProfile = _route?.params?.fromProfile ?? false;
   const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
-  const alert = { error: errorAlert, warning: warningAlert };
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
   const [selectedPreview, setSelectedPreview] = useState<MediaItem | MediaLibrary.Asset | null>(null);
@@ -70,6 +126,25 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   const [showCameraSheet, setShowCameraSheet] = useState(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  // Refs for stable callbacks (avoid stale closures in memoized items)
+  const selectedMediaRef = useRef(selectedMedia);
+  selectedMediaRef.current = selectedMedia;
+  const selectedPreviewRef = useRef(selectedPreview);
+  selectedPreviewRef.current = selectedPreview;
+
+  // O(1) selection index lookup
+  const selectedIdsMap = useMemo(() => {
+    const map = new Map<string, number>();
+    selectedMedia.forEach((m, i) => map.set(m.id, i + 1));
+    return map;
+  }, [selectedMedia]);
+
+  // Memoized extraData for FlashList — changes when selection or preview changes
+  const flashListExtraData = useMemo(
+    () => ({ selectedIdsMap, previewId: selectedPreview?.id }),
+    [selectedIdsMap, selectedPreview?.id]
+  );
 
   // Post type is always 'post' for this screen (Peaks use CreatePeakScreen)
 
@@ -141,7 +216,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
       if (status !== 'granted') {
-        alert.warning('Permission Needed', 'Please allow camera access to take photos.');
+        warningAlert('Permission Needed', 'Please allow camera access to take photos.');
         return;
       }
 
@@ -163,58 +238,69 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         setSelectedPreview(newMedia);
       }
     } catch (_error) {
-      alert.error(
+      errorAlert(
         'Camera Not Available',
         'Camera is not available on this device. Please select from your photo library instead.'
       );
     }
   };
 
-  // Toggle media selection
-  const toggleMediaSelection = (item: MediaItem | MediaLibrary.Asset) => {
+  // Stable callback for grid item tap
+  const handleItemPress = useCallback((item: MediaLibrary.Asset) => {
+    setSelectedPreview(item);
+    if (selectedMediaRef.current.length === 0) {
+      const mediaItem: MediaItem = {
+        id: item.id,
+        uri: item.uri,
+        mediaType: item.mediaType === 'video' ? 'video' : 'photo',
+        duration: item.duration,
+      };
+      setSelectedMedia([mediaItem]);
+    }
+  }, []);
+
+  // Stable callback for selection toggle (long press or circle tap)
+  const handleSelectionToggle = useCallback((item: MediaLibrary.Asset) => {
+    const current = selectedMediaRef.current;
+    const preview = selectedPreviewRef.current;
+
     const mediaItem: MediaItem = {
       id: item.id,
       uri: item.uri,
       mediaType: item.mediaType === 'video' ? 'video' : 'photo',
-      duration: 'duration' in item ? item.duration : undefined,
+      duration: item.duration,
     };
 
-    const isSelected = selectedMedia.find(m => m.id === item.id);
+    const isSelected = current.find(m => m.id === item.id);
 
     if (isSelected) {
-      const newSelection = selectedMedia.filter(m => m.id !== item.id);
+      const newSelection = current.filter(m => m.id !== item.id);
       setSelectedMedia(newSelection);
-      if (selectedPreview?.id === item.id && newSelection.length > 0) {
+      if (preview?.id === item.id && newSelection.length > 0) {
         setSelectedPreview(newSelection[0]);
       } else if (newSelection.length === 0) {
         setSelectedPreview(item);
       }
     } else {
-      if (selectedMedia.length >= MAX_SELECTION) {
-        alert.warning('Limit Reached', `You can select up to ${MAX_SELECTION} items.`);
+      if (current.length >= MAX_SELECTION) {
+        warningAlert('Limit Reached', `You can select up to ${MAX_SELECTION} items.`);
         return;
       }
 
-      if (item.mediaType === 'video' && 'duration' in item && (item.duration ?? 0) > 15) {
-        alert.warning('Video Too Long', 'Videos must be 15 seconds or less.');
+      if (item.mediaType === 'video' && (item.duration ?? 0) > 15) {
+        warningAlert('Video Too Long', 'Videos must be 15 seconds or less.');
         return;
       }
 
-      setSelectedMedia([...selectedMedia, mediaItem]);
+      setSelectedMedia([...current, mediaItem]);
       setSelectedPreview(item);
     }
-  };
-
-  // Get selection index
-  const getSelectionIndex = (item: MediaItem | MediaLibrary.Asset) => {
-    const index = selectedMedia.findIndex(m => m.id === item.id);
-    return index >= 0 ? index + 1 : null;
-  };
+  }, [warningAlert]);
 
   // Handle next - MEDIA IS REQUIRED
   const handleNext = () => {
     if (selectedMedia.length === 0) {
-      alert.warning(
+      warningAlert(
         'Select Media',
         'Please select at least one photo or video to create a post.'
       );
@@ -276,54 +362,17 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
     </Modal>
   );
 
-  // Render media item
-  const renderMediaItem: ListRenderItem<MediaLibrary.Asset> = ({ item }) => {
-    const selectionIndex = getSelectionIndex(item);
-    const isSelected = selectionIndex !== null;
-    const isPreview = selectedPreview?.id === item.id;
-
-    return (
-      <TouchableOpacity
-        style={[styles.mediaItem, isPreview && styles.mediaItemPreview]}
-        onPress={() => {
-          setSelectedPreview(item);
-          if (selectedMedia.length === 0) {
-            const mediaItem: MediaItem = {
-              id: item.id,
-              uri: item.uri,
-              mediaType: item.mediaType === 'video' ? 'video' : 'photo',
-              duration: item.duration,
-            };
-            setSelectedMedia([mediaItem]);
-          }
-        }}
-        onLongPress={() => toggleMediaSelection(item)}
-        activeOpacity={0.8}
-      >
-        <OptimizedImage source={item.uri} style={styles.mediaThumbnail} />
-
-        {item.mediaType === 'video' && (
-          <View style={styles.videoDuration}>
-            <Ionicons name="play" size={10} color="#fff" />
-            <Text style={styles.videoDurationText}>
-              {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}
-            </Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.selectionCircle, isSelected && styles.selectionCircleActive]}
-          onPress={() => toggleMediaSelection(item)}
-        >
-          {isSelected ? (
-            <Text style={styles.selectionNumber}>{selectionIndex}</Text>
-          ) : (
-            <View style={styles.selectionCircleInner} />
-          )}
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
+  // Render media item — delegates to memoized MediaGridItem
+  const renderMediaItem: ListRenderItem<MediaLibrary.Asset> = useCallback(({ item }) => (
+    <MediaGridItem
+      item={item}
+      selectionIndex={selectedIdsMap.get(item.id) ?? null}
+      isPreview={selectedPreview?.id === item.id}
+      onPress={handleItemPress}
+      onSelectionToggle={handleSelectionToggle}
+      styles={styles}
+    />
+  ), [selectedIdsMap, selectedPreview?.id, handleItemPress, handleSelectionToggle, styles]);
 
   // No permission view
   if (!hasPermission && !loading) {
@@ -482,6 +531,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           renderItem={renderMediaItem}
           keyExtractor={(item) => item.id}
           numColumns={3}
+          extraData={flashListExtraData}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.mediaGrid}
           style={styles.mediaList}

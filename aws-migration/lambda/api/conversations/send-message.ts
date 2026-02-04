@@ -75,13 +75,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Validate optional media fields
+    // Validate optional media fields — media_type is only valid when media_url is also valid
     const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
-    const validMediaType = mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
-      ? mediaType
-      : null;
     const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
       ? mediaUrl
+      : null;
+    const validMediaType = validMediaUrl && mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
+      ? mediaType
       : null;
 
     // Sanitize content: strip HTML tags and control characters

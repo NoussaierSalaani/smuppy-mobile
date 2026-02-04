@@ -653,6 +653,25 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Notification Preferences
+  // ==========================================
+
+  async getNotificationPreferences(): Promise<NotificationPreferences> {
+    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
+      '/notifications/preferences'
+    );
+    return response.preferences;
+  }
+
+  async updateNotificationPreferences(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
+      '/notifications/preferences',
+      { method: 'PUT', body: prefs }
+    );
+    return response.preferences;
+  }
+
+  // ==========================================
   // Email Validation
   // ==========================================
 
@@ -3391,6 +3410,15 @@ export interface Notification {
   data: Record<string, unknown>;
   read: boolean;
   createdAt: string;
+}
+
+export interface NotificationPreferences {
+  likes: boolean;
+  comments: boolean;
+  follows: boolean;
+  messages: boolean;
+  mentions: boolean;
+  live: boolean;
 }
 
 export interface CreatePostInput {

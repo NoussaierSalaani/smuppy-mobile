@@ -29,6 +29,10 @@ export class LambdaStack2 extends cdk.NestedStack {
   public readonly businessLogEntryFn: NodejsFunction;
   public readonly businessSubscriptionManageFn: NodejsFunction;
 
+  // Notification Preferences Functions
+  public readonly notificationsPreferencesGetFn: NodejsFunction;
+  public readonly notificationsPreferencesUpdateFn: NodejsFunction;
+
   constructor(scope: Construct, id: string, props: LambdaStack2Props) {
     super(scope, id, props);
 
@@ -112,5 +116,11 @@ export class LambdaStack2 extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.businessSubscriptionManageFn);
     stripeSecret.grantRead(this.businessSubscriptionManageFn);
+
+    // ========================================
+    // Notification Preferences Lambda Functions
+    // ========================================
+    this.notificationsPreferencesGetFn = createLambda('NotificationsPreferencesGetFunction', 'notifications/preferences-get');
+    this.notificationsPreferencesUpdateFn = createLambda('NotificationsPreferencesUpdateFunction', 'notifications/preferences-update');
   }
 }

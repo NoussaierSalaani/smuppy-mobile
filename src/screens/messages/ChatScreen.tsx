@@ -66,7 +66,7 @@ const MessageItem = memo(({ item, index, currentUserId, messages, goToUserProfil
       <View style={[
         styles.messageBubble,
         isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
-        (item.shared_post_id || item.media_type === 'audio') && styles.messageBubbleNoPadding
+        (item.shared_post_id || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding
       ]}>
         {item.is_deleted ? (
           <Text style={[styles.deletedMessage, isFromMe && { color: 'rgba(255,255,255,0.6)' }]}>Message deleted</Text>
@@ -78,6 +78,9 @@ const MessageItem = memo(({ item, index, currentUserId, messages, goToUserProfil
             {item.media_type === 'audio' && item.media_url && (
               <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
             )}
+            {item.media_type === 'audio' && !item.media_url && item.content && (
+              <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
+            )}
             {!item.shared_post_id && item.media_type !== 'audio' && item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
@@ -88,7 +91,7 @@ const MessageItem = memo(({ item, index, currentUserId, messages, goToUserProfil
             )}
           </>
         )}
-        {!item.shared_post_id && item.media_type !== 'audio' && (
+        {!item.shared_post_id && (item.media_type !== 'audio' || !item.media_url) && (
           <View style={styles.messageFooter}>
             <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
             {isFromMe && <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}

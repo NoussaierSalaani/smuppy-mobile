@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore, useUserSafetyStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 
@@ -56,6 +56,7 @@ const PostDetailVibesFeedScreen = () => {
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
+  const currentUserId = useUserStore((state) => state.user?.id);
 
   // Params
   const params = route.params as {
@@ -113,7 +114,7 @@ const PostDetailVibesFeedScreen = () => {
   useEffect(() => {
     if (!currentPost) return;
     const checkFollowStatus = async () => {
-      if (currentPost.user?.id) {
+      if (currentPost.user?.id && currentPost.user.id !== currentUserId) {
         const { following } = await isFollowing(currentPost.user.id);
         setIsFan(following);
       }
@@ -773,7 +774,13 @@ const PostDetailVibesFeedScreen = () => {
                 <View style={styles.userRow}>
                   <TouchableOpacity
                     style={styles.userInfo}
-                    onPress={() => navigation.navigate('UserProfile', { userId: currentPost.user.id })}
+                    onPress={() => {
+                      if (currentPost.user.id === currentUserId) {
+                        navigation.navigate('ProfileTab' as never);
+                      } else {
+                        navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                      }
+                    }}
                   >
                     <AvatarImage source={currentPost.user.avatar} size={44} style={styles.avatar} />
                     <View>
@@ -782,7 +789,7 @@ const PostDetailVibesFeedScreen = () => {
                     </View>
                   </TouchableOpacity>
 
-                  {!isFan && (
+                  {currentPost.user.id !== currentUserId && !isFan && (
                     <TouchableOpacity
                       style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
                       onPress={becomeFan}
@@ -988,7 +995,11 @@ const PostDetailVibesFeedScreen = () => {
                 style={styles.menuItem}
                 onPress={() => {
                   setShowMenu(false);
-                  navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                  if (currentPost.user.id === currentUserId) {
+                    navigation.navigate('ProfileTab' as never);
+                  } else {
+                    navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                  }
                 }}
               >
                 <View style={styles.menuIconBg}>
@@ -997,28 +1008,32 @@ const PostDetailVibesFeedScreen = () => {
                 <Text style={styles.menuItemText}>View Profile</Text>
               </TouchableOpacity>
 
-              <View style={styles.menuDivider} />
+              {currentPost.user.id !== currentUserId && (
+                <>
+                  <View style={styles.menuDivider} />
 
-              <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
-                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="eye-off-outline" size={22} color="#FFF" />
-                </View>
-                <Text style={styles.menuItemText}>Mute user</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
+                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                      <Ionicons name="eye-off-outline" size={22} color="#FFF" />
+                    </View>
+                    <Text style={styles.menuItemText}>Mute user</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
-                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
-                  <Ionicons name="ban-outline" size={22} color={colors.heartRed} />
-                </View>
-                <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Block user</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
+                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                      <Ionicons name="ban-outline" size={22} color={colors.heartRed} />
+                    </View>
+                    <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Block user</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
-                  <Ionicons name="flag-outline" size={22} color={colors.heartRed} />
-                </View>
-                <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Report</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                      <Ionicons name="flag-outline" size={22} color={colors.heartRed} />
+                    </View>
+                    <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Report</Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
               <TouchableOpacity
                 style={styles.menuCancel}

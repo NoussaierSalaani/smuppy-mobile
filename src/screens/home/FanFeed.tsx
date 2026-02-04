@@ -373,6 +373,34 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, [navigation, currentUser?.id, prefetchProfile]);
 
+  // Ref for latest visible posts (used in stable callback to avoid stale closure)
+  const visiblePostsRef = useRef(visiblePosts);
+  visiblePostsRef.current = visiblePosts;
+
+  // Navigate to full-screen post detail (single tap on media)
+  const handleOpenPostDetail = useCallback((post: UIPost) => {
+    const currentPosts = visiblePostsRef.current;
+    const fanFeedPosts = currentPosts.map(p => ({
+      id: p.id,
+      type: p.type,
+      media: p.media || '',
+      allMedia: p.allMedia,
+      thumbnail: p.media || '',
+      description: p.caption,
+      likes: p.likes,
+      comments: p.comments,
+      location: p.location,
+      taggedUsers: p.taggedUsers,
+      user: {
+        id: p.user.id,
+        name: p.user.name,
+        avatar: p.user.avatar || '',
+        followsMe: false,
+      },
+    }));
+    navigation.navigate('PostDetailFanFeed', { postId: post.id, fanFeedPosts });
+  }, [navigation]);
+
   // Format numbers
   const formatNumber = useCallback((num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -539,6 +567,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             toggleLike(post.id);
           }
         }}
+        onSingleTap={() => handleOpenPostDetail(post)}
         showAnimation={!post.isLiked}
       >
         <View style={styles.postMedia}>
@@ -690,7 +719,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
     </View>
-  ), [visiblePosts, goToUserProfile, toggleLike, toggleSave, formatNumber, navigation, handlePostMenu, handleSharePost]);
+  ), [visiblePosts, goToUserProfile, toggleLike, toggleSave, formatNumber, navigation, handlePostMenu, handleSharePost, handleOpenPostDetail]);
 
   // Invite friends using native share
   const inviteFriends = useCallback(async () => {

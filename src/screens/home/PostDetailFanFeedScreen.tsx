@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore, useUserSafetyStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 
@@ -73,6 +73,7 @@ const PostDetailFanFeedScreen = () => {
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
+  const currentUserId = useUserStore((state) => state.user?.id);
 
   // Params
   const params = (route.params as { postId?: string; fanFeedPosts?: FanFeedPost[] }) || {};
@@ -133,7 +134,7 @@ const PostDetailFanFeedScreen = () => {
   useEffect(() => {
     const checkFollowStatus = async () => {
       const userId = currentPost?.user?.id;
-      if (userId && isValidUUID(userId) && fanStatus[userId] === undefined && !fanStatusChecking[userId]) {
+      if (userId && userId !== currentUserId && isValidUUID(userId) && fanStatus[userId] === undefined && !fanStatusChecking[userId]) {
         // Mark as checking to prevent flicker
         setFanStatusChecking(prev => ({ ...prev, [userId]: true }));
         try {
@@ -181,12 +182,16 @@ const PostDetailFanFeedScreen = () => {
     recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
-  // Navigate to user profile (only if valid UUID)
+  // Navigate to user profile (own profile → Profile tab, others → UserProfile)
   const navigateToProfile = (userId: string) => {
-    if (isValidUUID(userId)) {
-      navigation.navigate('UserProfile', { userId });
-    } else {
+    if (!isValidUUID(userId)) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Cannot navigate - invalid userId:', userId);
+      return;
+    }
+    if (userId === currentUserId) {
+      navigation.navigate('ProfileTab' as never);
+    } else {
+      navigation.navigate('UserProfile', { userId });
     }
   };
 
@@ -512,6 +517,7 @@ const PostDetailFanFeedScreen = () => {
   const renderPostItem = ({ item, index }: { item: FanFeedPost; index: number }) => {
     const isLiked = likedPosts[item.id];
     const isBookmarked = bookmarkedPosts[item.id];
+    const isOwnPost = item.user.id === currentUserId;
     const isFanOfUser = fanStatus[item.user.id];
     const isCheckingFanStatus = fanStatusChecking[item.user.id] || (fanStatus[item.user.id] === undefined && isValidUUID(item.user.id));
     const userFollowsMe = item.user.followsMe;
@@ -707,7 +713,7 @@ const PostDetailFanFeedScreen = () => {
                   - Si pas fan + ils me suivent → "Track"
                   - Si pas fan + ils me suivent pas → "+ Fan"
               */}
-              {!isCheckingFanStatus && !isFanOfUser && (
+              {!isOwnPost && !isCheckingFanStatus && !isFanOfUser && (
                 <TouchableOpacity
                   style={[styles.fanBtn, fanLoading[item.user.id] && styles.fanBtnDisabled]}
                   onPress={() => becomeFan(item.user.id)}
@@ -876,29 +882,33 @@ const PostDetailFanFeedScreen = () => {
               <Text style={styles.menuItemText}>View Profile</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleMute}
-              disabled={muteLoading}
-              accessibilityLabel="Mute this user"
-              accessibilityRole="button"
-              accessibilityHint="Hide content from this user"
-            >
-              <Ionicons name="eye-off-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Mute user</Text>
-            </TouchableOpacity>
+            {currentPost && currentPost.user.id !== currentUserId && (
+              <>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleMute}
+                  disabled={muteLoading}
+                  accessibilityLabel="Mute this user"
+                  accessibilityRole="button"
+                  accessibilityHint="Hide content from this user"
+                >
+                  <Ionicons name="eye-off-outline" size={24} color="#FFF" />
+                  <Text style={styles.menuItemText}>Mute user</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleBlock}
-              disabled={blockLoading}
-              accessibilityLabel="Block this user"
-              accessibilityRole="button"
-              accessibilityHint="Block all interactions with this user"
-            >
-              <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Block user</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleBlock}
+                  disabled={blockLoading}
+                  accessibilityLabel="Block this user"
+                  accessibilityRole="button"
+                  accessibilityHint="Block all interactions with this user"
+                >
+                  <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
+                  <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Block user</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             <TouchableOpacity
               style={styles.menuItem}

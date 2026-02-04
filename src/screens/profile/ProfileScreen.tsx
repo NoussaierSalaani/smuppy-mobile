@@ -1254,7 +1254,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, [menuItem, navigation]);
 
   const handleNewActivity = useCallback(() => {
-    navigation.navigate('CreateActivity');
+    navigation.navigate('CreateEvent');
   }, [navigation]);
 
   // ==================== RENDER GROUP/EVENT ====================

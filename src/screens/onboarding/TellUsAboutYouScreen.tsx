@@ -20,7 +20,6 @@ const GENDERS = [
   { id: 'other', icon: 'male-female' as const, label: 'Other', color: '#1C1C1E' },
 ];
 
-const formatDate = (d: Date) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
 
 const getAge = (birthDate: Date) => {
   const today = new Date();

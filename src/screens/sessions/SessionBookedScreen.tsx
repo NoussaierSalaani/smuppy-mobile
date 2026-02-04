@@ -17,6 +17,7 @@ import * as Calendar from 'expo-calendar';
 import { GRADIENTS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatFullDate } from '../../utils/dateFormatters';
 
 export default function SessionBookedScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
@@ -90,15 +91,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
     }
   };
 
-  const formatDate = () => {
-    const d = date.fullDate || new Date();
-    return d.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = () => formatFullDate(date.fullDate || new Date());
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

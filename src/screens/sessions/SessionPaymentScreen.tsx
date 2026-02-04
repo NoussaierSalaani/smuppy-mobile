@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatFullDateShort } from '../../utils/dateFormatters';
 
 export default function SessionPaymentScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
@@ -97,15 +98,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
     }
   };
 
-  const formatDate = () => {
-    const d = date.fullDate || new Date();
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = () => formatFullDateShort(date.fullDate || new Date());
 
   const renderContent = () => {
     return (

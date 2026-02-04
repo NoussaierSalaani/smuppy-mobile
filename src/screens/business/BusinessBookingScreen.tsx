@@ -28,6 +28,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateLong } from '../../utils/dateFormatters';
 
 interface BusinessBookingScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
@@ -223,14 +224,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  };
+  const formatDate = (dateString: string) => formatDateLong(dateString);
 
   const renderServiceItem = (service: Service) => (
     <TouchableOpacity

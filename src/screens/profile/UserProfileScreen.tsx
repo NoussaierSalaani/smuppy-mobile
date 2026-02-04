@@ -107,7 +107,7 @@ const UserProfileScreen = () => {
   const userId = params.userId;
   const currentUser = useUserStore((state) => state.user);
   const isOwnProfile = !userId || userId === currentUser?.id;
-  const { data: profileData, isLoading, isError, refetch } = useProfile(userId);
+  const { data: profileData, isLoading, isError, refetch: _refetch } = useProfile(userId);
 
   const profile = useMemo(() => {
     const data: ProfileApiData = profileData || {};
@@ -139,6 +139,7 @@ const UserProfileScreen = () => {
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
   const [isVerifyingFollow, setIsVerifyingFollow] = useState(false);
+  const followFalseStrikesRef = useRef(0); // require 2 consecutive authenticated false checks before dropping fan
   // Grace period: after follow/unfollow, ignore API responses for 10s to avoid read-replica-lag reversals
   const followGraceUntilRef = useRef<number>(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
@@ -261,14 +262,25 @@ const UserProfileScreen = () => {
       setIsVerifyingFollow(true);
       checkIsFollowing(userId).then(({ isFollowing }) => {
         if (cancelled) return;
-        setIsFan(isFollowing);
-        if (!isFollowing) {
-          // Re-check pending requests when we're truly not following
-          hasPendingFollowRequest(userId).then(({ pending }) => {
-            if (!cancelled) setIsRequested(pending);
-          });
-        } else {
+        if (isFollowing) {
+          followFalseStrikesRef.current = 0;
+          setIsFan(true);
           setIsRequested(false);
+          queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
+            old ? { ...old, is_following: true } : old
+          );
+        } else {
+          followFalseStrikesRef.current += 1;
+          if (followFalseStrikesRef.current >= 2) {
+            setIsFan(false);
+            // Re-check pending requests when we're truly not following
+            hasPendingFollowRequest(userId).then(({ pending }) => {
+              if (!cancelled) setIsRequested(pending);
+            });
+            queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
+              old ? { ...old, is_following: false } : old
+            );
+          }
         }
       }).catch(() => {
         // If verification fails, keep existing optimistic state

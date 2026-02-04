@@ -2032,7 +2032,7 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
     // Step 1: Verify audio file exists and is non-empty + get presigned URL in parallel
     const [fileCheckResult, presignedResult] = await Promise.all([
       import('expo-file-system/legacy').then(fs => fs.getInfoAsync(audioUri)),
-      awsAPI.request<{ url: string; key: string }>('/media/upload-voice', {
+      awsAPI.request<{ url: string; key: string; cdnUrl?: string; fileUrl?: string }>('/media/upload-voice', {
         method: 'POST',
         body: { conversationId },
       }),
@@ -2054,8 +2054,9 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
       return { data: null, error: 'Failed to upload voice message' };
     }
 
-    // Step 3: Return the CDN URL
-    return { data: awsAPI.getCDNUrl(presignedResult.key), error: null };
+    // Step 3: Return the best playback URL available
+    const resolvedUrl = presignedResult.cdnUrl || presignedResult.fileUrl || awsAPI.getCDNUrl(presignedResult.key);
+    return { data: resolvedUrl, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }

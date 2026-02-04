@@ -32,6 +32,8 @@ if (!process.env.MEDIA_BUCKET) {
 }
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+// Optional CDN domain (CloudFront) to build directly playable URLs
+const CDN_DOMAIN = process.env.CDN_DOMAIN || process.env.MEDIA_CDN_DOMAIN || process.env.CLOUDFRONT_URL || null;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -145,6 +147,8 @@ export async function handler(
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: 'audio/mp4',
+      ContentDisposition: 'inline',
+      CacheControl: 'public, max-age=31536000',
       // Do NOT set ContentLength — it would force exact match and reject smaller files
       Metadata: {
         'uploaded-by': cognitoSub,
@@ -158,6 +162,11 @@ export async function handler(
       unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm']),
     });
 
+    // Build playback URLs (CloudFront preferred, fallback S3 direct)
+    const sanitizedCdn = CDN_DOMAIN ? CDN_DOMAIN.replace(/\/+$/, '') : null;
+    const cdnUrl = sanitizedCdn ? `${sanitizedCdn}/${key}` : null;
+    const fileUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
+
     log.info('Voice upload URL generated', {
       userId: cognitoSub.substring(0, 2) + '***',
       conversationId: conversationId.substring(0, 2) + '***',
@@ -166,7 +175,7 @@ export async function handler(
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ url, key }),
+      body: JSON.stringify({ url, key, cdnUrl, fileUrl }),
     };
   } catch (error: unknown) {
     log.error('Error generating voice upload URL', error);

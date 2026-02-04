@@ -25,6 +25,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
   const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   // Refs to track values without triggering re-renders
   const lastProgressRef = useRef(0);
@@ -122,9 +123,15 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         soundRef.current = null;
       }
     };
-  }, [uri, onPlaybackStatusUpdate]);
+  }, [uri, onPlaybackStatusUpdate, reloadTick]);
 
   const togglePlayback = useCallback(async () => {
+    if (loadError) {
+      setLoadError(false);
+      setReloadTick(t => t + 1);
+      return;
+    }
+
     const sound = soundRef.current;
     if (!sound) return;
 
@@ -147,7 +154,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
     } catch (err) {
       if (__DEV__) console.warn('[VoiceMessage] Playback error:', err);
     }
-  }, [isPlaying]);
+  }, [isPlaying, loadError]);
 
   const displayTime = useMemo(() => {
     const millis = isPlaying || progress > 0 ? positionRef.current : duration;
@@ -186,7 +193,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
           { backgroundColor: isFromMe ? 'rgba(255,255,255,0.9)' : colors.primary }
         ]}
         onPress={togglePlayback}
-        disabled={!isLoaded}
+        disabled={!isLoaded && !loadError}
       >
         <Ionicons
           name={isPlaying ? "pause" : "play"}
@@ -204,7 +211,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
           styles.duration,
           { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
         ]}>
-          {loadError ? 'Error' : displayTime}
+          {loadError ? 'Tap to retry' : displayTime}
         </Text>
       </View>
     </View>

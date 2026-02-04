@@ -12,11 +12,11 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 interface VoiceRecorderProps {
-  onSend: (uri: string, duration: number) => void;
+  onFinish: (uri: string, duration: number) => void;
   onCancel: () => void;
 }
 
-export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
+export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps) {
   const { colors } = useTheme();
   const { showError } = useSmuppyAlert();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -137,7 +137,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
       recordingUriRef.current = null;
 
       if (uri && realDurationSec >= 1) {
-        onSend(uri, realDurationSec);
+        onFinish(uri, realDurationSec);
       } else if (!uri) {
         if (__DEV__) console.warn('[VoiceRecorder] No recording URI available');
         showError('Error', 'Recording failed. Please try again.');

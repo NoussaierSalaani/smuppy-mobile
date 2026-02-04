@@ -38,6 +38,7 @@ import {
   Message,
   Profile,
 } from '../../services/database';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const { width } = Dimensions.get('window');
 
@@ -136,6 +137,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [otherUserProfile] = useState<Profile | null>(otherUser || null);
   const [isRecording, setIsRecording] = useState(false);
+  const [voicePreview, setVoicePreview] = useState<{ uri: string; duration: number } | null>(null);
+  const [voicePreviewVisible, setVoicePreviewVisible] = useState(false);
   const [chatMenuVisible, setChatMenuVisible] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -342,6 +345,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     if (!conversationId) return;
 
     setIsRecording(false);
+    setVoicePreviewVisible(false);
+    setVoicePreview(null);
     setSending(true);
 
     const durationText = `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`;
@@ -541,7 +546,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       {/* Voice Recording Mode */}
       {isRecording ? (
         <VoiceRecorder
-          onSend={handleVoiceSend}
+          onFinish={(uri, duration) => {
+            setIsRecording(false);
+            setVoicePreview({ uri, duration });
+            setVoicePreviewVisible(true);
+          }}
           onCancel={() => setIsRecording(false)}
         />
       ) : (
@@ -618,6 +627,53 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           {selectedImage && <OptimizedImage source={selectedImage} style={styles.fullImage} contentFit="contain" />}
+        </View>
+      </Modal>
+
+      {/* Voice preview & confirmation */}
+      <Modal
+        visible={voicePreviewVisible && !!voicePreview}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setVoicePreviewVisible(false);
+          setVoicePreview(null);
+        }}
+      >
+        <View style={styles.voicePreviewOverlay}>
+          <View style={[styles.voicePreviewCard, { paddingTop: insets.top + 16 }]}>
+            <Text style={styles.voicePreviewTitle}>Send voice message?</Text>
+            {voicePreview && (
+              <View style={styles.voicePreviewPlayer}>
+                <VoiceMessage uri={voicePreview.uri} isFromMe />
+              </View>
+            )}
+            <View style={styles.voicePreviewButtons}>
+              <TouchableOpacity
+                style={[styles.voicePreviewButton, styles.voicePreviewCancel]}
+                onPress={async () => {
+                  setVoicePreviewVisible(false);
+                  if (voicePreview?.uri) {
+                    try { await FileSystem.deleteAsync(voicePreview.uri, { idempotent: true }); } catch { /* cleanup best-effort */ }
+                  }
+                  setVoicePreview(null);
+                }}
+              >
+                <Text style={styles.voicePreviewCancelText}>Discard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.voicePreviewButton, styles.voicePreviewSend]}
+                onPress={() => voicePreview && handleVoiceSend(voicePreview.uri, voicePreview.duration)}
+                disabled={sending}
+              >
+                {sending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.voicePreviewSendText}>Send</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -727,6 +783,16 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   imageModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   closeImageBtn: { position: 'absolute', right: 20, zIndex: 10 },
   fullImage: { width: width, height: width },
+  voicePreviewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: SPACING.lg },
+  voicePreviewCard: { backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, alignItems: 'stretch' },
+  voicePreviewTitle: { fontSize: 18, fontWeight: '700', color: '#111', marginBottom: SPACING.md, textAlign: 'center' },
+  voicePreviewPlayer: { marginBottom: SPACING.md },
+  voicePreviewButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm },
+  voicePreviewButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  voicePreviewCancel: { backgroundColor: '#F5F5F5' },
+  voicePreviewSend: { backgroundColor: '#0EBF8A' },
+  voicePreviewCancelText: { color: '#333', fontWeight: '600' },
+  voicePreviewSendText: { color: '#fff', fontWeight: '700' },
   // Chat Menu
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   menuContainer: { backgroundColor: colors.backgroundSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.md, paddingBottom: 34 },

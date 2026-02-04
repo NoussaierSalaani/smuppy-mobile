@@ -514,22 +514,18 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       return [...result].sort((a, b) => b.likes - a.likes);
     }
 
-    const interestsLower = interestsToUse.map(i => i.toLowerCase());
+    const interestsSet = new Set(interestsToUse.map(i => i.toLowerCase()));
     const weight = activeInterests.size > 0 ? 1000 : 500;
 
-    return [...result].sort((a, b) => {
-      const postTagsA = a.tags?.map(t => t.toLowerCase()) || [];
-      const postTagsB = b.tags?.map(t => t.toLowerCase()) || [];
-      const catA = a.category?.toLowerCase() || '';
-      const catB = b.category?.toLowerCase() || '';
-
-      const matchA = interestsLower.filter(i => postTagsA.includes(i) || catA === i).length;
-      const matchB = interestsLower.filter(i => postTagsB.includes(i) || catB === i).length;
-
-      const scoreA = matchA * weight + Math.min(a.likes, 500);
-      const scoreB = matchB * weight + Math.min(b.likes, 500);
-      return scoreB - scoreA;
+    // Pre-compute scores once (O(n)) instead of inside sort comparator (O(n*m*logn))
+    const scored = result.map(post => {
+      const tags = post.tags?.map(t => t.toLowerCase()) || [];
+      const cat = post.category?.toLowerCase() || '';
+      const matchCount = tags.filter(t => interestsSet.has(t)).length + (interestsSet.has(cat) ? 1 : 0);
+      return { post, score: matchCount * weight + Math.min(post.likes, 500) };
     });
+
+    return scored.sort((a, b) => b.score - a.score).map(s => s.post);
   }, [allPosts, activeInterests, userInterests, isUnderReview, isHidden]);
 
   // Chip animation scales

@@ -31,6 +31,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
+import { formatDateTimeRelative } from '../../utils/dateFormatters';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -235,27 +236,6 @@ export default function EventListScreen() {
     if (index !== -1 && flatListRef.current) {
       flatListRef.current.scrollToIndex({ index, animated: true });
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === now.toDateString()) {
-      return `Today, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    if (date.toDateString() === tomorrow.toDateString()) {
-      return `Tomorrow, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    return date.toLocaleDateString([], {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   // Glass-morphism filter chip
@@ -492,7 +472,7 @@ export default function EventListScreen() {
             <View style={styles.detailsRow}>
               <View style={styles.detail}>
                 <Ionicons name="calendar" size={14} color="#888" />
-                <Text style={styles.detailText}>{formatDate(item.start_date)}</Text>
+                <Text style={styles.detailText}>{formatDateTimeRelative(item.start_date)}</Text>
               </View>
 
               <View style={styles.detail}>

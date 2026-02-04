@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { SessionListSkeleton } from '../../components/skeleton';
 import { awsAPI, Session } from '../../services/aws-api';
+import { formatDateRelativeFrench, formatTime } from '../../utils/dateFormatters';
 
 type TabType = 'upcoming' | 'past';
 
@@ -66,32 +67,6 @@ const MySessionsScreen = (): React.JSX.Element => {
   }, [fetchSessions]);
 
   const sessions = activeTab === 'upcoming' ? upcomingSessions : pastSessions;
-
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return "Aujourd'hui";
-    } else if (diffDays === 1) {
-      return 'Demain';
-    } else if (diffDays === -1) {
-      return 'Hier';
-    } else if (diffDays < 0) {
-      return `Il y a ${Math.abs(diffDays)} jours`;
-    } else if (diffDays < 7) {
-      return `Dans ${diffDays} jours`;
-    } else {
-      return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    }
-  };
-
-  const formatTime = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  };
 
   const getStatusColor = (status: Session['status']): string => {
     switch (status) {
@@ -164,7 +139,7 @@ const MySessionsScreen = (): React.JSX.Element => {
       <View style={styles.sessionDetails}>
         <View style={styles.detailRow}>
           <Ionicons name="calendar-outline" size={18} color={colors.gray} />
-          <Text style={styles.detailText}>{formatDate(session.scheduledAt)}</Text>
+          <Text style={styles.detailText}>{formatDateRelativeFrench(session.scheduledAt)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Ionicons name="time-outline" size={18} color={colors.gray} />

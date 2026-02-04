@@ -80,7 +80,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
   }, [navigation]);
 
   // Render user item
-  const renderUser = ({ item }: { item: Profile }) => (
+  const renderUser = useCallback(({ item }: { item: Profile }) => (
     <TouchableOpacity
       style={styles.userItem}
       onPress={() => handleSelectUser(item)}
@@ -103,7 +103,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
         <Ionicons name="chatbubble-outline" size={22} color={colors.gray} />
       )}
     </TouchableOpacity>
-  );
+  ), [styles, handleSelectUser, navigating, colors]);
 
   return (
     <View style={styles.container}>

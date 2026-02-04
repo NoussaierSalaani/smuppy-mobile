@@ -23,6 +23,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateShort } from '../../utils/dateFormatters';
 
 interface Subscription {
   id: string;
@@ -101,7 +102,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
   const handleCancelSubscription = (subscription: Subscription) => {
     showDestructiveConfirm(
       'Cancel Subscription',
-      `Are you sure you want to cancel your ${subscription.plan.name} subscription at ${subscription.business.name}?\n\nYou'll still have access until ${formatDate(subscription.current_period_end)}.`,
+      `Are you sure you want to cancel your ${subscription.plan.name} subscription at ${subscription.business.name}?\n\nYou'll still have access until ${formatDateShort(subscription.current_period_end)}.`,
       async () => {
         try {
           const response = await awsAPI.cancelBusinessSubscription(subscription.id);
@@ -132,15 +133,6 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
     } catch (error: any) {
       showError('Error', error.message || 'Failed to reactivate subscription');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getDaysRemaining = (endDate: string) => {
@@ -221,8 +213,8 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
             <Ionicons name="calendar-outline" size={16} color={colors.gray} />
             <Text style={styles.periodText}>
               {subscription.cancel_at_period_end
-                ? `Ends ${formatDate(subscription.current_period_end)}`
-                : `Renews ${formatDate(subscription.current_period_end)}`}
+                ? `Ends ${formatDateShort(subscription.current_period_end)}`
+                : `Renews ${formatDateShort(subscription.current_period_end)}`}
             </Text>
           </View>
           {subscription.status === 'active' && !subscription.cancel_at_period_end && (

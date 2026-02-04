@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateLong } from '../../utils/dateFormatters';
 
 interface Props {
   route: {
@@ -59,20 +60,11 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
     ]).start();
   }, []);
 
-  const formatDate = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  };
-
   const handleAddToCalendar = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     showConfirm(
       'Add to Calendar',
-      `Would you like to add "${serviceName}" at ${businessName} on ${formatDate(date)} at ${time} to your calendar?`,
+      `Would you like to add "${serviceName}" at ${businessName} on ${formatDateLong(date)} at ${time} to your calendar?`,
       () => {
         // Calendar integration would go here with expo-calendar
         showSuccess('Added', 'Event added to your calendar');
@@ -84,7 +76,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDate(date)} at ${time}`,
+        message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDateLong(date)} at ${time}`,
       });
     } catch (error) {
       if (__DEV__) console.warn('Share error:', error);
@@ -155,7 +147,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
-                <Text style={styles.detailValue}>{formatDate(date)}</Text>
+                <Text style={styles.detailValue}>{formatDateLong(date)}</Text>
                 <Text style={styles.detailSubvalue}>{time}</Text>
               </View>
             </View>

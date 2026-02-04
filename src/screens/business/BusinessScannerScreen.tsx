@@ -24,6 +24,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateShort } from '../../utils/dateFormatters';
 
 const { width, height: _height } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.7;
@@ -173,15 +174,6 @@ export default function BusinessScannerScreen({ navigation }: Props) {
     setShowResult(false);
     setValidationResult(null);
     setIsScanning(true);
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (!permission) {
@@ -334,7 +326,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
                       <View style={styles.validityItem}>
                         <Ionicons name="calendar-outline" size={16} color={colors.gray} />
                         <Text style={styles.validityText}>
-                          Valid until {formatDate(validationResult.validUntil)}
+                          Valid until {validationResult.validUntil ? formatDateShort(validationResult.validUntil) : 'N/A'}
                         </Text>
                       </View>
                       {validationResult.remainingSessions !== undefined && (

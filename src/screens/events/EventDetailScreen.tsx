@@ -29,6 +29,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatLongDateTime } from '../../utils/dateFormatters';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -255,7 +256,7 @@ See you there!`,
 
     try {
       const shareUrl = `https://smuppy.app/events/${event.id}`;
-      const shareMessage = `Join "${event.title}" on Smuppy!\n\n📅 ${formatDate(event.starts_at)}\n📍 ${event.location_name}\n${event.is_free ? '🆓 Free!' : `💰 ${formatAmount(event.price_cents || 0)}`}\n\n${shareUrl}`;
+      const shareMessage = `Join "${event.title}" on Smuppy!\n\n📅 ${formatLongDateTime(event.starts_at)}\n📍 ${event.location_name}\n${event.is_free ? '🆓 Free!' : `💰 ${formatAmount(event.price_cents || 0)}`}\n\n${shareUrl}`;
 
       await Share.share({
         message: shareMessage,
@@ -265,17 +266,6 @@ See you there!`,
     } catch (error: unknown) {
       if (__DEV__) console.warn('Share error:', error);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   if (isLoading) {
@@ -456,7 +446,7 @@ See you there!`,
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
-                <Text style={styles.detailValue}>{formatDate(event.starts_at)}</Text>
+                <Text style={styles.detailValue}>{formatLongDateTime(event.starts_at)}</Text>
               </View>
             </View>
 

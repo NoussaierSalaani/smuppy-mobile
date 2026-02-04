@@ -21,6 +21,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useAppStore } from '../../stores';
 import { NotificationsSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks';
+import { formatTimeAgo } from '../../utils/dateFormatters';
 
 // ============================================
 // TYPES
@@ -137,20 +138,6 @@ function getDefaultMessage(type: string): string {
     case 'live': return 'is live now';
     default: return 'interacted with your content';
   }
-}
-
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
 }
 
 // ============================================
@@ -334,7 +321,7 @@ export default function NotificationsScreen(): React.JSX.Element {
     return notif.type === 'system' || notif.type === 'reminder';
   };
 
-  const renderNotification = (item: Notification): React.JSX.Element => {
+  const renderNotification = useCallback((item: Notification): React.JSX.Element => {
     const isSystem = isSystemNotification(item);
 
     return (
@@ -441,7 +428,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         )}
       </TouchableOpacity>
     );
-  };
+  }, [styles, colors, markAsRead, goToUserProfile, toggleFollow]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

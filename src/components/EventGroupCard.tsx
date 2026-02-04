@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from './OptimizedImage';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { formatShortDateTime } from '../utils/dateFormatters';
 
 interface EventGroupCardProps {
   type: 'event' | 'group';
@@ -18,18 +19,6 @@ interface EventGroupCardProps {
   onPress: () => void;
   onMenuPress: () => void;
 }
-
-const formatDate = (dateStr?: string): string => {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
 
 const EventGroupCard = memo(({
   title,
@@ -72,7 +61,7 @@ const EventGroupCard = memo(({
         {startDate ? (
           <View style={styles.row}>
             <Ionicons name="calendar-outline" size={14} color="#8E8E93" />
-            <Text style={styles.rowText} numberOfLines={1}>{formatDate(startDate)}</Text>
+            <Text style={styles.rowText} numberOfLines={1}>{formatShortDateTime(startDate)}</Text>
           </View>
         ) : null}
 

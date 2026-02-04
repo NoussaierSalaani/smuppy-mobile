@@ -32,6 +32,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
 import { AvatarImage } from '../../components/OptimizedImage';
+import { formatLongDateTime } from '../../utils/dateFormatters';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -337,7 +338,7 @@ See you there!`,
       const priceText = normalizedActivity.is_free ? 'Free!' : formatAmount(normalizedActivity.priceAmount);
       const shareMessage = `Join "${normalizedActivity.title}" on Smuppy!
 
-${formatDate(normalizedActivity.starts_at)}
+${formatLongDateTime(normalizedActivity.starts_at)}
 ${normalizedActivity.location_name || normalizedActivity.address || ''}
 ${priceText}
 
@@ -351,17 +352,6 @@ ${shareUrl}`;
     } catch (error: unknown) {
       if (__DEV__) console.warn('Share error:', error);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   if (isLoading) {
@@ -581,7 +571,7 @@ ${shareUrl}`;
               </View>
               <View style={styles.detailText}>
                 <Text style={[styles.detailLabel, { color: colors.gray }]}>Date & Time</Text>
-                <Text style={[styles.detailValue, { color: colors.dark }]}>{formatDate(normalizedActivity.starts_at)}</Text>
+                <Text style={[styles.detailValue, { color: colors.dark }]}>{formatLongDateTime(normalizedActivity.starts_at)}</Text>
               </View>
             </View>
 

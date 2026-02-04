@@ -40,6 +40,7 @@ import {
   Profile,
 } from '../../services/database';
 import * as FileSystem from 'expo-file-system/legacy';
+import { formatTime } from '../../utils/dateFormatters';
 
 const { width } = Dimensions.get('window');
 
@@ -305,11 +306,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     navigation.navigate('UserProfile', { userId: profileUserId });
   }, [navigation]);
 
-  const formatTime = useCallback((dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }, []);
-
   const handleSendMessage = useCallback(async () => {
     if (!inputText.trim()) return;
 
@@ -459,6 +455,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const msgs = messagesRef.current;
     const prevMessage = index > 0 ? msgs[index - 1] : null;
     const showAvatar = !isFromMe && (!prevMessage || prevMessage.sender_id !== item.sender_id);
+
     return (
       <MessageItem
         item={item}
@@ -470,7 +467,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         styles={styles}
       />
     );
-  }, [goToUserProfile, formatTime, styles]);
+  }, [goToUserProfile, styles]);
 
   const displayName = resolveDisplayName(otherUserProfile);
 

@@ -11,6 +11,7 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDDMMYYYY } from '../../utils/dateFormatters';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -212,7 +213,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
             >
               <Ionicons name="calendar-outline" size={18} color={colors.error} />
               <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
-                {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
+                {hasSelectedDate ? formatDDMMYYYY(date) : 'DD/MM/YYYY'}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -229,7 +230,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: any) {
               >
                 <Ionicons name="calendar-outline" size={18} color={hasSelectedDate ? colors.primary : colors.grayMuted} />
                 <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
-                  {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
+                  {hasSelectedDate ? formatDDMMYYYY(date) : 'DD/MM/YYYY'}
                 </Text>
               </TouchableOpacity>
             </LinearGradient>

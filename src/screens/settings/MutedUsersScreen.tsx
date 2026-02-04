@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -47,7 +47,7 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
     setMutedUsers(getMutedUsers());
   };
 
-  const handleUnmute = async (userId: string, userName: string) => {
+  const handleUnmute = useCallback(async (userId: string, userName: string) => {
     showConfirm(
       'Unmute User',
       `Are you sure you want to unmute ${userName}? Their posts will appear in your feeds again.`,
@@ -65,9 +65,9 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
         }
       }
     );
-  };
+  }, [showConfirm, showError, unmute]);
 
-  const renderMutedUser = ({ item }: { item: MutedUser }) => {
+  const renderMutedUser = useCallback(({ item }: { item: MutedUser }) => {
     const user = item.muted_user;
     if (!user) return null;
 
@@ -98,7 +98,7 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
         </TouchableOpacity>
       </View>
     );
-  };
+  }, [styles, unmuting, navigation, handleUnmute, colors]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>

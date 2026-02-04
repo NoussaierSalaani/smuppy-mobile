@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
 import { useAppStore } from '../../stores';
 import { ConversationListSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks';
+import { formatRelativeTimeShort } from '../../utils/dateFormatters';
 
 interface MessagesScreenProps {
   navigation: {
@@ -126,11 +127,19 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Fingerprint for smart diffing — avoid re-renders when nothing changed
+  const conversationsFingerprint = useRef('');
+
   // Load conversations and sync unread badge to accurate total
   const loadConversations = useCallback(async () => {
     const { data, error } = await getConversations();
     if (!error && data) {
-      setConversations(data);
+      // Smart diff: only update state if conversations actually changed
+      const fingerprint = data.map(c => `${c.id}:${c.last_message_at}:${c.unread_count}`).join('|');
+      if (fingerprint !== conversationsFingerprint.current) {
+        conversationsFingerprint.current = fingerprint;
+        setConversations(data);
+      }
       const total = data.reduce((sum, c) => sum + (c.unread_count || 0), 0);
       useAppStore.getState().setUnreadMessages(total);
     }
@@ -206,22 +215,6 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     return matchesSearch && matchesFilter;
   });
 
-  // Format time
-  const formatTime = useCallback((dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'now';
-    if (diffMins < 60) return `${diffMins}m`;
-    if (diffHours < 24) return `${diffHours}h`;
-    if (diffDays < 7) return `${diffDays}d`;
-    return date.toLocaleDateString();
-  }, []);
-
   // Render conversation item
   const renderConversation = useCallback(({ item }: { item: Conversation }) => (
     <ConversationItem
@@ -230,9 +223,9 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
       styles={styles}
       onNavigate={navigation.navigate}
       onProfilePress={goToUserProfile}
-      formatTime={formatTime}
+      formatTime={formatRelativeTimeShort}
     />
-  ), [colors, styles, navigation.navigate, goToUserProfile, formatTime]);
+  ), [colors, styles, navigation.navigate, goToUserProfile]);
 
   if (loading) {
     return (

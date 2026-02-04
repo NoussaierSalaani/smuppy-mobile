@@ -27,6 +27,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, NominatimSearchResult } from '../../config/api';
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateForDisplay } from '../../utils/dateFormatters';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -307,42 +308,6 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
 
   // Create styles with theme
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  // Format date for display (various formats → DD/MM/YYYY)
-  const formatDateForDisplay = (dateString: string | Date | null | undefined): string => {
-    if (!dateString) return '';
-
-    // If it's a Date object
-    if (dateString instanceof Date) {
-      const day = String(dateString.getDate()).padStart(2, '0');
-      const month = String(dateString.getMonth() + 1).padStart(2, '0');
-      const year = dateString.getFullYear();
-      return `${day}/${month}/${year}`;
-    }
-
-    // Convert to string if needed
-    const str = String(dateString);
-
-    // YYYY-MM-DD format
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      const [year, month, day] = str.split('-');
-      return `${day}/${month}/${year}`;
-    }
-
-    // ISO timestamp (YYYY-MM-DDTHH:mm:ss...)
-    if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
-      const datePart = str.split('T')[0];
-      const [year, month, day] = datePart.split('-');
-      return `${day}/${month}/${year}`;
-    }
-
-    // Already in DD/MM/YYYY format
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-      return str;
-    }
-
-    return '';
-  };
 
   return (
     <KeyboardAvoidingView

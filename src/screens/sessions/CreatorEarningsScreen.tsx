@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
+import { formatRelativeTimeFrench } from '../../utils/dateFormatters';
 
 const { width } = Dimensions.get('window');
 
@@ -136,19 +137,6 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
       case 'payout': return '#F59E0B';
       default: return colors.gray;
     }
-  };
-
-  const formatDate = (date: Date): string => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffHours < 1) return "À l'instant";
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
   const formatAmount = (amount: number): string => {
@@ -345,7 +333,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionDescription}>{transaction.description}</Text>
                 <Text style={styles.transactionMeta}>
-                  {transaction.fanName ? `${transaction.fanName} • ` : ''}{formatDate(transaction.date)}
+                  {transaction.fanName ? `${transaction.fanName} • ` : ''}{formatRelativeTimeFrench(transaction.date)}
                 </Text>
               </View>
               <Text style={[

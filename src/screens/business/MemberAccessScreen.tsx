@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateShort } from '../../utils/dateFormatters';
 
 const { width } = Dimensions.get('window');
 const QR_SIZE = width * 0.55;
@@ -159,14 +160,6 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
     loadAccessPass();
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#0EBF8A';
@@ -265,7 +258,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
               <Ionicons name="calendar-outline" size={20} color={colors.gray} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Valid Until</Text>
-                <Text style={styles.detailValue}>{formatDate(accessPass?.validUntil || '')}</Text>
+                <Text style={styles.detailValue}>{formatDateShort(accessPass?.validUntil || '')}</Text>
               </View>
             </View>
 

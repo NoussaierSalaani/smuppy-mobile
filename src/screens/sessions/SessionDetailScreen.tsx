@@ -23,6 +23,7 @@ import * as Calendar from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
+import { formatLongDateFrench, formatTime } from '../../utils/dateFormatters';
 
 interface Session {
   id: string;
@@ -56,19 +57,6 @@ const SessionDetailScreen = (): React.JSX.Element => {
   const [cancelling, setCancelling] = useState(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  };
 
   const getStatusColor = (status: Session['status']): string => {
     switch (status) {
@@ -224,7 +212,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Date</Text>
-              <Text style={styles.infoValue}>{formatDate(session.scheduledAt)}</Text>
+              <Text style={styles.infoValue}>{formatLongDateFrench(session.scheduledAt)}</Text>
             </View>
           </View>
 

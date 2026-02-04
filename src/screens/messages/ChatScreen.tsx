@@ -150,6 +150,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const currentUserIdRef = useRef<string | null>(null);
   const prevMessageCountRef = useRef(0);
 
+  // Track pending optimistic message IDs so polling doesn't wipe them
+  const pendingOptimisticIdsRef = useRef<Set<string>>(new Set());
+
   // Handle emoji selection
   const handleEmojiSelect = useCallback((emoji: { emoji: string }) => {
     setInputText(prev => prev + emoji.emoji);
@@ -226,13 +229,22 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const { data, error } = await getMessages(conversationId, 0, 100);
     if (!mountedRef.current) return;
     if (!error && data) {
+      // Preserve any optimistic messages that haven't been confirmed by the server yet
+      const optimisticIds = pendingOptimisticIdsRef.current;
+      const optimisticMessages = optimisticIds.size > 0
+        ? messagesRef.current.filter(m => optimisticIds.has(m.id))
+        : [];
+      const merged = optimisticMessages.length > 0
+        ? [...data, ...optimisticMessages]
+        : data;
+
       // Smart polling: only update state if messages actually changed
       const prev = messagesRef.current;
-      const changed = data.length !== prev.length ||
-        data.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content);
+      const changed = merged.length !== prev.length ||
+        merged.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content);
       if (changed) {
-        messagesRef.current = data;
-        setMessages(data);
+        messagesRef.current = merged;
+        setMessages(merged);
         // Mark as read only once on first load, not every poll
         if (!hasMarkedReadRef.current) {
           hasMarkedReadRef.current = true;
@@ -325,16 +337,18 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       media_type: undefined,
       shared_post_id: undefined,
     };
+    pendingOptimisticIdsRef.current.add(optimisticId);
     setMessages(prev => {
       const next = [...prev, optimisticMessage];
       messagesRef.current = next;
       return next;
     });
 
-    const { error } = await sendMessageToDb(conversationId, messageText);
+    const { data: sentMessage, error } = await sendMessageToDb(conversationId, messageText);
 
     if (error) {
       // Remove optimistic message and restore input
+      pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
         const next = prev.filter(m => m.id !== optimisticId);
         messagesRef.current = next;
@@ -342,6 +356,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       });
       showError('Error', 'Failed to send message. Please try again.');
       setInputText(messageText);
+    } else if (sentMessage) {
+      // Replace optimistic message with real server response
+      pendingOptimisticIdsRef.current.delete(optimisticId);
+      setMessages(prev => {
+        const next = prev.map(m => m.id === optimisticId ? sentMessage : m);
+        messagesRef.current = next;
+        return next;
+      });
+    } else {
+      pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
   }, [conversationId, inputText, sending, currentUserId]);
@@ -369,6 +393,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       created_at: new Date().toISOString(),
       is_deleted: false,
     };
+    pendingOptimisticIdsRef.current.add(optimisticId);
     setMessages(prev => {
       const next = [...prev, optimisticMessage];
       messagesRef.current = next;
@@ -380,6 +405,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     if (uploadError || !voiceUrl) {
       // Remove optimistic message on failure
+      pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
         const next = prev.filter(m => m.id !== optimisticId);
         messagesRef.current = next;
@@ -399,6 +425,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     );
 
     if (error) {
+      pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
         const next = prev.filter(m => m.id !== optimisticId);
         messagesRef.current = next;
@@ -406,12 +433,20 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       });
       showError('Error', 'Failed to send voice message');
     } else if (sentMessage) {
-      // Replace optimistic message with real one (has CDN URL)
+      // Replace optimistic with real message, keeping local URI for sender playback
+      pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
-        const next = prev.map(m => m.id === optimisticId ? sentMessage : m);
+        const next = prev.map(m => {
+          if (m.id !== optimisticId) return m;
+          // Keep local URI if server didn't return a media_url (CDN might not be ready)
+          const bestMediaUrl = sentMessage.media_url || m.media_url;
+          return { ...sentMessage, media_url: bestMediaUrl };
+        });
         messagesRef.current = next;
         return next;
       });
+    } else {
+      pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
   }, [conversationId, currentUserId]);

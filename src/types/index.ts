@@ -688,7 +688,7 @@ export type MainStackParamList = {
   } | undefined;
 
   // Peaks
-  PeakView: { peakId?: string; peakData?: Peak[]; initialIndex?: number };
+  PeakView: { peaks?: Peak[]; peakId?: string; peakData?: Peak[]; initialIndex?: number };
   CreatePeak: { replyToPeak?: Peak } | undefined;
   PeakPreview: { mediaUri: string; mediaType: 'image' | 'video'; duration?: number; replyToPeakId?: string };
 

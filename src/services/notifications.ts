@@ -167,7 +167,12 @@ export const getExpoPushToken = async (): Promise<string | null> => {
 export const registerPushToken = async (_userId: string): Promise<boolean> => {
   try {
     const native = await getNativePushToken();
-    if (!native) return false;
+    if (!native) {
+      if (__DEV__) console.warn('[Push] No push token available (permissions denied or not a device)');
+      return false;
+    }
+
+    if (__DEV__) console.log(`[Push] Got token (${native.platform}): ${native.token.substring(0, 20)}...`);
 
     const deviceId = await getDeviceId();
 
@@ -177,9 +182,10 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
       deviceId,
     });
 
-    if (__DEV__) console.log('Push token registered successfully');
+    if (__DEV__) console.log('[Push] Token registered with backend successfully');
     return true;
   } catch (error) {
+    if (__DEV__) console.warn('[Push] Failed to register token:', error);
     captureException(error as Error, { context: 'registerPushToken' });
     return false;
   }

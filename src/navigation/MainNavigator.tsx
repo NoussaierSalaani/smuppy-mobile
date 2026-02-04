@@ -18,14 +18,18 @@ const asScreen = <T,>(component: T): ComponentType<any> => component as Componen
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
   awsAPI.getUnreadCount()
-    .then(({ unreadCount }) => useAppStore.getState().setUnreadNotifications(unreadCount ?? 0))
-    .catch(() => { /* best-effort */ });
+    .then(({ unreadCount }) => {
+      if (__DEV__) console.log('[Badges] notifications:', unreadCount);
+      useAppStore.getState().setUnreadNotifications(unreadCount ?? 0);
+    })
+    .catch((err) => { if (__DEV__) console.warn('[Badges] Failed to fetch notification count:', err); });
   awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=50')
     .then((res) => {
       const total = (res.conversations || []).reduce((sum: number, c: { unread_count?: number }) => sum + (c.unread_count || 0), 0);
+      if (__DEV__) console.log('[Badges] messages:', total);
       useAppStore.getState().setUnreadMessages(total);
     })
-    .catch(() => { /* best-effort */ });
+    .catch((err) => { if (__DEV__) console.warn('[Badges] Failed to fetch message count:', err); });
 };
 
 // ============================================
@@ -309,19 +313,42 @@ export default function MainNavigator() {
 
     syncProfile();
 
-    // Fetch initial unread counts
+    // Fetch initial unread counts (retry after 3s in case auth token wasn't ready)
     fetchBadgeCounts();
+    const retryTimer = setTimeout(fetchBadgeCounts, 3000);
+    return () => clearTimeout(retryTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refresh badges when app returns from background
+  // Refresh badges when app returns from background + periodic polling
   useEffect(() => {
+    const BADGE_POLL_MS = 30000; // 30s
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startBadgePolling = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(fetchBadgeCounts, BADGE_POLL_MS);
+    };
+
+    const stopBadgePolling = () => {
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    };
+
+    startBadgePolling();
+
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         fetchBadgeCounts();
+        startBadgePolling();
+      } else {
+        stopBadgePolling();
       }
     });
-    return () => subscription.remove();
+
+    return () => {
+      stopBadgePolling();
+      subscription.remove();
+    };
   }, []);
 
   // Register for push notifications when user is logged in

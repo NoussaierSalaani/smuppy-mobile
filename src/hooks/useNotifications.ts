@@ -206,24 +206,37 @@ export const useAutoRegisterPushNotifications = (): void => {
   const hasRegistered = useRef(false);
 
   useEffect(() => {
-    const register = async () => {
-      if (user?.id && !hasRegistered.current) {
-        const success = await registerPushToken(user.id);
-        if (success) {
-          hasRegistered.current = true;
-          if (__DEV__) console.log('Auto-registered for push notifications');
-        }
+    if (!user?.id) {
+      hasRegistered.current = false;
+      return;
+    }
+
+    if (hasRegistered.current) return;
+
+    let cancelled = false;
+    const RETRY_DELAYS = [0, 5000, 15000, 30000]; // immediate, 5s, 15s, 30s
+
+    const attemptRegistration = async (attempt: number) => {
+      if (cancelled || hasRegistered.current) return;
+
+      if (__DEV__) console.log(`[Push] Registration attempt ${attempt + 1}/${RETRY_DELAYS.length}`);
+      const success = await registerPushToken(user.id);
+
+      if (success) {
+        hasRegistered.current = true;
+        if (__DEV__) console.log('[Push] Auto-registered for push notifications');
+      } else if (attempt + 1 < RETRY_DELAYS.length && !cancelled) {
+        const delay = RETRY_DELAYS[attempt + 1];
+        if (__DEV__) console.log(`[Push] Will retry in ${delay / 1000}s`);
+        setTimeout(() => attemptRegistration(attempt + 1), delay);
+      } else {
+        if (__DEV__) console.warn('[Push] All registration attempts failed');
       }
     };
 
-    register();
-  }, [user?.id]);
+    attemptRegistration(0);
 
-  // Reset on logout
-  useEffect(() => {
-    if (!user?.id) {
-      hasRegistered.current = false;
-    }
+    return () => { cancelled = true; };
   }, [user?.id]);
 };
 

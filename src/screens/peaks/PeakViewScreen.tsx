@@ -75,7 +75,7 @@ interface Peak {
 }
 
 type RootStackParamList = {
-  PeakView: { peaks: Peak[]; initialIndex: number };
+  PeakView: { peaks?: Peak[]; peakData?: Peak[]; peakId?: string; initialIndex?: number };
   CreatePeak: { replyTo: string; originalPeak: Peak };
   UserProfile: { userId: string };
   [key: string]: object | undefined;
@@ -88,7 +88,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
 
-  const { peaks = [], initialIndex = 0 } = route.params || {};
+  const { peaks: peaksParam = [], peakData = [], initialIndex = 0 } = route.params || {};
+  const peaks = (peaksParam && peaksParam.length > 0 ? peaksParam : peakData) as Peak[];
   const currentUser = useUserStore((state) => state.user);
   const isBusiness = currentUser?.accountType === 'pro_business';
 
@@ -124,6 +125,14 @@ const PeakViewScreen = (): React.JSX.Element => {
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentPeak = peaks[currentIndex] || {} as Peak;
+
+  useEffect(() => {
+    if (!currentPeak.videoUrl) {
+      videoRef.current = null;
+      setVideoDuration(0);
+      setProgress(0);
+    }
+  }, [currentPeak.videoUrl]);
 
   // Hardware back handler (Android) as a fail-safe
   useEffect(() => {
@@ -647,18 +656,25 @@ const PeakViewScreen = (): React.JSX.Element => {
         delayLongPress={300}
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
-          <Video
-            ref={(r) => { videoRef.current = r; }}
-            source={{ uri: currentPeak.videoUrl || currentPeak.thumbnail || placeholder as any }}
-            style={styles.media}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay
-            isLooping
-            isMuted={false}
-            onPlaybackStatusUpdate={onVideoStatus}
-            posterSource={{ uri: currentPeak.thumbnail || undefined }}
-            usePoster
-          />
+          {currentPeak.videoUrl ? (
+            <Video
+              ref={(r) => { videoRef.current = r; }}
+              source={{ uri: currentPeak.videoUrl }}
+              style={styles.media}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping
+              isMuted={false}
+              onPlaybackStatusUpdate={onVideoStatus}
+              posterSource={{ uri: currentPeak.thumbnail || undefined }}
+              usePoster
+            />
+          ) : (
+            <OptimizedImage
+              source={currentPeak.thumbnail || (placeholder as any)}
+              style={styles.media}
+            />
+          )}
         </View>
       </TouchableWithoutFeedback>
 
@@ -856,12 +872,18 @@ const PeakViewScreen = (): React.JSX.Element => {
             </View>
           )}
 
-          {/* Progress Bar at Bottom */}
-          <View style={styles.bottomProgressBar}>
-            <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
-            </View>
-          </View>
+      {/* Progress Bar at Bottom + Reply CTA */}
+      <View style={styles.bottomBar}>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+        </View>
+        {!isBusiness && (
+          <TouchableOpacity style={styles.replyButton} onPress={handleCreatePeak}>
+            <Ionicons name="return-down-forward" size={18} color={colors.white} />
+            <Text style={styles.replyButtonText}>Reply with your Peak</Text>
+          </TouchableOpacity>
+        )}
+      </View>
         </View>
       )}
 
@@ -1209,6 +1231,30 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 8,
     marginTop: 4,
   },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    right: 20,
+    flexDirection: 'column',
+    gap: 12,
+  },
+  replyButton: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 20,
+  },
+  replyButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
   acceptChallengeText: {
     fontSize: 14,
     fontWeight: '700',

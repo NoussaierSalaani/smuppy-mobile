@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores';
-import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
+import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile } from '../../hooks';
 import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
 import EventGroupCard from '../../components/EventGroupCard';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
@@ -47,6 +47,7 @@ import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
 const BIO_MAX_LINES = 2;
 const BIO_EXPANDED_MAX_LINES = 6;
+const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
 
 interface ProfileScreenProps {
@@ -64,7 +65,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const styles = useMemo(() => createProfileStyles(colors), [colors]);
   const storeUser = useUserStore((state) => state.user);
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
-  const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
+  const routeUserId = route?.params?.userId || null;
+  const currentUserId = storeUser?.id || null;
+
+  // Fetch profile data: route user if provided, otherwise current user
+  const { data: currentProfileData, isLoading: isCurrentProfileLoading, refetch: refetchCurrentProfile } = useCurrentProfile();
+  const { data: otherProfileData, isLoading: isOtherProfileLoading, refetch: refetchOtherProfile } = useProfile(routeUserId);
+
+  const profileData = routeUserId ? otherProfileData : currentProfileData;
+  const isProfileLoading = routeUserId ? isOtherProfileLoading : isCurrentProfileLoading;
+  const refetchProfile = routeUserId ? refetchOtherProfile : refetchCurrentProfile;
   const [activeTab, setActiveTab] = useState('posts');
   const [showMoreTabs, setShowMoreTabs] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,8 +83,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // User state
   const [user, setUser] = useState<UserProfile>(INITIAL_USER_PROFILE);
 
+  // Determine which user's data to show
+  const viewedUserId = routeUserId || profileData?.id || currentUserId || null;
+  const isOwnProfile = !routeUserId || routeUserId === currentUserId;
+
   // Get user's posts from database
-  const userId = profileData?.id || storeUser?.id;
+  const userId = viewedUserId;
   const {
     data: userPostsData,
     refetch: refetchPosts,
@@ -95,19 +109,26 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   const [peaks, setPeaks] = useState<any[]>([]);
   useEffect(() => {
+    if (!userId) return;
+    let isMounted = true;
     awsAPI.getPeaks({ userId, limit: 50 }).then((res) => {
+      if (!isMounted) return;
       setPeaks((res.data || []).map((p: APIPeak) => ({
         id: p.id,
-        media_urls: [p.thumbnailUrl || p.videoUrl],
-        media_type: 'video',
+        videoUrl: p.videoUrl,
+        media_urls: [p.thumbnailUrl || p.author?.avatarUrl || PEAK_PLACEHOLDER],
+        media_type: p.videoUrl ? 'video' : 'image',
         is_peak: true,
         content: p.caption || '',
         created_at: p.createdAt,
+        peak_duration: p.duration || 15,
         likes_count: p.likesCount,
         comments_count: p.commentsCount,
         views_count: p.viewsCount,
       })));
     }).catch(() => { /* silent */ });
+
+    return () => { isMounted = false; };
   }, [userId]);
 
   // Get saved posts (collections) - only for own profile
@@ -142,15 +163,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const [selectedCollectionPost, setSelectedCollectionPost] = useState<any>(null);
   const [menuItem, setMenuItem] = useState<{ type: 'event' | 'group'; id: string } | null>(null);
 
-  const isOwnProfile = route?.params?.userId === undefined;
-
   // Use shared resolveProfile utility
   const resolvedProfile = useMemo(() =>
     resolveProfile(profileData as ProfileDataSource, storeUser as ProfileDataSource),
     [profileData, storeUser]
   );
+  const displayProfile = useMemo(() => resolvedProfile || user, [resolvedProfile, user]);
 
   useEffect(() => {
+    if (!resolvedProfile) return;
     setUser(prev => ({
       ...prev,
       ...resolvedProfile,
@@ -161,11 +182,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchProfile(), refetchPosts(), refetchSavedPosts(), refreshEventsGroups()]);
+      await Promise.all([
+        refetchProfile?.(),
+        userId ? refetchPosts() : Promise.resolve(),
+        isOwnProfile ? refetchSavedPosts() : Promise.resolve(),
+        refreshEventsGroups(),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups]);
+  }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups, userId, isOwnProfile]);
 
   // ==================== IMAGE PICKER ====================
   const showImageOptions = (type: 'avatar' | 'cover') => {
@@ -798,7 +824,51 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     // Show peaks grid
     return (
       <View style={styles.peaksGrid}>
-        {peaks.map(renderPeakItem)}
+        {peaks.map((peak, index) => (
+          <TouchableOpacity
+            key={`peak-${index}-${peak.id}`}
+            style={styles.peakCard}
+            onPress={() => {
+              const transformed = peaks.map(p => ({
+                id: p.id,
+                videoUrl: p.videoUrl,
+                thumbnail: p.media_urls?.[0],
+                duration: p.peak_duration || 15,
+                user: {
+                  id: displayProfile?.id || user.id,
+                  name: displayProfile?.displayName || user.displayName,
+                  avatar: displayProfile?.avatar || user.avatar || '',
+                },
+                views: p.views_count || 0,
+                likes: p.likes_count || 0,
+                repliesCount: p.comments_count || 0,
+                createdAt: p.created_at,
+              }));
+              navigation.navigate('PeakView', { peaks: transformed, initialIndex: index });
+            }}
+          >
+            {peak.media_urls?.[0] ? (
+              <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
+            ) : (
+              <View style={[styles.peakThumb, styles.postThumbEmpty]}>
+                <Ionicons name="videocam-outline" size={24} color={colors.gray} />
+              </View>
+            )}
+            <View style={styles.peakDuration}>
+              <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+            </View>
+            <View style={styles.peakStatsOverlay}>
+              <View style={styles.peakStat}>
+                <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
+                <Text style={styles.peakStatText}>{peak.likes_count || 0}</Text>
+              </View>
+              <View style={styles.peakStat}>
+                <Ionicons name="eye" size={11} color="#FFF" />
+                <Text style={styles.peakStatText}>{peak.views_count || 0}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
     );
   };

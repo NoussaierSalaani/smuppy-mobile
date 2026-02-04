@@ -60,7 +60,7 @@ let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
   page: 0,
 };
 
-const PEAKS_DATA: { id: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
+const PEAKS_DATA: { id: string; videoUrl?: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
 // Build unified lookup from interests + expertise + business categories (icon + color per name)
@@ -409,6 +409,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     awsAPI.getPeaks({ limit: 10 }).then((res) => {
       setPeaksData((res.data || []).map((p) => ({
         id: p.id,
+        videoUrl: p.videoUrl,
         thumbnail: p.thumbnailUrl || p.author?.avatarUrl || PEAK_PLACEHOLDER,
         user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: p.author?.avatarUrl || null },
         duration: p.duration || 0,
@@ -456,7 +457,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Navigate to Peak view
   const goToPeakView = useCallback((_peak: typeof PEAKS_DATA[number], index: number) => {
     navigation.navigate('PeakView', {
-      peakData: peaksData as any,
+      peaks: peaksData as any,
       initialIndex: index,
     });
   }, [navigation, peaksData]);

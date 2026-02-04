@@ -32,6 +32,7 @@ interface PeakUser {
 
 interface Peak {
   id: string;
+  videoUrl?: string;
   thumbnail: string;
   duration: number;
   user: PeakUser;
@@ -71,6 +72,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       const mapped: Peak[] = (response.data || []).map((p) => ({
         id: p.id,
         // Never use videoUrl as an image source; fallback to author avatar if no thumbnail
+        videoUrl: p.videoUrl,
         thumbnail: p.thumbnailUrl || p.author?.avatarUrl || placeholder,
         duration: p.duration || 0,
         user: {

@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 
@@ -39,7 +39,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Use reader pool for read operations
-    const db = await getReaderPool();
+    // Use writer pool to avoid replica lag on follow status / counts
+    const db = await getPool();
 
     const PROFILE_COLUMNS = `id, username, full_name, display_name, avatar_url, cover_url,
       bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth,

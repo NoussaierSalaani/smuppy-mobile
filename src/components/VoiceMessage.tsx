@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,17 +15,21 @@ interface VoiceMessageProps {
 }
 
 const BAR_COUNT = 20;
+const PROGRESS_UPDATE_THRESHOLD = 0.02; // Only re-render when progress changes by 2%
 
-export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
+export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
   const { colors } = useTheme();
   const soundRef = useRef<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [position, setPosition] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  // Refs to track values without triggering re-renders
+  const lastProgressRef = useRef(0);
+  const durationRef = useRef(0);
+  const positionRef = useRef(0);
 
   // Stable random bar heights — generated once per URI
   const barHeights = useMemo(() => {
@@ -43,27 +46,38 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
 
-    setPosition(status.positionMillis || 0);
-    setIsPlaying(status.isPlaying);
+    positionRef.current = status.positionMillis || 0;
 
-    if (status.durationMillis) {
+    if (status.durationMillis && status.durationMillis !== durationRef.current) {
+      durationRef.current = status.durationMillis;
       setDuration(status.durationMillis);
-      const progress = status.positionMillis / status.durationMillis;
-      progressAnim.setValue(progress);
+    }
+
+    // Only update progress state when change exceeds threshold (reduces re-renders)
+    if (status.durationMillis) {
+      const newProgress = status.positionMillis / status.durationMillis;
+      if (Math.abs(newProgress - lastProgressRef.current) >= PROGRESS_UPDATE_THRESHOLD) {
+        lastProgressRef.current = newProgress;
+        setProgress(newProgress);
+      }
+    }
+
+    if (status.isPlaying !== (soundRef.current as unknown as { _isPlaying?: boolean })?._isPlaying) {
+      setIsPlaying(status.isPlaying);
     }
 
     if (status.didJustFinish) {
+      lastProgressRef.current = 0;
+      positionRef.current = 0;
       setIsPlaying(false);
-      setPosition(0);
-      progressAnim.setValue(0);
+      setProgress(0);
     }
-  }, [progressAnim]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadSound = async () => {
-      // Unload previous sound if any
       if (soundRef.current) {
         await soundRef.current.unloadAsync().catch(() => {});
         soundRef.current = null;
@@ -73,15 +87,9 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
       setLoadError(false);
 
       try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-        });
-
         const { sound: newSound, status } = await Audio.Sound.createAsync(
           { uri },
-          { shouldPlay: false },
+          { shouldPlay: false, progressUpdateIntervalMillis: 250 },
           onPlaybackStatusUpdate
         );
 
@@ -95,6 +103,7 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
         if (status.isLoaded) {
           setIsLoaded(true);
           if (status.durationMillis) {
+            durationRef.current = status.durationMillis;
             setDuration(status.durationMillis);
           }
         }
@@ -120,10 +129,15 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
     if (!sound) return;
 
     try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+
       if (isPlaying) {
         await sound.pauseAsync();
       } else {
-        // If finished, replay from start
         const status = await sound.getStatusAsync();
         if (status.isLoaded && status.durationMillis && status.positionMillis >= status.durationMillis) {
           await sound.setPositionAsync(0);
@@ -135,15 +149,31 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
     }
   }, [isPlaying]);
 
-  const formatTime = (millis: number): string => {
+  const displayTime = useMemo(() => {
+    const millis = isPlaying || progress > 0 ? positionRef.current : duration;
     const totalSeconds = Math.floor(millis / 1000);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, [isPlaying, progress, duration]);
 
-  const displayTime = isPlaying || position > 0 ? position : duration;
-  const progress = duration > 0 ? position / duration : 0;
+  // Memoize waveform bars — only recalculate when progress or theme changes
+  const waveformBars = useMemo(() =>
+    barHeights.map((h, i) => (
+      <View
+        key={i}
+        style={[
+          styles.waveformBar,
+          {
+            height: h,
+            backgroundColor: isFromMe
+              ? `rgba(255,255,255,${i / BAR_COUNT < progress ? 1 : 0.4})`
+              : `rgba(14,191,138,${i / BAR_COUNT < progress ? 1 : 0.4})`,
+          },
+        ]}
+      />
+    )),
+  [barHeights, progress, isFromMe]);
 
   return (
     <View style={[
@@ -167,32 +197,19 @@ export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
 
       <View style={styles.waveformContainer}>
         <View style={styles.waveform}>
-          {barHeights.map((h, i) => (
-            <View
-              key={i}
-              style={[
-                styles.waveformBar,
-                {
-                  height: h,
-                  backgroundColor: isFromMe
-                    ? `rgba(255,255,255,${i / BAR_COUNT < progress ? 1 : 0.4})`
-                    : `rgba(14,191,138,${i / BAR_COUNT < progress ? 1 : 0.4})`,
-                },
-              ]}
-            />
-          ))}
+          {waveformBars}
         </View>
 
         <Text style={[
           styles.duration,
           { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
         ]}>
-          {loadError ? 'Error' : formatTime(displayTime)}
+          {loadError ? 'Error' : displayTime}
         </Text>
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

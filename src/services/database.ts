@@ -2028,38 +2028,34 @@ export const markConversationAsRead = async (conversationId: string): Promise<{ 
  * Upload a voice message
  */
 export const uploadVoiceMessage = async (audioUri: string, conversationId: string): Promise<DbResponse<string>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
-    // Step 1: Verify the audio file exists and is non-empty
-    const FileSystem = await import('expo-file-system/legacy');
-    const fileInfo = await FileSystem.getInfoAsync(audioUri);
-    if (!fileInfo.exists) {
+    // Step 1: Verify audio file exists and is non-empty + get presigned URL in parallel
+    const [fileCheckResult, presignedResult] = await Promise.all([
+      import('expo-file-system/legacy').then(fs => fs.getInfoAsync(audioUri)),
+      awsAPI.request<{ url: string; key: string }>('/media/upload-voice', {
+        method: 'POST',
+        body: { conversationId },
+      }),
+    ]);
+
+    if (!fileCheckResult.exists) {
       if (__DEV__) console.warn('[uploadVoiceMessage] Audio file does not exist:', audioUri);
       return { data: null, error: 'Recording file not found' };
     }
-    if ('size' in fileInfo && typeof fileInfo.size === 'number' && fileInfo.size === 0) {
+    if ('size' in fileCheckResult && typeof fileCheckResult.size === 'number' && fileCheckResult.size === 0) {
       if (__DEV__) console.warn('[uploadVoiceMessage] Audio file is empty (0 bytes):', audioUri);
       return { data: null, error: 'Recording file is empty' };
     }
 
-    // Step 2: Get presigned upload URL from Lambda
-    const { url: presignedUrl, key } = await awsAPI.request<{ url: string; key: string }>('/media/upload-voice', {
-      method: 'POST',
-      body: { conversationId },
-    });
-
-    // Step 3: Upload the audio file to S3 using the presigned URL
+    // Step 2: Upload the audio file to S3
     const { uploadWithFileSystem } = await import('./mediaUpload');
-    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedUrl, 'audio/mp4');
+    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedResult.url, 'audio/mp4');
     if (!uploadSuccess) {
       return { data: null, error: 'Failed to upload voice message' };
     }
 
-    // Step 4: Return the CDN URL for the uploaded file
-    const cdnUrl = awsAPI.getCDNUrl(key);
-    return { data: cdnUrl, error: null };
+    // Step 3: Return the CDN URL
+    return { data: awsAPI.getCDNUrl(presignedResult.key), error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }

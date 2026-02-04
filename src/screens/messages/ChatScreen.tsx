@@ -214,6 +214,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     return () => { mountedRef.current = false; };
   }, []);
 
+  const hasMarkedReadRef = useRef(false);
+
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
     const { data, error } = await getMessages(conversationId, 0, 100);
@@ -226,7 +228,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       if (changed) {
         messagesRef.current = data;
         setMessages(data);
-        markConversationAsRead(conversationId);
+        // Mark as read only once on first load, not every poll
+        if (!hasMarkedReadRef.current) {
+          hasMarkedReadRef.current = true;
+          markConversationAsRead(conversationId);
+        }
       }
     }
     setLoading(false);
@@ -331,37 +337,73 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setSending(false);
   }, [conversationId, inputText, sending, currentUserId]);
 
-  // Handle voice message send
+  // Handle voice message send with optimistic update
   const handleVoiceSend = useCallback(async (uri: string, duration: number) => {
     if (!conversationId) return;
 
     setIsRecording(false);
     setSending(true);
 
+    const durationText = `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`;
+
+    // Optimistic: show voice message immediately with local URI
+    const optimisticId = `optimistic-voice-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      sender_id: currentUserId || '',
+      content: `Voice message (${durationText})`,
+      media_url: uri,
+      media_type: 'audio',
+      created_at: new Date().toISOString(),
+      is_deleted: false,
+    };
+    setMessages(prev => {
+      const next = [...prev, optimisticMessage];
+      messagesRef.current = next;
+      return next;
+    });
+
     // Upload voice message
     const { data: voiceUrl, error: uploadError } = await uploadVoiceMessage(uri, conversationId);
 
     if (uploadError || !voiceUrl) {
+      // Remove optimistic message on failure
+      setMessages(prev => {
+        const next = prev.filter(m => m.id !== optimisticId);
+        messagesRef.current = next;
+        return next;
+      });
       showError('Error', 'Failed to upload voice message');
       setSending(false);
       return;
     }
 
     // Send message with audio URL
-    const { error } = await sendMessageToDb(
+    const { data: sentMessage, error } = await sendMessageToDb(
       conversationId,
-      `Voice message (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+      `Voice message (${durationText})`,
       voiceUrl,
       'audio'
     );
 
     if (error) {
+      setMessages(prev => {
+        const next = prev.filter(m => m.id !== optimisticId);
+        messagesRef.current = next;
+        return next;
+      });
       showError('Error', 'Failed to send voice message');
-    } else {
-      loadMessages();
+    } else if (sentMessage) {
+      // Replace optimistic message with real one (has CDN URL)
+      setMessages(prev => {
+        const next = prev.map(m => m.id === optimisticId ? sentMessage : m);
+        messagesRef.current = next;
+        return next;
+      });
     }
     setSending(false);
-  }, [conversationId, loadMessages]);
+  }, [conversationId, currentUserId]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

@@ -43,19 +43,15 @@ const { width } = Dimensions.get('window');
 
 interface MessageItemProps {
   item: Message;
-  index: number;
-  currentUserId: string | null;
-  messages: Message[];
+  isFromMe: boolean;
+  showAvatar: boolean;
   goToUserProfile: (userId: string) => void;
   formatTime: (dateString: string) => string;
   setSelectedImage: (uri: string | null) => void;
   styles: ReturnType<typeof createStyles>;
 }
 
-const MessageItem = memo(({ item, index, currentUserId, messages, goToUserProfile, formatTime, setSelectedImage, styles }: MessageItemProps) => {
-  const isFromMe = item.sender_id === currentUserId;
-  const showAvatar = !isFromMe && (index === 0 || messages[index - 1]?.sender_id === currentUserId);
-
+const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatTime, setSelectedImage, styles }: MessageItemProps) => {
   return (
     <View style={[styles.messageRow, isFromMe ? styles.messageRowRight : styles.messageRowLeft]}>
       {!isFromMe && (
@@ -100,7 +96,14 @@ const MessageItem = memo(({ item, index, currentUserId, messages, goToUserProfil
       </View>
     </View>
   );
-});
+}, (prev, next) => (
+  prev.item.id === next.item.id &&
+  prev.item.is_deleted === next.item.is_deleted &&
+  prev.item.content === next.item.content &&
+  prev.isFromMe === next.isFromMe &&
+  prev.showAvatar === next.showAvatar &&
+  prev.styles === next.styles
+));
 
 interface ChatScreenProps {
   route: {
@@ -137,6 +140,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
+  // Refs for stable callbacks (avoid re-creating renderMessage on every poll)
+  const messagesRef = useRef<Message[]>([]);
+  const currentUserIdRef = useRef<string | null>(null);
+  const prevMessageCountRef = useRef(0);
+
   // Handle emoji selection
   const handleEmojiSelect = useCallback((emoji: { emoji: string }) => {
     setInputText(prev => prev + emoji.emoji);
@@ -157,7 +165,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   useEffect(() => {
     let mounted = true;
     getCurrentUserId().then(id => {
-      if (mounted) setCurrentUserId(id);
+      if (mounted) {
+        setCurrentUserId(id);
+        currentUserIdRef.current = id;
+      }
     });
     return () => { mounted = false; };
   }, []);
@@ -208,8 +219,15 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const { data, error } = await getMessages(conversationId, 0, 100);
     if (!mountedRef.current) return;
     if (!error && data) {
-      setMessages(data);
-      markConversationAsRead(conversationId);
+      // Smart polling: only update state if messages actually changed
+      const prev = messagesRef.current;
+      const changed = data.length !== prev.length ||
+        data.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content);
+      if (changed) {
+        messagesRef.current = data;
+        setMessages(data);
+        markConversationAsRead(conversationId);
+      }
     }
     setLoading(false);
   }, [conversationId]);
@@ -292,13 +310,21 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       media_type: undefined,
       shared_post_id: undefined,
     };
-    setMessages(prev => [...prev, optimisticMessage]);
+    setMessages(prev => {
+      const next = [...prev, optimisticMessage];
+      messagesRef.current = next;
+      return next;
+    });
 
     const { error } = await sendMessageToDb(conversationId, messageText);
 
     if (error) {
       // Remove optimistic message and restore input
-      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      setMessages(prev => {
+        const next = prev.filter(m => m.id !== optimisticId);
+        messagesRef.current = next;
+        return next;
+      });
       showError('Error', 'Failed to send message. Please try again.');
       setInputText(messageText);
     }
@@ -339,20 +365,46 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => (
-    <MessageItem
-      item={item}
-      index={index}
-      currentUserId={currentUserId}
-      messages={messages}
-      goToUserProfile={goToUserProfile}
-      formatTime={formatTime}
-      setSelectedImage={setSelectedImage}
-      styles={styles}
-    />
-  ), [currentUserId, messages, goToUserProfile, formatTime, styles]);
+  // Stable renderMessage — uses refs so it doesn't re-create on every poll
+  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
+    const isFromMe = item.sender_id === currentUserIdRef.current;
+    const msgs = messagesRef.current;
+    const prevMessage = index > 0 ? msgs[index - 1] : null;
+    const showAvatar = !isFromMe && (!prevMessage || prevMessage.sender_id !== item.sender_id);
+    return (
+      <MessageItem
+        item={item}
+        isFromMe={isFromMe}
+        showAvatar={showAvatar}
+        goToUserProfile={goToUserProfile}
+        formatTime={formatTime}
+        setSelectedImage={setSelectedImage}
+        styles={styles}
+      />
+    );
+  }, [goToUserProfile, formatTime, styles]);
 
   const displayName = resolveDisplayName(otherUserProfile);
+
+  // Memoized empty state — avoids re-creating on every render
+  const listEmptyComponent = useMemo(() => (
+    <View style={styles.emptyChat}>
+      <AvatarImage source={otherUserProfile?.avatar_url} size={80} />
+      <Text style={styles.emptyChatName}>{resolveDisplayName(otherUserProfile)}</Text>
+      <Text style={styles.emptyChatText}>Start a conversation with {otherUserProfile?.full_name?.split(' ')[0] || resolveDisplayName(otherUserProfile)}</Text>
+    </View>
+  ), [styles, otherUserProfile?.avatar_url, otherUserProfile?.full_name]);
+
+  const keyExtractor = useCallback((item: Message) => item.id, []);
+
+  // Only scroll to end when new messages arrive, not on every re-render
+  const handleContentSizeChange = useCallback(() => {
+    const currentCount = messagesRef.current.length;
+    if (currentCount > prevMessageCountRef.current) {
+      flatListRef.current?.scrollToEnd({ animated: currentCount - prevMessageCountRef.current <= 1 });
+    }
+    prevMessageCountRef.current = currentCount;
+  }, []);
 
   if (loading && !conversationId) {
     return (
@@ -436,17 +488,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyChat}>
-              <AvatarImage source={otherUserProfile?.avatar_url} size={80} />
-              <Text style={styles.emptyChatName}>{displayName}</Text>
-              <Text style={styles.emptyChatText}>Start a conversation with {otherUserProfile?.full_name?.split(' ')[0] || displayName}</Text>
-            </View>
-          )}
+          onContentSizeChange={handleContentSizeChange}
+          ListEmptyComponent={listEmptyComponent}
         />
       )}
 

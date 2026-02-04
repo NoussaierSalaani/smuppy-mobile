@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -137,6 +137,8 @@ const UserProfileScreen = () => {
   const [isRequested, setIsRequested] = useState(false); // For private account follow requests
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
+  // Grace period: after follow/unfollow, ignore API responses for 10s to avoid read-replica-lag reversals
+  const followGraceUntilRef = useRef<number>(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockEndDate, setBlockEndDate] = useState<Date | null>(null);
@@ -195,9 +197,14 @@ const UserProfileScreen = () => {
   const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
 
   // Sync follow status from profile data (API returns is_following)
+  // During the grace period after a follow/unfollow, skip syncing from API to avoid
+  // read-replica-lag reversals (the optimistic setQueryData value is already correct).
   useEffect(() => {
     if (!profileData) return;
     let cancelled = false;
+
+    // Skip API sync during grace period — our optimistic cache update is authoritative
+    if (Date.now() < followGraceUntilRef.current) return;
 
     // Use is_following from profile API response (or cache)
     const isFollowingFromApi = profileData.is_following ?? false;
@@ -436,10 +443,9 @@ const UserProfileScreen = () => {
 
       registerToggleAndMaybeBlock();
 
-      // NOTE: No invalidateQueries here — the setQueryData above already has the correct
-      // is_following value. Re-fetching too soon would hit the read replica which may not
-      // have replicated the follow yet, causing the button to revert. The natural staleTime
-      // (5 min) handles eventual consistency.
+      // Grace period: ignore API-sourced profileData updates for 10s to let the read
+      // replica catch up. Our setQueryData above is authoritative during this window.
+      followGraceUntilRef.current = Date.now() + 10_000;
     } catch (err) {
       // Revert optimistic update on unexpected error
       if (wasPrivate) {
@@ -494,8 +500,8 @@ const UserProfileScreen = () => {
 
       registerToggleAndMaybeBlock();
 
-      // NOTE: No invalidateQueries here — setQueryData above already has correct is_following.
-      // Re-fetching too soon would hit the read replica (replication lag) and revert the button.
+      // Grace period: ignore API-sourced profileData updates for 10s (read replica lag)
+      followGraceUntilRef.current = Date.now() + 10_000;
     } catch (err) {
       // Revert on unexpected error: local state + cache
       setIsFan(true);

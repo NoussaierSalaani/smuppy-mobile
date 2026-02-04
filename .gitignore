@@ -56,6 +56,7 @@ aws-migration/infrastructure/cdk-out-deploy/
 aws-migration/infrastructure/cdk-out-deploy/**
 aws-migration/infrastructure/cdk-out-diff/
 aws-migration/infrastructure/cdk-out-diff/**
+aws-migration/infrastructure/app.json
 aws-migration/lambda/shared/node_modules
 
 # Infrastructure env files

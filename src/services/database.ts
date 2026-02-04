@@ -1262,7 +1262,7 @@ export const markAllNotificationsRead = async (): Promise<{ error: string | null
 export const getUnreadNotificationCount = async (): Promise<{ count: number }> => {
   try {
     const result = await awsAPI.getUnreadCount();
-    return { count: result.count };
+    return { count: result.unreadCount ?? 0 };
   } catch {
     return { count: 0 };
   }

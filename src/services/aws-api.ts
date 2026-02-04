@@ -586,7 +586,7 @@ class AWSAPIService {
     });
   }
 
-  async getUnreadCount(): Promise<{ count: number }> {
+  async getUnreadCount(): Promise<{ unreadCount: number }> {
     return this.request('/notifications/unread-count');
   }
 

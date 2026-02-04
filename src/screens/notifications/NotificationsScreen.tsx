@@ -227,7 +227,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         .then(() => {
           // Confirm accurate count from server (catches race with new notifications)
           awsAPI.getUnreadCount()
-            .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
+            .then(({ unreadCount }) => useAppStore.getState().setUnreadNotifications(unreadCount ?? 0))
             .catch(() => { /* best-effort */ });
         })
         .catch(() => { /* best-effort */ });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, ComponentType } from 'react';
+import React, { useState, useEffect, ComponentType } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,7 +14,19 @@ import ErrorBoundary from '../components/ErrorBoundary';
 // Type helper to cast screen components for React Navigation compatibility
 
 const asScreen = <T,>(component: T): ComponentType<any> => component as ComponentType<any>;
-// TabBarProvider removed - was causing issues and not being used
+
+// Fetch both badge counts from server (module-level to avoid hook ordering issues)
+const fetchBadgeCounts = (): void => {
+  awsAPI.getUnreadCount()
+    .then(({ unreadCount }) => useAppStore.getState().setUnreadNotifications(unreadCount ?? 0))
+    .catch(() => { /* best-effort */ });
+  awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=50')
+    .then((res) => {
+      const total = (res.conversations || []).reduce((sum: number, c: { unread_count?: number }) => sum + (c.unread_count || 0), 0);
+      useAppStore.getState().setUnreadMessages(total);
+    })
+    .catch(() => { /* best-effort */ });
+};
 
 // ============================================
 // LAZY SCREEN HELPER
@@ -298,32 +310,19 @@ export default function MainNavigator() {
     syncProfile();
 
     // Fetch initial unread counts
-    refreshBadgeCounts();
+    fetchBadgeCounts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Reusable function to refresh both badge counts
-  const refreshBadgeCounts = useCallback(() => {
-    awsAPI.getUnreadCount()
-      .then(({ count }) => useAppStore.getState().setUnreadNotifications(count))
-      .catch(() => { /* best-effort */ });
-    awsAPI.request<{ conversations: Array<{ unread_count?: number }> }>('/conversations?limit=100')
-      .then((res) => {
-        const total = (res.conversations || []).reduce((sum: number, c: { unread_count?: number }) => sum + (c.unread_count || 0), 0);
-        useAppStore.getState().setUnreadMessages(total);
-      })
-      .catch(() => { /* best-effort */ });
   }, []);
 
   // Refresh badges when app returns from background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        refreshBadgeCounts();
+        fetchBadgeCounts();
       }
     });
     return () => subscription.remove();
-  }, [refreshBadgeCounts]);
+  }, []);
 
   // Register for push notifications when user is logged in
   useAutoRegisterPushNotifications();

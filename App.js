@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
-import { View } from 'react-native';
+import { View, AppState as RNAppState } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -120,16 +120,23 @@ const PushNotificationHandler = () => {
  */
 const CachePersistence = () => {
   useEffect(() => {
-    // Restore cache on mount
-    restoreQueryCache();
+    // Cache is restored in initializeApp() Promise.all — no need to restore here
 
     // Persist cache periodically (every 5 minutes)
     const interval = setInterval(() => {
       persistQueryCache();
     }, 5 * 60 * 1000);
 
+    // Persist when app goes to background (more reliable than timer)
+    const appStateSub = RNAppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        persistQueryCache();
+      }
+    });
+
     return () => {
       clearInterval(interval);
+      appStateSub.remove();
       // Persist on unmount
       persistQueryCache();
     };
@@ -163,6 +170,7 @@ export default function App() {
 
       try {
         // Run independent init tasks in parallel for faster startup
+        // restoreQueryCache() runs here so data is ready BEFORE first render
         await Promise.all([
           Font.loadAsync({
             'WorkSans-Regular': require('./assets/fonts/WorkSans-Regular.ttf'),
@@ -179,6 +187,7 @@ export default function App() {
           rateLimiter.init(),
           initializeNotifications(),
           initializeBackend(),
+          restoreQueryCache().catch(() => {}),
         ]);
       } catch (error) {
         if (__DEV__) console.error('Error initializing app:', error);

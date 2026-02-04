@@ -18,7 +18,7 @@ import { useUserStore, useUserSafetyStore } from '../../stores';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
@@ -37,6 +37,7 @@ import { awsAPI } from '../../services/aws-api';
 import { FEATURES } from '../../config/featureFlags';
 import GradeFrame from '../../components/GradeFrame';
 import { getGrade } from '../../utils/gradeSystem';
+import { ProfileSkeleton } from '../../components/skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -243,6 +244,22 @@ const UserProfileScreen = () => {
   useEffect(() => {
     loadUserPosts();
   }, [loadUserPosts]);
+
+  // Silent refetch when returning from detail screens (PostDetailProfileScreen)
+  // Ensures likes_count and views_count reflect changes made in the detail view
+  const initialLoadDoneRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!initialLoadDoneRef.current) {
+        initialLoadDoneRef.current = true;
+        return; // Skip first focus — initial load handled by useEffect above
+      }
+      if (!userId) return;
+      getPostsByUser(userId, 0, 50).then(({ data, error }) => {
+        if (!error && data) setUserPosts(data);
+      });
+    }, [userId])
+  );
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {
@@ -622,12 +639,7 @@ const UserProfileScreen = () => {
   }
 
   if (isLoading) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (isError || !profileData) {

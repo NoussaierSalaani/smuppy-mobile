@@ -23,6 +23,8 @@ import {
   Conversation,
 } from '../../services/database';
 import { useAppStore } from '../../stores';
+import { ConversationListSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
 
 interface MessagesScreenProps {
   navigation: {
@@ -179,10 +181,12 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     loadConversations();
   }, [loadConversations]);
 
-  // Navigate to user profile
+  // Prefetch + navigate to user profile
+  const prefetchProfile = usePrefetchProfile();
   const goToUserProfile = useCallback((userId: string) => {
+    prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
-  }, [navigation]);
+  }, [navigation, prefetchProfile]);
 
   // Filter conversations
   const filteredConversations = conversations.filter(conv => {
@@ -222,8 +226,8 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ConversationListSkeleton />
       </View>
     );
   }

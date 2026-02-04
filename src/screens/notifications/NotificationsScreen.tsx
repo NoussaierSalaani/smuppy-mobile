@@ -19,6 +19,8 @@ import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useAppStore } from '../../stores';
+import { NotificationsSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
 
 // ============================================
 // TYPES
@@ -231,8 +233,10 @@ export default function NotificationsScreen(): React.JSX.Element {
     { key: 'peak_reply', label: 'Peak Replies' },
   ];
 
-  // Navigate to user profile
+  // Prefetch + navigate to user profile
+  const prefetchProfile = usePrefetchProfile();
   const goToUserProfile = (userId: string): void => {
+    prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
   };
 
@@ -533,10 +537,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         )}
 
         {loading && notifications.length === 0 && (
-          <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading notifications...</Text>
-          </View>
+          <NotificationsSkeleton />
         )}
 
         {!loading && filteredNotifications.length === 0 && (

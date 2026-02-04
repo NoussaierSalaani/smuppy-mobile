@@ -42,6 +42,7 @@ import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
+import { usePrefetchProfile } from '../../hooks';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -419,6 +420,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     useVibeStore.getState().checkDailyLogin();
   }, []);
 
+  // Prefetch profile data before navigation
+  const prefetchProfile = usePrefetchProfile();
+
   // Navigate to user profile (or Profile tab if it's current user)
   const goToUserProfile = useCallback((userId: string) => {
     // Close modal properly with engagement tracking
@@ -433,6 +437,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         if (userId === currentUserId) {
           navigation.navigate('Tabs', { screen: 'Profile' });
         } else {
+          prefetchProfile(userId);
           navigation.navigate('UserProfile', { userId });
         }
       }, 300);
@@ -440,10 +445,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       if (userId === currentUserId) {
         navigation.navigate('Tabs', { screen: 'Profile' });
       } else {
+        prefetchProfile(userId);
         navigation.navigate('UserProfile', { userId });
       }
     }
-  }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId]);
+  }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId, prefetchProfile]);
 
   // Navigate to Peak view
   const goToPeakView = useCallback((_peak: typeof PEAKS_DATA[number], index: number) => {

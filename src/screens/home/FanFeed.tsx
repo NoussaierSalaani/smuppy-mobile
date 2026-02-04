@@ -30,6 +30,8 @@ import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLike
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
+import { FeedSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
 
 
 const { width } = Dimensions.get('window');
@@ -357,15 +359,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     [posts, isUnderReview, isHidden]
   );
 
+  // Prefetch profile data before navigation
+  const prefetchProfile = usePrefetchProfile();
+
   // Navigate to user profile (or Profile tab if it's current user)
   const goToUserProfile = useCallback((userId: string) => {
     if (userId === currentUser?.id) {
       // Navigate to the Profile tab for current user
       navigation.navigate('Tabs', { screen: 'Profile' });
     } else {
+      prefetchProfile(userId);
       navigation.navigate('UserProfile', { userId });
     }
-  }, [navigation, currentUser?.id]);
+  }, [navigation, currentUser?.id, prefetchProfile]);
 
   // Format numbers
   const formatNumber = useCallback((num: number) => {
@@ -803,14 +809,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     navigation.navigate('Peaks');
   }, [navigation]);
 
-  // Loading state
+  // Loading state — show skeleton instead of spinner
   if (isLoading && posts.length === 0) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading your feed...</Text>
-      </View>
-    );
+    return <FeedSkeleton />;
   }
 
   return (

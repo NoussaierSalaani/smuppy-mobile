@@ -41,6 +41,7 @@ import { getGrade } from '../../utils/gradeSystem';
 import { useVibeStore } from '../../stores/vibeStore';
 import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
+import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
 
@@ -1390,12 +1391,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== EARLY RETURNS (after all hooks) ====================
   // Show loading only on initial load when we have no data at all
   if (isProfileLoading && !profileData && !user.displayName) {
-    return (
-      <View style={[styles.container, styles.loadingCenter]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.bioText, styles.loadingMargin]}>Loading profile...</Text>
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
 
   // Note: We no longer show a hard error screen - instead, we show the profile

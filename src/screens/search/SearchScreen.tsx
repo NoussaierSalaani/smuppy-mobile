@@ -25,6 +25,8 @@ import OptimizedImage from '../../components/OptimizedImage';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { resolveDisplayName } from '../../types/profile';
+import { SearchSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
 import {
   searchProfiles,
   searchPosts,
@@ -81,6 +83,7 @@ const SearchScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { colors, isDark } = useTheme();
+  const prefetchProfile = usePrefetchProfile();
   const searchInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -410,6 +413,7 @@ const SearchScreen = (): React.JSX.Element => {
   };
 
   const handleUserPress = (userId: string): void => {
+    prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
   };
 
@@ -844,12 +848,7 @@ const SearchScreen = (): React.JSX.Element => {
     const results = getCurrentResults();
 
     if (isLoading && !loadingMore) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.gray }]}>Searching...</Text>
-        </View>
-      );
+      return <SearchSkeleton />;
     }
 
     // For "All" tab, check if any results exist

@@ -38,7 +38,7 @@ interface NotificationSettingsScreenProps {
 
 const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenProps) => {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULTS);
   const [loading, setLoading] = useState(true);
@@ -112,8 +112,8 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.white }]}>
-        <StatusBar barStyle="dark-content" />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color={colors.dark} />
@@ -129,8 +129,8 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.white }]}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>

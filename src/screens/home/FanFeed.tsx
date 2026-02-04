@@ -92,6 +92,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const suggestionsOffsetRef = useRef(0);
   const loadingSuggestionsRef = useRef(false);
   const hasMoreSuggestionsRef = useRef(true);
+  const suggestionsErrorCountRef = useRef(0);
+  const MAX_SUGGESTIONS_ERRORS = 3;
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
   const trackingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -202,13 +204,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       const offset = append ? suggestionsOffsetRef.current : 0;
       const { data, error } = await getSuggestedProfiles(15, offset); // Fetch 15 to have buffer
 
-      // Stop retrying on error
+      // Stop retrying after too many consecutive errors
       if (error) {
         if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', error);
-        // Don't set hasMore to false on error - allow retry
+        suggestionsErrorCountRef.current += 1;
+        if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
+          hasMoreSuggestionsRef.current = false;
+        }
         loadingSuggestionsRef.current = false;
         return;
       }
+
+      // Reset error count on success
+      suggestionsErrorCountRef.current = 0;
 
       if (data && data.length > 0) {
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
@@ -242,7 +250,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
     } catch (err) {
       if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', err);
-      // Don't disable hasMore on error - allow retry
+      suggestionsErrorCountRef.current += 1;
+      if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
+        hasMoreSuggestionsRef.current = false;
+      }
     } finally {
       loadingSuggestionsRef.current = false;
     }
@@ -318,8 +329,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       // Add to followed set to exclude from future suggestions
       followedUserIds.current.add(userId);
 
-      // Remove from suggestions immediately (smooth animation)
-      setSuggestions(prev => prev.filter(s => s.id !== userId));
+      // Capture the suggestion before removing (for rollback on error)
+      let removedSuggestion: UISuggestion | undefined;
+      setSuggestions(prev => {
+        removedSuggestion = prev.find(s => s.id === userId);
+        return prev.filter(s => s.id !== userId);
+      });
 
       // Immediately fetch more suggestions to replace the removed one
       // Use force=true to bypass loading check
@@ -333,8 +348,11 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         }
       }).catch(err => {
         if (__DEV__) console.warn('[FanFeed] Error following user:', err);
-        // On error, remove from followed set
+        // Rollback: remove from followed set and re-add suggestion
         followedUserIds.current.delete(userId);
+        if (removedSuggestion) {
+          setSuggestions(prev => [removedSuggestion!, ...prev]);
+        }
       });
     } finally {
       // Remove from tracking set after a short delay to prevent rapid re-clicks
@@ -354,9 +372,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Refill suggestions when running low - load more from database
   useEffect(() => {
-    // Refill when we have less than 5 suggestions (increased buffer)
-    if (suggestions.length < 5 && suggestions.length >= 0) {
-      fetchSuggestions(true, true); // Force fetch to ensure we always refill
+    // Refill when we have less than 5 suggestions — respect hasMore (no force)
+    if (suggestions.length < 5 && hasMoreSuggestionsRef.current) {
+      fetchSuggestions(true);
     }
   }, [suggestions.length, fetchSuggestions]);
 

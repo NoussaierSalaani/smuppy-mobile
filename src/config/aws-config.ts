@@ -121,11 +121,16 @@ export const getAWSConfig = (): AWSConfig => {
   if (fallbackVars.length > 0) {
     if ((isProduction || isReleaseBuild) && !__DEV__) {
       // PRODUCTION: log error but NEVER crash — app must start
-      console.error(
+      const msg =
         `[AWS Config] PRODUCTION BUILD: ${fallbackVars.length} config value(s) missing, using staging fallbacks. ` +
         `Missing: ${fallbackVars.join(', ')}. ` +
-        'Ensure all EXPO_PUBLIC_* vars are set in EAS Secrets.'
-      );
+        'Ensure all EXPO_PUBLIC_* vars are set in EAS Secrets.';
+      console.error(msg);
+      // Report to Sentry so we know about misconfigured builds (lazy import to avoid circular deps)
+      try {
+        const { captureMessage } = require('../lib/sentry');
+        captureMessage(msg, 'fatal', { fallbackVars, environment: currentEnv });
+      } catch { /* Sentry not available — ignore */ }
     } else if (devUsesStaging) {
       // DEV with opt-in: single consolidated warning
       console.warn(

@@ -1,4 +1,4 @@
-import { useCallback, Dispatch, SetStateAction } from 'react';
+import { useCallback, useRef, Dispatch, SetStateAction } from 'react';
 
 import { likePost, unlikePost, savePost, unsavePost } from '../services/database';
 
@@ -30,7 +30,15 @@ export function usePostInteractions<T extends InteractablePost>({
   onLike,
   onSaveToggle,
 }: UsePostInteractionsOptions<T>) {
+  // Pending sets to prevent spam — skip if a like/save is already in-flight
+  const pendingLikes = useRef(new Set<string>());
+  const pendingSaves = useRef(new Set<string>());
+
   const toggleLike = useCallback(async (postId: string) => {
+    // Prevent concurrent like requests for the same post
+    if (pendingLikes.current.has(postId)) return;
+    pendingLikes.current.add(postId);
+
     let wasLiked = false;
 
     // Optimistic update + capture previous state
@@ -43,7 +51,7 @@ export function usePostInteractions<T extends InteractablePost>({
         return {
           ...p,
           isLiked: !p.isLiked,
-          likes: p.isLiked ? p.likes - 1 : p.likes + 1,
+          likes: Math.max(0, p.isLiked ? p.likes - 1 : p.likes + 1),
         };
       });
     });
@@ -62,7 +70,7 @@ export function usePostInteractions<T extends InteractablePost>({
         if (error) {
           // Revert
           setPosts(prev => prev.map(p =>
-            p.id === postId ? { ...p, isLiked: false, likes: p.likes - 1 } : p
+            p.id === postId ? { ...p, isLiked: false, likes: Math.max(0, p.likes - 1) } : p
           ));
         } else {
           onLike?.(postId);
@@ -70,10 +78,16 @@ export function usePostInteractions<T extends InteractablePost>({
       }
     } catch (err) {
       if (__DEV__) console.warn('[usePostInteractions] Like error:', err);
+    } finally {
+      pendingLikes.current.delete(postId);
     }
   }, [setPosts, onLike]);
 
   const toggleSave = useCallback(async (postId: string) => {
+    // Prevent concurrent save requests for the same post
+    if (pendingSaves.current.has(postId)) return;
+    pendingSaves.current.add(postId);
+
     let wasSaved = false;
 
     setPosts(prev => {
@@ -110,6 +124,8 @@ export function usePostInteractions<T extends InteractablePost>({
           saves: (p.saves ?? 0) + (wasSaved ? 1 : -1),
         };
       }));
+    } finally {
+      pendingSaves.current.delete(postId);
     }
   }, [setPosts, onSaveToggle]);
 

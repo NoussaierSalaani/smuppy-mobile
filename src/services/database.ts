@@ -1036,14 +1036,23 @@ export const getFollowingCount = async (userId: string): Promise<{ count: number
 // ============================================
 
 /**
- * Get users who liked a post
+ * Get users who liked a post (with pagination support)
  */
-export const getPostLikers = async (postId: string, cursor?: string, limit = 20): Promise<DbResponse<Profile[]>> => {
+export const getPostLikers = async (
+  postId: string,
+  cursor?: string,
+  limit = 20
+): Promise<DbResponse<Profile[]> & { nextCursor: string | null; hasMore: boolean }> => {
   try {
     const result = await awsAPI.getPostLikers(postId, { limit, cursor });
-    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+    return {
+      data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
+      error: null,
+      nextCursor: result.nextCursor || null,
+      hasMore: result.hasMore || false,
+    };
   } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
   }
 };
 

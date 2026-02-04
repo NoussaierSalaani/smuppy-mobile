@@ -617,7 +617,7 @@ const PostDetailProfileScreen = () => {
                   if (itemIsOwn) {
                     navigation.navigate('ProfileTab' as never);
                   } else {
-                    (navigation as any).navigate('UserProfile', { userId: item.user.id });
+                    navigation.navigate('UserProfile', { userId: item.user.id });
                   }
                 }}
               >

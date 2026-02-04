@@ -16,8 +16,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   try {
     // Auth check
-    const userId = requireAuth(event, headers);
-    if (isErrorResponse(userId)) return userId;
+    const cognitoSub = requireAuth(event, headers);
+    if (isErrorResponse(cognitoSub)) return cognitoSub;
 
     // Validate post ID
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
@@ -27,11 +27,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const { limit: limitStr, cursor } = event.queryStringParameters || {};
     const limit = Math.min(Math.max(parseInt(limitStr || '20', 10) || 20, 1), 50);
 
+    // Validate cursor if provided
+    if (cursor) {
+      const parsed = parseInt(cursor, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Invalid cursor parameter' }),
+        };
+      }
+    }
+
     const db = await getReaderPool();
 
-    // Verify post exists
+    // Verify post exists and check privacy
     const postResult = await db.query(
-      'SELECT id FROM posts WHERE id = $1',
+      `SELECT p.id, p.author_id, pr.is_private, pr.cognito_sub as author_cognito_sub
+       FROM posts p
+       LEFT JOIN profiles pr ON p.author_id = pr.id
+       WHERE p.id = $1`,
       [postId]
     );
 
@@ -41,6 +56,31 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Post not found' }),
       };
+    }
+
+    const post = postResult.rows[0];
+
+    // Privacy check: if author has a private account, only author or followers can see likers
+    if (post.is_private) {
+      const isAuthor = cognitoSub === post.author_cognito_sub;
+
+      if (!isAuthor) {
+        const followCheck = await db.query(
+          `SELECT 1 FROM follows f
+           JOIN profiles p ON f.follower_id = p.id
+           WHERE p.cognito_sub = $1 AND f.following_id = $2 AND f.status = 'accepted'
+           LIMIT 1`,
+          [cognitoSub, post.author_id]
+        );
+
+        if (followCheck.rows.length === 0) {
+          return {
+            statusCode: 403,
+            headers,
+            body: JSON.stringify({ message: 'This post is from a private account' }),
+          };
+        }
+      }
     }
 
     // Build query for likers with cursor-based pagination

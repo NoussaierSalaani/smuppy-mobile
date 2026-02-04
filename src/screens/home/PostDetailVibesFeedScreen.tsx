@@ -825,7 +825,7 @@ const PostDetailVibesFeedScreen = () => {
                 <View style={styles.statsBar}>
                   <TouchableOpacity
                     style={styles.statItem}
-                    onPress={() => (navigation as any).navigate('PostLikers', { postId: currentPost.id })}
+                    onPress={() => navigation.navigate('PostLikers', { postId: currentPost.id })}
                     activeOpacity={0.7}
                   >
                     <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
@@ -889,7 +889,7 @@ const PostDetailVibesFeedScreen = () => {
                 </View>
                 <TouchableOpacity
                   style={styles.condensedStats}
-                  onPress={() => (navigation as any).navigate('PostLikers', { postId: currentPost.id })}
+                  onPress={() => navigation.navigate('PostLikers', { postId: currentPost.id })}
                   activeOpacity={0.7}
                 >
                   <SmuppyHeartIcon size={16} color={colors.heartRed} filled />

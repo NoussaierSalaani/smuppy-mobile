@@ -86,12 +86,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const client = await db.connect();
     let post: Record<string, unknown>;
     let author: Record<string, unknown> | null;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validTaggedIds = (body.taggedUsers || []).filter(
+      (tid: string) => uuidRegex.test(tid) && tid !== userId
+    );
+    let existingTaggedIds = new Set<string>();
 
     try {
       await client.query('BEGIN');
 
       const sanitizedLocation = body.location
-        ? body.location.replace(/<[^>]*>/g, '').trim().slice(0, 200)
+        ? body.location.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 200)
         : null;
 
       const result = await client.query(
@@ -101,7 +106,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [
           postId,
           userId,
-          (body.content || '').replace(/<[^>]*>/g, '').trim(),
+          (body.content || '').replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim(),
           body.mediaUrls || [],
           body.mediaType || null,
           body.visibility || 'public',
@@ -111,23 +116,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       post = result.rows[0];
 
-      // Save tagged users
-      const taggedUsers = body.taggedUsers || [];
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      for (const taggedUserId of taggedUsers) {
-        if (!uuidRegex.test(taggedUserId) || taggedUserId === userId) continue;
-        await client.query(
-          `INSERT INTO post_tags (post_id, tagged_user_id, tagged_by_user_id, created_at)
-           VALUES ($1, $2, $3, NOW())
-           ON CONFLICT (post_id, tagged_user_id) DO NOTHING`,
-          [postId, taggedUserId, userId]
+      // Save tagged users — validate existence first to avoid FK violation rolling back the post
+      if (validTaggedIds.length > 0) {
+        const placeholders = validTaggedIds.map((_: string, i: number) => `$${i + 1}`).join(', ');
+        const existsResult = await client.query(
+          `SELECT id FROM profiles WHERE id IN (${placeholders})`,
+          validTaggedIds
         );
-        // Create notification for tagged user
-        await client.query(
-          `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-           VALUES ($1, 'post_tag', 'You were tagged', $2, $3, NOW())`,
-          [taggedUserId, 'tagged you in a post', JSON.stringify({ actor_id: userId, post_id: postId })]
-        );
+        existingTaggedIds = new Set(existsResult.rows.map((r: { id: string }) => r.id));
+
+        for (const taggedUserId of validTaggedIds) {
+          if (!existingTaggedIds.has(taggedUserId)) continue;
+          await client.query(
+            `INSERT INTO post_tags (post_id, tagged_user_id, tagged_by_user_id, created_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (post_id, tagged_user_id) DO NOTHING`,
+            [postId, taggedUserId, userId]
+          );
+          await client.query(
+            `INSERT INTO notifications (user_id, type, title, body, data, created_at)
+             VALUES ($1, 'post_tag', 'You were tagged', $2, $3, NOW())`,
+            [taggedUserId, 'tagged you in a post', JSON.stringify({ actor_id: userId, post_id: postId })]
+          );
+        }
       }
 
       await client.query('COMMIT');
@@ -147,9 +158,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     author = authorResult.rows[0] || null;
 
-    // Collect tagged user IDs for the response
-    const taggedUserIds = (body.taggedUsers || []).filter(
-      (tid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tid) && tid !== userId
+    // Collect tagged user IDs for the response (only those that were actually inserted)
+    const taggedUserIds = validTaggedIds.filter(
+      (tid: string) => existingTaggedIds.has(tid)
     );
 
     return {

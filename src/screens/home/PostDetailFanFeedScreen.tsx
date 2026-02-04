@@ -749,7 +749,7 @@ const PostDetailFanFeedScreen = () => {
             <View style={styles.statsBar}>
               <TouchableOpacity
                 style={styles.statItem}
-                onPress={() => (navigation as any).navigate('PostLikers', { postId: item.id })}
+                onPress={() => navigation.navigate('PostLikers', { postId: item.id })}
                 activeOpacity={0.7}
               >
                 <SmuppyHeartIcon size={18} color={colors.heartRed} filled />

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { AccountBadge } from '../../components/Badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { MainStackParamList } from '../../types';
 import {
   getPostLikers,
   getCurrentProfile,
@@ -38,56 +40,73 @@ const profileToLiker = (profile: Profile): LikerUser => ({
   accountType: profile.account_type || 'personal',
 });
 
-export default function PostLikersScreen({ navigation, route }: { navigation: any; route: any }) {
+export default function PostLikersScreen() {
+  const navigation = useNavigation();
+  const route = useRoute<RouteProp<MainStackParamList, 'PostLikers'>>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
-  const postId = route?.params?.postId;
+  const postId = route.params.postId;
 
   const [likers, setLikers] = useState<LikerUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const nextCursorRef = useRef<string | null>(null);
+  const hasMoreRef = useRef(true);
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async (cursor?: string) => {
+    const isFirstPage = !cursor;
     try {
-      setIsLoading(true);
-
-      const { data: currentProfile } = await getCurrentProfile();
-      if (currentProfile) {
-        setCurrentUserId(currentProfile.id);
+      if (isFirstPage) {
+        setIsLoading(true);
+        const { data: currentProfile } = await getCurrentProfile();
+        if (currentProfile) {
+          setCurrentUserId(currentProfile.id);
+        }
+      } else {
+        setIsLoadingMore(true);
       }
 
-      const { data, error } = await getPostLikers(postId);
+      const { data, error, nextCursor, hasMore } = await getPostLikers(postId, cursor);
       if (error) {
         if (__DEV__) console.warn('[PostLikersScreen] Error:', error);
         showError('Error', 'Failed to load likes. Please try again.');
-        setLikers([]);
+        if (isFirstPage) setLikers([]);
         return;
       }
 
-      setLikers((data || []).map(profileToLiker));
+      const mapped = (data || []).map(profileToLiker);
+      setLikers(prev => isFirstPage ? mapped : [...prev, ...mapped]);
+      nextCursorRef.current = nextCursor;
+      hasMoreRef.current = hasMore;
     } catch (error) {
       if (__DEV__) console.warn('[PostLikersScreen] Error loading data:', error);
       showError('Error', 'Failed to load likes. Please try again.');
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
       setIsRefreshing(false);
     }
-  };
+  }, [postId, showError]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
+    nextCursorRef.current = null;
+    hasMoreRef.current = true;
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadData]);
 
-  // Create styles with theme (must be before renderUserItem)
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingMore || !hasMoreRef.current || !nextCursorRef.current) return;
+    loadData(nextCursorRef.current);
+  }, [isLoadingMore, loadData]);
+
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleUserPress = useCallback(
@@ -129,7 +148,7 @@ export default function PostLikersScreen({ navigation, route }: { navigation: an
 
   const keyExtractor = useCallback((item: LikerUser) => item.id, []);
 
-  const renderEmpty = () => (
+  const renderEmpty = useCallback(() => (
     <View style={styles.emptyContainer}>
       <Ionicons name="heart-outline" size={60} color={colors.gray} />
       <Text style={styles.emptyTitle}>No likes yet</Text>
@@ -137,7 +156,16 @@ export default function PostLikersScreen({ navigation, route }: { navigation: an
         Be the first to like this post
       </Text>
     </View>
-  );
+  ), [styles, colors.gray]);
+
+  const renderFooter = useCallback(() => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }, [isLoadingMore, styles, colors.primary]);
 
   if (isLoading) {
     return (
@@ -175,8 +203,11 @@ export default function PostLikersScreen({ navigation, route }: { navigation: an
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
       />
     </View>
   );
@@ -257,6 +288,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   verifiedBadge: {
     marginLeft: 6,
+  },
+
+  // Footer
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
   },
 
   // Empty

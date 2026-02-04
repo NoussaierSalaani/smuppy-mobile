@@ -277,6 +277,9 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     setSelectedUser(null);
   }, []);
 
+  // Create styles with theme (must be before callbacks that reference styles)
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Render badge
   const renderBadge = useCallback(
     (item: User) => {
@@ -326,7 +329,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       }
       return null;
     },
-    [activeTab, handleFollow, handleUnfollowPress, actionLoading]
+    [activeTab, handleFollow, handleUnfollowPress, actionLoading, styles, colors]
   );
 
   // Render user item
@@ -341,7 +344,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
         <View style={styles.userInfo}>
           <View style={styles.nameRow}>
-            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
             <AccountBadge
               size={16}
               style={styles.verifiedBadge}
@@ -349,18 +352,16 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
               accountType={item.accountType}
             />
           </View>
+          <Text style={styles.userUsername} numberOfLines={1}>{item.username}</Text>
         </View>
 
         {renderBadge(item)}
       </TouchableOpacity>
     ),
-    [navigation, renderBadge]
+    [navigation, renderBadge, styles]
   );
 
   const keyExtractor = useCallback((item: User) => item.id, []);
-
-  // Create styles with theme
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render tabs
   const renderTabs = () => (
@@ -452,7 +453,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
         <Text style={styles.headerText}>Community</Text>
 
-        <View style={{ width: 40 }} />
+        <View style={styles.backButton} />
       </View>
 
       {/* Tabs */}
@@ -482,6 +483,8 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         data={filteredList}
         renderItem={renderUserItem}
         keyExtractor={keyExtractor}
+        extraData={styles}
+        drawDistance={300}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
@@ -807,11 +810,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.dark,
     marginTop: 12,
     marginBottom: 4,
-  },
-  popupUsername: {
-    fontSize: 14,
-    color: colors.gray,
-    marginBottom: 12,
   },
   popupInfo: {
     fontSize: 14,

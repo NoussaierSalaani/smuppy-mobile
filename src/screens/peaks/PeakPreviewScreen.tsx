@@ -175,15 +175,20 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         replyToPeakId: replyTo || undefined,
       }) as unknown as { success: boolean; peak: { id: string } };
 
-      // Create challenge if enabled
+      // Create challenge if enabled (separate try/catch so peak success is preserved)
       if (isChallenge && challengeTitle.trim()) {
-        await awsAPI.createChallenge({
-          peakId: peakResult.peak.id,
-          title: challengeTitle.trim(),
-          rules: challengeRules.trim() || undefined,
-          isPublic: true,
-          allowAnyone: true,
-        });
+        try {
+          await awsAPI.createChallenge({
+            peakId: peakResult.peak.id,
+            title: challengeTitle.trim(),
+            rules: challengeRules.trim() || undefined,
+            isPublic: true,
+            allowAnyone: true,
+          });
+        } catch (challengeError) {
+          if (__DEV__) console.warn('Challenge creation error:', challengeError);
+          // Peak was published but challenge failed — still show success
+        }
       }
 
       // Show success and navigate

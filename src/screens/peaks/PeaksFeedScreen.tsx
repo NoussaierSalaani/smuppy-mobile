@@ -79,6 +79,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         reactions: p.likesCount,
         repliesCount: p.commentsCount,
         createdAt: p.createdAt,
+        isChallenge: !!p.challenge?.id,
+        challengeTitle: p.challenge?.title,
       }));
       setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
       setCursor(response.nextCursor);

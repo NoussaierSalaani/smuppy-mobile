@@ -328,7 +328,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   }, [currentPeak.id, savedPeaks, showSuccess]);
 
-  const _handleOpenTagModal = useCallback((): void => {
+  const handleOpenTagModal = useCallback((): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowTagModal(true);
   }, []);
@@ -749,6 +749,13 @@ const PeakViewScreen = (): React.JSX.Element => {
           <TouchableOpacity style={styles.actionButton} onPress={() => handleMenuAction('share')}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="paper-plane-outline" size={24} color={colors.white} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Tag Friend Button */}
+          <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="person-add-outline" size={22} color={colors.white} />
             </View>
           </TouchableOpacity>
 

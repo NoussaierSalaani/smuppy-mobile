@@ -3375,6 +3375,14 @@ export interface Profile {
   locationsMode?: string;
 }
 
+export interface PeakChallenge {
+  id: string;
+  title: string;
+  rules: string | null;
+  status: string;
+  responseCount: number;
+}
+
 export interface Peak {
   id: string;
   authorId: string;
@@ -3382,12 +3390,14 @@ export interface Peak {
   thumbnailUrl: string | null;
   caption: string | null;
   duration: number;
+  replyToPeakId: string | null;
   likesCount: number;
   commentsCount: number;
   viewsCount: number;
   createdAt: string;
   isLiked?: boolean;
   author: Profile;
+  challenge: PeakChallenge | null;
 }
 
 export interface Comment {

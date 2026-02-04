@@ -147,6 +147,47 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = result.rows[0];
 
+    // Send notification to parent peak author if this is a reply
+    if (replyToPeakId) {
+      try {
+        const parentPeak = await db.query(
+          'SELECT author_id FROM peaks WHERE id = $1',
+          [replyToPeakId]
+        );
+        if (parentPeak.rows.length > 0 && parentPeak.rows[0].author_id !== profile.id) {
+          await db.query(
+            `INSERT INTO notifications (user_id, type, title, body, data)
+             VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
+            [
+              parentPeak.rows[0].author_id,
+              `${profile.full_name || profile.username} replied to your Peak`,
+              JSON.stringify({ peakId: peak.id, replyToPeakId, authorId: profile.id }),
+            ]
+          );
+        }
+      } catch (notifErr) {
+        log.error('Failed to send reply notification', notifErr);
+      }
+    }
+
+    // Send notification to followers (fire and forget, capped at 500)
+    try {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         SELECT f.follower_id, 'new_peak', 'New Peak', $1, $2
+         FROM follows f
+         WHERE f.following_id = $3 AND f.status = 'accepted'
+         LIMIT 500`,
+        [
+          `${profile.full_name || profile.username} posted a new Peak`,
+          JSON.stringify({ peakId: peak.id, authorId: profile.id }),
+          profile.id,
+        ]
+      );
+    } catch (notifErr) {
+      log.error('Failed to send follower notifications', notifErr);
+    }
+
     return {
       statusCode: 201,
       headers,

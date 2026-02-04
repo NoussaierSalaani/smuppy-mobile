@@ -115,22 +115,42 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
+    const mapPeaks = (list: APIPeak[]) => (list || []).map((p: APIPeak) => ({
+      id: p.id,
+      videoUrl: toCdn(p.videoUrl) || undefined,
+      media_urls: [toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER],
+      media_type: p.videoUrl ? 'video' : 'image',
+      is_peak: true,
+      content: p.caption || '',
+      created_at: p.createdAt || new Date().toISOString(),
+      peak_duration: p.duration || 15,
+      likes_count: p.likesCount,
+      is_liked: p.isLiked || false,
+      comments_count: p.commentsCount,
+      views_count: p.viewsCount,
+      author_id: p.authorId || p.author?.id || null,
+    }));
+
     awsAPI.getPeaks({ userId, limit: 50 }).then((res) => {
       if (!isMounted) return;
-      setPeaks((res.data || []).map((p: APIPeak) => ({
-        id: p.id,
-        videoUrl: toCdn(p.videoUrl) || undefined,
-        media_urls: [toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER],
-        media_type: p.videoUrl ? 'video' : 'image',
-        is_peak: true,
-        content: p.caption || '',
-        created_at: p.createdAt || new Date().toISOString(),
-        peak_duration: p.duration || 15,
-        likes_count: p.likesCount,
-        is_liked: p.isLiked || false,
-        comments_count: p.commentsCount,
-        views_count: p.viewsCount,
-      })));
+      let list = mapPeaks(res.data || []);
+
+      // Fallback: if the API ignored the author filter, filter client-side
+      if (userId && list.length > 0) {
+        list = list.filter(p => !p.author_id || p.author_id === userId);
+      }
+
+      // If still empty, try an unfiltred fetch and filter client-side (handles gateways that ignore author params)
+      if (userId && list.length === 0) {
+        awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
+          if (!isMounted) return;
+          const filtered = mapPeaks(allRes.data || []).filter(p => p.author_id === userId);
+          setPeaks(filtered);
+        }).catch(() => {});
+        return;
+      }
+
+      setPeaks(list);
     }).catch(() => { /* silent */ });
 
     return () => { isMounted = false; };

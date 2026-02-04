@@ -8,6 +8,7 @@ import { awsAPI } from '../services/aws-api';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
 import { FEATURES } from '../config/featureFlags';
+import { useAutoRegisterPushNotifications, useNotifications } from '../hooks/useNotifications';
 
 // Type helper to cast screen components for React Navigation compatibility
 
@@ -297,6 +298,19 @@ export default function MainNavigator() {
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Register for push notifications when user is logged in
+  useAutoRegisterPushNotifications();
+
+  // Handle incoming push notifications: update badge counts in real-time
+  useNotifications({
+    onNotificationReceived: (notification) => {
+      const data = notification.request.content.data as { type?: string } | undefined;
+      if (data?.type === 'message') {
+        useAppStore.getState().setUnreadMessages((prev) => prev + 1);
+      }
+    },
+  });
 
   return (
     <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>

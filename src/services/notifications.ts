@@ -15,10 +15,16 @@ import { captureException } from '../lib/sentry';
 // ============================================
 
 export interface NotificationData {
-  type: 'like' | 'comment' | 'follow' | 'message' | 'mention' | 'post';
+  type:
+    | 'like' | 'comment' | 'message'
+    | 'follow_request' | 'new_follower' | 'follow_accepted'
+    | 'peak_like' | 'peak_comment'
+    | 'live';
   postId?: string;
+  peakId?: string;
   userId?: string;
   conversationId?: string;
+  channelName?: string;
   title?: string;
   body?: string;
 }

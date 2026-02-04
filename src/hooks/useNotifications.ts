@@ -68,33 +68,32 @@ export const useNotifications = (
           }
           break;
 
-        case 'follow':
+        case 'peak_like':
+        case 'peak_comment':
+          if (data.peakId) {
+            navigation.navigate('PeakView', { peakId: data.peakId });
+          }
+          break;
+
+        case 'follow_request':
+        case 'new_follower':
+        case 'follow_accepted':
           if (data.userId) {
             navigation.navigate('UserProfile', { userId: data.userId });
           }
           break;
 
         case 'message':
-          if (data.conversationId) {
-            // Navigate to chat - need to fetch conversation first
-            navigation.navigate('Messages');
-          }
+          navigation.navigate('Messages');
           break;
 
-        case 'mention':
-          if (data.postId) {
-            navigation.navigate('PostDetailFanFeed', { postId: data.postId });
-          }
-          break;
-
-        case 'post':
+        case 'live':
           if (data.userId) {
             navigation.navigate('UserProfile', { userId: data.userId });
           }
           break;
 
         default:
-          // Default to home
           navigation.navigate('Home');
       }
     },

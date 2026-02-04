@@ -23,7 +23,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
 import { queryKeys } from '../../lib/queryClient';
-import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
+import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest, isFollowing as checkIsFollowing } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { LiquidButton } from '../../components/LiquidButton';
@@ -138,6 +138,7 @@ const UserProfileScreen = () => {
   const [isRequested, setIsRequested] = useState(false); // For private account follow requests
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
+  const [isVerifyingFollow, setIsVerifyingFollow] = useState(false);
   // Grace period: after follow/unfollow, ignore API responses for 10s to avoid read-replica-lag reversals
   const followGraceUntilRef = useRef<number>(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
@@ -209,6 +210,30 @@ const UserProfileScreen = () => {
 
     // Use is_following from profile API response (or cache)
     const isFollowingFromApi = profileData.is_following ?? false;
+
+    // If API says "not following" but local state says we are, double-check with the
+    // dedicated endpoint to avoid false negatives from stale/anonymous responses.
+    if (isFan && !isFollowingFromApi && userId && !isVerifyingFollow) {
+      setIsVerifyingFollow(true);
+      checkIsFollowing(userId).then(({ isFollowing }) => {
+        if (cancelled) return;
+        setIsFan(isFollowing);
+        if (!isFollowing) {
+          // Re-check pending requests when we're truly not following
+          hasPendingFollowRequest(userId).then(({ pending }) => {
+            if (!cancelled) setIsRequested(pending);
+          });
+        } else {
+          setIsRequested(false);
+        }
+      }).catch(() => {
+        // If verification fails, keep existing optimistic state
+      }).finally(() => {
+        if (!cancelled) setIsVerifyingFollow(false);
+      });
+      return;
+    }
+
     setIsFan(isFollowingFromApi);
 
     // If not following and profile is private, check for pending request

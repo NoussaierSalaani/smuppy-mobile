@@ -178,6 +178,12 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
   const businessDisplayName = isBusiness && p.businessName ? p.businessName : null;
   // If fullName equals username, treat as empty (legacy data issue)
   const effectiveFullName = p.fullName && p.fullName !== p.username ? p.fullName : '';
+
+  // Follow flags come back in mixed casing depending on the backend handler.
+  // Normalize to our snake_case fields to keep React Query caches consistent.
+  const isFollowing = p.isFollowing ?? (p as any)?.is_following ?? false;
+  const isFollowedBy = p.isFollowedBy ?? (p as any)?.is_followed_by ?? false;
+
   return {
     id: p.id,
     username: p.username,
@@ -208,8 +214,8 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     following_count: p.followingCount,
     post_count: p.postsCount,
     // Follow status from API
-    is_following: p.isFollowing,
-    is_followed_by: p.isFollowedBy,
+    is_following: isFollowing,
+    is_followed_by: isFollowedBy,
   };
 };
 

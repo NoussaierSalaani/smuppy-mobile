@@ -506,7 +506,7 @@ const PostDetailVibesFeedScreen = () => {
       thumbnail: post.thumbnail,
       description: post.title || '',
       likes: post.likes || 0,
-      views: Math.floor(Math.random() * 5000) + 1000,
+      views: 0,
       category: post.category || 'Fitness',
       user: {
         id: post.user?.id || 'unknown',

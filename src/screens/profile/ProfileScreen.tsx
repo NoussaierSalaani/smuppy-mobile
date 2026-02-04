@@ -103,9 +103,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         is_peak: true,
         content: p.caption || '',
         created_at: p.createdAt,
-        likes: p.likesCount,
-        comments: p.commentsCount,
-        views: p.viewsCount,
+        likes_count: p.likesCount,
+        comments_count: p.commentsCount,
+        views_count: p.viewsCount,
       })));
     }).catch(() => { /* silent */ });
   }, [userId]);
@@ -718,10 +718,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER PEAK ITEM ====================
   const renderPeakItem = useCallback((peak: { id: string; media_urls?: string[]; likes_count?: number; views_count?: number; replies_count?: number; peak_duration?: number; tags_count?: number }) => {
     const thumbnail = peak.media_urls?.[0] || null;
-    // Mock stats for demo
-    const likes = peak.likes_count || Math.floor(Math.random() * 500) + 50;
-    const views = peak.views_count || Math.floor(Math.random() * 2000) + 200;
-    const replies = peak.replies_count || Math.floor(Math.random() * 30) + 5;
+    const likes = peak.likes_count || 0;
+    const views = peak.views_count || 0;
+    const replies = peak.replies_count || 0;
 
     return (
       <TouchableOpacity

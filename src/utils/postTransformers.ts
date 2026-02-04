@@ -107,6 +107,7 @@ export interface UIPostBase {
   duration?: string;
   user: UIPostUser;
   likes: number;
+  views: number;
   isLiked: boolean;
   isSaved: boolean;
   tags?: string[];
@@ -160,6 +161,7 @@ export const transformToFanPost = (
     },
     caption: getContentText(post),
     likes: post.likes_count || 0,
+    views: post.views_count || 0,
     comments: post.comments_count || 0,
     shares: 0,
     saves: 0,
@@ -199,6 +201,7 @@ export const transformToVibePost = (
     },
     title: getContentText(post),
     likes: post.likes_count || 0,
+    views: post.views_count || 0,
     isLiked: likedPostIds.has(post.id),
     isSaved: savedPostIds?.has(post.id) ?? false,
     category: post.tags?.[0] || 'Fitness',

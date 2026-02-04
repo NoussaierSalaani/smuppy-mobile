@@ -102,7 +102,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
       query = `
         SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType",
                EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked"
         FROM posts p
@@ -122,7 +122,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } else if (userId) {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE p.author_id = $1 ${cursor ? 'AND p.created_at < $3' : ''}
@@ -132,7 +132,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } else {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE 1=1 ${cursor ? 'AND p.created_at < $2' : ''}
@@ -169,7 +169,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       mediaType: post.mediaType, isPeak: post.isPeak || false, location: post.location || null,
       tags: post.tags || [],
       taggedUsers: tagsByPost[post.id] || [],
-      likesCount: parseInt(post.likesCount) || 0, commentsCount: parseInt(post.commentsCount) || 0,
+      likesCount: parseInt(post.likesCount) || 0, commentsCount: parseInt(post.commentsCount) || 0, viewsCount: parseInt(post.viewsCount) || 0,
       createdAt: post.createdAt, isLiked: post.isLiked || false,
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType },
     }));

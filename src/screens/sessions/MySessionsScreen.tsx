@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { SessionListSkeleton } from '../../components/skeleton';
 import { awsAPI, Session } from '../../services/aws-api';
 
 type TabType = 'upcoming' | 'past';
@@ -234,8 +235,8 @@ const MySessionsScreen = (): React.JSX.Element => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <SessionListSkeleton />
       </View>
     );
   }

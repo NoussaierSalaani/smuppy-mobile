@@ -19,6 +19,7 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI, SessionPack } from '../../services/aws-api';
 import OptimizedImage from '../../components/OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { ScreenSkeleton } from '../../components/skeleton';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -205,10 +206,7 @@ export default function BookSessionScreen(): React.JSX.Element {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading availability...</Text>
-        </View>
+        <ScreenSkeleton />
       </SafeAreaView>
     );
   }

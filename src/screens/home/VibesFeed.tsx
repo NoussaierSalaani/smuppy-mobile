@@ -426,15 +426,23 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Fetch peaks for carousel
   useEffect(() => {
+    const toCdn = (url?: string | null) => {
+      if (!url) return null;
+      return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+    };
     awsAPI.getPeaks({ limit: 10 }).then((res) => {
-      setPeaksData((res.data || []).map((p) => ({
-        id: p.id,
-        videoUrl: p.videoUrl,
-        thumbnail: p.thumbnailUrl || p.author?.avatarUrl || PEAK_PLACEHOLDER,
-        user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: p.author?.avatarUrl || null },
-        duration: p.duration || 0,
-        hasNew: true,
-      })));
+      setPeaksData((res.data || []).map((p) => {
+        const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
+        const videoUrl = toCdn(p.videoUrl) || undefined;
+        return {
+          id: p.id,
+          videoUrl,
+          thumbnail,
+          user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: toCdn(p.author?.avatarUrl) || null },
+          duration: p.duration || 0,
+          hasNew: true,
+        };
+      }));
     }).catch(() => { /* silent */ });
   }, []);
 

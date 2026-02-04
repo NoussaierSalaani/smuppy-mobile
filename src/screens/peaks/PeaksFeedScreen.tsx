@@ -70,16 +70,20 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       const params: { limit: number; cursor?: string } = { limit: 20 };
       if (!reset && cursor) params.cursor = cursor;
       const response = await awsAPI.getPeaks(params);
+      const toCdn = (url?: string | null) => {
+        if (!url) return null;
+        return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+      };
       const mapped: Peak[] = (response.data || []).map((p) => ({
         id: p.id,
         // Never use videoUrl as an image source; fallback to author avatar if no thumbnail
-        videoUrl: p.videoUrl,
-        thumbnail: p.thumbnailUrl || p.author?.avatarUrl || placeholder,
+        videoUrl: toCdn(p.videoUrl) || undefined,
+        thumbnail: toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || placeholder,
         duration: p.duration || 0,
         user: {
           id: p.author?.id || p.authorId,
           name: p.author?.fullName || p.author?.username || 'User',
-          avatar: p.author?.avatarUrl || '',
+          avatar: toCdn(p.author?.avatarUrl) || '',
         },
         views: p.viewsCount ?? 0,
         reactions: p.likesCount ?? 0,

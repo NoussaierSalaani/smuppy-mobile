@@ -111,12 +111,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   useEffect(() => {
     if (!userId) return;
     let isMounted = true;
+    const toCdn = (url?: string | null) => {
+      if (!url) return null;
+      return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+    };
     awsAPI.getPeaks({ userId, limit: 50 }).then((res) => {
       if (!isMounted) return;
       setPeaks((res.data || []).map((p: APIPeak) => ({
         id: p.id,
-        videoUrl: p.videoUrl,
-        media_urls: [p.thumbnailUrl || p.author?.avatarUrl || PEAK_PLACEHOLDER],
+        videoUrl: toCdn(p.videoUrl) || undefined,
+        media_urls: [toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER],
         media_type: p.videoUrl ? 'video' : 'image',
         is_peak: true,
         content: p.caption || '',

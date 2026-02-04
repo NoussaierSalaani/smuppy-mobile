@@ -204,6 +204,7 @@ export const useNotifications = (
 export const useAutoRegisterPushNotifications = (): void => {
   const user = useUserStore((state) => state.user);
   const hasRegistered = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user?.id) {
@@ -228,15 +229,28 @@ export const useAutoRegisterPushNotifications = (): void => {
       } else if (attempt + 1 < RETRY_DELAYS.length && !cancelled) {
         const delay = RETRY_DELAYS[attempt + 1];
         if (__DEV__) console.log(`[Push] Will retry in ${delay / 1000}s`);
-        setTimeout(() => attemptRegistration(attempt + 1), delay);
+        timerRef.current = setTimeout(() => attemptRegistration(attempt + 1), delay);
       } else {
         if (__DEV__) console.warn('[Push] All registration attempts failed');
+        try {
+          const { captureMessage } = require('../lib/sentry');
+          captureMessage('Push registration failed after all attempts', 'warning', {
+            userId: user.id,
+            attempts: RETRY_DELAYS.length,
+          });
+        } catch { /* Sentry not available */ }
       }
     };
 
     attemptRegistration(0);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [user?.id]);
 };
 

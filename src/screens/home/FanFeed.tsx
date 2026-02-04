@@ -94,6 +94,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const hasMoreSuggestionsRef = useRef(true);
   const suggestionsErrorCountRef = useRef(0);
   const MAX_SUGGESTIONS_ERRORS = 3;
+  const [suggestionsExhausted, setSuggestionsExhausted] = useState(false);
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
   const trackingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -210,6 +211,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         suggestionsErrorCountRef.current += 1;
         if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
           hasMoreSuggestionsRef.current = false;
+          setSuggestionsExhausted(true);
         }
         loadingSuggestionsRef.current = false;
         return;
@@ -217,6 +219,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       // Reset error count on success
       suggestionsErrorCountRef.current = 0;
+      setSuggestionsExhausted(false);
 
       if (data && data.length > 0) {
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
@@ -253,6 +256,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       suggestionsErrorCountRef.current += 1;
       if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
         hasMoreSuggestionsRef.current = false;
+        setSuggestionsExhausted(true);
       }
     } finally {
       loadingSuggestionsRef.current = false;
@@ -807,18 +811,24 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             variant="outline"
           />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.suggestionsScrollContent}
-          accessibilityRole="list"
-          accessibilityLabel="Suggested users"
-        >
-          {suggestions.map(renderSuggestion)}
-        </ScrollView>
+        {suggestions.length === 0 && suggestionsExhausted ? (
+          <View style={styles.suggestionsEmpty}>
+            <Text style={styles.suggestionsEmptyText}>No recommendations available right now</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestionsScrollContent}
+            accessibilityRole="list"
+            accessibilityLabel="Suggested users"
+          >
+            {suggestions.map(renderSuggestion)}
+          </ScrollView>
+        )}
       </View>
     </View>
-  ), [suggestions, renderSuggestion, navigation, inviteFriends]);
+  ), [suggestions, suggestionsExhausted, renderSuggestion, navigation, inviteFriends]);
 
   // List footer with loading indicator
   const ListFooter = useCallback(() => {
@@ -998,6 +1008,18 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   suggestionsScrollContent: {
     paddingHorizontal: SPACING.sm,
     gap: 0,
+  },
+  suggestionsEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+  },
+  suggestionsEmptyText: {
+    fontSize: 13,
+    color: colors.gray,
+    textAlign: 'center',
   },
   suggestionItem: {
     alignItems: 'center',

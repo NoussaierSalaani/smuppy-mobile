@@ -108,6 +108,10 @@ export async function calculateRoute(
   profile: RouteProfile = 'walking',
 ): Promise<RouteResult> {
   if (!MAPBOX_TOKEN) {
+    try {
+      const { captureMessage } = require('../lib/sentry');
+      captureMessage('Mapbox access token not configured', 'error');
+    } catch { /* Sentry not available */ }
     throw new Error('Mapbox access token not configured');
   }
 

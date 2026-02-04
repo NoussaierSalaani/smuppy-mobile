@@ -54,6 +54,10 @@ class AgoraService {
 
     if (!AGORA_APP_ID) {
       if (__DEV__) console.warn('[Agora] App ID not configured');
+      try {
+        const { captureMessage } = require('../lib/sentry');
+        captureMessage('Agora App ID not configured', 'error');
+      } catch { /* Sentry not available */ }
       return false;
     }
 

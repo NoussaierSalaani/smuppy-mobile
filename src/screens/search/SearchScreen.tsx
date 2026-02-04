@@ -41,6 +41,7 @@ import {
   Post,
   getCurrentProfile,
 } from '../../services/database';
+import { isValidUUID } from '../../utils/formatters';
 
 const PAGE_SIZE = 15;
 
@@ -171,9 +172,8 @@ const SearchScreen = (): React.JSX.Element => {
     if (profileMatch) {
       const usernameOrId = profileMatch[1];
       // Try by ID first (UUID format)
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       let profile = null;
-      if (uuidRegex.test(usernameOrId)) {
+      if (isValidUUID(usernameOrId)) {
         const { data } = await getProfileById(usernameOrId);
         profile = data;
       } else {

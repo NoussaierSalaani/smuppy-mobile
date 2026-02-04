@@ -25,13 +25,12 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
-const _CARD_WIDTH = (width - 48) / 2;
 const CONDENSED_HEIGHT = 220;
 const GRID_GAP = 12;
 const GRID_PADDING = 16;
-const _COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 
 // View states
 const VIEW_STATES = {
@@ -92,7 +91,7 @@ const PostDetailVibesFeedScreen = () => {
   const [blockLoading, setBlockLoading] = useState(false);
 
   // Animation values
-  const _scrollY = useRef(new Animated.Value(0)).current;
+
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   const videoRef = useRef(null);
@@ -220,11 +219,6 @@ const PostDetailVibesFeedScreen = () => {
     }
   };
 
-  // Validate UUID format
-  const isValidUUID = (id: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return id && uuidRegex.test(id);
-  };
 
   // Toggle like with anti spam-click - connected to database
   const toggleLike = async () => {
@@ -467,12 +461,6 @@ const PostDetailVibesFeedScreen = () => {
     );
   };
 
-  // Format numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
-  };
 
   // Navigate to post detail with animation
   const _handleGridPostPress = (post: GridPost) => {

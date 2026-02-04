@@ -18,6 +18,7 @@ import { AuthCallbackProvider } from '../context/AuthCallbackContext';
 import { useTheme } from '../hooks/useTheme';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { sentryNavigationIntegration } from '../lib/sentry';
+import { isValidUUID } from '../utils/formatters';
 
 /**
  * Root Stack Param List
@@ -70,47 +71,31 @@ const linking = {
           UserProfile: {
             path: 'profile/:userId',
             parse: {
-              userId: (userId: string) => {
-                // Validate UUID format to prevent navigation injection
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(userId) ? userId : '';
-              },
+              userId: (userId: string) => isValidUUID(userId) ? userId : '',
             },
           },
           PostDetailFanFeed: {
             path: 'post/:postId',
             parse: {
-              postId: (postId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(postId) ? postId : '';
-              },
+              postId: (postId: string) => isValidUUID(postId) ? postId : '',
             },
           },
           PeakView: {
             path: 'peak/:peakId',
             parse: {
-              peakId: (peakId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(peakId) ? peakId : '';
-              },
+              peakId: (peakId: string) => isValidUUID(peakId) ? peakId : '',
             },
           },
           EventDetail: {
             path: 'event/:eventId',
             parse: {
-              eventId: (eventId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(eventId) ? eventId : '';
-              },
+              eventId: (eventId: string) => isValidUUID(eventId) ? eventId : '',
             },
           },
           BusinessProfile: {
             path: 'business/:businessId',
             parse: {
-              businessId: (businessId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(businessId) ? businessId : '';
-              },
+              businessId: (businessId: string) => isValidUUID(businessId) ? businessId : '',
             },
           },
           EventList: {
@@ -119,28 +104,19 @@ const linking = {
           GroupDetail: {
             path: 'groups/:groupId',
             parse: {
-              groupId: (groupId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(groupId) ? groupId : '';
-              },
+              groupId: (groupId: string) => isValidUUID(groupId) ? groupId : '',
             },
           },
           CreatorOfferings: {
             path: 'creator/:creatorId/offerings',
             parse: {
-              creatorId: (creatorId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(creatorId) ? creatorId : '';
-              },
+              creatorId: (creatorId: string) => isValidUUID(creatorId) ? creatorId : '',
             },
           },
           PackPurchase: {
             path: 'packs/:packId',
             parse: {
-              packId: (packId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(packId) ? packId : '';
-              },
+              packId: (packId: string) => isValidUUID(packId) ? packId : '',
             },
           },
         },

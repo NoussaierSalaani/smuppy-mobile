@@ -44,6 +44,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 import { usePrefetchProfile } from '../../hooks';
+import { formatNumber } from '../../utils/formatters';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -690,11 +691,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }
   }, [followLoading, selectedPost?.user?.id]);
 
-  // Format numbers
-  const formatNumber = useCallback((num: number) => {
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  }, []);
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {

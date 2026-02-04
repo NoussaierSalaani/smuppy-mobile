@@ -23,6 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatNumber } from '../../utils/formatters';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -136,11 +137,7 @@ export default function CreatorWalletScreen() {
     return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
+
 
   const tierColors = dashboard?.tier ? TIER_COLORS[dashboard.tier.name as keyof typeof TIER_COLORS] || TIER_COLORS.Bronze : TIER_COLORS.Bronze;
 

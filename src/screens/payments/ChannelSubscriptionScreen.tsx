@@ -23,6 +23,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatNumber } from '../../utils/formatters';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -109,11 +110,7 @@ export default function ChannelSubscriptionScreen() {
     return `$${(cents / 100).toFixed(2)}`;
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
+
 
   const handleSubscribe = async () => {
     if (!channelInfo) return;

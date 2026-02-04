@@ -36,6 +36,7 @@ import {
   recordPostView,
 } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
+import { isValidUUID, formatNumber } from '../../utils/formatters';
 import { useContentStore } from '../../stores';
 
 const { width, height } = Dimensions.get('window');
@@ -68,10 +69,6 @@ interface PostItem {
 const MOCK_PROFILE_POSTS: PostItem[] = [];
 
 // Validate UUID format
-const isValidUUID = (id: string) => {
-  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return id && UUID_REGEX.test(id);
-};
 
 // Helper to convert API post to PostItem format
 const convertToPostItem = (post: any): PostItem => {
@@ -104,12 +101,6 @@ const convertToPostItem = (post: any): PostItem => {
   };
 };
 
-// Format numbers
-const formatNumber = (num: number) => {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-  return num.toString();
-};
 
 
 const PostDetailProfileScreen = () => {

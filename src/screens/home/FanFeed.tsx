@@ -32,6 +32,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
 import { FeedSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks';
+import { formatNumber } from '../../utils/formatters';
 
 
 const { width } = Dimensions.get('window');
@@ -421,12 +422,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     navigation.navigate('PostDetailFanFeed', { postId: post.id, fanFeedPosts });
   }, [navigation]);
 
-  // Format numbers
-  const formatNumber = useCallback((num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  }, []);
 
   // Like/Save with optimistic update + rollback (shared hook)
   const { toggleLike, toggleSave } = usePostInteractions({

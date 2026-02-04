@@ -27,6 +27,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
 
@@ -124,11 +125,6 @@ const PostDetailFanFeedScreen = () => {
   const _isAlreadyFan = currentPost ? fanStatus[currentPost.user.id] === true : false;
   const _theyFollowMe = currentPost?.user.followsMe ?? false;
 
-  // Validate UUID format
-  const isValidUUID = (id: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return id && uuidRegex.test(id);
-  };
 
   // Check follow status when post changes
   useEffect(() => {
@@ -276,9 +272,7 @@ const PostDetailFanFeedScreen = () => {
   const toggleLike = async (postId: string) => {
     if (likeLoading[postId]) return;
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!postId || !uuidRegex.test(postId)) {
+    if (!isValidUUID(postId)) {
       // For mock data, use local state only
       setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
       if (!likedPosts[postId]) {
@@ -315,9 +309,7 @@ const PostDetailFanFeedScreen = () => {
   const toggleBookmark = async (postId: string) => {
     if (bookmarkLoading[postId]) return;
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!postId || !uuidRegex.test(postId)) {
+    if (!isValidUUID(postId)) {
       // For mock data, use local state only
       setBookmarkedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
       return;
@@ -348,9 +340,7 @@ const PostDetailFanFeedScreen = () => {
 
   // Become fan with anti spam-click - using real database
   const becomeFan = async (userId: string) => {
-    // Validate UUID format to avoid mock data errors
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!userId || fanLoading[userId] || !uuidRegex.test(userId)) {
+    if (!isValidUUID(userId) || fanLoading[userId]) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Invalid userId:', userId);
       return;
     }
@@ -506,12 +496,6 @@ const PostDetailFanFeedScreen = () => {
     );
   };
   
-  // Format numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
-  };
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

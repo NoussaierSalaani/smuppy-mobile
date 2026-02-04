@@ -130,22 +130,15 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     navigation.goBack();
   };
 
-  const getColumns = (): { leftColumn: Peak[]; rightColumn: Peak[] } => {
-    const leftColumn: Peak[] = [];
-    const rightColumn: Peak[] = [];
-
+  const { leftColumn, rightColumn } = useMemo(() => {
+    const left: Peak[] = [];
+    const right: Peak[] = [];
     peaks.forEach((peak, index) => {
-      if (index % 2 === 0) {
-        leftColumn.push(peak);
-      } else {
-        rightColumn.push(peak);
-      }
+      if (index % 2 === 0) left.push(peak);
+      else right.push(peak);
     });
-
-    return { leftColumn, rightColumn };
-  };
-
-  const { leftColumn, rightColumn } = getColumns();
+    return { leftColumn: left, rightColumn: right };
+  }, [peaks]);
 
   const renderColumn = (columnPeaks: Peak[]): React.JSX.Element => (
     <View style={styles.column}>

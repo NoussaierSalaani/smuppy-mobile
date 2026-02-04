@@ -44,7 +44,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
-
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BIO_MAX_LINES = 2;
 const BIO_EXPANDED_MAX_LINES = 6;
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
@@ -126,6 +126,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }));
   }, [allUserPosts]);
 
+  const peaksUserId = useMemo(() => {
+    if (UUID_REGEX.test(routeUserId || '')) return routeUserId;
+    if (UUID_REGEX.test(viewedUserId || '')) return viewedUserId;
+    return viewedUserId;
+  }, [routeUserId, viewedUserId]);
+
   const [peaks, setPeaks] = useState<any[]>([]);
   useEffect(() => {
     if (!userId) return;
@@ -150,22 +156,23 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       author_id: p.authorId || p.author?.id || null,
     }));
 
-    awsAPI.getPeaks({ userId, limit: 50 }).then((res) => {
+    const targetUserId = peaksUserId || userId;
+    awsAPI.getPeaks({ userId: targetUserId, limit: 50 }).then((res) => {
       if (!isMounted) return;
       let list = mapPeaks(res.data || []);
 
       // Filter client-side by author when userId is provided
-      if (userId && list.length > 0) {
-        const filtered = list.filter(p => p.author_id === userId);
+      if (targetUserId && list.length > 0) {
+        const filtered = list.filter(p => p.author_id === targetUserId);
         list = filtered.length > 0 ? filtered : list; // if author missing, keep full list to avoid empty state
       }
 
       // If still empty, try an unfiltred fetch and filter client-side (handles gateways that ignore author params)
-      if (userId && list.length === 0) {
+      if (targetUserId && list.length === 0) {
         awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
           if (!isMounted) return;
           const mapped = mapPeaks(allRes.data || []);
-          const filtered = mapped.filter(p => p.author_id === userId);
+          const filtered = mapped.filter(p => p.author_id === targetUserId);
           setPeaks(filtered.length > 0 ? filtered : mapped); // last resort: show whatever we have
         }).catch(() => {});
         return;
@@ -175,7 +182,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }).catch(() => { /* silent */ });
 
     return () => { isMounted = false; };
-  }, [userId]);
+  }, [userId, peaksUserId]);
 
   // Get saved posts (collections) - only for own profile
   const {
@@ -1371,7 +1378,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, [menuItem, navigation]);
 
   const handleNewActivity = useCallback(() => {
-    navigation.navigate('CreateEvent');
+    navigation.navigate('CreateActivity');
   }, [navigation]);
 
   // ==================== RENDER GROUP/EVENT ====================

@@ -130,12 +130,16 @@ const PostDetailFanFeedScreen = () => {
   useEffect(() => {
     const checkFollowStatus = async () => {
       const userId = currentPost?.user?.id;
-      if (userId && userId !== currentUserId && isValidUUID(userId) && fanStatus[userId] === undefined && !fanStatusChecking[userId]) {
+      if (userId && userId !== currentUserId && fanStatus[userId] === undefined && !fanStatusChecking[userId]) {
         // Mark as checking to prevent flicker
         setFanStatusChecking(prev => ({ ...prev, [userId]: true }));
         try {
-          const { following } = await isFollowing(userId);
-          setFanStatus(prev => ({ ...prev, [userId]: following || false }));
+          if (!isValidUUID(userId)) {
+            setFanStatus(prev => ({ ...prev, [userId]: false }));
+          } else {
+            const { following } = await isFollowing(userId);
+            setFanStatus(prev => ({ ...prev, [userId]: following || false }));
+          }
         } finally {
           setFanStatusChecking(prev => ({ ...prev, [userId]: false }));
         }
@@ -505,7 +509,7 @@ const PostDetailFanFeedScreen = () => {
     const isBookmarked = bookmarkedPosts[item.id];
     const isOwnPost = item.user.id === currentUserId;
     const isFanOfUser = fanStatus[item.user.id];
-    const isCheckingFanStatus = fanStatusChecking[item.user.id] || (fanStatus[item.user.id] === undefined && isValidUUID(item.user.id));
+    const isCheckingFanStatus = fanStatusChecking[item.user.id] || fanStatus[item.user.id] === undefined;
     const userFollowsMe = item.user.followsMe;
     const postUnderReview = isUnderReview(item.id);
 

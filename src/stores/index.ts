@@ -118,11 +118,15 @@ interface FeedState {
   feedCache: Post[];
   lastFetchTime: number | null;
   optimisticLikes: Record<string, boolean>;
+  optimisticPeakLikes: Record<string, boolean>;
   setFeedCache: (posts: Post[]) => void;
   appendToFeed: (newPosts: Post[]) => void;
   prependToFeed: (newPost: Post) => void;
   removeFromFeed: (postId: string) => void;
   toggleLikeOptimistic: (postId: string, liked: boolean) => void;
+  setPeakLikeOverride: (peakId: string, liked: boolean) => void;
+  clearOptimisticLikes: (postIds: string[]) => void;
+  clearOptimisticPeakLikes: (peakIds: string[]) => void;
   clearFeed: () => void;
   isCacheStale: () => boolean;
 }
@@ -306,8 +310,9 @@ export const useFeedStore = create<FeedState>()(
     feedCache: [] as Post[],
     lastFetchTime: null as number | null,
 
-    // Optimistic updates for likes
+    // Optimistic updates for likes (shared between feed + detail screens)
     optimisticLikes: {} as Record<string, boolean>,
+    optimisticPeakLikes: {} as Record<string, boolean>,
 
     // Actions
     setFeedCache: (posts: Post[]) =>
@@ -335,7 +340,7 @@ export const useFeedStore = create<FeedState>()(
         if (idx !== -1) state.feedCache.splice(idx, 1);
       }),
 
-    // Optimistic like
+    // Optimistic like (posts)
     toggleLikeOptimistic: (postId: string, liked: boolean) =>
       set((state) => {
         state.optimisticLikes[postId] = liked;
@@ -346,12 +351,35 @@ export const useFeedStore = create<FeedState>()(
         }
       }),
 
+    // Optimistic like (peaks)
+    setPeakLikeOverride: (peakId: string, liked: boolean) =>
+      set((state) => {
+        state.optimisticPeakLikes[peakId] = liked;
+      }),
+
+    // Clear specific post overrides after applying them in the feed
+    clearOptimisticLikes: (postIds: string[]) =>
+      set((state) => {
+        for (const id of postIds) {
+          delete state.optimisticLikes[id];
+        }
+      }),
+
+    // Clear specific peak overrides
+    clearOptimisticPeakLikes: (peakIds: string[]) =>
+      set((state) => {
+        for (const id of peakIds) {
+          delete state.optimisticPeakLikes[id];
+        }
+      }),
+
     // Clear feed cache
     clearFeed: () =>
       set((state) => {
         state.feedCache = [];
         state.lastFetchTime = null;
         state.optimisticLikes = {};
+        state.optimisticPeakLikes = {};
       }),
 
     // Check if cache is stale (older than 5 minutes)

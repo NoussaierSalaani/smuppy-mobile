@@ -25,7 +25,7 @@ import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
-import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
@@ -288,6 +288,26 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         isFirstVibesFocus.current = false;
         return;
       }
+
+      // Immediately apply like overrides from detail screens (no flash)
+      const overrides = useFeedStore.getState().optimisticLikes;
+      const overrideIds = Object.keys(overrides);
+      if (overrideIds.length > 0) {
+        setAllPosts(prev => prev.map(p => {
+          const override = overrides[p.id];
+          if (override !== undefined && override !== p.isLiked) {
+            return { ...p, isLiked: override, likes: p.likes + (override ? 1 : -1) };
+          }
+          return p;
+        }));
+        const currentPostIds = allPostsRef.current.map(p => p.id);
+        const applied = currentPostIds.filter(id => id in overrides);
+        if (applied.length > 0) {
+          useFeedStore.getState().clearOptimisticLikes(applied);
+        }
+      }
+
+      // Re-sync like/save state from database (backup)
       const currentPosts = allPostsRef.current;
       if (currentPosts.length > 0) {
         const postIds = currentPosts.map(p => p.id);

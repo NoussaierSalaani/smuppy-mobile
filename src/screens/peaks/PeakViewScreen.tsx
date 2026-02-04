@@ -31,7 +31,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { reportPost, savePost, unsavePost } from '../../services/database';
-import { useContentStore, useUserStore } from '../../stores';
+import { useContentStore, useUserStore, useFeedStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
@@ -100,7 +100,20 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [isInChain, setIsInChain] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [likedPeaks, setLikedPeaks] = useState<Set<string>>(new Set());
+  const [likedPeaks, setLikedPeaks] = useState<Set<string>>(() => {
+    // Initialize from peak data (isLiked from API) + store overrides
+    const initial = new Set<string>();
+    const overrides = useFeedStore.getState().optimisticPeakLikes;
+    peaks.forEach(p => {
+      const override = overrides[p.id];
+      if (override !== undefined) {
+        if (override) initial.add(p.id);
+      } else if ((p as { isLiked?: boolean }).isLiked) {
+        initial.add(p.id);
+      }
+    });
+    return initial;
+  });
   const [savedPeaks, setSavedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
   const videoRef = useRef<Video | null>(null);
@@ -276,8 +289,10 @@ const PeakViewScreen = (): React.JSX.Element => {
     try {
       if (isCurrentlyLiked) {
         await awsAPI.unlikePeak(currentPeak.id);
+        useFeedStore.getState().setPeakLikeOverride(currentPeak.id, false);
       } else {
         await awsAPI.likePeak(currentPeak.id);
+        useFeedStore.getState().setPeakLikeOverride(currentPeak.id, true);
       }
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);

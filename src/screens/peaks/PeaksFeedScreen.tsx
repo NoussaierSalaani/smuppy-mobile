@@ -40,6 +40,7 @@ interface Peak {
   reactions: number;
   repliesCount?: number;
   createdAt: string; // ISO string for React Navigation serialization
+  isLiked?: boolean;
   isChallenge?: boolean;
   challengeTitle?: string;
 }
@@ -84,6 +85,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         reactions: p.likesCount ?? 0,
         repliesCount: p.commentsCount ?? 0,
         createdAt: p.createdAt,
+        isLiked: p.isLiked || false,
         isChallenge: !!p.challenge?.id,
         challengeTitle: p.challenge?.title,
       }));

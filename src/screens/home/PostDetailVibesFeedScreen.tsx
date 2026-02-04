@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 
@@ -250,19 +250,20 @@ const PostDetailVibesFeedScreen = () => {
       if (!newLikedState) {
         const { error } = await unlikePost(postId);
         if (error) {
-          // Revert on error
           setIsLiked(true);
+        } else {
+          useFeedStore.getState().toggleLikeOptimistic(postId, false);
         }
       } else {
         const { error } = await likePost(postId);
         if (error) {
-          // Revert on error
           setIsLiked(false);
+        } else {
+          useFeedStore.getState().toggleLikeOptimistic(postId, true);
         }
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailVibesFeed] Like error:', error);
-      // Revert on error
       setIsLiked(!newLikedState);
     } finally {
       setLikeLoading(false);

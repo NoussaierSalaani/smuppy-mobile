@@ -22,7 +22,7 @@ import { AccountBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
-import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
@@ -266,7 +266,26 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       hasMoreSuggestionsRef.current = true;
       fetchSuggestions(false, true);
 
-      // Re-sync like/save state from database
+      // Immediately apply like overrides from detail screens (no flash)
+      const overrides = useFeedStore.getState().optimisticLikes;
+      const overrideIds = Object.keys(overrides);
+      if (overrideIds.length > 0) {
+        setPosts(prev => prev.map(p => {
+          const override = overrides[p.id];
+          if (override !== undefined && override !== p.isLiked) {
+            return { ...p, isLiked: override, likes: p.likes + (override ? 1 : -1) };
+          }
+          return p;
+        }));
+        // Clear applied overrides so they don't accumulate
+        const currentPostIds = postsRef.current.map(p => p.id);
+        const applied = currentPostIds.filter(id => id in overrides);
+        if (applied.length > 0) {
+          useFeedStore.getState().clearOptimisticLikes(applied);
+        }
+      }
+
+      // Re-sync like/save state from database (backup for accuracy)
       const currentPosts = postsRef.current;
       if (currentPosts.length > 0) {
         const postIds = currentPosts.map(p => p.id);

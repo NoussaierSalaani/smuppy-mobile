@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useUserStore } from '../../stores';
+import { useUserStore, useFeedStore } from '../../stores';
 import {
   followUser,
   isFollowing,
@@ -269,6 +269,8 @@ const PostDetailProfileScreen = () => {
         if (error) {
           setIsLiked(true);
           setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
+        } else {
+          useFeedStore.getState().toggleLikeOptimistic(id, false);
         }
       } else {
         setIsLiked(true);
@@ -278,6 +280,8 @@ const PostDetailProfileScreen = () => {
         if (error) {
           setIsLiked(false);
           setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
+        } else {
+          useFeedStore.getState().toggleLikeOptimistic(id, true);
         }
       }
     } catch (error) {

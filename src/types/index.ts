@@ -624,6 +624,8 @@ export interface Peak {
     avatar_url?: string | null;
     is_verified?: boolean;
   };
+  // Like status (from API when authenticated)
+  isLiked?: boolean;
   // Challenge fields (a Peak can optionally be a Challenge)
   isChallenge?: boolean;
   challengeTitle?: string;

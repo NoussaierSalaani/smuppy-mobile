@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore, useUserSafetyStore, useUserStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 
@@ -294,11 +294,13 @@ const PostDetailFanFeedScreen = () => {
         const { error } = await unlikePost(postId);
         if (!error) {
           setLikedPosts(prev => ({ ...prev, [postId]: false }));
+          useFeedStore.getState().toggleLikeOptimistic(postId, false);
         }
       } else {
         const { error } = await likePost(postId);
         if (!error) {
           setLikedPosts(prev => ({ ...prev, [postId]: true }));
+          useFeedStore.getState().toggleLikeOptimistic(postId, true);
           triggerLikeAnimation();
         }
       }

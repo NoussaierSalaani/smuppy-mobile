@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
+import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
@@ -187,8 +188,10 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         )}
       </View>
 
-      {/* Empty State */}
-      {!loading && peaks.length === 0 ? (
+      {/* Loading skeleton */}
+      {loading && peaks.length === 0 ? (
+        <PeakGridSkeleton />
+      ) : !loading && peaks.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyScrollContent}
           refreshControl={

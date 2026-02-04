@@ -146,10 +146,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const hasMore = result.rows.length > parsedLimit;
     const posts = hasMore ? result.rows.slice(0, parsedLimit) : result.rows;
 
+    // Batch-fetch tagged users for all returned posts
+    const postIds = posts.map((p: { id: string }) => p.id);
+    let tagsByPost: Record<string, Array<{ id: string; username: string; fullName: string; avatarUrl: string }>> = {};
+    if (postIds.length > 0) {
+      const tagResult = await pool.query(
+        `SELECT pt.post_id, pt.tagged_user_id AS id, pr.username, pr.full_name, pr.avatar_url
+         FROM post_tags pt
+         JOIN profiles pr ON pt.tagged_user_id = pr.id
+         WHERE pt.post_id = ANY($1)`,
+        [postIds]
+      );
+      for (const row of tagResult.rows) {
+        const pid = row.post_id as string;
+        if (!tagsByPost[pid]) tagsByPost[pid] = [];
+        tagsByPost[pid].push({ id: row.id, username: row.username, fullName: row.full_name, avatarUrl: row.avatar_url });
+      }
+    }
+
     const formattedPosts = posts.map(post => ({
       id: post.id, authorId: post.authorId, content: post.content, mediaUrls: post.mediaUrls || [],
       mediaType: post.mediaType, isPeak: post.isPeak || false, location: post.location || null,
       tags: post.tags || [],
+      taggedUsers: tagsByPost[post.id] || [],
       likesCount: parseInt(post.likesCount) || 0, commentsCount: parseInt(post.commentsCount) || 0,
       createdAt: post.createdAt, isLiked: post.isLiked || false,
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType },

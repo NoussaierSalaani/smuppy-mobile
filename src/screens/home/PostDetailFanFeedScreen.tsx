@@ -31,6 +31,13 @@ import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, 
 const { width, height } = Dimensions.get('window');
 
 // Post type for this screen
+interface TaggedUser {
+  id: string;
+  username: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+}
+
 interface FanFeedPost {
   id: string;
   type: 'video' | 'image' | 'carousel';
@@ -42,6 +49,7 @@ interface FanFeedPost {
   views?: number;
   comments?: number;
   location?: string | null;
+  taggedUsers?: TaggedUser[];
   user: {
     id: string;
     name: string;
@@ -729,6 +737,16 @@ const PostDetailFanFeedScreen = () => {
               </View>
             ) : null}
 
+            {/* Tagged Users */}
+            {item.taggedUsers && item.taggedUsers.length > 0 ? (
+              <View style={styles.taggedRow}>
+                <Ionicons name="people" size={14} color={colors.primary} />
+                <Text style={styles.taggedText}>
+                  {item.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+                </Text>
+              </View>
+            ) : null}
+
             {/* Description */}
             <TouchableOpacity
               onPress={() => setExpandedDescription(!expandedDescription)}
@@ -1164,6 +1182,20 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 13,
     color: colors.primary,
     fontWeight: '500',
+  },
+
+  // Tagged users
+  taggedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  taggedText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+    flex: 1,
   },
 
   // Description

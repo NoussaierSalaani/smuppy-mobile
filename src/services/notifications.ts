@@ -19,6 +19,7 @@ export interface NotificationData {
     | 'like' | 'comment' | 'message'
     | 'follow_request' | 'new_follower' | 'follow_accepted'
     | 'peak_like' | 'peak_comment'
+    | 'post_tag'
     | 'live';
   postId?: string;
   peakId?: string;

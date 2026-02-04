@@ -677,6 +677,16 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         </View>
       )}
 
+      {/* Tagged Users */}
+      {post.taggedUsers && post.taggedUsers.length > 0 && (
+        <View style={styles.taggedUsersRow}>
+          <Ionicons name="people-outline" size={14} color={colors.gray} />
+          <Text style={styles.taggedUsersText}>
+            {post.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+          </Text>
+        </View>
+      )}
+
       {/* Divider */}
       {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
     </View>
@@ -1207,6 +1217,19 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
     color: colors.primary,
+  },
+  taggedUsersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.base,
+    marginTop: 4,
+    gap: 4,
+  },
+  taggedUsersText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    color: colors.gray,
+    flex: 1,
   },
   postDivider: {
     height: 8,

@@ -63,6 +63,7 @@ export const useNotifications = (
       switch (data.type) {
         case 'like':
         case 'comment':
+        case 'post_tag':
           if (data.postId) {
             navigation.navigate('PostDetailFanFeed', { postId: data.postId });
           }

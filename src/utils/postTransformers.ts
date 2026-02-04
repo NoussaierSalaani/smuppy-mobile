@@ -75,6 +75,29 @@ export interface UIPostUser {
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
 }
 
+export interface UITaggedUser {
+  id: string;
+  username: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+}
+
+// ============================================
+// TAG UTILITIES
+// ============================================
+
+/**
+ * Normalize tagged users from API format (string IDs or objects) to UI format
+ */
+const normalizeTaggedUsers = (
+  raw?: Array<string | { id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>
+): UITaggedUser[] | undefined => {
+  if (!raw || raw.length === 0) return undefined;
+  return raw
+    .map(t => typeof t === 'string' ? { id: t, username: '' } : { id: t.id, username: t.username, fullName: t.fullName, avatarUrl: t.avatarUrl })
+    .filter(t => t.id);
+};
+
 export interface UIPostBase {
   id: string;
   type: 'image' | 'video' | 'carousel';
@@ -87,6 +110,7 @@ export interface UIPostBase {
   isLiked: boolean;
   isSaved: boolean;
   tags?: string[];
+  taggedUsers?: UITaggedUser[];
 }
 
 // FanFeed post format
@@ -144,6 +168,7 @@ export const transformToFanPost = (
     timeAgo: getTimeAgo(post.created_at),
     location: post.location || null,
     tags: post.tags,
+    taggedUsers: normalizeTaggedUsers(post.tagged_users),
   };
 };
 
@@ -178,6 +203,7 @@ export const transformToVibePost = (
     isSaved: savedPostIds?.has(post.id) ?? false,
     category: post.tags?.[0] || 'Fitness',
     tags: post.tags || [],
+    taggedUsers: normalizeTaggedUsers(post.tagged_users),
   };
 };
 

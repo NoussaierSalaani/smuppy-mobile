@@ -4,7 +4,7 @@
  */
 
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // ============================================
 // TYPES
@@ -205,7 +205,7 @@ export const compressImage = async (
       mimeType: getMimeType(format),
     };
   } catch (error) {
-    console.error('Image compression failed:', error);
+    if (__DEV__) console.warn('Image compression failed:', error);
     throw error;
   }
 };

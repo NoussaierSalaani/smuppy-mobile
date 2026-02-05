@@ -208,7 +208,7 @@ const MySessionsScreen = (): React.JSX.Element => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  if (loading) {
+  if (loading && upcomingSessions.length === 0 && pastSessions.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <SessionListSkeleton />

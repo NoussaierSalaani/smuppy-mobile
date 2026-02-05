@@ -427,8 +427,8 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     </View>
   );
 
-  // Loading state
-  if (isLoading) {
+  // Only show full loading state on first load when no cached data exists
+  if (isLoading && fans.length === 0 && tracking.length === 0) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />

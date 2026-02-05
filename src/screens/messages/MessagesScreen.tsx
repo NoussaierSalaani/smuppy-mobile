@@ -227,7 +227,8 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     />
   ), [colors, styles, navigation.navigate, goToUserProfile]);
 
-  if (loading) {
+  // Only show skeleton on first load when no cached data exists
+  if (loading && conversations.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ConversationListSkeleton />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ComponentType } from 'react';
-import { ActivityIndicator, AppState, View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserStore, useAppStore } from '../stores';
@@ -10,6 +10,7 @@ import type { MainStackParamList } from '../types';
 import { FEATURES } from '../config/featureFlags';
 import { useAutoRegisterPushNotifications, useNotifications } from '../hooks/useNotifications';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { ScreenSkeleton } from '../components/skeleton';
 
 // Type helper to cast screen components for React Navigation compatibility
 
@@ -42,12 +43,8 @@ const fetchBadgeCounts = (): void => {
 // ============================================
 // LAZY SCREEN HELPER
 // ============================================
-// Visible fallback (simple centered spinner) — safe to use outside context providers
-const LazyFallback = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <ActivityIndicator size="small" color="#0EBF8A" />
-  </View>
-);
+// Visible fallback — shows shimmer skeleton matching typical screen layout
+const LazyFallback = () => <ScreenSkeleton />;
 
 function lazyScreen(importFn: () => Promise<{ default: ComponentType<any> }>) {
   const Lazy = React.lazy(importFn);

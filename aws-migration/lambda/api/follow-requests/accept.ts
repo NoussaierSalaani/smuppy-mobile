@@ -7,6 +7,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { sendPushToUser } from '../services/push-notification';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('follow-requests-accept');
 
@@ -33,8 +35,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(requestId)) {
+    if (!isValidUUID(requestId)) {
       return {
         statusCode: 400,
         headers,
@@ -108,6 +109,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       // Create the follow relationship with accepted status
+      // Note: fan_count and following_count are updated automatically by database triggers
+      // (see migration-015-counter-triggers-indexes.sql)
       await client.query(
         `INSERT INTO follows (follower_id, following_id, status)
          VALUES ($1, $2, 'accepted')
@@ -115,15 +118,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [request.requester_id, profileId]
       );
 
-      // Update follower/following counts
-      await client.query(
-        'UPDATE profiles SET followers_count = followers_count + 1 WHERE id = $1',
+      // Get accepter's name for notification
+      const accepterResult = await client.query(
+        'SELECT name FROM profiles WHERE id = $1',
         [profileId]
       );
-      await client.query(
-        'UPDATE profiles SET following_count = following_count + 1 WHERE id = $1',
-        [request.requester_id]
-      );
+      const accepterName = accepterResult.rows[0]?.name || 'Someone';
 
       // Create notification for the requester
       await client.query(
@@ -134,6 +134,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       await client.query('COMMIT');
 
+      // Send push notification to requester (non-blocking)
+      sendPushToUser(db, request.requester_id, {
+        title: 'Follow Request Accepted',
+        body: `${accepterName} accepted your follow request`,
+        data: { type: 'follow_accepted', userId: profileId },
+      }).catch(err => log.error('Push notification failed', err));
+
       return {
         statusCode: 200,
         headers,
@@ -142,7 +149,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'Follow request accepted',
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

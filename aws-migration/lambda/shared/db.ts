@@ -130,9 +130,8 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     user: credentials.username,
     password,
     // SSL configuration for AWS Aurora PostgreSQL
-    // TODO: re-enable rejectUnauthorized once RDS Proxy CA is verified
     ssl: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: process.env.NODE_ENV === 'production',
     },
     // Connection pool settings optimized for Lambda with RDS Proxy
     // RDS Proxy handles connection pooling, so Lambda can use fewer connections
@@ -147,7 +146,7 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   const pool = new Pool(poolConfig);
 
   // Handle pool errors gracefully
-  pool.on('error', (err) => {
+  pool.on('error', (err: Error) => {
     log.error('Unexpected database pool error', err);
     // Don't nullify the pool reference here - let the next query attempt to reconnect
   });
@@ -201,93 +200,6 @@ export async function getReaderPool(): Promise<Pool> {
   }
 
   return readerPool;
-}
-
-/**
- * Executes a query with automatic connection handling (writer pool)
- * @param text SQL query string
- * @param params Query parameters
- */
-export async function query(text: string, params?: SqlParam[]) {
-  const db = await getPool();
-  return db.query(text, params);
-}
-
-/**
- * Executes a read-only query using the reader pool
- * Use this for SELECT queries that don't require immediate consistency
- * @param text SQL query string
- * @param params Query parameters
- */
-export async function readQuery(text: string, params?: SqlParam[]) {
-  const db = await getReaderPool();
-  return db.query(text, params);
-}
-
-/**
- * Gets a client from the writer pool for transactions
- * Remember to release the client after use!
- */
-export async function getClient() {
-  const db = await getPool();
-  return db.connect();
-}
-
-/**
- * Gets a client from the reader pool for read-only transactions
- * Remember to release the client after use!
- */
-export async function getReaderClient() {
-  const db = await getReaderPool();
-  return db.connect();
-}
-
-/**
- * Closes all database pools
- * Call this during graceful shutdown if needed
- */
-export async function closePool() {
-  const closePromises: Promise<void>[] = [];
-
-  if (writerPool) {
-    closePromises.push(writerPool.end());
-    writerPool = null;
-  }
-
-  if (readerPool) {
-    closePromises.push(readerPool.end());
-    readerPool = null;
-  }
-
-  cachedCredentials = null;
-
-  await Promise.all(closePromises);
-}
-
-/**
- * Health check for database connectivity
- * Useful for Lambda warmup or health endpoints
- */
-export async function healthCheck(): Promise<{ writer: boolean; reader: boolean }> {
-  const results = { writer: false, reader: false };
-
-  try {
-    const pool = await getPool();
-    await pool.query('SELECT 1');
-    results.writer = true;
-  } catch (err) {
-    log.error('Writer health check failed', err);
-  }
-
-  try {
-    const pool = await getReaderPool();
-    await pool.query('SELECT 1');
-    results.reader = true;
-  } catch (err) {
-    log.error('Reader health check failed', err);
-  }
-
-  return results;
 }
 
 /**

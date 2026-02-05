@@ -40,11 +40,11 @@ async function testEndpoint(
       status: response.status,
       latency,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       endpoint: name,
       success: false,
-      error: error.message,
+      error: (error as Error).message,
       latency: Date.now() - start,
     };
   }
@@ -81,11 +81,11 @@ async function testGraphQL(): Promise<TestResult> {
       status: response.status,
       latency,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       endpoint: 'GraphQL Introspection',
       success: false,
-      error: error.message,
+      error: (error as Error).message,
       latency: Date.now() - start,
     };
   }
@@ -106,11 +106,11 @@ async function testCDN(): Promise<TestResult> {
       status: response.status,
       latency,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       endpoint: 'CloudFront CDN',
       success: false,
-      error: error.message,
+      error: (error as Error).message,
       latency: Date.now() - start,
     };
   }

@@ -6,7 +6,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('profiles-is-following');
 
@@ -36,10 +36,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [currentUserId]
+    );
+
+    if (profileResult.rows.length === 0) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ isFollowing: false, isPending: false, status: null }),
+      };
+    }
+
+    const currentProfileId = profileResult.rows[0].id;
+
     // Check if current user is following the target user
     const result = await db.query(
       `SELECT id, status FROM follows WHERE follower_id = $1 AND following_id = $2`,
-      [currentUserId, targetUserId]
+      [currentProfileId, targetUserId]
     );
 
     const isFollowing = result.rows.length > 0 && result.rows[0].status === 'accepted';

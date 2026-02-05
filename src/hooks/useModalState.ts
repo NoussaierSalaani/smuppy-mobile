@@ -93,11 +93,11 @@ export function useModalState<T = undefined>(
  */
 export interface SharePostData {
   id: string;
-  media: string;
+  media: string | null;
   caption?: string;
   user: {
     name: string;
-    avatar: string;
+    avatar: string | null;
   };
 }
 

@@ -73,7 +73,7 @@ export const useUserSafetyStore = create<UserSafetyState>()(
           s.isLoading = false;
         });
       } catch (error) {
-        console.error('[UserSafetyStore] Initialize error:', error);
+        if (__DEV__) console.warn('[UserSafetyStore] Initialize error:', error);
         set({ isLoading: false });
       }
     },
@@ -95,7 +95,8 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (error) {
         // Rollback
         set((state) => {
-          state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
+          const idx = state.mutedUserIds.indexOf(userId);
+          if (idx !== -1) state.mutedUserIds.splice(idx, 1);
         });
         return { error };
       }
@@ -117,8 +118,10 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       // Optimistic update
       const previousMutedUsers = get().mutedUsers;
       set((state) => {
-        state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
-        state.mutedUsers = state.mutedUsers.filter((m) => m.muted_user_id !== userId);
+        const muteIdx = state.mutedUserIds.indexOf(userId);
+        if (muteIdx !== -1) state.mutedUserIds.splice(muteIdx, 1);
+        const userIdx = state.mutedUsers.findIndex((m) => m.muted_user_id === userId);
+        if (userIdx !== -1) state.mutedUsers.splice(userIdx, 1);
       });
 
       const { error } = await dbUnmuteUser(userId);
@@ -142,6 +145,9 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (!userId) return { error: 'Invalid user ID' };
       if (get().blockedUserIds.includes(userId)) return { error: null };
 
+      // Capture pre-block mute state for rollback
+      const wasMuted = get().mutedUserIds.includes(userId);
+
       // Optimistic update
       set((state) => {
         if (!state.blockedUserIds.includes(userId)) {
@@ -157,8 +163,12 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (error) {
         // Rollback
         set((state) => {
-          state.blockedUserIds = state.blockedUserIds.filter((id) => id !== userId);
-          state.mutedUserIds = state.mutedUserIds.filter((id) => id !== userId);
+          const blockIdx = state.blockedUserIds.indexOf(userId);
+          if (blockIdx !== -1) state.blockedUserIds.splice(blockIdx, 1);
+          if (!wasMuted) {
+            const muteIdx = state.mutedUserIds.indexOf(userId);
+            if (muteIdx !== -1) state.mutedUserIds.splice(muteIdx, 1);
+          }
         });
         return { error };
       }
@@ -169,8 +179,12 @@ export const useUserSafetyStore = create<UserSafetyState>()(
         });
       }
 
-      // Also mute in database
-      await dbMuteUser(userId);
+      // Also mute in database (best-effort, block is primary)
+      try {
+        await dbMuteUser(userId);
+      } catch (muteErr) {
+        if (__DEV__) console.warn('[UserSafetyStore] Mute after block failed (non-critical):', muteErr);
+      }
 
       return { error: null };
     },
@@ -183,8 +197,10 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       // Optimistic update
       const previousBlockedUsers = get().blockedUsers;
       set((state) => {
-        state.blockedUserIds = state.blockedUserIds.filter((id) => id !== userId);
-        state.blockedUsers = state.blockedUsers.filter((b) => b.blocked_user_id !== userId);
+        const blockIdx = state.blockedUserIds.indexOf(userId);
+        if (blockIdx !== -1) state.blockedUserIds.splice(blockIdx, 1);
+        const userIdx = state.blockedUsers.findIndex((b) => b.blocked_user_id === userId);
+        if (userIdx !== -1) state.blockedUsers.splice(userIdx, 1);
       });
 
       const { error } = await dbUnblockUser(userId);

@@ -2,7 +2,7 @@
  * Profile Update Handler - Complete Coverage Tests
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 // Mock database
 const mockQuery = jest.fn();
@@ -18,7 +18,7 @@ jest.mock('../../utils/rate-limit', () => ({
 }));
 
 // Helper to create mock event
-const createMockEvent = (body: any, userId = 'test-user-id'): APIGatewayProxyEvent => ({
+const createMockEvent = (body: Record<string, unknown>, userId = 'test-user-id'): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),
   headers: { origin: 'https://smuppy.com' },
   requestContext: {
@@ -27,11 +27,11 @@ const createMockEvent = (body: any, userId = 'test-user-id'): APIGatewayProxyEve
       claims: { sub: userId },
     },
     identity: { sourceIp: '127.0.0.1' },
-  } as any,
+  } as unknown as APIGatewayProxyEvent['requestContext'],
 } as unknown as APIGatewayProxyEvent);
 
 describe('Profile Update Handler - Complete Coverage', () => {
-  let handler: any;
+  let handler: (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
 
   beforeAll(async () => {
     const module = await import('../../profiles/update');
@@ -46,7 +46,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
     it('should reject unauthenticated request', async () => {
       const event = {
         ...createMockEvent({ username: 'test' }),
-        requestContext: { authorizer: null } as any,
+        requestContext: { authorizer: null } as unknown as APIGatewayProxyEvent['requestContext'],
       };
 
       const response = await handler(event);
@@ -56,7 +56,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
     it('should reject missing claims', async () => {
       const event = {
         ...createMockEvent({ username: 'test' }),
-        requestContext: { authorizer: { claims: {} } } as any,
+        requestContext: { authorizer: { claims: {} } } as unknown as APIGatewayProxyEvent['requestContext'],
       };
 
       const response = await handler(event);
@@ -154,7 +154,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).errors).toContain('locationsMode must be one of: all, followers, none');
+      expect(JSON.parse(response.body).errors).toContain('locationsMode must be one of: all, followers, none, single, multiple');
     });
 
     it('should reject non-boolean onboardingCompleted', async () => {
@@ -236,7 +236,13 @@ describe('Profile Update Handler - Complete Coverage', () => {
     it('should accept valid accountType values', async () => {
       for (const accountType of ['personal', 'pro_creator', 'pro_business']) {
         jest.clearAllMocks();
+        // Query 1: check profile exists
         mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+        // Query 2: get current account_type (same value = no change = allowed)
+        mockQuery.mockResolvedValueOnce({
+          rows: [{ id: 'test-user-id', account_type: accountType }],
+        });
+        // Query 3: UPDATE returning profile
         mockQuery.mockResolvedValueOnce({
           rows: [{ id: 'test-user-id', account_type: accountType }],
         });

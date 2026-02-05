@@ -9,7 +9,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/security';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { hasErrorCode } from '../utils/error-handler';
 
@@ -99,9 +99,23 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
     return { valid: true, sanitized: value };
   }
 
+  // Numeric coordinate fields
+  if (field === 'businessLatitude' || field === 'businessLongitude') {
+    if (typeof value !== 'number' || !isFinite(value)) {
+      return { valid: false, sanitized: null, error: `${field} must be a valid number` };
+    }
+    if (field === 'businessLatitude' && (value < -90 || value > 90)) {
+      return { valid: false, sanitized: null, error: `${field} must be between -90 and 90` };
+    }
+    if (field === 'businessLongitude' && (value < -180 || value > 180)) {
+      return { valid: false, sanitized: null, error: `${field} must be between -180 and 180` };
+    }
+    return { valid: true, sanitized: value };
+  }
+
   // Locations mode validation
   if (field === 'locationsMode') {
-    const validModes = ['all', 'followers', 'none'];
+    const validModes = ['all', 'followers', 'none', 'single', 'multiple'];
     if (!validModes.includes(value as string)) {
       return { valid: false, sanitized: null, error: `${field} must be one of: ${validModes.join(', ')}` };
     }
@@ -110,11 +124,17 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
 
   // String fields with rules
   if (rules) {
+    // Allow null or empty string for clearable URL fields (avatar, cover)
+    if (value === null || value === '') {
+      if (field === 'avatarUrl' || field === 'coverUrl') {
+        return { valid: true, sanitized: '' };
+      }
+    }
     if (typeof value !== 'string') {
       return { valid: false, sanitized: null, error: `${field} must be a string` };
     }
     const sanitized = sanitizeInput(value, rules.maxLength);
-    if (rules.pattern && !rules.pattern.test(sanitized)) {
+    if (rules.pattern && sanitized !== '' && !rules.pattern.test(sanitized)) {
       return { valid: false, sanitized: null, error: `${field} has invalid format` };
     }
     return { valid: true, sanitized };
@@ -215,6 +235,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       businessName: 'business_name',
       businessCategory: 'business_category',
       businessAddress: 'business_address',
+      businessLatitude: 'business_latitude',
+      businessLongitude: 'business_longitude',
       businessPhone: 'business_phone',
       locationsMode: 'locations_mode',
       onboardingCompleted: 'onboarding_completed',
@@ -249,6 +271,28 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
 
+    // SECURITY: Prevent account type changes on existing profiles
+    // Account type upgrades can ONLY happen via Stripe webhook
+    if (existingProfile.rows.length > 0 && body.accountType !== undefined) {
+      const currentType = await db.query(
+        `SELECT account_type FROM profiles WHERE cognito_sub = $1`,
+        [userId]
+      );
+      if (currentType.rows.length > 0 && currentType.rows[0].account_type !== body.accountType) {
+        logSecurityEvent('suspicious_activity', {
+          userId,
+          currentType: currentType.rows[0].account_type,
+          requestedType: body.accountType,
+          ip: event.requestContext.identity?.sourceIp,
+        });
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Account type cannot be changed directly.' }),
+        };
+      }
+    }
+
     let result;
     if (existingProfile.rows.length === 0) {
       // Create new profile - use cognito_sub as the primary id for simplicity
@@ -274,7 +318,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       result = await db.query(
         `INSERT INTO profiles (${insertFields.join(', ')})
          VALUES (${insertParams.join(', ')})
-         RETURNING *`,
+         RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
         insertValues
       );
     } else {
@@ -286,7 +330,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `UPDATE profiles
          SET ${updateFields.join(', ')}
          WHERE id = $${paramIndex}
-         RETURNING *`,
+         RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
         values
       );
     }
@@ -314,6 +358,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         bio: profile.bio,
         website: profile.website,
         isVerified: profile.is_verified || false,
+        isPremium: profile.is_premium || false,
         isPrivate: profile.is_private || false,
         accountType: profile.account_type || 'personal',
         gender: profile.gender,
@@ -324,6 +369,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         businessName: profile.business_name,
         businessCategory: profile.business_category,
         businessAddress: profile.business_address,
+        businessLatitude: profile.business_latitude ? parseFloat(profile.business_latitude) : null,
+        businessLongitude: profile.business_longitude ? parseFloat(profile.business_longitude) : null,
         businessPhone: profile.business_phone,
         locationsMode: profile.locations_mode,
         onboardingCompleted: profile.onboarding_completed,

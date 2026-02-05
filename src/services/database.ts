@@ -4,12 +4,28 @@
 // ============================================
 
 import { awsAuth } from './aws-auth';
-import { awsAPI, Profile as AWSProfile, Post as AWSPost } from './aws-api';
-import { useFeedStore } from '../stores';
+import { awsAPI, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification } from './aws-api';
 import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
 } from '../types';
+
+/** Extract message from an unknown error */
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+};
+
+/** Extract statusCode from an unknown error */
+const getErrorStatusCode = (error: unknown): number | undefined => {
+  if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+    return (error as { statusCode: number }).statusCode;
+  }
+  return undefined;
+};
 
 /**
  * Get current authenticated user ID
@@ -45,6 +61,8 @@ export interface Profile {
   business_name?: string;
   business_category?: string;
   business_address?: string;
+  business_latitude?: number;
+  business_longitude?: number;
   business_phone?: string;
   locations_mode?: string;
   onboarding_completed?: boolean;
@@ -52,10 +70,14 @@ export interface Profile {
   updated_at?: string;
   // Stats
   fan_count?: number;
+  following_count?: number;
   post_count?: number;
   // Bot/Team flags
   is_bot?: boolean;
   is_team?: boolean;
+  // Follow status (populated when viewing another user's profile)
+  is_following?: boolean;
+  is_followed_by?: boolean;
 }
 
 export interface Post {
@@ -78,6 +100,7 @@ export interface Post {
   peak_duration?: number;
   peak_expires_at?: string;
   save_to_profile?: boolean;
+  tagged_users?: Array<string | { id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>;
   created_at: string;
   author?: Profile;
   [key: string]: unknown; // Allow additional properties for store compatibility
@@ -150,16 +173,28 @@ interface DbResponseWithCreated<T> extends DbResponse<T> {
 // Helper to convert AWS API Profile to local Profile format
 const convertProfile = (p: AWSProfile | null): Profile | null => {
   if (!p) return null;
+  // Business accounts use businessName as their display name
+  const isBusiness = p.accountType === 'pro_business';
+  const businessDisplayName = isBusiness && p.businessName ? p.businessName : null;
+  // If fullName equals username, treat as empty (legacy data issue)
+  const effectiveFullName = p.fullName && p.fullName !== p.username ? p.fullName : '';
+
+  // Follow flags come back in mixed casing depending on the backend handler.
+  // Normalize to our snake_case fields to keep React Query caches consistent.
+  const isFollowing = p.isFollowing ?? (p as unknown as Record<string, unknown>)?.is_following as boolean | undefined;
+  const isFollowedBy = p.isFollowedBy ?? (p as unknown as Record<string, unknown>)?.is_followed_by as boolean | undefined;
+
   return {
     id: p.id,
     username: p.username,
-    full_name: p.fullName || '',
-    display_name: p.displayName || undefined,
-    avatar_url: p.avatarUrl,
-    cover_url: p.coverUrl || undefined,
+    full_name: businessDisplayName || effectiveFullName,
+    display_name: businessDisplayName || p.displayName || undefined,
+    avatar_url: p.avatarUrl || (p as unknown as Record<string, unknown>)?.avatar_url as string | undefined,
+    cover_url: p.coverUrl || (p as unknown as Record<string, unknown>)?.cover_url as string | undefined || undefined,
     bio: p.bio || undefined,
     website: p.website || undefined,
     is_verified: p.isVerified,
+    is_premium: p.isPremium,
     is_private: p.isPrivate,
     account_type: p.accountType,
     gender: p.gender,
@@ -171,26 +206,45 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     business_name: p.businessName,
     business_category: p.businessCategory,
     business_address: p.businessAddress,
+    business_latitude: p.businessLatitude,
+    business_longitude: p.businessLongitude,
     business_phone: p.businessPhone,
     locations_mode: p.locationsMode,
     fan_count: p.followersCount,
+    following_count: p.followingCount,
     post_count: p.postsCount,
+    // Follow status from API
+    is_following: isFollowing,
+    is_followed_by: isFollowedBy,
   };
 };
 
 // Helper to convert AWS API Post to local Post format
 const convertPost = (p: AWSPost): Post => {
+  const pRec = p as unknown as Record<string, unknown>;
+  const rawMedia = p.mediaUrls || pRec?.media_urls || pRec?.mediaUrl || pRec?.media_url || [];
+  const mediaArray = Array.isArray(rawMedia) ? rawMedia : rawMedia ? [rawMedia] : [];
+
   return {
     id: p.id,
     author_id: p.authorId,
     content: p.content,
-    media_urls: p.mediaUrls,
-    media_type: p.mediaType || undefined,
+    media_urls: mediaArray,
+    media_type: p.mediaType || pRec?.media_type as Post['media_type'] || (mediaArray.length > 1 ? 'multiple' : undefined),
+    is_peak: pRec?.is_peak as boolean ?? p.isPeak ?? false,
     visibility: 'public',
+    location: p.location || pRec?.location as string || null,
+    tagged_users: p.taggedUsers || pRec?.tagged_users as Post['tagged_users'] || [],
     likes_count: p.likesCount,
     comments_count: p.commentsCount,
+    views_count: p.viewsCount || pRec?.views_count as number || 0,
+    tags: p.tags || [],
     created_at: p.createdAt,
-    author: p.author ? convertProfile(p.author) || undefined : undefined,
+    author: p.author
+      ? convertProfile(p.author) || undefined
+      : pRec?.author_profile
+        ? convertProfile(pRec.author_profile as AWSProfile) || undefined
+        : undefined,
   };
 };
 
@@ -208,21 +262,21 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
   try {
     const profile = await awsAPI.getProfile(user.id);
     return { data: convertProfile(profile), error: null };
-  } catch (error: any) {
-    if (autoCreate && error.statusCode === 404) {
+  } catch (error: unknown) {
+    if (autoCreate && getErrorStatusCode(error) === 404) {
       // Profile doesn't exist, create one
       const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
         const newProfile = await awsAPI.updateProfile({
           username,
-          fullName: user.attributes?.name || username,
+          fullName: user.attributes?.name || '',
         });
         return { data: convertProfile(newProfile), error: null };
-      } catch (createError: any) {
-        return { data: null, error: createError.message };
+      } catch (createError: unknown) {
+        return { data: null, error: getErrorMessage(createError) };
       }
     }
-    return { data: null, error: error.message };
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -233,8 +287,8 @@ export const getProfileById = async (userId: string): Promise<DbResponse<Profile
   try {
     const profile = await awsAPI.getProfile(userId);
     return { data: convertProfile(profile), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -245,8 +299,8 @@ export const getProfileByUsername = async (username: string): Promise<DbResponse
   try {
     const profile = await awsAPI.getProfileByUsername(username);
     return { data: convertProfile(profile), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -258,13 +312,14 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     // Basic profile fields
     if (updates.username) updateData.username = updates.username;
     if (updates.full_name) updateData.fullName = updates.full_name;
     if (updates.bio) updateData.bio = updates.bio;
-    if (updates.avatar_url) updateData.avatarUrl = updates.avatar_url;
+    if (updates.avatar_url !== undefined) updateData.avatarUrl = updates.avatar_url || null;
+    if (updates.cover_url !== undefined) updateData.coverUrl = updates.cover_url || null;
     if (updates.is_private !== undefined) updateData.isPrivate = updates.is_private;
 
     // Account type
@@ -285,18 +340,20 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (updates.business_name) updateData.businessName = updates.business_name;
     if (updates.business_category) updateData.businessCategory = updates.business_category;
     if (updates.business_address) updateData.businessAddress = updates.business_address;
+    if (updates.business_latitude != null) updateData.businessLatitude = updates.business_latitude;
+    if (updates.business_longitude != null) updateData.businessLongitude = updates.business_longitude;
     if (updates.business_phone) updateData.businessPhone = updates.business_phone;
     if (updates.locations_mode) updateData.locationsMode = updates.locations_mode;
 
     // Onboarding flag
     if (updates.onboarding_completed !== undefined) updateData.onboardingCompleted = updates.onboarding_completed;
 
-    if (process.env.NODE_ENV === 'development') console.log('[Database] updateProfile');
+    if (__DEV__) console.log('[Database] updateProfile', Object.keys(updateData));
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
-  } catch (error: any) {
-    console.error('[Database] updateProfile error:', error);
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    if (__DEV__) console.warn('[Database] updateProfile error:', error);
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -329,8 +386,8 @@ export const searchProfiles = async (
   try {
     const profiles = await awsAPI.searchProfiles(query, limit);
     return { data: profiles.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -349,8 +406,8 @@ export const searchPosts = async (
   try {
     const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -369,8 +426,8 @@ export const searchPeaks = async (
   try {
     const result = await awsAPI.request<{ data: AWSPost[] }>(`/peaks/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -391,8 +448,8 @@ export const searchByHashtag = async (
   try {
     const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/hashtag/${encodeURIComponent(tag)}?limit=${limit}&offset=${offset}`);
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -403,19 +460,9 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
   try {
     const result = await awsAPI.request<{ data: { tag: string; count: number }[] }>(`/hashtags/trending?limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
-};
-
-/**
- * Optimized profile search with follow status included
- */
-export const searchProfilesOptimized = async (
-  query: string,
-  limit = 20
-): Promise<DbResponse<ProfileWithFollowStatus[]>> => {
-  return searchProfiles(query, limit) as Promise<DbResponse<ProfileWithFollowStatus[]>>;
 };
 
 /**
@@ -427,7 +474,7 @@ export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbRe
 
   try {
     // Try suggested endpoint first with pagination
-    const result = await awsAPI.request<any>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
+    const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
     const profiles = result.profiles || result.data || [];
     return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
   } catch {
@@ -451,21 +498,21 @@ export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> =
   try {
     const profile = await awsAPI.getProfile(user.id);
     return { data: convertProfile(profile), error: null, created: false };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
+  } catch (error: unknown) {
+    if (getErrorStatusCode(error) === 404) {
       // Create new profile
       const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
         const newProfile = await awsAPI.updateProfile({
           username,
-          fullName: user.attributes?.name || username,
+          fullName: user.attributes?.name || '',
         });
         return { data: convertProfile(newProfile), error: null, created: true };
-      } catch (createError: any) {
-        return { data: null, error: createError.message };
+      } catch (createError: unknown) {
+        return { data: null, error: getErrorMessage(createError) };
       }
     }
-    return { data: null, error: error.message };
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -488,8 +535,8 @@ export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Po
   try {
     const result = await awsAPI.getPosts({ limit, type: 'all' });
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -501,8 +548,8 @@ export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: any[] }>(`/feed/optimized?limit=${limit}&page=${page}`);
-    const posts: PostWithStatus[] = result.data.map((p: any) => ({
+    const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/optimized?limit=${limit}&page=${page}`);
+    const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
       ...convertPost(p),
       has_liked: p.isLiked || p.has_liked,
       has_saved: p.isSaved || p.has_saved,
@@ -522,38 +569,42 @@ export const getPostsByUser = async (userId: string, _page = 0, limit = 10): Pro
   try {
     const result = await awsAPI.getPosts({ userId, limit });
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
-// Shared cache for followed user IDs
- 
-let _followedUsersCacheShared: { ids: string[]; timestamp: number; userId: string | null } = {
-  ids: [],
-  timestamp: 0,
-  userId: null,
-};
- 
-const _CACHE_DURATION_SHARED = 2 * 60 * 1000; // 2 minutes
-
-// Clear cache when user follows/unfollows someone
+// Clear cache when user follows/unfollows someone (no-op, cache removed)
 export const clearFollowCache = () => {
-  _followedUsersCacheShared = { ids: [], timestamp: 0, userId: null };
+  // Intentionally empty — legacy cache was removed
 };
 
 /**
- * Get posts from followed users (FanFeed)
+ * Get posts from followed users (FanFeed) — cursor-based pagination
  */
-export const getFeedFromFollowed = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: number }): Promise<{
+  data: Post[] | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+  error: string | null;
+}> => {
   const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+  if (!user) return { data: null, nextCursor: null, hasMore: false, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.getPosts({ type: 'following', limit });
-    return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+    const result = await awsAPI.getPosts({
+      type: 'following',
+      limit: options?.limit ?? 10,
+      cursor: options?.cursor,
+    });
+    return {
+      data: result.data.map(convertPost),
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
+      error: null,
+    };
+  } catch (error: unknown) {
+    return { data: null, nextCursor: null, hasMore: false, error: getErrorMessage(error) };
   }
 };
 
@@ -565,15 +616,15 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: any[] }>(`/feed/following?limit=${limit}&page=${page}`);
-    const posts: PostWithStatus[] = result.data.map((p: any) => ({
+    const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/following?limit=${limit}&page=${page}`);
+    const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
       ...convertPost(p),
       has_liked: p.isLiked || p.has_liked,
       has_saved: p.isSaved || p.has_saved,
     }));
     return { data: posts, error: null };
   } catch {
-    const fallback = await getFeedFromFollowed(page, limit);
+    const fallback = await getFeedFromFollowed({ limit });
     return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
   }
 };
@@ -590,16 +641,24 @@ export const getDiscoveryFeed = async (
   try {
     const interests = selectedInterests.length > 0 ? selectedInterests : userInterests;
     const interestsParam = interests.length > 0 ? `&interests=${encodeURIComponent(interests.join(','))}` : '';
-    const result = await awsAPI.request<any>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
+    const result = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[] }>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
     const posts = result.posts || result.data || [];
+
+    // If interests filter returned empty results, retry without interests
+    if (posts.length === 0 && interestsParam && page === 0) {
+      const fallbackResult = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[] }>(`/feed/discover?limit=${limit}&page=${page}`);
+      const fallbackPosts = fallbackResult.posts || fallbackResult.data || [];
+      return { data: fallbackPosts.map(convertPost), error: null };
+    }
+
     return { data: posts.map(convertPost), error: null };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Fallback to explore
     try {
       const result = await awsAPI.getPosts({ type: 'explore', limit });
       return { data: result.data.map(convertPost), error: null };
     } catch {
-      return { data: [], error: error.message };
+      return { data: [], error: getErrorMessage(error) };
     }
   }
 };
@@ -613,10 +672,10 @@ export const getPostsByTags = async (
   limit = 10
 ): Promise<DbResponse<Post[]>> => {
   try {
-    const result = await awsAPI.request<{ data: any[] }>(`/posts/tags?tags=${encodeURIComponent(tags.join(','))}&limit=${limit}&page=${page}`);
+    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/tags?tags=${encodeURIComponent(tags.join(','))}&limit=${limit}&page=${page}`);
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -628,11 +687,12 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const createData: any = {
+    const createData: Record<string, unknown> = {
       content: postData.content || postData.caption,
       mediaUrls: postData.media_urls,
       mediaType: postData.media_type,
       visibility: postData.visibility,
+      location: postData.location || null,
     };
 
     // Handle peak-specific fields
@@ -641,17 +701,20 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
       createData.peakDuration = postData.peak_duration;
       createData.peakExpiresAt = postData.peak_expires_at;
       createData.saveToProfile = postData.save_to_profile;
-      createData.location = postData.location;
     }
 
     if (postData.tags) {
       createData.tags = postData.tags;
     }
 
+    if (postData.tagged_users) {
+      createData.taggedUsers = postData.tagged_users;
+    }
+
     const post = await awsAPI.createPost(createData);
     return { data: convertPost(post), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -662,8 +725,28 @@ export const deletePost = async (postId: string): Promise<{ error: string | null
   try {
     await awsAPI.deletePost(postId);
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
+  }
+};
+
+// ============================================
+// VIEWS
+// ============================================
+
+/**
+ * Record a view on a post
+ */
+export const recordPostView = async (postId: string): Promise<{ error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  try {
+    await awsAPI.recordPostView(postId);
+    return { error: null };
+  } catch {
+    // Silently fail - view tracking is non-critical
+    return { error: null };
   }
 };
 
@@ -681,8 +764,8 @@ export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
   try {
     await awsAPI.likePost(postId);
     return { data: { id: '', user_id: user.id, post_id: postId, created_at: new Date().toISOString() }, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -696,8 +779,8 @@ export const unlikePost = async (postId: string): Promise<{ error: string | null
   try {
     await awsAPI.unlikePost(postId);
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -755,8 +838,8 @@ export const savePost = async (postId: string): Promise<DbResponse<{ id: string 
   try {
     await awsAPI.request(`/posts/${postId}/save`, { method: 'POST' });
     return { data: { id: postId }, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -768,10 +851,10 @@ export const unsavePost = async (postId: string): Promise<{ error: string | null
   if (!user) return { error: 'Not authenticated' };
 
   try {
-    await awsAPI.request(`/posts/${postId}/unsave`, { method: 'POST' });
+    await awsAPI.request(`/posts/${postId}/save`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -823,10 +906,10 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: any[] }>(`/posts/saved?limit=${limit}&page=${page}`);
+    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/saved?limit=${limit}&page=${page}`);
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -836,47 +919,73 @@ export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Po
 
 /**
  * Follow a user
+ * Returns cooldown info if user is blocked from following (7 days after 2+ unfollows)
  */
-export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & { requestCreated?: boolean }> => {
+export const followUser = async (userIdToFollow: string): Promise<DbResponse<Follow> & {
+  requestCreated?: boolean;
+  cooldown?: { blocked: boolean; until: string; daysRemaining: number };
+}> => {
   const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
 
   clearFollowCache();
   // Invalidate feed cache so new follow's posts appear on next load
+  // Lazy import to avoid circular dependency (database → stores → contentStore → database)
+  const { useFeedStore } = require('../stores');
   useFeedStore.getState().clearFeed();
 
   try {
-    await awsAPI.followUser(userIdToFollow);
+    const result = await awsAPI.followUser(userIdToFollow);
+
+    // Check for cooldown block
+    if (result.cooldown?.blocked) {
+      return {
+        data: null,
+        error: result.message,
+        cooldown: result.cooldown,
+      };
+    }
+
     return {
       data: {
         id: '',
-        follower_id: user.id,
+        follower_id: user?.id ?? '',
         following_id: userIdToFollow,
         created_at: new Date().toISOString(),
       },
       error: null,
+      requestCreated: result.type === 'request_created',
     };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    // Extract cooldown data from APIError (429 responses include cooldown info in error data)
+    const apiErr = error as { data?: { cooldown?: { blocked: boolean; until: string; daysRemaining: number } } };
+    if (apiErr.data?.cooldown) {
+      return { data: null, error: getErrorMessage(error), cooldown: apiErr.data.cooldown };
+    }
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
 /**
  * Unfollow a user
+ * Returns cooldown info if user will be blocked from re-following (7 days after 2+ unfollows)
  */
-export const unfollowUser = async (userIdToUnfollow: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
+export const unfollowUser = async (userIdToUnfollow: string): Promise<{
+  error: string | null;
+  cooldown?: { blocked: boolean; until: string; message: string };
+}> => {
   clearFollowCache();
   // Invalidate feed cache so unfollowed user's posts are removed on next load
+  const { useFeedStore } = require('../stores');
   useFeedStore.getState().clearFeed();
 
   try {
-    await awsAPI.unfollowUser(userIdToUnfollow);
-    return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+    const result = await awsAPI.unfollowUser(userIdToUnfollow);
+    return {
+      error: null,
+      cooldown: result.cooldown,
+    };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -902,8 +1011,8 @@ export const getFollowers = async (userId: string, _page = 0, limit = 20): Promi
   try {
     const result = await awsAPI.getFollowers(userId, { limit });
     return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -914,8 +1023,8 @@ export const getFollowing = async (userId: string, _page = 0, limit = 20): Promi
   try {
     const result = await awsAPI.getFollowing(userId, { limit });
     return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -944,6 +1053,31 @@ export const getFollowingCount = async (userId: string): Promise<{ count: number
 };
 
 // ============================================
+// POST LIKERS
+// ============================================
+
+/**
+ * Get users who liked a post (with pagination support)
+ */
+export const getPostLikers = async (
+  postId: string,
+  cursor?: string,
+  limit = 20
+): Promise<DbResponse<Profile[]> & { nextCursor: string | null; hasMore: boolean }> => {
+  try {
+    const result = await awsAPI.getPostLikers(postId, { limit, cursor });
+    return {
+      data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
+      error: null,
+      nextCursor: result.nextCursor || null,
+      hasMore: result.hasMore || false,
+    };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
+  }
+};
+
+// ============================================
 // COMMENTS
 // ============================================
 
@@ -953,7 +1087,7 @@ export const getFollowingCount = async (userId: string): Promise<{ count: number
 export const getComments = async (postId: string, _page = 0, limit = 20): Promise<DbResponse<Comment[]>> => {
   try {
     const result = await awsAPI.getComments(postId, { limit });
-    const comments: Comment[] = result.data.map((c: any) => ({
+    const comments: Comment[] = result.data.map((c: AWSComment & { parentId?: string }) => ({
       id: c.id,
       user_id: c.authorId,
       post_id: c.postId,
@@ -963,8 +1097,8 @@ export const getComments = async (postId: string, _page = 0, limit = 20): Promis
       user: c.author ? convertProfile(c.author) || undefined : undefined,
     }));
     return { data: comments, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -986,8 +1120,8 @@ export const addComment = async (postId: string, text: string, parentId?: string
       created_at: result.createdAt,
     };
     return { data: comment, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -998,8 +1132,8 @@ export const deleteComment = async (commentId: string): Promise<{ error: string 
   try {
     await awsAPI.deleteComment(commentId);
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1013,13 +1147,13 @@ export const deleteComment = async (commentId: string): Promise<{ error: string 
 export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPeaks({ limit });
-    const posts: Post[] = result.data.map((p: any) => ({
+    const posts: Post[] = result.data.map((p: AWSPeak) => ({
       id: p.id,
       author_id: p.authorId,
-      content: p.caption,
+      content: p.caption ?? undefined,
       media_urls: [p.videoUrl],
-      media_type: 'video',
-      visibility: 'public',
+      media_type: 'video' as const,
+      visibility: 'public' as const,
       is_peak: true,
       peak_duration: p.duration,
       likes_count: p.likesCount,
@@ -1029,8 +1163,8 @@ export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]
       author: p.author ? convertProfile(p.author) || undefined : undefined,
     }));
     return { data: posts, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1040,13 +1174,13 @@ export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]
 export const getPeaksByUser = async (userId: string, _page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPeaks({ userId, limit });
-    const posts: Post[] = result.data.map((p: any) => ({
+    const posts: Post[] = result.data.map((p: AWSPeak) => ({
       id: p.id,
       author_id: p.authorId,
-      content: p.caption,
+      content: p.caption ?? undefined,
       media_urls: [p.videoUrl],
-      media_type: 'video',
-      visibility: 'public',
+      media_type: 'video' as const,
+      visibility: 'public' as const,
       is_peak: true,
       peak_duration: p.duration,
       likes_count: p.likesCount,
@@ -1056,8 +1190,8 @@ export const getPeaksByUser = async (userId: string, _page = 0, limit = 10): Pro
       author: p.author ? convertProfile(p.author) || undefined : undefined,
     }));
     return { data: posts, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1083,8 +1217,8 @@ export const getPeakById = async (peakId: string): Promise<DbResponse<Post>> => 
       author: p.author ? convertProfile(p.author) || undefined : undefined,
     };
     return { data: post, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1095,8 +1229,8 @@ export const getPostById = async (postId: string): Promise<DbResponse<Post>> => 
   try {
     const post = await awsAPI.getPost(postId);
     return { data: convertPost(post), error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1107,15 +1241,15 @@ export const getPostById = async (postId: string): Promise<DbResponse<Post>> => 
 /**
  * Get notifications for current user
  */
-export const getNotifications = async (_page = 0, limit = 20): Promise<DbResponse<any[]>> => {
+export const getNotifications = async (_page = 0, limit = 20): Promise<DbResponse<AWSNotification[]>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
     const result = await awsAPI.getNotifications({ limit });
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1126,8 +1260,8 @@ export const markNotificationRead = async (notificationId: string): Promise<{ er
   try {
     await awsAPI.markNotificationRead(notificationId);
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1138,8 +1272,8 @@ export const markAllNotificationsRead = async (): Promise<{ error: string | null
   try {
     await awsAPI.markAllNotificationsRead();
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1149,7 +1283,7 @@ export const markAllNotificationsRead = async (): Promise<{ error: string | null
 export const getUnreadNotificationCount = async (): Promise<{ count: number }> => {
   try {
     const result = await awsAPI.getUnreadCount();
-    return { count: result.count };
+    return { count: result.unreadCount ?? 0 };
   } catch {
     return { count: 0 };
   }
@@ -1166,8 +1300,8 @@ export const getInterests = async (): Promise<DbResponse<Interest[]>> => {
   try {
     const result = await awsAPI.request<{ data: Interest[] }>('/interests');
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1178,8 +1312,8 @@ export const getExpertise = async (): Promise<DbResponse<Expertise[]>> => {
   try {
     const result = await awsAPI.request<{ data: Expertise[] }>('/expertise');
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1202,8 +1336,8 @@ export const getSpotsNearLocation = async (
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1214,8 +1348,8 @@ export const getSpotById = async (spotId: string): Promise<DbResponse<Spot>> => 
   try {
     const result = await awsAPI.request<Spot>(`/spots/${spotId}`);
     return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1232,8 +1366,8 @@ export const createSpot = async (spotData: Partial<Spot>): Promise<DbResponse<Sp
       body: spotData,
     });
     return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1244,8 +1378,8 @@ export const getSpotReviews = async (spotId: string, page = 0, limit = 20): Prom
   try {
     const result = await awsAPI.request<{ data: SpotReview[] }>(`/spots/${spotId}/reviews?page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1267,8 +1401,8 @@ export const addSpotReview = async (
       body: { rating, comment, photos },
     });
     return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1279,27 +1413,74 @@ export const addSpotReview = async (
 /**
  * Get conversations for current user
  */
-export const getConversations = async (limit = 20): Promise<DbResponse<any[]>> => {
+export const getConversations = async (limit = 20): Promise<DbResponse<Conversation[]>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: any[] }>(`/messages/conversations?limit=${limit}`);
-    return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+    // Lambda returns { conversations: [...], nextCursor, hasMore } with snake_case fields
+    const result = await awsAPI.request<{ conversations: Array<{
+      id: string;
+      created_at: string;
+      last_message: { id: string; content: string; media_type?: string; created_at: string; sender_id: string } | null;
+      unread_count: number;
+      other_participant: { id: string; username: string; full_name?: string; display_name?: string; avatar_url: string; is_verified: boolean; account_type?: string } | null;
+    }> }>(`/conversations?limit=${limit}`);
+    const conversations: Conversation[] = (result.conversations || []).map((c) => {
+      const op = c.other_participant;
+      const otherUser: Profile | undefined = op ? {
+        id: op.id, username: op.username,
+        full_name: op.full_name || op.display_name || '',
+        display_name: op.display_name || op.full_name || '',
+        avatar_url: op.avatar_url, is_verified: op.is_verified,
+        account_type: op.account_type,
+      } as Profile : undefined;
+      return {
+        id: c.id,
+        participant_ids: [],
+        participants: otherUser ? [otherUser] : [],
+        other_user: otherUser,
+        last_message_at: c.last_message?.created_at ?? c.created_at,
+        last_message_preview: c.last_message?.media_type === 'audio' || c.last_message?.media_type === 'voice'
+          ? 'Voice message'
+          : c.last_message?.content,
+        updated_at: c.created_at,
+        unread_count: c.unread_count ?? 0,
+      };
+    });
+    return { data: conversations, error: null };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
 /**
  * Get messages in a conversation
  */
-export const getMessages = async (conversationId: string, page = 0, limit = 50): Promise<DbResponse<Message[]>> => {
+export const getMessages = async (conversationId: string, _page = 0, limit = 50): Promise<DbResponse<Message[]>> => {
   try {
-    const result = await awsAPI.request<{ data: Message[] }>(`/messages/conversations/${conversationId}?page=${page}&limit=${limit}`);
-    return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+    // Lambda returns { messages: [...], nextCursor, hasMore } with snake_case fields
+    const result = await awsAPI.request<{ messages: Array<{
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; read: boolean; created_at: string;
+      sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+    }> }>(`/conversations/${conversationId}/messages?limit=${limit}`);
+    const messages: Message[] = (result.messages || []).map((m) => ({
+      id: m.id,
+      conversation_id: conversationId,
+      sender_id: m.sender_id,
+      content: m.content,
+      media_url: m.media_url,
+      media_type: m.media_type as Message['media_type'],
+      created_at: m.created_at,
+      sender: m.sender ? {
+        id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
+        display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
+      } as Profile : undefined,
+    }));
+    return { data: messages, error: null };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1315,14 +1496,36 @@ export const sendMessage = async (
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
+  // Sanitize content: strip HTML and control characters
+  const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '');
+  if (!sanitizedContent) return { data: null, error: 'Message content is required' };
+
   try {
-    const result = await awsAPI.request<Message>('/messages', {
+    // Lambda returns { message: {...} } with snake_case fields
+    const result = await awsAPI.request<{ message: {
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; recipient_id: string; read: boolean; created_at: string;
+      sender: { id: string; username: string; display_name: string; avatar_url: string };
+    } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { conversationId, content, mediaUrl, mediaType },
+      body: { content: sanitizedContent, mediaUrl, mediaType },
     });
-    return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+    const m = result.message;
+    return { data: {
+      id: m.id,
+      conversation_id: conversationId,
+      sender_id: m.sender_id,
+      content: m.content,
+      media_url: m.media_url,
+      media_type: m.media_type as Message['media_type'],
+      created_at: m.created_at,
+      sender: m.sender ? {
+        id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
+        display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
+      } as Profile : undefined,
+    }, error: null };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1343,11 +1546,11 @@ export const reportPost = async (postId: string, reason: string, details?: strin
       body: { postId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: any) {
-    if (error.message?.includes('already')) {
+  } catch (error: unknown) {
+    if (getErrorMessage(error)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: error.message };
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1364,11 +1567,11 @@ export const reportUser = async (userId: string, reason: string, details?: strin
       body: { userId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: any) {
-    if (error.message?.includes('already')) {
+  } catch (error: unknown) {
+    if (getErrorMessage(error)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: error.message };
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1382,8 +1585,8 @@ export const blockUser = async (userId: string): Promise<{ data: BlockedUser | n
   try {
     const result = await awsAPI.request<BlockedUser>(`/profiles/${userId}/block`, { method: 'POST' });
     return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1397,8 +1600,8 @@ export const unblockUser = async (userId: string): Promise<{ data: { success: bo
   try {
     await awsAPI.request(`/profiles/${userId}/unblock`, { method: 'POST' });
     return { data: { success: true }, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1412,8 +1615,8 @@ export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
   try {
     const result = await awsAPI.request<{ data: BlockedUser[] }>('/profiles/blocked');
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1475,8 +1678,8 @@ export const muteUser = async (userId: string): Promise<{ data: MutedUser | null
   try {
     const result = await awsAPI.request<MutedUser>(`/profiles/${userId}/mute`, { method: 'POST' });
     return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1490,8 +1693,8 @@ export const unmuteUser = async (userId: string): Promise<{ data: { success: boo
   try {
     await awsAPI.request(`/profiles/${userId}/unmute`, { method: 'POST' });
     return { data: { success: true }, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1505,8 +1708,8 @@ export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
   try {
     const result = await awsAPI.request<{ data: MutedUser[] }>('/profiles/muted');
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1522,10 +1725,10 @@ export const getPendingFollowRequests = async (): Promise<DbResponse<FollowReque
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: FollowRequest[] }>('/follows/requests/pending');
-    return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+    const result = await awsAPI.request<{ requests: FollowRequest[] }>('/follow-requests');
+    return { data: result.requests || [], error: null };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1534,10 +1737,10 @@ export const getPendingFollowRequests = async (): Promise<DbResponse<FollowReque
  */
 export const acceptFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/follows/requests/${requestId}/accept`, { method: 'POST' });
+    await awsAPI.request(`/follow-requests/${requestId}/accept`, { method: 'POST' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1546,10 +1749,10 @@ export const acceptFollowRequest = async (requestId: string): Promise<{ error: s
  */
 export const declineFollowRequest = async (requestId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/follows/requests/${requestId}/decline`, { method: 'POST' });
+    await awsAPI.request(`/follow-requests/${requestId}/decline`, { method: 'POST' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1558,7 +1761,7 @@ export const declineFollowRequest = async (requestId: string): Promise<{ error: 
  */
 export const getPendingFollowRequestsCount = async (): Promise<number> => {
   try {
-    const result = await awsAPI.request<{ count: number }>('/follows/requests/count');
+    const result = await awsAPI.request<{ count: number }>('/follow-requests/count');
     return result.count;
   } catch {
     return 0;
@@ -1570,7 +1773,7 @@ export const getPendingFollowRequestsCount = async (): Promise<number> => {
  */
 export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ pending: boolean; hasPending: boolean }> => {
   try {
-    const result = await awsAPI.request<{ hasPending: boolean }>(`/follows/requests/pending/${targetUserId}`);
+    const result = await awsAPI.request<{ hasPending: boolean }>(`/follow-requests/pending/${targetUserId}`);
     return { pending: result.hasPending, hasPending: result.hasPending };
   } catch {
     return { pending: false, hasPending: false };
@@ -1582,10 +1785,10 @@ export const hasPendingFollowRequest = async (targetUserId: string): Promise<{ p
  */
 export const cancelFollowRequest = async (targetUserId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/follows/requests/${targetUserId}/cancel`, { method: 'POST' });
+    await awsAPI.request(`/follow-requests/${targetUserId}/cancel`, { method: 'POST' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1626,10 +1829,10 @@ export const hasReportedUser = async (userId: string): Promise<{ reported: boole
  */
 export const saveUserInterests = async (interests: string[]): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.updateProfile({ interests } as any);
+    await awsAPI.updateProfile({ interests } as Record<string, unknown>);
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1653,8 +1856,8 @@ export const getSpots = async (page = 0, limit = 50): Promise<DbResponse<Spot[]>
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1665,8 +1868,8 @@ export const getSpotsByCreator = async (creatorId: string, page = 0, limit = 50)
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?creatorId=${creatorId}&page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1677,8 +1880,8 @@ export const getSpotsByCategory = async (category: string, page = 0, limit = 50)
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?category=${encodeURIComponent(category)}&page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1689,8 +1892,8 @@ export const getSpotsBySportType = async (sportType: string, page = 0, limit = 5
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?sportType=${encodeURIComponent(sportType)}&page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1709,8 +1912,8 @@ export const updateSpot = async (spotId: string, updates: Partial<Spot>): Promis
       body: updates,
     });
     return { data: result, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1721,8 +1924,8 @@ export const deleteSpot = async (spotId: string): Promise<{ error: string | null
   try {
     await awsAPI.request(`/spots/${spotId}`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1745,8 +1948,8 @@ export const getSavedSpots = async (page = 0, limit = 50): Promise<DbResponse<Sp
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots/saved?page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: any) {
-    return { data: [], error: error.message };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };
 
@@ -1757,8 +1960,8 @@ export const saveSpot = async (spotId: string): Promise<{ error: string | null }
   try {
     await awsAPI.request(`/spots/${spotId}/save`, { method: 'POST' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1767,10 +1970,10 @@ export const saveSpot = async (spotId: string): Promise<{ error: string | null }
  */
 export const unsaveSpot = async (spotId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/spots/${spotId}/unsave`, { method: 'POST' });
+    await awsAPI.request(`/spots/${spotId}/save`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1781,8 +1984,8 @@ export const deleteSpotReview = async (reviewId: string): Promise<{ error: strin
   try {
     await awsAPI.request(`/spots/reviews/${reviewId}`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1799,13 +2002,15 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<Conversation>('/messages/conversations', {
+    // Lambda returns { conversation: { id, ... }, created: boolean }
+    const result = await awsAPI.request<{ conversation: { id: string } }>('/conversations', {
       method: 'POST',
       body: { participantId: otherUserId },
     });
-    return { data: result.id, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+    return { data: result.conversation.id, error: null };
+  } catch (error: unknown) {
+    if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
+    return { data: null, error: getErrorMessage(error) };
   }
 };
 
@@ -1814,13 +2019,14 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
  */
 export const sharePostToConversation = async (postId: string, conversationId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request('/messages/share', {
+    // Send the shared post as a message with a special content format
+    await awsAPI.request(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { postId, conversationId },
+      body: { content: `[shared_post:${postId}]`, messageType: 'text' },
     });
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1829,10 +2035,12 @@ export const sharePostToConversation = async (postId: string, conversationId: st
  */
 export const markConversationAsRead = async (conversationId: string): Promise<{ error: string | null }> => {
   try {
-    await awsAPI.request(`/messages/conversations/${conversationId}/read`, { method: 'POST' });
+    // Mark-as-read is handled automatically when fetching messages (GET /conversations/{id}/messages)
+    // No-op here since no dedicated endpoint exists; reading messages triggers the mark-as-read.
+    await awsAPI.request(`/conversations/${conversationId}/messages?limit=1`);
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -1840,43 +2048,36 @@ export const markConversationAsRead = async (conversationId: string): Promise<{ 
  * Upload a voice message
  */
 export const uploadVoiceMessage = async (audioUri: string, conversationId: string): Promise<DbResponse<string>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
-    // Upload the voice file to S3 and get the URL
-    const result = await awsAPI.request<{ url: string }>('/media/upload-voice', {
-      method: 'POST',
-      body: { audioUri, conversationId },
-    });
-    return { data: result.url, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+    // Step 1: Verify audio file exists and is non-empty + get presigned URL in parallel
+    const [fileCheckResult, presignedResult] = await Promise.all([
+      import('expo-file-system/legacy').then(fs => fs.getInfoAsync(audioUri)),
+      awsAPI.request<{ url: string; key: string; cdnUrl?: string; fileUrl?: string }>('/media/upload-voice', {
+        method: 'POST',
+        body: { conversationId },
+      }),
+    ]);
+
+    if (!fileCheckResult.exists) {
+      if (__DEV__) console.warn('[uploadVoiceMessage] Audio file does not exist:', audioUri);
+      return { data: null, error: 'Recording file not found' };
+    }
+    if ('size' in fileCheckResult && typeof fileCheckResult.size === 'number' && fileCheckResult.size === 0) {
+      if (__DEV__) console.warn('[uploadVoiceMessage] Audio file is empty (0 bytes):', audioUri);
+      return { data: null, error: 'Recording file is empty' };
+    }
+
+    // Step 2: Upload the audio file to S3
+    const { uploadWithFileSystem } = await import('./mediaUpload');
+    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedResult.url, 'audio/mp4');
+    if (!uploadSuccess) {
+      return { data: null, error: 'Failed to upload voice message' };
+    }
+
+    // Step 3: Return the best playback URL available
+    const resolvedUrl = presignedResult.cdnUrl || presignedResult.fileUrl || awsAPI.getCDNUrl(presignedResult.key);
+    return { data: resolvedUrl, error: null };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
   }
-};
-
-/**
- * Subscribe to messages (real-time - returns unsubscribe function)
- * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
- */
-export const subscribeToMessages = (
-  _conversationId: string,
-  _callback: (message: Message) => void
-): (() => void) => {
-  // Real-time subscriptions would need WebSocket implementation
-  // For now, return a no-op unsubscribe function
-  if (process.env.NODE_ENV === 'development') console.log('[Database] subscribeToMessages called - WebSocket not implemented');
-  return () => {};
-};
-
-/**
- * Subscribe to conversations (real-time - returns unsubscribe function)
- * Note: Real-time subscriptions require WebSocket, this returns a mock unsubscribe
- */
-export const subscribeToConversations = (
-  _callback: (conversations: Conversation[]) => void
-): (() => void) => {
-  // Real-time subscriptions would need WebSocket implementation
-  if (process.env.NODE_ENV === 'development') console.log('[Database] subscribeToConversations called - WebSocket not implemented');
-  return () => {}
 };

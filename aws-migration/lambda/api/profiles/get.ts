@@ -4,9 +4,10 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('profiles-get');
 
@@ -28,8 +29,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // SECURITY: Validate UUID format for profileId
     if (profileId) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(profileId)) {
+      if (!isValidUUID(profileId)) {
         return {
           statusCode: 400,
           headers,
@@ -39,12 +39,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Use reader pool for read operations
-    const db = await getReaderPool();
+    // Use writer pool to avoid replica lag on follow status / counts
+    const db = await getPool();
 
     const PROFILE_COLUMNS = `id, username, full_name, display_name, avatar_url, cover_url,
-      bio, website, is_verified, is_private, account_type, gender, date_of_birth,
+      bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth,
       interests, expertise, social_links, business_name, business_category,
-      business_address, business_phone, locations_mode, onboarding_completed,
+      business_address, business_latitude, business_longitude, business_phone,
+      locations_mode, onboarding_completed,
       fan_count, following_count, post_count`;
 
     let result;
@@ -86,16 +88,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isOwner = resolvedUserId === profile.id;
 
       if (resolvedUserId && !isOwner) {
+        // Query actual follow rows instead of EXISTS() to avoid boolean conversion issues
         const followResult = await db.query(
-          `SELECT
-            EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_following,
-            EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = $1 AND status = 'accepted') as is_followed_by`,
+          `SELECT status, follower_id, following_id FROM follows
+           WHERE (follower_id = $1 AND following_id = $2)
+              OR (follower_id = $2 AND following_id = $1)`,
           [resolvedUserId, profile.id]
         );
 
-        if (followResult.rows.length > 0) {
-          isFollowing = followResult.rows[0].is_following;
-          isFollowedBy = followResult.rows[0].is_followed_by;
+        for (const row of followResult.rows) {
+          if (row.follower_id === resolvedUserId && row.following_id === profile.id && row.status === 'accepted') {
+            isFollowing = true;
+          }
+          if (row.follower_id === profile.id && row.following_id === resolvedUserId && row.status === 'accepted') {
+            isFollowedBy = true;
+          }
         }
       }
     }
@@ -139,6 +146,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         bio: profile.bio,
         website: profile.website,
         isVerified: profile.is_verified || false,
+        isPremium: profile.is_premium || false,
         isPrivate,
         accountType: profile.account_type || 'personal',
         gender: profile.gender,
@@ -149,6 +157,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         businessName: profile.business_name,
         businessCategory: profile.business_category,
         businessAddress: profile.business_address,
+        businessLatitude: profile.business_latitude ? parseFloat(profile.business_latitude) : null,
+        businessLongitude: profile.business_longitude ? parseFloat(profile.business_longitude) : null,
         businessPhone: profile.business_phone,
         locationsMode: profile.locations_mode,
         onboardingCompleted: profile.onboarding_completed,

@@ -14,15 +14,20 @@ import { contentStore } from './contentStore';
 import { userSafetyStore } from './userSafetyStore';
 import { filterStore } from './filterStore';
 import { tabBarStore } from './tabBarStore';
+import { vibeStore } from './vibeStore';
+import { themeStore } from './themeStore';
 
 // Re-export all stores
 export { useContentStore, contentStore } from './contentStore';
 export { useUserSafetyStore, userSafetyStore } from './userSafetyStore';
-export { useEngagementStore } from './engagementStore';
 export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS } from './filterStore';
 export { useTabBarStore, useTabBar, useTabBarAnimations, tabBarStore } from './tabBarStore';
+export { useVibeStore, vibeStore } from './vibeStore';
+export { useThemeStore, themeStore } from './themeStore';
+export type { ThemePreference, ThemeMode } from './themeStore';
 export type { TabBarContextValue } from './tabBarStore';
 export type { ContentStatus } from './contentStore';
+export type { RippleEntry, VibeState, VibeLevel, VibeActionType } from './vibeStore';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -37,8 +42,8 @@ interface User {
   displayName?: string;
   username?: string;
   email?: string;
-  avatar?: string;
-  coverImage?: string;
+  avatar?: string | null;
+  coverImage?: string | null;
   bio?: string;
   location?: string;
   // Personal info
@@ -57,6 +62,8 @@ interface User {
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
+  businessLatitude?: number;
+  businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
   // Stats
@@ -83,7 +90,6 @@ interface UserState {
 
 interface AppState {
   isTabBarVisible: boolean;
-  tabBarAnimation: unknown;
   isOnline: boolean;
   globalLoading: boolean;
   errorModal: {
@@ -91,11 +97,15 @@ interface AppState {
     title: string;
     message: string;
   };
+  unreadNotifications: number;
+  unreadMessages: number;
   setTabBarVisible: (visible: boolean) => void;
   setOnline: (online: boolean) => void;
   setGlobalLoading: (loading: boolean) => void;
   showError: (title: string, message: string) => void;
   hideError: () => void;
+  setUnreadNotifications: (countOrUpdater: number | ((prev: number) => number)) => void;
+  setUnreadMessages: (countOrUpdater: number | ((prev: number) => number)) => void;
 }
 
 interface Post {
@@ -108,11 +118,15 @@ interface FeedState {
   feedCache: Post[];
   lastFetchTime: number | null;
   optimisticLikes: Record<string, boolean>;
+  optimisticPeakLikes: Record<string, boolean>;
   setFeedCache: (posts: Post[]) => void;
   appendToFeed: (newPosts: Post[]) => void;
   prependToFeed: (newPost: Post) => void;
   removeFromFeed: (postId: string) => void;
   toggleLikeOptimistic: (postId: string, liked: boolean) => void;
+  setPeakLikeOverride: (peakId: string, liked: boolean) => void;
+  clearOptimisticLikes: (postIds: string[]) => void;
+  clearOptimisticPeakLikes: (peakIds: string[]) => void;
   clearFeed: () => void;
   isCacheStale: () => boolean;
 }
@@ -126,10 +140,7 @@ interface Session {
 
 interface AuthState {
   session: Session | null;
-  biometricEnabled: boolean;
-  biometricType: 'face' | 'fingerprint' | null;
   setSession: (session: Session | null) => void;
-  setBiometric: (enabled: boolean, type?: 'face' | 'fingerprint' | null) => void;
   clearAuth: () => void;
 }
 
@@ -186,6 +197,8 @@ export const useUserStore = create<UserState>()(
       getFullName: () => {
         const { user } = get();
         if (!user) return '';
+        // Business accounts use businessName as their display name
+        if (user.accountType === 'pro_business' && user.businessName) return user.businessName;
         // Try fullName first, then construct from firstName + lastName
         if (user.fullName) return user.fullName;
         if (user.displayName) return user.displayName;
@@ -228,8 +241,6 @@ export const useAppStore = create<AppState>()(
   immer((set) => ({
     // Tab bar visibility
     isTabBarVisible: true,
-    tabBarAnimation: null,
-
     // Network status
     isOnline: true,
 
@@ -268,6 +279,24 @@ export const useAppStore = create<AppState>()(
       set((state) => {
         state.errorModal.visible = false;
       }),
+
+    // Badge counts
+    unreadNotifications: 0,
+    unreadMessages: 0,
+
+    setUnreadNotifications: (countOrUpdater) =>
+      set((state) => {
+        state.unreadNotifications = typeof countOrUpdater === 'function'
+          ? countOrUpdater(state.unreadNotifications)
+          : countOrUpdater;
+      }),
+
+    setUnreadMessages: (countOrUpdater) =>
+      set((state) => {
+        state.unreadMessages = typeof countOrUpdater === 'function'
+          ? countOrUpdater(state.unreadMessages)
+          : countOrUpdater;
+      }),
   }))
 );
 
@@ -281,8 +310,9 @@ export const useFeedStore = create<FeedState>()(
     feedCache: [] as Post[],
     lastFetchTime: null as number | null,
 
-    // Optimistic updates for likes
+    // Optimistic updates for likes (shared between feed + detail screens)
     optimisticLikes: {} as Record<string, boolean>,
+    optimisticPeakLikes: {} as Record<string, boolean>,
 
     // Actions
     setFeedCache: (posts: Post[]) =>
@@ -306,10 +336,11 @@ export const useFeedStore = create<FeedState>()(
 
     removeFromFeed: (postId: string) =>
       set((state) => {
-        state.feedCache = state.feedCache.filter((p) => p.id !== postId);
+        const idx = state.feedCache.findIndex((p) => p.id === postId);
+        if (idx !== -1) state.feedCache.splice(idx, 1);
       }),
 
-    // Optimistic like
+    // Optimistic like (posts)
     toggleLikeOptimistic: (postId: string, liked: boolean) =>
       set((state) => {
         state.optimisticLikes[postId] = liked;
@@ -320,12 +351,35 @@ export const useFeedStore = create<FeedState>()(
         }
       }),
 
+    // Optimistic like (peaks)
+    setPeakLikeOverride: (peakId: string, liked: boolean) =>
+      set((state) => {
+        state.optimisticPeakLikes[peakId] = liked;
+      }),
+
+    // Clear specific post overrides after applying them in the feed
+    clearOptimisticLikes: (postIds: string[]) =>
+      set((state) => {
+        for (const id of postIds) {
+          delete state.optimisticLikes[id];
+        }
+      }),
+
+    // Clear specific peak overrides
+    clearOptimisticPeakLikes: (peakIds: string[]) =>
+      set((state) => {
+        for (const id of peakIds) {
+          delete state.optimisticPeakLikes[id];
+        }
+      }),
+
     // Clear feed cache
     clearFeed: () =>
       set((state) => {
         state.feedCache = [];
         state.lastFetchTime = null;
         state.optimisticLikes = {};
+        state.optimisticPeakLikes = {};
       }),
 
     // Check if cache is stale (older than 5 minutes)
@@ -346,20 +400,10 @@ export const useAuthStore = create<AuthState>()(
     // Session info (not persisted - managed by AWS Cognito)
     session: null as Session | null,
 
-    // Biometric state
-    biometricEnabled: false,
-    biometricType: null as 'face' | 'fingerprint' | null,
-
     // Actions
     setSession: (session: Session | null) =>
       set((state) => {
         state.session = session;
-      }),
-
-    setBiometric: (enabled: boolean, type: 'face' | 'fingerprint' | null = null) =>
-      set((state) => {
-        state.biometricEnabled = enabled;
-        state.biometricType = type;
       }),
 
     clearAuth: () =>
@@ -368,17 +412,6 @@ export const useAuthStore = create<AuthState>()(
       }),
   }))
 );
-
-// ============================================
-// SELECTORS (for performance)
-// ============================================
-
-// Use these selectors to avoid unnecessary re-renders
-export const selectUser = (state: UserState) => state.user;
-export const selectIsAuthenticated = (state: UserState) => state.isAuthenticated;
-export const selectIsLoading = (state: UserState) => state.isLoading;
-export const selectIsOnline = (state: AppState) => state.isOnline;
-export const selectFeedCache = (state: FeedState) => state.feedCache;
 
 // ============================================
 // RESET ALL STORES (for logout)
@@ -401,12 +434,25 @@ export const resetAllStores = async () => {
   userSafetyStore.reset();
   filterStore.reset();
   tabBarStore.reset();
+  vibeStore.reset();
+  themeStore.reset();
+
+  // Clear React Query cache to prevent cross-user data leaks
+  try {
+    const { clearQueryCache } = await import('../lib/queryClient');
+    await clearQueryCache();
+  } catch {
+    // Best-effort cleanup
+  }
 
   // Clear persisted AsyncStorage data to prevent cross-user data leaks
   try {
     await AsyncStorage.multiRemove([
       '@smuppy_user_store',
       '@smuppy_analytics_queue',
+      '@smuppy_vibe_store',
+      '@smuppy_theme_store',
+      '@smuppy_query_cache',
     ]);
   } catch {
     // Best-effort cleanup

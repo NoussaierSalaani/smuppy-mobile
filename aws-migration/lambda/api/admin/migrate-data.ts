@@ -10,7 +10,7 @@ import { timingSafeEqual } from 'crypto';
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('admin-migrate-data');
 let cachedAdminKey: string | null = null;
@@ -124,7 +124,7 @@ async function migratePosts(db: Pool, posts: PostToMigrate[]): Promise<{ importe
         ]
       );
       imported++;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       errors.push('Post migration failed');
       failed++;
     }
@@ -172,7 +172,7 @@ async function migrateFollows(db: Pool, follows: FollowToMigrate[]): Promise<{ i
         ]
       );
       imported++;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       errors.push('Follow migration failed');
       failed++;
     }

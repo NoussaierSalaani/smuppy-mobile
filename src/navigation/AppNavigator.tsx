@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator, StackCardInterpolationProps } from '@react-navigation/stack';
-import { View, Text, StyleSheet, StatusBar, Dimensions, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import * as Linking from 'expo-linking';
+import * as SplashScreen from 'expo-splash-screen';
 import * as backend from '../services/backend';
 import { awsAuth } from '../services/aws-auth';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
@@ -15,9 +15,10 @@ import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPen
 import { resetAllStores } from '../stores';
 import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
-import { SmuppyIcon, SmuppyText } from '../components/SmuppyLogo';
-
-const { width, height } = Dimensions.get('window');
+import { useTheme } from '../hooks/useTheme';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { sentryNavigationIntegration } from '../lib/sentry';
+import { isValidUUID } from '../utils/formatters';
 
 /**
  * Root Stack Param List
@@ -70,56 +71,52 @@ const linking = {
           UserProfile: {
             path: 'profile/:userId',
             parse: {
-              userId: (userId: string) => {
-                // Validate UUID format to prevent navigation injection
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(userId) ? userId : '';
-              },
+              userId: (userId: string) => isValidUUID(userId) ? userId : '',
             },
           },
           PostDetailFanFeed: {
             path: 'post/:postId',
             parse: {
-              postId: (postId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(postId) ? postId : '';
-              },
+              postId: (postId: string) => isValidUUID(postId) ? postId : '',
             },
           },
           PeakView: {
             path: 'peak/:peakId',
             parse: {
-              peakId: (peakId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(peakId) ? peakId : '';
-              },
+              peakId: (peakId: string) => isValidUUID(peakId) ? peakId : '',
             },
           },
           EventDetail: {
             path: 'event/:eventId',
             parse: {
-              eventId: (eventId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(eventId) ? eventId : '';
-              },
-            },
-          },
-          ChallengeDetail: {
-            path: 'challenge/:challengeId',
-            parse: {
-              challengeId: (challengeId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(challengeId) ? challengeId : '';
-              },
+              eventId: (eventId: string) => isValidUUID(eventId) ? eventId : '',
             },
           },
           BusinessProfile: {
             path: 'business/:businessId',
             parse: {
-              businessId: (businessId: string) => {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return uuidRegex.test(businessId) ? businessId : '';
-              },
+              businessId: (businessId: string) => isValidUUID(businessId) ? businessId : '',
+            },
+          },
+          EventList: {
+            path: 'events',
+          },
+          GroupDetail: {
+            path: 'groups/:groupId',
+            parse: {
+              groupId: (groupId: string) => isValidUUID(groupId) ? groupId : '',
+            },
+          },
+          CreatorOfferings: {
+            path: 'creator/:creatorId/offerings',
+            parse: {
+              creatorId: (creatorId: string) => isValidUUID(creatorId) ? creatorId : '',
+            },
+          },
+          PackPurchase: {
+            path: 'packs/:packId',
+            parse: {
+              packId: (packId: string) => isValidUUID(packId) ? packId : '',
             },
           },
         },
@@ -139,12 +136,36 @@ const linking = {
 type AppState = 'loading' | 'auth' | 'emailPending' | 'main';
 
 export default function AppNavigator(): React.JSX.Element {
+  const { colors, isDark } = useTheme();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+
+  // Register navigation container with Sentry for automatic screen tracking
+  useEffect(() => {
+    if (sentryNavigationIntegration && navigationRef) {
+      sentryNavigationIntegration.registerNavigationContainer(navigationRef);
+    }
+  }, [navigationRef]);
+
+  const navigationTheme = useMemo<Theme>(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.background,
+        text: colors.dark,
+        border: colors.grayBorder,
+        notification: colors.primary,
+      },
+    };
+  }, [isDark, colors]);
+
   const [appState, setAppState] = useState<AppState>('loading');
   const [userEmail, setUserEmail] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
-  const [hideSplash, setHideSplash] = useState(false);
   const [pendingRecovery, setPendingRecovery] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const lastHandledUrl = useRef<string | null>(null);
   const resolvingRef = useRef(false);
 
@@ -161,26 +182,27 @@ export default function AppNavigator(): React.JSX.Element {
    */
   const resolveAppState = useCallback(async (): Promise<{ state: AppState; email: string }> => {
     const currentUser = await backend.getCurrentUser();
+    if (__DEV__) console.log('[Session] getCurrentUser →', currentUser ? currentUser.email : 'null');
     if (!currentUser) {
       return { state: 'auth', email: '' };
     }
 
     const isVerified = await awsAuth.isEmailVerified();
+    if (__DEV__) console.log('[Session] isEmailVerified →', isVerified);
     if (!isVerified) {
       return { state: 'emailPending', email: currentUser.email };
     }
 
     try {
       const { data } = await getCurrentProfile(false);
+      if (__DEV__) console.log('[Session] getCurrentProfile →', data ? 'has profile' : 'no profile');
       if (data) {
         return { state: 'main', email: currentUser.email };
       }
-    } catch {
-      // Profile check failed - treat as no profile
+    } catch (err) {
+      if (__DEV__) console.log('[Session] getCurrentProfile error:', err);
     }
 
-    // User exists + verified but no profile → still 'auth'
-    // (Login/Signup screens navigate to AccountType internally)
     return { state: 'auth', email: currentUser.email };
   }, []);
 
@@ -189,48 +211,52 @@ export default function AppNavigator(): React.JSX.Element {
     if (lastHandledUrl.current === url) return;
     if (!url.includes('reset-password')) return;
     // Validate origin: only accept deep links from Smuppy domains or scheme
-    const isSmuppyOrigin = url.startsWith('smuppy://') ||
-      url.startsWith('https://smuppy.com') ||
-      url.startsWith('https://www.smuppy.com') ||
-      url.startsWith('https://app.smuppy.com') ||
-      url.startsWith('exp://'); // Expo dev
+    const ALLOWED_HOSTNAMES = ['smuppy.com', 'www.smuppy.com', 'app.smuppy.com'];
+    let isSmuppyOrigin = url.startsWith('smuppy://') || url.startsWith('exp://');
+    if (!isSmuppyOrigin) {
+      try {
+        const parsed = new URL(url);
+        isSmuppyOrigin = parsed.protocol === 'https:' && ALLOWED_HOSTNAMES.includes(parsed.hostname);
+      } catch {
+        isSmuppyOrigin = false;
+      }
+    }
     if (!isSmuppyOrigin) return;
     lastHandledUrl.current = url;
     setPendingRecovery(true);
   }, []);
 
   useEffect(() => {
-    let sessionLoaded = false;
-    let minTimeElapsed = false;
-
-    const checkReady = () => {
-      if (sessionLoaded && minTimeElapsed) {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          setHideSplash(true);
-        });
-      }
-    };
-
     const loadSession = async () => {
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
+      if (__DEV__) console.log('[Session] rememberMe flag:', rememberMe);
 
       if (rememberMe === 'false') {
+        if (__DEV__) console.log('[Session] rememberMe=false → signing out');
         await backend.signOut();
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setAppState('auth');
       } else {
-        const { state, email } = await resolveAppState();
+        let { state, email } = await resolveAppState();
+        if (__DEV__) console.log('[Session] resolveAppState →', state, email);
+
+        // If Remember Me is set but session resolution failed (e.g. network not ready),
+        // retry once after a short delay
+        if (state === 'auth' && rememberMe === 'true') {
+          if (__DEV__) console.log('[Session] Retrying after 500ms...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const retry = await resolveAppState();
+          state = retry.state;
+          email = retry.email;
+          if (__DEV__) console.log('[Session] Retry result →', state, email);
+        }
+
         setAppState(state);
         setUserEmail(email);
       }
 
-      sessionLoaded = true;
       setIsReady(true);
-      checkReady();
+      requestAnimationFrame(() => SplashScreen.hideAsync());
     };
 
     loadSession();
@@ -260,22 +286,16 @@ export default function AppNavigator(): React.JSX.Element {
       }
     });
 
-    const timer = setTimeout(() => {
-      minTimeElapsed = true;
-      checkReady();
-    }, 600);
-
     Linking.getInitialURL().then(handleDeepLink);
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
       handleDeepLink(url);
     });
 
     return () => {
-      clearTimeout(timer);
       unsubscribe();
       linkingSubscription.remove();
     };
-  }, [handleDeepLink, fadeAnim, resolveAppState]);
+  }, [handleDeepLink, resolveAppState]);
 
   // Simple state → screen mapping
   const showAuth = appState === 'auth' || appState === 'loading' || pendingRecovery;
@@ -284,12 +304,13 @@ export default function AppNavigator(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
       {isReady && (
         <AuthCallbackProvider value={{ onRecoveryComplete: handleRecoveryComplete, onProfileCreated: handleProfileCreated }}>
         <TabBarProvider>
-          <NavigationContainer linking={linking}>
+          <ErrorBoundary name="AppNavigator">
+          <NavigationContainer ref={navigationRef} linking={linking} theme={navigationTheme}>
             <RootStack.Navigator
                 id="RootStack"
                 screenOptions={{
@@ -324,26 +345,9 @@ export default function AppNavigator(): React.JSX.Element {
                 )}
             </RootStack.Navigator>
           </NavigationContainer>
+          </ErrorBoundary>
         </TabBarProvider>
         </AuthCallbackProvider>
-      )}
-
-      {!hideSplash && (
-        <Animated.View style={[styles.splashOverlay, { opacity: fadeAnim }]}>
-          <LinearGradient
-            colors={['#00B3C7', '#0EBF8A', '#7BEDC6']}
-            locations={[0, 0.5, 1]}
-            style={styles.gradient}
-          >
-            <View style={styles.logoContainer}>
-              <SmuppyIcon size={100} variant="dark" />
-            </View>
-            <View style={styles.bottomContainer}>
-              <Text style={styles.fromText}>from</Text>
-              <SmuppyText width={90} variant="dark" />
-            </View>
-          </LinearGradient>
-        </Animated.View>
       )}
     </View>
   );
@@ -352,31 +356,5 @@ export default function AppNavigator(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0EBF8A',
-  },
-  splashOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999,
-  },
-  gradient: {
-    flex: 1,
-    width,
-    height,
-  },
-  logoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bottomContainer: {
-    paddingBottom: 50,
-    alignItems: 'center',
-  },
-  fromText: {
-    fontSize: 12,
-    fontWeight: '300',
-    color: '#0A252F',
-    marginBottom: 4,
-    letterSpacing: 0.5,
   },
 });

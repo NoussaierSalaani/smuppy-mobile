@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- API response types use `any` intentionally; these dynamic shapes are cast by consumers */
 /**
  * AWS API Service
  * AWS API Gateway client for Smuppy backend
@@ -5,13 +6,38 @@
 
 import { AWS_CONFIG } from '../config/aws-config';
 import { awsAuth } from './aws-auth';
+import { secureFetch } from '../utils/certificatePinning';
 
 const API_BASE_URL = AWS_CONFIG.api.restEndpoint;
+const API_BASE_URL_2 = AWS_CONFIG.api.restEndpoint2;
+const API_BASE_URL_3 = AWS_CONFIG.api.restEndpoint3;
 const CDN_URL = AWS_CONFIG.storage.cdnDomain;
+
+// Endpoints routed to API Gateway 3 (business access)
+// These specific endpoints use the dedicated business access API
+const API3_ENDPOINTS = [
+  '/businesses/validate-access',
+  '/businesses/log-entry',
+  '/businesses/subscriptions/my',
+] as const;
+
+// Endpoint prefixes routed to API Gateway 3 (for dynamic routes with IDs)
+const API3_PREFIXES = [
+  '/businesses/subscriptions/',
+] as const;
+
+// Endpoints routed to API Gateway 2 (secondary)
+const API2_PREFIXES = [
+  '/sessions', '/packs', '/payments', '/tips', '/earnings',
+  '/challenges', '/battles', '/events', '/settings', '/admin',
+  '/businesses', '/spots', '/interests', '/expertise', '/hashtags',
+  '/devices', '/contacts', '/support', '/account', '/categories',
+  '/groups', '/reviews', '/map', '/search/map', '/live-streams',
+] as const;
 
 interface RequestOptions {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
   authenticated?: boolean;
   timeout?: number;
@@ -31,9 +57,54 @@ class AWSAPIService {
    * Make authenticated API request
    */
   async request<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
+    const MAX_RETRIES = 2;
+    const RETRYABLE_STATUSES = [408, 429, 500, 502, 503, 504];
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await this._requestOnce<T>(endpoint, options);
+      } catch (error: unknown) {
+        lastError = error as Error;
+        const apiErr = error as { statusCode?: number; status?: number; data?: { retryAfter?: number } };
+        const status = apiErr.statusCode || apiErr.status;
+        const isRetryable = status ? RETRYABLE_STATUSES.includes(status) : false;
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          throw error;
+        }
+
+        // Exponential backoff: 1s, 2s
+        if (status === 429 && apiErr.data?.retryAfter) {
+          await new Promise(r => setTimeout(r, apiErr.data!.retryAfter! * 1000));
+        } else {
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async _requestOnce<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
 
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Determine which API to use:
+    // 1. Check for specific API 3 endpoints first (business access)
+    // 2. Then check for API 3 prefix patterns (subscription routes with IDs)
+    // 3. Then check for API 2 prefixes
+    // 4. Default to API 1
+    const isApi3Endpoint = API3_ENDPOINTS.some(ep => endpoint === ep) ||
+      API3_PREFIXES.some(prefix => endpoint.startsWith(prefix) &&
+        (endpoint.includes('/access-pass') || endpoint.includes('/cancel') || endpoint.includes('/reactivate')));
+
+    const baseUrl = isApi3Endpoint
+      ? API_BASE_URL_3
+      : API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
+        ? API_BASE_URL_2
+        : API_BASE_URL;
+    const url = `${baseUrl}${endpoint}`;
 
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -47,15 +118,17 @@ class AWSAPIService {
       if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
       } else {
-        console.warn('[AWS API] No ID token available for authenticated request');
+        if (__DEV__) console.warn('[AWS API] No ID token available for authenticated request');
       }
     }
+
+    if (__DEV__) console.log(`[AWS API] ${method} ${url} auth=${!!requestHeaders['Authorization']}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(url, {
+      const response = await secureFetch(url, {
         method,
         headers: requestHeaders,
         body: body ? JSON.stringify(body) : undefined,
@@ -73,7 +146,7 @@ class AWSAPIService {
           const retryController = new AbortController();
           const retryTimeoutId = setTimeout(() => retryController.abort(), timeout);
           try {
-            const retryResponse = await fetch(url, {
+            const retryResponse = await secureFetch(url, {
               method,
               headers: requestHeaders,
               body: body ? JSON.stringify(body) : undefined,
@@ -88,10 +161,19 @@ class AWSAPIService {
                 retryError
               );
             }
-            return await retryResponse.json() as T;
-          } catch (retryErr: any) {
+            const retryRaw = await retryResponse.text();
+            if (!retryRaw) {
+              return {} as T;
+            }
+            try {
+              return JSON.parse(retryRaw) as T;
+            } catch (parseErr) {
+              if (__DEV__) console.warn('[AWS API] Invalid JSON response (retry)', (parseErr as Error).message);
+              throw new APIError('Invalid JSON response', retryResponse.status);
+            }
+          } catch (retryErr: unknown) {
             clearTimeout(retryTimeoutId);
-            if (retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
+            if (retryErr instanceof Error && retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
             throw retryErr;
           }
         }
@@ -99,6 +181,7 @@ class AWSAPIService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (__DEV__) console.warn(`[AWS API] ERROR ${response.status}:`, JSON.stringify(errorData).substring(0, 200));
         throw new APIError(
           errorData.message || `Request failed with status ${response.status}`,
           response.status,
@@ -106,12 +189,21 @@ class AWSAPIService {
         );
       }
 
-      const data = await response.json();
-      return data as T;
-    } catch (error: any) {
+      const raw = await response.text();
+      if (!raw) {
+        return {} as T;
+      }
+
+      try {
+        return JSON.parse(raw) as T;
+      } catch (parseErr) {
+        if (__DEV__) console.warn('[AWS API] Invalid JSON response', (parseErr as Error).message);
+        throw new APIError('Invalid JSON response', response.status);
+      }
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
 
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new APIError('Request timeout', 408);
       }
 
@@ -136,7 +228,7 @@ class AWSAPIService {
     if (params?.userId) queryParams.set('userId', params.userId);
 
     const query = queryParams.toString();
-    const response = await this.request<any>(`/posts${query ? `?${query}` : ''}`);
+    const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(`/posts${query ? `?${query}` : ''}`);
 
     // Map API response (posts) to expected format (data)
     return {
@@ -178,7 +270,13 @@ class AWSAPIService {
   }
 
   async unlikePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}/unlike`, {
+    return this.request(`/posts/${id}/like`, {
+      method: 'DELETE',
+    });
+  }
+
+  async recordPostView(id: string): Promise<void> {
+    return this.request(`/posts/${id}/view`, {
       method: 'POST',
     });
   }
@@ -203,13 +301,11 @@ class AWSAPIService {
   }
 
   /**
-   * Upgrade account from Personal to Pro Creator
-   * This is a ONE-WAY process that cannot be reversed
+   * @deprecated Account type upgrades can ONLY happen via Stripe webhook — never via direct API call.
+   * This method is retained for reference but must not be used.
    */
   async upgradeToProCreator(): Promise<{ success: boolean; message?: string }> {
-    return this.request('/profiles/upgrade-to-pro', {
-      method: 'POST',
-    });
+    throw new Error('Account upgrades are handled via Stripe webhook only');
   }
 
   /**
@@ -235,14 +331,23 @@ class AWSAPIService {
   // Follows API
   // ==========================================
 
-  async followUser(userId: string): Promise<void> {
+  async followUser(userId: string): Promise<{
+    success: boolean;
+    type: string;
+    message: string;
+    cooldown?: { blocked: boolean; until: string; daysRemaining: number };
+  }> {
     return this.request('/follows', {
       method: 'POST',
       body: { followingId: userId },
     });
   }
 
-  async unfollowUser(userId: string): Promise<void> {
+  async unfollowUser(userId: string): Promise<{
+    success: boolean;
+    message: string;
+    cooldown?: { blocked: boolean; until: string; message: string };
+  }> {
     return this.request(`/follows/${userId}`, {
       method: 'DELETE',
     });
@@ -253,7 +358,19 @@ class AWSAPIService {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/followers${query ? `?${query}` : ''}`);
+    const response = await this.request<{
+      followers: Profile[];
+      cursor: string | null;
+      hasMore: boolean;
+      totalCount: number;
+    }>(`/profiles/${userId}/followers${query ? `?${query}` : ''}`);
+    // Map backend response to PaginatedResponse format
+    return {
+      data: response.followers || [],
+      nextCursor: response.cursor,
+      hasMore: response.hasMore,
+      total: response.totalCount || 0,
+    };
   }
 
   async getFollowing(userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
@@ -261,7 +378,41 @@ class AWSAPIService {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`);
+    const response = await this.request<{
+      following: Profile[];
+      cursor: string | null;
+      hasMore: boolean;
+      totalCount: number;
+    }>(`/profiles/${userId}/following${query ? `?${query}` : ''}`);
+    // Map backend response to PaginatedResponse format
+    return {
+      data: response.following || [],
+      nextCursor: response.cursor,
+      hasMore: response.hasMore,
+      total: response.totalCount || 0,
+    };
+  }
+
+  // ==========================================
+  // Post Likers
+  // ==========================================
+
+  async getPostLikers(postId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    const query = queryParams.toString();
+    const response = await this.request<{
+      data: Profile[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    }>(`/posts/${postId}/likers${query ? `?${query}` : ''}`);
+    return {
+      data: response.data || [],
+      nextCursor: response.nextCursor || null,
+      hasMore: response.hasMore || false,
+      total: response.data?.length || 0,
+    };
   }
 
   // ==========================================
@@ -284,7 +435,11 @@ class AWSAPIService {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.userId) queryParams.set('userId', params.userId);
+    if (params?.userId) {
+      // Support both camelCase and snake_case author filters (some gateways expect one or the other)
+      queryParams.set('authorId', params.userId);
+      queryParams.set('author_id', params.userId);
+    }
     const query = queryParams.toString();
     return this.request(`/peaks${query ? `?${query}` : ''}`);
   }
@@ -307,8 +462,8 @@ class AWSAPIService {
   }
 
   async unlikePeak(id: string): Promise<void> {
-    return this.request(`/peaks/${id}/unlike`, {
-      method: 'POST',
+    return this.request(`/peaks/${id}/like`, {
+      method: 'DELETE',
     });
   }
 
@@ -358,33 +513,6 @@ class AWSAPIService {
     });
   }
 
-  /**
-   * Get tags on a peak
-   */
-  async getPeakTags(peakId: string): Promise<{
-    tags: Array<{
-      id: string;
-      taggedUser: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-      };
-      taggedBy: string;
-      createdAt: string;
-    }>;
-  }> {
-    return this.request(`/peaks/${peakId}/tags`);
-  }
-
-  /**
-   * Remove a tag from a peak
-   */
-  async removeTagFromPeak(peakId: string, userId: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${peakId}/tags/${userId}`, {
-      method: 'DELETE',
-    });
-  }
 
   /**
    * Hide a peak from feed (not interested)
@@ -400,112 +528,6 @@ class AWSAPIService {
     });
   }
 
-  /**
-   * Unhide a peak (restore to feed)
-   */
-  async unhidePeak(id: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}/hide`, {
-      method: 'DELETE',
-    });
-  }
-
-  /**
-   * Get list of hidden peaks
-   */
-  async getHiddenPeaks(): Promise<{
-    hiddenPeaks: Array<{
-      peakId: string;
-      reason: string;
-      hiddenAt: string;
-      thumbnail: string;
-      author: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-      };
-    }>;
-  }> {
-    return this.request('/peaks/hidden');
-  }
-
-  /**
-   * Create a peak reply (respond to a peak with another peak)
-   */
-  async createPeakReply(peakId: string, data: {
-    videoUrl: string;
-    thumbnailUrl?: string;
-    caption?: string;
-    duration: number;
-  }): Promise<{
-    success: boolean;
-    reply: {
-      id: string;
-      authorId: string;
-      videoUrl: string;
-      thumbnailUrl: string;
-      caption: string;
-      duration: number;
-      likesCount: number;
-      commentsCount: number;
-      viewsCount: number;
-      repliesCount: number;
-      isLiked: boolean;
-      replyToPeakId: string;
-      createdAt: string;
-      author: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-        isVerified: boolean;
-      };
-    };
-  }> {
-    return this.request(`/peaks/${peakId}/replies`, {
-      method: 'POST',
-      body: data,
-    });
-  }
-
-  /**
-   * Get replies to a peak (peak responses)
-   */
-  async getPeakReplies(peakId: string, params?: {
-    limit?: number;
-    cursor?: string;
-  }): Promise<{
-    replies: Array<{
-      id: string;
-      authorId: string;
-      videoUrl: string;
-      thumbnailUrl: string;
-      caption: string;
-      duration: number;
-      likesCount: number;
-      commentsCount: number;
-      viewsCount: number;
-      repliesCount: number;
-      isLiked: boolean;
-      createdAt: string;
-      author: {
-        id: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-        isVerified: boolean;
-      };
-    }>;
-    nextCursor: string | null;
-    hasMore: boolean;
-    total: number;
-  }> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/peaks/${peakId}/replies${query ? `?${query}` : ''}`);
-  }
 
   // ==========================================
   // Comments API
@@ -541,7 +563,20 @@ class AWSAPIService {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.cursor) queryParams.set('cursor', params.cursor);
     const query = queryParams.toString();
-    return this.request(`/notifications${query ? `?${query}` : ''}`);
+    const response = await this.request<{
+      data?: Notification[];
+      notifications?: Notification[];
+      nextCursor?: string | null;
+      cursor?: string | null;
+      hasMore?: boolean;
+    }>(`/notifications${query ? `?${query}` : ''}`);
+    // Handle both new format (data/nextCursor) and old format (notifications/cursor)
+    return {
+      data: response.data || response.notifications || [],
+      nextCursor: response.nextCursor ?? response.cursor ?? null,
+      hasMore: response.hasMore || false,
+      total: 0,
+    };
   }
 
   async markNotificationRead(id: string): Promise<void> {
@@ -556,7 +591,7 @@ class AWSAPIService {
     });
   }
 
-  async getUnreadCount(): Promise<{ count: number }> {
+  async getUnreadCount(): Promise<{ unreadCount: number }> {
     return this.request('/notifications/unread-count');
   }
 
@@ -620,6 +655,25 @@ class AWSAPIService {
     return this.request(`/notifications/push-token/${deviceId}`, {
       method: 'DELETE',
     });
+  }
+
+  // ==========================================
+  // Notification Preferences
+  // ==========================================
+
+  async getNotificationPreferences(): Promise<NotificationPreferences> {
+    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
+      '/notifications/preferences'
+    );
+    return response.preferences;
+  }
+
+  async updateNotificationPreferences(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
+      '/notifications/preferences',
+      { method: 'PUT', body: prefs }
+    );
+    return response.preferences;
   }
 
   // ==========================================
@@ -692,42 +746,32 @@ class AWSAPIService {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res: any) => res.data || res);
+    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res) => {
+      const result = res as { following?: Profile[]; data?: Profile[] };
+      return result.following || result.data || [];
+    });
   }
 
   // ==========================================
   // Media Upload
   // ==========================================
 
-  async getUploadUrl(filename: string, contentType: string): Promise<{ uploadUrl: string; fileUrl: string }> {
+  async getUploadUrl(filename: string, contentType: string, fileSize?: number): Promise<{ uploadUrl: string; fileUrl: string }> {
+    // Determine uploadType from the folder prefix in filename
+    let uploadType = 'post';
+    if (filename.startsWith('avatars/')) uploadType = 'avatar';
+    else if (filename.startsWith('covers/')) uploadType = 'cover';
+    else if (filename.startsWith('peaks/')) uploadType = 'peak';
+    else if (filename.startsWith('messages/')) uploadType = 'message';
+
+    if (__DEV__) console.log('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
+
     return this.request('/media/upload-url', {
       method: 'POST',
-      body: { filename, contentType },
+      body: { filename, contentType, uploadType, fileSize: fileSize || 0 },
     });
   }
 
-  async uploadMedia(file: Blob | File, filename: string): Promise<string> {
-    const contentType = file.type || 'application/octet-stream';
-
-    // Get presigned URL
-    const { uploadUrl, fileUrl } = await this.getUploadUrl(filename, contentType);
-
-    // Upload to S3
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType,
-      },
-      body: file,
-    });
-
-    if (!response.ok) {
-      throw new APIError('Failed to upload media', response.status);
-    }
-
-    // Return CDN URL
-    return `${CDN_URL}/${fileUrl}`;
-  }
 
   // ==========================================
   // Auth API (Server-side Cognito operations)
@@ -891,6 +935,8 @@ class AWSAPIService {
     creatorId: string;
     amount: number; // Amount in cents
     sessionId?: string;
+    packId?: string;
+    type?: 'session' | 'pack';
     description?: string;
   }): Promise<{
     success: boolean;
@@ -901,6 +947,7 @@ class AWSAPIService {
       currency: string;
     };
     publishableKey?: string;
+    checkoutUrl?: string;
     message?: string;
   }> {
     return this.request('/payments/create-intent', {
@@ -1100,7 +1147,23 @@ class AWSAPIService {
   }
 
   /**
-   * Create payment intent for identity verification ($14.90)
+   * Get current verification pricing/config (amount, currency, interval)
+   */
+  async getVerificationConfig(): Promise<{
+    success: boolean;
+    priceId?: string;
+    amount?: number;
+    currency?: string;
+    interval?: string;
+  }> {
+    return this.request('/payments/identity', {
+      method: 'POST',
+      body: { action: 'get-config' },
+    });
+  }
+
+  /**
+   * Create payment intent for identity verification
    */
   async createVerificationPaymentIntent(): Promise<{
     success: boolean;
@@ -1758,6 +1821,7 @@ class AWSAPIService {
       clientSecret: string;
       id: string;
     };
+    checkoutUrl?: string;
     message?: string;
   }> {
     return this.request('/payments/methods/setup-intent', {
@@ -1846,6 +1910,28 @@ class AWSAPIService {
   }
 
   // ==========================================
+  // Business Checkout
+  // ==========================================
+
+  async createBusinessCheckout(data: {
+    businessId: string;
+    serviceId?: string;
+    planId?: string;
+    date?: string;
+    slotId?: string;
+  }): Promise<{
+    success: boolean;
+    checkoutUrl?: string;
+    sessionId?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/business-checkout', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==========================================
   // Web Checkout (Avoids 30% App Store Fees)
   // ==========================================
 
@@ -1906,6 +1992,7 @@ class AWSAPIService {
     success: boolean;
     tipId?: string;
     clientSecret?: string;
+    checkoutUrl?: string;
     paymentIntentId?: string;
     amount?: number;
     currency?: string;
@@ -2084,6 +2171,16 @@ class AWSAPIService {
     });
   }
 
+  /**
+   * Invite creators to a battle
+   */
+  async inviteToBattle(battleId: string, invitedUserIds: string[]): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/battles/${battleId}/invite`, {
+      method: 'POST',
+      body: { invitedUserIds },
+    });
+  }
+
   async getBattle(battleId: string): Promise<{
     success: boolean;
     battle?: any;
@@ -2243,6 +2340,7 @@ class AWSAPIService {
     success: boolean;
     clientSecret?: string;
     paymentIntentId?: string;
+    checkoutUrl?: string;
     message?: string;
   }> {
     return this.request(`/events/${data.eventId}/payment`, {
@@ -2644,7 +2742,7 @@ class AWSAPIService {
   /**
    * Create activity
    */
-  async createBusinessActivity(data: any): Promise<{
+  async createBusinessActivity(data: Record<string, unknown>): Promise<{
     success: boolean;
     activity?: any;
     message?: string;
@@ -2658,7 +2756,7 @@ class AWSAPIService {
   /**
    * Update activity
    */
-  async updateBusinessActivity(activityId: string, data: any): Promise<{
+  async updateBusinessActivity(activityId: string, data: Record<string, unknown>): Promise<{
     success: boolean;
     activity?: any;
     message?: string;
@@ -2682,7 +2780,7 @@ class AWSAPIService {
   /**
    * Create schedule slot
    */
-  async createBusinessScheduleSlot(data: any): Promise<{
+  async createBusinessScheduleSlot(data: Record<string, unknown>): Promise<{
     success: boolean;
     slot?: any;
     message?: string;
@@ -2771,7 +2869,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/validate-access', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: params,
     });
   }
 
@@ -2788,7 +2886,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/log-entry', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: params,
     });
   }
 
@@ -2846,7 +2944,7 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/my/services', {
       method: 'POST',
-      body: JSON.stringify(serviceData),
+      body: serviceData,
     });
   }
 
@@ -2871,7 +2969,7 @@ class AWSAPIService {
   }> {
     return this.request(`/businesses/my/services/${serviceId}`, {
       method: 'PATCH',
-      body: JSON.stringify(serviceData),
+      body: serviceData,
     });
   }
 
@@ -2916,7 +3014,7 @@ class AWSAPIService {
       uri: params.fileUri,
       type: params.mimeType,
       name: params.fileType === 'pdf' ? 'schedule.pdf' : 'schedule.jpg',
-    } as any);
+    } as unknown as Blob);
     formData.append('fileType', params.fileType);
 
     return this.request('/businesses/my/analyze-schedule', {
@@ -2948,8 +3046,19 @@ class AWSAPIService {
   }> {
     return this.request('/businesses/my/import-schedule', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: params,
     });
+  }
+
+  // ==========================================
+  // WebSocket Auth
+  // ==========================================
+
+  /**
+   * Get a short-lived ephemeral token for WebSocket connections
+   */
+  async getWsToken(): Promise<{ token: string; expiresIn: number }> {
+    return this.request('/auth/ws-token', { method: 'POST' });
   }
 
   // ==========================================
@@ -3138,6 +3247,22 @@ class AWSAPIService {
     return this.request('/map/live-pin', { method: 'DELETE' });
   }
 
+  // ============================================
+  // LIVE STREAMS
+  // ============================================
+
+  async startLiveStream(title?: string): Promise<{ success: boolean; data?: { id: string; channelName: string; title: string; startedAt: string } }> {
+    return this.request('/live-streams/start', { method: 'POST', body: title ? { title } : {} });
+  }
+
+  async endLiveStream(): Promise<{ success: boolean; data?: { id: string; durationSeconds: number; maxViewers: number; totalComments: number; totalReactions: number } }> {
+    return this.request('/live-streams/end', { method: 'POST' });
+  }
+
+  async getActiveLiveStreams(): Promise<{ success: boolean; data?: Array<{ id: string; channelName: string; title: string; startedAt: string; viewerCount: number; host: { id: string; username: string; displayName: string; avatarUrl: string } }> }> {
+    return this.request('/live-streams/active');
+  }
+
   async getNearbyLivePins(params: {
     latitude: number;
     longitude: number;
@@ -3187,7 +3312,7 @@ export class APIError extends Error {
   constructor(
     message: string,
     public statusCode: number,
-    public data?: any
+    public data?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'APIError';
@@ -3195,14 +3320,26 @@ export class APIError extends Error {
 }
 
 // Types
+export interface TaggedUser {
+  id: string;
+  username: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}
+
 export interface Post {
   id: string;
   authorId: string;
   content: string;
   mediaUrls: string[];
   mediaType: 'image' | 'video' | null;
+  isPeak?: boolean;
+  location?: string | null;
+  tags?: string[];
+  taggedUsers?: TaggedUser[];
   likesCount: number;
   commentsCount: number;
+  viewsCount?: number;
   createdAt: string;
   isLiked?: boolean;
   author: Profile;
@@ -3218,6 +3355,7 @@ export interface Profile {
   bio: string | null;
   website?: string | null;
   isVerified: boolean;
+  isPremium?: boolean;
   isPrivate: boolean;
   accountType: 'personal' | 'pro_creator' | 'pro_business';
   followersCount: number;
@@ -3236,8 +3374,18 @@ export interface Profile {
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
+  businessLatitude?: number;
+  businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
+}
+
+export interface PeakChallenge {
+  id: string;
+  title: string;
+  rules: string | null;
+  status: string;
+  responseCount: number;
 }
 
 export interface Peak {
@@ -3247,12 +3395,14 @@ export interface Peak {
   thumbnailUrl: string | null;
   caption: string | null;
   duration: number;
+  replyToPeakId: string | null;
   likesCount: number;
   commentsCount: number;
   viewsCount: number;
   createdAt: string;
   isLiked?: boolean;
   author: Profile;
+  challenge: PeakChallenge | null;
 }
 
 export interface Comment {
@@ -3272,9 +3422,18 @@ export interface Notification {
   type: string;
   title: string;
   body: string;
-  data: any;
+  data: Record<string, unknown>;
   read: boolean;
   createdAt: string;
+}
+
+export interface NotificationPreferences {
+  likes: boolean;
+  comments: boolean;
+  follows: boolean;
+  messages: boolean;
+  mentions: boolean;
+  live: boolean;
 }
 
 export interface CreatePostInput {
@@ -3289,6 +3448,7 @@ export interface CreatePeakInput {
   thumbnailUrl?: string;
   caption?: string;
   duration: number;
+  replyToPeakId?: string;
 }
 
 export interface UpdateProfileInput {
@@ -3296,6 +3456,7 @@ export interface UpdateProfileInput {
   fullName?: string;
   bio?: string;
   avatarUrl?: string;
+  coverUrl?: string;
   isPrivate?: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
   gender?: string;
@@ -3308,8 +3469,11 @@ export interface UpdateProfileInput {
   businessName?: string;
   businessCategory?: string;
   businessAddress?: string;
+  businessLatitude?: number;
+  businessLongitude?: number;
   businessPhone?: string;
   locationsMode?: string;
+  onboardingCompleted?: boolean;
 }
 
 export interface Conversation {

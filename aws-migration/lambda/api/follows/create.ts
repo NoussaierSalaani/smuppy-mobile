@@ -2,14 +2,17 @@
  * Follow User Lambda Handler
  * Creates a follow relationship between users
  * Handles both public and private accounts
+ * Enforces 7-day cooldown after 2+ unfollows (anti-spam)
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { sendPushToUser } from '../services/push-notification';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('follows-create');
 
@@ -44,11 +47,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const body = JSON.parse(event.body || '{}');
     const followingId = body.followingId;
 
-    if (!followingId) {
+    // SECURITY: Validate UUID format
+    if (!followingId || !isValidUUID(followingId)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'followingId is required' }),
+        body: JSON.stringify({ message: 'Valid followingId is required' }),
       };
     }
 
@@ -95,6 +99,40 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const targetUser = targetResult.rows[0];
+
+    // Check for anti-spam cooldown (7 days after 2+ unfollows)
+    // Note: This is optional - if the table doesn't exist, skip cooldown check
+    try {
+      const cooldownResult = await db.query(
+        `SELECT unfollow_count, cooldown_until FROM follow_cooldowns
+         WHERE follower_id = $1 AND following_id = $2`,
+        [followerId, followingId]
+      );
+
+      if (cooldownResult.rows.length > 0) {
+        const cooldown = cooldownResult.rows[0];
+        if (cooldown.cooldown_until && new Date(cooldown.cooldown_until) > new Date()) {
+          const cooldownDate = new Date(cooldown.cooldown_until);
+          const daysRemaining = Math.ceil((cooldownDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+          return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: `You've changed your fan status too many times. Please wait ${daysRemaining} day${daysRemaining > 1 ? 's' : ''} before following this user again.`,
+              cooldown: {
+                blocked: true,
+                until: cooldown.cooldown_until,
+                daysRemaining,
+              },
+            }),
+          };
+        }
+      }
+    } catch (cooldownErr) {
+      // Table might not exist yet - continue without cooldown check
+      log.warn('Cooldown check failed (table may not exist)', { error: String(cooldownErr) });
+    }
 
     // Check if already following, pending, or recently unfollowed (anti-spam)
     const existingResult = await db.query(
@@ -143,6 +181,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const followId = uuidv4();
+    let status: 'pending' | 'accepted' = 'accepted';
 
     // Create follow + update counts in a single transaction
     const client = await db.connect();
@@ -154,7 +193,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `SELECT is_private FROM profiles WHERE id = $1 FOR UPDATE`,
         [followingId]
       );
-      const status = lockedTarget.rows[0]?.is_private ? 'pending' : 'accepted';
+      status = lockedTarget.rows[0]?.is_private ? 'pending' : 'accepted';
 
       await client.query(
         `INSERT INTO follows (id, follower_id, following_id, status, created_at)
@@ -162,15 +201,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [followId, followerId, followingId, status]
       );
 
+      // Note: fan_count and following_count are updated automatically by database triggers
+      // (see migration-015-counter-triggers-indexes.sql)
+
       if (status === 'accepted') {
-        await client.query(
-          `UPDATE profiles SET fan_count = COALESCE(fan_count, 0) + 1 WHERE id = $1`,
-          [followingId]
-        );
-        await client.query(
-          `UPDATE profiles SET following_count = COALESCE(following_count, 0) + 1 WHERE id = $1`,
-          [followerId]
-        );
         await client.query(
           `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
            VALUES ($1, $2, 'new_follower', 'New Follower', 'Someone started following you', $3, NOW())`,
@@ -191,6 +225,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
+
+    // Send push notification (non-blocking, best-effort)
+    const followerProfile = await db.query(
+      'SELECT username, full_name FROM profiles WHERE id = $1',
+      [followerId]
+    );
+    const followerName = followerProfile.rows[0]?.full_name || followerProfile.rows[0]?.username || 'Someone';
+    const isPrivate = targetUser.is_private;
+    sendPushToUser(db, followingId, {
+      title: isPrivate ? 'Follow Request' : 'New Fan!',
+      body: isPrivate
+        ? `${followerName} wants to follow you`
+        : `${followerName} is now your fan`,
+      data: {
+        type: isPrivate ? 'follow_request' : 'new_follower',
+        userId: followerId,
+      },
+    }).catch(err => log.error('Push notification failed', err));
 
     return {
       statusCode: 201,

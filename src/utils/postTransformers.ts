@@ -49,7 +49,7 @@ export const normalizeMediaType = (
  * Get the primary media URL from a post
  * Supports both array (media_urls) and single string (media_url) formats
  */
-export const getMediaUrl = (post: Post, fallback = 'https://via.placeholder.com/400x500'): string => {
+export const getMediaUrl = (post: Post, fallback: string | null = null): string | null => {
   return post.media_urls?.[0] || post.media_url || fallback;
 };
 
@@ -69,23 +69,49 @@ export interface UIPostUser {
   id: string;
   name: string;
   username?: string;
-  avatar: string;
+  avatar: string | null;
   isVerified?: boolean;
   isBot?: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
 }
 
+export interface UITaggedUser {
+  id: string;
+  username: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+}
+
+// ============================================
+// TAG UTILITIES
+// ============================================
+
+/**
+ * Normalize tagged users from API format (string IDs or objects) to UI format
+ */
+const normalizeTaggedUsers = (
+  raw?: Array<string | { id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>
+): UITaggedUser[] | undefined => {
+  if (!raw || raw.length === 0) return undefined;
+  return raw
+    .map(t => typeof t === 'string' ? { id: t, username: '' } : { id: t.id, username: t.username, fullName: t.fullName, avatarUrl: t.avatarUrl })
+    .filter(t => t.id);
+};
+
 export interface UIPostBase {
   id: string;
   type: 'image' | 'video' | 'carousel';
-  media: string;
+  media: string | null;
+  allMedia?: string[]; // All media URLs for carousel posts
   slideCount?: number;
   duration?: string;
   user: UIPostUser;
   likes: number;
+  views: number;
   isLiked: boolean;
   isSaved: boolean;
   tags?: string[];
+  taggedUsers?: UITaggedUser[];
 }
 
 // FanFeed post format
@@ -114,32 +140,37 @@ export interface UIVibePost extends UIPostBase {
  */
 export const transformToFanPost = (
   post: Post,
-  likedPostIds: Set<string>
+  likedPostIds: Set<string>,
+  savedPostIds?: Set<string>
 ): UIFanPost => {
+  const allMedia = post.media_urls?.filter(Boolean) || [];
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
-    media: getMediaUrl(post, 'https://via.placeholder.com/800x1000'),
-    slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
+    media: getMediaUrl(post, null),
+    allMedia: allMedia.length > 0 ? allMedia : undefined,
+    slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || 'User',
       username: `@${post.author?.username || 'user'}`,
-      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
+      avatar: post.author?.avatar_url || null,
       isVerified: post.author?.is_verified || false,
       isBot: post.author?.is_bot || false,
       accountType: post.author?.account_type || 'personal',
     },
     caption: getContentText(post),
     likes: post.likes_count || 0,
+    views: post.views_count || 0,
     comments: post.comments_count || 0,
     shares: 0,
     saves: 0,
     isLiked: likedPostIds.has(post.id),
-    isSaved: false,
+    isSaved: savedPostIds?.has(post.id) ?? false,
     timeAgo: getTimeAgo(post.created_at),
     location: post.location || null,
     tags: post.tags,
+    taggedUsers: normalizeTaggedUsers(post.tagged_users),
   };
 };
 
@@ -148,29 +179,34 @@ export const transformToFanPost = (
  */
 export const transformToVibePost = (
   post: Post,
-  likedPostIds: Set<string>
+  likedPostIds: Set<string>,
+  savedPostIds?: Set<string>
 ): UIVibePost => {
   // Generate varied heights for masonry layout based on post ID
   const heights = [180, 200, 220, 240, 260, 280];
   const randomHeight = heights[Math.abs(post.id.charCodeAt(0)) % heights.length];
+  const allMedia = post.media_urls?.filter(Boolean) || [];
 
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
     media: getMediaUrl(post),
+    allMedia: allMedia.length > 0 ? allMedia : undefined,
     height: randomHeight,
-    slideCount: post.media_type === 'multiple' ? (post.media_urls?.length || 1) : undefined,
+    slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
       name: post.author?.full_name || post.author?.username || 'User',
-      avatar: post.author?.avatar_url || 'https://via.placeholder.com/100',
+      avatar: post.author?.avatar_url || null,
     },
     title: getContentText(post),
     likes: post.likes_count || 0,
+    views: post.views_count || 0,
     isLiked: likedPostIds.has(post.id),
-    isSaved: false,
+    isSaved: savedPostIds?.has(post.id) ?? false,
     category: post.tags?.[0] || 'Fitness',
     tags: post.tags || [],
+    taggedUsers: normalizeTaggedUsers(post.tagged_users),
   };
 };
 

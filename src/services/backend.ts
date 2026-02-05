@@ -8,7 +8,7 @@ import { awsAPI, Post, Profile, Peak, Comment, Notification, CreatePostInput, Up
 
 // Initialize backend
 export async function initializeBackend(): Promise<void> {
-  console.log('🚀 Backend initialized: AWS');
+  if (__DEV__) console.log('🚀 Backend initialized: AWS');
 }
 
 export function isUsingAWS(): boolean {
@@ -83,9 +83,9 @@ export async function getPosts(params?: { limit?: number; cursor?: string; type?
   nextCursor: string | null;
   hasMore: boolean;
 }> {
-  console.log('📡 getPosts() using AWS');
-  const result = await awsAPI.getPosts(params as any);
-  console.log(`✅ AWS returned ${result.data.length} posts`);
+  if (__DEV__) console.log('📡 getPosts() using AWS');
+  const result = await awsAPI.getPosts(params as { limit?: number; cursor?: string; type?: 'all' | 'following' | 'explore'; userId?: string });
+  if (__DEV__) console.log(`✅ AWS returned ${result.data.length} posts`);
   return { posts: result.data, nextCursor: result.nextCursor, hasMore: result.hasMore };
 }
 

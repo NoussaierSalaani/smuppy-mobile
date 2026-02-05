@@ -67,7 +67,6 @@ export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   USER_ID: 'user_id',
-  BIOMETRIC_ENABLED: 'biometric_enabled',
   REMEMBER_ME: 'remember_me',
   FIND_FRIENDS_SHOWN: 'find_friends_shown',
 } as const;

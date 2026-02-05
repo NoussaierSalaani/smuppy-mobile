@@ -1,139 +1,220 @@
 import React, { useState, useEffect, ComponentType } from 'react';
+import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUserStore } from '../stores';
-import { getCurrentProfile } from '../services/database';
+import { useUserStore, useAppStore } from '../stores';
+import { getCurrentProfile, getConversations } from '../services/database';
+import { awsAPI } from '../services/aws-api';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import type { MainStackParamList } from '../types';
+import { FEATURES } from '../config/featureFlags';
+import { useAutoRegisterPushNotifications, useNotifications } from '../hooks/useNotifications';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { ScreenSkeleton } from '../components/skeleton';
 
 // Type helper to cast screen components for React Navigation compatibility
- 
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const asScreen = <T,>(component: T): ComponentType<any> => component as ComponentType<any>;
-// TabBarProvider removed - was causing issues and not being used
+
+// Fetch both badge counts from server (module-level to avoid hook ordering issues)
+const fetchBadgeCounts = (): void => {
+  // Notification badge
+  awsAPI.getUnreadCount()
+    .then(({ unreadCount }) => {
+      if (__DEV__) console.log('[Badges] notifications:', unreadCount);
+      useAppStore.getState().setUnreadNotifications(unreadCount ?? 0);
+    })
+    .catch((err) => { if (__DEV__) console.warn('[Badges] notif fetch failed:', err); });
+
+  // Message badge — use the same getConversations as MessagesScreen (proven code path)
+  getConversations(50)
+    .then(({ data, error }) => {
+      if (error || !data) {
+        if (__DEV__) console.warn('[Badges] msg fetch failed:', error);
+        return;
+      }
+      const total = data.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      if (__DEV__) console.log('[Badges] messages:', total, `(${data.length} convos)`);
+      useAppStore.getState().setUnreadMessages(total);
+    })
+    .catch((err) => { if (__DEV__) console.warn('[Badges] msg fetch error:', err); });
+};
+
+// ============================================
+// LAZY SCREEN HELPER
+// ============================================
+// Visible fallback — shows shimmer skeleton matching typical screen layout
+const LazyFallback = () => <ScreenSkeleton />;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lazyScreen(importFn: () => Promise<{ default: ComponentType<any> }>) {
+  const Lazy = React.lazy(importFn);
+  return (props: Record<string, unknown>) => (
+    <ErrorBoundary name="LazyScreen" minimal>
+      <React.Suspense fallback={<LazyFallback />}>
+        <Lazy {...props} />
+      </React.Suspense>
+    </ErrorBoundary>
+  );
+}
+
+// ============================================
+// EAGER IMPORTS — Tab screens + high-frequency navigation
+// ============================================
 
 // Tab Screens
 import FeedScreen from '../screens/home/FeedScreen';
 import CreatePostScreen from '../screens/home/CreatePostScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
-import FollowRequestsScreen from '../screens/notifications/FollowRequestsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
-// Stack Screens
+// High-frequency stack screens (navigated from tabs / header)
 import SearchScreen from '../screens/search/SearchScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ChatScreen from '../screens/messages/ChatScreen';
-import NewMessageScreen from '../screens/messages/NewMessageScreen';
-
-// Create Post Screens
-import AddPostDetailsScreen from '../screens/home/AddPostDetailsScreen';
-import PostSuccessScreen from '../screens/home/PostSuccessScreen';
-import VideoRecorderScreen from '../screens/home/VideoRecorderScreen';
-
-// Profile Screens
-import FansListScreen from '../screens/profile/FansListScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
-import PostDetailProfileScreen from '../screens/profile/PostDetailProfileScreen';
 
-// Post Detail Screens
+// Post detail screens (navigated from feed — must be instant)
 import PostDetailFanFeedScreen from '../screens/home/PostDetailFanFeedScreen';
 import PostDetailVibesFeedScreen from '../screens/home/PostDetailVibesFeedScreen';
+import PostDetailProfileScreen from '../screens/profile/PostDetailProfileScreen';
 
-// Settings Screens
-import SettingsScreen from '../screens/settings/SettingsScreen';
-import EditProfileScreen from '../screens/settings/EditProfileScreen';
-import EditInterestsScreen from '../screens/settings/EditInterestsScreen';
-import EditExpertiseScreen from '../screens/settings/EditExpertiseScreen';
-import PasswordManagerScreen from '../screens/settings/PasswordManagerScreen';
-import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
-import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
-import TermsPoliciesScreen from '../screens/settings/TermsPoliciesScreen';
-import FacialRecognitionScreen from '../screens/settings/FacialRecognitionScreen';
-import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
-import MutedUsersScreen from '../screens/settings/MutedUsersScreen';
-import UpgradeToProScreen from '../screens/settings/UpgradeToProScreen';
-
-// PEAKS Screens
+// Peaks feed (tab screen)
 import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
 import PeakViewScreen from '../screens/peaks/PeakViewScreen';
-import CreatePeakScreen from '../screens/peaks/CreatePeakScreen';
-import PeakPreviewScreen from '../screens/peaks/PeakPreviewScreen';
-
-// Live Streaming Screens
-import { GoLiveIntroScreen, GoLiveScreen, LiveStreamingScreen, LiveEndedScreen, ViewerLiveStreamScreen } from '../screens/live';
-
-// Challenges Screens
-import ChallengeListScreen from '../screens/challenges/ChallengeListScreen';
-import CreateChallengeScreen from '../screens/challenges/CreateChallengeScreen';
-import ChallengeDetailScreen from '../screens/challenges/ChallengeDetailScreen';
-
-// Battles Screens
-import BattleLobbyScreen from '../screens/battles/BattleLobbyScreen';
-import BattleStreamScreen from '../screens/battles/BattleStreamScreen';
-
-// Events Screens
-import CreateEventScreen from '../screens/events/CreateEventScreen';
-import EventListScreen from '../screens/events/EventListScreen';
-import EventDetailScreen from '../screens/events/EventDetailScreen';
-import EventManageScreen from '../screens/events/EventManageScreen';
-
-// Group Screens
-import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
-import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
-
-// Spot Screens
-import SuggestSpotScreen from '../screens/spots/SuggestSpotScreen';
-import SpotDetailScreen from '../screens/spots/SpotDetailScreen';
-
-// Business Screens
-import {
-  BusinessProfileScreen,
-  BusinessDiscoveryScreen,
-  BusinessBookingScreen,
-  BusinessSubscriptionScreen,
-  BusinessBookingSuccessScreen,
-  BusinessSubscriptionSuccessScreen,
-  BusinessProgramScreen,
-  MySubscriptionsScreen,
-  MemberAccessScreen,
-  BusinessScannerScreen,
-  BusinessDashboardScreen,
-  BusinessServicesManageScreen,
-  BusinessScheduleUploadScreen,
-} from '../screens/business';
-
-// Private Sessions Screens
-import {
-  BookSessionScreen,
-  SessionPaymentScreen,
-  SessionBookedScreen,
-  WaitingRoomScreen,
-  PrivateCallScreen,
-  SessionEndedScreen,
-  PrivateSessionsManageScreen,
-  MySessionsScreen,
-  SessionDetailScreen,
-  CreatorOfferingsScreen,
-  PackPurchaseScreen,
-  PackPurchaseSuccessScreen,
-  ChannelSubscribeScreen,
-  SubscriptionSuccessScreen,
-  CreatorEarningsScreen,
-} from '../screens/sessions';
-
-// Payment Screens
-import {
-  CreatorWalletScreen,
-  PlatformSubscriptionScreen,
-  ChannelSubscriptionScreen,
-  IdentityVerificationScreen,
-} from '../screens/payments';
-
-// Find Friends (standalone popup)
-import FindFriendsScreen from '../screens/onboarding/FindFriendsScreen';
 
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
 import BottomNav from '../components/BottomNav';
+
+// ============================================
+// LAZY IMPORTS — Non-core / deep screens
+// ============================================
+
+// Messages (deep)
+const NewMessageScreen = lazyScreen(() => import('../screens/messages/NewMessageScreen'));
+
+// Create Post Flow
+const AddPostDetailsScreen = lazyScreen(() => import('../screens/home/AddPostDetailsScreen'));
+const PostSuccessScreen = lazyScreen(() => import('../screens/home/PostSuccessScreen'));
+const VideoRecorderScreen = lazyScreen(() => import('../screens/home/VideoRecorderScreen'));
+
+// Notifications (deep)
+const FollowRequestsScreen = lazyScreen(() => import('../screens/notifications/FollowRequestsScreen'));
+
+// Vibe Screens
+const PrescriptionsScreen = lazyScreen(() => import('../screens/vibe/PrescriptionsScreen'));
+const ActivePrescriptionScreen = lazyScreen(() => import('../screens/vibe/ActivePrescriptionScreen'));
+const PrescriptionPreferencesScreen = lazyScreen(() => import('../screens/settings/PrescriptionPreferencesScreen'));
+
+// Profile (deep)
+const FansListScreen = lazyScreen(() => import('../screens/profile/FansListScreen'));
+const PostLikersScreen = lazyScreen(() => import('../screens/profile/PostLikersScreen'));
+
+// Settings Screens
+const SettingsScreen = lazyScreen(() => import('../screens/settings/SettingsScreen'));
+const EditProfileScreen = lazyScreen(() => import('../screens/settings/EditProfileScreen'));
+const EditInterestsScreen = lazyScreen(() => import('../screens/settings/EditInterestsScreen'));
+const EditExpertiseScreen = lazyScreen(() => import('../screens/settings/EditExpertiseScreen'));
+const EditBusinessCategoryScreen = lazyScreen(() => import('../screens/settings/EditBusinessCategoryScreen'));
+const PasswordManagerScreen = lazyScreen(() => import('../screens/settings/PasswordManagerScreen'));
+const NotificationSettingsScreen = lazyScreen(() => import('../screens/settings/NotificationSettingsScreen'));
+const ReportProblemScreen = lazyScreen(() => import('../screens/settings/ReportProblemScreen'));
+const TermsPoliciesScreen = lazyScreen(() => import('../screens/settings/TermsPoliciesScreen'));
+const BlockedUsersScreen = lazyScreen(() => import('../screens/settings/BlockedUsersScreen'));
+const MutedUsersScreen = lazyScreen(() => import('../screens/settings/MutedUsersScreen'));
+const UpgradeToProScreen = lazyScreen(() => import('../screens/settings/UpgradeToProScreen'));
+
+// PEAKS (create/preview)
+const CreatePeakScreen = lazyScreen(() => import('../screens/peaks/CreatePeakScreen'));
+const PeakPreviewScreen = lazyScreen(() => import('../screens/peaks/PeakPreviewScreen'));
+
+// Live Streaming Screens
+const GoLiveIntroScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.GoLiveIntroScreen })));
+const GoLiveScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.GoLiveScreen })));
+const LiveStreamingScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.LiveStreamingScreen })));
+const LiveEndedScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.LiveEndedScreen })));
+const ViewerLiveStreamScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.ViewerLiveStreamScreen })));
+
+// Battles Screens
+const BattleLobbyScreen = lazyScreen(() => import('../screens/battles/BattleLobbyScreen'));
+const BattleStreamScreen = lazyScreen(() => import('../screens/battles/BattleStreamScreen'));
+const BattleResultsScreen = lazyScreen(() => import('../screens/battles/BattleResultsScreen'));
+const InviteToBattleScreen = lazyScreen(() => import('../screens/battles/InviteToBattleScreen'));
+
+// Events Screens
+const EventListScreen = lazyScreen(() => import('../screens/events/EventListScreen'));
+const EventDetailScreen = lazyScreen(() => import('../screens/events/EventDetailScreen'));
+const EventManageScreen = lazyScreen(() => import('../screens/events/EventManageScreen'));
+
+// Group Screens
+const CreateGroupScreen = lazyScreen(() => import('../screens/groups/CreateGroupScreen'));
+const GroupDetailScreen = lazyScreen(() => import('../screens/groups/GroupDetailScreen'));
+
+// Activity Screens (unified)
+const CreateActivityScreen = lazyScreen(() => import('../screens/activities/CreateActivityScreen'));
+const ActivityDetailScreen = lazyScreen(() => import('../screens/activities/ActivityDetailScreen'));
+
+// Spot Screens
+const SuggestSpotScreen = lazyScreen(() => import('../screens/spots/SuggestSpotScreen'));
+const SpotDetailScreen = lazyScreen(() => import('../screens/spots/SpotDetailScreen'));
+
+// Business Screens
+const BusinessProfileScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessProfileScreen })));
+const BusinessDiscoveryScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessDiscoveryScreen })));
+const BusinessBookingScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessBookingScreen })));
+const BusinessSubscriptionScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessSubscriptionScreen })));
+const BusinessBookingSuccessScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessBookingSuccessScreen })));
+const BusinessSubscriptionSuccessScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessSubscriptionSuccessScreen })));
+const BusinessProgramScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessProgramScreen })));
+const MySubscriptionsScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.MySubscriptionsScreen })));
+const MemberAccessScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.MemberAccessScreen })));
+const BusinessDashboardScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessDashboardScreen })));
+const BusinessServicesManageScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessServicesManageScreen })));
+const BusinessScheduleUploadScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessScheduleUploadScreen })));
+const BusinessScannerScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessScannerScreen })));
+
+// Private Sessions Screens
+const BookSessionScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.BookSessionScreen })));
+const SessionPaymentScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionPaymentScreen })));
+const SessionBookedScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionBookedScreen })));
+const WaitingRoomScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.WaitingRoomScreen })));
+const PrivateCallScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PrivateCallScreen })));
+const SessionEndedScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionEndedScreen })));
+const PrivateSessionsManageScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PrivateSessionsManageScreen })));
+const MySessionsScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.MySessionsScreen })));
+const SessionDetailScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionDetailScreen })));
+const CreatorOfferingsScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.CreatorOfferingsScreen })));
+const PackPurchaseScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PackPurchaseScreen })));
+const PackPurchaseSuccessScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PackPurchaseSuccessScreen })));
+const ChannelSubscribeScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.ChannelSubscribeScreen })));
+const SubscriptionSuccessScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SubscriptionSuccessScreen })));
+const CreatorEarningsScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.CreatorEarningsScreen })));
+
+// Payment Screens
+const CreatorWalletScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.CreatorWalletScreen })));
+const PlatformSubscriptionScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.PlatformSubscriptionScreen })));
+const ChannelSubscriptionScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.ChannelSubscriptionScreen })));
+const IdentityVerificationScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.IdentityVerificationScreen })));
+const PaymentMethodsScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.PaymentMethodsScreen })));
+
+// WebView (already lazy)
+const LazyWebViewScreen = React.lazy(() => import('../screens/WebViewScreen'));
+const WebViewScreen = (props: Record<string, unknown>) => (
+  <ErrorBoundary name="WebView" minimal>
+    <React.Suspense fallback={<LazyFallback />}>
+      <LazyWebViewScreen {...props} />
+    </React.Suspense>
+  </ErrorBoundary>
+);
+
+// Find Friends (standalone popup)
+const FindFriendsScreen = lazyScreen(() => import('../screens/onboarding/FindFriendsScreen'));
+
+// ============================================
+// NAVIGATORS
+// ============================================
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -155,7 +236,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
       try {
         const shown = await storage.get(STORAGE_KEYS.FIND_FRIENDS_SHOWN);
         if (!shown) {
-          navigation.navigate('FindFriends' as any);
+          navigation.navigate('FindFriends');
         }
       } catch {
         // Silent fail
@@ -179,8 +260,8 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onClose={() => setShowCreatePopup(false)}
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
-        onSelectChallenge={isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateChallenge'); } : undefined}
-        onSelectEvent={isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateEvent'); } : undefined}
+        onSelectChallenge={undefined}
+        onSelectEvent={FEATURES.CREATE_EVENT && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
       />
     </>
   );
@@ -189,31 +270,41 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
 export default function MainNavigator() {
   const setUser = useUserStore((state) => state.setUser);
   const currentUserId = useUserStore((state) => state.user?.id);
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated);
 
   // Sync profile from database to Zustand store on mount
-  // This ensures fresh data after login, not stale persisted data
+  // Skip fetch if user is already loaded from persistence (avoid double fetch)
   useEffect(() => {
     const syncProfile = async () => {
+      // Skip if user already exists in store (loaded from AsyncStorage)
+      // AppNavigator already fetched fresh data, no need to duplicate
+      if (currentUserId && isAuthenticated) {
+        if (__DEV__) console.log('[MainNavigator] User already in store, skipping fetch');
+        return;
+      }
+
       try {
         const { data, error } = await getCurrentProfile();
         if (data && !error) {
-          // Check if user ID changed (different account logged in)
-          if (currentUserId && currentUserId !== data.id) {
-            console.log('[MainNavigator] Different user detected, updating store');
-          }
           // Update Zustand with fresh profile data
           setUser({
             id: data.id,
             username: data.username,
             fullName: data.full_name,
             displayName: data.display_name || data.full_name,
-            avatar: data.avatar_url || undefined,
-            coverImage: data.cover_url || undefined,
-            bio: data.bio || undefined,
+            avatar: data.avatar_url || null,
+            coverImage: data.cover_url || null,
+            bio: data.bio || '',
             accountType: data.account_type as 'personal' | 'pro_creator' | 'pro_business',
             isVerified: data.is_verified || false,
+            isPremium: data.is_premium || false,
             interests: data.interests || [],
             expertise: data.expertise || [],
+            businessName: data.business_name || '',
+            businessCategory: data.business_category || '',
+            businessAddress: data.business_address || '',
+            businessLatitude: data.business_latitude,
+            businessLongitude: data.business_longitude,
             stats: {
               fans: data.fan_count || 0,
               posts: data.post_count || 0,
@@ -221,12 +312,64 @@ export default function MainNavigator() {
           });
         }
       } catch (err) {
-        console.error('[MainNavigator] Error syncing profile:', err);
+        if (__DEV__) console.warn('[MainNavigator] Error syncing profile:', err);
       }
     };
 
     syncProfile();
-  }, [setUser, currentUserId]);
+
+    // Fetch initial unread counts (retry after 3s in case auth token wasn't ready)
+    fetchBadgeCounts();
+    const retryTimer = setTimeout(fetchBadgeCounts, 3000);
+    return () => clearTimeout(retryTimer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Refresh badges when app returns from background + periodic polling
+  useEffect(() => {
+    const BADGE_POLL_MS = 30000; // 30s
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startBadgePolling = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(fetchBadgeCounts, BADGE_POLL_MS);
+    };
+
+    const stopBadgePolling = () => {
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    };
+
+    startBadgePolling();
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        fetchBadgeCounts();
+        startBadgePolling();
+      } else {
+        stopBadgePolling();
+      }
+    });
+
+    return () => {
+      stopBadgePolling();
+      subscription.remove();
+    };
+  }, []);
+
+  // Register for push notifications when user is logged in
+  useAutoRegisterPushNotifications();
+
+  // Handle incoming push notifications: update badge counts in real-time
+  useNotifications({
+    onNotificationReceived: (notification) => {
+      const data = notification.request.content.data as { type?: string } | undefined;
+      if (data?.type === 'message') {
+        useAppStore.getState().setUnreadMessages((prev) => prev + 1);
+      } else {
+        useAppStore.getState().setUnreadNotifications((prev) => prev + 1);
+      }
+    },
+  });
 
   return (
     <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>
@@ -243,12 +386,18 @@ export default function MainNavigator() {
       {/* Create Post Flow */}
       <Stack.Screen name="CreatePost" component={asScreen(CreatePostScreen)} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="VideoRecorder" component={VideoRecorderScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="AddPostDetails" component={asScreen(AddPostDetailsScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PostSuccess" component={asScreen(PostSuccessScreen)} options={{ animation: 'fade' }} />
+      <Stack.Screen name="AddPostDetails" component={AddPostDetailsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PostSuccess" component={PostSuccessScreen} options={{ animation: 'fade' }} />
 
       {/* Profile Stack */}
       <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PostLikers" component={PostLikersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Vibe */}
+      <Stack.Screen name="Prescriptions" component={PrescriptionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="ActivePrescription" component={ActivePrescriptionScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="PrescriptionPreferences" component={PrescriptionPreferencesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Post Detail Screens */}
       <Stack.Screen name="PostDetailFanFeed" component={PostDetailFanFeedScreen} options={{ animation: 'fade' }} />
@@ -260,11 +409,11 @@ export default function MainNavigator() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditInterests" component={EditInterestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EditExpertise" component={EditExpertiseScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EditBusinessCategory" component={EditBusinessCategoryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="FacialRecognition" component={FacialRecognitionScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="MutedUsers" component={MutedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
@@ -282,46 +431,45 @@ export default function MainNavigator() {
       <Stack.Screen name="LiveEnded" component={LiveEndedScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="ViewerLiveStream" component={ViewerLiveStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
 
-      {/* Challenges */}
-      <Stack.Screen name="ChallengeList" component={ChallengeListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="ChallengeDetail" component={ChallengeDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="CreateChallenge" component={CreateChallengeScreen} options={{ animation: 'slide_from_bottom' }} />
-
       {/* Live Battles */}
       <Stack.Screen name="BattleLobby" component={BattleLobbyScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="BattleStream" component={BattleStreamScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="BattleResults" component={BattleResultsScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="InviteToBattle" component={InviteToBattleScreen} options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
 
       {/* Events (Xplorer) */}
       <Stack.Screen name="EventList" component={EventListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EventDetail" component={asScreen(EventDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EventManage" component={asScreen(EventManageScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="CreateEvent" component={asScreen(CreateEventScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="EventManage" component={EventManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Groups */}
-      <Stack.Screen name="CreateGroup" component={asScreen(CreateGroupScreen)} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="GroupDetail" component={asScreen(GroupDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="GroupDetail" component={GroupDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+
+      {/* Activities (unified) */}
+      <Stack.Screen name="CreateActivity" component={CreateActivityScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Spots */}
-      <Stack.Screen name="SuggestSpot" component={asScreen(SuggestSpotScreen)} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="SpotDetail" component={asScreen(SpotDetailScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="SuggestSpot" component={SuggestSpotScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="SpotDetail" component={SpotDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Business (Pro Local) - User Screens */}
       <Stack.Screen name="BusinessDiscovery" component={BusinessDiscoveryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="BusinessProfile" component={asScreen(BusinessProfileScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="BusinessBooking" component={asScreen(BusinessBookingScreen)} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="BusinessSubscription" component={asScreen(BusinessSubscriptionScreen)} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="BusinessBookingSuccess" component={asScreen(BusinessBookingSuccessScreen)} options={{ animation: 'fade', gestureEnabled: false }} />
-      <Stack.Screen name="BusinessSubscriptionSuccess" component={asScreen(BusinessSubscriptionSuccessScreen)} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="BusinessProfile" component={BusinessProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessBooking" component={BusinessBookingScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="BusinessBookingSuccess" component={BusinessBookingSuccessScreen} options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="BusinessSubscriptionSuccess" component={BusinessSubscriptionSuccessScreen} options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="MySubscriptions" component={MySubscriptionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="MemberAccess" component={asScreen(MemberAccessScreen)} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="MemberAccess" component={MemberAccessScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Business (Pro Local) - Owner Screens */}
       <Stack.Screen name="BusinessDashboard" component={BusinessDashboardScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BusinessServicesManage" component={BusinessServicesManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="BusinessProgram" component={asScreen(BusinessProgramScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="BusinessProgram" component={BusinessProgramScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BusinessScheduleUpload" component={BusinessScheduleUploadScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="BusinessScanner" component={BusinessScannerScreen} options={{ animation: 'slide_from_bottom' }} />
-
+      <Stack.Screen name="BusinessScanner" component={BusinessScannerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       {/* Private Sessions - Fan Flow */}
       <Stack.Screen name="MySessions" component={MySessionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
@@ -348,6 +496,8 @@ export default function MainNavigator() {
       <Stack.Screen name="PlatformSubscription" component={PlatformSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="ChannelSubscription" component={ChannelSubscriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="WebView" component={WebViewScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Find Friends (standalone popup) */}
       <Stack.Screen name="FindFriends" component={FindFriendsScreen} options={{ animation: 'slide_from_bottom' }} />

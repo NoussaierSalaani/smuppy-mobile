@@ -4,9 +4,10 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('profiles-followers');
 
@@ -24,8 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(profileId)) {
+    if (!isValidUUID(profileId)) {
       return {
         statusCode: 400,
         headers,
@@ -37,7 +37,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
 
-    const db = await getPool();
+    const db = await getReaderPool();
 
     // Check if profile exists
     const profileResult = await db.query(
@@ -89,7 +89,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const followers = hasMore ? result.rows.slice(0, -1) : result.rows;
 
     // Format response
-    const formattedFollowers = followers.map(follower => ({
+    const formattedFollowers = followers.map((follower: Record<string, unknown>) => ({
       id: follower.id,
       username: follower.username,
       fullName: follower.full_name,

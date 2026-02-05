@@ -20,7 +20,7 @@ jest.mock('../../utils/rate-limit', () => ({
 import { handler } from '../../profiles/update';
 
 // Helper to create mock event
-const createMockEvent = (body: any, userId = 'test-user-id'): APIGatewayProxyEvent => ({
+const createMockEvent = (body: Record<string, unknown>, userId = 'test-user-id'): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),
   headers: { origin: 'https://smuppy.com' },
   requestContext: {
@@ -28,7 +28,7 @@ const createMockEvent = (body: any, userId = 'test-user-id'): APIGatewayProxyEve
       claims: { sub: userId },
     },
     identity: { sourceIp: '127.0.0.1' },
-  } as any,
+  } as unknown as APIGatewayProxyEvent['requestContext'],
 } as unknown as APIGatewayProxyEvent);
 
 describe('Profile Update Handler - Input Validation', () => {
@@ -207,8 +207,8 @@ describe('Profile Update Handler - Input Validation', () => {
 
   describe('Authorization', () => {
     it('should reject requests without user ID', async () => {
-      const event = createMockEvent({ username: 'test' }, undefined as any);
-      event.requestContext.authorizer = undefined as any;
+      const event = createMockEvent({ username: 'test' }, undefined as unknown as string);
+      event.requestContext.authorizer = undefined as unknown as APIGatewayProxyEvent['requestContext']['authorizer'];
       const response = await handler(event);
 
       expect(response?.statusCode).toBe(401);

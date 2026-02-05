@@ -5,6 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { timingSafeEqual } from 'crypto';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
@@ -61,6 +62,8 @@ CREATE TABLE IF NOT EXISTS profiles (
     business_name VARCHAR(255),
     business_category VARCHAR(100),
     business_address TEXT,
+    business_latitude DECIMAL(10, 8),
+    business_longitude DECIMAL(11, 8),
     business_phone VARCHAR(50),
     locations_mode VARCHAR(20) DEFAULT 'nearby',
     onboarding_completed BOOLEAN DEFAULT FALSE,
@@ -409,6 +412,19 @@ INSERT INTO expertise (name, icon, category) VALUES
     ('Sports Coach', 'trophy-outline', 'Professional'),
     ('CrossFit Coach', 'barbell-outline', 'Professional')
 ON CONFLICT (name) DO NOTHING;
+
+-- POST TAGS TABLE (user tagging in posts)
+CREATE TABLE IF NOT EXISTS post_tags (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    tagged_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    tagged_by_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(post_id, tagged_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_tags_post_id ON post_tags(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_tags_tagged_user_id ON post_tags(tagged_user_id);
 `;
 
 // Demo profiles for seeding - Comprehensive mix of all account types and categories
@@ -630,7 +646,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const authHeader = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
     const adminKey = await getAdminKey();
 
-    if (!authHeader || authHeader !== adminKey) {
+    const isValidKey = (provided: string, expected: string): boolean => {
+      try {
+        const a = Buffer.from(provided);
+        const b = Buffer.from(expected);
+        if (a.length !== b.length) return false;
+        return timingSafeEqual(a, b);
+      } catch {
+        return false;
+      }
+    };
+
+    if (!authHeader || !isValidKey(authHeader, adminKey)) {
       log.warn('Unauthorized admin access attempt');
       return {
         statusCode: 401,
@@ -665,14 +692,63 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Handle custom SQL action (admin only - for one-off migrations)
-    if (action === 'run-sql') {
-      const sql = body.sql;
+    // Handle DDL migration action (admin only - for schema migrations)
+    if (action === 'run-ddl') {
+      const sql = body.sql?.trim();
       if (!sql || typeof sql !== 'string') {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ message: 'Missing sql field' }),
+          body: JSON.stringify({ message: 'SQL query required' }),
+        };
+      }
+      log.info('Running DDL migration...');
+      const requestId = getRequestId(event);
+      log.info(`[${requestId}] DDL migration requested`);
+      try {
+        await db.query(sql);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ message: 'DDL migration executed successfully' }),
+        };
+      } catch (ddlError: unknown) {
+        const errMsg = ddlError instanceof Error ? ddlError.message : 'Unknown error';
+        log.error('DDL migration failed', ddlError);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ message: 'DDL migration failed', error: errMsg }),
+        };
+      }
+    }
+
+    // Handle custom SQL action (admin only - for one-off migrations)
+    if (action === 'run-sql') {
+      const sql = body.sql?.trim();
+      if (!sql || typeof sql !== 'string') {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'SQL query required' }),
+        };
+      }
+      // Only allow SELECT statements in run-sql (no DDL/DML)
+      const normalizedSql = sql.toUpperCase().replace(/\s+/g, ' ').trim();
+      if (!normalizedSql.startsWith('SELECT ')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Only SELECT queries are allowed via run-sql' }),
+        };
+      }
+      // Block dangerous keywords even in SELECT
+      const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE'];
+      if (blocked.some(kw => normalizedSql.includes(kw))) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Query contains blocked keywords' }),
         };
       }
       log.info('Running custom SQL...');
@@ -733,7 +809,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       try {
         await db.query(statement);
         results.push('OK');
-      } catch (error: unknown) {
+      } catch (_error: unknown) {
         results.push('Error: migration statement failed');
       }
     }
@@ -753,7 +829,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({
         message: 'Migration completed',
-        tables: tablesResult.rows.map(r => r.table_name),
+        tables: tablesResult.rows.map((r: Record<string, unknown>) => r.table_name),
         statementResults: results.length,
       }),
     };

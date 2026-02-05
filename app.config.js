@@ -9,15 +9,25 @@ version: '1.0.0',
 orientation: 'portrait',
 icon: './assets/icon.png',
 userInterfaceStyle: 'light',
-newArchEnabled: true,
+newArchEnabled: false,
+updates: {
+  url: 'https://u.expo.dev/f38cbb48-8255-45df-ab5b-097b70ee9fea',
+},
+runtimeVersion: {
+  policy: 'appVersion',
+},
 splash: {
-  image: './assets/icon.png',
-  backgroundColor: '#0A252F',
-  resizeMode: 'contain',
+  image: './assets/Splashscreen.png',
+  backgroundColor: '#0EBF8A',
+  resizeMode: 'cover',
 },
 ios: {
 supportsTablet: true,
 bundleIdentifier: 'com.nou09.Smuppy',
+buildNumber: '1',
+runtimeVersion: {
+  policy: 'appVersion',
+},
 usesAppleSignIn: true,
 // Universal Links - associate app with web domain
 associatedDomains: [
@@ -54,6 +64,17 @@ infoPlist: {
   // Camera & Microphone for live streaming
   NSCameraUsageDescription: 'Smuppy needs access to your camera for live streaming and video calls.',
   NSMicrophoneUsageDescription: 'Smuppy needs access to your microphone for live streaming and video calls.',
+  // Photos & Location
+  NSPhotoLibraryUsageDescription: 'Smuppy needs access to your photos to share content.',
+  NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
+  NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
+  NSContactsUsageDescription: 'Smuppy can help you find friends from your contacts.',
+  // Calendar — required by expo-calendar (SessionDetail, SessionBooked, BusinessBookingSuccess)
+  NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  // Bluetooth — required by Agora for speaker/Bluetooth audio routing
+  NSBluetoothAlwaysUsageDescription: 'Smuppy uses Bluetooth to connect to audio devices during live streaming and video calls.',
 },
     },
 android: {
@@ -109,10 +130,20 @@ plugins: [
 'expo-web-browser',
 '@sentry/react-native',
 'expo-apple-authentication',
+'expo-notifications',
+'expo-camera',
+'expo-location',
+'expo-image-picker',
+'expo-contacts',
+'expo-calendar',
 [
-  '@rnmapbox/maps',
-  {},
+  '@stripe/stripe-react-native',
+  {
+    merchantIdentifier: [],
+    enableGooglePay: false,
+  },
 ],
+'@rnmapbox/maps',
 ],
 extra: {
 eas: {
@@ -127,14 +158,14 @@ googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
 apiUrlDev: process.env.API_URL_DEV,
 apiUrlProd: process.env.API_URL_PROD,
 appEnv: process.env.APP_ENV || 'dev',
-// Sentry for error tracking
-sentryDsn: process.env.SENTRY_DSN,
 // Agora for live streaming
 agoraAppId: process.env.AGORA_APP_ID,
 // AWS S3 & CloudFront
 awsRegion: process.env.AWS_REGION,
 s3BucketName: process.env.S3_BUCKET_NAME,
 cloudfrontUrl: process.env.CLOUDFRONT_URL,
+// Sentry
+sentryDsn: process.env.SENTRY_DSN,
 // Mapbox
 mapboxAccessToken: process.env.MAPBOX_ACCESS_TOKEN,
     },

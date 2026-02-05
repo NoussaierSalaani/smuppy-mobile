@@ -216,7 +216,7 @@ export const useFilterStore = create<FilterStoreState>()(
 
       const definition = FILTER_DEFINITIONS.find((f) => f.id === filterId);
       if (!definition) {
-        console.warn(`Filter not found: ${filterId}`);
+        if (__DEV__) console.warn(`Filter not found: ${filterId}`);
         return;
       }
 
@@ -269,7 +269,8 @@ export const useFilterStore = create<FilterStoreState>()(
 
     removeOverlay: (overlayId) => {
       set((state) => {
-        state.activeOverlays = state.activeOverlays.filter((o) => o.id !== overlayId);
+        const idx = state.activeOverlays.findIndex((o) => o.id === overlayId);
+        if (idx !== -1) state.activeOverlays.splice(idx, 1);
       });
     },
 

@@ -145,7 +145,7 @@ export const initAnalytics = async (options?: Partial<AnalyticsConfig>): Promise
       eventQueue = JSON.parse(queuedEvents);
     }
   } catch (error) {
-    console.warn('Failed to initialize analytics:', error);
+    if (__DEV__) console.warn('Failed to initialize analytics:', error);
   }
 
   // Set device properties
@@ -155,8 +155,10 @@ export const initAnalytics = async (options?: Partial<AnalyticsConfig>): Promise
     osVersion: Platform.Version?.toString() || 'unknown',
   });
 
-  if (config.debugMode) {
-    console.log('[Analytics] Initialized with config:', config);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Initialized with config:', config);
+    }
   }
 };
 
@@ -175,11 +177,13 @@ export const identify = async (id: string, properties?: UserProperties): Promise
   try {
     await AsyncStorage.setItem(ANALYTICS_USER_ID_KEY, id);
   } catch (error) {
-    console.warn('Failed to persist analytics user ID:', error);
+    if (__DEV__) console.warn('Failed to persist analytics user ID:', error);
   }
 
-  if (config.debugMode) {
-    console.log('[Analytics] Identified user:', id, properties);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Identified user:', id.substring(0, 2) + '***');
+    }
   }
 };
 
@@ -189,8 +193,10 @@ export const identify = async (id: string, properties?: UserProperties): Promise
 export const setUserProperties = (properties: UserProperties): void => {
   userProperties = { ...userProperties, ...properties };
 
-  if (config.debugMode) {
-    console.log('[Analytics] Set user properties:', properties);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Set user properties:', properties);
+    }
   }
 };
 
@@ -204,11 +210,13 @@ export const reset = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ANALYTICS_USER_ID_KEY);
   } catch (error) {
-    console.warn('Failed to reset analytics:', error);
+    if (__DEV__) console.warn('Failed to reset analytics:', error);
   }
 
-  if (config.debugMode) {
-    console.log('[Analytics] Reset user identity');
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Reset user identity');
+    }
   }
 };
 
@@ -236,8 +244,10 @@ export const track = async (
     timestamp: Date.now(),
   };
 
-  if (config.debugMode) {
-    console.log('[Analytics] Track:', eventName, properties);
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Track:', eventName, properties);
+    }
   }
 
   // Queue event for batch sending
@@ -252,7 +262,7 @@ export const track = async (
   try {
     await AsyncStorage.setItem(ANALYTICS_QUEUE_KEY, JSON.stringify(eventQueue));
   } catch (error) {
-    console.warn('Failed to persist analytics queue:', error);
+    if (__DEV__) console.warn('Failed to persist analytics queue:', error);
   }
 
   // In production, you would send to your analytics provider here
@@ -346,8 +356,10 @@ export const trackError = (
 export const flush = async (): Promise<void> => {
   if (eventQueue.length === 0) return;
 
-  if (config.debugMode) {
-    console.log('[Analytics] Flushing', eventQueue.length, 'events');
+  if (__DEV__) {
+    if (config.debugMode) {
+      console.log('[Analytics] Flushing', eventQueue.length, 'events');
+    }
   }
 
   // In production, send events to your analytics provider

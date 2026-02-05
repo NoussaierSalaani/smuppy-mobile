@@ -15,7 +15,7 @@ import { timingSafeEqual } from 'crypto';
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('admin-migrate-users');
 let cachedAdminKey: string | null = null;

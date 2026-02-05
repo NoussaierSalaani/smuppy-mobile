@@ -624,6 +624,14 @@ export interface Peak {
     avatar_url?: string | null;
     is_verified?: boolean;
   };
+  // Like status (from API when authenticated)
+  isLiked?: boolean;
+  // Challenge fields (a Peak can optionally be a Challenge)
+  isChallenge?: boolean;
+  challengeTitle?: string;
+  challengeRules?: string;
+  challengeEndsAt?: string;
+  challengeResponseCount?: number;
 }
 
 // ============================================
@@ -640,28 +648,6 @@ export type MainStackParamList = {
   CreateTab: undefined;
   Notifications: undefined;
   Profile: { userId?: string } | undefined;
-
-  // Auth
-  Login: undefined;
-  Signup: undefined;
-  ForgotPassword: undefined;
-  CheckEmail: { email: string };
-  ResetCode: { email: string };
-  NewPassword: { email?: string; code?: string } | undefined;
-  PasswordSuccess: undefined;
-  VerifyCode: { email: string; [key: string]: unknown };
-
-  // Onboarding
-  AccountType: { email: string; password: string; name?: string };
-  TellUsAboutYou: { accountType: 'personal' | 'pro_creator' | 'pro_business'; [key: string]: unknown };
-  CreatorInfo: { [key: string]: unknown };
-  BusinessCategory: { [key: string]: unknown };
-  BusinessInfo: { [key: string]: unknown };
-  Interests: { [key: string]: unknown } | undefined;
-  Expertise: { [key: string]: unknown } | undefined;
-  Guidelines: { [key: string]: unknown } | undefined;
-  OnboardingSuccess: undefined;
-  Success: undefined;
 
   // Search & Messages
   Search: undefined;
@@ -683,32 +669,46 @@ export type MainStackParamList = {
   // Details
   UserProfile: { userId: string };
   PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Post[] };
-  PostDetailVibesFeed: { postId: string; post?: any; startCondensed?: boolean };
+  PostDetailVibesFeed: { postId: string; post?: unknown; startCondensed?: boolean };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
   FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
+  PostLikers: { postId: string };
 
   // Create
   CreatePost: { fromProfile?: boolean } | undefined;
-  AddPostDetails: { mediaAssets: MediaAsset[]; fromProfile?: boolean };
-  PostSuccess: { postId?: string; mediaType?: string } | undefined;
+  VideoRecorder: undefined;
+  AddPostDetails: { media: MediaAsset[]; postType?: string; fromProfile?: boolean };
+  PostSuccess: {
+    media?: MediaAsset[];
+    postType?: string;
+    postId?: string;
+    description?: string;
+    visibility?: string;
+    location?: string;
+    taggedPeople?: { id: string; name?: string; full_name?: string; avatar?: string | null; avatar_url?: string | null }[];
+    fromProfile?: boolean;
+  } | undefined;
 
   // Peaks
-  PeakView: { peakId?: string; peakData?: Peak[]; initialIndex?: number };
+  PeakView: { peaks?: Peak[]; peakId?: string; peakData?: Peak[]; initialIndex?: number };
   CreatePeak: { replyToPeak?: Peak } | undefined;
   PeakPreview: { mediaUri: string; mediaType: 'image' | 'video'; duration?: number; replyToPeakId?: string };
+
+  // Vibe
+  Prescriptions: undefined;
+  ActivePrescription: { prescriptionId: string };
+  PrescriptionPreferences: undefined;
 
   // Settings
   Settings: undefined;
   EditProfile: undefined;
   EditInterests: { currentInterests?: string[] } | undefined;
   EditExpertise: { currentExpertise?: string[]; returnTo?: string } | undefined;
+  EditBusinessCategory: { currentCategory?: string } | undefined;
   PasswordManager: undefined;
-  AccountSettings: undefined;
-  PrivacySettings: undefined;
   NotificationSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
-  FacialRecognition: undefined;
   BlockedUsers: undefined;
   MutedUsers: undefined;
   FollowRequests: undefined;
@@ -718,6 +718,7 @@ export type MainStackParamList = {
   PlatformSubscription: undefined;
   ChannelSubscription: { creatorId: string; creatorName?: string; creatorAvatar?: string; creatorUsername?: string; subscriberCount?: number; tier?: string };
   IdentityVerification: undefined;
+  PaymentMethods: undefined;
 
   // Private Sessions - Fan
   MySessions: undefined;
@@ -726,7 +727,7 @@ export type MainStackParamList = {
   SessionPayment: { creatorId: string; sessionId?: string; date: string; time: string; duration: number; price: number };
   SessionBooked: { sessionId: string; creatorName: string; date: string; time: string };
   WaitingRoom: { sessionId: string };
-  PrivateCall: { sessionId: string; channelName: string; token: string };
+  PrivateCall: { sessionId: string; creator?: { id: string; name: string; avatar: string | null }; myUserId?: string; isIncoming?: boolean };
   SessionEnded: { sessionId: string; duration: number; creatorName: string };
 
   // Creator Offerings & Checkout (Fan)
@@ -743,16 +744,17 @@ export type MainStackParamList = {
   // WebView (for Stripe checkout)
   WebView: { url: string; title?: string };
 
-  // Challenges
-  ChallengeList: undefined;
-  ChallengeDetail: { challengeId: string };
-  CreateChallenge: { peakId?: string } | undefined;
-  CreateChallengeResponse: { challengeId: string };
+  // Live Streaming
+  GoLiveIntro: undefined;
+  GoLive: { title?: string } | undefined;
+  LiveStreaming: { channelName?: string; title?: string; audience?: string; isPrivate?: boolean; hostId?: string; hostName?: string; hostAvatar?: string | null } | undefined;
+  LiveEnded: { duration?: number; viewerCount?: number; peakViewers?: number } | undefined;
+  ViewerLiveStream: { channelName: string; hostUserId: string; hostName?: string; hostAvatar?: string | null };
 
   // Live Battles
   BattleLobby: { battleId: string };
   BattleStream: { battleId: string; agoraToken?: string; agoraUid?: number };
-  BattleResults: { battleId: string; winner?: any; participants?: any[] };
+  BattleResults: { battleId: string; winner?: { id: string; user_id: string; username: string; display_name?: string; avatar_url?: string; profile_picture_url?: string; is_verified: boolean; tips_received: number; tip_count: number; is_host: boolean }; participants: { id: string; user_id: string; username: string; display_name?: string; avatar_url?: string; profile_picture_url?: string; is_verified: boolean; tips_received: number; tip_count: number; is_host: boolean }[] };
   InviteToBattle: { battleId: string };
 
   // Events (Xplorer)
@@ -765,12 +767,13 @@ export type MainStackParamList = {
   CreateGroup: { lockedLocation?: { latitude: number; longitude: number; address: string } } | undefined;
   GroupDetail: { groupId: string };
 
+  // Activities (unified)
+  CreateActivity: { lockedLocation?: { latitude: number; longitude: number; address: string } } | undefined;
+  ActivityDetail: { activityId: string; activityType: 'event' | 'group' };
+
   // Spots
   SuggestSpot: undefined;
   SpotDetail: { spotId: string };
-
-  // Tips
-  TipLeaderboard: { creatorId: string; creatorUsername: string };
 
   // Find Friends (standalone popup)
   FindFriends: undefined;
@@ -810,8 +813,6 @@ export type MainStackParamList = {
   BusinessProgram: { tab?: 'activities' | 'schedule' | 'tags' } | undefined;
   BusinessScheduleUpload: undefined;
   BusinessScanner: undefined;
-  BusinessMembers: undefined;
-  BusinessSettings: undefined;
 };
 
 // Alias for backward compatibility

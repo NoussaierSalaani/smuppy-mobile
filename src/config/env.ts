@@ -9,8 +9,8 @@ import Constants from 'expo-constants';
  * - Expo Go (dev): .env file via dotenv/config in app.config.js
  */
 const extra = Constants.expoConfig?.extra
-  || (Constants.manifest as any)?.extra
-  || (Constants.manifest2 as any)?.extra
+  || (Constants.manifest as Record<string, unknown> | null)?.extra as Record<string, string> | undefined
+  || (Constants.manifest2 as Record<string, unknown> | null)?.extra as Record<string, string> | undefined
   || {};
 
 export const ENV = {
@@ -38,11 +38,11 @@ export const ENV = {
   S3_BUCKET_NAME: extra.s3BucketName || '',
   CLOUDFRONT_URL: extra.cloudfrontUrl || '',
 
-  // Sentry (Error Tracking)
-  SENTRY_DSN: extra.sentryDsn || '',
-
   // Agora (Live Streaming & Video Calls)
   AGORA_APP_ID: extra.agoraAppId || '',
+
+  // Sentry
+  SENTRY_DSN: extra.sentryDsn || '',
 
   // App info
   APP_ENV: extra.appEnv || (__DEV__ ? 'development' : 'production'),
@@ -53,16 +53,14 @@ export const ENV = {
   appVersion: Constants.expoConfig?.version || '1.0.0',
 };
 
-// Validation: warn if critical env vars are missing
+// Validation: warn if critical env vars are missing (dev only, never crash)
 if (__DEV__) {
-  const missingVars = [];
+  const missingVars: string[] = [];
 
-  if (!ENV.GOOGLE_API_KEY) {
-    missingVars.push('GOOGLE_API_KEY');
-  }
-  if (!ENV.SENTRY_DSN) {
-    console.log('[ENV] Sentry DSN not configured. Error tracking disabled.');
-  }
+  if (!ENV.GOOGLE_API_KEY) missingVars.push('GOOGLE_API_KEY');
+  if (!extra.apiUrlDev) missingVars.push('API_URL_DEV');
+  if (!extra.apiUrlProd) missingVars.push('API_URL_PROD');
+  if (!ENV.SENTRY_DSN) missingVars.push('SENTRY_DSN');
 
   if (missingVars.length > 0) {
     console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);

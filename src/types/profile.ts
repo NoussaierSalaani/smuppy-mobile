@@ -39,6 +39,8 @@ export interface ProfileDataSource {
   isPremium?: boolean;
   fan_count?: number;
   fans?: number;
+  following_count?: number;
+  following?: number;
   post_count?: number;
   posts?: number;
   peak_count?: number;
@@ -156,6 +158,43 @@ export const resolveProfile = (
       fans: base.fan_count ?? base.fans ?? fallback.stats?.fans ?? 0,
       posts: base.post_count ?? base.posts ?? fallback.stats?.posts ?? 0,
       peaks: base.peak_count ?? base.peaks ?? fallback.stats?.peaks ?? 0,
+      following: base.following_count ?? base.following ?? fallback.stats?.following ?? 0,
     },
   };
+};
+
+/**
+ * Resolve display name for any user object from the API.
+ * Business accounts use business_name; others use full_name/display_name.
+ * Properly handles empty strings as falsy values.
+ */
+export const resolveDisplayName = (user: {
+  account_type?: string;
+  accountType?: string;
+  business_name?: string;
+  businessName?: string;
+  full_name?: string;
+  fullName?: string;
+  display_name?: string;
+  displayName?: string;
+  username?: string;
+} | null | undefined, fallback = 'User'): string => {
+  if (!user) return fallback;
+
+  // Business accounts use business_name
+  const isBusiness = (user.account_type || user.accountType) === 'pro_business';
+  const bName = user.business_name || user.businessName;
+  if (isBusiness && bName && bName.trim()) return bName;
+
+  // Check each field explicitly, treating empty/whitespace strings as falsy
+  const fullName = user.full_name || user.fullName;
+  if (fullName && fullName.trim()) return fullName;
+
+  const displayName = user.display_name || user.displayName;
+  if (displayName && displayName.trim()) return displayName;
+
+  // Fallback to username
+  if (user.username && user.username.trim()) return user.username;
+
+  return fallback;
 };

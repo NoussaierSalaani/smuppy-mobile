@@ -1088,28 +1088,6 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     textAlign: 'center',
     marginBottom: 4,
   },
-  trackButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  trackButtonDisabled: {
-    opacity: 0.6,
-  },
-  trackButtonText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
-    color: colors.background,
-  },
-  trackedButton: {
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
   // Invite button
   inviteButton: {
     width: 82,
@@ -1128,19 +1106,6 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderWidth: 2,
     borderColor: colors.primary,
     borderStyle: 'dashed',
-  },
-  inviteTextButton: {
-    backgroundColor: colors.background,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  inviteTextButtonText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
-    color: colors.primary,
   },
 
   // Post

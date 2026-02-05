@@ -81,7 +81,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   const [showWarningPopup, setShowWarningPopup] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [_currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -105,7 +104,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       }
 
       const targetUserId = userId || currentProfile.id;
-      setCurrentUserId(currentProfile.id);
 
       // Load followers (fans) and following (tracking) in parallel
       const [fansResult, trackingResult] = await Promise.all([

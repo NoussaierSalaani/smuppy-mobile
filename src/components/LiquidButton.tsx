@@ -24,7 +24,7 @@ import { useTheme } from '../hooks/useTheme';
 type ColorScheme = 'green' | 'dark' | 'gold' | 'red' | 'blue';
 
 const COLOR_SCHEMES: Record<ColorScheme, {
-  gradient: readonly [string, string, string];
+  gradient: [string, string, string];
   shadow: string;
   outlineBorder: string;
   outlineText: string;
@@ -164,13 +164,13 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
       ]}
     >
       <LinearGradient
-        colors={scheme.gradient as unknown as [string, string, ...string[]]}
+        colors={scheme.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
           styles.gradient,
           {
-            height: iconOnly ? config.height : config.height,
+            height: config.height,
             width: iconOnly ? config.height : undefined,
             paddingHorizontal: iconOnly ? 0 : config.paddingH,
             borderRadius: iconOnly ? config.height / 2 : config.radius,

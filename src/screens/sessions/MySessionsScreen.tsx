@@ -277,10 +277,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

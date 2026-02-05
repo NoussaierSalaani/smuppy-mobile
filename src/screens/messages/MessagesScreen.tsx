@@ -323,10 +323,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -403,10 +399,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     color: colors.gray,
   },
-  messageTimeUnread: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
   messagePreview: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,10 +407,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     color: colors.gray,
     flex: 1,
-  },
-  lastMessageUnread: {
-    color: colors.dark,
-    fontWeight: '500',
   },
   unreadBadge: {
     minWidth: 22,

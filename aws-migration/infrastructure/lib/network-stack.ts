@@ -86,7 +86,7 @@ export class NetworkStack extends cdk.NestedStack {
       enableFileValidation: true,
       includeGlobalServiceEvents: true,
       managementEvents: cloudtrail.ReadWriteType.ALL,
-      cloudWatchLogRetention: logs.RetentionDays.THREE_MONTHS,
+      cloudWatchLogsRetention: logs.RetentionDays.THREE_MONTHS,
     });
 
     // S3 Gateway Endpoint (free)

@@ -5,26 +5,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
+import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -34,9 +25,11 @@ const corsHeaders = {
 };
 
 interface ConnectBody {
-  action: 'create-account' | 'create-link' | 'get-status' | 'get-dashboard-link' | 'get-balance';
+  action: 'create-account' | 'create-link' | 'get-status' | 'get-dashboard-link' | 'get-balance' | 'admin-set-account';
   returnUrl?: string;
   refreshUrl?: string;
+  targetProfileId?: string;
+  stripeAccountId?: string;
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -45,7 +38,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -57,17 +50,40 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: ConnectBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'create-account':
-        return await createConnectAccount(userId);
+        return await createConnectAccount(profileId);
       case 'create-link':
-        return await createAccountLink(userId, body.returnUrl!, body.refreshUrl!);
+        return await createAccountLink(profileId, body.returnUrl!, body.refreshUrl!);
       case 'get-status':
-        return await getAccountStatus(userId);
+        return await getAccountStatus(profileId);
       case 'get-dashboard-link':
-        return await getDashboardLink(userId);
+        return await getDashboardLink(profileId);
       case 'get-balance':
-        return await getBalance(userId);
+        return await getBalance(profileId);
+      case 'admin-set-account': {
+        // Staging-only: set stripe_account_id on any profile
+        if (process.env.ENVIRONMENT === 'production') {
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Not available in production' }) };
+        }
+        if (!body.targetProfileId || !body.stripeAccountId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing targetProfileId or stripeAccountId' }) };
+        }
+        const pool = await getPool();
+        await pool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, targetProfileId: body.targetProfileId, stripeAccountId: body.stripeAccountId }) };
+      }
       default:
         return {
           statusCode: 400,
@@ -87,11 +103,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 async function createConnectAccount(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Check if user already has a Connect account
     const result = await client.query(
-      'SELECT stripe_account_id, email, full_name FROM profiles WHERE id = $1',
+      'SELECT stripe_account_id, email, cognito_sub FROM profiles WHERE id = $1',
       [userId]
     );
 
@@ -103,7 +120,8 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
       };
     }
 
-    const { stripe_account_id, email, full_name } = result.rows[0];
+    const { stripe_account_id, cognito_sub } = result.rows[0];
+    let email = result.rows[0].email as string | null;
 
     if (stripe_account_id) {
       return {
@@ -114,6 +132,29 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
           accountId: stripe_account_id,
           message: 'Account already exists',
         }),
+      };
+    }
+
+    // If email missing in profiles, fetch from Cognito and sync
+    if (!email && cognito_sub) {
+      const cognitoClient = new CognitoIdentityProviderClient({});
+      const sanitizedSub = cognito_sub.replace(/["\\]/g, '');
+      const cognitoResult = await cognitoClient.send(new ListUsersCommand({
+        UserPoolId: process.env.USER_POOL_ID,
+        Filter: `sub = "${sanitizedSub}"`,
+        Limit: 1,
+      }));
+      email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
+      if (email) {
+        await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [email, userId]);
+      }
+    }
+
+    if (!email) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'No email found for this account' }),
       };
     }
 
@@ -165,6 +206,7 @@ async function createAccountLink(
   refreshUrl: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -203,6 +245,7 @@ async function createAccountLink(
 
 async function getAccountStatus(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -244,6 +287,7 @@ async function getAccountStatus(userId: string): Promise<APIGatewayProxyResult> 
 
 async function getDashboardLink(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -278,6 +322,7 @@ async function getDashboardLink(userId: string): Promise<APIGatewayProxyResult> 
 
 async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(

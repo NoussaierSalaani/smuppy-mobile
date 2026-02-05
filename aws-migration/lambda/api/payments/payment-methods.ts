@@ -14,7 +14,9 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent, corsHeaders } from '../utils/auth';
+import { getUserFromEvent } from '../utils/auth';
+import { createHeaders } from '../utils/cors';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/payment-methods');
 
@@ -22,13 +24,13 @@ let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const headers = corsHeaders(event);
+  const headers = createHeaders(event);
 
   // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
@@ -36,13 +38,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const user = await getUserFromEvent(event);
     if (!user) {
       return {
         statusCode: 401,
         headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 20 requests per minute per user
+    const rateCheck = await checkRateLimit({ prefix: 'payment-methods', identifier: user.sub, maxRequests: 20 });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
 
@@ -128,7 +140,7 @@ async function getOrCreateStripeCustomer(db: Pool, userId: string): Promise<stri
     [customer.id, userId]
   );
 
-  log.info('Created Stripe customer', { userId, customerId: customer.id });
+  log.info('Created Stripe customer', { userId: userId.substring(0, 8) + '***', customerId: customer.id });
 
   return customer.id;
 }
@@ -149,7 +161,7 @@ async function createSetupIntent(db: Pool, user: { sub: string }, headers: Recor
     },
   });
 
-  log.info('Created setup intent', { userId: user.sub, setupIntentId: setupIntent.id });
+  log.info('Created setup intent', { userId: user.sub.substring(0, 8) + '***', setupIntentId: setupIntent.id });
 
   return {
     statusCode: 200,
@@ -253,7 +265,7 @@ async function attachPaymentMethod(
   }
 
   log.info('Attached payment method', {
-    userId: user.sub,
+    userId: user.sub.substring(0, 8) + '***',
     paymentMethodId,
     setAsDefault,
   });
@@ -307,7 +319,7 @@ async function detachPaymentMethod(
   // Detach the payment method
   await stripe.paymentMethods.detach(paymentMethodId);
 
-  log.info('Detached payment method', { userId: user.sub, paymentMethodId });
+  log.info('Detached payment method', { userId: user.sub.substring(0, 8) + '***', paymentMethodId });
 
   return {
     statusCode: 200,
@@ -352,7 +364,7 @@ async function setDefaultPaymentMethod(
     },
   });
 
-  log.info('Set default payment method', { userId: user.sub, paymentMethodId });
+  log.info('Set default payment method', { userId: user.sub.substring(0, 8) + '***', paymentMethodId });
 
   return {
     statusCode: 200,

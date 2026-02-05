@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { getReaderPool, corsHeaders, SqlParam } from '../../shared/db';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -21,7 +21,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const pool = await getPool();
+    const pool = await getReaderPool();
     const status = event.queryStringParameters?.status; // 'upcoming', 'past', 'pending'
     const role = event.queryStringParameters?.role; // 'fan', 'creator'
 
@@ -73,12 +73,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const result = await pool.query(query, params);
 
-    const sessions = result.rows.map((row) => ({
+    const sessions = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       status: row.status,
       scheduledAt: row.scheduled_at,
       duration: row.duration,
-      price: parseFloat(row.price),
+      price: parseFloat(row.price as string),
       notes: row.notes,
       creator: {
         id: row.creator_id,

@@ -44,7 +44,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [userId]
       );
 
-      const packs = result.rows.map((row) => ({
+      const packs = result.rows.map((row: Record<string, unknown>) => ({
         id: row.id,
         packId: row.pack_id,
         name: row.name,
@@ -83,14 +83,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [creatorId]
       );
 
-      const packs = result.rows.map((row) => ({
+      const packs = result.rows.map((row: Record<string, unknown>) => ({
         id: row.id,
         name: row.name,
         description: row.description,
         sessionsIncluded: row.sessions_included,
         sessionDuration: row.session_duration,
         validityDays: row.validity_days,
-        price: parseFloat(row.price),
+        price: parseFloat(row.price as string),
         savings: row.savings_percent || 0,
         creator: {
           id: row.creator_id,

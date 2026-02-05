@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getReaderPool, corsHeaders } from '../../shared/db';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -34,7 +34,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const daysAhead = parseInt(event.queryStringParameters?.days || '7');
 
   try {
-    const pool = await getPool();
+    const pool = await getReaderPool();
 
     // Get creator's session settings
     const creatorResult = await pool.query(
@@ -76,9 +76,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [creatorId, startDate, endDate.toISOString()]
     );
 
-    const bookedSlots = bookedResult.rows.map((row) => ({
-      start: new Date(row.scheduled_at),
-      end: new Date(new Date(row.scheduled_at).getTime() + row.duration * 60000),
+    const bookedSlots = bookedResult.rows.map((row: Record<string, unknown>) => ({
+      start: new Date(row.scheduled_at as string),
+      end: new Date(new Date(row.scheduled_at as string).getTime() + (row.duration as number) * 60000),
     }));
 
     // Parse availability settings (stored as JSON)
@@ -127,7 +127,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           if (current > minBookingTime) {
             // Check if slot conflicts with any booked session
             const isBooked = bookedSlots.some(
-              (booked) => current < booked.end && slotEndTime > booked.start
+              (booked: { start: Date; end: Date }) => current < booked.end && slotEndTime > booked.start
             );
 
             if (!isBooked) {

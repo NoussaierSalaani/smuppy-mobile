@@ -4,20 +4,17 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getReaderPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('tips-leaderboard');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getReaderPool();
   const client = await pool.connect();
 
   try {
@@ -29,6 +26,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Creator ID required' }),
+      });
+    }
+
+    // Validate UUID format
+    if (!isValidUUID(creatorId)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
       });
     }
 
@@ -93,16 +98,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [creatorId]
     );
 
-    const leaderboard = result.rows.map((row) => ({
-      rank: parseInt(row.rank),
+    const leaderboard = result.rows.map((row: Record<string, unknown>) => ({
+      rank: parseInt(row.rank as string),
       tipper: {
         id: row.tipper_id,
         username: row.username,
         displayName: row.display_name,
         avatarUrl: row.avatar_url,
       },
-      totalAmount: parseFloat(row.total_amount),
-      tipCount: parseInt(row.tip_count),
+      totalAmount: parseFloat(row.total_amount as string),
+      tipCount: parseInt(row.tip_count as string),
     }));
 
     return cors({

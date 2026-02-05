@@ -6,26 +6,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
+import { checkRateLimit } from '../utils/rate-limit';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -51,7 +42,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -61,17 +52,41 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Rate limit: 5 requests per minute per user
+    const rateCheck = await checkRateLimit({ prefix: 'platform-sub', identifier: userId, maxRequests: 5 });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Too many requests, please try again later' }),
+      };
+    }
+
     const body: SubscriptionBody = JSON.parse(event.body || '{}');
+
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
       case 'subscribe':
-        return await createPlatformSubscription(userId, body.planType!);
+        if (!body.planType || !['pro_creator', 'pro_business'].includes(body.planType)) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid plan type' }) };
+        }
+        return await createPlatformSubscription(profileId, body.planType);
       case 'cancel':
-        return await cancelPlatformSubscription(userId);
+        return await cancelPlatformSubscription(profileId);
       case 'get-status':
-        return await getSubscriptionStatus(userId);
+        return await getSubscriptionStatus(profileId);
       case 'get-portal-link':
-        return await getCustomerPortalLink(userId);
+        return await getCustomerPortalLink(profileId);
       default:
         return {
           statusCode: 400,
@@ -94,6 +109,7 @@ async function createPlatformSubscription(
   planType: 'pro_creator' | 'pro_business'
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get user info
@@ -231,6 +247,7 @@ async function getOrCreatePlatformPrice(planType: 'pro_creator' | 'pro_business'
 
 async function cancelPlatformSubscription(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -276,6 +293,7 @@ async function cancelPlatformSubscription(userId: string): Promise<APIGatewayPro
 }
 
 async function getSubscriptionStatus(userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -323,6 +341,7 @@ async function getSubscriptionStatus(userId: string): Promise<APIGatewayProxyRes
 
 async function getCustomerPortalLink(userId: string): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(

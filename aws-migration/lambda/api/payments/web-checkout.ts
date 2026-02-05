@@ -16,7 +16,8 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent, corsHeaders } from '../utils/auth';
+import { getUserFromEvent } from '../utils/auth';
+import { createHeaders } from '../utils/cors';
 
 const log = createLogger('payments/web-checkout');
 
@@ -24,13 +25,11 @@ let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
 
-// Deep link scheme for the app
-const APP_SCHEME = process.env.APP_SCHEME || 'smuppy';
 const WEB_DOMAIN = process.env.WEB_DOMAIN || 'https://smuppy.com';
 
 // Product types that can be purchased
@@ -46,7 +45,7 @@ interface CheckoutRequest {
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const headers = corsHeaders(event);
+  const headers = createHeaders(event);
 
   // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
@@ -54,7 +53,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const stripe = await getStripe();
     const user = await getUserFromEvent(event);
     if (!user) {
       return {
@@ -104,7 +102,7 @@ async function createCheckoutSession(
 ) {
   const stripe = await getStripe();
   const body = JSON.parse(event.body || '{}') as CheckoutRequest;
-  const { productType, productId, creatorId, amount, planType, metadata = {} } = body;
+  const { productType, productId, creatorId, amount, planType } = body;
 
   if (!productType) {
     return {
@@ -151,8 +149,6 @@ async function createCheckoutSession(
 
   // Build checkout session based on product type
   let sessionConfig: Stripe.Checkout.SessionCreateParams;
-  let successUrl: string;
-  let cancelUrl: string;
 
   // Deep link URLs for returning to the app
   const baseSuccessUrl = `${WEB_DOMAIN}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
@@ -194,7 +190,7 @@ async function createCheckoutSession(
       sessionConfig = {
         mode: 'payment',
         customer: customerId,
-        payment_method_types: ['card', 'apple_pay', 'google_pay'],
+        payment_method_types: ['card'],
         line_items: [{
           price_data: {
             currency: 'eur',
@@ -263,7 +259,7 @@ async function createCheckoutSession(
       sessionConfig = {
         mode: 'payment',
         customer: customerId,
-        payment_method_types: ['card', 'apple_pay', 'google_pay'],
+        payment_method_types: ['card'],
         line_items: [{
           price_data: {
             currency: 'eur',
@@ -335,8 +331,6 @@ async function createCheckoutSession(
       else if (fanCount >= 10000) platformFeePercent = 30;
       else if (fanCount >= 1000) platformFeePercent = 35;
 
-      const platformFee = Math.round(priceInCents * (platformFeePercent / 100));
-
       // Get or create Stripe Price for this creator's subscription
       let stripePriceId: string;
       const existingPrice = await db.query(
@@ -374,7 +368,7 @@ async function createCheckoutSession(
       sessionConfig = {
         mode: 'subscription',
         customer: customerId,
-        payment_method_types: ['card', 'apple_pay', 'google_pay'],
+        payment_method_types: ['card'],
         line_items: [{
           price: stripePriceId,
           quantity: 1,
@@ -447,7 +441,7 @@ async function createCheckoutSession(
         sessionConfig = {
           mode: 'subscription',
           customer: customerId,
-          payment_method_types: ['card', 'apple_pay', 'google_pay'],
+          payment_method_types: ['card'],
           line_items: [{ price: price.id, quantity: 1 }],
           subscription_data: {
             metadata: {
@@ -468,7 +462,7 @@ async function createCheckoutSession(
         sessionConfig = {
           mode: 'subscription',
           customer: customerId,
-          payment_method_types: ['card', 'apple_pay', 'google_pay'],
+          payment_method_types: ['card'],
           line_items: [{ price: priceId, quantity: 1 }],
           subscription_data: {
             metadata: {
@@ -519,7 +513,7 @@ async function createCheckoutSession(
       sessionConfig = {
         mode: 'payment',
         customer: customerId,
-        payment_method_types: ['card', 'apple_pay', 'google_pay'],
+        payment_method_types: ['card'],
         line_items: [{
           price_data: {
             currency: 'eur',
@@ -611,7 +605,7 @@ async function checkSessionStatus(sessionId: string, headers: Record<string, str
         currency: session.currency,
       }),
     };
-  } catch (error: unknown) {
+  } catch {
     return {
       statusCode: 404,
       headers,

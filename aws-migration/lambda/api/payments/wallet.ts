@@ -12,34 +12,19 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
-import { SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-};
+// CORS headers now dynamically created via createHeaders(event)
 
 interface WalletBody {
   action:
@@ -57,42 +42,55 @@ interface WalletBody {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const headers = createHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Unauthorized' }),
       };
     }
 
     const body: WalletBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'get-dashboard':
-        return await getDashboard(userId);
+        return await getDashboard(profileId, headers);
       case 'get-transactions':
-        return await getTransactions(userId, body);
+        return await getTransactions(profileId, body, headers);
       case 'get-analytics':
-        return await getAnalytics(userId, body.period || 'month');
+        return await getAnalytics(profileId, body.period || 'month', headers);
       case 'get-balance':
-        return await getBalance(userId);
+        return await getBalance(profileId, headers);
       case 'get-payouts':
-        return await getPayouts(userId, body.limit || 10);
+        return await getPayouts(profileId, body.limit || 10, headers);
       case 'create-payout':
-        return await createPayout(userId);
+        return await createPayout(profileId, headers);
       case 'get-stripe-dashboard-link':
-        return await getStripeDashboardLink(userId);
+        return await getStripeDashboardLink(profileId, headers);
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
@@ -100,7 +98,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Wallet error:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
@@ -109,14 +107,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 /**
  * Get comprehensive creator dashboard data
  */
-async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
+async function getDashboard(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify user is a creator
     const profileResult = await client.query(
       `SELECT id, account_type, stripe_account_id, is_verified,
-              (SELECT COUNT(*) FROM follows WHERE following_id = profiles.id) as fan_count
+              (SELECT COUNT(1) FROM follows WHERE following_id = profiles.id) as fan_count
        FROM profiles WHERE id = $1`,
       [userId]
     );
@@ -124,7 +123,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     if (profileResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -134,7 +133,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     if (!['pro_creator', 'pro_business'].includes(profile.account_type)) {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Only Pro accounts can access wallet' }),
       };
     }
@@ -147,7 +146,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     const lifetimeResult = await client.query(
       `SELECT
          COALESCE(SUM(creator_amount), 0) as total_earnings,
-         COUNT(*) as total_transactions
+         COUNT(1) as total_transactions
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded'`,
       [userId]
@@ -157,7 +156,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
     const monthResult = await client.query(
       `SELECT
          COALESCE(SUM(creator_amount), 0) as month_earnings,
-         COUNT(*) as month_transactions
+         COUNT(1) as month_transactions
        FROM payments
        WHERE creator_id = $1
          AND status = 'succeeded'
@@ -167,7 +166,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
 
     // Get channel subscriber count
     const subscriberResult = await client.query(
-      `SELECT COUNT(*) as subscriber_count
+      `SELECT COUNT(1) as subscriber_count
        FROM channel_subscriptions
        WHERE creator_id = $1 AND status = 'active'`,
       [userId]
@@ -178,7 +177,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
       `SELECT
          type,
          COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(*) as count
+         COUNT(1) as count
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded'
        GROUP BY type`,
@@ -209,7 +208,7 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         dashboard: {
@@ -229,10 +228,10 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
               total: parseInt(month.month_earnings) || 0,
               transactions: parseInt(month.month_transactions) || 0,
             },
-            breakdown: breakdown.map(b => ({
+            breakdown: breakdown.map((b: Record<string, unknown>) => ({
               type: b.type,
-              earnings: parseInt(b.earnings) || 0,
-              count: parseInt(b.count) || 0,
+              earnings: parseInt(b.earnings as string) || 0,
+              count: parseInt(b.count as string) || 0,
             })),
           },
           subscribers: {
@@ -250,10 +249,11 @@ async function getDashboard(userId: string): Promise<APIGatewayProxyResult> {
 /**
  * Get transaction history with filtering
  */
-async function getTransactions(userId: string, options: WalletBody): Promise<APIGatewayProxyResult> {
+async function getTransactions(userId: string, options: WalletBody, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
-    const limit = Math.min(options.limit || 20, 100);
+    const limit = Math.min(options.limit || 20, 50);
     const offset = options.offset || 0;
     const type = options.type || 'all';
 
@@ -290,7 +290,7 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
     // Get total count
     const countParams = type !== 'all' ? [userId, type] : [userId];
     const countResult = await client.query(
-      `SELECT COUNT(*) as total
+      `SELECT COUNT(1) as total
        FROM payments
        WHERE creator_id = $1 ${type !== 'all' ? 'AND type = $2' : ''}`,
       countParams
@@ -298,10 +298,10 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
-        transactions: result.rows.map(row => ({
+        transactions: result.rows.map((row: Record<string, unknown>) => ({
           id: row.id,
           type: row.type,
           source: row.source,
@@ -335,7 +335,8 @@ async function getTransactions(userId: string, options: WalletBody): Promise<API
 /**
  * Get revenue analytics for a period
  */
-async function getAnalytics(userId: string, period: string): Promise<APIGatewayProxyResult> {
+async function getAnalytics(userId: string, period: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     let periodFilter = '';
@@ -374,7 +375,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
       `SELECT
          ${groupBy} as period,
          COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(*) as transactions
+         COUNT(1) as transactions
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
        GROUP BY ${groupBy}
@@ -390,7 +391,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
          buyer.full_name,
          buyer.avatar_url,
          COALESCE(SUM(p.creator_amount), 0) as total_spent,
-         COUNT(*) as transaction_count
+         COUNT(1) as transaction_count
        FROM payments p
        JOIN profiles buyer ON p.buyer_id = buyer.id
        WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodFilter}
@@ -405,7 +406,7 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
       `SELECT
          source,
          COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(*) as count
+         COUNT(1) as count
        FROM payments
        WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
        GROUP BY source`,
@@ -414,29 +415,29 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         analytics: {
           period,
           dateFormat,
-          timeline: timelineResult.rows.map(row => ({
+          timeline: timelineResult.rows.map((row: Record<string, unknown>) => ({
             period: row.period,
-            earnings: parseInt(row.earnings) || 0,
-            transactions: parseInt(row.transactions) || 0,
+            earnings: parseInt(row.earnings as string) || 0,
+            transactions: parseInt(row.transactions as string) || 0,
           })),
-          topBuyers: topBuyersResult.rows.map(row => ({
+          topBuyers: topBuyersResult.rows.map((row: Record<string, unknown>) => ({
             id: row.id,
             username: row.username,
             name: row.full_name,
             avatar: row.avatar_url,
-            totalSpent: parseInt(row.total_spent) || 0,
-            transactionCount: parseInt(row.transaction_count) || 0,
+            totalSpent: parseInt(row.total_spent as string) || 0,
+            transactionCount: parseInt(row.transaction_count as string) || 0,
           })),
-          bySource: bySourceResult.rows.map(row => ({
+          bySource: bySourceResult.rows.map((row: Record<string, unknown>) => ({
             source: row.source,
-            earnings: parseInt(row.earnings) || 0,
-            count: parseInt(row.count) || 0,
+            earnings: parseInt(row.earnings as string) || 0,
+            count: parseInt(row.count as string) || 0,
           })),
         },
       }),
@@ -449,8 +450,9 @@ async function getAnalytics(userId: string, period: string): Promise<APIGatewayP
 /**
  * Get Stripe Connect balance
  */
-async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
+async function getBalance(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -461,7 +463,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -472,7 +474,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         balance: {
@@ -499,8 +501,9 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
 /**
  * Get payout history
  */
-async function getPayouts(userId: string, limit: number): Promise<APIGatewayProxyResult> {
+async function getPayouts(userId: string, limit: number, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -511,7 +514,7 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -523,7 +526,7 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         payouts: payouts.data.map(p => ({
@@ -546,8 +549,9 @@ async function getPayouts(userId: string, limit: number): Promise<APIGatewayProx
 /**
  * Request a payout (if instant payouts are available)
  */
-async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
+async function createPayout(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -558,7 +562,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -575,7 +579,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
     if (availableAmount <= 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'No available balance to payout' }),
       };
     }
@@ -591,7 +595,7 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         payout: {
@@ -612,8 +616,9 @@ async function createPayout(userId: string): Promise<APIGatewayProxyResult> {
  * Get link to Stripe Express Dashboard
  * This allows creators to manage their account, bank details, and view detailed reports
  */
-async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyResult> {
+async function getStripeDashboardLink(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -624,7 +629,7 @@ async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyRe
     if (!result.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Stripe Connect not set up' }),
       };
     }
@@ -633,7 +638,7 @@ async function getStripeDashboardLink(userId: string): Promise<APIGatewayProxyRe
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         url: loginLink.url,

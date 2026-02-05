@@ -3,53 +3,104 @@
  * Handles identity verification for creators
  *
  * Pricing:
- * - Verification fee: $14.90 (100% to Smuppy, minus Stripe fees)
- * - Stripe Identity charges ~$1.50 per verification
- * - Net revenue to Smuppy: ~$13.40 per verification
+ * - Verification subscription: $14.90/month (recurring, 100% to Smuppy minus Stripe fees)
+ * - Stripe Identity charges ~$1.50 per verification (first time only)
+ * - If subscription lapses, is_verified is set to false via webhook
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
 
-// Verification fee: $14.90 (1490 cents) - 100% goes to Smuppy
+// Verification subscription: $14.90/month (1490 cents) - 100% goes to Smuppy
 const VERIFICATION_FEE_CENTS = 1490;
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
+// Stripe Price ID — resolved lazily by getOrCreateVerificationPrice()
+let cachedVerificationPriceId: string | null = null;
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-};
+/**
+ * Get or create the Stripe Price for identity verification.
+ * Creates the Product + Price on first call, then caches the ID.
+ */
+async function getVerificationPriceId(): Promise<string> {
+  if (cachedVerificationPriceId) return cachedVerificationPriceId;
+
+  // Check env var first
+  if (process.env.STRIPE_VERIFICATION_PRICE_ID) {
+    cachedVerificationPriceId = process.env.STRIPE_VERIFICATION_PRICE_ID;
+    return cachedVerificationPriceId;
+  }
+
+  const stripe = await getStripe();
+
+  // Search for existing product
+  const products = await stripe.products.search({
+    query: 'metadata["type"]:"smuppy_identity_verification"',
+    limit: 1,
+  });
+
+  let productId: string;
+  if (products.data.length > 0 && products.data[0].active) {
+    productId = products.data[0].id;
+    // Find active price for this product
+    const prices = await stripe.prices.list({
+      product: productId,
+      active: true,
+      type: 'recurring',
+      limit: 1,
+    });
+    if (prices.data.length > 0) {
+      cachedVerificationPriceId = prices.data[0].id;
+      return cachedVerificationPriceId;
+    }
+  } else {
+    // Create product
+    const product = await stripe.products.create({
+      name: 'Smuppy Verified Account',
+      description: 'Monthly identity verification subscription for Smuppy creators',
+      metadata: { type: 'smuppy_identity_verification', platform: 'smuppy' },
+    });
+    productId = product.id;
+  }
+
+  // Create recurring price
+  const price = await stripe.prices.create({
+    product: productId,
+    unit_amount: VERIFICATION_FEE_CENTS,
+    currency: 'usd',
+    recurring: { interval: 'month' },
+    metadata: { type: 'smuppy_identity_verification' },
+  });
+
+  cachedVerificationPriceId = price.id;
+  return cachedVerificationPriceId;
+}
+
+// CORS headers now dynamically created via createHeaders(event)
 
 interface IdentityBody {
-  action: 'create-session' | 'get-status' | 'get-report' | 'create-payment-intent' | 'confirm-payment';
+  action: 'create-session' | 'get-status' | 'get-report' | 'get-config' | 'create-subscription' | 'confirm-subscription' | 'cancel-subscription'
+    // Legacy one-time (kept for backward compat)
+    | 'create-payment-intent' | 'confirm-payment';
   returnUrl?: string;
   paymentIntentId?: string;
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const headers = createHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   try {
@@ -58,31 +109,62 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Unauthorized' }),
       };
     }
 
     const body: IdentityBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
+    // Validate returnUrl if provided — must be smuppy:// deep link or https://smuppy.com
+    if (body.returnUrl && !/^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/.test(body.returnUrl)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid return URL' }) };
+    }
+
     switch (body.action) {
+      case 'create-subscription':
+        return await createVerificationSubscription(stripe, profileId, headers);
+      case 'confirm-subscription':
+        if (!body.returnUrl) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'returnUrl is required' }) };
+        }
+        return await confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl, headers);
+      case 'cancel-subscription':
+        return await cancelVerificationSubscription(stripe, profileId, headers);
+      case 'get-config':
+        return await getVerificationConfig(stripe, headers);
+      // Legacy one-time payment (backward compat)
       case 'create-payment-intent':
-        // Step 1: Create payment intent for verification fee
-        return await createVerificationPaymentIntent(userId);
+        return await createVerificationPaymentIntent(profileId, headers);
       case 'confirm-payment':
-        // Step 2: Confirm payment and proceed to verification
-        return await confirmPaymentAndStartVerification(userId, body.paymentIntentId!, body.returnUrl!);
+        if (!body.paymentIntentId || !body.returnUrl) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'paymentIntentId and returnUrl are required' }) };
+        }
+        return await confirmPaymentAndStartVerification(profileId, body.paymentIntentId, body.returnUrl, headers);
       case 'create-session':
-        // Legacy: Direct session creation (requires prior payment)
-        return await createVerificationSession(userId, body.returnUrl!);
+        if (!body.returnUrl) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'returnUrl is required' }) };
+        }
+        return await createVerificationSession(profileId, body.returnUrl, headers);
       case 'get-status':
-        return await getVerificationStatus(userId);
+        return await getVerificationStatus(profileId, headers);
       case 'get-report':
-        return await getVerificationReport(userId);
+        return await getVerificationReport(profileId, headers);
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
@@ -90,18 +172,236 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('Identity error:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 };
 
+// ============================================
+// SUBSCRIPTION-BASED VERIFICATION
+// ============================================
+
+/**
+ * Create a monthly subscription for verification ($14.90/month).
+ * Returns the clientSecret for the first invoice's PaymentIntent
+ * so the frontend can present PaymentSheet.
+ */
+async function createVerificationSubscription(stripe: Stripe, userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT id, email, full_name, stripe_customer_id, is_verified,
+              verification_subscription_id
+       FROM profiles WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ error: 'User not found' }) };
+    }
+
+    const { email, full_name, stripe_customer_id, is_verified, verification_subscription_id } = result.rows[0];
+
+    if (is_verified) {
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+    }
+
+    // Check existing subscription
+    if (verification_subscription_id) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
+        if (sub.status === 'active' || sub.status === 'trialing') {
+          return { statusCode: 200, headers, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+        }
+        // incomplete — return the pending invoice client secret
+        if (sub.status === 'incomplete' && sub.latest_invoice) {
+          const invoice = await stripe.invoices.retrieve(sub.latest_invoice as string, { expand: ['payment_intent'] });
+          // payment_intent was moved to InvoicePayment in clover API, but expand still populates it at runtime
+          const pi = (invoice as unknown as { payment_intent: Stripe.PaymentIntent | null }).payment_intent;
+          if (pi?.client_secret) {
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({ success: true, clientSecret: pi.client_secret }),
+            };
+          }
+        }
+      } catch {
+        // Subscription invalid, create new one
+      }
+    }
+
+    // Ensure Stripe customer exists
+    let customerId = stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email,
+        name: full_name,
+        metadata: { userId, platform: 'smuppy' },
+      });
+      customerId = customer.id;
+      await client.query('UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2', [customerId, userId]);
+    }
+
+    // Create subscription (payment_behavior: 'default_incomplete' so we get clientSecret)
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: await getVerificationPriceId() }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
+      metadata: { userId, platform: 'smuppy', type: 'identity_verification' },
+    });
+
+    // Save subscription ID
+    await client.query(
+      `UPDATE profiles
+       SET verification_subscription_id = $1,
+           verification_payment_status = 'pending',
+           updated_at = NOW()
+       WHERE id = $2`,
+      [subscription.id, userId]
+    );
+
+    const invoice = subscription.latest_invoice as Stripe.Invoice;
+    // payment_intent was moved to InvoicePayment in clover API, but expand still populates it at runtime
+    const pi = (invoice as unknown as { payment_intent: Stripe.PaymentIntent }).payment_intent;
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        subscriptionId: subscription.id,
+        clientSecret: pi.client_secret,
+      }),
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Confirm that the subscription is active and start the identity verification session.
+ */
+async function confirmSubscriptionAndStartVerification(
+  stripe: Stripe,
+  userId: string,
+  returnUrl: string,
+  headers: Record<string, string>
+): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT verification_subscription_id FROM profiles WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ error: 'User not found' }) };
+    }
+
+    const { verification_subscription_id } = result.rows[0];
+    if (!verification_subscription_id) {
+      return { statusCode: 402, headers, body: JSON.stringify({ error: 'No subscription found' }) };
+    }
+
+    const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
+    if (sub.status !== 'active' && sub.status !== 'trialing') {
+      return {
+        statusCode: 402,
+        headers,
+        body: JSON.stringify({ error: 'Subscription not active', status: sub.status }),
+      };
+    }
+
+    // Subscription is active — update payment status and start identity verification
+    await client.query(
+      `UPDATE profiles SET verification_payment_status = 'paid', verification_payment_date = NOW() WHERE id = $1`,
+      [userId]
+    );
+
+    return await createVerificationSession(userId, returnUrl, headers);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Cancel the verification subscription.
+ * Verification badge will be removed at period end via webhook.
+ */
+async function cancelVerificationSubscription(stripe: Stripe, userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT verification_subscription_id FROM profiles WHERE id = $1',
+      [userId]
+    );
+
+    if (!result.rows[0]?.verification_subscription_id) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'No active subscription' }) };
+    }
+
+    // Cancel at period end so user keeps verified status until billing period expires
+    const sub = await stripe.subscriptions.update(result.rows[0].verification_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        cancelAt: sub.cancel_at,
+        currentPeriodEnd: (sub as unknown as { current_period_end: number }).current_period_end,
+        message: 'Subscription will cancel at end of billing period',
+      }),
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Return the current verification pricing/config so clients don't hardcode amounts.
+ */
+async function getVerificationConfig(stripe: Stripe, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const priceId = await getVerificationPriceId();
+  const price = await stripe.prices.retrieve(priceId);
+
+  const amount = price.unit_amount ?? VERIFICATION_FEE_CENTS;
+  const currency = price.currency ?? 'usd';
+  const interval = price.recurring?.interval ?? 'month';
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      success: true,
+      priceId,
+      amount,
+      currency,
+      interval,
+    }),
+  };
+}
+
+// ============================================
+// LEGACY ONE-TIME PAYMENT (backward compat)
+// ============================================
+
 /**
  * Create a payment intent for the verification fee ($14.90)
  * This must be completed before starting verification
  */
-async function createVerificationPaymentIntent(userId: string): Promise<APIGatewayProxyResult> {
+async function createVerificationPaymentIntent(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get user info
@@ -113,7 +413,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -124,7 +424,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
     if (is_verified) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User is already verified' }),
       };
     }
@@ -136,7 +436,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
       if (paymentIntent.status === 'succeeded') {
         return {
           statusCode: 200,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({
             success: true,
             paymentCompleted: true,
@@ -149,7 +449,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
       if (paymentIntent.status === 'requires_payment_method' || paymentIntent.status === 'requires_confirmation') {
         return {
           statusCode: 200,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({
             success: true,
             paymentIntent: {
@@ -202,7 +502,7 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         paymentIntent: {
@@ -225,9 +525,11 @@ async function createVerificationPaymentIntent(userId: string): Promise<APIGatew
 async function confirmPaymentAndStartVerification(
   userId: string,
   paymentIntentId: string,
-  returnUrl: string
+  returnUrl: string,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify payment intent
@@ -236,7 +538,7 @@ async function confirmPaymentAndStartVerification(
     if (paymentIntent.status !== 'succeeded') {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({
           error: 'Payment not completed',
           paymentStatus: paymentIntent.status,
@@ -248,7 +550,7 @@ async function confirmPaymentAndStartVerification(
     if (paymentIntent.metadata.userId !== userId) {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Payment does not belong to this user' }),
       };
     }
@@ -260,7 +562,7 @@ async function confirmPaymentAndStartVerification(
     );
 
     // Now create the verification session
-    return await createVerificationSession(userId, returnUrl);
+    return await createVerificationSession(userId, returnUrl, headers);
   } finally {
     client.release();
   }
@@ -268,14 +570,16 @@ async function confirmPaymentAndStartVerification(
 
 async function createVerificationSession(
   userId: string,
-  returnUrl: string
+  returnUrl: string,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get user info
     const result = await client.query(
-      `SELECT email, full_name, identity_verification_session_id, verification_payment_status
+      `SELECT email, identity_verification_session_id, verification_payment_status
        FROM profiles WHERE id = $1`,
       [userId]
     );
@@ -283,18 +587,18 @@ async function createVerificationSession(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
 
-    const { email, full_name, identity_verification_session_id, verification_payment_status } = result.rows[0];
+    const { email, identity_verification_session_id, verification_payment_status } = result.rows[0];
 
     // Check if verification fee was paid
     if (verification_payment_status !== 'paid') {
       return {
         statusCode: 402,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({
           error: 'Verification fee not paid',
           message: 'Please pay the $14.90 verification fee first',
@@ -314,7 +618,7 @@ async function createVerificationSession(
           // Session still valid, return existing URL
           return {
             statusCode: 200,
-            headers: corsHeaders,
+            headers,
             body: JSON.stringify({
               success: true,
               sessionId: existingSession.id,
@@ -358,7 +662,7 @@ async function createVerificationSession(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         sessionId: verificationSession.id,
@@ -371,8 +675,9 @@ async function createVerificationSession(
   }
 }
 
-async function getVerificationStatus(userId: string): Promise<APIGatewayProxyResult> {
+async function getVerificationStatus(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -383,7 +688,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -393,7 +698,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
     if (!identity_verification_session_id) {
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({
           success: true,
           hasSession: false,
@@ -417,7 +722,7 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         hasSession: true,
@@ -432,8 +737,9 @@ async function getVerificationStatus(userId: string): Promise<APIGatewayProxyRes
   }
 }
 
-async function getVerificationReport(userId: string): Promise<APIGatewayProxyResult> {
+async function getVerificationReport(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -444,7 +750,7 @@ async function getVerificationReport(userId: string): Promise<APIGatewayProxyRes
     if (!result.rows[0]?.identity_verification_session_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'No verification session found' }),
       };
     }
@@ -457,7 +763,7 @@ async function getVerificationReport(userId: string): Promise<APIGatewayProxyRes
     if (session.status !== 'verified') {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Verification not completed' }),
       };
     }
@@ -465,7 +771,7 @@ async function getVerificationReport(userId: string): Promise<APIGatewayProxyRes
     // Return limited info for privacy
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         verified: true,

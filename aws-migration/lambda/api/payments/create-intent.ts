@@ -21,7 +21,7 @@ let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
@@ -116,7 +116,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
       verifiedAmount = Math.round(parseFloat(packResult.rows[0].price) * 100);
     } else {
-      verifiedAmount = amount;
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'sessionId or packId is required to determine price' }),
+      };
     }
 
     // Validate verified amount (minimum $1.00 = 100 cents, maximum $50,000)
@@ -290,8 +294,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     log.info('Payment intent created', {
       paymentIntentId: paymentIntent.id,
-      buyerId: buyer.id,
-      creatorId,
+      buyerId: buyer.id.substring(0, 8) + '***',
+      creatorId: creatorId.substring(0, 8) + '***',
       amount: verifiedAmount,
       type,
       source,
@@ -355,12 +359,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         publishableKey: await getStripePublishableKey(),
       }),
     };
-  } catch (error) {
+  } catch (error: unknown) {
     log.error('Error creating payment intent', error);
 
     // Handle Stripe-specific errors — don't leak internal details
     if (error instanceof Stripe.errors.StripeError) {
-      log.error('Stripe error', { code: error.code, message: error.message });
+      log.error('Stripe error processing payment');
       return {
         statusCode: 400,
         headers,

@@ -119,7 +119,7 @@ export function useCurrency() {
           return;
         }
       } catch {
-        console.log('API currency detection failed, using locale');
+        if (__DEV__) console.log('API currency detection failed, using locale');
       }
 
       // Fallback to locale detection
@@ -138,7 +138,7 @@ export function useCurrency() {
         isLoading: false,
       }));
     } catch (error) {
-      console.error('Load currency error:', error);
+      if (__DEV__) console.warn('Load currency error:', error);
       setState((prev) => ({ ...prev, isLoading: false }));
     }
   };
@@ -158,7 +158,7 @@ export function useCurrency() {
     try {
       await awsAPI.updateCurrencySettings(code);
     } catch {
-      console.log('Failed to update currency on server');
+      if (__DEV__) console.log('Failed to update currency on server');
     }
   }, []);
 

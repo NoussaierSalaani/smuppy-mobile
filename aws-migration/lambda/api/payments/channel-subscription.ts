@@ -13,33 +13,21 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
+import { checkRateLimit } from '../utils/rate-limit';
+import { createHeaders } from '../utils/cors';
+import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-};
+// CORS headers now dynamically created via createHeaders(event)
 
 /**
  * Calculate Smuppy's fee percentage based on creator's fan count
@@ -78,48 +66,75 @@ interface ChannelSubBody {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const headers = createHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 5 requests per minute per user
+    const rateCheck = await checkRateLimit({ prefix: 'channel-sub', identifier: userId, maxRequests: 5 });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ error: 'Too many requests, please try again later' }),
       };
     }
 
     const body: ChannelSubBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID (userId from JWT is cognito_sub, NOT profile.id)
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Profile not found' }),
+      };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'subscribe':
-        return await subscribeToChannel(userId, body.creatorId!);
+        return await subscribeToChannel(profileId, body.creatorId!, headers);
       case 'cancel':
-        return await cancelChannelSubscription(userId, body.subscriptionId!);
+        return await cancelChannelSubscription(profileId, body.subscriptionId!, headers);
       case 'list-subscriptions':
-        return await listMySubscriptions(userId);
+        return await listMySubscriptions(profileId, headers);
       case 'get-channel-info':
-        return await getChannelInfo(body.creatorId!);
+        return await getChannelInfo(body.creatorId!, headers);
       case 'set-price':
-        return await setChannelPrice(userId, body.pricePerMonth!);
+        return await setChannelPrice(profileId, body.pricePerMonth!, headers);
       case 'get-subscribers':
-        return await getMySubscribers(userId);
+        return await getMySubscribers(profileId, headers);
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Channel subscription error:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
@@ -127,9 +142,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 async function subscribeToChannel(
   fanUserId: string,
-  creatorId: string
+  creatorId: string,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Check if already subscribed
@@ -142,7 +159,7 @@ async function subscribeToChannel(
     if (existingSub.rows.length > 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Already subscribed to this channel' }),
       };
     }
@@ -159,7 +176,7 @@ async function subscribeToChannel(
     if (creatorResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Creator not found or not a Pro account' }),
       };
     }
@@ -169,7 +186,7 @@ async function subscribeToChannel(
     if (!creator.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Creator has not set up payments yet' }),
       };
     }
@@ -177,26 +194,41 @@ async function subscribeToChannel(
     if (!creator.channel_price_cents || creator.channel_price_cents <= 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Creator has not set a channel subscription price' }),
       };
     }
 
     // Get fan (subscriber) info
     const fanResult = await client.query(
-      'SELECT stripe_customer_id, email, full_name FROM profiles WHERE id = $1',
+      'SELECT stripe_customer_id, email, full_name, cognito_sub FROM profiles WHERE id = $1',
       [fanUserId]
     );
 
     if (fanResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
 
     const fan = fanResult.rows[0];
+
+    // If email missing in profiles, fetch from Cognito and sync
+    if (!fan.email && fan.cognito_sub) {
+      const cognitoClient = new CognitoIdentityProviderClient({});
+      const sanitizedSub = fan.cognito_sub.replace(/["\\]/g, '');
+      const cognitoResult = await cognitoClient.send(new ListUsersCommand({
+        UserPoolId: process.env.USER_POOL_ID,
+        Filter: `sub = "${sanitizedSub}"`,
+        Limit: 1,
+      }));
+      fan.email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
+      if (fan.email) {
+        await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
+      }
+    }
 
     // Create or get Stripe customer
     let customerId = fan.stripe_customer_id;
@@ -260,7 +292,7 @@ async function subscribeToChannel(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         checkoutUrl: session.url,
@@ -334,9 +366,11 @@ async function getOrCreateChannelPrice(
 
 async function cancelChannelSubscription(
   userId: string,
-  subscriptionId: string
+  subscriptionId: string,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify ownership
@@ -349,7 +383,7 @@ async function cancelChannelSubscription(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Subscription not found' }),
       };
     }
@@ -370,7 +404,7 @@ async function cancelChannelSubscription(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         message: 'Subscription will be canceled at end of billing period',
@@ -382,24 +416,28 @@ async function cancelChannelSubscription(
   }
 }
 
-async function listMySubscriptions(userId: string): Promise<APIGatewayProxyResult> {
+async function listMySubscriptions(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT cs.*, p.username, p.full_name, p.avatar_url, p.is_verified
+      `SELECT cs.id, cs.creator_id, cs.status, cs.price_cents,
+              cs.current_period_start, cs.current_period_end, cs.cancel_at,
+              p.username, p.full_name, p.avatar_url, p.is_verified
        FROM channel_subscriptions cs
        JOIN profiles p ON cs.creator_id = p.id
        WHERE cs.fan_id = $1 AND cs.status IN ('active', 'canceling')
-       ORDER BY cs.created_at DESC`,
+       ORDER BY cs.created_at DESC
+       LIMIT 50`,
       [userId]
     );
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
-        subscriptions: result.rows.map(row => ({
+        subscriptions: result.rows.map((row: Record<string, unknown>) => ({
           id: row.id,
           creatorId: row.creator_id,
           creator: {
@@ -421,7 +459,8 @@ async function listMySubscriptions(userId: string): Promise<APIGatewayProxyResul
   }
 }
 
-async function getChannelInfo(creatorId: string): Promise<APIGatewayProxyResult> {
+async function getChannelInfo(creatorId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
@@ -437,7 +476,7 @@ async function getChannelInfo(creatorId: string): Promise<APIGatewayProxyResult>
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Creator not found' }),
       };
     }
@@ -447,7 +486,7 @@ async function getChannelInfo(creatorId: string): Promise<APIGatewayProxyResult>
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         channel: {
@@ -471,8 +510,10 @@ async function getChannelInfo(creatorId: string): Promise<APIGatewayProxyResult>
 
 async function setChannelPrice(
   userId: string,
-  pricePerMonth: number
+  pricePerMonth: number,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify user is a pro account
@@ -484,7 +525,7 @@ async function setChannelPrice(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'User not found' }),
       };
     }
@@ -492,7 +533,7 @@ async function setChannelPrice(
     if (!['pro_creator', 'pro_business'].includes(result.rows[0].account_type)) {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Only Pro accounts can set channel prices' }),
       };
     }
@@ -501,7 +542,7 @@ async function setChannelPrice(
     if (pricePerMonth < 100 || pricePerMonth > 99900) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Price must be between $1 and $999 per month' }),
       };
     }
@@ -513,7 +554,7 @@ async function setChannelPrice(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         pricePerMonth,
@@ -524,15 +565,18 @@ async function setChannelPrice(
   }
 }
 
-async function getMySubscribers(userId: string): Promise<APIGatewayProxyResult> {
+async function getMySubscribers(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT cs.*, p.username, p.full_name, p.avatar_url
+      `SELECT cs.id, cs.fan_id, cs.status, cs.price_cents, cs.created_at,
+              p.username, p.full_name, p.avatar_url
        FROM channel_subscriptions cs
        JOIN profiles p ON cs.fan_id = p.id
        WHERE cs.creator_id = $1 AND cs.status IN ('active', 'canceling')
-       ORDER BY cs.created_at DESC`,
+       ORDER BY cs.created_at DESC
+       LIMIT 50`,
       [userId]
     );
 
@@ -550,11 +594,11 @@ async function getMySubscribers(userId: string): Promise<APIGatewayProxyResult> 
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         subscriberCount: result.rows.length,
-        subscribers: result.rows.map(row => ({
+        subscribers: result.rows.map((row: Record<string, unknown>) => ({
           id: row.id,
           fanId: row.fan_id,
           fan: {

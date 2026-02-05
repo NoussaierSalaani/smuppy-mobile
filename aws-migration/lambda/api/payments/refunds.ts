@@ -12,7 +12,8 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool, SqlParam } from '../../shared/db';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent, corsHeaders } from '../utils/auth';
+import { getUserFromEvent } from '../utils/auth';
+import { createHeaders } from '../utils/cors';
 
 const log = createLogger('payments/refunds');
 
@@ -20,7 +21,7 @@ let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
@@ -36,7 +37,7 @@ type RefundReason =
   | 'other';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const headers = corsHeaders(event);
+  const headers = createHeaders(event);
 
   // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
@@ -44,7 +45,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const user = await getUserFromEvent(event);
     if (!user) {
       return {
@@ -78,7 +79,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error) {
+  } catch (error: unknown) {
     log.error('Refunds error', error);
     return {
       statusCode: 500,
@@ -93,7 +94,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
  */
 async function listRefunds(
   db: Pool,
-  user: { sub: string },
+  user: { id: string },
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
@@ -102,7 +103,7 @@ async function listRefunds(
   // Check if user is admin
   const adminCheck = await db.query(
     'SELECT account_type FROM profiles WHERE id = $1',
-    [user.sub]
+    [user.id]
   );
   const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
 
@@ -126,7 +127,7 @@ async function listRefunds(
   // Non-admins can only see their own refunds
   if (!isAdmin) {
     query += ` AND (p.buyer_id = $${paramIndex} OR p.creator_id = $${paramIndex})`;
-    params.push(user.sub);
+    params.push(user.id);
     paramIndex++;
   }
 
@@ -150,7 +151,7 @@ async function listRefunds(
         id: r.id,
         paymentId: r.payment_id,
         stripeRefundId: r.stripe_refund_id,
-        amount: r.amount_cents / 100,
+        amount: (r.amount_cents as number) / 100,
         reason: r.reason,
         status: r.status,
         notes: r.notes,
@@ -175,7 +176,7 @@ async function listRefunds(
  */
 async function getRefund(
   db: Pool,
-  user: { sub: string },
+  user: { id: string },
   refundId: string,
   headers: Record<string, string>
 ) {
@@ -211,11 +212,11 @@ async function getRefund(
   // Check authorization
   const adminCheck = await db.query(
     'SELECT account_type FROM profiles WHERE id = $1',
-    [user.sub]
+    [user.id]
   );
   const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
 
-  if (!isAdmin && refund.buyer_id !== user.sub && refund.creator_id !== user.sub) {
+  if (!isAdmin && refund.buyer_id !== user.id && refund.creator_id !== user.id) {
     return {
       statusCode: 403,
       headers,
@@ -228,8 +229,8 @@ async function getRefund(
   if (refund.stripe_refund_id) {
     try {
       stripeDetails = await stripe.refunds.retrieve(refund.stripe_refund_id);
-    } catch (e) {
-      log.warn('Failed to fetch Stripe refund details', e);
+    } catch (e: unknown) {
+      log.warn('Failed to fetch Stripe refund details', { error: String(e) });
     }
   }
 
@@ -274,7 +275,7 @@ async function getRefund(
  */
 async function createRefund(
   db: Pool,
-  user: { sub: string },
+  user: { id: string },
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
@@ -322,11 +323,11 @@ async function createRefund(
   // Check authorization - only admin, buyer, or creator can request refund
   const adminCheck = await db.query(
     'SELECT account_type FROM profiles WHERE id = $1',
-    [user.sub]
+    [user.id]
   );
   const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
 
-  if (!isAdmin && payment.buyer_id !== user.sub && payment.creator_id !== user.sub) {
+  if (!isAdmin && payment.buyer_id !== user.id && payment.creator_id !== user.id) {
     return {
       statusCode: 403,
       headers,
@@ -391,7 +392,7 @@ async function createRefund(
       metadata: {
         paymentId,
         reason,
-        requestedBy: user.sub,
+        requestedBy: user.id,
         platform: 'smuppy',
       },
       // If using Connect, reverse the transfer too
@@ -413,7 +414,7 @@ async function createRefund(
         reason,
         notes || null,
         stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
-        user.sub,
+        user.id,
       ]
     );
 
@@ -426,7 +427,7 @@ async function createRefund(
     );
 
     // Create notification for affected user
-    const notifyUserId = user.sub === payment.buyer_id ? payment.creator_id : payment.buyer_id;
+    const notifyUserId = user.id === payment.buyer_id ? payment.creator_id : payment.buyer_id;
     await db.query(
       `INSERT INTO notifications (user_id, type, title, body, data)
        VALUES ($1, 'refund_processed', 'Refund Processed', $2, $3)`,
@@ -465,7 +466,7 @@ async function createRefund(
       `INSERT INTO refunds (
         payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
       ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
-      [paymentId, refundAmountCents, reason, notes || null, user.sub, error.message]
+      [paymentId, refundAmountCents, reason, notes || null, user.id, 'Refund processing failed']
     );
 
     return {

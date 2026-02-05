@@ -11,9 +11,10 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
-import { Pool } from 'pg';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
+import { getPool } from '../../shared/db';
 
 const log = createLogger('tips-send');
 import { getStripeKey } from '../../shared/secrets';
@@ -22,15 +23,10 @@ let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2023-10-16' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 interface SendTipRequest {
   receiverId: string;
@@ -54,9 +50,11 @@ const PLATFORM_FEE_PERCENT = 20;
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
-  const client = await pool.connect();
+  const db = await getPool();
+  const client = await db.connect();
 
   try {
+    await client.query('BEGIN');
     const stripe = await getStripe();
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
@@ -66,6 +64,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
     }
+
+    // Resolve cognito_sub to profile ID
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
 
     // Rate limit check
     const now = Date.now();
@@ -104,6 +115,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    if (!isValidUUID(receiverId) || (contextId && !isValidUUID(contextId))) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
+      });
+    }
+
     if (!['profile', 'live', 'peak', 'battle'].includes(contextType)) {
       return cors({
         statusCode: 400,
@@ -115,7 +133,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Can't tip yourself
-    if (receiverId === userId) {
+    if (receiverId === profileId) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
@@ -129,7 +147,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const senderResult = await client.query(
       `SELECT id, username, display_name, stripe_customer_id
        FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     if (senderResult.rows.length === 0) {
@@ -201,13 +219,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let customerId = sender.stripe_customer_id;
     if (!customerId) {
       const customer = await stripe.customers.create({
-        metadata: { smuppy_user_id: userId },
+        metadata: { smuppy_user_id: profileId },
       });
       customerId = customer.id;
 
       await client.query(
         'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-        [customerId, userId]
+        [customerId, profileId]
       );
     }
 
@@ -220,7 +238,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
       RETURNING id`,
       [
-        userId,
+        profileId,
         receiverId,
         amountDecimal,
         currency.toUpperCase(),
@@ -244,7 +262,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       metadata: {
         type: 'tip',
         tip_id: tipId,
-        sender_id: userId,
+        sender_id: profileId,
         receiver_id: receiverId,
         context_type: contextType,
         context_id: contextId || '',
@@ -254,11 +272,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // If creator has Stripe Connect, set up transfer
     if (receiver.stripe_account_id) {
-      const creatorAmountCents = Math.round(creatorAmount * 100);
-      paymentIntentParams.transfer_data = {
-        destination: receiver.stripe_account_id,
-        amount: creatorAmountCents,
-      };
+      try {
+        // Verify the connected account exists under the current Stripe key
+        await stripe.accounts.retrieve(receiver.stripe_account_id);
+        const creatorAmountCents = Math.round(creatorAmount * 100);
+        paymentIntentParams.transfer_data = {
+          destination: receiver.stripe_account_id,
+          amount: creatorAmountCents,
+        };
+      } catch (_accountError) {
+        // Connected account not found under current key — skip transfer, log warning
+        log.error('Stripe connected account not reachable, skipping transfer_data', {
+          accountId: receiver.stripe_account_id,
+          receiverId,
+        });
+      }
     }
 
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
@@ -268,6 +296,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `UPDATE tips SET stripe_payment_intent_id = $1 WHERE id = $2`,
       [paymentIntent.id, tipId]
     );
+
+    await client.query('COMMIT');
 
     return cors({
       statusCode: 200,
@@ -288,6 +318,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     });
   } catch (error: unknown) {
+    await client.query('ROLLBACK');
     log.error('Send tip error', error);
     return cors({
       statusCode: 500,

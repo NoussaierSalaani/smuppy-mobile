@@ -3,30 +3,26 @@
  * Premium verification flow with payment
  * Inspired by Stripe Identity, Airbnb verification
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
-// TODO: Fetch from backend config API so price changes don't require app update
-const VERIFICATION_FEE = '$14.90';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useStripe } from '@stripe/stripe-react-native';
-import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
-
-const { width: _SCREEN_WIDTH } = Dimensions.get('window');
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 type VerificationStatus = 'not_started' | 'requires_input' | 'processing' | 'verified' | 'payment_required';
 
@@ -37,10 +33,10 @@ interface StatusInfo {
   subtitle: string;
 }
 
-const STATUS_INFO: Record<VerificationStatus, StatusInfo> = {
+const getStatusInfo = (colors: ThemeColors): Record<VerificationStatus, StatusInfo> => ({
   not_started: {
     icon: 'shield-outline',
-    color: COLORS.gray400,
+    color: colors.gray,
     title: 'Not Verified',
     subtitle: 'Complete verification to get your badge',
   },
@@ -68,14 +64,9 @@ const STATUS_INFO: Record<VerificationStatus, StatusInfo> = {
     title: 'Verified',
     subtitle: 'Your identity has been verified',
   },
-};
+});
 
-const VERIFICATION_STEPS = [
-  {
-    icon: 'card',
-    title: 'Pay verification fee',
-    subtitle: `One-time ${VERIFICATION_FEE} fee`,
-  },
+const STATIC_VERIFICATION_STEPS = [
   {
     icon: 'camera',
     title: 'Take a selfie',
@@ -102,41 +93,96 @@ const BENEFITS = [
 ];
 
 export default function IdentityVerificationScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<VerificationStatus>('not_started');
-  const [_paymentReady, setPaymentReady] = useState(false);
+  const [pricing, setPricing] = useState<{ amount: number; currency: string; interval: string } | null>(null);
+  const { showError, showAlert } = useSmuppyAlert();
+
+  const formatPrice = useCallback((amountCents: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: (currency || 'usd').toUpperCase(),
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amountCents / 100);
+    } catch {
+      return `$${(amountCents / 100).toFixed(2)}`;
+    }
+  }, []);
+
+  const priceAmountText = pricing ? formatPrice(pricing.amount, pricing.currency) : '—';
+  const priceIntervalText = pricing?.interval ? `/${pricing.interval}` : '';
+  const priceLabel = pricing
+    ? `${priceAmountText}${priceIntervalText}`
+    : loading
+      ? 'Loading price...'
+      : 'Price unavailable';
+  const intervalReadable = pricing?.interval || 'billing period';
+  const ctaPriceText = pricing ? `${priceAmountText}${priceIntervalText}` : null;
+  const ctaLabel = status === 'requires_input'
+    ? 'Continue Verification'
+    : ctaPriceText
+      ? `Get Verified — ${ctaPriceText}`
+      : 'Get Verified';
+
+  const STATUS_INFO = useMemo(() => getStatusInfo(colors), [colors]);
+  const steps = useMemo(
+    () => [
+      {
+        icon: 'card',
+        title: 'Subscribe to verification',
+        subtitle: priceLabel,
+      },
+      ...STATIC_VERIFICATION_STEPS,
+    ],
+    [priceLabel],
+  );
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchStatus = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await awsAPI.request<{
-        success: boolean;
-        isVerified?: boolean;
-        status?: string;
-        hasSession?: boolean;
-      }>('/payments/identity', {
-        method: 'POST',
-        body: { action: 'get-status' },
-      });
+      const [statusResponse, configResponse] = await Promise.all([
+        awsAPI.request<{
+          success: boolean;
+          isVerified?: boolean;
+          status?: string;
+          hasSession?: boolean;
+        }>('/payments/identity', {
+          method: 'POST',
+          body: { action: 'get-status' },
+        }),
+        awsAPI.getVerificationConfig().catch(() => null),
+      ]);
 
-      if (response.success) {
-        if (response.isVerified) {
+      if (configResponse?.success) {
+        setPricing({
+          amount: configResponse.amount ?? 0,
+          currency: configResponse.currency ?? 'usd',
+          interval: configResponse.interval ?? 'month',
+        });
+      }
+
+      if (statusResponse.success) {
+        if (statusResponse.isVerified) {
           setStatus('verified');
-        } else if (response.status === 'requires_input') {
+        } else if (statusResponse.status === 'requires_input') {
           setStatus('requires_input');
-        } else if (response.status === 'processing') {
+        } else if (statusResponse.status === 'processing') {
           setStatus('processing');
-        } else if (!response.hasSession) {
+        } else if (!statusResponse.hasSession) {
           // Check if payment was made
           setStatus('not_started');
         }
       }
-    } catch (error) {
-      console.error('Failed to fetch status:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Failed to fetch status:', error);
     } finally {
       setLoading(false);
     }
@@ -149,66 +195,44 @@ export default function IdentityVerificationScreen() {
   const initializePayment = async () => {
     setProcessing(true);
     try {
-      // Create payment intent
+      // Create subscription
       const response = await awsAPI.request<{
         success: boolean;
-        paymentCompleted?: boolean;
-        paymentIntent?: { clientSecret: string };
+        subscriptionActive?: boolean;
+        checkoutUrl?: string;
         error?: string;
       }>('/payments/identity', {
         method: 'POST',
-        body: { action: 'create-payment-intent' },
+        body: { action: 'create-subscription' },
       });
 
-      if (response.success && response.paymentCompleted) {
-        // Payment already done, proceed to verification
+      if (response.success && response.subscriptionActive) {
+        // Already subscribed, proceed to verification
         await startVerification();
         return;
       }
 
-      if (response.success && response.paymentIntent) {
-        // Initialize payment sheet
-        const { error } = await initPaymentSheet({
-          paymentIntentClientSecret: response.paymentIntent.clientSecret,
-          merchantDisplayName: 'Smuppy',
-          style: 'automatic',
-          returnURL: 'smuppy://verification-complete',
+      if (response.success && response.checkoutUrl) {
+        // Open Stripe Checkout
+        const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+        
+        if (result.type === 'cancel') {
+          setProcessing(false);
+          return;
+        }
+
+        // Subscription activated, start verification
+        showAlert({
+          title: 'Subscription Active',
+          message: 'Now let\'s verify your identity',
+          type: 'success',
+          buttons: [{ text: 'Continue', onPress: startVerification }],
         });
-
-        if (error) {
-          Alert.alert('Error', error.message);
-        } else {
-          setPaymentReady(true);
-          // Present payment sheet
-          await handlePayment();
-        }
       } else {
-        Alert.alert('Error', response.error || 'Failed to initialize payment');
+        showError('Error', 'Failed to initialize subscription. Please try again.');
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handlePayment = async () => {
-    setProcessing(true);
-    try {
-      const { error } = await presentPaymentSheet();
-
-      if (error) {
-        if (error.code !== 'Canceled') {
-          Alert.alert('Payment Failed', error.message);
-        }
-      } else {
-        // Payment successful, start verification
-        Alert.alert('Payment Successful', 'Now let\'s verify your identity', [
-          { text: 'Continue', onPress: startVerification },
-        ]);
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Payment failed');
+    } catch (_error: unknown) {
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -220,7 +244,7 @@ export default function IdentityVerificationScreen() {
       const response = await awsAPI.request<{ success: boolean; url?: string; error?: string }>('/payments/identity', {
         method: 'POST',
         body: {
-          action: 'confirm-payment',
+          action: 'confirm-subscription',
           returnUrl: 'smuppy://verification-complete',
         },
       });
@@ -251,11 +275,12 @@ export default function IdentityVerificationScreen() {
             navigation.navigate('WebView', { url: sessionResponse.url, title: 'Verify Identity' });
           }
         } else {
-          Alert.alert('Error', sessionResponse.error || 'Failed to start verification');
+          showError('Error', sessionResponse.error || 'Failed to start verification');
         }
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Something went wrong';
+      showError('Error', message);
     } finally {
       setProcessing(false);
     }
@@ -266,7 +291,7 @@ export default function IdentityVerificationScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -294,7 +319,7 @@ export default function IdentityVerificationScreen() {
           {/* Status Badge */}
           <View style={styles.statusContainer}>
             <View style={[styles.statusIcon, { backgroundColor: `${statusInfo.color}20` }]}>
-              <Ionicons name={statusInfo.icon as any} size={48} color="white" />
+              <Ionicons name={statusInfo.icon as keyof typeof Ionicons.glyphMap} size={48} color="white" />
             </View>
             <Text style={styles.statusTitle}>{statusInfo.title}</Text>
             <Text style={styles.statusSubtitle}>{statusInfo.subtitle}</Text>
@@ -313,17 +338,17 @@ export default function IdentityVerificationScreen() {
             {/* Price Card */}
             <View style={styles.priceCard}>
               <View style={styles.priceHeader}>
-                <Text style={styles.priceLabel}>Verification Fee</Text>
+                <Text style={styles.priceLabel}>Verified Account</Text>
                 <View style={styles.priceTag}>
-                  <Text style={styles.priceAmount}>{VERIFICATION_FEE}</Text>
-                  <Text style={styles.priceOnce}>one-time</Text>
+                  <Text style={styles.priceAmount}>{priceAmountText}</Text>
+                  <Text style={styles.priceOnce}>{priceIntervalText}</Text>
                 </View>
               </View>
               <View style={styles.priceDivider} />
               <View style={styles.priceInfo}>
-                <Ionicons name="information-circle" size={18} color={COLORS.gray500} />
+                <Ionicons name="information-circle" size={18} color={colors.gray} />
                 <Text style={styles.priceInfoText}>
-                  This is a one-time fee. You won't be charged again.
+                  Subscription billed every {intervalReadable}. Cancel anytime from your profile settings.
                 </Text>
               </View>
             </View>
@@ -331,7 +356,7 @@ export default function IdentityVerificationScreen() {
             {/* Steps */}
             <View style={styles.stepsSection}>
               <Text style={styles.sectionTitle}>How it works</Text>
-              {VERIFICATION_STEPS.map((step, index) => (
+              {steps.map((step, index) => (
                 <View key={index} style={styles.stepItem}>
                   <View style={styles.stepNumber}>
                     <Text style={styles.stepNumberText}>{index + 1}</Text>
@@ -340,13 +365,13 @@ export default function IdentityVerificationScreen() {
                     colors={GRADIENTS.primary}
                     style={styles.stepIcon}
                   >
-                    <Ionicons name={step.icon as any} size={20} color="white" />
+                    <Ionicons name={step.icon as keyof typeof Ionicons.glyphMap} size={20} color="white" />
                   </LinearGradient>
                   <View style={styles.stepContent}>
                     <Text style={styles.stepTitle}>{step.title}</Text>
                     <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
                   </View>
-                  {index < VERIFICATION_STEPS.length - 1 && (
+                  {index < steps.length - 1 && (
                     <View style={styles.stepLine} />
                   )}
                 </View>
@@ -358,7 +383,7 @@ export default function IdentityVerificationScreen() {
               <Text style={styles.sectionTitle}>Why get verified?</Text>
               {BENEFITS.map((benefit, index) => (
                 <View key={index} style={styles.benefitItem}>
-                  <Ionicons name={benefit.icon as any} size={22} color={COLORS.primary} />
+                  <Ionicons name={benefit.icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.primary} />
                   <Text style={styles.benefitText}>{benefit.text}</Text>
                 </View>
               ))}
@@ -369,7 +394,7 @@ export default function IdentityVerificationScreen() {
         {status === 'verified' && (
           <View style={styles.verifiedSection}>
             <View style={styles.verifiedCard}>
-              <Ionicons name="ribbon" size={48} color={COLORS.primary} />
+              <Ionicons name="ribbon" size={48} color={colors.primary} />
               <Text style={styles.verifiedCardTitle}>Congratulations!</Text>
               <Text style={styles.verifiedCardText}>
                 Your identity has been verified. The verified badge is now visible on your profile.
@@ -404,7 +429,7 @@ export default function IdentityVerificationScreen() {
                     color="white"
                   />
                   <Text style={styles.ctaText}>
-                    {status === 'requires_input' ? 'Continue Verification' : `Get Verified for ${VERIFICATION_FEE}`}
+                    {ctaLabel}
                   </Text>
                 </>
               )}
@@ -412,7 +437,7 @@ export default function IdentityVerificationScreen() {
           </TouchableOpacity>
 
           <View style={styles.securityNote}>
-            <Ionicons name="lock-closed" size={14} color={COLORS.gray500} />
+            <Ionicons name="lock-closed" size={14} color={colors.gray} />
             <Text style={styles.securityText}>
               Powered by Stripe Identity • Your data is secure
             </Text>
@@ -423,16 +448,16 @@ export default function IdentityVerificationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -495,7 +520,7 @@ const styles = StyleSheet.create({
   priceCard: {
     marginHorizontal: 16,
     marginTop: -20,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     ...SHADOWS.cardMedium,
@@ -508,7 +533,7 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   priceTag: {
     alignItems: 'flex-end',
@@ -516,16 +541,16 @@ const styles = StyleSheet.create({
   priceAmount: {
     fontSize: 32,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   priceOnce: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: -4,
   },
   priceDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? colors.border : '#F1F5F9',
     marginVertical: 16,
   },
   priceInfo: {
@@ -536,7 +561,7 @@ const styles = StyleSheet.create({
   priceInfoText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
   stepsSection: {
     marginTop: 32,
@@ -545,7 +570,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 20,
   },
   stepItem: {
@@ -558,7 +583,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -566,7 +591,7 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   stepIcon: {
     width: 44,
@@ -583,11 +608,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   stepSubtitle: {
     fontSize: 13,
-    color: COLORS.gray500,
+    color: colors.gray,
     marginTop: 2,
   },
   stepLine: {
@@ -596,7 +621,7 @@ const styles = StyleSheet.create({
     top: 32,
     width: 2,
     height: 30,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
   benefitsSection: {
     marginTop: 32,
@@ -605,7 +630,7 @@ const styles = StyleSheet.create({
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     padding: 16,
     borderRadius: 14,
     marginBottom: 10,
@@ -615,14 +640,14 @@ const styles = StyleSheet.create({
   benefitText: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   verifiedSection: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   verifiedCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
@@ -631,12 +656,12 @@ const styles = StyleSheet.create({
   verifiedCardTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 16,
   },
   verifiedCardText: {
     fontSize: 15,
-    color: COLORS.gray500,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 22,
@@ -644,9 +669,9 @@ const styles = StyleSheet.create({
   bottomContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: isDark ? colors.border : '#F1F5F9',
   },
   ctaButton: {
     borderRadius: 16,
@@ -674,6 +699,6 @@ const styles = StyleSheet.create({
   },
   securityText: {
     fontSize: 12,
-    color: COLORS.gray500,
+    color: colors.gray,
   },
 });

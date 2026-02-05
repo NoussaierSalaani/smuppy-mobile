@@ -123,7 +123,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     // Get buyer info for transactions
-    const buyerIds = [...new Set(transactions.rows.map(t => t.buyer_id))];
+    const buyerIds = [...new Set(transactions.rows.map((t: Record<string, unknown>) => t.buyer_id))];
     let buyersMap: Record<string, { name: string; avatar: string }> = {};
 
     if (buyerIds.length > 0) {
@@ -131,8 +131,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         `SELECT id, full_name, avatar_url FROM profiles WHERE id = ANY($1)`,
         [buyerIds]
       );
-      buyersMap = buyersResult.rows.reduce((acc, row) => {
-        acc[row.id] = { name: row.full_name, avatar: row.avatar_url };
+      buyersMap = buyersResult.rows.reduce((acc: Record<string, { name: string; avatar: string }>, row: Record<string, unknown>) => {
+        acc[row.id as string] = { name: row.full_name as string, avatar: row.avatar_url as string };
         return acc;
       }, {} as Record<string, { name: string; avatar: string }>);
     }
@@ -170,14 +170,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               total: subscriptionsTotal,
             },
           },
-          transactions: transactions.rows.map(t => ({
+          transactions: transactions.rows.map((t: Record<string, unknown>) => ({
             id: t.id,
             type: t.type,
-            amount: parseFloat(t.amount),
+            amount: parseFloat(t.amount as string),
             currency: t.currency,
             status: t.status,
             description: t.description,
-            buyer: buyersMap[t.buyer_id] || null,
+            buyer: buyersMap[t.buyer_id as string] || null,
             createdAt: t.created_at,
           })),
         },

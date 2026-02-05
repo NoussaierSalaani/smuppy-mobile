@@ -5,26 +5,19 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('payments-subscriptions');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
   if (!stripeInstance) {
     const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2024-12-18.acacia' });
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
   }
   return stripeInstance;
 }
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-  max: 1,
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
@@ -46,7 +39,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    const stripe = await getStripe();
+    await getStripe();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -58,13 +51,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body: SubscriptionBody = JSON.parse(event.body || '{}');
 
+    // Resolve cognito_sub → profile ID
+    const pool = await getPool();
+    const profileLookup = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     switch (body.action) {
       case 'create':
-        return await createSubscription(userId, body.creatorId!, body.priceId!);
+        return await createSubscription(profileId, body.creatorId!, body.priceId!);
       case 'cancel':
-        return await cancelSubscription(userId, body.subscriptionId!);
+        return await cancelSubscription(profileId, body.subscriptionId!);
       case 'list':
-        return await listSubscriptions(userId);
+        return await listSubscriptions(profileId);
       case 'get-prices':
         return await getCreatorPrices(body.creatorId!);
       default:
@@ -74,8 +78,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
-  } catch (error) {
-    console.error('Subscription error:', error);
+  } catch (error: unknown) {
+    log.error('Subscription error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
@@ -90,6 +94,7 @@ async function createSubscription(
   priceId: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get subscriber's Stripe customer ID
@@ -177,7 +182,7 @@ async function createSubscription(
         subscription: {
           id: subscription.id,
           status: subscription.status,
-          currentPeriodEnd: subscription.current_period_end,
+          currentPeriodEnd: (subscription as unknown as { current_period_end: number }).current_period_end,
         },
       }),
     };
@@ -191,6 +196,7 @@ async function cancelSubscription(
   subscriptionId: string
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify ownership
@@ -234,14 +240,18 @@ async function cancelSubscription(
 }
 
 async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT s.*, p.username, p.full_name, p.avatar_url
+      `SELECT s.id, s.subscriber_id, s.creator_id, s.stripe_subscription_id,
+              s.stripe_price_id, s.status, s.created_at,
+              p.username, p.full_name, p.avatar_url
        FROM subscriptions s
        JOIN profiles p ON s.creator_id = p.id
        WHERE s.subscriber_id = $1 AND s.status IN ('active', 'canceling')
-       ORDER BY s.created_at DESC`,
+       ORDER BY s.created_at DESC
+       LIMIT 50`,
       [userId]
     );
 
@@ -250,7 +260,18 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        subscriptions: result.rows,
+        subscriptions: result.rows.map((row: Record<string, unknown>) => ({
+          id: row.id,
+          subscriberId: row.subscriber_id,
+          creatorId: row.creator_id,
+          status: row.status,
+          createdAt: row.created_at,
+          creator: {
+            username: row.username,
+            fullName: row.full_name,
+            avatarUrl: row.avatar_url,
+          },
+        })),
       }),
     };
   } finally {
@@ -259,6 +280,7 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
 }
 
 async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResult> {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     // Get creator's subscription tiers

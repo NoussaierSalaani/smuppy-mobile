@@ -4,31 +4,39 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
-import { SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('tips-history');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getReaderPool();
   const client = await pool.connect();
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+    if (!cognitoSub) {
       return cors({
         statusCode: 401,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
     }
+
+    // Resolve cognito_sub to profile.id
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [cognitoSub]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
 
     const type = event.queryStringParameters?.type || 'received'; // 'sent' or 'received'
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
@@ -62,8 +70,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $2 OFFSET $3
       `;
       params = contextType
-        ? [userId, limit, offset, contextType]
-        : [userId, limit, offset];
+        ? [profileId, limit, offset, contextType]
+        : [profileId, limit, offset];
     } else {
       query = `
         SELECT
@@ -91,8 +99,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $2 OFFSET $3
       `;
       params = contextType
-        ? [userId, limit, offset, contextType]
-        : [userId, limit, offset];
+        ? [profileId, limit, offset, contextType]
+        : [profileId, limit, offset];
     }
 
     const result = await client.query(query, params);
@@ -108,14 +116,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         ), 0) as month_amount
       FROM tips
       WHERE ${type === 'sent' ? 'sender_id' : 'receiver_id'} = $1`,
-      [userId]
+      [profileId]
     );
 
-    const tips = result.rows.map((row) => ({
+    const tips = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
-      amount: parseFloat(row.amount),
+      amount: parseFloat(row.amount as string),
       currency: row.currency,
-      creatorAmount: row.creator_amount ? parseFloat(row.creator_amount) : undefined,
+      creatorAmount: row.creator_amount ? parseFloat(row.creator_amount as string) : undefined,
       contextType: row.context_type,
       contextId: row.context_id,
       message: row.message,

@@ -7,6 +7,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { isValidUUID } from '../utils/security';
 
 interface CreatePackBody {
   name: string;
@@ -40,10 +41,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const packId = event.pathParameters?.id;
 
   try {
+    // Resolve cognito_sub to profile ID
+    const profileResult = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      };
+    }
+    const profileId = profileResult.rows[0].id;
+
+    if (packId && !isValidUUID(packId)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
+      };
+    }
+
     // Verify user is a pro_creator
     const userResult = await pool.query(
       `SELECT account_type FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     if (userResult.rows.length === 0 || userResult.rows[0].account_type !== 'pro_creator') {
@@ -89,8 +112,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           creator_id, name, description, sessions_included, session_duration,
           validity_days, price, savings_percent, is_active
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-        RETURNING *`,
-        [userId, name, description || null, sessionsIncluded, sessionDuration, validityDays, price, savingsPercent || 0]
+        RETURNING id, name, description, sessions_included, session_duration, validity_days, price, savings_percent, is_active`,
+        [profileId, name, description || null, sessionsIncluded, sessionDuration, validityDays, price, savingsPercent || 0]
       );
 
       const pack = result.rows[0];
@@ -120,7 +143,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // Verify ownership
       const ownerCheck = await pool.query(
         `SELECT id FROM session_packs WHERE id = $1 AND creator_id = $2`,
-        [packId, userId]
+        [packId, profileId]
       );
 
       if (ownerCheck.rows.length === 0) {
@@ -180,7 +203,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       values.push(packId);
       const result = await pool.query(
         `UPDATE session_packs SET ${updates.join(', ')}, updated_at = NOW()
-         WHERE id = $${paramIndex} RETURNING *`,
+         WHERE id = $${paramIndex} RETURNING id, name, description, sessions_included, session_duration, validity_days, price, savings_percent, is_active`,
         values
       );
 
@@ -211,7 +234,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // Verify ownership
       const ownerCheck = await pool.query(
         `SELECT id FROM session_packs WHERE id = $1 AND creator_id = $2`,
-        [packId, userId]
+        [packId, profileId]
       );
 
       if (ownerCheck.rows.length === 0) {

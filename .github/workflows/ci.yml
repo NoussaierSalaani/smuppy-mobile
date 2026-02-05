@@ -148,7 +148,7 @@ jobs:
           chmod +x gitleaks
 
       - name: Scan for secrets
-        run: ./gitleaks detect --source . --verbose --no-git
+        run: ./gitleaks detect --source . --verbose --no-git --config .gitleaks.toml
 
       - name: Check for hardcoded secrets in code
         run: |
@@ -228,8 +228,9 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
+          cd ../websocket && npm ci
           # Symlink node_modules at lambda/ level so shared/ imports can resolve deps
-          cd .. && ln -s api/node_modules node_modules
+          cd .. && ln -sf api/node_modules node_modules
 
       - name: CDK Synth (staging)
         run: npx cdk synth --context environment=staging SmuppyStack-staging
@@ -274,7 +275,10 @@ jobs:
         run: npm ci
 
       - name: Install Lambda dependencies
-        run: cd ../lambda/api && npm ci
+        run: |
+          cd ../lambda/api && npm ci
+          cd ../websocket && npm ci
+          cd .. && ln -sf api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
         run: cd ../lambda/layers/shared/nodejs && npm ci
@@ -337,7 +341,10 @@ jobs:
         run: npm ci
 
       - name: Install Lambda dependencies
-        run: cd ../lambda/api && npm ci
+        run: |
+          cd ../lambda/api && npm ci
+          cd ../websocket && npm ci
+          cd .. && ln -sf api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
         run: cd ../lambda/layers/shared/nodejs && npm ci
@@ -406,7 +413,10 @@ jobs:
         run: npm ci
 
       - name: Install Lambda dependencies
-        run: cd ../lambda/api && npm ci
+        run: |
+          cd ../lambda/api && npm ci
+          cd ../websocket && npm ci
+          cd .. && ln -sf api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
         run: cd ../lambda/layers/shared/nodejs && npm ci

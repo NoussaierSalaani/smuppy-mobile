@@ -228,7 +228,7 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm install --no-audit
+          cd ../websocket && npm ci
           # Symlink node_modules at lambda/ level so shared/ imports can resolve deps
           cd .. && ln -sfn api/node_modules node_modules
 
@@ -245,7 +245,7 @@ jobs:
     name: Deploy to Dev
     runs-on: ubuntu-latest
     needs: [build, security, lambda-test, cdk-synth]
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push' && vars.AWS_DEPLOY_ENABLED == 'true'
     environment:
       name: dev
       url: https://api-dev.smuppy.com
@@ -277,7 +277,7 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm install --no-audit
+          cd ../websocket && npm ci
           cd .. && ln -sfn api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
@@ -311,7 +311,7 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: [build, security, lambda-test, cdk-synth]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AWS_DEPLOY_ENABLED == 'true'
     environment:
       name: staging
       url: https://api-staging.smuppy.com
@@ -343,7 +343,7 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm install --no-audit
+          cd ../websocket && npm ci
           cd .. && ln -sfn api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
@@ -383,7 +383,7 @@ jobs:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [deploy-staging]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && vars.AWS_DEPLOY_ENABLED == 'true'
     environment:
       name: production
       url: https://api.smuppy.com
@@ -415,7 +415,7 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm install --no-audit
+          cd ../websocket && npm ci
           cd .. && ln -sfn api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies

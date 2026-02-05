@@ -228,9 +228,9 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm ci
+          cd ../websocket && npm install --no-audit
           # Symlink node_modules at lambda/ level so shared/ imports can resolve deps
-          cd .. && ln -sf api/node_modules node_modules
+          cd .. && ln -sfn api/node_modules node_modules
 
       - name: CDK Synth (staging)
         run: npx cdk synth --context environment=staging SmuppyStack-staging
@@ -277,8 +277,8 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm ci
-          cd .. && ln -sf api/node_modules node_modules
+          cd ../websocket && npm install --no-audit
+          cd .. && ln -sfn api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
         run: cd ../lambda/layers/shared/nodejs && npm ci
@@ -343,8 +343,8 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm ci
-          cd .. && ln -sf api/node_modules node_modules
+          cd ../websocket && npm install --no-audit
+          cd .. && ln -sfn api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
         run: cd ../lambda/layers/shared/nodejs && npm ci
@@ -415,8 +415,8 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           cd ../lambda/api && npm ci
-          cd ../websocket && npm ci
-          cd .. && ln -sf api/node_modules node_modules
+          cd ../websocket && npm install --no-audit
+          cd .. && ln -sfn api/node_modules node_modules
 
       - name: Install Lambda Layer dependencies
         run: cd ../lambda/layers/shared/nodejs && npm ci

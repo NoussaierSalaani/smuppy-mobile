@@ -10,11 +10,11 @@ interface ThemeStoreState {
   preference: ThemePreference;
   mode: ThemeMode;
   setPreference: (preference: ThemePreference) => void;
-  setSystemScheme: (scheme: 'light' | 'dark' | null | undefined) => void;
+  setSystemScheme: (scheme: string | null | undefined) => void;
   reset: () => void;
 }
 
-function resolveMode(preference: ThemePreference, systemScheme?: 'light' | 'dark' | null | undefined): ThemeMode {
+function resolveMode(preference: ThemePreference, systemScheme?: string | null | undefined): ThemeMode {
   if (preference === 'system') {
     return systemScheme === 'dark' ? 'dark' : 'light';
   }
@@ -35,7 +35,7 @@ export const useThemeStore = create<ThemeStoreState>()(
         });
       },
 
-      setSystemScheme: (scheme: 'light' | 'dark' | null | undefined) => {
+      setSystemScheme: (scheme: string | null | undefined) => {
         const { preference } = get();
         if (preference === 'system') {
           set({ mode: resolveMode('system', scheme) });

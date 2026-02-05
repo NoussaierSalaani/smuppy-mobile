@@ -9,6 +9,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('peaks-tag');
 
@@ -27,17 +28,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   // Validate UUID format
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(peakId)) {
+  if (!isValidUUID(peakId)) {
     return createCorsResponse(400, { error: 'Invalid peak ID format' });
   }
 
   try {
     const db = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return createCorsResponse(404, { error: 'Profile not found' });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Verify peak exists
     const peakResult = await db.query(
-      'SELECT id, author_id FROM posts WHERE id = $1 AND is_peak = true',
+      'SELECT id, author_id FROM peaks WHERE id = $1',
       [peakId]
     );
 
@@ -60,7 +70,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       return createCorsResponse(200, {
-        tags: tagsResult.rows.map(row => ({
+        tags: tagsResult.rows.map((row: Record<string, unknown>) => ({
           id: row.id,
           taggedUser: {
             id: row.tagged_user_id,
@@ -78,7 +88,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const body = event.body ? JSON.parse(event.body) : {};
       const { friendId } = body;
 
-      if (!friendId || !uuidRegex.test(friendId)) {
+      if (!friendId || !isValidUUID(friendId)) {
         return createCorsResponse(400, { error: 'Valid friendId is required' });
       }
 
@@ -107,18 +117,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO peak_tags (peak_id, tagged_user_id, tagged_by_user_id, created_at)
          VALUES ($1, $2, $3, NOW())
          RETURNING id, created_at`,
-        [peakId, friendId, userId]
+        [peakId, friendId, profileId]
       );
 
       // Create notification for tagged user
       await db.query(
         `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
          VALUES ($1, 'peak_tag', $2, $3, $4, NOW())`,
-        [friendId, userId, peakId, 'tagged you in a Peak']
+        [friendId, profileId, peakId, 'tagged you in a Peak']
       );
 
       const friend = friendResult.rows[0];
-      log.info('Friend tagged on peak', { peakId, taggedUserId: friendId, taggedBy: userId });
+      log.info('Friend tagged on peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: friendId.substring(0, 8) + '***', taggedBy: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(201, {
         success: true,
@@ -130,14 +140,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             displayName: friend.display_name,
             avatarUrl: friend.avatar_url,
           },
-          taggedBy: userId,
+          taggedBy: profileId,
           createdAt: tagResult.rows[0].created_at,
         },
       });
 
     } else if (httpMethod === 'DELETE') {
       // Remove tag - only peak author or tagger can remove
-      if (!taggedUserId || !uuidRegex.test(taggedUserId)) {
+      if (!taggedUserId || !isValidUUID(taggedUserId)) {
         return createCorsResponse(400, { error: 'Tagged user ID is required' });
       }
 
@@ -151,9 +161,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return createCorsResponse(404, { error: 'Tag not found' });
       }
 
-      const canRemove = userId === peakAuthorId ||
-                        userId === tagResult.rows[0].tagged_by_user_id ||
-                        userId === taggedUserId; // Tagged user can remove themselves
+      const canRemove = profileId === peakAuthorId ||
+                        profileId === tagResult.rows[0].tagged_by_user_id ||
+                        profileId === taggedUserId; // Tagged user can remove themselves
 
       if (!canRemove) {
         return createCorsResponse(403, { error: 'Not authorized to remove this tag' });
@@ -164,7 +174,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [peakId, taggedUserId]
       );
 
-      log.info('Tag removed from peak', { peakId, taggedUserId, removedBy: userId });
+      log.info('Tag removed from peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: taggedUserId.substring(0, 8) + '***', removedBy: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

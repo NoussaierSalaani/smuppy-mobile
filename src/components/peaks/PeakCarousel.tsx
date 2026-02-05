@@ -67,9 +67,12 @@ const PeakCarousel = ({
 
   // Access animated value for conditional rendering
   const fadeValue = useRef(1);
-  fadeAnim.addListener(({ value }) => {
-    fadeValue.current = value;
-  });
+  useEffect(() => {
+    const listenerId = fadeAnim.addListener(({ value }) => {
+      fadeValue.current = value;
+    });
+    return () => fadeAnim.removeListener(listenerId);
+  }, [fadeAnim]);
 
   if (!visible && fadeValue.current === 0) {
     return null;

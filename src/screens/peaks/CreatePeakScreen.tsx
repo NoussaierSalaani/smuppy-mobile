@@ -1,19 +1,19 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Modal,
   Dimensions,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,13 +23,14 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
-  FilterProvider,
   useFilters,
   FilterSelector,
   OverlayEditor,
   DraggableOverlay,
+  OverlayPosition,
 } from '../../filters';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -69,25 +70,52 @@ type RootStackParamList = {
 
 // Inner component that uses filter context
 const CreatePeakScreenInner = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'CreatePeak'>>();
 
   const { replyTo, originalPeak } = route.params || {};
+  const { showAlert: showSmuppyAlert } = useSmuppyAlert();
 
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const [permissionsReady, setPermissionsReady] = useState(false);
+  const [permissionsChecked, setPermissionsChecked] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
   const [selectedDuration, setSelectedDuration] = useState(10);
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
   const [recordedVideo, setRecordedVideo] = useState<RecordedVideo | null>(null);
   const [cameraKey, setCameraKey] = useState(1);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
-  // Custom alert state (for errors)
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
+  // Request both camera + microphone permissions for video mode
+  useEffect(() => {
+    const requestAllPermissions = async () => {
+      try {
+        // Request camera permission
+        const camResult = await requestCameraPermission();
+        const camGranted = camResult?.granted ?? false;
+
+        // Request microphone permission (required for mode="video")
+        const micResult = await Audio.requestPermissionsAsync();
+        const micGranted = micResult?.granted ?? false;
+        setMicPermissionGranted(micGranted);
+
+        setPermissionsReady(camGranted && micGranted);
+      } catch (error) {
+        if (__DEV__) console.warn('Permission request error:', error);
+      } finally {
+        setPermissionsChecked(true);
+      }
+    };
+
+    requestAllPermissions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Toast state (for quick messages like "too short")
   const [showToast, setShowToast] = useState(false);
@@ -125,8 +153,8 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   }));
 
   // Handle overlay position change
-  const handleOverlayPositionChange = useCallback((overlayId: string, position: any) => {
-    updateOverlay(overlayId, { position: { ...position } });
+  const handleOverlayPositionChange = useCallback((overlayId: string, position: Partial<OverlayPosition>) => {
+    updateOverlay(overlayId, { position: { ...position } } as Partial<import('../../filters/types').OverlayConfig>);
   }, [updateOverlay]);
 
   const toggleCameraFacing = (): void => {
@@ -135,6 +163,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Full reset
   const resetCamera = (): void => {
+    isRecordingRef.current = false;
     setIsRecording(false);
     setRecordedVideo(null);
     setIsPreviewPlaying(false);
@@ -143,15 +172,12 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Show custom alert (for errors)
   const showCustomAlert = (message: string): void => {
-    setAlertMessage(message);
-    setShowAlert(true);
-  };
-
-  // Close alert and reset
-  const closeAlert = (): void => {
-    setShowAlert(false);
-    setAlertMessage('');
-    resetCamera();
+    showSmuppyAlert({
+      title: 'Peak too short',
+      message,
+      type: 'warning',
+      buttons: [{ text: 'Try Again', onPress: resetCamera }],
+    });
   };
 
   // Show toast (auto-dismiss after 2s)
@@ -184,6 +210,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
       filterPanelProgress.value = withTiming(0, { duration: 200 });
     }
 
+    isRecordingRef.current = true;
     setIsRecording(true);
     setRecordedVideo(null);
 
@@ -196,9 +223,11 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         if (video) {
           setRecordedVideo(video);
         }
+        isRecordingRef.current = false;
         setIsRecording(false);
         setIsPreviewPlaying(false);
       } catch (_error) {
+        isRecordingRef.current = false;
         setIsRecording(false);
         const isSimulator = !cameraRef.current;
         showCustomAlert(
@@ -212,7 +241,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // End recording
   const handleRecordEnd = async (_recordedDuration: number): Promise<void> => {
-    if (cameraRef.current && isRecording) {
+    if (cameraRef.current && isRecordingRef.current) {
       try {
         cameraRef.current.stopRecording();
       } catch (_error) {
@@ -223,6 +252,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Recording too short - show toast instead of invasive modal
   const handleRecordCancel = (message: string): void => {
+    isRecordingRef.current = false;
     setIsRecording(false);
     setRecordedVideo(null);
 
@@ -280,56 +310,44 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     }
   };
 
-  // Custom Alert Component
-  const CustomAlert = (): React.JSX.Element => (
-    <Modal
-      visible={showAlert}
-      transparent
-      animationType="fade"
-      onRequestClose={closeAlert}
-    >
-      <View style={styles.alertOverlay}>
-        <View style={styles.alertContainer}>
-          <LinearGradient
-            colors={[COLORS.darkCard, COLORS.dark]}
-            style={styles.alertGradient}
-          >
-            <View style={styles.alertIconContainer}>
-              <Ionicons name="time-outline" size={40} color={COLORS.primary} />
-            </View>
-            <Text style={styles.alertTitle}>Peak too short</Text>
-            <Text style={styles.alertMessage}>{alertMessage}</Text>
-            <TouchableOpacity
-              style={styles.alertButton}
-              onPress={closeAlert}
-            >
-              <Text style={styles.alertButtonText}>Try Again</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </View>
-    </Modal>
-  );
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Permissions loading
-  if (!permission) {
+  if (!permissionsChecked) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.permissionText}>Loading...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.permissionText, { marginTop: 16 }]}>Setting up camera...</Text>
       </View>
     );
   }
 
-  // Permissions denied
-  if (!permission.granted) {
+  // Permissions denied — show which is missing + open settings
+  if (!permissionsReady) {
+    const cameraDenied = !cameraPermission?.granted;
+    const micDenied = !micPermissionGranted;
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.permissionText}>Camera access required</Text>
+        <Ionicons name="camera-outline" size={48} color={colors.primary} style={{ marginBottom: 16 }} />
+        <Text style={styles.permissionTitle}>Permissions Required</Text>
+        <Text style={styles.permissionText}>
+          {cameraDenied && micDenied
+            ? 'Camera and microphone access are needed to record Peaks.'
+            : cameraDenied
+            ? 'Camera access is needed to record Peaks.'
+            : 'Microphone access is needed to record video with audio.'}
+        </Text>
         <TouchableOpacity
           style={styles.permissionButton}
-          onPress={requestPermission}
+          onPress={() => Linking.openSettings()}
         >
-          <Text style={styles.permissionButtonText}>Allow</Text>
+          <Text style={styles.permissionButtonText}>Open Settings</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.permissionSecondaryButton}
+          onPress={handleClose}
+        >
+          <Text style={styles.permissionSecondaryText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -341,20 +359,24 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
       {/* CAMERA VIEW (quand pas de vidéo enregistrée) */}
       {!recordedVideo && (
-        <CameraView
-          key={cameraKey}
-          ref={cameraRef}
-          style={styles.camera}
-          facing={facing}
-          mode="video"
-        >
+        <>
+          <CameraView
+            key={cameraKey}
+            ref={cameraRef}
+            style={styles.camera}
+            facing={facing}
+            mode="video"
+          />
+
+          {/* UI overlays rendered OUTSIDE CameraView for reliability */}
+
           {/* Header - Minimal */}
           <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
             <TouchableOpacity
               style={styles.headerButton}
               onPress={handleClose}
             >
-              <Ionicons name="close" size={28} color={COLORS.white} />
+              <Ionicons name="close" size={28} color={colors.white} />
             </TouchableOpacity>
 
             <Text style={styles.headerTitle}>
@@ -372,7 +394,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                 style={styles.toolbarButton}
                 onPress={toggleCameraFacing}
               >
-                <Ionicons name="camera-reverse" size={26} color={COLORS.white} />
+                <Ionicons name="camera-reverse" size={26} color={colors.white} />
                 <Text style={styles.toolbarLabel}>Flip</Text>
               </TouchableOpacity>
 
@@ -387,7 +409,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                 <Ionicons
                   name="color-wand"
                   size={26}
-                  color={showFilters ? COLORS.primary : COLORS.white}
+                  color={showFilters ? colors.primary : colors.white}
                 />
                 <Text style={[
                   styles.toolbarLabel,
@@ -409,7 +431,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                   <Ionicons
                     name="layers"
                     size={26}
-                    color={activeOverlays.length > 0 ? COLORS.primary : COLORS.white}
+                    color={activeOverlays.length > 0 ? colors.primary : colors.white}
                   />
                   {activeOverlays.length > 0 && (
                     <View style={styles.overlayBadge}>
@@ -439,7 +461,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
           {/* Active filter indicator - centered top */}
           {activeFilter && !isRecording && (
             <View style={[styles.activeFilterBadge, { top: insets.top + 70 }]}>
-              <Ionicons name="sparkles" size={14} color={COLORS.primary} />
+              <Ionicons name="sparkles" size={14} color={colors.primary} />
               <Text style={styles.activeFilterText}>Filter Active</Text>
             </View>
           )}
@@ -506,7 +528,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               <Text style={styles.instructions}>Hold to record</Text>
             )}
           </View>
-        </CameraView>
+        </>
       )}
 
       {/* VIDEO PREVIEW (après enregistrement) */}
@@ -532,7 +554,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             {!isPreviewPlaying && (
               <View style={styles.playButtonOverlay}>
                 <View style={styles.playButton}>
-                  <Ionicons name="play" size={50} color={COLORS.white} />
+                  <Ionicons name="play" size={50} color={colors.white} />
                 </View>
               </View>
             )}
@@ -544,7 +566,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.headerButton}
               onPress={handleClose}
             >
-              <Ionicons name="close" size={28} color={COLORS.white} />
+              <Ionicons name="close" size={28} color={colors.white} />
             </TouchableOpacity>
 
             <View style={styles.durationBadge}>
@@ -560,7 +582,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.retakeButton}
               onPress={handleRetake}
             >
-              <Ionicons name="refresh" size={24} color={COLORS.white} />
+              <Ionicons name="refresh" size={24} color={colors.white} />
               <Text style={styles.retakeButtonText}>Retake</Text>
             </TouchableOpacity>
 
@@ -568,21 +590,18 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               style={styles.confirmButton}
               onPress={handleConfirm}
             >
-              <Ionicons name="checkmark" size={24} color={COLORS.dark} />
+              <Ionicons name="checkmark" size={24} color={colors.dark} />
               <Text style={styles.confirmButtonText}>Next</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Custom Alert */}
-      <CustomAlert />
-
       {/* Toast (quick non-invasive message) */}
       {showToast && (
         <View style={[styles.toastContainer, { top: insets.top + 60 }]}>
           <View style={styles.toast}>
-            <Ionicons name="time-outline" size={18} color={COLORS.white} />
+            <Ionicons name="time-outline" size={18} color={colors.white} />
             <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
         </View>
@@ -597,43 +616,57 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   );
 };
 
-// Wrapper component with FilterProvider
 const CreatePeakScreen = (): React.JSX.Element => {
-  return (
-    <FilterProvider>
-      <CreatePeakScreenInner />
-    </FilterProvider>
-  );
+  return <CreatePeakScreenInner />;
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  permissionText: {
-    fontSize: 16,
-    color: COLORS.white,
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.white,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
+  },
+  permissionText: {
+    fontSize: 15,
+    color: colors.gray,
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 32,
+    lineHeight: 22,
   },
   permissionButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 24,
+    marginBottom: 12,
   },
   permissionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
+  },
+  permissionSecondaryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  permissionSecondaryText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.gray,
   },
   camera: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
 
   // Header
@@ -661,7 +694,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     letterSpacing: 0.5,
   },
 
@@ -684,7 +717,7 @@ const styles = StyleSheet.create({
   toolbarButtonActive: {
     backgroundColor: 'rgba(0,230,118,0.15)',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   toolbarLabel: {
     fontSize: 10,
@@ -693,7 +726,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   toolbarLabelActive: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   overlayBadge: {
     position: 'absolute',
@@ -702,14 +735,14 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   overlayBadgeText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Reply info
@@ -722,11 +755,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   replyText: {
     fontSize: 13,
-    color: COLORS.white,
+    color: colors.white,
   },
 
   // Active filter badge
@@ -741,12 +774,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 5,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   activeFilterText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Filter Panel
@@ -783,7 +816,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   durationOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   durationText: {
     fontSize: 14,
@@ -791,7 +824,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
   },
   durationTextActive: {
-    color: COLORS.dark,
+    color: colors.dark,
     fontWeight: '700',
   },
   recordButtonContainer: {
@@ -811,7 +844,7 @@ const styles = StyleSheet.create({
   // Preview
   previewContainer: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   videoTouchable: {
     flex: 1,
@@ -846,7 +879,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   durationBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 12,
@@ -854,7 +887,7 @@ const styles = StyleSheet.create({
   durationBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   previewBottomSection: {
     position: 'absolute',
@@ -881,17 +914,17 @@ const styles = StyleSheet.create({
   retakeButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   confirmButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 28,
     gap: 8,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -900,60 +933,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
-  },
-
-  // Alert
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  alertContainer: {
-    width: '100%',
-    maxWidth: 300,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  alertGradient: {
-    padding: 28,
-    alignItems: 'center',
-  },
-  alertIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(17, 227, 163, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  alertMessage: {
-    fontSize: 14,
-    color: COLORS.gray,
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  alertButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 36,
-    paddingVertical: 12,
-    borderRadius: 22,
-  },
-  alertButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Toast
@@ -976,7 +956,7 @@ const styles = StyleSheet.create({
   toastText: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

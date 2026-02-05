@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import * as Location from 'expo-location';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
-import { createPost } from '../../services/database';
-import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -39,15 +41,6 @@ const VISIBILITY_OPTIONS: VisibilityOption[] = [
   { value: 48, label: '48h' },
 ];
 
-// Sample location suggestions
-const LOCATION_SUGGESTIONS: string[] = [
-  'Gym Iron Paradise',
-  'Central Park, NYC',
-  'CrossFit Box',
-  'Home Gym',
-  'Beach Workout',
-  'Mountain Trail',
-];
 
 interface OriginalPeakUser {
   id: string;
@@ -72,10 +65,12 @@ type RootStackParamList = {
 };
 
 const PeakPreviewScreen = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakPreview'>>();
-  const alert = useSmuppyAlert();
+  const { showError: errorAlert } = useSmuppyAlert();
+  const alert = { error: errorAlert };
 
   const { videoUri, duration, replyTo, originalPeak } = route.params || {};
 
@@ -90,6 +85,12 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isChallenge, setIsChallenge] = useState(false);
+  const [challengeTitle, setChallengeTitle] = useState('');
+  const [challengeRules, setChallengeRules] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Listen to keyboard
   useEffect(() => {
@@ -138,6 +139,11 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
   // Publish
   const handlePublish = async (): Promise<void> => {
+    if (isChallenge && !challengeTitle.trim()) {
+      alert.error('Challenge Title Required', 'Please enter a title for your challenge');
+      return;
+    }
+
     setIsPublishing(true);
 
     if (videoRef.current) {
@@ -160,61 +166,104 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         throw new Error(uploadResult.error || 'Failed to upload video');
       }
 
-      // Calculate expiry date based on feedDuration (24h or 48h)
-      const expiryDate = new Date();
-      expiryDate.setHours(expiryDate.getHours() + feedDuration);
-
-      // Create peak in database
+      // Create peak via dedicated peaks API
       const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
-      const peakData = {
-        content: textOverlay || '',
-        media_urls: [mediaUrl].filter(Boolean) as string[],
-        media_type: 'video' as const,
-        visibility: 'public' as const,
-        location: location || null,
-        is_peak: true,
-        peak_duration: duration, // 6s, 10s, or 15s
-        peak_expires_at: expiryDate.toISOString(),
-        save_to_profile: saveToProfile,
-        reply_to_peak_id: replyTo || null,
-      };
+      const peakResult = await awsAPI.createPeak({
+        videoUrl: mediaUrl,
+        caption: textOverlay || undefined,
+        duration: duration,
+        replyToPeakId: replyTo || undefined,
+      }) as unknown as { success?: boolean; peak?: { id: string }; message?: string };
 
-      const { error } = await createPost(peakData);
+      if (!peakResult || peakResult.success === false || !peakResult.peak?.id) {
+        throw new Error(peakResult?.message || 'Peak publish failed');
+      }
 
-      if (error) {
-        throw new Error(typeof error === 'string' ? error : 'Failed to create Peak');
+      // Create challenge if enabled (separate try/catch so peak success is preserved)
+      if (isChallenge && challengeTitle.trim()) {
+        try {
+          await awsAPI.createChallenge({
+            peakId: peakResult.peak.id,
+            title: challengeTitle.trim(),
+            rules: challengeRules.trim() || undefined,
+            isPublic: true,
+            allowAnyone: true,
+          });
+        } catch (challengeError) {
+          if (__DEV__) console.warn('Challenge creation error:', challengeError);
+          // Peak was published but challenge failed — still show success
+        }
       }
 
       // Show success and navigate
       setShowSuccessModal(true);
     } catch (error) {
-      console.error('Peak publish error:', error);
+      if (__DEV__) console.warn('Peak publish error:', error);
       alert.error('Publish Failed', (error as Error).message || 'Unable to publish Peak');
     } finally {
       setIsPublishing(false);
     }
   };
 
-  // Select location
+  // Nominatim search
+  const searchPlaces = useCallback(async (query: string) => {
+    if (query.length < 3) { setLocationSuggestions([]); return; }
+    setIsLoadingLocation(true);
+    try {
+      const results = await searchNominatim(query, { limit: 5 });
+      setLocationSuggestions(results);
+    } catch {
+      setLocationSuggestions([]);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }, []);
+
+  const handleLocationSearchChange = useCallback((text: string) => {
+    setLocationSearch(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => searchPlaces(text), 300);
+  }, [searchPlaces]);
+
+  useEffect(() => {
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+  }, []);
+
   const selectLocation = (loc: string): void => {
     setLocation(loc);
     setShowLocationInput(false);
     setLocationSearch('');
+    setLocationSuggestions([]);
     Keyboard.dismiss();
   };
 
-  // Filter locations
-  const filteredLocations =
-    locationSearch.length > 0
-      ? LOCATION_SUGGESTIONS.filter((loc) =>
-          loc.toLowerCase().includes(locationSearch.toLowerCase())
-        )
-      : LOCATION_SUGGESTIONS;
+  const detectCurrentLocation = useCallback(async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setIsLoadingLocation(false); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [reverseResult] = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+      if (reverseResult) {
+        const parts = [reverseResult.street, reverseResult.city, reverseResult.country].filter(Boolean);
+        selectLocation(parts.join(', '));
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('Location detection error:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }, []);
 
   // Dismiss keyboard
   const handleCaptionDone = (): void => {
     Keyboard.dismiss();
   };
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   return (
     <View style={styles.container}>
@@ -241,7 +290,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           {!isPlaying && (
             <View style={styles.playIndicator}>
               <View style={styles.playButton}>
-                <Ionicons name="play" size={50} color={COLORS.white} />
+                <Ionicons name="play" size={50} color={colors.white} />
               </View>
             </View>
           )}
@@ -258,7 +307,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
           <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Ionicons name="chevron-back" size={28} color={COLORS.white} />
+            <Ionicons name="chevron-back" size={28} color={colors.white} />
           </TouchableOpacity>
 
           <View style={styles.durationBadge}>
@@ -281,7 +330,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Reply info */}
             {replyTo && originalPeak && (
               <View style={styles.replyInfo}>
-                <Ionicons name="link" size={14} color={COLORS.primary} />
+                <Ionicons name="link" size={14} color={colors.primary} />
                 <Text style={styles.replyText}>Reply to {originalPeak.user?.name}</Text>
               </View>
             )}
@@ -290,43 +339,59 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {showLocationInput ? (
               <View style={styles.locationInputContainer}>
                 <View style={styles.locationInputHeader}>
-                  <Ionicons name="location" size={18} color={COLORS.primary} />
+                  <TouchableOpacity onPress={detectCurrentLocation} disabled={isLoadingLocation}>
+                    {isLoadingLocation ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Ionicons name="locate" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
                   <TextInput
                     style={styles.locationInput}
                     placeholder="Search location..."
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     value={locationSearch}
-                    onChangeText={setLocationSearch}
+                    onChangeText={handleLocationSearchChange}
                     autoFocus
                   />
+                  {isLoadingLocation && <ActivityIndicator size="small" color={colors.primary} />}
                   <TouchableOpacity
                     onPress={() => {
                       setShowLocationInput(false);
                       setLocationSearch('');
+                      setLocationSuggestions([]);
                       Keyboard.dismiss();
                     }}
                   >
-                    <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                    <Ionicons name="close-circle" size={20} color={colors.gray} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.locationSuggestions}>
-                  {filteredLocations.slice(0, 4).map((loc, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.locationSuggestion}
-                      onPress={() => selectLocation(loc)}
-                    >
-                      <Ionicons name="location-outline" size={14} color={COLORS.gray} />
-                      <Text style={styles.locationSuggestionText}>{loc}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  {locationSearch.length > 0 && !filteredLocations.includes(locationSearch) && (
+                  {locationSuggestions.map((result) => {
+                    const formatted = formatNominatimResult(result);
+                    return (
+                      <TouchableOpacity
+                        key={result.place_id.toString()}
+                        style={styles.locationSuggestion}
+                        onPress={() => selectLocation(formatted.fullAddress)}
+                      >
+                        <Ionicons name="location-outline" size={14} color={colors.gray} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.locationSuggestionText} numberOfLines={1}>{formatted.mainText}</Text>
+                          {formatted.secondaryText ? (
+                            <Text style={styles.locationSecondaryText} numberOfLines={1}>{formatted.secondaryText}</Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {locationSearch.length > 0 && locationSuggestions.length === 0 && !isLoadingLocation && (
                     <TouchableOpacity
                       style={styles.locationSuggestion}
                       onPress={() => selectLocation(locationSearch)}
                     >
-                      <Ionicons name="add-circle-outline" size={14} color={COLORS.primary} />
-                      <Text style={[styles.locationSuggestionText, { color: COLORS.primary }]}>
+                      <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                      <Text style={[styles.locationSuggestionText, { color: colors.primary }]}>
                         Use "{locationSearch}"
                       </Text>
                     </TouchableOpacity>
@@ -339,14 +404,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 onPress={() => setShowLocationInput(true)}
               >
                 <View style={styles.optionLeft}>
-                  <Ionicons name="location-outline" size={18} color={COLORS.primary} />
+                  <Ionicons name="location-outline" size={18} color={colors.primary} />
                   <Text style={styles.optionLabel}>Location</Text>
                 </View>
                 <View style={styles.optionRight}>
                   <Text style={styles.optionValue} numberOfLines={1}>
                     {location || 'Add'}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={COLORS.gray} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.gray} />
                 </View>
               </TouchableOpacity>
             )}
@@ -354,14 +419,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Caption/CTA */}
             <View style={styles.captionContainer}>
               <View style={styles.captionHeader}>
-                <Ionicons name="text-outline" size={18} color={COLORS.primary} />
+                <Ionicons name="text-outline" size={18} color={colors.primary} />
                 <Text style={styles.optionLabel}>Caption / CTA</Text>
               </View>
               <View style={styles.captionInputWrapper}>
                 <TextInput
                   style={styles.captionInput}
                   placeholder="Ex: 50 push-ups challenge!"
-                  placeholderTextColor={COLORS.gray}
+                  placeholderTextColor={colors.gray}
                   value={textOverlay}
                   onChangeText={setTextOverlay}
                   maxLength={60}
@@ -380,7 +445,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Visibility */}
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
-                <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                <Ionicons name="time-outline" size={18} color={colors.primary} />
                 <Text style={styles.optionLabel}>Visible for</Text>
               </View>
               <View style={styles.visibilityPicker}>
@@ -409,17 +474,56 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Save to profile - ALWAYS VISIBLE */}
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
-                <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
+                <Ionicons name="bookmark-outline" size={18} color={colors.primary} />
                 <Text style={styles.optionLabel}>Save to profile</Text>
               </View>
               <Switch
                 value={saveToProfile}
                 onValueChange={setSaveToProfile}
-                trackColor={{ false: '#3A3A3C', true: COLORS.primary }}
-                thumbColor={COLORS.white}
-                ios_backgroundColor="#3A3A3C"
+                trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: colors.primary }}
+                thumbColor={colors.white}
+                ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
               />
             </View>
+
+            {/* Challenge Toggle */}
+            <View style={styles.optionRow}>
+              <View style={styles.optionLeft}>
+                <Ionicons name="trophy-outline" size={18} color="#FFD700" />
+                <Text style={styles.optionLabel}>Challenge</Text>
+              </View>
+              <Switch
+                value={isChallenge}
+                onValueChange={setIsChallenge}
+                trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: '#FFD700' }}
+                thumbColor={colors.white}
+                ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
+              />
+            </View>
+
+            {isChallenge && (
+              <View style={styles.challengeFields}>
+                <TextInput
+                  style={styles.challengeInput}
+                  placeholder="Challenge title"
+                  placeholderTextColor={colors.gray}
+                  value={challengeTitle}
+                  onChangeText={setChallengeTitle}
+                  maxLength={80}
+                  returnKeyType="next"
+                />
+                <TextInput
+                  style={[styles.challengeInput, { height: 60 }]}
+                  placeholder="Rules (optional)"
+                  placeholderTextColor={colors.gray}
+                  value={challengeRules}
+                  onChangeText={setChallengeRules}
+                  maxLength={200}
+                  multiline
+                  returnKeyType="done"
+                />
+              </View>
+            )}
           </ScrollView>
 
           {/* Publish button */}
@@ -432,19 +536,19 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={isPublishing ? ['#888', '#666'] : [COLORS.primary, '#00B5C1']}
+                  colors={isPublishing ? ['#888', '#666'] : [colors.primary, '#00B5C1']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.publishGradient}
                 >
                   {isPublishing ? (
                     <>
-                      <ActivityIndicator size="small" color={COLORS.white} />
+                      <ActivityIndicator size="small" color={colors.white} />
                       <Text style={styles.publishButtonText}>Publishing...</Text>
                     </>
                   ) : (
                     <>
-                      <Ionicons name="rocket" size={22} color={COLORS.dark} />
+                      <Ionicons name="rocket" size={22} color={colors.dark} />
                       <Text style={styles.publishButtonText}>Publish Peak</Text>
                     </>
                   )}
@@ -460,10 +564,10 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         <View style={styles.successOverlay}>
           <View style={styles.successContent}>
             <LinearGradient
-              colors={[COLORS.primary, '#00B5C1']}
+              colors={[colors.primary, '#00B5C1']}
               style={styles.successIconBg}
             >
-              <Ionicons name="checkmark" size={50} color={COLORS.white} />
+              <Ionicons name="checkmark" size={50} color={colors.white} />
             </LinearGradient>
             <Text style={styles.successTitle}>Peak Published! 🎉</Text>
             <Text style={styles.successDesc}>
@@ -481,17 +585,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           </View>
         </View>
       )}
-
-      {/* Alert Modal */}
-      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
 
   // Full screen video
@@ -503,7 +604,7 @@ const styles = StyleSheet.create({
   },
   videoPlaceholder: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   playIndicator: {
     ...StyleSheet.absoluteFillObject,
@@ -542,7 +643,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   durationBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 12,
@@ -550,7 +651,7 @@ const styles = StyleSheet.create({
   durationBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Spacer
@@ -560,7 +661,7 @@ const styles = StyleSheet.create({
 
   // Options panel
   optionsPanel: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: colors.backgroundSecondary,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.45,
@@ -580,7 +681,7 @@ const styles = StyleSheet.create({
   },
   replyText: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Option row
@@ -588,7 +689,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 12,
@@ -602,7 +703,7 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
   },
   optionRight: {
     flexDirection: 'row',
@@ -612,12 +713,12 @@ const styles = StyleSheet.create({
   },
   optionValue: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Location input
   locationInputContainer: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     borderRadius: 12,
     marginBottom: 10,
     overflow: 'hidden',
@@ -629,12 +730,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder,
   },
   locationInput: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
   },
   locationSuggestions: {
     maxHeight: 140,
@@ -646,16 +747,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : colors.grayBorder,
   },
   locationSuggestionText: {
     fontSize: 13,
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
+  },
+  locationSecondaryText: {
+    fontSize: 11,
+    color: colors.gray,
+    marginTop: 2,
   },
 
   // Caption
   captionContainer: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -670,20 +776,20 @@ const styles = StyleSheet.create({
   captionInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : colors.white,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(17, 227, 163, 0.3)',
+    borderColor: isDark ? 'rgba(17, 227, 163, 0.3)' : colors.grayBorder,
   },
   captionInput: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   captionOkButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -692,11 +798,11 @@ const styles = StyleSheet.create({
   captionOkText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   charCount: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'right',
     marginTop: 6,
   },
@@ -710,18 +816,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : colors.gray200,
   },
   visibilityOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   visibilityOptionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
   },
   visibilityOptionTextActive: {
-    color: COLORS.dark,
+    color: colors.dark,
+  },
+
+  // Challenge fields
+  challengeFields: {
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 8,
+  },
+  challengeInput: {
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: isDark ? colors.white : colors.dark,
+    fontSize: 14,
   },
 
   // Publish button
@@ -732,7 +853,7 @@ const styles = StyleSheet.create({
   publishButtonContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -748,7 +869,7 @@ const styles = StyleSheet.create({
   publishButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Success Modal
@@ -770,7 +891,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -778,23 +899,23 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 12,
     textAlign: 'center',
   },
   successDesc: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
   successButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 40,
     paddingVertical: 16,
     borderRadius: 30,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -802,7 +923,7 @@ const styles = StyleSheet.create({
   successButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 });
 

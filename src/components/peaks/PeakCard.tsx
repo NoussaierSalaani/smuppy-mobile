@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import OptimizedImage from '../OptimizedImage';
 
 const { width } = Dimensions.get('window');
@@ -40,6 +40,9 @@ interface PeakCardProps {
 }
 
 const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const formatViews = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -54,7 +57,7 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
     >
       {/* Thumbnail */}
       <OptimizedImage
-        source={peak.thumbnail}
+        source={peak.thumbnail || undefined}
         style={styles.thumbnail as StyleProp<ImageStyle>}
         contentFit="cover"
         priority="normal"
@@ -63,7 +66,7 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
       {/* Replies indicator (Peak Chain) */}
       {peak.repliesCount && peak.repliesCount > 0 ? (
         <View style={styles.chainBadge}>
-          <Ionicons name="link" size={12} color={COLORS.white} />
+          <Ionicons name="link" size={12} color={colors.white} />
           <Text style={styles.chainText}>{peak.repliesCount}</Text>
         </View>
       ) : null}
@@ -93,7 +96,7 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
 
         {/* Views */}
         <View style={styles.viewsContainer}>
-          <Ionicons name="eye-outline" size={12} color={COLORS.white} />
+          <Ionicons name="eye-outline" size={12} color={colors.white} />
           <Text style={styles.viewsText}>{formatViews(peak.views)}</Text>
         </View>
       </LinearGradient>
@@ -103,13 +106,13 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
 
 PeakCard.displayName = 'PeakCard';
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : '#F5F5F5',
     marginBottom: 12,
   },
   thumbnail: {
@@ -122,7 +125,7 @@ const styles = StyleSheet.create({
     left: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -131,7 +134,7 @@ const styles = StyleSheet.create({
   chainText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   durationBadge: {
     position: 'absolute',
@@ -145,7 +148,7 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   overlay: {
     position: 'absolute',
@@ -165,14 +168,14 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     marginRight: 8,
   },
   userName: {
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   viewsContainer: {
     flexDirection: 'row',
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
   },
   viewsText: {
     fontSize: 11,
-    color: COLORS.white,
+    color: colors.white,
     opacity: 0.9,
   },
 });

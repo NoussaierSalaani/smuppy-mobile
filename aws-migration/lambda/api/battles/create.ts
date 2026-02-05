@@ -4,14 +4,10 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { v4 as uuidv4 } from 'uuid';
 import { cors, handleOptions } from '../utils/cors';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
+import { isValidUUID } from '../utils/security';
 
 interface CreateBattleRequest {
   title?: string;
@@ -26,6 +22,7 @@ interface CreateBattleRequest {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {
@@ -36,6 +33,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
     }
+
+    // Resolve cognito_sub to profile ID
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
 
     const body: CreateBattleRequest = JSON.parse(event.body || '{}');
     const {
@@ -58,6 +68,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    if (!invitedUserIds.every(isValidUUID)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
+      });
+    }
+
     if (invitedUserIds.length > maxParticipants - 1) {
       return cors({
         statusCode: 400,
@@ -72,7 +89,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const hostResult = await client.query(
       `SELECT id, username, display_name, avatar_url, account_type, is_verified
        FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     if (hostResult.rows.length === 0) {
@@ -123,9 +140,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         host_id, title, description, battle_type, max_participants,
         duration_minutes, scheduled_at, agora_channel_name, status
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'invited')
-      RETURNING *`,
+      RETURNING id, title, description, battle_type, max_participants, duration_minutes, scheduled_at, agora_channel_name, status, created_at`,
       [
-        userId,
+        profileId,
         title || `${host.display_name}'s Battle`,
         description,
         battleType,
@@ -143,7 +160,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `INSERT INTO battle_participants (
         battle_id, user_id, status, position, accepted_at
       ) VALUES ($1, $2, 'accepted', 1, NOW())`,
-      [battle.id, userId]
+      [battle.id, profileId]
     );
 
     // Invite other participants
@@ -181,7 +198,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             battleType,
             scheduledAt: battle.scheduled_at,
           }),
-          userId,
+          profileId,
         ]
       );
 

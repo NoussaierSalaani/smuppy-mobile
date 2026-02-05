@@ -7,18 +7,10 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { sendPushToUser } from '../services/push-notification';
+import { sanitizeText, isValidUUID } from '../utils/security';
 
 const log = createLogger('peaks-comment');
-
-// Simple input sanitization
-function sanitizeText(text: string): string {
-  return text
-    .trim()
-    .slice(0, 1000) // Max 1000 characters for peak comments
-    .replace(/\0/g, '')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -43,8 +35,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(peakId)) {
+    if (!isValidUUID(peakId)) {
       return {
         statusCode: 400,
         headers,
@@ -64,7 +55,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const sanitizedText = sanitizeText(text);
+    const sanitizedText = sanitizeText(text, 1000);
 
     if (sanitizedText.length === 0) {
       return {
@@ -146,6 +137,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       await client.query('COMMIT');
 
+      // Send push notification to peak author (non-blocking)
+      if (peak.author_id !== profile.id) {
+        sendPushToUser(db, peak.author_id, {
+          title: 'New Comment',
+          body: `${profile.username} commented on your peak`,
+          data: { type: 'peak_comment', peakId },
+        }).catch(err => log.error('Push notification failed', err));
+      }
+
       return {
         statusCode: 201,
         headers,
@@ -165,7 +165,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           },
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

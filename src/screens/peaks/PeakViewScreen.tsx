@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -7,28 +8,30 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   StatusBar,
-  Image,
   Animated,
   PanResponder,
   GestureResponderEvent,
   PanResponderGestureState,
   Modal,
   Pressable,
-  Alert,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
-import { reportPost } from '../../services/database';
-import { useContentStore } from '../../stores';
+import { reportPost, savePost, unsavePost } from '../../services/database';
+import { useContentStore, useUserStore, useFeedStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
@@ -50,6 +53,7 @@ interface PeakTag {
 interface Peak {
   id: string;
   thumbnail: string;
+  videoUrl?: string;
   duration: number;
   user: PeakUser;
   views: number;
@@ -62,21 +66,32 @@ interface Peak {
   isLiked?: boolean;
   isSaved?: boolean;
   isOwnPeak?: boolean; // To show tag count only to creator
+  // Challenge fields
+  isChallenge?: boolean;
+  challengeTitle?: string;
+  challengeRules?: string;
+  challengeEndsAt?: string;
+  challengeResponseCount?: number;
 }
 
 type RootStackParamList = {
-  PeakView: { peaks: Peak[]; initialIndex: number };
+  PeakView: { peaks?: Peak[]; peakData?: Peak[]; peakId?: string; initialIndex?: number };
   CreatePeak: { replyTo: string; originalPeak: Peak };
   UserProfile: { userId: string };
   [key: string]: object | undefined;
 };
 
 const PeakViewScreen = (): React.JSX.Element => {
+  const { colors, isDark } = useTheme();
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
 
-  const { peaks = [], initialIndex = 0 } = route.params || {};
+  const { peaks: peaksParam = [], peakData = [], initialIndex = 0 } = route.params || {};
+  const peaks = (peaksParam && peaksParam.length > 0 ? peaksParam : peakData) as Peak[];
+  const currentUser = useUserStore((state) => state.user);
+  const isBusiness = currentUser?.accountType === 'pro_business';
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [carouselVisible, setCarouselVisible] = useState(true);
@@ -85,9 +100,25 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [isInChain, setIsInChain] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [likedPeaks, setLikedPeaks] = useState<Set<string>>(new Set());
+  const [likedPeaks, setLikedPeaks] = useState<Set<string>>(() => {
+    // Initialize from peak data (isLiked from API) + store overrides
+    const initial = new Set<string>();
+    const overrides = useFeedStore.getState().optimisticPeakLikes;
+    peaks.forEach(p => {
+      const override = overrides[p.id];
+      if (override !== undefined) {
+        if (override) initial.add(p.id);
+      } else if ((p as { isLiked?: boolean }).isLiked) {
+        initial.add(p.id);
+      }
+    });
+    return initial;
+  });
   const [savedPeaks, setSavedPeaks] = useState<Set<string>>(new Set());
+  const [viewedPeaks, setViewedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
+  const videoRef = useRef<Video | null>(null);
+  const [_videoDuration, setVideoDuration] = useState(0);
   const [showTagModal, setShowTagModal] = useState(false);
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
@@ -105,9 +136,31 @@ const PeakViewScreen = (): React.JSX.Element => {
     opacity: new Animated.Value(0),
   }))).current;
   const lastTap = useRef(0);
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const _progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const currentPeak = peaks[currentIndex] || {} as Peak;
+  const currentPeak = useMemo(() => peaks[currentIndex] || ({} as Peak), [peaks, currentIndex]);
+  const createdDate = useMemo(() => {
+    const value = currentPeak?.createdAt || new Date().toISOString();
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+  }, [currentPeak]);
+
+  useEffect(() => {
+    if (!currentPeak.videoUrl) {
+      videoRef.current = null;
+      setVideoDuration(0);
+      setProgress(0);
+    }
+  }, [currentPeak.videoUrl]);
+
+  // Hardware back handler (Android) as a fail-safe
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation.goBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [navigation]);
 
   useEffect(() => {
     if (showOnboarding) {
@@ -118,31 +171,23 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   }, [showOnboarding]);
 
-  // Progress bar effect
+  // Reset progress and play when peak changes
   useEffect(() => {
-    if (!isPaused && !showMenu && currentPeak.duration) {
-      setProgress(0);
-      const duration = currentPeak.duration * 1000;
-      const interval = 50;
-      const step = (interval / duration) * 100;
-
-      progressInterval.current = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(progressInterval.current!);
-            return 100;
-          }
-          return prev + step;
-        });
-      }, interval);
-
-      return () => {
-        if (progressInterval.current) {
-          clearInterval(progressInterval.current);
-        }
-      };
+    setProgress(0);
+    setVideoDuration(0);
+    if (videoRef.current) {
+      videoRef.current.setPositionAsync(0).then(() => {
+        videoRef.current?.playAsync().catch(() => {});
+      }).catch(() => {});
     }
-  }, [currentIndex, isPaused, showMenu, currentPeak.duration]);
+
+    // Count a view locally (once per peak in this session)
+    if (currentPeak.id && !viewedPeaks.has(currentPeak.id)) {
+      setViewedPeaks(prev => new Set(prev).add(currentPeak.id));
+      peaks[currentIndex] = { ...currentPeak, views: (currentPeak.views || 0) + 1 };
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]);
 
   // Reset progress when changing peak
   useEffect(() => {
@@ -217,6 +262,12 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleSingleTap = (): void => {
+    // Toggle play/pause and carousel visibility
+    const nextPaused = !isPaused;
+    setIsPaused(nextPaused);
+    if (videoRef.current) {
+      nextPaused ? videoRef.current.pauseAsync() : videoRef.current.playAsync();
+    }
     setCarouselVisible(!carouselVisible);
   };
 
@@ -224,11 +275,10 @@ const PeakViewScreen = (): React.JSX.Element => {
     if (isInChain) {
       setIsInChain(false);
     } else {
-      // Like the peak
+      // Like the peak (only if not already liked)
       if (!likedPeaks.has(currentPeak.id)) {
-        setLikedPeaks(prev => new Set(prev).add(currentPeak.id));
+        toggleLike(); // Call API to persist the like
       }
-      animateHeart();
       setCarouselVisible(true);
     }
   };
@@ -252,11 +302,18 @@ const PeakViewScreen = (): React.JSX.Element => {
     try {
       if (isCurrentlyLiked) {
         await awsAPI.unlikePeak(currentPeak.id);
+        useFeedStore.getState().setPeakLikeOverride(currentPeak.id, false);
+        // Sync current peak likes
+        const updatedLikes = Math.max((currentPeak.likes || 1) - 1, 0);
+        peaks[currentIndex] = { ...currentPeak, likes: updatedLikes, isLiked: false };
       } else {
         await awsAPI.likePeak(currentPeak.id);
+        useFeedStore.getState().setPeakLikeOverride(currentPeak.id, true);
+        const updatedLikes = (currentPeak.likes || 0) + 1;
+        peaks[currentIndex] = { ...currentPeak, likes: updatedLikes, isLiked: true };
       }
     } catch (error) {
-      console.error('[Peak] Failed to toggle like:', error);
+      if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);
       // Rollback on error
       setLikedPeaks(prev => {
         const newSet = new Set(prev);
@@ -271,20 +328,54 @@ const PeakViewScreen = (): React.JSX.Element => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeak.id, likedPeaks]);
 
-  const toggleSave = useCallback((): void => {
+  const toggleSave = useCallback(async (): Promise<void> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const wasSaved = savedPeaks.has(currentPeak.id);
+
+    // Optimistic update
     setSavedPeaks(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(currentPeak.id)) {
+      if (wasSaved) {
         newSet.delete(currentPeak.id);
       } else {
         newSet.add(currentPeak.id);
       }
       return newSet;
     });
-  }, [currentPeak.id]);
 
-  const _handleOpenTagModal = useCallback((): void => {
+    try {
+      if (wasSaved) {
+        const { error } = await unsavePost(currentPeak.id);
+        if (error) {
+          // Rollback
+          setSavedPeaks(prev => { const s = new Set(prev); s.add(currentPeak.id); return s; });
+        } else {
+          showSuccess('Removed', 'Post removed from saved.');
+        }
+      } else {
+        const { error } = await savePost(currentPeak.id);
+        if (error) {
+          // Rollback
+          setSavedPeaks(prev => { const s = new Set(prev); s.delete(currentPeak.id); return s; });
+        } else {
+          showSuccess('Saved', 'Post added to your collection.');
+        }
+      }
+    } catch {
+      // Rollback on network error
+      setSavedPeaks(prev => {
+        const newSet = new Set(prev);
+        if (wasSaved) {
+          newSet.add(currentPeak.id);
+        } else {
+          newSet.delete(currentPeak.id);
+        }
+        return newSet;
+      });
+    }
+  }, [currentPeak.id, savedPeaks, showSuccess]);
+
+  const handleOpenTagModal = useCallback((): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowTagModal(true);
   }, []);
@@ -305,7 +396,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (__DEV__) console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
     } catch (error) {
-      console.error('[Peak] Failed to tag friend:', error);
+      if (__DEV__) console.warn('[Peak] Failed to tag friend:', error);
       // Rollback on error
       setPeakTags(prev => {
         const newMap = new Map(prev);
@@ -313,8 +404,9 @@ const PeakViewScreen = (): React.JSX.Element => {
         newMap.set(currentPeak.id, currentTags.filter(id => id !== friend.id));
         return newMap;
       });
-      Alert.alert('Error', 'Failed to tag friend. Please try again.');
+      showError('Error', 'Failed to tag friend. Please try again.');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeak.id]);
 
   // Handle reactions - removed duplicate, using existing handleLongPress below
@@ -344,7 +436,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       }
       if (__DEV__) console.log(`[Peak] ${isRemovingReaction ? 'Removed' : 'Added'} reaction ${reactionType} on peak ${currentPeak.id}`);
     } catch (error) {
-      console.error('[Peak] Failed to update reaction:', error);
+      if (__DEV__) console.warn('[Peak] Failed to update reaction:', error);
       // Rollback on error
       setPeakReactions(prev => {
         const newMap = new Map(prev);
@@ -433,28 +525,20 @@ const PeakViewScreen = (): React.JSX.Element => {
     closeMenu();
     switch (action) {
       case 'report':
-        Alert.alert(
+        showDestructiveConfirm(
           'Report Peak',
           'Are you sure you want to report this Peak?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Report',
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  // Use the content store or direct API call
-                  await submitPostReport(currentPeak.id, 'inappropriate', 'Reported from Peak view');
-                  // Also call the database service for server-side
-                  await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
-                  Alert.alert('Reported', 'Thank you for your report. We will review this content.');
-                } catch (error) {
-                  console.error('[Peak] Failed to report:', error);
-                  Alert.alert('Error', 'Failed to submit report. Please try again.');
-                }
-              },
-            },
-          ]
+          async () => {
+            try {
+              await submitPostReport(currentPeak.id, 'inappropriate', 'Reported from Peak view');
+              await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
+              showSuccess('Reported', 'Thank you for your report. We will review this content.');
+            } catch (error) {
+              if (__DEV__) console.warn('[Peak] Failed to report:', error);
+              showError('Error', 'Failed to submit report. Please try again.');
+            }
+          },
+          'Report'
         );
         break;
       case 'not_interested':
@@ -471,9 +555,9 @@ const PeakViewScreen = (): React.JSX.Element => {
         // Call API to persist the hide
         try {
           await awsAPI.hidePeak(currentPeak.id, 'not_interested');
-          Alert.alert('Got it', "We won't show you similar content.");
+          showSuccess('Got it', "We won't show you similar content.");
         } catch (error) {
-          console.error('[Peak] Failed to hide peak:', error);
+          if (__DEV__) console.warn('[Peak] Failed to hide peak:', error);
           // Rollback on error
           setHiddenPeaks(prev => {
             const newSet = new Set(prev);
@@ -485,7 +569,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       case 'copy_link': {
         const copied = await copyPeakLink(currentPeak.id);
         if (copied) {
-          Alert.alert('Copied!', 'Link copied to clipboard');
+          showSuccess('Copied!', 'Link copied to clipboard');
         }
         break;
       }
@@ -508,11 +592,11 @@ const PeakViewScreen = (): React.JSX.Element => {
         const { dx, dy } = gestureState;
 
         if (Math.abs(dy) > Math.abs(dx)) {
-          // Swipe UP - Open replies or create reply Peak
+          // Swipe UP - Open replies or create reply Peak (not for business)
           if (dy < -50) {
             if (currentPeak.repliesCount && currentPeak.repliesCount > 0) {
               setIsInChain(true);
-            } else {
+            } else if (!isBusiness) {
               navigation.navigate('CreatePeak', {
                 replyTo: currentPeak.id,
                 originalPeak: currentPeak,
@@ -545,6 +629,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleCreatePeak = (): void => {
+    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       replyTo: currentPeak.id,
       originalPeak: currentPeak,
@@ -553,7 +638,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
-  const likesCount = (currentPeak.likes || 0) + (isLiked ? 1 : 0);
+  const likesCount = currentPeak.likes ?? 0;
   const repliesCount = currentPeak.repliesCount || 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
   const _tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;
@@ -572,6 +657,28 @@ const PeakViewScreen = (): React.JSX.Element => {
   // Find which user index is currently selected
   const currentUserIndex = uniqueUsers.findIndex(u => u.id === currentPeak.user?.id);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const placeholder = useMemo(() => require('../../../assets/images/bg.png'), []);
+
+  const onVideoStatus = (status: AVPlaybackStatus) => {
+    const s = status as AVPlaybackStatusSuccess;
+    if (!s.isLoaded) return;
+    if (s.durationMillis) setVideoDuration(s.durationMillis);
+    if (s.positionMillis && s.durationMillis) {
+      const pct = Math.min(100, Math.max(0, (s.positionMillis / s.durationMillis) * 100));
+      setProgress(pct);
+    }
+    if (s.didJustFinish) {
+      // Advance to next peak if available
+      if (currentIndex < peaks.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setIsPaused(true);
+        videoRef.current?.pauseAsync().catch(() => {});
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar hidden />
@@ -583,11 +690,26 @@ const PeakViewScreen = (): React.JSX.Element => {
         delayLongPress={300}
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
-          <Image
-            source={{ uri: currentPeak.thumbnail }}
-            style={styles.media}
-            resizeMode="cover"
-          />
+          {currentPeak.videoUrl ? (
+            <Video
+              ref={(r) => { videoRef.current = r; }}
+              source={{ uri: currentPeak.videoUrl }}
+              style={styles.media}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping
+              isMuted={false}
+              onPlaybackStatusUpdate={onVideoStatus}
+              posterSource={{ uri: currentPeak.thumbnail || undefined }}
+              usePoster
+            />
+          ) : (
+            <OptimizedImage
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              source={currentPeak.thumbnail || (placeholder as any)}
+              style={styles.media}
+            />
+          )}
         </View>
       </TouchableWithoutFeedback>
 
@@ -599,7 +721,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             style={styles.backButton}
             onPress={handleGoBack}
           >
-            <Ionicons name="chevron-back" size={26} color={COLORS.white} />
+            <Ionicons name="chevron-back" size={26} color={colors.white} />
           </TouchableOpacity>
 
           {/* Circular Avatar Carousel */}
@@ -626,17 +748,11 @@ const PeakViewScreen = (): React.JSX.Element => {
                       end={{ x: 1, y: 1 }}
                       style={styles.avatarRingGradient}
                     >
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.avatarImageSelected}
-                      />
+                      <AvatarImage source={user.avatar} size={44} style={styles.avatarImageSelected} />
                     </LinearGradient>
                   ) : (
                     <View style={styles.avatarRingInactive}>
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.avatarImageInactive}
-                      />
+                      <AvatarImage source={user.avatar} size={38} style={styles.avatarImageInactive} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -644,13 +760,15 @@ const PeakViewScreen = (): React.JSX.Element => {
             })}
           </View>
 
-          {/* Add Button */}
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleCreatePeak}
-          >
-            <Ionicons name="add" size={26} color={COLORS.white} />
-          </TouchableOpacity>
+          {/* Add Button - hidden for business */}
+          {!isBusiness && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleCreatePeak}
+            >
+              <Ionicons name="add" size={26} color={colors.white} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -693,25 +811,34 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
               <SmuppyHeartIcon
                 size={26}
-                color={isLiked ? COLORS.primary : COLORS.white}
+                color={isLiked ? colors.heartRed : colors.white}
                 filled={isLiked}
               />
             </View>
             <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
           </TouchableOpacity>
 
-          {/* Comments/Reply Button */}
-          <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="chatbubble-outline" size={24} color={COLORS.white} />
-            </View>
-            <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
-          </TouchableOpacity>
+          {/* Comments/Reply Button - hidden for business */}
+          {!isBusiness && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
+              <View style={styles.actionIconContainer}>
+                <Ionicons name="chatbubble-outline" size={24} color={colors.white} />
+              </View>
+              <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Share Button */}
           <TouchableOpacity style={styles.actionButton} onPress={() => handleMenuAction('share')}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="paper-plane-outline" size={24} color={COLORS.white} />
+              <Ionicons name="paper-plane-outline" size={24} color={colors.white} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Tag Friend Button */}
+          <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="person-add-outline" size={22} color={colors.white} />
             </View>
           </TouchableOpacity>
 
@@ -721,7 +848,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               <Ionicons
                 name={isSaved ? "bookmark" : "bookmark-outline"}
                 size={24}
-                color={isSaved ? COLORS.primary : COLORS.white}
+                color={isSaved ? colors.primary : colors.white}
               />
             </View>
           </TouchableOpacity>
@@ -729,7 +856,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* More Options */}
           <TouchableOpacity style={styles.actionButton} onPress={() => setShowMenu(true)}>
             <View style={styles.actionIconContainer}>
-              <Ionicons name="ellipsis-horizontal" size={24} color={COLORS.white} />
+              <Ionicons name="ellipsis-horizontal" size={24} color={colors.white} />
             </View>
           </TouchableOpacity>
         </View>
@@ -754,12 +881,44 @@ const PeakViewScreen = (): React.JSX.Element => {
             <Text style={styles.captionText}>{currentPeak.textOverlay}</Text>
           )}
 
-          {/* Progress Bar at Bottom */}
-          <View style={styles.bottomProgressBar}>
-            <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+          {/* Challenge Info */}
+          {currentPeak.isChallenge && (
+            <View style={styles.challengeBanner}>
+              <View style={styles.challengeBannerHeader}>
+                <Ionicons name="trophy" size={16} color="#FFD700" />
+                <Text style={styles.challengeBannerTitle}>
+                  {currentPeak.challengeTitle || 'Challenge'}
+                </Text>
+              </View>
+              {currentPeak.challengeRules ? (
+                <Text style={styles.challengeBannerRules} numberOfLines={2}>
+                  {currentPeak.challengeRules}
+                </Text>
+              ) : null}
+              {!isBusiness && (
+                <TouchableOpacity
+                  style={styles.acceptChallengeButton}
+                  onPress={handleCreatePeak}
+                >
+                  <Ionicons name="flame" size={16} color={colors.dark} />
+                  <Text style={styles.acceptChallengeText}>Accept Challenge</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
+          )}
+
+      {/* Progress Bar at Bottom + Reply CTA */}
+      <View style={styles.bottomBar}>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+        </View>
+        {!isBusiness && (
+          <TouchableOpacity style={styles.replyButton} onPress={handleCreatePeak}>
+            <Ionicons name="return-down-forward" size={18} color={colors.white} />
+            <Text style={styles.replyButtonText}>Reply with your Peak</Text>
+          </TouchableOpacity>
+        )}
+      </View>
         </View>
       )}
 
@@ -775,7 +934,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               }
             ]}
           >
-            <SmuppyHeartIcon size={100} color={COLORS.primary} filled />
+            <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
           </Animated.View>
 
           {/* Particles */}
@@ -794,7 +953,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 }
               ]}
             >
-              <SmuppyHeartIcon size={24} color={COLORS.primary} filled />
+              <SmuppyHeartIcon size={24} color={colors.heartRed} filled />
             </Animated.View>
           ))}
         </View>
@@ -823,7 +982,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         <View style={styles.pauseInfo}>
           <Text style={styles.pauseUserName}>{currentPeak.user?.name}</Text>
           <Text style={styles.pauseDate}>
-            {new Date(currentPeak.createdAt).toLocaleDateString()}
+            {createdDate}
           </Text>
         </View>
       )}
@@ -845,7 +1004,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               style={styles.menuItem}
               onPress={() => handleMenuAction('not_interested')}
             >
-              <Ionicons name="eye-off-outline" size={24} color={COLORS.white} />
+              <Ionicons name="eye-off-outline" size={24} color={isDark ? colors.white : colors.dark} />
               <Text style={styles.menuItemText}>Pas intéressé</Text>
             </TouchableOpacity>
 
@@ -890,10 +1049,10 @@ const PeakViewScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
   },
   mediaContainer: {
     flex: 1,
@@ -953,7 +1112,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: COLORS.dark,
+    borderColor: colors.dark,
   },
   avatarRingInactive: {
     width: 42,
@@ -988,7 +1147,7 @@ const styles = StyleSheet.create({
   },
   progressSegmentFill: {
     height: '100%',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: 1,
   },
   progressSegmentComplete: {
@@ -1003,7 +1162,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 1,
   },
   // Vertical Action Buttons - Right Side (No circles, just icons)
@@ -1028,7 +1187,7 @@ const styles = StyleSheet.create({
   actionCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -1052,7 +1211,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -1064,12 +1223,77 @@ const styles = StyleSheet.create({
   },
   captionText: {
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 12,
     lineHeight: 20,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  challengeBanner: {
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.25)',
+  },
+  challengeBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  challengeBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFD700',
+  },
+  challengeBannerRules: {
+    fontSize: 13,
+    color: colors.white,
+    opacity: 0.8,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  acceptChallengeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFD700',
+    borderRadius: 8,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    right: 20,
+    flexDirection: 'column',
+    gap: 12,
+  },
+  replyButton: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 20,
+  },
+  replyButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  acceptChallengeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.dark,
   },
   bottomProgressBar: {
     marginTop: 12,
@@ -1110,11 +1334,11 @@ const styles = StyleSheet.create({
   chainTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   chainHint: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   // Onboarding
@@ -1133,7 +1357,7 @@ const styles = StyleSheet.create({
   onboardingText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -1152,21 +1376,21 @@ const styles = StyleSheet.create({
   pauseUserName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 4,
   },
   pauseDate: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   // Menu Modal
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -1178,7 +1402,7 @@ const styles = StyleSheet.create({
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#3A3A3C',
+    backgroundColor: isDark ? '#3A3A3C' : colors.gray300,
     borderRadius: 2,
   },
   menuItem: {
@@ -1190,12 +1414,12 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 17,
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
     fontWeight: '500',
   },
   menuItemDanger: {
     borderTopWidth: 1,
-    borderTopColor: '#2C2C2E',
+    borderTopColor: isDark ? '#2C2C2E' : colors.grayBorder,
     marginTop: 8,
     paddingTop: 24,
   },
@@ -1206,14 +1430,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
     borderRadius: 14,
     alignItems: 'center',
   },
   menuCancelText: {
     fontSize: 17,
     fontWeight: '600',
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
   },
 });
 

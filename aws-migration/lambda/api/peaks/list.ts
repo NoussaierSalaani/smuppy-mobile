@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('peaks-list');
 
@@ -20,7 +21,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Pagination params
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
-    const authorId = event.queryStringParameters?.authorId;
+    const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
+    const usernameParam = event.queryStringParameters?.username;
 
     const db = await getPool();
 
@@ -45,6 +47,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.thumbnail_url,
         pk.caption,
         pk.duration,
+        pk.reply_to_peak_id,
         pk.likes_count,
         pk.comments_count,
         pk.views_count,
@@ -53,7 +56,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
         p.is_verified as author_is_verified,
-        p.account_type as author_account_type
+        p.account_type as author_account_type,
+        pc.id as challenge_id,
+        pc.title as challenge_title,
+        pc.rules as challenge_rules,
+        pc.status as challenge_status,
+        pc.response_count as challenge_response_count
     `;
 
     // Add isLiked subquery if user is authenticated
@@ -69,6 +77,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     query += `
       FROM peaks pk
       JOIN profiles p ON pk.author_id = p.id
+      LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
       WHERE 1=1
     `;
 
@@ -76,11 +85,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let paramIndex = currentProfileId ? 2 : 1;
 
     // Filter by author if provided
-    if (authorId) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(authorId)) {
+    if (authorIdParam) {
+      if (isValidUUID(authorIdParam)) {
         query += ` AND pk.author_id = $${paramIndex}`;
-        params.push(authorId);
+        params.push(authorIdParam);
+        paramIndex++;
+      }
+    } else if (usernameParam) {
+      // Lookup author_id by username to support author filter by username
+      const userResult = await db.query(
+        'SELECT id FROM profiles WHERE username = $1',
+        [usernameParam]
+      );
+      const authorIdFromUsername = userResult.rows[0]?.id;
+      if (authorIdFromUsername) {
+        query += ` AND pk.author_id = $${paramIndex}`;
+        params.push(authorIdFromUsername);
         paramIndex++;
       }
     }
@@ -102,12 +122,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const peaks = hasMore ? result.rows.slice(0, -1) : result.rows;
 
     // Format response
-    const formattedPeaks = peaks.map(peak => ({
+    const formattedPeaks = peaks.map((peak: Record<string, unknown>) => ({
       id: peak.id,
       videoUrl: peak.video_url,
       thumbnailUrl: peak.thumbnail_url,
       caption: peak.caption,
       duration: peak.duration,
+      replyToPeakId: peak.reply_to_peak_id || null,
       likesCount: peak.likes_count,
       commentsCount: peak.comments_count,
       viewsCount: peak.views_count,
@@ -121,6 +142,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         isVerified: peak.author_is_verified || false,
         accountType: peak.author_account_type,
       },
+      challenge: peak.challenge_id ? {
+        id: peak.challenge_id,
+        title: peak.challenge_title,
+        rules: peak.challenge_rules,
+        status: peak.challenge_status,
+        responseCount: peak.challenge_response_count,
+      } : null,
     }));
 
     // Generate next cursor
@@ -132,9 +160,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        peaks: formattedPeaks,
-        cursor: nextCursor,
+        data: formattedPeaks,
+        nextCursor,
         hasMore,
+        total: formattedPeaks.length,
       }),
     };
   } catch (error: unknown) {

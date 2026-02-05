@@ -16,6 +16,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NativeScrollEvent, AppState, AppStateStatus } from 'react-native';
 import { moodDetection, MoodAnalysisResult, MoodType } from '../services/moodDetection';
 import { moodRecommendation, Post, UserProfile, RecommendationResult } from '../services/moodRecommendation';
+import { addPositiveAction } from '../services/rippleTracker';
+import { isFeatureEnabled } from '../config/featureFlags';
+import { useVibeStore } from '../stores/vibeStore';
 
 // ============================================================================
 // ADAPTIVE REFRESH CONFIGURATION
@@ -34,6 +37,8 @@ const ACTIVITY_TIMEOUT = 5000; // Consider idle after 5s of no activity
 // ============================================================================
 
 export interface UseMoodAIOptions {
+  /** Set to false to disable all mood tracking (e.g. for business accounts) */
+  enabled?: boolean;
   enableScrollTracking?: boolean;
   moodUpdateInterval?: number; // ms
   onMoodChange?: (mood: MoodAnalysisResult) => void;
@@ -63,6 +68,9 @@ export interface UseMoodAIReturn {
   refreshMood: () => void;
   startSession: () => void;
   endSession: () => void;
+
+  // History
+  getMoodHistory: () => MoodAnalysisResult[];
 }
 
 // ============================================================================
@@ -71,6 +79,7 @@ export interface UseMoodAIReturn {
 
 export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   const {
+    enabled = true,
     enableScrollTracking = true,
     onMoodChange,
   } = options;
@@ -151,6 +160,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   // ============================================================================
 
   useEffect(() => {
+    if (!enabled) return;  
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
         // App came to foreground - resume refresh
@@ -170,7 +180,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, [isActive, setRefreshInterval, analyzeMoodAndUpdate]);
+  }, [enabled, isActive, setRefreshInterval, analyzeMoodAndUpdate]);
 
   // ============================================================================
   // SESSION MANAGEMENT
@@ -203,29 +213,30 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     if (__DEV__) console.log('[MoodAI] Session ended');
   }, []);
 
-  // Start session on mount only
+  // Start session on mount only (skip if disabled)
   useEffect(() => {
+    if (!enabled) return;
     startSession();
 
     return () => {
       endSession();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 
   // ============================================================================
   // SCROLL TRACKING (marks activity for adaptive refresh)
   // ============================================================================
 
   const handleScroll = useCallback((event: { nativeEvent: NativeScrollEvent }) => {
-    if (!enableScrollTracking) return;
+    if (!enabled || !enableScrollTracking) return;
 
     const { contentOffset } = event.nativeEvent;
     moodDetection.trackScroll(contentOffset.y);
 
     // Mark user as active (switches to faster refresh rate)
     markActive();
-  }, [enableScrollTracking, markActive]);
+  }, [enabled, enableScrollTracking, markActive]);
 
   // ============================================================================
   // ENGAGEMENT TRACKING (triggers immediate mood refresh)
@@ -261,7 +272,8 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
   const trackLike = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('like');
-    // Immediate mood refresh on interaction
+    if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('like');
+    useVibeStore.getState().addVibeAction('like');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
@@ -275,14 +287,16 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
 
   const trackShare = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('share');
-    // Immediate mood refresh on interaction
+    if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('share');
+    useVibeStore.getState().addVibeAction('share');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
 
   const trackSave = useCallback((_postId: string, _category: string) => {
     moodDetection.trackEngagement('save');
-    // Immediate mood refresh on interaction
+    if (isFeatureEnabled('EMOTIONAL_RIPPLE')) addPositiveAction('save');
+    useVibeStore.getState().addVibeAction('save');
     analyzeMoodAndUpdate();
     markActive();
   }, [analyzeMoodAndUpdate, markActive]);
@@ -330,6 +344,10 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
   // RETURN
   // ============================================================================
 
+  const getMoodHistory = useCallback(() => {
+    return moodDetection.getMoodHistory();
+  }, []);
+
   return {
     mood,
     isAnalyzing,
@@ -345,6 +363,7 @@ export function useMoodAI(options: UseMoodAIOptions = {}): UseMoodAIReturn {
     refreshMood,
     startSession,
     endSession,
+    getMoodHistory,
   };
 }
 

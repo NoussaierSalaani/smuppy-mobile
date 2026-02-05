@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -14,15 +14,9 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-const COLORS = {
-  primary: '#0EBF8A',
-  white: '#FFFFFF',
-  dark: '#0A0A0F',
-  grayDark: '#2C2C2E',
-};
 
 // Taille du bouton
 const BUTTON_SIZE = 100;
@@ -54,7 +48,10 @@ const RecordButton = ({
   onRecordEnd,
   onRecordCancel,
 }: RecordButtonProps): React.JSX.Element => {
-  const [recording, setRecording] = useState(false);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const [_recording, setRecording] = useState(false);
+  const recordingRef = useRef(false);
   const recordDurationRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -83,6 +80,7 @@ const RecordButton = ({
   });
 
   const handlePressIn = (): void => {
+    recordingRef.current = true;
     setRecording(true);
     recordDurationRef.current = 0;
     startTimeRef.current = Date.now();
@@ -116,10 +114,11 @@ const RecordButton = ({
   };
 
   const handlePressOut = (): void => {
-    if (!recording) return;
+    if (!recordingRef.current) return;
 
     const finalDuration = recordDurationRef.current;
 
+    recordingRef.current = false;
     setRecording(false);
 
     // S logo deflate animation - dégonfle avec spring
@@ -164,7 +163,7 @@ const RecordButton = ({
               cx={CENTER}
               cy={CENTER}
               r={RADIUS}
-              stroke={COLORS.grayDark}
+              stroke={colors.grayBorder}
               strokeWidth={STROKE_WIDTH}
               fill="none"
             />
@@ -173,7 +172,7 @@ const RecordButton = ({
               cx={CENTER}
               cy={CENTER}
               r={RADIUS}
-              stroke={COLORS.primary}
+              stroke={colors.primary}
               strokeWidth={STROKE_WIDTH}
               fill="none"
               strokeDasharray={CIRCUMFERENCE}
@@ -211,7 +210,7 @@ const RecordButton = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   wrapper: {
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,

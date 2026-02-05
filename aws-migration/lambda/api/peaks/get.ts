@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('peaks-get');
 
@@ -24,8 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(peakId)) {
+    if (!isValidUUID(peakId)) {
       return {
         statusCode: 400,
         headers,
@@ -59,6 +59,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.thumbnail_url,
         pk.caption,
         pk.duration,
+        pk.reply_to_peak_id,
         pk.likes_count,
         pk.comments_count,
         pk.views_count,
@@ -67,7 +68,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
         p.is_verified as author_is_verified,
-        p.account_type as author_account_type
+        p.account_type as author_account_type,
+        pc.id as challenge_id,
+        pc.title as challenge_title,
+        pc.rules as challenge_rules,
+        pc.status as challenge_status,
+        pc.response_count as challenge_response_count
     `;
 
     const params: SqlParam[] = [];
@@ -87,6 +93,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     query += `
       FROM peaks pk
       JOIN profiles p ON pk.author_id = p.id
+      LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
       WHERE pk.id = $${paramIndex}
     `;
     params.push(peakId);
@@ -110,12 +117,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO peak_views (peak_id, user_id) VALUES ($1, $2)
          ON CONFLICT (peak_id, user_id) DO NOTHING`,
         [peakId, userId]
-      ).then(result => {
+      ).then((result: { rowCount: number | null }) => {
         // Only increment if this is a new view (row was inserted)
         if (result.rowCount && result.rowCount > 0) {
           return db.query('UPDATE peaks SET views_count = views_count + 1 WHERE id = $1', [peakId]);
         }
-      }).catch(err => log.error('Error incrementing view count', err));
+      }).catch((err: unknown) => log.error('Error incrementing view count', err));
     }
 
     return {
@@ -128,6 +135,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           thumbnailUrl: peak.thumbnail_url,
           caption: peak.caption,
           duration: peak.duration,
+          replyToPeakId: peak.reply_to_peak_id || null,
           likesCount: peak.likes_count,
           commentsCount: peak.comments_count,
           viewsCount: peak.views_count + 1, // Include the current view
@@ -141,6 +149,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             isVerified: peak.author_is_verified || false,
             accountType: peak.author_account_type,
           },
+          challenge: peak.challenge_id ? {
+            id: peak.challenge_id,
+            title: peak.challenge_title,
+            rules: peak.challenge_rules,
+            status: peak.challenge_status,
+            responseCount: peak.challenge_response_count,
+          } : null,
         },
       }),
     };

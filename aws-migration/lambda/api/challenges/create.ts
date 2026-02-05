@@ -4,16 +4,12 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('challenges-create');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 interface CreateChallengeRequest {
   peakId: string;
@@ -36,6 +32,7 @@ interface CreateChallengeRequest {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {
@@ -46,6 +43,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
     }
+
+    // Resolve cognito_sub to profile ID
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
 
     const body: CreateChallengeRequest = JSON.parse(event.body || '{}');
     const {
@@ -76,9 +86,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    if (!isValidUUID(peakId) || (challengeTypeId && !isValidUUID(challengeTypeId)) || !taggedUserIds.every(isValidUUID)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
+      });
+    }
+
     // Verify peak exists and belongs to user
     const peakResult = await client.query(
-      `SELECT id, user_id FROM peaks WHERE id = $1`,
+      `SELECT id, author_id FROM peaks WHERE id = $1`,
       [peakId]
     );
 
@@ -89,7 +106,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    if (peakResult.rows[0].user_id !== userId) {
+    if (peakResult.rows[0].author_id !== profileId) {
       return cors({
         statusCode: 403,
         body: JSON.stringify({
@@ -104,7 +121,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const userResult = await client.query(
         `SELECT account_type, is_verified, subscription_tier
          FROM profiles WHERE id = $1`,
-        [userId]
+        [profileId]
       );
 
       const user = userResult.rows[0];
@@ -133,10 +150,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         duration_seconds, ends_at, is_public, allow_anyone, max_participants,
         has_prize, prize_description, prize_amount, tips_enabled
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *`,
+      RETURNING id, peak_id, creator_id, challenge_type_id, title, description, rules, duration_seconds, ends_at, is_public, allow_anyone, max_participants, has_prize, prize_description, prize_amount, tips_enabled, status, created_at`,
       [
         peakId,
-        userId,
+        profileId,
         challengeTypeId || null,
         title,
         description || null,
@@ -164,15 +181,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
     if (taggedUserIds.length > 0) {
-      const tagValues = taggedUserIds
-        .map((_, i) => `($1, $${i + 2})`)
-        .join(', ');
+      const placeholders: string[] = [];
+      const params: (string)[] = [];
+
+      for (let i = 0; i < taggedUserIds.length; i++) {
+        const base = i * 2 + 1;
+        placeholders.push(`($${base}, $${base + 1})`);
+        params.push(challenge.id, taggedUserIds[i]);
+      }
 
       await client.query(
         `INSERT INTO challenge_tags (challenge_id, tagged_user_id)
-         VALUES ${tagValues}
+         VALUES ${placeholders.join(', ')}
          ON CONFLICT DO NOTHING`,
-        [challenge.id, ...taggedUserIds]
+        params
       );
 
       // Create notifications for tagged users
@@ -189,7 +211,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               peakId,
               title,
             }),
-            userId,
+            profileId,
           ]
         );
       }

@@ -4,21 +4,16 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
-import { SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('challenges-list');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getReaderPool();
   const client = await pool.connect();
 
   try {
@@ -136,19 +131,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Check if current user has responded (if logged in)
     let userResponses: Record<string, boolean> = {};
     if (userId && result.rows.length > 0) {
-      const challengeIds = result.rows.map((r) => r.id);
+      const challengeIds = result.rows.map((r: Record<string, unknown>) => r.id);
       const responseCheck = await client.query(
         `SELECT challenge_id FROM challenge_responses
          WHERE challenge_id = ANY($1) AND user_id = $2`,
         [challengeIds, userId]
       );
-      userResponses = responseCheck.rows.reduce((acc, r) => {
-        acc[r.challenge_id] = true;
+      userResponses = responseCheck.rows.reduce((acc: Record<string, boolean>, r: Record<string, unknown>) => {
+        acc[r.challenge_id as string] = true;
         return acc;
       }, {} as Record<string, boolean>);
     }
 
-    const challenges = result.rows.map((row) => ({
+    const challenges = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       peakId: row.peak_id,
       title: row.title,
@@ -159,7 +154,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       hasPrize: row.has_prize,
       prizeDescription: row.prize_description,
       tipsEnabled: row.tips_enabled,
-      totalTips: row.total_tips ? parseFloat(row.total_tips) : 0,
+      totalTips: row.total_tips ? parseFloat(row.total_tips as string) : 0,
       responseCount: row.response_count,
       viewCount: row.view_count,
       status: row.status,
@@ -183,7 +178,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         avatarUrl: row.creator_avatar,
         isVerified: row.creator_verified,
       },
-      hasResponded: userResponses[row.id] || false,
+      hasResponded: userResponses[row.id as string] || false,
     }));
 
     return cors({

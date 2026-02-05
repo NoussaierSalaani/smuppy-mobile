@@ -10,10 +10,6 @@
  * Outputs a probability vector for 6 mood states with confidence score.
  */
 
-// Imports for future use when app state / network monitoring is enabled
-// import { AppState, AppStateStatus } from 'react-native';
-// import NetInfo from '@react-native-community/netinfo';
-
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -90,6 +86,7 @@ export interface ContentPreferences {
 // ============================================================================
 
 class MoodDetectionEngine {
+  private moodHistory: MoodAnalysisResult[] = [];
   private scrollHistory: ScrollBehavior[] = [];
   private currentScrollSession: Partial<ScrollBehavior> = {};
   private lastScrollY: number = 0;
@@ -628,13 +625,28 @@ class MoodDetectionEngine {
       content: this.postsViewed > 5 ? 0.9 : 0.4, // More data = more reliable
     };
 
-    return {
+    const result: MoodAnalysisResult = {
       primaryMood,
       probabilities: normalizedProbs,
       confidence: Math.min(0.95, confidence + 0.3), // Boost confidence a bit
       signals,
       timestamp: Date.now(),
     };
+
+    // Store in mood history (cap at 20)
+    this.moodHistory.push(result);
+    if (this.moodHistory.length > 20) {
+      this.moodHistory.shift();
+    }
+
+    return result;
+  }
+
+  /**
+   * Get mood history (last N snapshots, max 20)
+   */
+  getMoodHistory(): MoodAnalysisResult[] {
+    return [...this.moodHistory];
   }
 
   /**
@@ -718,6 +730,7 @@ class MoodDetectionEngine {
     this.creatorsViewed = new Set();
     this.contentTypeCounts = { image: 0, video: 0, carousel: 0 };
 
+    this.moodHistory = [];
     this.sessionStartTime = Date.now();
   }
 }

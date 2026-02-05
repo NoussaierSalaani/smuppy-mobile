@@ -9,6 +9,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('peaks-hide');
 
@@ -21,11 +22,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return createCorsResponse(401, { error: 'Unauthorized' });
   }
 
-  // Validate UUID format if peakId provided
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
   try {
     const db = await getPool();
+
+    // Resolve cognito_sub to profile ID
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return createCorsResponse(404, { error: 'Profile not found' });
+    }
+    const profileId = profileResult.rows[0].id;
 
     // GET /peaks/hidden - List hidden peaks
     if (httpMethod === 'GET' && !peakId) {
@@ -34,16 +42,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                 p.thumbnail_url, p.author_id,
                 pr.username, pr.display_name, pr.avatar_url
          FROM peak_hidden ph
-         JOIN posts p ON ph.peak_id = p.id
+         JOIN peaks p ON ph.peak_id = p.id
          JOIN profiles pr ON p.author_id = pr.id
          WHERE ph.user_id = $1
          ORDER BY ph.created_at DESC
          LIMIT 100`,
-        [userId]
+        [profileId]
       );
 
       return createCorsResponse(200, {
-        hiddenPeaks: hiddenResult.rows.map(row => ({
+        hiddenPeaks: hiddenResult.rows.map((row: Record<string, unknown>) => ({
           peakId: row.peak_id,
           reason: row.reason,
           hiddenAt: row.created_at,
@@ -62,13 +70,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createCorsResponse(400, { error: 'Peak ID is required' });
     }
 
-    if (!uuidRegex.test(peakId)) {
+    if (!isValidUUID(peakId)) {
       return createCorsResponse(400, { error: 'Invalid peak ID format' });
     }
 
     // Verify peak exists
     const peakResult = await db.query(
-      'SELECT id, author_id FROM posts WHERE id = $1 AND is_peak = true',
+      'SELECT id, author_id FROM peaks WHERE id = $1',
       [peakId]
     );
 
@@ -95,10 +103,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `INSERT INTO peak_hidden (user_id, peak_id, reason, created_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (user_id, peak_id) DO UPDATE SET reason = $3, created_at = NOW()`,
-        [userId, peakId, reason]
+        [profileId, peakId, reason]
       );
 
-      log.info('Peak hidden from feed', { peakId, userId, reason });
+      log.info('Peak hidden from feed', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***', reason });
 
       return createCorsResponse(200, {
         success: true,
@@ -110,14 +118,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Unhide peak
       const result = await db.query(
         'DELETE FROM peak_hidden WHERE user_id = $1 AND peak_id = $2 RETURNING id',
-        [userId, peakId]
+        [profileId, peakId]
       );
 
       if (result.rows.length === 0) {
         return createCorsResponse(404, { error: 'Peak was not hidden' });
       }
 
-      log.info('Peak unhidden', { peakId, userId });
+      log.info('Peak unhidden', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

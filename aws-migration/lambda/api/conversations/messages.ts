@@ -6,7 +6,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('conversations-messages');
 
@@ -33,8 +34,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(conversationId)) {
+    if (!isValidUUID(conversationId)) {
       return {
         statusCode: 400,
         headers,
@@ -84,6 +84,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       SELECT
         m.id,
         m.content,
+        m.media_url,
+        m.media_type,
         m.sender_id,
         m.read,
         m.created_at,

@@ -5,6 +5,7 @@
 
 import { AWS_CONFIG } from '../config/aws-config';
 import { awsAuth } from './aws-auth';
+import { awsAPI } from './aws-api';
 
 type MessageHandler = (message: WebSocketMessage) => void;
 type ConnectionHandler = (connected: boolean) => void;
@@ -17,7 +18,7 @@ export interface WebSocketMessage {
   senderId?: string;
   content?: string;
   timestamp?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface SendMessagePayload {
@@ -35,6 +36,7 @@ class WebSocketService {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isConnecting = false;
 
   private messageHandlers: Set<MessageHandler> = new Set();
@@ -57,26 +59,37 @@ class WebSocketService {
 
     this.isConnecting = true;
 
+    // Clear any pending reconnect timer to avoid duplicate connections
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     try {
-      // Get authentication token
-      const token = await awsAuth.getIdToken();
-      if (!token) {
+      // Get authentication token (needed for the ephemeral token request)
+      const idToken = await awsAuth.getIdToken();
+      if (!idToken) {
         throw new Error('No authentication token available');
       }
 
-      // Pass token via Sec-WebSocket-Protocol header instead of query string
-      // to avoid token exposure in server logs and browser history
-      // TODO: Use a short-lived ephemeral token via /auth/ws-token endpoint
-      // instead of the main access token (reduces exposure window)
+      // Get a short-lived ephemeral token for the WebSocket connection
+      // instead of exposing the full Cognito JWT (reduces exposure window)
+      const { token: wsToken } = await awsAPI.getWsToken();
+
       const wsUrl = AWS_CONFIG.api.websocketEndpoint;
 
       if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connecting to:', wsUrl);
 
-      this.socket = new WebSocket(wsUrl, ['access-token', token]);
+      this.socket = new WebSocket(wsUrl, ['access-token', wsToken]);
 
       this.socket.onopen = () => {
         if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Connected successfully');
         this.isConnecting = false;
+        // Cancel any pending reconnect timer
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
         this.reconnectAttempts = 0;
         this.notifyConnectionHandlers(true);
         this.startPingInterval();
@@ -88,14 +101,14 @@ class WebSocketService {
           // Validate message has required shape before dispatching
           const validTypes = ['message', 'typing', 'read', 'online', 'offline', 'error'];
           if (!parsed || typeof parsed !== 'object' || !validTypes.includes(parsed.type)) {
-            console.warn('[WebSocket] Ignoring malformed message');
+            if (__DEV__) console.warn('[WebSocket] Ignoring malformed message');
             return;
           }
           const message = parsed as WebSocketMessage;
           if (process.env.NODE_ENV === 'development') console.log('[WebSocket] Received message:', message.type);
           this.notifyMessageHandlers(message);
         } catch (error) {
-          console.error('[WebSocket] Failed to parse message:', error);
+          if (__DEV__) console.warn('[WebSocket] Failed to parse message:', error);
         }
       };
 
@@ -112,13 +125,13 @@ class WebSocketService {
       };
 
       this.socket.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
+        if (__DEV__) console.warn('[WebSocket] Error:', error);
         this.isConnecting = false;
         this.notifyErrorHandlers(new Error('WebSocket connection error'));
       };
     } catch (error) {
       this.isConnecting = false;
-      console.error('[WebSocket] Failed to connect:', error);
+      if (__DEV__) console.warn('[WebSocket] Failed to connect:', error);
       throw error;
     }
   }
@@ -127,6 +140,11 @@ class WebSocketService {
    * Disconnect from WebSocket server
    */
   disconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     this.stopPingInterval();
 
     if (this.socket) {
@@ -143,7 +161,7 @@ class WebSocketService {
    */
   sendMessage(payload: SendMessagePayload): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('[WebSocket] Cannot send message - not connected');
+      if (__DEV__) console.warn('[WebSocket] Cannot send message - not connected');
       throw new Error('WebSocket is not connected');
     }
 
@@ -187,6 +205,16 @@ class WebSocketService {
   }
 
   /**
+   * Send raw JSON payload through WebSocket
+   */
+  send(payload: Record<string, unknown>): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify(payload));
+  }
+
+  /**
    * Check if connected
    */
   isConnected(): boolean {
@@ -224,7 +252,7 @@ class WebSocketService {
       try {
         handler(message);
       } catch (error) {
-        console.error('[WebSocket] Error in message handler:', error);
+        if (__DEV__) console.warn('[WebSocket] Error in message handler:', error);
       }
     });
   }
@@ -234,7 +262,7 @@ class WebSocketService {
       try {
         handler(connected);
       } catch (error) {
-        console.error('[WebSocket] Error in connection handler:', error);
+        if (__DEV__) console.warn('[WebSocket] Error in connection handler:', error);
       }
     });
   }
@@ -244,7 +272,7 @@ class WebSocketService {
       try {
         handler(error);
       } catch (err) {
-        console.error('[WebSocket] Error in error handler:', err);
+        if (__DEV__) console.warn('[WebSocket] Error in error handler:', err);
       }
     });
   }
@@ -255,13 +283,14 @@ class WebSocketService {
 
     if (process.env.NODE_ENV === 'development') console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
-    setTimeout(async () => {
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
       try {
         // Refresh token before reconnecting to avoid using an expired token
         await awsAuth.getIdToken();
         await this.connect();
       } catch (error) {
-        console.error('[WebSocket] Reconnection failed:', error);
+        if (__DEV__) console.warn('[WebSocket] Reconnection failed:', error);
       }
     }, delay);
   }

@@ -6,9 +6,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { sendPushToUser } from '../services/push-notification';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('conversations-send-message');
+
+const MAX_MESSAGE_LENGTH = 5000;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -23,6 +28,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Rate limit: 60 messages per minute
+    const { allowed } = await checkRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: 60, maxRequests: 60 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
+
     const conversationId = event.pathParameters?.id;
     if (!conversationId) {
       return {
@@ -32,9 +47,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(conversationId)) {
+    if (!isValidUUID(conversationId)) {
       return {
         statusCode: 400,
         headers,
@@ -44,7 +57,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { content } = body;
+    const { content, mediaUrl, mediaType } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return {
@@ -54,14 +67,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Limit message length
-    if (content.length > 5000) {
+    if (content.length > MAX_MESSAGE_LENGTH) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'Message is too long (max 5000 characters)' }),
+        body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
       };
     }
+
+    // Validate optional media fields — media_type is only valid when media_url is also valid
+    const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
+    const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
+      ? mediaUrl
+      : null;
+    const validMediaType = validMediaUrl && mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
+      ? mediaType
+      : null;
+
+    // Sanitize content: strip HTML tags and control characters
+    const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
 
     const db = await getPool();
 
@@ -96,21 +120,45 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Insert the message
-    const messageResult = await db.query(
-      `INSERT INTO messages (conversation_id, sender_id, content, read, created_at)
-       VALUES ($1, $2, $3, false, NOW())
-       RETURNING id, content, sender_id, read, created_at`,
-      [conversationId, profile.id, content.trim()]
-    );
+    const conversation = conversationResult.rows[0];
+    const recipientId = conversation.participant_1_id === profile.id
+      ? conversation.participant_2_id
+      : conversation.participant_1_id;
 
-    // Update conversation's last_message_at
-    await db.query(
-      'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',
-      [conversationId]
-    );
+    // Insert message and update conversation in a transaction
+    const client = await db.connect();
+    let message;
+    try {
+      await client.query('BEGIN');
 
-    const message = messageResult.rows[0];
+      const messageResult = await client.query(
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
+         RETURNING id, content, media_url, media_type, sender_id, recipient_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType]
+      );
+
+      await client.query(
+        'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',
+        [conversationId]
+      );
+
+      await client.query('COMMIT');
+      message = messageResult.rows[0];
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
+
+    // Send push notification to recipient (non-blocking)
+    const displayName = profile.display_name || profile.username;
+    sendPushToUser(db, recipientId, {
+      title: displayName,
+      body: sanitizedContent.length > 100 ? sanitizedContent.substring(0, 100) + '…' : sanitizedContent,
+      data: { type: 'message', conversationId, senderId: profile.id },
+    }).catch(err => log.error('Push notification failed', err));
 
     return {
       statusCode: 201,

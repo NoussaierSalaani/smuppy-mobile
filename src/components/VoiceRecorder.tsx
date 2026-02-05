@@ -1,22 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Alert,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 interface VoiceRecorderProps {
-  onSend: (uri: string, duration: number) => void;
+  onFinish: (uri: string, duration: number) => void;
   onCancel: () => void;
 }
 
-export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
+export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps) {
+  const { colors } = useTheme();
+  const { showError } = useSmuppyAlert();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -24,6 +26,10 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationRef = useRef(0);
+  const recordingUriRef = useRef<string | null>(null);
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Request permissions on mount
   useEffect(() => {
@@ -31,7 +37,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
       const { granted } = await Audio.requestPermissionsAsync();
       setPermissionGranted(granted);
       if (!granted) {
-        Alert.alert('Permission Required', 'Microphone access is needed to record voice messages.');
+        showError('Permission Required', 'Microphone access is needed to record voice messages.');
       }
     })();
 
@@ -40,7 +46,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         clearInterval(durationInterval.current);
       }
     };
-  }, []);
+  }, [showError]);
 
   // Pulse animation while recording
   useEffect(() => {
@@ -72,7 +78,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
   const startRecording = async () => {
     if (!permissionGranted) {
-      Alert.alert('Permission Denied', 'Please enable microphone access in settings.');
+      showError('Permission Denied', 'Please enable microphone access in settings.');
       return;
     }
 
@@ -86,17 +92,21 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
 
+      // Capture URI immediately while recording object is fully initialized
+      recordingUriRef.current = newRecording.getURI();
       setRecording(newRecording);
       setIsRecording(true);
       setDuration(0);
+      durationRef.current = 0;
 
       // Start duration counter
       durationInterval.current = setInterval(() => {
-        setDuration(prev => prev + 1);
+        durationRef.current += 1;
+        setDuration(durationRef.current);
       }, 1000);
     } catch (err) {
-      console.error('Failed to start recording:', err);
-      Alert.alert('Error', 'Failed to start recording');
+      if (__DEV__) console.warn('Failed to start recording:', err);
+      showError('Error', 'Failed to start recording');
     }
   };
 
@@ -108,23 +118,37 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         clearInterval(durationInterval.current);
       }
 
-      await recording.stopAndUnloadAsync();
+      // Get the actual recording status for real duration
+      const status = await recording.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
       });
 
-      const uri = recording.getURI();
+      // Use URI captured at creation (safe) or try getURI as fallback
+      const uri = recordingUriRef.current || recording.getURI();
+
+      // Use real duration from recording status, fall back to manual timer
+      const realDurationSec = status.durationMillis
+        ? Math.floor(status.durationMillis / 1000)
+        : durationRef.current;
+
       setRecording(null);
       setIsRecording(false);
+      recordingUriRef.current = null;
 
-      if (uri && duration >= 1) {
-        onSend(uri, duration);
-      } else if (duration < 1) {
-        Alert.alert('Too Short', 'Voice message must be at least 1 second');
+      if (uri && realDurationSec >= 1) {
+        onFinish(uri, realDurationSec);
+      } else if (!uri) {
+        if (__DEV__) console.warn('[VoiceRecorder] No recording URI available');
+        showError('Error', 'Recording failed. Please try again.');
+        onCancel();
+      } else {
+        showError('Too Short', 'Voice message must be at least 1 second');
         onCancel();
       }
     } catch (err) {
-      console.error('Failed to stop recording:', err);
+      if (__DEV__) console.warn('Failed to stop recording:', err);
+      showError('Error', 'Recording failed. Please try again.');
       onCancel();
     }
   };
@@ -137,11 +161,12 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
         }
         await recording.stopAndUnloadAsync();
       } catch (err) {
-        console.error('Error canceling recording:', err);
+        if (__DEV__) console.warn('Error canceling recording:', err);
       }
     }
     setRecording(null);
     setIsRecording(false);
+    recordingUriRef.current = null;
     onCancel();
   };
 
@@ -149,7 +174,7 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
     <View style={styles.container}>
       {/* Cancel button */}
       <TouchableOpacity style={styles.cancelButton} onPress={cancelRecording}>
-        <Ionicons name="close" size={24} color={COLORS.gray} />
+        <Ionicons name="close" size={24} color={colors.gray} />
       </TouchableOpacity>
 
       {/* Recording indicator */}
@@ -181,15 +206,15 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.border,
   },
   cancelButton: {
     padding: 8,
@@ -210,18 +235,18 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginRight: 8,
   },
   recordingLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   recordButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

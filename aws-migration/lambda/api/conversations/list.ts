@@ -6,7 +6,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('conversations-list');
 
@@ -55,6 +55,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           SELECT json_build_object(
             'id', m.id,
             'content', m.content,
+            'media_type', m.media_type,
             'created_at', m.created_at,
             'sender_id', m.sender_id
           )
@@ -74,9 +75,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           SELECT json_build_object(
             'id', p.id,
             'username', p.username,
+            'full_name', p.full_name,
             'display_name', p.display_name,
             'avatar_url', p.avatar_url,
-            'is_verified', p.is_verified
+            'is_verified', p.is_verified,
+            'account_type', p.account_type
           )
           FROM profiles p
           WHERE p.id = CASE

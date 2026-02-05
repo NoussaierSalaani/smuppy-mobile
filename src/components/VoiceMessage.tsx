@@ -1,134 +1,222 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 interface VoiceMessageProps {
   uri: string;
   isFromMe: boolean;
 }
 
-export default function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+const BAR_COUNT = 20;
+const PROGRESS_UPDATE_THRESHOLD = 0.02; // Only re-render when progress changes by 2%
+
+export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageProps) {
+  const { colors } = useTheme();
+  const soundRef = useRef<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [position, setPosition] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  // Refs to track values without triggering re-renders
+  const lastProgressRef = useRef(0);
+  const durationRef = useRef(0);
+  const positionRef = useRef(0);
 
-  useEffect(() => {
-    loadSound();
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Stable random bar heights — generated once per URI
+  const barHeights = useMemo(() => {
+    const heights: number[] = [];
+    let seed = 0;
+    for (let i = 0; i < uri.length; i++) seed = ((seed << 5) - seed + uri.charCodeAt(i)) | 0;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      seed = (seed * 16807 + 0) % 2147483647;
+      heights.push(8 + (seed % 17));
+    }
+    return heights;
   }, [uri]);
 
-  const loadSound = async () => {
-    try {
-      const { sound: newSound, status } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: false },
-        onPlaybackStatusUpdate
-      );
-      setSound(newSound);
-      if (status.isLoaded && status.durationMillis) {
-        setDuration(status.durationMillis);
-        setIsLoaded(true);
-      }
-    } catch (err) {
-      console.error('Error loading sound:', err);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+  const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
 
-    setPosition(status.positionMillis || 0);
-    setIsPlaying(status.isPlaying);
+    positionRef.current = status.positionMillis || 0;
 
+    if (status.durationMillis && status.durationMillis !== durationRef.current) {
+      durationRef.current = status.durationMillis;
+      setDuration(status.durationMillis);
+    }
+
+    // Only update progress state when change exceeds threshold (reduces re-renders)
     if (status.durationMillis) {
-      const progress = status.positionMillis / status.durationMillis;
-      progressAnim.setValue(progress);
+      const newProgress = status.positionMillis / status.durationMillis;
+      if (Math.abs(newProgress - lastProgressRef.current) >= PROGRESS_UPDATE_THRESHOLD) {
+        lastProgressRef.current = newProgress;
+        setProgress(newProgress);
+      }
+    }
+
+    if (status.isPlaying !== (soundRef.current as unknown as { _isPlaying?: boolean })?._isPlaying) {
+      setIsPlaying(status.isPlaying);
     }
 
     if (status.didJustFinish) {
+      lastProgressRef.current = 0;
+      positionRef.current = 0;
       setIsPlaying(false);
-      setPosition(0);
-      progressAnim.setValue(0);
+      setProgress(0);
     }
-  };
+  }, []);
 
-  const togglePlayback = async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSound = async () => {
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+
+      setIsLoaded(false);
+      setLoadError(false);
+
+      try {
+        const { sound: newSound, status } = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: false, progressUpdateIntervalMillis: 250 },
+          onPlaybackStatusUpdate
+        );
+
+        if (cancelled) {
+          await newSound.unloadAsync();
+          return;
+        }
+
+        soundRef.current = newSound;
+
+        if (status.isLoaded) {
+          setIsLoaded(true);
+          if (status.durationMillis) {
+            durationRef.current = status.durationMillis;
+            setDuration(status.durationMillis);
+          }
+        }
+      } catch (err) {
+        if (__DEV__) console.warn('[VoiceMessage] Error loading sound:', err);
+        if (!cancelled) setLoadError(true);
+      }
+    };
+
+    loadSound();
+
+    return () => {
+      cancelled = true;
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+    };
+  }, [uri, onPlaybackStatusUpdate, reloadTick]);
+
+  const togglePlayback = useCallback(async () => {
+    if (loadError) {
+      setLoadError(false);
+      setReloadTick(t => t + 1);
+      return;
+    }
+
+    const sound = soundRef.current;
     if (!sound) return;
 
-    if (isPlaying) {
-      await sound.pauseAsync();
-    } else {
-      await sound.playAsync();
-    }
-  };
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
 
-  const formatTime = (millis: number): string => {
+      if (isPlaying) {
+        await sound.pauseAsync();
+      } else {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded && status.durationMillis && status.positionMillis >= status.durationMillis) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[VoiceMessage] Playback error:', err);
+    }
+  }, [isPlaying, loadError]);
+
+  const displayTime = useMemo(() => {
+    const millis = isPlaying || progress > 0 ? positionRef.current : duration;
     const totalSeconds = Math.floor(millis / 1000);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, [isPlaying, progress, duration]);
 
-  const displayTime = isPlaying || position > 0 ? position : duration;
+  // Memoize waveform bars — only recalculate when progress or theme changes
+  const waveformBars = useMemo(() =>
+    barHeights.map((h, i) => (
+      <View
+        key={i}
+        style={[
+          styles.waveformBar,
+          {
+            height: h,
+            backgroundColor: isFromMe
+              ? `rgba(255,255,255,${i / BAR_COUNT < progress ? 1 : 0.4})`
+              : `rgba(14,191,138,${i / BAR_COUNT < progress ? 1 : 0.4})`,
+          },
+        ]}
+      />
+    )),
+  [barHeights, progress, isFromMe]);
 
   return (
-    <View style={[styles.container, isFromMe ? styles.containerFromMe : styles.containerFromOther]}>
+    <View style={[
+      styles.container,
+      { backgroundColor: isFromMe ? colors.primary : colors.gray100 }
+    ]}>
       <TouchableOpacity
-        style={[styles.playButton, isFromMe ? styles.playButtonFromMe : styles.playButtonFromOther]}
+        style={[
+          styles.playButton,
+          { backgroundColor: isFromMe ? 'rgba(255,255,255,0.9)' : colors.primary }
+        ]}
         onPress={togglePlayback}
-        disabled={!isLoaded}
+        disabled={!isLoaded && !loadError}
       >
         <Ionicons
           name={isPlaying ? "pause" : "play"}
           size={20}
-          color={isFromMe ? COLORS.primary : "#fff"}
+          color={isFromMe ? colors.primary : "#fff"}
         />
       </TouchableOpacity>
 
       <View style={styles.waveformContainer}>
-        {/* Waveform bars (visual representation) */}
         <View style={styles.waveform}>
-          {[...Array(20)].map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.waveformBar,
-                {
-                  height: 8 + Math.random() * 16,
-                  backgroundColor: isFromMe
-                    ? `rgba(255,255,255,${i / 20 < (position / duration || 0) ? 1 : 0.4})`
-                    : `rgba(14,191,138,${i / 20 < (position / duration || 0) ? 1 : 0.4})`,
-                },
-              ]}
-            />
-          ))}
+          {waveformBars}
         </View>
 
-        {/* Duration */}
-        <Text style={[styles.duration, isFromMe && styles.durationFromMe]}>
-          {formatTime(displayTime)}
+        <Text style={[
+          styles.duration,
+          { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
+        ]}>
+          {loadError ? 'Tap to retry' : displayTime}
         </Text>
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -139,12 +227,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     minWidth: 180,
   },
-  containerFromMe: {
-    backgroundColor: COLORS.primary,
-  },
-  containerFromOther: {
-    backgroundColor: '#F0F0F0',
-  },
   playButton: {
     width: 36,
     height: 36,
@@ -152,12 +234,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
-  },
-  playButtonFromMe: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  playButtonFromOther: {
-    backgroundColor: COLORS.primary,
   },
   waveformContainer: {
     flex: 1,
@@ -174,10 +250,6 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 11,
-    color: COLORS.gray,
     marginTop: 4,
-  },
-  durationFromMe: {
-    color: 'rgba(255,255,255,0.8)',
   },
 });

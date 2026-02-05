@@ -6,8 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('conversations-create');
 
@@ -51,8 +52,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(participantId)) {
+    if (!isValidUUID(participantId)) {
       return {
         statusCode: 400,
         headers,
@@ -133,12 +133,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Create new conversation
+    // Create new conversation — order participant IDs to satisfy chk_participants_ordered constraint
+    const [p1, p2] = profileId < participantId ? [profileId, participantId] : [participantId, profileId];
     const newConversation = await db.query(
       `INSERT INTO conversations (participant_1_id, participant_2_id, created_at)
        VALUES ($1, $2, NOW())
        RETURNING id, created_at, last_message_at`,
-      [profileId, participantId]
+      [p1, p2]
     );
 
     return {

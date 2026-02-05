@@ -20,7 +20,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Pagination params
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
-    const authorId = event.queryStringParameters?.authorId;
+    const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
+    const usernameParam = event.queryStringParameters?.username;
 
     const db = await getPool();
 
@@ -88,6 +89,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (uuidRegex.test(authorId)) {
         query += ` AND pk.author_id = $${paramIndex}`;
         params.push(authorId);
+        paramIndex++;
+      }
+    } else if (usernameParam) {
+      // Lookup author_id by username to support author filter by username
+      const userResult = await db.query(
+        'SELECT id FROM profiles WHERE username = $1',
+        [usernameParam]
+      );
+      const authorIdFromUsername = userResult.rows[0]?.id;
+      if (authorIdFromUsername) {
+        query += ` AND pk.author_id = $${paramIndex}`;
+        params.push(authorIdFromUsername);
         paramIndex++;
       }
     }

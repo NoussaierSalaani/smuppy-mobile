@@ -15,10 +15,16 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('media-upload-url');
 
-const s3Client = new S3Client({});
+const PRESIGNED_URL_EXPIRY_SECONDS = 300;
+
+const s3Client = new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
 
 // Validate required environment variables
 if (!process.env.MEDIA_BUCKET) {
@@ -61,8 +67,8 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
 
 interface UploadRequest {
   contentType: string;
-  fileSize: number;
-  uploadType: 'avatar' | 'post' | 'peak' | 'message';
+  fileSize?: number;
+  uploadType?: 'avatar' | 'cover' | 'post' | 'peak' | 'message';
   filename?: string;
 }
 
@@ -86,6 +92,8 @@ function getUploadPath(userId: string, uploadType: string, filename: string): st
   switch (uploadType) {
     case 'avatar':
       return `users/${userId}/avatar/${filename}`;
+    case 'cover':
+      return `users/${userId}/cover/${filename}`;
     case 'post':
       return `posts/${userId}/${filename}`;
     case 'peak':
@@ -113,6 +121,16 @@ export async function handler(
       };
     }
 
+    // Rate limit: 30 uploads per minute
+    const { allowed } = await checkRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: 60, maxRequests: 30 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+      };
+    }
+
     if (!event.body) {
       return {
         statusCode: 400,
@@ -122,7 +140,15 @@ export async function handler(
     }
 
     const request: UploadRequest = JSON.parse(event.body);
-    const { contentType, fileSize, uploadType } = request;
+    const { contentType, fileSize, filename } = request;
+    // Default uploadType to 'post', also infer from filename prefix
+    let uploadType = request.uploadType || 'post';
+    if (!request.uploadType && filename) {
+      if (filename.startsWith('avatars/')) uploadType = 'avatar';
+      else if (filename.startsWith('peaks/')) uploadType = 'peak';
+      else if (filename.startsWith('messages/')) uploadType = 'message';
+      else if (filename.startsWith('covers/')) uploadType = 'cover';
+    }
 
     // Validate content type
     const mediaType = getMediaType(contentType);
@@ -137,9 +163,9 @@ export async function handler(
       };
     }
 
-    // Validate file size
+    // Validate file size (skip if not provided — size enforced by S3 presigned URL)
     const maxSize = MAX_FILE_SIZES[mediaType];
-    if (fileSize > maxSize) {
+    if (fileSize && fileSize > maxSize) {
       return {
         statusCode: 400,
         headers,
@@ -152,7 +178,7 @@ export async function handler(
     }
 
     // Validate upload type
-    const validUploadTypes = ['avatar', 'post', 'peak', 'message'];
+    const validUploadTypes = ['avatar', 'cover', 'post', 'peak', 'message'];
     if (!validUploadTypes.includes(uploadType)) {
       return {
         statusCode: 400,
@@ -165,33 +191,45 @@ export async function handler(
     }
 
     // Generate secure filename and path
-    const filename = generateSecureFilename(contentType);
-    const key = getUploadPath(userId, uploadType, filename);
+    const secureFilename = generateSecureFilename(contentType);
+    const key = getUploadPath(userId, uploadType, secureFilename);
 
     // Create presigned URL
-    const command = new PutObjectCommand({
+    const putObjectParams: {
+      Bucket: string;
+      Key: string;
+      ContentType: string;
+      ContentLength?: number;
+      Metadata: Record<string, string>;
+    } = {
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: contentType,
-      ContentLength: fileSize,
-      // SECURITY: Add metadata for tracking
       Metadata: {
         'uploaded-by': userId,
         'upload-type': uploadType,
         'original-filename': (request.filename || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
       },
-    });
+    };
+    // Only set ContentLength if fileSize is provided — otherwise S3 rejects mismatched sizes
+    if (fileSize && fileSize > 0) {
+      putObjectParams.ContentLength = fileSize;
+    }
+    const command = new PutObjectCommand(putObjectParams);
 
     // SECURITY: Short-lived presigned URL (5 minutes)
+    // unhoistableHeaders: prevent SDK from embedding checksum headers in the signed URL
+    // (mobile clients don't compute CRC32, so S3 would reject the upload)
     const uploadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 300, // 5 minutes
+      expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
+      unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm']),
     });
 
     // Generate the public URL for the uploaded file
     const publicUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
 
     // Log upload request (masked user ID for security)
-    log.info('Upload URL generated', { userId: userId.substring(0, 8) + '***', uploadType, mediaType });
+    log.info('Upload URL generated', { userId: userId.substring(0, 2) + '***', uploadType, mediaType });
 
     return {
       statusCode: 200,
@@ -199,8 +237,9 @@ export async function handler(
       body: JSON.stringify({
         uploadUrl,
         publicUrl,
+        fileUrl: key,
         key,
-        expiresIn: 300,
+        expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
         maxSize,
       }),
     };

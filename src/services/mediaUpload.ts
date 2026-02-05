@@ -3,7 +3,7 @@
  * Handles uploads to AWS S3 with presigned URLs and CloudFront CDN
  */
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { ENV } from '../config/env';
 import { captureException } from '../lib/sentry';
 import {
@@ -56,7 +56,7 @@ export interface MediaFile {
 
 const S3_CONFIG = {
   bucket: ENV.S3_BUCKET_NAME || '',
-  region: ENV.AWS_REGION || 'eu-west-3',
+  region: ENV.AWS_REGION || 'us-east-1',
   cloudFrontUrl: ENV.CLOUDFRONT_URL || '',
 };
 
@@ -153,7 +153,7 @@ const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean
       exists: info.exists,
     };
   } catch (error) {
-    console.log('[getFileInfo] Error checking file:', uri.substring(0, 50), error);
+    if (__DEV__) console.log('[getFileInfo] Error checking file:', uri.substring(0, 50), error);
     // For MediaLibrary URIs, assume they exist
     if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
       return { size: 0, exists: true };
@@ -193,7 +193,7 @@ const readFileAsBase64 = async (uri: string): Promise<string> => {
   } catch (fetchError) {
     // Fallback: try using FileSystem for file:// URIs
     if (uri.startsWith('file://')) {
-      console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
+      if (__DEV__) console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
       // Use the legacy method as fallback
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
@@ -247,11 +247,20 @@ export const getPresignedUrl = async (
   contentType: string
 ): Promise<PresignedUrlResponse | null> => {
   try {
+    if (__DEV__) console.log('[getPresignedUrl] Requesting URL for:', fileName.substring(0, 60), 'type:', contentType);
+
     // Import AWS API service
     const { awsAPI } = await import('./aws-api');
 
     // Use AWS API to get presigned URL
-    const result = await awsAPI.getUploadUrl(`${folder}/${fileName}`, contentType);
+    const result = await awsAPI.getUploadUrl(fileName, contentType);
+
+    if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', result.fileUrl?.substring(0, 60));
+
+    if (!result.uploadUrl || !result.fileUrl) {
+      if (__DEV__) console.log('[getPresignedUrl] Missing uploadUrl or fileUrl in response:', JSON.stringify(result).substring(0, 200));
+      return null;
+    }
 
     return {
       uploadUrl: result.uploadUrl,
@@ -259,28 +268,10 @@ export const getPresignedUrl = async (
       cdnUrl: awsAPI.getCDNUrl(result.fileUrl),
     };
   } catch (error) {
-    console.error('Error getting presigned URL:', error);
-    captureException(error as Error, { context: 'getPresignedUrl' });
+    if (__DEV__) console.log('[getPresignedUrl] Error:', error);
+    captureException(error as Error, { context: 'getPresignedUrl', fileName, folder, contentType });
     return null;
   }
-};
-
-/**
- * Alternative: Generate presigned URL client-side
- * Note: This requires AWS credentials in the app (less secure)
- * Prefer server-side generation when possible
- */
-export const generatePresignedUrlClientSide = (
-  key: string,
-  _contentType: string,
-  _expiresIn: number = 3600
-): string => {
-  // This is a simplified version - in production, use AWS SDK or server-side
-  const bucket = S3_CONFIG.bucket;
-  const region = S3_CONFIG.region;
-
-  // Direct S3 URL (not presigned - for reference only)
-  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 };
 
 // ============================================
@@ -343,7 +334,7 @@ export const getOptimizedImageUrl = (
 // ============================================
 
 /**
- * Upload file to S3 using presigned URL
+ * Upload file to S3 using presigned URL (fetch-based, works for images)
  */
 export const uploadToS3 = async (
   fileUri: string,
@@ -352,34 +343,38 @@ export const uploadToS3 = async (
   onProgress?: (progress: number) => void
 ): Promise<boolean> => {
   try {
-    // Read file
+    if (__DEV__) console.log('[uploadToS3] Reading file:', fileUri.substring(0, 80));
     const fileBase64 = await readFileAsBase64(fileUri);
     const fileBlob = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
+    if (__DEV__) console.log('[uploadToS3] File size:', fileBlob.length, 'bytes, contentType:', contentType);
 
-    // Upload using fetch with PUT
     const response = await fetch(presignedUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': contentType,
+        'Content-Length': String(fileBlob.length),
       },
       body: fileBlob,
     });
 
     if (!response.ok) {
+      const body = await response.text().catch((e) => { if (__DEV__) console.log('[uploadToS3] Failed to read response body:', e); return ''; });
+      if (__DEV__) console.log('[uploadToS3] S3 returned', response.status, body.substring(0, 300));
       throw new Error(`Upload failed: ${response.status}`);
     }
 
+    if (__DEV__) console.log('[uploadToS3] Upload succeeded');
     onProgress?.(100);
     return true;
   } catch (error) {
-    console.error('S3 upload error:', error);
+    if (__DEV__) console.log('[uploadToS3] Error:', error);
     captureException(error as Error, { context: 'uploadToS3' });
     return false;
   }
 };
 
 /**
- * Upload using Expo FileSystem (better for large files)
+ * Upload using Expo FileSystem (better for large files / videos)
  */
 export const uploadWithFileSystem = async (
   fileUri: string,
@@ -388,24 +383,36 @@ export const uploadWithFileSystem = async (
   onProgress?: (progress: number) => void
 ): Promise<boolean> => {
   try {
+    if (__DEV__) console.log('[uploadFS] Uploading:', fileUri.substring(0, 80), 'contentType:', contentType);
+
     const uploadResult = await FileSystem.uploadAsync(presignedUrl, fileUri, {
       httpMethod: 'PUT',
-      uploadType: 0,
+      uploadType: 0, // FileSystemUploadType.BINARY_CONTENT
       headers: {
         'Content-Type': contentType,
       },
     });
 
-    if (uploadResult.status !== 200) {
-      throw new Error(`Upload failed: ${uploadResult.status}`);
+    if (__DEV__) console.log('[uploadFS] Status:', uploadResult.status, 'body:', (uploadResult.body || '').substring(0, 200));
+
+    if (uploadResult.status >= 200 && uploadResult.status < 300) {
+      onProgress?.(100);
+      return true;
     }
 
-    onProgress?.(100);
-    return true;
+    // FileSystem upload failed — try fetch-based fallback for non-video files
+    if (__DEV__) console.log('[uploadFS] FileSystem upload failed, trying fetch fallback...');
+    return uploadToS3(fileUri, presignedUrl, contentType, onProgress);
   } catch (error) {
-    console.error('FileSystem upload error:', error);
-    captureException(error as Error, { context: 'uploadWithFileSystem' });
-    return false;
+    if (__DEV__) console.log('[uploadFS] Error:', error, '— trying fetch fallback...');
+    // Fallback: try fetch-based upload
+    try {
+      return await uploadToS3(fileUri, presignedUrl, contentType, onProgress);
+    } catch (fallbackError) {
+      if (__DEV__) console.log('[uploadFS] Fallback also failed:', fallbackError);
+      captureException(error as Error, { context: 'uploadWithFileSystem' });
+      return false;
+    }
   }
 };
 
@@ -429,9 +436,12 @@ export const uploadImage = async (
   } = options;
 
   try {
+    if (__DEV__) console.log('[uploadImage] Start — folder:', folder, 'uri:', imageUri.substring(0, 60));
+
     // Validate
     const validation = await validateFile(imageUri, 'image');
     if (!validation.valid) {
+      if (__DEV__) console.log('[uploadImage] Validation failed:', validation.error);
       return { success: false, error: validation.error };
     }
 
@@ -462,7 +472,8 @@ export const uploadImage = async (
       finalUri = compressed.uri;
       mimeType = compressed.mimeType;
       fileSize = compressed.fileSize;
-      onProgress?.(30); // Compression done
+      if (__DEV__) console.log('[uploadImage] Compressed:', fileSize, 'bytes, mime:', mimeType, 'uri:', finalUri.substring(0, 60));
+      onProgress?.(30);
     }
 
     // Generate file key
@@ -474,21 +485,26 @@ export const uploadImage = async (
     const presignedData = await getPresignedUrl(key, folder, mimeType);
 
     if (!presignedData) {
-      return { success: false, error: 'Failed to get upload URL' };
+      if (__DEV__) console.log('[uploadImage] Failed to get presigned URL');
+      return { success: false, error: 'Failed to get upload URL. Check your connection.' };
     }
 
     // Upload
     onProgress?.(50);
+    if (__DEV__) console.log('[uploadImage] Uploading to S3...');
     const uploadSuccess = await uploadWithFileSystem(
       finalUri,
       presignedData.uploadUrl,
       mimeType,
-      (p) => onProgress?.(50 + (p * 0.5)) // 50-100%
+      (p) => onProgress?.(50 + (p * 0.5))
     );
 
     if (!uploadSuccess) {
-      return { success: false, error: 'Upload failed' };
+      if (__DEV__) console.log('[uploadImage] Upload to S3 failed');
+      return { success: false, error: 'Upload to storage failed. Please try again.' };
     }
+
+    if (__DEV__) console.log('[uploadImage] Success — key:', presignedData.key);
 
     return {
       success: true,
@@ -498,7 +514,7 @@ export const uploadImage = async (
       fileSize,
     };
   } catch (error) {
-    console.error('Image upload error:', error);
+    if (__DEV__) console.warn('[uploadImage] Error:', error);
     captureException(error as Error, { context: 'uploadImage', folder });
     return { success: false, error: 'Upload failed' };
   }
@@ -515,36 +531,45 @@ export const uploadVideo = async (
   const { folder = 'posts', onProgress } = options;
 
   try {
+    if (__DEV__) console.log('[uploadVideo] Start — uri:', videoUri.substring(0, 60));
+
     // Validate
     const validation = await validateFile(videoUri, 'video');
     if (!validation.valid) {
+      if (__DEV__) console.log('[uploadVideo] Validation failed:', validation.error);
       return { success: false, error: validation.error };
     }
 
     const extension = getFileExtension(videoUri);
     const mimeType = getMimeType(extension);
     const key = generateFileKey(folder, userId, 'video', extension);
+    if (__DEV__) console.log('[uploadVideo] ext:', extension, 'mime:', mimeType);
 
     // Get presigned URL
     onProgress?.(20);
     const presignedData = await getPresignedUrl(key, folder, mimeType);
 
     if (!presignedData) {
-      return { success: false, error: 'Failed to get upload URL' };
+      if (__DEV__) console.log('[uploadVideo] Failed to get presigned URL');
+      return { success: false, error: 'Failed to get upload URL. Check your connection.' };
     }
 
     // Upload
     onProgress?.(30);
+    if (__DEV__) console.log('[uploadVideo] Uploading to S3...');
     const uploadSuccess = await uploadWithFileSystem(
       videoUri,
       presignedData.uploadUrl,
       mimeType,
-      (p) => onProgress?.(30 + (p * 0.7)) // 30-100%
+      (p) => onProgress?.(30 + (p * 0.7))
     );
 
     if (!uploadSuccess) {
-      return { success: false, error: 'Upload failed' };
+      if (__DEV__) console.log('[uploadVideo] Upload to S3 failed');
+      return { success: false, error: 'Upload to storage failed. Please try again.' };
     }
+
+    if (__DEV__) console.log('[uploadVideo] Success — key:', presignedData.key);
 
     const fileInfo = await getFileInfo(videoUri);
 
@@ -556,7 +581,7 @@ export const uploadVideo = async (
       fileSize: fileInfo.size,
     };
   } catch (error) {
-    console.error('Video upload error:', error);
+    if (__DEV__) console.warn('[uploadVideo] Error:', error);
     captureException(error as Error, { context: 'uploadVideo', folder });
     return { success: false, error: 'Upload failed' };
   }
@@ -638,7 +663,7 @@ export const deleteFromS3 = async (key: string): Promise<boolean> => {
 
     return response.ok;
   } catch (error) {
-    console.error('Delete error:', error);
+    if (__DEV__) console.warn('Delete error:', error);
     captureException(error as Error, { context: 'deleteFromS3', key });
     return false;
   }

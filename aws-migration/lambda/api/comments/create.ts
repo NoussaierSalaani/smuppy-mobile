@@ -6,34 +6,20 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { sendPushToUser } from '../services/push-notification';
+import { sanitizeText, isValidUUID } from '../utils/security';
 
 const log = createLogger('comments-create');
-
-// Simple input sanitization
-function sanitizeText(text: string): string {
-  return text
-    .trim()
-    .slice(0, 2000) // Max 2000 characters
-    .replace(/\0/g, '') // Remove null bytes
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars
-    .replace(/<[^>]*>/g, ''); // Strip HTML tags (XSS prevention)
-}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    const userId = requireAuth(event, headers);
+    if (isErrorResponse(userId)) return userId;
 
     const rateLimit = await checkRateLimit({
       prefix: 'comment-create',
@@ -49,24 +35,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const postId = event.pathParameters?.id;
-    if (!postId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Post ID is required' }),
-      };
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid post ID format' }),
-      };
-    }
+    const postId = validateUUIDParam(event, headers, 'id', 'Post');
+    if (isErrorResponse(postId)) return postId;
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
@@ -81,7 +51,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate parent comment ID if provided
-    if (parentCommentId && !uuidRegex.test(parentCommentId)) {
+    if (parentCommentId && !isValidUUID(parentCommentId)) {
       return {
         statusCode: 400,
         headers,
@@ -89,7 +59,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const sanitizedText = sanitizeText(text);
+    const sanitizedText = sanitizeText(text, 2000);
 
     if (sanitizedText.length === 0) {
       return {
@@ -166,12 +136,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const comment = commentResult.rows[0];
 
-      // Update comments count on post
-      await client.query(
-        'UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1',
-        [postId]
-      );
-
       // Create notification for post author (if not self-comment)
       if (post.author_id !== profile.id) {
         await client.query(
@@ -186,6 +150,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       await client.query('COMMIT');
+
+      // Send push notification to post author (non-blocking)
+      if (post.author_id !== profile.id) {
+        sendPushToUser(db, post.author_id, {
+          title: 'New Comment',
+          body: `${profile.username} commented on your post`,
+          data: { type: 'comment', postId },
+        }).catch(err => log.error('Push notification failed', err));
+      }
 
       return {
         statusCode: 201,
@@ -208,7 +181,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           },
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

@@ -53,7 +53,11 @@ class AgoraService {
     }
 
     if (!AGORA_APP_ID) {
-      console.error('[Agora] App ID not configured');
+      if (__DEV__) console.warn('[Agora] App ID not configured');
+      try {
+        const { captureMessage } = require('../lib/sentry');
+        captureMessage('Agora App ID not configured', 'error');
+      } catch { /* Sentry not available */ }
       return false;
     }
 
@@ -77,10 +81,10 @@ class AgoraService {
       });
 
       this.isInitialized = true;
-      console.log('[Agora] Engine initialized successfully');
+      if (__DEV__) console.log('[Agora] Engine initialized successfully');
       return true;
     } catch (error) {
-      console.error('[Agora] Failed to initialize:', error);
+      if (__DEV__) console.warn('[Agora] Failed to initialize:', error);
       return false;
     }
   }
@@ -106,31 +110,31 @@ class AgoraService {
 
     this.eventHandler = {
       onJoinChannelSuccess: (connection: RtcConnection, _elapsed: number) => {
-        console.log('[Agora] Joined channel:', connection.channelId);
+        if (__DEV__) console.log('[Agora] Joined channel:', connection.channelId);
         this.currentChannel = connection.channelId || null;
         this.currentUid = connection.localUid || null;
         this.callbacks.onJoinSuccess?.(connection.channelId || '', connection.localUid || 0);
       },
 
-      onLeaveChannel: (_connection: RtcConnection, _stats: any) => {
-        console.log('[Agora] Left channel');
+      onLeaveChannel: (_connection: RtcConnection, _stats: unknown) => {
+        if (__DEV__) console.log('[Agora] Left channel');
         this.currentChannel = null;
         this.currentUid = null;
         this.callbacks.onLeaveChannel?.();
       },
 
       onUserJoined: (_connection: RtcConnection, remoteUid: number, _elapsed: number) => {
-        console.log('[Agora] User joined:', remoteUid);
+        if (__DEV__) console.log('[Agora] User joined:', remoteUid);
         this.callbacks.onUserJoined?.(remoteUid);
       },
 
       onUserOffline: (_connection: RtcConnection, remoteUid: number, _reason: number) => {
-        console.log('[Agora] User left:', remoteUid);
+        if (__DEV__) console.log('[Agora] User left:', remoteUid);
         this.callbacks.onUserLeft?.(remoteUid);
       },
 
       onError: (err: number, msg: string) => {
-        console.error('[Agora] Error:', err, msg);
+        if (__DEV__) console.warn('[Agora] Error:', err, msg);
         this.callbacks.onError?.(msg);
       },
 
@@ -202,7 +206,7 @@ class AgoraService {
 
       return true;
     } catch (error) {
-      console.error('[Agora] Failed to join channel:', error);
+      if (__DEV__) console.warn('[Agora] Failed to join channel:', error);
       return false;
     }
   }
@@ -217,7 +221,7 @@ class AgoraService {
       this.engine.stopPreview();
       this.engine.leaveChannel();
     } catch (error) {
-      console.error('[Agora] Failed to leave channel:', error);
+      if (__DEV__) console.warn('[Agora] Failed to leave channel:', error);
     }
   }
 
@@ -290,7 +294,7 @@ class AgoraService {
         this.engine.leaveChannel();
         this.engine.release();
       } catch (error) {
-        console.error('[Agora] Error during cleanup:', error);
+        if (__DEV__) console.warn('[Agora] Error during cleanup:', error);
       }
     }
 
@@ -316,9 +320,10 @@ export function generatePrivateChannelName(userId1: string, userId2: string): st
 }
 
 /**
- * Generate a channel name for live streams
+ * Generate a deterministic channel name for live streams.
+ * Uses only hostUserId so viewers can reconstruct the same name.
+ * In production, the backend should manage active stream channels.
  */
 export function generateLiveChannelName(hostUserId: string): string {
-  const timestamp = Date.now();
-  return `live_${hostUserId}_${timestamp}`;
+  return `live_${hostUserId}`;
 }

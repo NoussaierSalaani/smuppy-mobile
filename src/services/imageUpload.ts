@@ -4,6 +4,7 @@
 // ============================================
 
 import { uploadAvatar, uploadImage as uploadToS3 } from './mediaUpload';
+import { awsAuth } from './aws-auth';
 
 /**
  * Result type for image upload operations
@@ -44,7 +45,7 @@ export const uploadProfileImage = async (
     return { url: urlWithCacheBust, error: null };
   } catch (err) {
     const error = err as Error;
-    console.error('[ImageUpload] Error:', error);
+    if (__DEV__) console.warn('[ImageUpload] Error:', error);
     return { url: null, error: error.message || 'Failed to upload image' };
   }
 };
@@ -80,8 +81,12 @@ export const uploadImage = async (
     // Map bucket to folder
     const folder = bucket as 'avatars' | 'covers' | 'posts' | 'messages' | 'thumbnails';
 
+    // Get authenticated user ID
+    const user = await awsAuth.getCurrentUser();
+    const userId = user?.id || 'unknown';
+
     // Use mediaUpload service
-    const result = await uploadToS3('temp-user', imageUri, { folder, compress: true });
+    const result = await uploadToS3(userId, imageUri, { folder, compress: true });
 
     if (!result.success) {
       return { url: null, error: result.error || 'Upload failed' };

@@ -6,19 +6,10 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { sanitizeText, isValidUUID } from '../utils/security';
 
 const log = createLogger('comments-update');
-
-// Simple input sanitization
-function sanitizeText(text: string): string {
-  return text
-    .trim()
-    .slice(0, 2000) // Max 2000 characters
-    .replace(/\0/g, '') // Remove null bytes
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
-}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -43,8 +34,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(commentId)) {
+    if (!isValidUUID(commentId)) {
       return {
         statusCode: 400,
         headers,
@@ -64,7 +54,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const sanitizedText = sanitizeText(text);
+    const sanitizedText = sanitizeText(text, 2000);
 
     if (sanitizedText.length === 0) {
       return {

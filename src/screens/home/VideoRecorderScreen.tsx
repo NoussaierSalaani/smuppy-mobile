@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
@@ -18,25 +17,25 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-// COLORS import removed - not used
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
-  FilterProvider,
   useFilters,
   FilterSelector,
   OverlayEditor,
   DraggableOverlay,
 } from '../../filters';
+import type { OverlayPosition } from '../../filters/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const MAX_SEGMENT_DURATION = 15; // 15 seconds per segment
 
-interface VideoRecorderScreenProps {
-  navigation: any;
-  route: any;
-}
+import type { ParamListBase } from '@react-navigation/native';
+type VideoRecorderScreenProps = NativeStackScreenProps<ParamListBase, 'VideoRecorder'>;
 
 function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderScreenProps) {
+  const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -56,9 +55,12 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
   const { activeFilter, activeOverlays, updateOverlay } = useFilters();
 
   // Handle overlay position change
-  const handleOverlayPositionChange = useCallback((overlayId: string, position: any) => {
-    updateOverlay(overlayId, { position: { ...position } });
-  }, [updateOverlay]);
+  const handleOverlayPositionChange = useCallback((overlayId: string, position: Partial<OverlayPosition>) => {
+    const existing = activeOverlays.find(o => o.id === overlayId);
+    if (existing) {
+      updateOverlay(overlayId, { position: { ...existing.position, ...position } });
+    }
+  }, [updateOverlay, activeOverlays]);
 
   // Progress animation (0 to 1 over 15 seconds)
   const progress = useSharedValue(0);
@@ -87,7 +89,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
     if (!mediaPermission?.granted) {
       const { granted } = await requestMediaPermission();
       if (!granted) {
-        Alert.alert('Permission needed', 'Please allow access to save videos to your library.');
+        showError('Permission needed', 'Please allow access to save videos to your library.');
         return;
       }
     }
@@ -130,9 +132,9 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
         }
       }
     } catch (error) {
-      console.error('Recording error:', error);
+      if (__DEV__) console.warn('Recording error:', error);
       stopRecording();
-      Alert.alert('Error', 'Failed to record video. Please try again.');
+      showError('Error', 'Failed to record video. Please try again.');
     }
   };
 
@@ -167,7 +169,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
       // Show brief confirmation
       setSegmentCount(prev => prev + 1);
     } catch (error) {
-      console.error('Failed to save to library:', error);
+      if (__DEV__) console.warn('Failed to save to library:', error);
     }
   };
 
@@ -180,11 +182,11 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
     stopRecording();
 
     if (savedSegments.length > 0) {
-      Alert.alert(
+      showSuccess(
         'Videos Saved',
-        `${savedSegments.length} video segment${savedSegments.length > 1 ? 's' : ''} saved to your photo library.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        `${savedSegments.length} video segment${savedSegments.length > 1 ? 's' : ''} saved to your photo library.`
       );
+      navigation.goBack();
     } else {
       navigation.goBack();
     }
@@ -334,13 +336,8 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
   );
 }
 
-// Wrapper component with FilterProvider
 export default function VideoRecorderScreen(props: VideoRecorderScreenProps) {
-  return (
-    <FilterProvider>
-      <VideoRecorderScreenInner {...props} />
-    </FilterProvider>
-  );
+  return <VideoRecorderScreenInner {...props} />;
 }
 
 const styles = StyleSheet.create({

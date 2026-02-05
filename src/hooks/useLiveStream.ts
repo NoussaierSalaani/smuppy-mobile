@@ -69,7 +69,8 @@ export function useLiveStream({
   // Handle incoming WebSocket messages
   useEffect(() => {
     const handleMessage = (message: WebSocketMessage) => {
-      const data = message.data || message;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (message.data || message) as any;
 
       switch (data.type) {
         case 'viewerJoined':
@@ -124,29 +125,27 @@ export function useLiveStream({
     setIsConnected(websocketService.isConnected());
 
     return () => {
+      if (hasJoined.current) {
+        websocketService.send({ action: 'leaveLive', channelName });
+        hasJoined.current = false;
+      }
       unsubMessage();
       unsubConnection();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelName, onViewerJoined, onViewerLeft, onComment, onReaction]);
 
   // Send action to WebSocket
   const sendAction = useCallback((action: string, data?: Record<string, unknown>) => {
     if (!websocketService.isConnected()) {
-      console.warn('[useLiveStream] WebSocket not connected');
+      if (__DEV__) console.warn('[useLiveStream] WebSocket not connected');
       return;
     }
 
-    const payload = JSON.stringify({
-      action,
-      channelName,
-      ...data,
-    });
-
     try {
-      // Access the underlying socket to send
-      (websocketService as any).socket?.send(payload);
+      websocketService.send({ action, channelName, ...data });
     } catch (error) {
-      console.error('[useLiveStream] Failed to send:', error);
+      if (__DEV__) console.warn('[useLiveStream] Failed to send:', error);
     }
   }, [channelName]);
 

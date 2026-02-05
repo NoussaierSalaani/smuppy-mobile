@@ -8,7 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('feed-get');
 
@@ -95,7 +95,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
 
-    const followingIds = followingResult.rows.map(row => row.following_id);
+    const followingIds = followingResult.rows.map((row: Record<string, unknown>) => row.following_id);
 
     // Include user's own posts
     const allAuthorIds = [userId, ...followingIds];
@@ -116,7 +116,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       `SELECT creator_id FROM channel_subscriptions WHERE fan_id = $1 AND status = 'active'`,
       [userId]
     );
-    const subscribedCreatorIds = subscriptionsResult.rows.map(row => row.creator_id);
+    const subscribedCreatorIds = subscriptionsResult.rows.map((row: Record<string, unknown>) => row.creator_id);
 
     // Get feed posts with visibility filtering
     // - public: anyone can see
@@ -125,7 +125,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // - private: only author can see
     const result = await db.query(
       `SELECT
-        p.*,
+        p.id, p.author_id, p.content, p.media_urls, p.media_type,
+        p.likes_count, p.comments_count, p.views_count, p.created_at, p.visibility,
         json_build_object(
           'id', pr.id,
           'username', pr.username,
@@ -146,7 +147,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         )
         ${cursorCondition}
       ORDER BY p.created_at DESC
-      LIMIT $${cursorCondition ? 4 : 3}`,
+      LIMIT $${queryParams.length}`,
       [...queryParams, userId, subscribedCreatorIds.length > 0 ? subscribedCreatorIds : []]
     );
 
@@ -154,7 +155,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const posts = result.rows.slice(0, limit);
 
     const response = {
-      data: posts.map(post => ({
+      data: posts.map((post: Record<string, unknown>) => ({
         id: post.id,
         authorId: post.author_id,
         content: post.content,
@@ -162,6 +163,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         mediaType: post.media_type,
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,
+        viewsCount: post.views_count || 0,
         createdAt: post.created_at,
         isLiked: post.is_liked,
         author: post.author,

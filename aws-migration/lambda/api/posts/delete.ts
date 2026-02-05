@@ -6,7 +6,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 
 const log = createLogger('posts-delete');
 
@@ -14,33 +15,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    const userId = requireAuth(event, headers);
+    if (isErrorResponse(userId)) return userId;
 
-    const postId = event.pathParameters?.id;
-    if (!postId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Post ID is required' }),
-      };
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid post ID format' }),
-      };
-    }
+    const postId = validateUUIDParam(event, headers, 'id', 'Post');
+    if (isErrorResponse(postId)) return postId;
 
     const db = await getPool();
 
@@ -93,14 +72,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Delete the post (CASCADE handles related data)
+      // Delete the post (CASCADE handles related data, DB trigger auto-decrements post_count)
       await client.query('DELETE FROM posts WHERE id = $1', [postId]);
-
-      // Update user's post count
-      await client.query(
-        'UPDATE profiles SET post_count = GREATEST(post_count - 1, 0) WHERE id = $1',
-        [profileId]
-      );
 
       await client.query('COMMIT');
 
@@ -112,7 +85,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'Post deleted successfully',
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

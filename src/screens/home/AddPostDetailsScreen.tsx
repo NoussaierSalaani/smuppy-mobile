@@ -1,13 +1,13 @@
 /**
- * AddPostDetailsScreen - Écran d'ajout des détails d'un post
- * 
- * Corrections appliquées:
+ * AddPostDetailsScreen - Ecran d'ajout des details d'un post
+ *
+ * Corrections appliquees:
  * - setTimeout avec cleanup proper via useRef
  * - Toutes les couleurs utilisent le theme
- * - Code optimisé et clean
+ * - Code optimise et clean
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,13 @@ import {
   ScrollView,
   Dimensions,
   Modal,
-  Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../../types';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +31,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import {
-  COLORS,
   GRADIENTS,
   SPACING,
   SIZES,
@@ -45,6 +46,12 @@ import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
 import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
+import type { Feature, Point } from 'geojson';
+import { useVibeStore } from '../../stores/vibeStore';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { queryClient, queryKeys } from '../../lib/queryClient';
+import { useFeedStore } from '../../stores';
 
 const { width } = Dimensions.get('window');
 
@@ -103,27 +110,8 @@ interface MediaItem {
   duration?: number;
 }
 
-// Route params type
-type AddPostDetailsRouteParams = {
-  media: MediaItem[];
-  postType: string;
-};
-
-type RootStackParamList = {
-  AddPostDetails: AddPostDetailsRouteParams;
-  PostSuccess: {
-    media: MediaItem[];
-    postType: string;
-    description: string;
-    visibility: string;
-    location: string;
-    taggedPeople: TaggedPerson[];
-    postId?: string;
-  };
-};
-
-type AddPostDetailsScreenRouteProp = RouteProp<RootStackParamList, 'AddPostDetails'>;
-type AddPostDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddPostDetails'>;
+type AddPostDetailsScreenRouteProp = RouteProp<MainStackParamList, 'AddPostDetails'>;
+type AddPostDetailsScreenNavigationProp = NativeStackNavigationProp<MainStackParamList, 'AddPostDetails'>;
 
 interface AddPostDetailsScreenProps {
   route: AddPostDetailsScreenRouteProp;
@@ -135,9 +123,13 @@ interface AddPostDetailsScreenProps {
 // ============================================
 
 export default function AddPostDetailsScreen({ route, navigation }: AddPostDetailsScreenProps) {
-  const { media, postType } = route.params;
+  const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
+  const { media, postType = 'post', fromProfile = false } = route.params;
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Dynamic visibility options based on account type
   // Pro creators can restrict content to paid subscribers
@@ -181,7 +173,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     longitudeDelta: 0.01,
   });
   const [selectedCoords, setSelectedCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<InstanceType<typeof import('@rnmapbox/maps').default.MapView> | null>(null);
 
   // Following users for tagging
   const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
@@ -239,7 +231,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           setCurrentUser({ displayName, avatar });
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        if (__DEV__) console.warn('Error loading user data:', error);
       }
     };
 
@@ -280,16 +272,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         const followingProfiles = await awsAPI.getFollowingUsers(user.id, { limit: 100 });
 
         if (followingProfiles) {
-          const users = followingProfiles.map((p: any) => ({
+          const users = followingProfiles.map((p) => ({
             id: p.id,
-            full_name: p.fullName || p.full_name,
-            avatar_url: p.avatarUrl || p.avatar_url,
+            full_name: p.fullName,
+            avatar_url: p.avatarUrl,
           })).filter(Boolean) as FollowingUser[];
           setFollowingUsers(users);
           hasLoadedFollowing.current = true;
         }
       } catch (error) {
-        console.error('Error fetching following:', error);
+        if (__DEV__) console.warn('Error fetching following:', error);
       } finally {
         setIsLoadingFollowing(false);
       }
@@ -351,7 +343,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         locationCacheRef.current.set(query, predictions);
         setLocationPredictions(predictions);
       } catch (error) {
-        console.error('Error searching locations:', error);
+        if (__DEV__) console.warn('Error searching locations:', error);
       } finally {
         setIsSearchingLocation(false);
       }
@@ -363,7 +355,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow location access to use this feature.');
+        showError('Permission needed', 'Please allow location access to use this feature.');
         return;
       }
 
@@ -394,14 +386,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         }
       }
     } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location.');
+      if (__DEV__) console.warn('Error getting location:', error);
+      showError('Error', 'Could not get your current location.');
     }
   };
 
   // Handle map press to select location
-  const handleMapPress = async (event: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
-    const coords = event.nativeEvent.coordinate;
+  const handleMapPress = async (feature: Feature) => {
+    if (!feature.geometry || feature.geometry.type !== 'Point') return;
+    const [longitude, latitude] = (feature.geometry as Point).coordinates;
+    const coords = { latitude, longitude };
     setSelectedCoords(coords);
 
     try {
@@ -415,7 +409,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         setCurrentLocationName(locationName);
       }
     } catch (error) {
-      console.error('Error reverse geocoding:', error);
+      if (__DEV__) console.warn('Error reverse geocoding:', error);
     }
   };
 
@@ -461,7 +455,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       // Get current user
       const user = await awsAuth.getCurrentUser();
       if (!user) {
-        Alert.alert('Error', 'You must be logged in to create a post');
+        showError('Error', 'You must be logged in to create a post');
         setIsPosting(false);
         return;
       }
@@ -496,8 +490,9 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                 fileUri = asset.localUri;
               }
             }
-          } catch {
-            // On simulator, the URI might work directly
+          } catch (uriError) {
+            if (__DEV__) console.warn(`[Upload] URI conversion failed for media ${i + 1}:`, uriError);
+            // Fallback: upload service will try fetch() for ph:// URIs
           }
         }
 
@@ -513,7 +508,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
         if (!result.success) {
           // More descriptive error for debugging
-          console.error(`[Upload] Failed for media ${i + 1}:`, result.error);
+          if (__DEV__) console.warn(`[Upload] Failed for media ${i + 1}:`, result.error);
           throw new Error(result.error || `Failed to upload media ${i + 1}`);
         }
 
@@ -545,6 +540,21 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
       setUploadProgress(100);
 
+      // Invalidate caches so new post appears everywhere
+      const currentUserId = useUserStore.getState().user?.id;
+      if (newPost) {
+        useFeedStore.getState().prependToFeed(newPost);
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      if (currentUserId) {
+        queryClient.invalidateQueries({ queryKey: ['posts', 'user', currentUserId] });
+      }
+
+      // Award vibe score for posting (not for business accounts)
+      if (useUserStore.getState().user?.accountType !== 'pro_business') {
+        useVibeStore.getState().addVibeAction('post');
+      }
+
       // Navigate to success
       navigation.navigate('PostSuccess', {
         media,
@@ -554,14 +564,15 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         location,
         taggedPeople,
         postId: newPost?.id,
+        fromProfile,
       });
     } catch (error) {
-      console.error('Post creation error:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
+      if (__DEV__) console.warn('Post creation error:', error);
+      showError('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
       setIsPosting(false);
       setUploadProgress(0);
     }
-  }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople]);
+  }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople, fromProfile, showError]);
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -606,11 +617,11 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       <OptimizedImage source={item.uri} style={styles.mediaPreviewImage} />
       {item.mediaType === 'video' && (
         <View style={styles.videoIcon}>
-          <Ionicons name="play" size={12} color={COLORS.white} />
+          <Ionicons name="play" size={12} color={colors.white} />
         </View>
       )}
     </TouchableOpacity>
-  ), [currentMediaIndex]);
+  ), [currentMediaIndex, styles, colors]);
 
   // Visibility Modal
   const renderVisibilityModal = () => (
@@ -618,7 +629,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={() => setShowVisibilityModal(false)}>
-            <Ionicons name="close" size={28} color={COLORS.dark} />
+            <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Visibility</Text>
           <View style={styles.headerSpacer} />
@@ -640,10 +651,10 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   styles.visibilityIconContainer,
                   isActive && styles.visibilityIconContainerActive
                 ]}>
-                  <Ionicons 
-                    name={option.icon} 
-                    size={24} 
-                    color={isActive ? COLORS.white : COLORS.dark} 
+                  <Ionicons
+                    name={option.icon}
+                    size={24}
+                    color={isActive ? colors.white : colors.dark}
                   />
                 </View>
                 <View style={styles.visibilityInfo}>
@@ -651,7 +662,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   <Text style={styles.visibilityDescription}>{option.description}</Text>
                 </View>
                 {isActive && (
-                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                 )}
               </TouchableOpacity>
             );
@@ -667,7 +678,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={() => { setShowLocationModal(false); setLocationSearch(''); setShowMapView(false); }}>
-            <Ionicons name="close" size={28} color={COLORS.dark} />
+            <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Add Location</Text>
           <TouchableOpacity onPress={() => { setShowLocationModal(false); setLocationSearch(''); setShowMapView(false); }}>
@@ -681,14 +692,14 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             style={[styles.viewToggleButton, !showMapView && styles.viewToggleButtonActive]}
             onPress={() => setShowMapView(false)}
           >
-            <Ionicons name="search" size={18} color={!showMapView ? COLORS.white : COLORS.dark} />
+            <Ionicons name="search" size={18} color={!showMapView ? colors.white : colors.dark} />
             <Text style={[styles.viewToggleText, !showMapView && styles.viewToggleTextActive]}>Search</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.viewToggleButton, showMapView && styles.viewToggleButtonActive]}
             onPress={openMapView}
           >
-            <Ionicons name="map" size={18} color={showMapView ? COLORS.white : COLORS.dark} />
+            <Ionicons name="map" size={18} color={showMapView ? colors.white : colors.dark} />
             <Text style={[styles.viewToggleText, showMapView && styles.viewToggleTextActive]}>Map</Text>
           </TouchableOpacity>
         </View>
@@ -709,7 +720,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   coordinate={selectedCoords}
                 >
                   <View style={styles.mapMarker}>
-                    <Ionicons name="location" size={32} color={COLORS.primary} />
+                    <Ionicons name="location" size={32} color={colors.primary} />
                   </View>
                 </LazyMarker>
               )}
@@ -718,7 +729,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             {/* Selected Location Info */}
             {location && (
               <View style={styles.mapLocationInfo}>
-                <Ionicons name="location" size={20} color={COLORS.primary} />
+                <Ionicons name="location" size={20} color={colors.primary} />
                 <Text style={styles.mapLocationText} numberOfLines={2}>{location}</Text>
                 <TouchableOpacity
                   style={styles.mapConfirmButton}
@@ -731,7 +742,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
             {/* Current Location Button on Map */}
             <TouchableOpacity style={styles.mapCurrentLocationButton} onPress={getCurrentLocation}>
-              <Ionicons name="navigate" size={22} color={COLORS.primary} />
+              <Ionicons name="navigate" size={22} color={colors.primary} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -743,25 +754,25 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
               onPress={getCurrentLocation}
             >
               <View style={styles.currentLocationIcon}>
-                <Ionicons name="navigate" size={20} color={COLORS.primary} />
+                <Ionicons name="navigate" size={20} color={colors.primary} />
               </View>
               <Text style={styles.currentLocationText}>Use current location</Text>
             </TouchableOpacity>
 
             {/* Search Bar */}
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={20} color={COLORS.gray} />
+              <Ionicons name="search" size={20} color={colors.gray} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search location..."
-                placeholderTextColor={COLORS.gray}
+                placeholderTextColor={colors.gray}
                 value={locationSearch}
                 onChangeText={setLocationSearch}
                 autoFocus={!showMapView}
               />
               {locationSearch.length > 0 && (
                 <TouchableOpacity onPress={() => setLocationSearch('')}>
-                  <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                  <Ionicons name="close-circle" size={20} color={colors.gray} />
                 </TouchableOpacity>
               )}
             </View>
@@ -769,7 +780,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             {/* Loading indicator */}
             {isSearchingLocation && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
             )}
 
@@ -794,7 +805,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   setLocationSearch('');
                 }}
               >
-                <Ionicons name="location-outline" size={22} color={COLORS.gray} />
+                <Ionicons name="location-outline" size={22} color={colors.gray} />
                 <View style={styles.locationTextContainer}>
                   <Text style={styles.locationText}>
                     {prediction.main_text}
@@ -829,7 +840,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={() => { setShowTagModal(false); setTagSearchQuery(''); }}>
-            <Ionicons name="close" size={28} color={COLORS.dark} />
+            <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Tag People</Text>
           <TouchableOpacity onPress={() => { setShowTagModal(false); setTagSearchQuery(''); }}>
@@ -839,18 +850,18 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
         <View style={styles.modalContent}>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={COLORS.gray} />
+            <Ionicons name="search" size={20} color={colors.gray} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search people you follow..."
-              placeholderTextColor={COLORS.gray}
+              placeholderTextColor={colors.gray}
               value={tagSearchQuery}
               onChangeText={setTagSearchQuery}
               autoFocus
             />
             {tagSearchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setTagSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                <Ionicons name="close-circle" size={20} color={colors.gray} />
               </TouchableOpacity>
             )}
           </View>
@@ -866,7 +877,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                 >
                   <AvatarImage source={person.avatar_url || person.avatar} size={24} style={styles.taggedChipAvatar} />
                   <Text style={styles.taggedChipName}>{person.full_name || person.name}</Text>
-                  <Ionicons name="close" size={16} color={COLORS.gray} />
+                  <Ionicons name="close" size={16} color={colors.gray} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -875,7 +886,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           {/* Loading indicator */}
           {isLoadingFollowing && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.loadingText}>Loading people you follow...</Text>
             </View>
           )}
@@ -883,7 +894,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           {/* Empty state */}
           {!isLoadingFollowing && followingUsers.length === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={48} color={COLORS.gray} />
+              <Ionicons name="people-outline" size={48} color={colors.gray} />
               <Text style={styles.emptyStateText}>You're not a fan of anyone yet</Text>
               <Text style={styles.emptyStateSubtext}>Become a fan of people to tag them in your posts</Text>
             </View>
@@ -909,7 +920,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   <Text style={styles.userName}>{user.full_name || 'User'}</Text>
                 </View>
                 <View style={[styles.checkbox, isTagged && styles.checkboxActive]}>
-                  {isTagged && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
+                  {isTagged && <Ionicons name="checkmark" size={16} color={colors.white} />}
                 </View>
               </TouchableOpacity>
             );
@@ -929,18 +940,22 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // ============================================
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add details</Text>
         <TouchableOpacity onPress={handlePost} disabled={isPosting}>
           <LinearGradient colors={GRADIENTS.primary} style={styles.postButton}>
             {isPosting ? (
               <View style={styles.postingContainer}>
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={colors.white} />
                 <Text style={styles.postButtonText}>{Math.round(uploadProgress)}%</Text>
               </View>
             ) : (
@@ -950,7 +965,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Media Preview */}
         <View style={styles.mediaContainer}>
           <OptimizedImage
@@ -960,7 +975,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           />
           {media[currentMediaIndex]?.mediaType === 'video' && (
             <View style={styles.playButton}>
-              <Ionicons name="play" size={30} color={COLORS.white} />
+              <Ionicons name="play" size={30} color={colors.white} />
             </View>
           )}
         </View>
@@ -980,7 +995,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         {/* User Info + Description */}
         <View style={styles.userSection}>
           <AvatarImage
-            source={currentUser.avatar || 'https://i.pravatar.cc/100?img=33'}
+            source={currentUser.avatar || null}
             size={44}
           />
           <View style={styles.userDetails}>
@@ -992,7 +1007,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           <TextInput
             style={styles.descriptionInput}
             placeholder="Describe your post! (You can also add hashtags here...)"
-            placeholderTextColor={COLORS.gray}
+            placeholderTextColor={colors.gray}
             multiline
             value={description}
             onChangeText={setDescription}
@@ -1006,51 +1021,57 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         {/* Options */}
         <View style={styles.optionsContainer}>
           {/* Visibility */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.optionRow}
             onPress={() => setShowVisibilityModal(true)}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name={currentVisibility.icon} size={22} color={COLORS.dark} />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name={currentVisibility.icon} size={20} color={colors.white} />
+              </View>
               <Text style={styles.optionLabel}>Visibility</Text>
             </View>
             <View style={styles.optionRight}>
               <Text style={styles.optionValue}>{currentVisibility.label}</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
 
           {/* Location */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.optionRow}
             onPress={() => setShowLocationModal(true)}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="location-outline" size={22} color={COLORS.dark} />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name="location-outline" size={20} color={colors.white} />
+              </View>
               <Text style={styles.optionLabel}>Location</Text>
             </View>
             <View style={styles.optionRight}>
               <Text style={[styles.optionValue, location && styles.optionValueSet]}>
                 {location || 'Add location'}
               </Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
 
           {/* Tag People */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.optionRow}
             onPress={() => setShowTagModal(true)}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="person-add-outline" size={22} color={COLORS.dark} />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name="person-add-outline" size={20} color={colors.white} />
+              </View>
               <Text style={styles.optionLabel}>Tag people</Text>
             </View>
             <View style={styles.optionRight}>
               <Text style={[styles.optionValue, taggedPeople.length > 0 && styles.optionValueSet]}>
                 {taggedPeople.length > 0 ? `${taggedPeople.length} people` : 'Add tags'}
               </Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -1063,7 +1084,8 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       {renderVisibilityModal()}
       {renderLocationModal()}
       {renderTagModal()}
-    </View>
+
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1071,10 +1093,10 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
   },
 
   // Header
@@ -1088,7 +1110,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.primary,
   },
   headerSpacer: {
     width: 28,
@@ -1101,7 +1123,7 @@ const styles = StyleSheet.create({
   postButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.white,
   },
   postingContainer: {
     flexDirection: 'row',
@@ -1113,7 +1135,7 @@ const styles = StyleSheet.create({
   mediaContainer: {
     width: width,
     height: width * 0.6,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.dark,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1126,7 +1148,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1144,7 +1166,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   mediaPreviewItemActive: {
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   mediaPreviewImage: {
     width: '100%',
@@ -1154,7 +1176,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 3,
     right: 3,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: colors.overlay,
     padding: 2,
     borderRadius: 3,
   },
@@ -1177,51 +1199,66 @@ const styles = StyleSheet.create({
   currentUserName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.primary,
   },
 
   // Description
   descriptionContainer: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 14,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 191, 138, 0.15)',
   },
   descriptionInput: {
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     minHeight: 80,
     textAlignVertical: 'top',
   },
   charCount: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.primary,
     textAlign: 'right',
     marginTop: 5,
+    opacity: 0.7,
   },
 
   // Options
   optionsContainer: {
     paddingHorizontal: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.grayBorder,
+    paddingTop: SPACING.sm,
+    gap: 10,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 14,
   },
   optionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  optionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   optionLabel: {
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.primary,
     marginLeft: SPACING.md,
   },
   optionRight: {
@@ -1231,17 +1268,17 @@ const styles = StyleSheet.create({
   optionValue: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginRight: SPACING.sm,
   },
   optionValueSet: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Modal
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1250,17 +1287,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   modalTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   modalDone: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: COLORS.primary,
+    color: colors.primary,
   },
   modalContent: {
     padding: SPACING.lg,
@@ -1272,10 +1309,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   visibilityOptionActive: {
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     marginHorizontal: -SPACING.lg,
     paddingHorizontal: SPACING.lg,
   },
@@ -1283,12 +1320,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: colors.grayBorder,
     justifyContent: 'center',
     alignItems: 'center',
   },
   visibilityIconContainerActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   visibilityInfo: {
     flex: 1,
@@ -1297,12 +1334,12 @@ const styles = StyleSheet.create({
   visibilityLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   visibilityDescription: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -1310,7 +1347,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: SIZES.radiusMd,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
@@ -1320,7 +1357,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: SPACING.sm,
   },
 
@@ -1331,7 +1368,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     marginBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   currentLocationIcon: {
     width: 40,
@@ -1344,7 +1381,7 @@ const styles = StyleSheet.create({
   currentLocationText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
-    color: COLORS.primary,
+    color: colors.primary,
     marginLeft: SPACING.md,
   },
 
@@ -1354,7 +1391,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   locationTextContainer: {
     flex: 1,
@@ -1363,12 +1400,12 @@ const styles = StyleSheet.create({
   locationText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   locationSecondaryText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -1383,12 +1420,12 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   noResultsText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     paddingVertical: SPACING.lg,
   },
@@ -1399,13 +1436,13 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.md,
   },
   emptyStateSubtext: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.xs,
   },
 
@@ -1418,7 +1455,7 @@ const styles = StyleSheet.create({
   taggedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: colors.grayBorder,
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -1434,7 +1471,7 @@ const styles = StyleSheet.create({
   taggedChipName: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.dark,
+    color: colors.dark,
     marginRight: 6,
   },
 
@@ -1444,7 +1481,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   userAvatar: {
     width: 44,
@@ -1458,20 +1495,20 @@ const styles = StyleSheet.create({
   userName: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
 
   // Bottom spacer
@@ -1484,7 +1521,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: SPACING.lg,
     marginVertical: SPACING.md,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 25,
     padding: 4,
   },
@@ -1498,15 +1535,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   viewToggleButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   viewToggleText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   viewToggleTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
 
   // Map Styles
@@ -1528,7 +1565,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: SPACING.lg,
     right: SPACING.lg,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderRadius: SIZES.radiusMd,
     padding: SPACING.md,
     flexDirection: 'row',
@@ -1543,11 +1580,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: SPACING.sm,
   },
   mapConfirmButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1555,7 +1592,7 @@ const styles = StyleSheet.create({
   mapConfirmText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-    color: COLORS.white,
+    color: colors.white,
   },
   mapCurrentLocationButton: {
     position: 'absolute',
@@ -1564,7 +1601,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

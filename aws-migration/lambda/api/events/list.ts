@@ -4,21 +4,16 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
-import { SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('events-list');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getReaderPool();
   const client = await pool.connect();
 
   try {
@@ -42,7 +37,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // All params are pushed in order — never use unshift
     const params: SqlParam[] = [];
-    const p = () => `$${params.length}`; // returns $N for the last pushed param
 
     const hasCoords = latitude && longitude;
     let latIdx = 0;
@@ -195,29 +189,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Check user participation status
     let userParticipation: Record<string, string> = {};
     if (userId && result.rows.length > 0) {
-      const eventIds = result.rows.map((r) => r.id);
+      const eventIds = result.rows.map((r: Record<string, unknown>) => r.id);
       const participationResult = await client.query(
         `SELECT event_id, status FROM event_participants
          WHERE event_id = ANY($1) AND user_id = $2`,
         [eventIds, userId]
       );
-      userParticipation = participationResult.rows.reduce((acc, r) => {
-        acc[r.event_id] = r.status;
+      userParticipation = participationResult.rows.reduce((acc: Record<string, string>, r: Record<string, unknown>) => {
+        acc[r.event_id as string] = r.status as string;
         return acc;
       }, {} as Record<string, string>);
     }
 
-    const events = result.rows.map((row) => ({
+    const events = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       title: row.title,
       description: row.description,
       location: {
         name: row.location_name,
         address: row.address,
-        latitude: parseFloat(row.latitude),
-        longitude: parseFloat(row.longitude),
+        latitude: parseFloat(row.latitude as string),
+        longitude: parseFloat(row.longitude as string),
       },
-      distance: row.distance_km ? parseFloat(row.distance_km.toFixed(1)) : null,
+      distance: row.distance_km ? parseFloat((row.distance_km as number).toFixed(1)) : null,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
       timezone: row.timezone,
@@ -226,11 +220,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         max: row.max_participants,
         min: row.min_participants,
         spotsLeft: row.max_participants
-          ? row.max_participants - row.current_participants
+          ? (row.max_participants as number) - (row.current_participants as number)
           : null,
       },
       isFree: row.is_free,
-      price: row.price ? parseFloat(row.price) : null,
+      price: row.price ? parseFloat(row.price as string) : null,
       currency: row.currency,
       isPublic: row.is_public,
       isFansOnly: row.is_fans_only,
@@ -238,7 +232,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       route: row.has_route
         ? {
             distanceKm: row.route_distance_km
-              ? parseFloat(row.route_distance_km)
+              ? parseFloat(row.route_distance_km as string)
               : null,
             elevationGainM: row.route_elevation_gain_m,
             difficulty: row.route_difficulty,
@@ -261,7 +255,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         avatarUrl: row.creator_avatar,
         isVerified: row.creator_verified,
       },
-      userParticipation: userParticipation[row.id] || null,
+      userParticipation: userParticipation[row.id as string] || null,
     }));
 
     return cors({

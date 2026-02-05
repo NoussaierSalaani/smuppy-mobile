@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  FlatList,
+  StatusBar,
 } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -15,11 +17,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
-import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import { GRADIENTS, SPACING } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 4) / 3;
@@ -35,10 +38,11 @@ interface MediaItem {
 
 // Route params type
 type RootStackParamList = {
-  CreatePost: undefined;
+  CreatePost: { fromProfile?: boolean } | undefined;
   AddPostDetails: {
     media: MediaItem[];
     postType: string;
+    fromProfile?: boolean;
   };
   VideoRecorder: undefined;
 };
@@ -51,9 +55,68 @@ interface CreatePostScreenProps {
   route: CreatePostScreenRouteProp;
 }
 
+// --- Memoized grid item to prevent full-list re-renders on selection change ---
+interface MediaGridItemProps {
+  item: MediaLibrary.Asset;
+  selectionIndex: number | null;
+  isPreview: boolean;
+  onPress: (item: MediaLibrary.Asset) => void;
+  onSelectionToggle: (item: MediaLibrary.Asset) => void;
+  styles: ReturnType<typeof createStyles>;
+}
+
+const MediaGridItem = React.memo(function MediaGridItem({
+  item,
+  selectionIndex,
+  isPreview,
+  onPress,
+  onSelectionToggle,
+  styles,
+}: MediaGridItemProps) {
+  const isSelected = selectionIndex !== null;
+
+  return (
+    <TouchableOpacity
+      style={[styles.mediaItem, isPreview && styles.mediaItemPreview]}
+      onPress={() => onPress(item)}
+      onLongPress={() => onSelectionToggle(item)}
+      activeOpacity={0.8}
+    >
+      <OptimizedImage source={item.uri} style={styles.mediaThumbnail} />
+
+      {item.mediaType === 'video' && (
+        <View style={styles.videoDuration}>
+          <Ionicons name="play" size={10} color="#fff" />
+          <Text style={styles.videoDurationText}>
+            {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.selectionCircle, isSelected && styles.selectionCircleActive]}
+        onPress={() => onSelectionToggle(item)}
+      >
+        {isSelected ? (
+          <Text style={styles.selectionNumber}>{selectionIndex}</Text>
+        ) : (
+          <View style={styles.selectionCircleInner} />
+        )}
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+}, (prev, next) => (
+  prev.item.id === next.item.id &&
+  prev.selectionIndex === next.selectionIndex &&
+  prev.isPreview === next.isPreview &&
+  prev.styles === next.styles
+));
+
 export default function CreatePostScreen({ navigation, route: _route }: CreatePostScreenProps) {
   const insets = useSafeAreaInsets();
-  const alert = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
+  const fromProfile = _route?.params?.fromProfile ?? false;
+  const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
   const [selectedPreview, setSelectedPreview] = useState<MediaItem | MediaLibrary.Asset | null>(null);
@@ -61,7 +124,28 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   const [hasPermission, setHasPermission] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showCameraSheet, setShowCameraSheet] = useState(false);
-  
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  // Refs for stable callbacks (avoid stale closures in memoized items)
+  const selectedMediaRef = useRef(selectedMedia);
+  selectedMediaRef.current = selectedMedia;
+  const selectedPreviewRef = useRef(selectedPreview);
+  selectedPreviewRef.current = selectedPreview;
+
+  // O(1) selection index lookup
+  const selectedIdsMap = useMemo(() => {
+    const map = new Map<string, number>();
+    selectedMedia.forEach((m, i) => map.set(m.id, i + 1));
+    return map;
+  }, [selectedMedia]);
+
+  // Memoized extraData for FlashList — changes when selection or preview changes
+  const flashListExtraData = useMemo(
+    () => ({ selectedIdsMap, previewId: selectedPreview?.id }),
+    [selectedIdsMap, selectedPreview?.id]
+  );
+
   // Post type is always 'post' for this screen (Peaks use CreatePeakScreen)
 
   // Request permissions and load media
@@ -81,17 +165,29 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   // Load media from gallery
   const loadMedia = async () => {
     try {
-      const { assets } = await MediaLibrary.getAssetsAsync({
+      // Load first batch quickly, then load more in background
+      const { assets, endCursor, hasNextPage } = await MediaLibrary.getAssetsAsync({
         mediaType: ['photo', 'video'],
         sortBy: ['creationTime'],
-        first: 100,
+        first: 30,
       });
-      
+
       setMediaAssets(assets);
       if (assets.length > 0) {
         setSelectedPreview(assets[0]);
       }
       setLoading(false);
+
+      // Load remaining assets in background
+      if (hasNextPage && endCursor) {
+        const { assets: moreAssets } = await MediaLibrary.getAssetsAsync({
+          mediaType: ['photo', 'video'],
+          sortBy: ['creationTime'],
+          first: 70,
+          after: endCursor,
+        });
+        setMediaAssets(prev => [...prev, ...moreAssets]);
+      }
     } catch (_error) {
       setLoading(false);
     }
@@ -120,7 +216,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
       if (status !== 'granted') {
-        alert.warning('Permission Needed', 'Please allow camera access to take photos.');
+        warningAlert('Permission Needed', 'Please allow camera access to take photos.');
         return;
       }
 
@@ -142,58 +238,69 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         setSelectedPreview(newMedia);
       }
     } catch (_error) {
-      alert.error(
+      errorAlert(
         'Camera Not Available',
         'Camera is not available on this device. Please select from your photo library instead.'
       );
     }
   };
 
-  // Toggle media selection
-  const toggleMediaSelection = (item: MediaItem | MediaLibrary.Asset) => {
+  // Stable callback for grid item tap
+  const handleItemPress = useCallback((item: MediaLibrary.Asset) => {
+    setSelectedPreview(item);
+    if (selectedMediaRef.current.length === 0) {
+      const mediaItem: MediaItem = {
+        id: item.id,
+        uri: item.uri,
+        mediaType: item.mediaType === 'video' ? 'video' : 'photo',
+        duration: item.duration,
+      };
+      setSelectedMedia([mediaItem]);
+    }
+  }, []);
+
+  // Stable callback for selection toggle (long press or circle tap)
+  const handleSelectionToggle = useCallback((item: MediaLibrary.Asset) => {
+    const current = selectedMediaRef.current;
+    const preview = selectedPreviewRef.current;
+
     const mediaItem: MediaItem = {
       id: item.id,
       uri: item.uri,
       mediaType: item.mediaType === 'video' ? 'video' : 'photo',
-      duration: 'duration' in item ? item.duration : undefined,
+      duration: item.duration,
     };
 
-    const isSelected = selectedMedia.find(m => m.id === item.id);
+    const isSelected = current.find(m => m.id === item.id);
 
     if (isSelected) {
-      const newSelection = selectedMedia.filter(m => m.id !== item.id);
+      const newSelection = current.filter(m => m.id !== item.id);
       setSelectedMedia(newSelection);
-      if (selectedPreview?.id === item.id && newSelection.length > 0) {
+      if (preview?.id === item.id && newSelection.length > 0) {
         setSelectedPreview(newSelection[0]);
       } else if (newSelection.length === 0) {
         setSelectedPreview(item);
       }
     } else {
-      if (selectedMedia.length >= MAX_SELECTION) {
-        alert.warning('Limit Reached', `You can select up to ${MAX_SELECTION} items.`);
+      if (current.length >= MAX_SELECTION) {
+        warningAlert('Limit Reached', `You can select up to ${MAX_SELECTION} items.`);
         return;
       }
 
-      if (item.mediaType === 'video' && 'duration' in item && (item.duration ?? 0) > 15) {
-        alert.warning('Video Too Long', 'Videos must be 15 seconds or less.');
+      if (item.mediaType === 'video' && (item.duration ?? 0) > 15) {
+        warningAlert('Video Too Long', 'Videos must be 15 seconds or less.');
         return;
       }
 
-      setSelectedMedia([...selectedMedia, mediaItem]);
+      setSelectedMedia([...current, mediaItem]);
       setSelectedPreview(item);
     }
-  };
-
-  // Get selection index
-  const getSelectionIndex = (item: MediaItem | MediaLibrary.Asset) => {
-    const index = selectedMedia.findIndex(m => m.id === item.id);
-    return index >= 0 ? index + 1 : null;
-  };
+  }, [warningAlert]);
 
   // Handle next - MEDIA IS REQUIRED
   const handleNext = () => {
     if (selectedMedia.length === 0) {
-      alert.warning(
+      warningAlert(
         'Select Media',
         'Please select at least one photo or video to create a post.'
       );
@@ -203,6 +310,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
     navigation.navigate('AddPostDetails', {
       media: selectedMedia,
       postType: 'post',
+      fromProfile,
     });
   };
 
@@ -226,7 +334,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalIconBox}>
-            <Ionicons name="image-outline" size={32} color={COLORS.primary} />
+            <Ionicons name="image-outline" size={32} color={colors.primary} />
           </View>
           <Text style={styles.modalTitle}>Discard post?</Text>
           <Text style={styles.modalMessage}>
@@ -254,54 +362,17 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
     </Modal>
   );
 
-  // Render media item
-  const renderMediaItem: ListRenderItem<MediaLibrary.Asset> = ({ item }) => {
-    const selectionIndex = getSelectionIndex(item);
-    const isSelected = selectionIndex !== null;
-    const isPreview = selectedPreview?.id === item.id;
-
-    return (
-      <TouchableOpacity
-        style={[styles.mediaItem, isPreview && styles.mediaItemPreview]}
-        onPress={() => {
-          setSelectedPreview(item);
-          if (selectedMedia.length === 0) {
-            const mediaItem: MediaItem = {
-              id: item.id,
-              uri: item.uri,
-              mediaType: item.mediaType === 'video' ? 'video' : 'photo',
-              duration: item.duration,
-            };
-            setSelectedMedia([mediaItem]);
-          }
-        }}
-        onLongPress={() => toggleMediaSelection(item)}
-        activeOpacity={0.8}
-      >
-        <OptimizedImage source={item.uri} style={styles.mediaThumbnail} />
-
-        {item.mediaType === 'video' && (
-          <View style={styles.videoDuration}>
-            <Ionicons name="play" size={10} color="#fff" />
-            <Text style={styles.videoDurationText}>
-              {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}
-            </Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.selectionCircle, isSelected && styles.selectionCircleActive]}
-          onPress={() => toggleMediaSelection(item)}
-        >
-          {isSelected ? (
-            <Text style={styles.selectionNumber}>{selectionIndex}</Text>
-          ) : (
-            <View style={styles.selectionCircleInner} />
-          )}
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
+  // Render media item — delegates to memoized MediaGridItem
+  const renderMediaItem: ListRenderItem<MediaLibrary.Asset> = useCallback(({ item }) => (
+    <MediaGridItem
+      item={item}
+      selectionIndex={selectedIdsMap.get(item.id) ?? null}
+      isPreview={selectedPreview?.id === item.id}
+      onPress={handleItemPress}
+      onSelectionToggle={handleSelectionToggle}
+      styles={styles}
+    />
+  ), [selectedIdsMap, selectedPreview?.id, handleItemPress, handleSelectionToggle, styles]);
 
   // No permission view
   if (!hasPermission && !loading) {
@@ -312,10 +383,10 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           style={[styles.permissionCloseButton, { top: insets.top + 10 }]}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="close" size={28} color={COLORS.dark} />
+          <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
         <View style={styles.centered}>
-          <Ionicons name="images-outline" size={60} color={COLORS.gray} />
+          <Ionicons name="images-outline" size={60} color={colors.gray} />
           <Text style={styles.permissionText}>Allow access to your photos</Text>
           <TouchableOpacity
             style={styles.permissionButton}
@@ -336,15 +407,20 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
+      {/* Safe area fill - covers status bar area on modal presentations */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: colors.background, zIndex: 10 }} />
+
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.background, zIndex: 5 }]}>
         <TouchableOpacity onPress={handleClose}>
-          <Ionicons name="close" size={28} color={COLORS.dark} />
+          <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create post</Text>
         <TouchableOpacity onPress={handleNext}>
           <LinearGradient
-            colors={selectedMedia.length > 0 ? GRADIENTS.primary : ['#ccc', '#ccc']}
+            colors={selectedMedia.length > 0 ? GRADIENTS.primary : [colors.grayBorder, colors.grayBorder]}
             style={styles.nextButton}
           >
             <Text style={styles.nextButtonText}>Next</Text>
@@ -371,14 +447,60 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           </>
         ) : (
           <View style={styles.previewPlaceholder}>
-            <Ionicons name="image-outline" size={60} color={COLORS.grayLight} />
+            <Ionicons name="image-outline" size={60} color={colors.grayLight} />
             <Text style={styles.previewPlaceholderText}>Select a photo or video</Text>
           </View>
         )}
       </View>
 
+      {/* Selected Media Carousel */}
+      {selectedMedia.length > 1 && (
+        <View style={styles.carouselContainer}>
+          <FlatList
+            data={selectedMedia}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.carouselContent}
+            renderItem={({ item, index }) => {
+              const isActive = selectedPreview?.id === item.id;
+              return (
+                <TouchableOpacity
+                  style={[styles.carouselItem, isActive && styles.carouselItemActive]}
+                  onPress={() => setSelectedPreview(item)}
+                  activeOpacity={0.8}
+                >
+                  <OptimizedImage source={item.uri} style={styles.carouselImage} />
+                  {item.mediaType === 'video' && (
+                    <View style={styles.carouselVideoIcon}>
+                      <Ionicons name="play" size={10} color="#fff" />
+                    </View>
+                  )}
+                  <Text style={styles.carouselIndex}>{index + 1}</Text>
+                  <TouchableOpacity
+                    style={styles.carouselRemove}
+                    onPress={() => {
+                      const newSelection = selectedMedia.filter(m => m.id !== item.id);
+                      setSelectedMedia(newSelection);
+                      if (isActive && newSelection.length > 0) {
+                        setSelectedPreview(newSelection[0]);
+                      } else if (newSelection.length === 0) {
+                        setSelectedPreview(mediaAssets[0] || null);
+                      }
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={18} color="#FF3B30" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      )}
+
       {/* Gallery Header */}
-      <View style={styles.galleryHeader}>
+      <View style={[styles.galleryHeader, { backgroundColor: colors.background }]}>
         <TouchableOpacity
           style={styles.galleryTab}
           onPress={() => {
@@ -386,13 +508,13 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           }}
         >
           <Text style={styles.galleryTabText}>Recent</Text>
-          <Ionicons name="chevron-down" size={18} color={COLORS.dark} />
+          <Ionicons name="chevron-down" size={18} color={colors.dark} />
         </TouchableOpacity>
 
         {/* Selection count indicator */}
         {selectedMedia.length > 0 && (
           <View style={styles.selectionCount}>
-            <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
             <Text style={styles.selectionCountText}>{selectedMedia.length} selected</Text>
           </View>
         )}
@@ -401,7 +523,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       {/* Media Grid */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlashList<MediaLibrary.Asset>
@@ -409,8 +531,10 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           renderItem={renderMediaItem}
           keyExtractor={(item) => item.id}
           numColumns={3}
+          extraData={flashListExtraData}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.mediaGrid}
+          style={styles.mediaList}
         />
       )}
 
@@ -418,7 +542,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 20 }]}>
         {/* Camera Button */}
         <TouchableOpacity style={styles.cameraButton} onPress={openCamera}>
-          <Ionicons name="camera" size={24} color={COLORS.dark} />
+          <Ionicons name="camera" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -433,17 +557,14 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         subtitle="What do you want to capture?"
         options={getCameraSheetOptions()}
       />
-
-      {/* Alert Modal */}
-      <SmuppyAlert {...alert.alertProps} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -467,7 +588,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   nextButton: {
     paddingHorizontal: 20,
@@ -498,7 +619,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   previewPlaceholderText: {
-    color: COLORS.grayLight,
+    color: colors.grayLight,
     fontSize: 14,
     marginTop: 10,
   },
@@ -507,7 +628,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -517,16 +638,72 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 15,
   },
   multipleIndicatorText: {
-    color: '#fff',
+    color: isDark ? '#000' : '#fff',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 5,
+  },
+
+  // Selected Media Carousel
+  carouselContainer: {
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+  },
+  carouselContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  carouselItem: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  carouselItemActive: {
+    borderColor: colors.primary,
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  carouselVideoIcon: {
+    position: 'absolute',
+    bottom: 3,
+    left: 3,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselIndex: {
+    position: 'absolute',
+    top: 3,
+    left: 5,
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  carouselRemove: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: colors.background,
+    borderRadius: 9,
   },
 
   // Gallery Header
@@ -544,13 +721,13 @@ const styles = StyleSheet.create({
   galleryTabText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginRight: 4,
   },
   selectionCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14,191,138,0.2)' : '#E6FAF8',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -558,7 +735,7 @@ const styles = StyleSheet.create({
   selectionCountText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.primary,
+    color: colors.primary,
     marginLeft: 6,
   },
 
@@ -572,6 +749,9 @@ const styles = StyleSheet.create({
   // Media Grid
   mediaGrid: {
     paddingBottom: 150,
+  },
+  mediaList: {
+    flex: 1,
   },
   mediaItem: {
     width: ITEM_SIZE,
@@ -591,13 +771,13 @@ const styles = StyleSheet.create({
     left: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 3,
   },
   videoDurationText: {
-    color: '#fff',
+    color: isDark ? '#000' : '#fff',
     fontSize: 11,
     marginLeft: 3,
   },
@@ -610,13 +790,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#fff',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   selectionCircleActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   selectionCircleInner: {
     width: 8,
@@ -641,15 +821,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.grayBorder,
   },
   cameraButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -657,12 +837,12 @@ const styles = StyleSheet.create({
   // Permission
   permissionText: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.lg,
     marginBottom: SPACING.md,
   },
   permissionButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -676,13 +856,13 @@ const styles = StyleSheet.create({
   // Discard Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
     borderRadius: 24,
     padding: 28,
     width: '100%',
@@ -692,7 +872,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14,191,138,0.2)' : '#E6FAF8',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -700,12 +880,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   modalMessage: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
@@ -720,13 +900,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   keepEditingText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   discardButton: {
     flex: 1,

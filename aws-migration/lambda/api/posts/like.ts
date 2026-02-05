@@ -6,8 +6,10 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('posts-like');
 
@@ -16,14 +18,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   try {
     // Get user ID from Cognito authorizer
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    const userId = requireAuth(event, headers);
+    if (isErrorResponse(userId)) return userId;
 
     const rateLimit = await checkRateLimit({
       prefix: 'post-like',
@@ -40,30 +36,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Get post ID from path
-    const postId = event.pathParameters?.id;
-    if (!postId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Post ID is required' }),
-      };
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid post ID format' }),
-      };
-    }
+    const postId = validateUUIDParam(event, headers, 'id', 'Post');
+    if (isErrorResponse(postId)) return postId;
 
     const db = await getPool();
 
     // Get user's profile ID (check both id and cognito_sub for compatibility)
     const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      'SELECT id, username FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
 
@@ -117,15 +97,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Insert like
+      // Insert like (DB trigger auto-increments posts.likes_count)
       await client.query(
         'INSERT INTO likes (user_id, post_id) VALUES ($1, $2)',
         [profileId, postId]
       );
 
-      // Update likes count
+      // Read updated count (trigger has already fired)
       const updatedPost = await client.query(
-        'UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1 RETURNING likes_count',
+        'SELECT likes_count FROM posts WHERE id = $1',
         [postId]
       );
 
@@ -141,6 +121,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       await client.query('COMMIT');
 
+      // Send push notification to post author (non-blocking)
+      if (post.author_id !== profileId) {
+        sendPushToUser(db, post.author_id, {
+          title: 'New Like',
+          body: `${userResult.rows[0].username} liked your post`,
+          data: { type: 'like', postId },
+        }).catch(err => log.error('Push notification failed', err));
+      }
+
       return {
         statusCode: 200,
         headers,
@@ -151,7 +140,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           likesCount: updatedPost.rows[0].likes_count,
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

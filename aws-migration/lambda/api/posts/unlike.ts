@@ -6,7 +6,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 
 const log = createLogger('posts-unlike');
 
@@ -14,33 +15,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    const userId = requireAuth(event, headers);
+    if (isErrorResponse(userId)) return userId;
 
-    const postId = event.pathParameters?.id;
-    if (!postId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Post ID is required' }),
-      };
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid post ID format' }),
-      };
-    }
+    const postId = validateUUIDParam(event, headers, 'id', 'Post');
+    if (isErrorResponse(postId)) return postId;
 
     const db = await getPool();
 
@@ -92,15 +71,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Delete like
+      // Delete like (DB trigger auto-decrements posts.likes_count)
       await client.query(
         'DELETE FROM likes WHERE user_id = $1 AND post_id = $2',
         [profileId, postId]
       );
 
-      // Update likes count (ensure it doesn't go below 0)
+      // Read updated count (trigger has already fired)
       const updatedPost = await client.query(
-        'UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1 RETURNING likes_count',
+        'SELECT likes_count FROM posts WHERE id = $1',
         [postId]
       );
 
@@ -116,7 +95,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           likesCount: updatedPost.rows[0]?.likes_count || 0,
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

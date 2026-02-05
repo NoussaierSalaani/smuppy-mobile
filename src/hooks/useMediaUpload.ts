@@ -11,8 +11,7 @@ import {
   uploadMultiple,
   uploadAvatar,
   uploadCoverImage,
-  uploadPostMedia,
-  getCloudFrontUrl,
+    getCloudFrontUrl,
   UploadResult,
   UploadOptions,
   MediaFile,
@@ -216,6 +215,7 @@ export const useMediaUpload = (
         return null;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user?.id, autoCompress, updateProgress]
   );
 
@@ -257,6 +257,7 @@ export const useMediaUpload = (
       }));
       return null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, updateProgress]);
 
   /**
@@ -308,6 +309,7 @@ export const useMediaUpload = (
         return [];
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user?.id, maxFiles, autoCompress, updateProgress]
   );
 
@@ -318,7 +320,7 @@ export const useMediaUpload = (
     async (
       uri: string,
       type: 'image' | 'video',
-      _folder: UploadOptions['folder'] = 'posts'
+      folder: UploadOptions['folder'] = 'posts'
     ): Promise<UploadResult | null> => {
       if (!user?.id) {
         setState((prev) => ({ ...prev, error: 'User not logged in' }));
@@ -328,7 +330,9 @@ export const useMediaUpload = (
       try {
         setState({ isUploading: true, progress: 0, error: null, results: [] });
 
-        const result = await uploadPostMedia(user.id, uri, type, updateProgress);
+        const result = type === 'video'
+          ? await uploadVideo(user.id, uri, { folder, onProgress: updateProgress })
+          : await uploadImage(user.id, uri, { folder, compress: true, onProgress: updateProgress });
 
         setState((prev) => ({
           ...prev,
@@ -387,6 +391,7 @@ export const useMediaUpload = (
       }));
       return null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   /**
@@ -424,6 +429,7 @@ export const useMediaUpload = (
       }));
       return null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   /**

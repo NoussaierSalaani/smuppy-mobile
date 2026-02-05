@@ -3,11 +3,12 @@
  * Handles millions of requests with caching, cursor pagination, and feed algorithms
  */
 
-import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyHandler } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getReaderPool, SqlParam } from '../../shared/db';
-import { headers as corsHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('posts-list');
 
@@ -17,7 +18,6 @@ let redis: Redis | null = null;
 const {
   REDIS_HOST,
   REDIS_PORT = '6379',
-  ENVIRONMENT = 'staging',
 } = process.env;
 
 const CACHE_TTL = {
@@ -40,19 +40,12 @@ async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: {
-      ...corsHeaders,
-      'Cache-Control': statusCode === 200 ? 'public, max-age=60' : 'no-cache',
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   const startTime = Date.now();
+  const headers = {
+    ...createHeaders(event),
+    'Cache-Control': 'no-cache',
+  };
 
   try {
     const {
@@ -62,7 +55,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       userId,
     } = event.queryStringParameters || {};
 
-    const parsedLimit = Math.min(parseInt(limit), 100);
+    // Validate userId if provided (prevents SQL injection via malformed input)
+    if (userId && !isValidUUID(userId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid userId format' }),
+      };
+    }
+
+    const parsedLimit = Math.min(parseInt(limit), 50);
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const cacheKey = `posts:list:${type}:${userId || 'all'}:${cursor || 'first'}:${parsedLimit}`;
 
@@ -72,7 +74,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
-          return response(200, { ...JSON.parse(cached), cached: true, latency: Date.now() - startTime });
+          return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=60' }, body: JSON.stringify({ ...JSON.parse(cached), cached: true, latency: Date.now() - startTime }) };
         }
       } catch { /* Cache miss, continue */ }
     }
@@ -97,7 +99,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
       query = `
         SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType",
                EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked"
         FROM posts p
@@ -117,17 +119,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } else if (userId) {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
-        WHERE p.author_id = $1 AND 1=1 ${cursor ? 'AND p.created_at < $3' : ''}
+        WHERE p.author_id = $1 ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
       `;
       params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
     } else {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE 1=1 ${cursor ? 'AND p.created_at < $2' : ''}
@@ -141,9 +143,30 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const hasMore = result.rows.length > parsedLimit;
     const posts = hasMore ? result.rows.slice(0, parsedLimit) : result.rows;
 
-    const formattedPosts = posts.map(post => ({
+    // Batch-fetch tagged users for all returned posts
+    const postIds = posts.map((p: { id: string }) => p.id);
+    let tagsByPost: Record<string, Array<{ id: string; username: string; fullName: string; avatarUrl: string }>> = {};
+    if (postIds.length > 0) {
+      const tagResult = await pool.query(
+        `SELECT pt.post_id, pt.tagged_user_id AS id, pr.username, pr.full_name, pr.avatar_url
+         FROM post_tags pt
+         JOIN profiles pr ON pt.tagged_user_id = pr.id
+         WHERE pt.post_id = ANY($1)`,
+        [postIds]
+      );
+      for (const row of tagResult.rows) {
+        const pid = row.post_id as string;
+        if (!tagsByPost[pid]) tagsByPost[pid] = [];
+        tagsByPost[pid].push({ id: row.id, username: row.username, fullName: row.full_name, avatarUrl: row.avatar_url });
+      }
+    }
+
+    const formattedPosts = posts.map((post: Record<string, unknown>) => ({
       id: post.id, authorId: post.authorId, content: post.content, mediaUrls: post.mediaUrls || [],
-      mediaType: post.mediaType, likesCount: parseInt(post.likesCount) || 0, commentsCount: parseInt(post.commentsCount) || 0,
+      mediaType: post.mediaType, isPeak: post.isPeak || false, location: post.location || null,
+      tags: post.tags || [],
+      taggedUsers: tagsByPost[post.id as string] || [],
+      likesCount: parseInt(post.likesCount as string) || 0, commentsCount: parseInt(post.commentsCount as string) || 0, viewsCount: parseInt(post.viewsCount as string) || 0,
       createdAt: post.createdAt, isLiked: post.isLiked || false,
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType },
     }));
@@ -154,9 +177,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch { /* Ignore */ }
     }
 
-    return response(200, { ...responseData, cached: false, latency: Date.now() - startTime });
+    return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=60' }, body: JSON.stringify({ ...responseData, cached: false, latency: Date.now() - startTime }) };
   } catch (error: unknown) {
     log.error('Error fetching posts', error);
-    return response(500, { error: 'Internal server error' });
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal server error' }) };
   }
 };

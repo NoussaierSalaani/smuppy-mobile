@@ -69,7 +69,7 @@ async function requestPermissions(): Promise<boolean> {
       return cameraStatus === 'granted' && audioStatus === 'granted';
     }
   } catch (error) {
-    console.error('[useAgora] Permission error:', error);
+    if (__DEV__) console.warn('[useAgora] Permission error:', error);
     return false;
   }
 }
@@ -88,11 +88,12 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
 
   const mountedRef = useRef(true);
 
-  // Setup callbacks
+  // Setup callbacks (use ref to avoid stale closures)
+  const callbacksRef = useRef<AgoraCallbacks>({} as AgoraCallbacks);
   const callbacks: AgoraCallbacks = {
     onJoinSuccess: (channel, joinedUid) => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Joined channel:', channel, 'UID:', joinedUid);
+      if (__DEV__) console.log('[useAgora] Joined channel:', channel, 'UID:', joinedUid);
       setLocalUid(joinedUid);
       setIsJoined(true);
       setIsLoading(false);
@@ -100,14 +101,14 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     },
     onLeaveChannel: () => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Left channel');
+      if (__DEV__) console.log('[useAgora] Left channel');
       setIsJoined(false);
       setRemoteUsers([]);
       setLocalUid(null);
     },
     onUserJoined: (remoteUid) => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Remote user joined:', remoteUid);
+      if (__DEV__) console.log('[useAgora] Remote user joined:', remoteUid);
       setRemoteUsers((prev) => {
         if (prev.includes(remoteUid)) return prev;
         return [...prev, remoteUid];
@@ -115,16 +116,17 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     },
     onUserLeft: (remoteUid) => {
       if (!mountedRef.current) return;
-      console.log('[useAgora] Remote user left:', remoteUid);
+      if (__DEV__) console.log('[useAgora] Remote user left:', remoteUid);
       setRemoteUsers((prev) => prev.filter((id) => id !== remoteUid));
     },
     onError: (errorMsg) => {
       if (!mountedRef.current) return;
-      console.error('[useAgora] Error:', errorMsg);
+      if (__DEV__) console.warn('[useAgora] Error:', errorMsg);
       setError(errorMsg);
       setIsLoading(false);
     },
   };
+  callbacksRef.current = callbacks;
 
   // Initialize Agora engine
   const initialize = useCallback(async (): Promise<boolean> => {
@@ -147,7 +149,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
       return false;
     }
 
-    agoraService.setCallbacks(callbacks);
+    agoraService.setCallbacks(callbacksRef.current);
     setIsInitialized(true);
     setIsLoading(false);
     return true;
@@ -232,20 +234,16 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     if (autoJoin && initialChannel) {
       joinChannel();
     }
-
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoJoin, initialChannel]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isJoined) {
-        agoraService.leaveChannel();
-      }
+      mountedRef.current = false;
+      agoraService.leaveChannel();
     };
-  }, [isJoined]);
+  }, []);
 
   return {
     isInitialized,

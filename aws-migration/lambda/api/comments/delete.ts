@@ -6,7 +6,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 
 const log = createLogger('comments-delete');
 
@@ -14,33 +15,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    const userId = requireAuth(event, headers);
+    if (isErrorResponse(userId)) return userId;
 
-    const commentId = event.pathParameters?.id;
-    if (!commentId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Comment ID is required' }),
-      };
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(commentId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid comment ID format' }),
-      };
-    }
+    const commentId = validateUUIDParam(event, headers, 'id', 'Comment');
+    if (isErrorResponse(commentId)) return commentId;
 
     const db = await getPool();
 
@@ -127,7 +106,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'Comment deleted successfully',
         }),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

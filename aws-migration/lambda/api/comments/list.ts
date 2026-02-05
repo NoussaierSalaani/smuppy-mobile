@@ -4,9 +4,10 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('comments-list');
 
@@ -24,8 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
+    if (!isValidUUID(postId)) {
       return {
         statusCode: 400,
         headers,
@@ -37,7 +37,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
 
-    const db = await getPool();
+    const db = await getReaderPool();
 
     // Check if post exists
     const postResult = await db.query(
@@ -91,7 +91,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const comments = hasMore ? result.rows.slice(0, -1) : result.rows;
 
     // Format response
-    const formattedComments = comments.map(comment => ({
+    const formattedComments = comments.map((comment: Record<string, unknown>) => ({
       id: comment.id,
       text: comment.text,
       parentCommentId: comment.parent_comment_id,

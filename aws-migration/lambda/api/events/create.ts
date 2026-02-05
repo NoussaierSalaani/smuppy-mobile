@@ -4,16 +4,11 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('events-create');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 interface CreateEventRequest {
   title: string;
@@ -47,6 +42,7 @@ interface CreateEventRequest {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {
@@ -57,6 +53,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
     }
+
+    // Resolve cognito_sub to profile ID
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
 
     const body: CreateEventRequest = JSON.parse(event.body || '{}');
     const {
@@ -86,6 +95,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       routePolyline,
       routeWaypoints,
     } = body;
+
+    // Sanitize user-provided text fields
+    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    const sanitizedTitle = sanitize(title || '');
+    const sanitizedDescription = description ? sanitize(description) : description;
+    const sanitizedLocationName = sanitize(locationName || '');
+    const sanitizedAddress = address ? sanitize(address) : address;
 
     // Validation
     if (!title || !categorySlug || !locationName || !latitude || !longitude || !startsAt) {
@@ -180,14 +196,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
       )
-      RETURNING *`,
+      RETURNING id, title, description, category_id, location_name, address, latitude, longitude, starts_at, ends_at, timezone, max_participants, min_participants, is_free, price, currency, is_public, is_fans_only, cover_image_url, images, has_route, route_distance_km, route_elevation_gain_m, route_difficulty, route_polyline, route_waypoints, status, created_at`,
       [
-        userId,
-        title,
-        description,
+        profileId,
+        sanitizedTitle,
+        sanitizedDescription,
         category.id,
-        locationName,
-        address,
+        sanitizedLocationName,
+        sanitizedAddress,
         latitude,
         longitude,
         startDate,
@@ -217,7 +233,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     await client.query(
       `INSERT INTO event_participants (event_id, user_id, status)
        VALUES ($1, $2, 'confirmed')`,
-      [createdEvent.id, userId]
+      [createdEvent.id, profileId]
     );
 
     // Update participant count
@@ -232,7 +248,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const creatorResult = await client.query(
       `SELECT username, display_name, avatar_url, is_verified
        FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     const creator = creatorResult.rows[0];
@@ -285,7 +301,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           status: createdEvent.status,
           createdAt: createdEvent.created_at,
           creator: {
-            id: userId,
+            id: profileId,
             username: creator.username,
             displayName: creator.display_name,
             avatarUrl: creator.avatar_url,

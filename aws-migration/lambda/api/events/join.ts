@@ -4,16 +4,12 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { Pool } from 'pg';
+import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('events-join');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: process.env.NODE_ENV !== 'development' },
-});
 
 interface JoinEventRequest {
   action: 'register' | 'cancel' | 'interested';
@@ -23,6 +19,7 @@ interface JoinEventRequest {
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {
@@ -35,10 +32,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const eventId = event.pathParameters?.eventId;
-    if (!eventId) {
+    if (!eventId || !isValidUUID(eventId)) {
       return cors({
         statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Event ID required' }),
+        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       });
     }
 

@@ -6,7 +6,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 
 const log = createLogger('posts-get');
 
@@ -14,26 +15,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const postId = event.pathParameters?.id;
+    const postId = validateUUIDParam(event, headers, 'id', 'Post');
+    if (isErrorResponse(postId)) return postId;
     const currentUserId = event.requestContext.authorizer?.claims?.sub;
-
-    if (!postId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Post ID is required' }),
-      };
-    }
-
-    // SECURITY: Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid post ID format' }),
-      };
-    }
 
     // Use reader pool for read operations
     const db = await getReaderPool();
@@ -41,16 +25,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // SECURITY: Include author's privacy setting in query
     const result = await db.query(
       `SELECT
-        p.*,
+        p.id, p.author_id, p.content, p.caption, p.media_urls, p.media_url,
+        p.media_type, p.visibility, p.likes_count, p.comments_count, p.views_count,
+        p.is_peak, p.peak_duration, p.peak_expires_at, p.save_to_profile,
+        p.location, p.tags, p.created_at, p.updated_at,
         pr.is_private as author_is_private,
         pr.cognito_sub as author_cognito_sub,
         json_build_object(
           'id', pr.id,
           'username', pr.username,
-          'full_name', pr.full_name,
-          'avatar_url', pr.avatar_url,
-          'is_verified', pr.is_verified,
-          'account_type', pr.account_type
+          'fullName', pr.full_name,
+          'avatarUrl', pr.avatar_url,
+          'isVerified', pr.is_verified,
+          'accountType', pr.account_type
         ) as author
       FROM posts p
       LEFT JOIN profiles pr ON p.author_id = pr.id
@@ -97,6 +84,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // Fetch tagged users for this post
+    const taggedResult = await db.query(
+      `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
+       FROM post_tags pt
+       JOIN profiles pr ON pt.tagged_user_id = pr.id
+       WHERE pt.post_id = $1`,
+      [postId]
+    );
+    const taggedUsers = taggedResult.rows.map((r: Record<string, unknown>) => ({
+      id: r.id,
+      username: r.username,
+      fullName: r.full_name,
+      avatarUrl: r.avatar_url,
+    }));
+
     return {
       statusCode: 200,
       headers,
@@ -106,8 +108,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         content: post.content,
         mediaUrls: post.media_urls || [],
         mediaType: post.media_type,
+        location: post.location || null,
+        taggedUsers,
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,
+        viewsCount: post.views_count || 0,
         createdAt: post.created_at,
         author: post.author,
       }),

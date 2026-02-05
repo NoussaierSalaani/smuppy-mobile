@@ -13,16 +13,12 @@ import {
 } from '@aws-sdk/client-sns';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { isNamedError } from '../utils/error-handler';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('notifications-push-token');
 const snsClient = new SNSClient({});
-
-// Rate limit: max 5 token registrations per user per minute
-const tokenRateLimits = new Map<string, { count: number; resetAt: number }>();
-const TOKEN_RATE_LIMIT = 5;
-const TOKEN_RATE_WINDOW_MS = 60_000;
 
 // Platform Application ARNs (set via environment variables)
 const IOS_PLATFORM_ARN = process.env.IOS_PLATFORM_APPLICATION_ARN || '';
@@ -111,21 +107,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Rate limit POST requests
+    // Rate limit POST requests: 5 per minute per user (DynamoDB-based, works across Lambda instances)
     if (event.httpMethod === 'POST') {
-      const now = Date.now();
-      const record = tokenRateLimits.get(userId);
-      if (record && now < record.resetAt) {
-        if (record.count >= TOKEN_RATE_LIMIT) {
-          return {
-            statusCode: 429,
-            headers,
-            body: JSON.stringify({ message: 'Too many token registrations. Please wait.' }),
-          };
-        }
-        record.count++;
-      } else {
-        tokenRateLimits.set(userId, { count: 1, resetAt: now + TOKEN_RATE_WINDOW_MS });
+      const rateLimitResult = await checkRateLimit({
+        prefix: 'push-token',
+        identifier: userId,
+        windowSeconds: 60,
+        maxRequests: 5,
+      });
+      if (!rateLimitResult.allowed) {
+        return {
+          statusCode: 429,
+          headers,
+          body: JSON.stringify({ message: 'Too many token registrations. Please wait.' }),
+        };
       }
     }
 

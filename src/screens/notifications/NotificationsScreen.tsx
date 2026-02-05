@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -7,15 +8,19 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation/native';
-import { COLORS, GRADIENTS, SIZES, SPACING } from '../../config/theme';
+import { GRADIENTS, SIZES, SPACING } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useAppStore } from '../../stores';
+import { NotificationsSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
+import { formatTimeAgo } from '../../utils/dateFormatters';
 
 // ============================================
 // TYPES
@@ -67,8 +72,52 @@ type RootStackParamList = {
 // HELPERS
 // ============================================
 
+// Map backend notification types to frontend display types
+function mapNotificationType(backendType: string): UserNotification['type'] {
+  switch (backendType) {
+    case 'new_follower':
+    case 'follow_request':
+      return 'follow';
+    case 'like':
+    case 'peak_like':
+      return 'like';
+    case 'comment':
+    case 'peak_comment':
+    case 'peak_reply':
+      return 'peak_reply';
+    case 'live':
+      return 'live';
+    default:
+      return 'like';
+  }
+}
+
 // Transform API notification to display format
-function transformNotification(apiNotif: any): Notification {
+interface ApiNotification {
+  id: string;
+  createdAt: string;
+  read: boolean;
+  type: string;
+  title?: string;
+  body?: string;
+  data?: {
+    icon?: string;
+    user?: {
+      id?: string;
+      name?: string;
+      username?: string;
+      avatar?: string;
+      avatarUrl?: string;
+      isVerified?: boolean;
+    };
+    actorId?: string;
+    isFollowing?: boolean;
+    postImage?: string;
+    thumbnailUrl?: string;
+  };
+}
+
+function transformNotification(apiNotif: ApiNotification): Notification {
   const baseNotif = {
     id: apiNotif.id,
     time: formatTimeAgo(new Date(apiNotif.createdAt)),
@@ -86,18 +135,19 @@ function transformNotification(apiNotif: any): Notification {
     } as SystemNotification;
   }
 
-  // User notifications (follow, like, peak_reply, live, etc.)
+  // User notifications (follow, like, comment, peak_comment, peak_reply, live, etc.)
   const userData = apiNotif.data?.user || {};
+  const mappedType = mapNotificationType(apiNotif.type);
   return {
     ...baseNotif,
-    type: apiNotif.type || 'like',
+    type: mappedType,
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
       name: userData.name || userData.username || 'User',
-      avatar: userData.avatar || userData.avatarUrl || 'https://i.pravatar.cc/100',
+      avatar: userData.avatar || userData.avatarUrl || null,
       isVerified: userData.isVerified || false,
     },
-    message: apiNotif.body || getDefaultMessage(apiNotif.type),
+    message: apiNotif.body || getDefaultMessage(mappedType),
     isFollowing: apiNotif.data?.isFollowing,
     postImage: apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
   } as UserNotification;
@@ -113,25 +163,12 @@ function getDefaultMessage(type: string): string {
   }
 }
 
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
 export default function NotificationsScreen(): React.JSX.Element {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -139,18 +176,21 @@ export default function NotificationsScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [followRequestsCount, setFollowRequestsCount] = useState(0);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [_hasMore, setHasMore] = useState(true);
+  const cursorRef = useRef<string | null>(null);
 
-  // Fetch notifications from API
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  // Fetch notifications from API — uses ref for cursor to avoid stale closure
   const fetchNotifications = useCallback(async (isRefresh = false) => {
     try {
       const response = await awsAPI.getNotifications({
         limit: 20,
-        cursor: isRefresh ? undefined : cursor || undefined,
+        cursor: isRefresh ? undefined : cursorRef.current || undefined,
       });
 
-      const transformed = (response as any).notifications?.map(transformNotification) || [];
+      const items = response.data || [];
+      const transformed = items.map(transformNotification);
 
       if (isRefresh) {
         setNotifications(transformed);
@@ -158,13 +198,12 @@ export default function NotificationsScreen(): React.JSX.Element {
         setNotifications(prev => [...prev, ...transformed]);
       }
 
-      setCursor((response as any).cursor || null);
-      setHasMore((response as any).hasMore || false);
+      cursorRef.current = response.nextCursor || null;
+      setHasMore(response.hasMore || false);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      // Keep existing notifications on error
+      if (__DEV__) console.warn('Error fetching notifications:', error);
     }
-  }, [cursor]);
+  }, []);
 
   // Load follow requests count
   const loadFollowRequestsCount = useCallback(async () => {
@@ -174,20 +213,34 @@ export default function NotificationsScreen(): React.JSX.Element {
 
   // Initial load
   useEffect(() => {
+    let mounted = true;
     const loadInitial = async () => {
-      setLoading(true);
+      if (mounted) setLoading(true);
       await fetchNotifications(true);
-      setLoading(false);
+      if (mounted) setLoading(false);
     };
-    loadInitial();
+    loadInitial().catch(err => {
+      if (mounted && __DEV__) console.warn('[NotificationsScreen] Load error:', err);
+    });
+    return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reload when screen comes into focus
+  // Reload when screen comes into focus + mark all read and sync badge
   useFocusEffect(
     useCallback(() => {
       loadFollowRequestsCount();
       fetchNotifications(true);
+      // Optimistically clear badge, then mark all read on server
+      useAppStore.getState().setUnreadNotifications(0);
+      awsAPI.markAllNotificationsRead()
+        .then(() => {
+          // Confirm accurate count from server (catches race with new notifications)
+          awsAPI.getUnreadCount()
+            .then(({ unreadCount }) => useAppStore.getState().setUnreadNotifications(unreadCount ?? 0))
+            .catch(() => { /* best-effort */ });
+        })
+        .catch(() => { /* best-effort */ });
     }, [loadFollowRequestsCount, fetchNotifications])
   );
 
@@ -198,10 +251,12 @@ export default function NotificationsScreen(): React.JSX.Element {
     { key: 'peak_reply', label: 'Peak Replies' },
   ];
 
-  // Navigate to user profile
-  const goToUserProfile = (userId: string): void => {
+  // Prefetch + navigate to user profile
+  const prefetchProfile = usePrefetchProfile();
+  const goToUserProfile = useCallback((userId: string): void => {
+    prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
-  };
+  }, [prefetchProfile, navigation]);
 
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
@@ -212,21 +267,35 @@ export default function NotificationsScreen(): React.JSX.Element {
     setRefreshing(false);
   };
 
-  const toggleFollow = (id: number | string): void => {
-    setNotifications(
-      notifications.map((notif) => {
-        if (notif.id === id && 'isFollowing' in notif) {
-          return { ...notif, isFollowing: !notif.isFollowing };
-        }
-        return notif;
-      })
-    );
-  };
+  const toggleFollow = useCallback(async (id: number | string): Promise<void> => {
+    const notif = notifications.find(n => n.id === id);
+    if (!notif || !('isFollowing' in notif)) return;
+    const userNotif = notif as UserNotification;
 
-  const markAsRead = async (id: number | string): Promise<void> => {
     // Optimistic update
-    setNotifications(
-      notifications.map((notif) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: !n.isFollowing } : n)
+    );
+
+    try {
+      if (userNotif.isFollowing) {
+        await awsAPI.unfollowUser(userNotif.user.id);
+      } else {
+        await awsAPI.followUser(userNotif.user.id);
+      }
+    } catch (err) {
+      // Rollback
+      setNotifications(prev =>
+        prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: userNotif.isFollowing } : n)
+      );
+      if (__DEV__) console.warn('Follow toggle error:', err);
+    }
+  }, [notifications]);
+
+  const markAsRead = useCallback(async (id: number | string): Promise<void> => {
+    // Optimistic update
+    setNotifications(prev =>
+      prev.map((notif) => {
         if (notif.id === id) {
           return { ...notif, isRead: true };
         }
@@ -237,39 +306,45 @@ export default function NotificationsScreen(): React.JSX.Element {
     try {
       await awsAPI.markNotificationRead(String(id));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      if (__DEV__) console.warn('Error marking notification as read:', error);
     }
-  };
+  }, []);
 
-  const filteredNotifications =
-    activeFilter === 'all'
-      ? notifications
-      : notifications.filter((n) => n.type === activeFilter);
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications;
+    return notifications.filter((n) => n.type === activeFilter);
+  }, [notifications, activeFilter]);
 
-  const _unreadCount = notifications.filter((n) => !n.isRead).length;
+  const [recentNotifications, olderNotifications] = useMemo(() => {
+    const recent = filteredNotifications.filter(
+      (n) => n.time === 'Just now' || n.time.includes('ago')
+    );
+    const older = filteredNotifications.filter((n) => !recent.includes(n));
+    return [recent, older];
+  }, [filteredNotifications]);
 
-  const getNotificationIcon = (
+  const getNotificationIcon = useCallback((
     type: string
   ): { name: keyof typeof Ionicons.glyphMap; color: string } => {
     switch (type) {
       case 'like':
         return { name: 'heart', color: '#FF6B6B' };
       case 'follow':
-        return { name: 'person-add', color: COLORS.blue };
+        return { name: 'person-add', color: colors.blue };
       case 'peak_reply':
-        return { name: 'videocam', color: COLORS.primary };
+        return { name: 'videocam', color: colors.primary };
       case 'live':
         return { name: 'radio', color: '#FF5E57' };
       default:
-        return { name: 'notifications', color: COLORS.primary };
+        return { name: 'notifications', color: colors.primary };
     }
-  };
+  }, [colors.blue, colors.primary]);
 
   const isSystemNotification = (notif: Notification): notif is SystemNotification => {
     return notif.type === 'system' || notif.type === 'reminder';
   };
 
-  const renderNotification = (item: Notification): React.JSX.Element => {
+  const renderNotification = useCallback((item: Notification): React.JSX.Element => {
     const isSystem = isSystemNotification(item);
 
     return (
@@ -287,11 +362,11 @@ export default function NotificationsScreen(): React.JSX.Element {
         {!item.isRead && <View style={styles.unreadDot} />}
 
         {isSystem ? (
-          <View style={[styles.systemIcon, { backgroundColor: COLORS.backgroundFocus }]}>
+          <View style={[styles.systemIcon, { backgroundColor: colors.backgroundFocus }]}>
             <Ionicons
               name={(item as SystemNotification).icon as keyof typeof Ionicons.glyphMap}
               size={24}
-              color={COLORS.primary}
+              color={colors.primary}
             />
           </View>
         ) : (
@@ -302,14 +377,14 @@ export default function NotificationsScreen(): React.JSX.Element {
               goToUserProfile((item as UserNotification).user.id)
             }
           >
-            <Image
-              source={{ uri: (item as UserNotification).user.avatar }}
-              style={styles.avatar}
-            />
+            <AvatarImage source={(item as UserNotification).user.avatar} size={50} />
             <View
               style={[
                 styles.typeIcon,
-                { backgroundColor: getNotificationIcon(item.type).color },
+                {
+                  backgroundColor: getNotificationIcon(item.type).color,
+                  borderColor: colors.white
+                },
               ]}
             >
               <Ionicons name={getNotificationIcon(item.type).name} size={10} color="#fff" />
@@ -376,7 +451,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         )}
       </TouchableOpacity>
     );
-  };
+  }, [styles, colors, markAsRead, goToUserProfile, toggleFollow, getNotificationIcon]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -386,14 +461,27 @@ export default function NotificationsScreen(): React.JSX.Element {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={24} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              await awsAPI.markAllNotificationsRead();
+              setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            } catch (err) {
+              if (__DEV__) console.warn('Mark all read error:', err);
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="checkmark-done-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => navigation.navigate('NotificationSettings')}
         >
-          <Ionicons name="settings-outline" size={24} color={COLORS.dark} />
+          <Ionicons name="settings-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -428,8 +516,8 @@ export default function NotificationsScreen(): React.JSX.Element {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -440,7 +528,7 @@ export default function NotificationsScreen(): React.JSX.Element {
             onPress={() => navigation.navigate('FollowRequests')}
           >
             <View style={styles.followRequestsIcon}>
-              <Ionicons name="person-add" size={20} color={COLORS.primaryGreen} />
+              <Ionicons name="person-add" size={20} color={colors.primaryGreen} />
             </View>
             <View style={styles.followRequestsContent}>
               <Text style={styles.followRequestsTitle}>Follow Requests</Text>
@@ -448,28 +536,31 @@ export default function NotificationsScreen(): React.JSX.Element {
                 {followRequestsCount} {followRequestsCount === 1 ? 'person wants' : 'people want'} to follow you
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+            <Ionicons name="chevron-forward" size={20} color={colors.gray} />
           </TouchableOpacity>
         )}
 
-        <Text style={styles.sectionTitle}>Today</Text>
-        {filteredNotifications
-          .filter((n) => n.time.includes('m ago') || n.time.includes('h ago'))
-          .map(renderNotification)}
+        {recentNotifications.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Today</Text>
+            {recentNotifications.map(renderNotification)}
+          </>
+        )}
 
-        <Text style={styles.sectionTitle}>Earlier</Text>
-        {filteredNotifications.filter((n) => n.time.includes('d ago')).map(renderNotification)}
+        {olderNotifications.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Earlier</Text>
+            {olderNotifications.map(renderNotification)}
+          </>
+        )}
 
         {loading && notifications.length === 0 && (
-          <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading notifications...</Text>
-          </View>
+          <NotificationsSkeleton />
         )}
 
         {!loading && filteredNotifications.length === 0 && (
           <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={60} color={COLORS.grayLight} />
+            <Ionicons name="notifications-off-outline" size={60} color={colors.grayLight} />
             <Text style={styles.emptyTitle}>No notifications</Text>
             <Text style={styles.emptySubtitle}>
               When you get notifications, they'll show up here
@@ -487,10 +578,10 @@ export default function NotificationsScreen(): React.JSX.Element {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -505,7 +596,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 24,
-    color: COLORS.dark,
+    color: colors.dark,
     flex: 1,
   },
   settingsButton: {
@@ -521,20 +612,20 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     marginRight: SPACING.sm,
   },
   filterChipActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   filterChipText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   filterChipTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
   notificationsList: {
     flex: 1,
@@ -543,20 +634,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
   },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   notificationUnread: {
-    backgroundColor: COLORS.backgroundFocus,
+    backgroundColor: colors.backgroundFocus,
   },
   unreadDot: {
     position: 'absolute',
@@ -564,7 +655,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   avatarContainer: {
     position: 'relative',
@@ -585,7 +676,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.white,
   },
   systemIcon: {
     width: 50,
@@ -602,7 +692,7 @@ const styles = StyleSheet.create({
   notificationText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     lineHeight: 20,
   },
   userName: {
@@ -611,18 +701,18 @@ const styles = StyleSheet.create({
   systemTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   systemMessage: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   timeText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
     marginTop: 4,
   },
   followButtonContainer: {
@@ -636,19 +726,19 @@ const styles = StyleSheet.create({
   followButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   followingButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: SIZES.radiusSm,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
   },
   followingButtonText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   postThumbnail: {
     width: 44,
@@ -666,7 +756,7 @@ const styles = StyleSheet.create({
   liveButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: COLORS.white,
+    color: colors.white,
   },
   loadingState: {
     alignItems: 'center',
@@ -676,7 +766,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.md,
   },
   emptyState: {
@@ -688,13 +778,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.lg,
   },
   emptySubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },
@@ -704,16 +794,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: isDark ? 'rgba(15,45,30,0.3)' : 'rgba(240,253,244,1)',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.grayBorder,
     marginBottom: SPACING.sm,
   },
   followRequestsIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: isDark ? 'rgba(15,45,30,0.6)' : 'rgba(220,252,231,1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -724,12 +814,12 @@ const styles = StyleSheet.create({
   followRequestsTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 15,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   followRequestsSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 1,
   },
 });

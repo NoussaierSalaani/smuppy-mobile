@@ -1,6 +1,9 @@
 /**
  * Push Notification Service
- * Sends push notifications via SNS (iOS) and Firebase Admin SDK (Android)
+ * Sends push notifications via:
+ * 1. Expo Push API (primary — works for all Expo-managed tokens)
+ * 2. SNS (iOS native APNs, when configured)
+ * 3. Firebase Admin SDK (Android native FCM, when configured)
  */
 
 import {
@@ -56,6 +59,11 @@ export interface PushTarget {
   token: string;
   snsEndpointArn?: string | null;
 }
+
+const EXPO_PUSH_API_URL = 'https://exp.host/--/api/v2/push/send';
+
+const isExpoToken = (token: string): boolean =>
+  token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken[');
 
 /**
  * Send push notification to iOS via SNS
@@ -123,7 +131,7 @@ async function sendToAndroid(
         priority: 'high',
         notification: {
           sound: payload.sound || 'default',
-          channelId: 'smuppy_notifications',
+          channelId: payload.data?.channelId || 'default',
         },
       },
     };
@@ -138,12 +146,68 @@ async function sendToAndroid(
 }
 
 /**
+ * Send push notification via Expo Push API
+ * Works for any ExponentPushToken — no SNS/APNs/FCM setup required
+ */
+async function sendViaExpo(
+  tokens: string[],
+  payload: PushNotificationPayload
+): Promise<{ success: number; failed: number }> {
+  if (tokens.length === 0) return { success: 0, failed: 0 };
+
+  const messages = tokens.map((token) => ({
+    to: token,
+    title: payload.title,
+    body: payload.body,
+    data: payload.data,
+    sound: payload.sound || 'default',
+    badge: payload.badge || 1,
+    channelId: 'default',
+  }));
+
+  try {
+    const response = await fetch(EXPO_PUSH_API_URL, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+
+    if (!response.ok) {
+      log.error('Expo Push API error', { status: response.status });
+      return { success: 0, failed: tokens.length };
+    }
+
+    const result = await response.json() as { data: Array<{ status: string }> };
+    let success = 0;
+    let failed = 0;
+    for (const ticket of result.data) {
+      ticket.status === 'ok' ? success++ : failed++;
+    }
+    if (success > 0) log.info('Expo push sent', { success, failed });
+    return { success, failed };
+  } catch (error) {
+    log.error('Expo Push API request failed', error);
+    return { success: 0, failed: tokens.length };
+  }
+}
+
+/**
  * Send push notification to a single device
+ * Prefers Expo Push API for Expo tokens, falls back to SNS/FCM for native tokens
  */
 export async function sendPushNotification(
   target: PushTarget,
   payload: PushNotificationPayload
 ): Promise<boolean> {
+  // Expo Push Token — use Expo API directly
+  if (isExpoToken(target.token)) {
+    const result = await sendViaExpo([target.token], payload);
+    return result.success > 0;
+  }
+
   if (target.platform === 'ios' && target.snsEndpointArn) {
     return sendToiOS(target.snsEndpointArn, payload);
   } else if (target.platform === 'android') {
@@ -164,17 +228,28 @@ export async function sendPushNotificationBatch(
   let success = 0;
   let failed = 0;
 
-  // Group by platform for efficiency
-  const iosTargets = targets.filter(t => t.platform === 'ios' && t.snsEndpointArn);
-  const androidTargets = targets.filter(t => t.platform === 'android');
+  // Split targets: Expo tokens vs native tokens
+  const expoTokens = targets.filter(t => isExpoToken(t.token)).map(t => t.token);
+  const nativeTargets = targets.filter(t => !isExpoToken(t.token));
 
-  // Send to iOS devices
+  // Send Expo tokens in a single batch (most efficient)
+  if (expoTokens.length > 0) {
+    const expoResult = await sendViaExpo(expoTokens, payload);
+    success += expoResult.success;
+    failed += expoResult.failed;
+  }
+
+  // Group native targets by platform
+  const iosTargets = nativeTargets.filter(t => t.platform === 'ios' && t.snsEndpointArn);
+  const androidTargets = nativeTargets.filter(t => t.platform === 'android');
+
+  // Send to iOS devices via SNS
   for (const target of iosTargets) {
     const result = await sendToiOS(target.snsEndpointArn!, payload);
     result ? success++ : failed++;
   }
 
-  // Send to Android devices (can use batch API)
+  // Send to Android devices via Firebase
   if (androidTargets.length > 0) {
     await initializeFirebase();
 
@@ -191,7 +266,7 @@ export async function sendPushNotificationBatch(
             priority: 'high' as const,
             notification: {
               sound: payload.sound || 'default',
-              channelId: 'smuppy_notifications',
+              channelId: payload.data?.channelId || 'default',
             },
           },
         }));
@@ -212,6 +287,37 @@ export async function sendPushNotificationBatch(
 }
 
 /**
+ * Map notification type to preference column name.
+ * Returns null for types that should always be sent.
+ */
+function getPreferenceColumn(notificationType: string | undefined): string | null {
+  if (!notificationType) return null;
+
+  switch (notificationType) {
+    case 'like':
+    case 'peak_like':
+      return 'likes_enabled';
+    case 'comment':
+    case 'peak_comment':
+    case 'peak_reply':
+      return 'comments_enabled';
+    case 'new_follower':
+    case 'follow_request':
+    case 'follow_accepted':
+      return 'follows_enabled';
+    case 'message':
+      return 'messages_enabled';
+    case 'post_tag':
+      return 'mentions_enabled';
+    case 'live':
+      return 'live_enabled';
+    default:
+      // session, challenge, battle, event, etc. — always send
+      return null;
+  }
+}
+
+/**
  * Send push notification to a user (all their devices)
  */
 export async function sendPushToUser(
@@ -219,6 +325,27 @@ export async function sendPushToUser(
   userId: string,
   payload: PushNotificationPayload
 ): Promise<{ success: number; failed: number }> {
+  // Check user's notification preferences before sending push
+  const notificationType = payload.data?.type;
+  const prefColumn = getPreferenceColumn(notificationType);
+
+  if (prefColumn) {
+    const prefResult = await db.query(
+      `SELECT ${prefColumn} FROM notification_preferences WHERE user_id = $1`,
+      [userId]
+    );
+
+    // If a row exists and the preference is explicitly false, skip push
+    if (prefResult.rows.length > 0 && prefResult.rows[0][prefColumn] === false) {
+      log.info('Push skipped — user preference disabled', {
+        userId,
+        type: notificationType,
+        preference: prefColumn,
+      });
+      return { success: 0, failed: 0 };
+    }
+  }
+
   // Get all push tokens for the user
   const result = await db.query(
     `SELECT token, platform, sns_endpoint_arn
@@ -234,8 +361,8 @@ export async function sendPushToUser(
 
   const targets: PushTarget[] = result.rows.map((row: Record<string, unknown>) => ({
     platform: row.platform as 'ios' | 'android',
-    token: row.token,
-    snsEndpointArn: row.sns_endpoint_arn,
+    token: row.token as string,
+    snsEndpointArn: row.sns_endpoint_arn as string | null,
   }));
 
   return sendPushNotificationBatch(targets, payload);

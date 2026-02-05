@@ -45,7 +45,7 @@ export const useNotifications = (
   options: UseNotificationsOptions = {}
 ): UseNotificationsReturn => {
   const { onNotificationReceived, onNotificationTapped } = options;
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void }>();
   const user = useUserStore((state) => state.user);
   const [hasPermission, setHasPermission] = useState(false);
 
@@ -63,38 +63,38 @@ export const useNotifications = (
       switch (data.type) {
         case 'like':
         case 'comment':
+        case 'post_tag':
           if (data.postId) {
             navigation.navigate('PostDetailFanFeed', { postId: data.postId });
           }
           break;
 
-        case 'follow':
+        case 'peak_like':
+        case 'peak_comment':
+          if (data.peakId) {
+            navigation.navigate('PeakView', { peakId: data.peakId });
+          }
+          break;
+
+        case 'follow_request':
+        case 'new_follower':
+        case 'follow_accepted':
           if (data.userId) {
             navigation.navigate('UserProfile', { userId: data.userId });
           }
           break;
 
         case 'message':
-          if (data.conversationId) {
-            // Navigate to chat - need to fetch conversation first
-            navigation.navigate('Messages');
-          }
+          navigation.navigate('Messages');
           break;
 
-        case 'mention':
-          if (data.postId) {
-            navigation.navigate('PostDetailFanFeed', { postId: data.postId });
-          }
-          break;
-
-        case 'post':
+        case 'live':
           if (data.userId) {
             navigation.navigate('UserProfile', { userId: data.userId });
           }
           break;
 
         default:
-          // Default to home
           navigation.navigate('Home');
       }
     },
@@ -106,7 +106,7 @@ export const useNotifications = (
    */
   const registerForPushNotifications = useCallback(async (): Promise<boolean> => {
     if (!user?.id) {
-      console.log('Cannot register for push notifications: No user logged in');
+      if (__DEV__) console.log('Cannot register for push notifications: No user logged in');
       return false;
     }
 
@@ -152,13 +152,13 @@ export const useNotifications = (
   useEffect(() => {
     // Listener for notifications received while app is foregrounded
     notificationListener.current = addNotificationReceivedListener((notification) => {
-      console.log('Notification received:', notification);
+      if (__DEV__) console.log('Notification received:', notification);
       onNotificationReceived?.(notification);
     });
 
     // Listener for notification taps
     responseListener.current = addNotificationResponseListener((response) => {
-      console.log('Notification tapped:', response);
+      if (__DEV__) console.log('Notification tapped:', response);
       const data = parseNotificationData(response);
 
       if (data) {
@@ -204,26 +204,53 @@ export const useNotifications = (
 export const useAutoRegisterPushNotifications = (): void => {
   const user = useUserStore((state) => state.user);
   const hasRegistered = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const register = async () => {
-      if (user?.id && !hasRegistered.current) {
-        const success = await registerPushToken(user.id);
-        if (success) {
-          hasRegistered.current = true;
-          console.log('Auto-registered for push notifications');
-        }
-      }
-    };
-
-    register();
-  }, [user?.id]);
-
-  // Reset on logout
   useEffect(() => {
     if (!user?.id) {
       hasRegistered.current = false;
+      return;
     }
+
+    if (hasRegistered.current) return;
+
+    let cancelled = false;
+    const RETRY_DELAYS = [0, 5000, 15000, 30000]; // immediate, 5s, 15s, 30s
+
+    const attemptRegistration = async (attempt: number) => {
+      if (cancelled || hasRegistered.current) return;
+
+      if (__DEV__) console.log(`[Push] Registration attempt ${attempt + 1}/${RETRY_DELAYS.length}`);
+      const success = await registerPushToken(user.id);
+
+      if (success) {
+        hasRegistered.current = true;
+        if (__DEV__) console.log('[Push] Auto-registered for push notifications');
+      } else if (attempt + 1 < RETRY_DELAYS.length && !cancelled) {
+        const delay = RETRY_DELAYS[attempt + 1];
+        if (__DEV__) console.log(`[Push] Will retry in ${delay / 1000}s`);
+        timerRef.current = setTimeout(() => attemptRegistration(attempt + 1), delay);
+      } else {
+        if (__DEV__) console.warn('[Push] All registration attempts failed');
+        try {
+          const { captureMessage } = require('../lib/sentry');
+          captureMessage('Push registration failed after all attempts', 'warning', {
+            userId: user.id,
+            attempts: RETRY_DELAYS.length,
+          });
+        } catch { /* Sentry not available */ }
+      }
+    };
+
+    attemptRegistration(0);
+
+    return () => {
+      cancelled = true;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [user?.id]);
 };
 

@@ -12,8 +12,8 @@ import { ENV } from '../config/env';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 
 // Lazy load native modules to prevent crash in Expo Go
-let AppleAuthentication: any = null;
-let Crypto: any = null;
+let AppleAuthentication: typeof import('expo-apple-authentication') | null = null;
+let Crypto: typeof import('expo-crypto') | null = null;
 
 const getAppleAuth = async () => {
   if (!AppleAuthentication) {
@@ -88,7 +88,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
 
     // Validate random bytes generation (crypto polyfill must be loaded)
     if (!randomBytes || randomBytes.length !== 32) {
-      console.error('[AppleAuth] Failed to generate random bytes - crypto polyfill may not be initialized');
+      if (__DEV__) console.warn('[AppleAuth] Failed to generate random bytes - crypto polyfill may not be initialized');
       return { success: false, error: 'Security initialization failed. Please restart the app.' };
     }
 
@@ -132,13 +132,18 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
         fullName,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string; status?: number };
     // Handle user cancellation
-    if (error.code === 'ERR_REQUEST_CANCELED') {
+    if (err.code === 'ERR_REQUEST_CANCELED') {
       return { success: false, error: 'cancelled' };
     }
-    console.error('[AppleAuth] Error:', error);
-    return { success: false, error: error.message || 'Apple Sign-In failed' };
+    // Handle rate limiting (429)
+    if (err.message?.includes('429') || err.status === 429) {
+      return { success: false, error: 'Too many attempts. Please wait a few minutes and try again.' };
+    }
+    if (__DEV__) console.warn('[AppleAuth] Error:', error);
+    return { success: false, error: 'Apple Sign-In failed. Please try again.' };
   }
 };
 
@@ -199,9 +204,10 @@ export const handleGoogleSignIn = async (
         fullName: user.attributes?.name,
       },
     };
-  } catch (error: any) {
-    console.error('[GoogleAuth] Error:', error);
-    return { success: false, error: error.message || 'Google Sign-In failed' };
+  } catch (error: unknown) {
+    if (__DEV__) console.warn('[GoogleAuth] Error:', error);
+    const err = error as { message?: string };
+    return { success: false, error: err.message || 'Google Sign-In failed' };
   }
 };
 

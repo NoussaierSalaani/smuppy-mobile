@@ -8,7 +8,7 @@ import * as dns from 'dns';
 import { promisify } from 'util';
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('auth-validate-email');
 const dynamoClient = new DynamoDBClient({});

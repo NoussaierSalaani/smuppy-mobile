@@ -99,8 +99,8 @@ describe('Input Sanitization', () => {
 
   it('should handle empty inputs', () => {
     expect(sanitizeInput('')).toBe('');
-    expect(sanitizeInput(null as any)).toBe('');
-    expect(sanitizeInput(undefined as any)).toBe('');
+    expect(sanitizeInput(null as unknown as string)).toBe('');
+    expect(sanitizeInput(undefined as unknown as string)).toBe('');
   });
 });
 

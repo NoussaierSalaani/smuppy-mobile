@@ -4,7 +4,6 @@
  */
 
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { getSecureHeaders } from './cors';
 import { createLogger } from './logger';
 
 const log = createLogger('security');
@@ -14,13 +13,6 @@ const secretsClient = new SecretsManagerClient({});
 // Cache for secrets (Lambda warm start optimization)
 const secretsCache: Map<string, { value: string; expiry: number }> = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-/**
- * SECURITY: Secure response headers for all API responses
- * @deprecated Use getSecureHeaders(origin) from cors.ts for dynamic CORS
- * This export is kept for backwards compatibility
- */
-export const secureHeaders = getSecureHeaders();
 
 /**
  * Get secret from AWS Secrets Manager with caching
@@ -54,14 +46,28 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
     // Remove null bytes
     .replace(/\0/g, '')
     // Remove control characters except newlines and tabs
-    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+/**
+ * SECURITY: Sanitize text input with HTML stripping
+ * Use for user-generated content (comments, bios, captions, etc.)
+ */
+export function sanitizeText(text: string, maxLength: number = 500): string {
+  if (!text || typeof text !== 'string') return '';
+
+  return text
+    .replace(/<[^>]*>/g, '') // Strip HTML tags (XSS prevention)
+    .trim()
+    .slice(0, maxLength)
+    .replace(/\0/g, '') // Remove null bytes
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
 }
 
 /**
  * SECURITY: Validate UUID format to prevent injection
  */
-export function isValidUUID(uuid: string): boolean {
+export function isValidUUID(uuid: string | undefined | null): boolean {
   if (!uuid || typeof uuid !== 'string') return false;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
@@ -124,32 +130,3 @@ export function logSecurityEvent(
   log.logSecurity(eventType, details);
 }
 
-/**
- * Create a secure error response
- */
-export function errorResponse(
-  statusCode: number,
-  message: string,
-  errorCode?: string
-) {
-  return {
-    statusCode,
-    headers: secureHeaders,
-    body: JSON.stringify({
-      message,
-      code: errorCode,
-      timestamp: new Date().toISOString(),
-    }),
-  };
-}
-
-/**
- * Create a secure success response
- */
-export function successResponse(data: unknown, statusCode: number = 200) {
-  return {
-    statusCode,
-    headers: secureHeaders,
-    body: JSON.stringify(data),
-  };
-}

@@ -36,7 +36,7 @@ const loadFromStorage = async (): Promise<void> => {
     }
     memoryCache.loaded = true;
   } catch (e) {
-    console.warn('Failed to load rate limits:', e);
+    if (__DEV__) console.warn('Failed to load rate limits:', e);
     memoryCache.loaded = true;
   }
 };
@@ -72,7 +72,7 @@ const saveToStorage = async (): Promise<void> => {
       blocks: memoryCache.blocks,
     }));
   } catch (e) {
-    console.warn('Failed to save rate limits:', e);
+    if (__DEV__) console.warn('Failed to save rate limits:', e);
   }
 };
 

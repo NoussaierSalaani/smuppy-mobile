@@ -3,7 +3,7 @@
  * Comprehensive tests for Google OAuth authentication
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 // Mock dependencies
 const mockSend = jest.fn();
@@ -32,18 +32,18 @@ jest.mock('google-auth-library', () => ({
 }));
 
 // Helper to create mock event
-const createMockEvent = (body: any): APIGatewayProxyEvent => ({
+const createMockEvent = (body: Record<string, unknown>): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),
   headers: { origin: 'https://smuppy.com' },
   requestContext: {
     requestId: 'test-request-id',
     identity: { sourceIp: '127.0.0.1' },
-  } as any,
+  } as unknown as APIGatewayProxyEvent['requestContext'],
 } as unknown as APIGatewayProxyEvent);
 
 describe('Google Auth Handler', () => {
-  let handler: any;
-  let UserNotFoundException: any;
+  let handler: (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
+  let UserNotFoundException: typeof Error;
 
   beforeAll(async () => {
     process.env.USER_POOL_ID = 'test-pool-id';

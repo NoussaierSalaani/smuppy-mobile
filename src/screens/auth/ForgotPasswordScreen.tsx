@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS, FORM } from '../../config/theme';
+import { GRADIENTS, FORM } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 
@@ -20,6 +21,7 @@ interface ForgotPasswordScreenProps {
 }
 
 export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) {
+  const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -32,6 +34,8 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
     canReactivate: false,
     fullName: '',
   });
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Back button → goBack for normal animation
   const handleGoBack = useCallback(() => {
@@ -137,7 +141,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
 
             {/* Back Button */}
             <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
-              <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+              <Ionicons name="chevron-back" size={28} color={colors.dark} />
             </TouchableOpacity>
 
             {/* Header */}
@@ -150,11 +154,11 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
             <Text style={styles.label}>Email address</Text>
             {(hasSubmitted && emailError) ? (
               <View style={[styles.inputBox, styles.inputError]}>
-                <Ionicons name="mail-outline" size={20} color={COLORS.error} />
+                <Ionicons name="mail-outline" size={20} color={colors.error} />
                 <TextInput
                   style={styles.input}
                   placeholder="mailusersmuppy@mail.com"
-                  placeholderTextColor={COLORS.grayMuted}
+                  placeholderTextColor={colors.grayMuted}
                   value={email}
                   onChangeText={handleEmailChange}
                   onFocus={() => setIsFocused(true)}
@@ -165,23 +169,23 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                 />
                 {email.length > 0 && (
                   <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name="close-circle" size={20} color={COLORS.grayMuted} />
+                    <Ionicons name="close-circle" size={20} color={colors.grayMuted} />
                   </TouchableOpacity>
                 )}
               </View>
             ) : (
               <LinearGradient
-                colors={(email.length > 0 || isFocused) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={(email.length > 0 || isFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || isFocused) ? COLORS.primary : COLORS.grayMuted} />
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || isFocused) ? colors.primary : colors.grayMuted} />
                   <TextInput
                     style={styles.input}
                     placeholder="mailusersmuppy@mail.com"
-                    placeholderTextColor={COLORS.grayMuted}
+                    placeholderTextColor={colors.grayMuted}
                     value={email}
                     onChangeText={handleEmailChange}
                     onFocus={() => setIsFocused(true)}
@@ -192,7 +196,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                   />
                   {email.length > 0 && (
                     <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                      <Ionicons name="close-circle" size={20} color={COLORS.grayMuted} />
+                      <Ionicons name="close-circle" size={20} color={colors.grayMuted} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -210,11 +214,11 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
             >
               <TouchableOpacity style={styles.btnInner} onPress={handleSend} disabled={!isFormValid || isLoading} activeOpacity={0.8}>
                 {isLoading ? (
-                  <ActivityIndicator color={COLORS.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <>
                     <Text style={styles.btnText}>Send link</Text>
-                    <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                    <Ionicons name="arrow-forward" size={20} color={colors.white} />
                   </>
                 )}
               </TouchableOpacity>
@@ -240,7 +244,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                 end={GRADIENTS.primaryEnd}
                 style={styles.modalIcon}
               >
-                <Ionicons name="mail" size={36} color={COLORS.white} />
+                <Ionicons name="mail" size={36} color={colors.white} />
               </LinearGradient>
               <Text style={styles.modalTitle}>Email sent</Text>
               <Text style={styles.modalMessage}>{SUCCESS_MESSAGE}</Text>
@@ -252,7 +256,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
               >
                 <TouchableOpacity style={styles.modalBtnInner} onPress={handleContinue} activeOpacity={0.8}>
                   <Text style={styles.modalBtnText}>Continue</Text>
-                  <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
+                  <Ionicons name="arrow-forward" size={18} color={colors.white} />
                 </TouchableOpacity>
               </LinearGradient>
             </View>
@@ -264,7 +268,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
               <TouchableOpacity style={styles.modalClose} onPress={closeDeletedAccountModal}>
-                <Ionicons name="close" size={24} color={COLORS.gray} />
+                <Ionicons name="close" size={24} color={colors.gray} />
               </TouchableOpacity>
               <View style={[styles.modalIconWarning]}>
                 <Ionicons name="warning" size={40} color="#F59E0B" />
@@ -286,7 +290,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
               </Text>
               {deletedAccountModal.canReactivate && (
                 <View style={styles.supportEmailBtn}>
-                  <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+                  <Ionicons name="mail-outline" size={18} color={colors.primary} />
                   <Text style={styles.supportEmailText}>support@smuppy.com</Text>
                 </View>
               )}
@@ -304,53 +308,60 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
-  flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 },
+const createStyles = (colors: ThemeColors, isDark: boolean) => {
+  const _errorBg = isDark ? 'rgba(239,68,68,0.15)' : '#FEE2E2';
+  const errorInputBg = isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2';
+  const validBg = isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8';
+  const warningIconBg = isDark ? 'rgba(245,158,11,0.2)' : '#FEF3C7';
 
-  // Back Button
-  backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    flex: { flex: 1 },
+    scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 },
 
-  // Header
-  header: { alignItems: 'center', marginBottom: 32 },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: COLORS.gray, textAlign: 'center', lineHeight: 22 },
+    // Back Button
+    backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
 
-  // Input
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: 8 },
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, marginBottom: 8, backgroundColor: COLORS.white },
-  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 8 },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
-  inputError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: COLORS.errorLight },
-  input: { flex: 1, fontSize: 16, color: COLORS.dark, marginLeft: 12 },
-  errorText: { fontSize: 13, color: COLORS.error, marginBottom: 16, marginLeft: 8 },
+    // Header
+    header: { alignItems: 'center', marginBottom: 32 },
+    title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: colors.dark, textAlign: 'center', marginBottom: 8 },
+    subtitle: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 22 },
 
-  // Button
-  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginTop: 16, marginBottom: 24 },
-  btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
+    // Input
+    label: { fontSize: 14, fontWeight: '600', color: colors.dark, marginBottom: 8 },
+    inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: colors.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, marginBottom: 8, backgroundColor: colors.background },
+    inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2, marginBottom: 8 },
+    inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: colors.background },
+    inputInnerValid: { backgroundColor: validBg },
+    inputError: { borderColor: colors.error, borderWidth: 2, backgroundColor: errorInputBg },
+    input: { flex: 1, fontSize: 16, color: colors.dark, marginLeft: 12 },
+    errorText: { fontSize: 13, color: colors.error, marginBottom: 16, marginLeft: 8 },
 
-  // Spacer
-  spacer: { flex: 1, minHeight: 200 },
+    // Button
+    btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginTop: 16, marginBottom: 24 },
+    btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+    btnText: { color: colors.white, fontSize: 16, fontWeight: '600' },
 
-  // Footer
-  footer: { alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
+    // Spacer
+    spacer: { flex: 1, minHeight: 200 },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalBox: { width: '100%', backgroundColor: COLORS.white, borderRadius: 24, padding: 28, alignItems: 'center' },
-  modalIcon: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  modalTitle: { fontFamily: 'WorkSans-Bold', fontSize: 24, color: COLORS.dark, marginBottom: 12 },
-  modalMessage: { fontSize: 15, color: COLORS.gray, textAlign: 'center', lineHeight: 22, marginBottom: 24, paddingHorizontal: 8 },
-  modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, overflow: 'hidden' },
-  modalBtnInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  modalBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.white },
-  modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
-  modalIconWarning: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  modalHighlight: { fontWeight: '700', color: COLORS.primary },
-  supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.backgroundValid, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
-  supportEmailText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
-  modalBtnWarning: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center' },
-});
+    // Footer
+    footer: { alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
+
+    // Modal
+    modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
+    modalBox: { width: '100%', backgroundColor: colors.background, borderRadius: 24, padding: 28, alignItems: 'center' },
+    modalIcon: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+    modalTitle: { fontFamily: 'WorkSans-Bold', fontSize: 24, color: colors.dark, marginBottom: 12 },
+    modalMessage: { fontSize: 15, color: colors.gray, textAlign: 'center', lineHeight: 22, marginBottom: 24, paddingHorizontal: 8 },
+    modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, overflow: 'hidden' },
+    modalBtnInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    modalBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+    modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
+    modalIconWarning: { width: 80, height: 80, borderRadius: 40, backgroundColor: warningIconBg, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    modalHighlight: { fontWeight: '700', color: colors.primary },
+    supportEmailBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: validBg, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, marginBottom: 16 },
+    supportEmailText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+    modalBtnWarning: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, backgroundColor: '#F59E0B', justifyContent: 'center', alignItems: 'center' },
+  });
+};

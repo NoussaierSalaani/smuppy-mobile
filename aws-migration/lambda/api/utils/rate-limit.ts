@@ -57,7 +57,9 @@ export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLim
 
     return { allowed: true };
   } catch (error) {
-    log.error('Rate limit check failed, blocking request', error);
-    return { allowed: false, retryAfter: 60 };
+    // Fail open: if rate limit check fails (e.g. DynamoDB permission/connectivity issue),
+    // allow the request through rather than blocking all traffic
+    log.error('Rate limit check failed, allowing request (fail-open)', error);
+    return { allowed: true };
   }
 };

@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING } from '../../config/theme';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface PasswordSuccessScreenProps {
   navigation: {
@@ -16,8 +17,11 @@ interface PasswordSuccessScreenProps {
   };
 }
 
-export default function PasswordSuccessScreen({ navigation }: PasswordSuccessScreenProps) {
+export default function PasswordSuccessScreen({ navigation: _navigation }: PasswordSuccessScreenProps) {
   const { onRecoveryComplete } = useAuthCallbacks();
+  const { colors, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -36,7 +40,7 @@ export default function PasswordSuccessScreen({ navigation }: PasswordSuccessScr
           end={GRADIENTS.primaryEnd}
           style={styles.checkCircle}
         >
-          <Ionicons name="checkmark" size={40} color={COLORS.white} />
+          <Ionicons name="checkmark" size={40} color={colors.white} />
         </LinearGradient>
 
         {/* Title */}
@@ -59,10 +63,10 @@ export default function PasswordSuccessScreen({ navigation }: PasswordSuccessScr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
   },
   content: {
     flex: 1,
@@ -77,7 +81,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.xl,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -86,13 +90,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: SPACING.xl,
@@ -106,10 +110,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   redirect: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });

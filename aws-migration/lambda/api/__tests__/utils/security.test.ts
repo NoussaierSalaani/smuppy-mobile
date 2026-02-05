@@ -37,12 +37,12 @@ describe('Security Utils', () => {
     });
 
     it('should handle null/undefined', () => {
-      expect(sanitizeInput(null as any)).toBe('');
-      expect(sanitizeInput(undefined as any)).toBe('');
+      expect(sanitizeInput(null as unknown as string)).toBe('');
+      expect(sanitizeInput(undefined as unknown as string)).toBe('');
     });
 
     it('should handle non-string input', () => {
-      expect(sanitizeInput(123 as any)).toBe('');
+      expect(sanitizeInput(123 as unknown as string)).toBe('');
     });
   });
 
@@ -60,8 +60,8 @@ describe('Security Utils', () => {
     });
 
     it('should reject null/undefined', () => {
-      expect(isValidUUID(null as any)).toBe(false);
-      expect(isValidUUID(undefined as any)).toBe(false);
+      expect(isValidUUID(null as unknown as string)).toBe(false);
+      expect(isValidUUID(undefined as unknown as string)).toBe(false);
     });
 
     it('should reject SQL injection attempts', () => {

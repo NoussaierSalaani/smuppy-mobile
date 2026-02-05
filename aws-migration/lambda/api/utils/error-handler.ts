@@ -85,7 +85,6 @@ export function logError(
   additionalInfo?: Record<string, unknown>
 ): void {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  const errorStack = error instanceof Error ? error.stack : undefined;
 
   // Log for CloudWatch - never include sensitive data
   log.error(errorMessage, error, {

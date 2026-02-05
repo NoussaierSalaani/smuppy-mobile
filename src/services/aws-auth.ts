@@ -11,10 +11,13 @@ import * as SecureStore from 'expo-secure-store';
 import { AWS_CONFIG } from '../config/aws-config';
 
 // Lazy-loaded Cognito client to ensure crypto polyfill is ready
-let cognitoClient: any = null;
-let CognitoCommands: any = null;
+type CognitoClient = import('@aws-sdk/client-cognito-identity-provider').CognitoIdentityProviderClient;
+type CognitoModule = typeof import('@aws-sdk/client-cognito-identity-provider');
 
-const getCognitoClient = async () => {
+let cognitoClient: CognitoClient | null = null;
+let CognitoCommands: CognitoModule | null = null;
+
+const getCognitoClient = async (): Promise<CognitoClient> => {
   if (!cognitoClient) {
     const { CognitoIdentityProviderClient } = await import('@aws-sdk/client-cognito-identity-provider');
     cognitoClient = new CognitoIdentityProviderClient({
@@ -24,7 +27,7 @@ const getCognitoClient = async () => {
   return cognitoClient;
 };
 
-const getCognitoCommands = async () => {
+const getCognitoCommands = async (): Promise<CognitoModule> => {
   if (!CognitoCommands) {
     CognitoCommands = await import('@aws-sdk/client-cognito-identity-provider');
   }
@@ -36,10 +39,10 @@ const CLIENT_ID = AWS_CONFIG.cognito.userPoolClientId;
 // Token storage keys
 // SECURITY: All auth data uses SecureStore (encrypted keychain)
 const TOKEN_KEYS = {
-  ACCESS_TOKEN: 'smuppy_access_token',  // SecureStore (no @ prefix, alphanumeric only)
-  REFRESH_TOKEN: 'smuppy_refresh_token', // SecureStore
-  ID_TOKEN: 'smuppy_id_token',           // SecureStore
-  USER: '@smuppy/user',                  // SecureStore (encrypted)
+  ACCESS_TOKEN: 'smuppy_access_token',
+  REFRESH_TOKEN: 'smuppy_refresh_token',
+  ID_TOKEN: 'smuppy_id_token',
+  USER: 'smuppy_user',
 };
 
 // SecureStore helpers with error handling
@@ -48,15 +51,14 @@ const secureStore = {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
-      // Silent on simulator (no keychain access)
-      return;
+      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] setItem failed for "${key}" (${value.length} chars):`, (error as Error).message);
     }
   },
   async getItem(key: string): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
-      // Silent on simulator (no keychain access)
+      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] getItem failed for "${key}":`, (error as Error).message);
       return null;
     }
   },
@@ -64,7 +66,7 @@ const secureStore = {
     try {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
-      // Silent on simulator (no keychain access)
+      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] removeItem failed for "${key}":`, (error as Error).message);
     }
   },
 };
@@ -145,7 +147,14 @@ class AWSAuthService {
       ]);
 
       if (!accessToken || !userJson) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] No stored session found');
+        if (__DEV__) {
+          console.log('[AWS Auth] No stored session found', {
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken,
+            hasIdToken: !!idToken,
+            hasUser: !!userJson,
+          });
+        }
         return null;
       }
 
@@ -157,25 +166,29 @@ class AWSAuthService {
         this.user = JSON.parse(userJson);
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Restored session');
 
-        // Verify token is still valid
-        const isValid = await this.verifyToken();
-        if (!isValid) {
-          if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token expired, trying refresh...');
-          const refreshed = await this.refreshSession();
-          if (!refreshed) {
-            await this.clearSession();
-            return null;
-          }
+        // Check token expiry locally (no network call) to avoid failing on cold start
+        if (!this.isTokenExpired(accessToken)) {
+          if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token still valid (local check)');
+          return this.user;
+        }
+
+        // Token expired locally — try refresh
+        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token expired, trying refresh...');
+        const refreshed = await this.refreshSession();
+        if (!refreshed && !this.user) {
+          // refreshSession only clears session on auth errors, not network errors.
+          // If user is still set, it was a network error — keep session alive.
+          return null;
         }
 
         return this.user;
       } catch {
-        console.error('[AWS Auth] Failed to parse stored user');
+        if (__DEV__) console.warn('[AWS Auth] Failed to parse stored user');
         await this.clearSession();
         return null;
       }
     } catch (error) {
-      console.error('[AWS Auth] Initialize error:', error);
+      if (__DEV__) console.warn('[AWS Auth] Initialize error:', error);
       return null;
     }
   }
@@ -217,11 +230,12 @@ class AWSAuthService {
         } : null,
         confirmationRequired: result.confirmationRequired,
       };
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
+      const err = apiError as { statusCode?: number; message?: string };
       // If API endpoint doesn't exist yet, fall back to direct Cognito signup
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', apiError.message);
+      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
 
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if (err.statusCode === 404 || err.message?.includes('Not Found')) {
         return this.signUpDirect(params);
       }
 
@@ -276,8 +290,8 @@ class AWSAuthService {
         } : null,
         confirmationRequired: !response.UserConfirmed,
       };
-    } catch (error: any) {
-      console.error('[AWS Auth] Direct SignUp error:', error.name, error.message);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('[AWS Auth] Direct SignUp error:', (error as Error).name, (error as Error).message);
       throw error;
     }
   }
@@ -304,9 +318,9 @@ class AWSAuthService {
       }
 
       throw new Error(result.message || 'Confirmation failed');
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -324,7 +338,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Confirm signup error:', apiError.message);
+      if (__DEV__) console.warn('[AWS Auth] Confirm signup error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -351,15 +365,15 @@ class AWSAuthService {
       }
 
       throw new Error(result.message || 'Resend failed');
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // Handle rate limiting
-      if (apiError.statusCode === 429) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Rate limited');
         throw apiError;
       }
 
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -376,7 +390,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Resend confirmation code error:', apiError.message);
+      if (__DEV__) console.warn('[AWS Auth] Resend confirmation code error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -423,10 +437,18 @@ class AWSAuthService {
     // Store tokens and user profile in SecureStore (encrypted)
     await Promise.all([
       secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken),
-      RefreshToken && secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken),
+      ...(RefreshToken ? [secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken)] : []),
       secureStore.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
       secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
     ]);
+
+    // Verify critical token was persisted
+    const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+    if (!storedToken) {
+      if (__DEV__) console.warn('[AWS Auth] CRITICAL: Failed to persist access token to SecureStore');
+      // Retry once
+      await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken);
+    }
 
     this.notifyAuthStateChange(user);
     return user;
@@ -514,14 +536,14 @@ class AWSAuthService {
 
       // API returns success even for non-existent users (anti-enumeration)
       return true;
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // Handle rate limiting
-      if (apiError.statusCode === 429) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
         throw apiError;
       }
 
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -538,7 +560,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Forgot password error:', apiError.message);
+      if (__DEV__) console.warn('[AWS Auth] Forgot password error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -564,9 +586,9 @@ class AWSAuthService {
       }
 
       throw new Error(result.message || 'Password reset failed');
-    } catch (apiError: any) {
+    } catch (apiError: unknown) {
       // If API endpoint doesn't exist, fall back to direct Cognito
-      if (apiError.statusCode === 404 || apiError.message?.includes('Not Found')) {
+      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
         if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
@@ -585,7 +607,7 @@ class AWSAuthService {
         return true;
       }
 
-      console.error('[AWS Auth] Confirm forgot password error:', apiError.message);
+      if (__DEV__) console.warn('[AWS Auth] Confirm forgot password error:', (apiError as { message?: string }).message);
       throw apiError;
     }
   }
@@ -687,8 +709,8 @@ class AWSAuthService {
 
       await client.send(command);
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Password changed successfully');
-    } catch (error: any) {
-      console.error('[AWS Auth] Change password error:', error.name, error.message);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('[AWS Auth] Change password error:', (error as Error).name, (error as Error).message);
       throw error;
     }
   }
@@ -732,8 +754,8 @@ class AWSAuthService {
 
       this.notifyAuthStateChange(result.user);
       return result.user;
-    } catch (error: any) {
-      console.error('[AWS Auth] Apple Sign-In error:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('[AWS Auth] Apple Sign-In error:', error);
       throw error;
     }
   }
@@ -770,8 +792,8 @@ class AWSAuthService {
 
       this.notifyAuthStateChange(result.user);
       return result.user;
-    } catch (error: any) {
-      console.error('[AWS Auth] Google Sign-In error:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('[AWS Auth] Google Sign-In error:', error);
       throw error;
     }
   }
@@ -787,54 +809,6 @@ class AWSAuthService {
   }
 
   // Private methods
-
-  private async fetchUserAttributes(): Promise<AuthUser> {
-    if (!this.accessToken) {
-      throw new Error('No access token');
-    }
-
-    const client = await getCognitoClient();
-    const { GetUserCommand } = await getCognitoCommands();
-
-    const command = new GetUserCommand({
-      AccessToken: this.accessToken,
-    });
-
-    const response = await client.send(command);
-
-    const attrs: Record<string, string> = {};
-    response.UserAttributes?.forEach((attr: { Name?: string; Value?: string }) => {
-      if (attr.Name && attr.Value) {
-        attrs[attr.Name] = attr.Value;
-      }
-    });
-
-    return {
-      id: attrs['sub'] || '',
-      email: attrs['email'] || '',
-      username: attrs['preferred_username'] || attrs['email'],
-      emailVerified: attrs['email_verified'] === 'true',
-      phoneNumber: attrs['phone_number'],
-      attributes: attrs,
-    };
-  }
-
-  private async verifyToken(): Promise<boolean> {
-    if (!this.accessToken) return false;
-
-    try {
-      const client = await getCognitoClient();
-      const { GetUserCommand } = await getCognitoCommands();
-
-      const command = new GetUserCommand({
-        AccessToken: this.accessToken,
-      });
-      await client.send(command);
-      return true;
-    } catch {
-      return false;
-    }
-  }
 
   private async refreshSessionOnce(): Promise<boolean> {
     if (this.refreshPromise) return this.refreshPromise;
@@ -873,9 +847,25 @@ class AWSAuthService {
         return true;
       }
       return false;
-    } catch (error) {
-      // Token refresh failed — clear session to prevent stale auth state
-      console.warn('[AWS Auth] Token refresh failed, clearing session');
+    } catch (error: unknown) {
+      // Distinguish network errors from auth errors
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('Network') ||
+        error.message.includes('network') ||
+        error.message.includes('fetch') ||
+        error.message.includes('ECONNREFUSED') ||
+        error.message.includes('timeout') ||
+        error.name === 'TypeError' // fetch failures in RN
+      );
+
+      if (isNetworkError) {
+        // Network error — keep session alive so Remember Me works on cold start
+        if (__DEV__) console.warn('[AWS Auth] Token refresh failed due to network, keeping session');
+        return false;
+      }
+
+      // Auth error (token revoked, invalid, etc.) — clear session
+      if (__DEV__) console.warn('[AWS Auth] Token refresh failed (auth error), clearing session');
       await this.clearSession();
       return false;
     }
@@ -900,7 +890,7 @@ class AWSAuthService {
       try {
         callback(user);
       } catch (error) {
-        console.error('[AWS Auth] Error in auth state listener:', error);
+        if (__DEV__) console.warn('[AWS Auth] Error in auth state listener:', error);
       }
     });
   }

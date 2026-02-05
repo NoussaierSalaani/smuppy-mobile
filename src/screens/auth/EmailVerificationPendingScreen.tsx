@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
@@ -31,11 +32,15 @@ export default function EmailVerificationPendingScreen({
 }: {
   route: RouteProp<EmailVerificationRouteParams, 'EmailVerificationPending'>
 }): React.ReactNode {
+  const { colors, isDark: _isDark } = useTheme();
+  const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
-  const email = route?.params?.email || 'your email';
+  const email = route?.params?.email ?? '';
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Countdown for resend cooldown
   useEffect(() => {
@@ -56,7 +61,7 @@ export default function EmailVerificationPendingScreen({
           return;
         }
       } catch (err) {
-        console.error('[EmailPending] Error checking status:', err);
+        if (__DEV__) console.warn('[EmailPending] Error checking status:', err);
       }
     };
 
@@ -71,7 +76,7 @@ export default function EmailVerificationPendingScreen({
     const normalizedEmail = email.trim().toLowerCase();
     const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
     if (!awsCheck.allowed) {
-      Alert.alert('Too many attempts', `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+      showError('Too many attempts', `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
       return;
     }
 
@@ -81,20 +86,20 @@ export default function EmailVerificationPendingScreen({
       // Use AWS Cognito to resend confirmation code
       await awsAuth.resendConfirmationCode(normalizedEmail);
       setResendCooldown(60);
-      Alert.alert('Code Sent', 'A new verification code has been sent to your inbox.');
-    } catch (err: any) {
-      console.error('[EmailPending] Resend error:', err);
-      const errorMessage = err?.message || '';
+      showSuccess('Code Sent', 'A new verification code has been sent to your inbox.');
+    } catch (err: unknown) {
+      if (__DEV__) console.warn('[EmailPending] Resend error:', err);
+      const errorMessage = (err as Error)?.message || '';
 
       if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
-        Alert.alert('Too many attempts', 'Please try again in a few moments.');
+        showError('Too many attempts', 'Please try again in a few moments.');
       } else {
-        Alert.alert('Error', 'Unable to resend verification code. Please try again.');
+        showError('Error', 'Unable to resend verification code. Please try again.');
       }
     } finally {
       setIsResending(false);
     }
-  }, [resendCooldown, isResending, email]);
+  }, [resendCooldown, isResending, email, showError, showSuccess]);
 
   const handleCheckStatus = useCallback(async () => {
     setIsCheckingStatus(true);
@@ -106,43 +111,39 @@ export default function EmailVerificationPendingScreen({
         // User is verified, navigation will handle it
         return;
       } else {
-        Alert.alert(
-          'Not Verified Yet',
-          'Your email has not been verified yet. Please check your inbox and enter the verification code.'
-        );
+        showAlert({
+          title: 'Not Verified Yet',
+          message: 'Your email has not been verified yet. Please check your inbox and enter the verification code.',
+          type: 'warning',
+          buttons: [{ text: 'OK' }],
+        });
       }
     } catch (err) {
-      console.error('[EmailPending] Check status error:', err);
+      if (__DEV__) console.warn('[EmailPending] Check status error:', err);
     } finally {
       setIsCheckingStatus(false);
     }
-  }, []);
+  }, [showAlert]);
 
   const handleSignOut = useCallback(async () => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Sign Out',
       'Are you sure you want to sign out and use a different email?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await storage.clear([
-                STORAGE_KEYS.ACCESS_TOKEN,
-                STORAGE_KEYS.REFRESH_TOKEN,
-                STORAGE_KEYS.USER_ID,
-              ]);
-              await backend.signOut();
-            } catch (err) {
-              console.error('[EmailPending] Sign out error:', err);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await storage.clear([
+            STORAGE_KEYS.ACCESS_TOKEN,
+            STORAGE_KEYS.REFRESH_TOKEN,
+            STORAGE_KEYS.USER_ID,
+          ]);
+          await backend.signOut();
+        } catch (err) {
+          if (__DEV__) console.warn('[EmailPending] Sign out error:', err);
+        }
+      },
+      'Sign Out'
     );
-  }, []);
+  }, [showDestructiveConfirm]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -154,7 +155,7 @@ export default function EmailVerificationPendingScreen({
           end={GRADIENTS.primaryEnd}
           style={styles.iconContainer}
         >
-          <Ionicons name="mail" size={48} color={COLORS.white} />
+          <Ionicons name="mail" size={48} color={colors.white} />
         </LinearGradient>
 
         {/* Title */}
@@ -209,11 +210,11 @@ export default function EmailVerificationPendingScreen({
             activeOpacity={0.8}
           >
             {isCheckingStatus ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
                 <Text style={styles.btnText}>I've verified my email</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                <Ionicons name="arrow-forward" size={20} color={colors.white} />
               </>
             )}
           </TouchableOpacity>
@@ -228,7 +229,7 @@ export default function EmailVerificationPendingScreen({
           ) : (
             <TouchableOpacity onPress={handleResendEmail} disabled={isResending}>
               {isResending ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={styles.resendLink}>Didn't receive the email? Resend</Text>
               )}
@@ -238,7 +239,7 @@ export default function EmailVerificationPendingScreen({
 
         {/* Sign Out Option */}
         <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={18} color={COLORS.gray} />
+          <Ionicons name="log-out-outline" size={18} color={colors.gray} />
           <Text style={styles.signOutText}>Sign out and use a different email</Text>
         </TouchableOpacity>
 
@@ -250,10 +251,10 @@ export default function EmailVerificationPendingScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.xl,
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -281,13 +282,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'WorkSans-Bold',
     fontSize: 28,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: SPACING.xl,
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
 
   // Email Box
   emailBox: {
-    backgroundColor: COLORS.grayBorder,
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     padding: SPACING.md,
     width: '100%',
@@ -304,18 +305,18 @@ const styles = StyleSheet.create({
   },
   emailLabel: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   emailText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Instructions
   instructionsBox: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: SPACING.lg,
     width: '100%',
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   instructionsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: SPACING.md,
   },
   instructionRow: {
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.sm,
@@ -345,12 +346,12 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   instructionText: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 20,
   },
 
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -382,16 +383,16 @@ const styles = StyleSheet.create({
   },
   resendCooldownText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   resendCooldownTime: {
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   resendLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Sign Out
@@ -401,13 +402,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.grayLight,
+    borderTopColor: colors.grayLight,
     width: '100%',
     justifyContent: 'center',
   },
   signOutText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Footer

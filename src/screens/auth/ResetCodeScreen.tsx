@@ -1,12 +1,13 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES } from '../../config/theme';
+import { SIZES } from '../../config/theme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const CODE_LENGTH = 6; // AWS Cognito OTP is 6 digits
 
@@ -49,6 +50,7 @@ interface ResetCodeScreenProps {
 }
 
 export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenProps) {
+  const { colors, isDark } = useTheme();
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -56,10 +58,12 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
 
   const inputs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  
-  const email = route?.params?.email || 'mailusersmuppy@mail.com';
+
+  const email = route?.params?.email || '';
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const triggerShake = useCallback(() => {
     Animated.sequence([
@@ -94,7 +98,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
         triggerShake();
       }
     } catch (err) {
-      console.error('[ResetCode] Verification error:', err);
+      if (__DEV__) console.warn('[ResetCode] Verification error:', err);
       setError('An error occurred. Please try again.');
       triggerShake();
     } finally {
@@ -103,6 +107,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
   }, [navigate, email, triggerShake]);
 
   const handleChange = useCallback((text: string, index: number) => {
+    if (isVerifying) return;
     if (error) setError('');
     if (text && !/^\d+$/.test(text)) return;
     const newCode = [...code];
@@ -110,7 +115,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
     setCode(newCode);
     if (text && index < CODE_LENGTH - 1) inputs.current[index + 1]?.focus();
     if (text && index === CODE_LENGTH - 1 && newCode.join('').length === CODE_LENGTH) verifyCode(newCode.join(''));
-  }, [code, error, verifyCode]);
+  }, [code, error, isVerifying, verifyCode]);
 
   const handleKeyPress = useCallback((e: { nativeEvent: { key: string } }, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) inputs.current[index - 1]?.focus();
@@ -139,7 +144,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
       tryAction(() => clearCode(false));
       setShowModal(true);
     } catch (err) {
-      console.error('[ResetCode] Resend error:', err);
+      if (__DEV__) console.warn('[ResetCode] Resend error:', err);
       // Still show modal even on error (security: don't reveal if email exists)
       setShowModal(true);
     }
@@ -150,7 +155,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
     if (code[index]) return [styles.codeBox, styles.codeBoxFilled];
     if (focusedIndex === index) return [styles.codeBox, styles.codeBoxFocused];
     return [styles.codeBox];
-  }, [error, code, focusedIndex]);
+  }, [error, code, focusedIndex, styles.codeBox, styles.codeBoxError, styles.codeBoxFilled, styles.codeBoxFocused]);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -160,7 +165,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
             
             {/* Back Button */}
             <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={goBack} disabled={disabled}>
-              <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+              <Ionicons name="chevron-back" size={28} color={colors.dark} />
             </TouchableOpacity>
 
             {/* Header */}
@@ -196,7 +201,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
             {error ? (
               <View style={styles.errorBox}>
                 <View style={styles.errorIcon}>
-                  <Ionicons name="alert-circle" size={20} color={COLORS.white} />
+                  <Ionicons name="alert-circle" size={20} color={colors.white} />
                 </View>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
@@ -235,40 +240,40 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 },
   disabled: { opacity: 0.6 },
-  
+
   // Back Button
   backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
-  
+
   // Header
   header: { alignItems: 'center', marginBottom: 32 },
-  title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 15, fontWeight: '400', color: COLORS.dark, textAlign: 'center', lineHeight: 22 },
-  emailText: { color: COLORS.primary, fontWeight: '600' },
-  
+  title: { fontFamily: 'WorkSans-ExtraBold', fontSize: 28, color: colors.dark, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 15, fontWeight: '400', color: colors.dark, textAlign: 'center', lineHeight: 22 },
+  emailText: { color: colors.primary, fontWeight: '600' },
+
   // Code Input - 6 digits for AWS Cognito OTP
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: 12 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.dark, marginBottom: 12 },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  codeBox: { width: 48, height: 56, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: COLORS.dark, backgroundColor: COLORS.white },
-  codeBoxFocused: { borderColor: COLORS.primary, borderWidth: 2 },
-  codeBoxFilled: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.backgroundValid },
-  codeBoxError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: COLORS.errorLight },
-  
+  codeBox: { width: 48, height: 56, borderWidth: 1.5, borderColor: colors.grayMuted, borderRadius: SIZES.radiusMd, textAlign: 'center', fontSize: 22, fontWeight: '700', color: colors.dark, backgroundColor: colors.background },
+  codeBoxFocused: { borderColor: colors.primary, borderWidth: 2 },
+  codeBoxFilled: { borderColor: colors.primary, borderWidth: 2, backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : colors.backgroundValid },
+  codeBoxError: { borderColor: colors.error, borderWidth: 2, backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : colors.errorLight },
+
   // Error
-  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.errorLight, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.errorBorder, gap: 10 },
-  errorIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.error, justifyContent: 'center', alignItems: 'center' },
-  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: COLORS.error },
-  
+  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : colors.errorLight, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: isDark ? 'rgba(239,68,68,0.3)' : colors.errorBorder, gap: 10 },
+  errorIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center' },
+  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.error },
+
   // Resend
   resendRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  resendText: { fontSize: 14, fontWeight: '400', color: COLORS.dark },
-  resendLink: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
-  resendDisabled: { color: COLORS.gray },
-  
+  resendText: { fontSize: 14, fontWeight: '400', color: colors.dark },
+  resendLink: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  resendDisabled: { color: colors.gray },
+
   // Spacer invisible - garde l'espace dans le scroll
   spacer: { flex: 1, minHeight: 200 },
 

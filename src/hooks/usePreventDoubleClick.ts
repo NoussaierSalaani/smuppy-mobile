@@ -24,9 +24,12 @@ export const usePreventDoubleClick = (callback: CallbackFn, delay = 500): [(...a
   const [disabled, setDisabled] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleClick = useCallback((...args: unknown[]) => {
-    if (disabled) return;
+  const disabledRef = useRef(false);
 
+  const handleClick = useCallback((...args: unknown[]) => {
+    if (disabledRef.current) return;
+
+    disabledRef.current = true;
     setDisabled(true);
 
     // Execute the callback
@@ -36,9 +39,10 @@ export const usePreventDoubleClick = (callback: CallbackFn, delay = 500): [(...a
 
     // Re-enable after delay
     timeoutRef.current = setTimeout(() => {
+      disabledRef.current = false;
       setDisabled(false);
     }, delay);
-  }, [callback, delay, disabled]);
+  }, [callback, delay]);
 
   // Cleanup on unmount
   const cleanup = useCallback(() => {

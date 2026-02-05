@@ -9,6 +9,7 @@ export { corsHeaders };
 
 interface AuthUser {
   id: string;
+  sub: string;
   email?: string;
   username?: string;
 }
@@ -26,6 +27,7 @@ export function getUserFromEvent(event: APIGatewayProxyEvent): AuthUser | null {
 
   return {
     id: claims.sub,
+    sub: claims.sub,
     email: claims.email,
     username: claims['cognito:username'] || claims.username,
   };

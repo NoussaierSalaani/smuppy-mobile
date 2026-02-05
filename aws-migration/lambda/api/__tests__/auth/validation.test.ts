@@ -3,7 +3,7 @@
  * Tests security measures in authentication handlers
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 // Mock external dependencies before any imports
 jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
@@ -24,17 +24,17 @@ jest.mock('google-auth-library', () => ({
 }));
 
 // Helper to create mock event
-const createMockEvent = (body: any): APIGatewayProxyEvent => ({
+const createMockEvent = (body: Record<string, unknown>): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),
   headers: { origin: 'https://smuppy.com' },
   requestContext: {
     identity: { sourceIp: '127.0.0.1' },
-  } as any,
+  } as unknown as APIGatewayProxyEvent['requestContext'],
 } as unknown as APIGatewayProxyEvent);
 
 describe('Auth Security Tests', () => {
   describe('Google Auth Handler', () => {
-    let handler: any;
+    let handler: (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
 
     beforeAll(async () => {
       // Set required env vars
@@ -120,7 +120,7 @@ describe('Auth Security Tests', () => {
   });
 
   describe('Input Sanitization', () => {
-    let handler: any;
+    let handler: (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
 
     beforeAll(async () => {
       process.env.USER_POOL_ID = 'test-pool-id';
@@ -188,7 +188,7 @@ describe('Auth Security Tests', () => {
   });
 
   describe('Error Response Security', () => {
-    let handler: any;
+    let handler: (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
 
     beforeAll(async () => {
       process.env.USER_POOL_ID = 'test-pool-id';

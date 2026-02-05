@@ -1,5 +1,53 @@
 # Smuppy — Project Rules & Conventions
 
+## ABSOLUTE RULES — NEVER VIOLATE
+
+### Destruction Protection (CRITICAL — READ FIRST)
+- **NEVER** run `cdk destroy`, `aws cloudformation delete-stack`, or any command that deletes infrastructure
+- **NEVER** run `rm -rf`, `rm -r`, or bulk delete on any project files or directories
+- **NEVER** drop tables, drop databases, or run destructive SQL (DROP, TRUNCATE, DELETE without WHERE)
+- **NEVER** delete S3 buckets, Cognito user pools, RDS clusters, DynamoDB tables, or any AWS resource
+- **NEVER** run `git clean -f`, `git checkout .`, `git reset --hard` unless the user explicitly requests it with full awareness
+- **NEVER** delete environment files (.env), secrets, credentials, or configuration files
+- Before ANY delete/remove operation: explain what will be deleted, ask for explicit confirmation, and suggest a backup first
+- If a file or resource must be removed, **rename it** (e.g., `_old_filename`) or **move it to a backup directory** instead of deleting
+- AWS stacks: always use `--retain-resources` or `DeletionPolicy: Retain` on stateful resources (DB, S3, Cognito)
+- This rule applies to ALL Claude sessions — current and future. No exceptions.
+
+### AWS Infrastructure Protection
+- **NEVER** modify IAM policies to add `*` wildcard permissions — always use least-privilege
+- **NEVER** make S3 buckets public or change bucket policies to allow public access
+- **NEVER** open security groups to `0.0.0.0/0` on database ports (5432, 3306, 6379)
+- **NEVER** disable encryption on any resource (RDS, S3, DynamoDB, Secrets Manager)
+- **NEVER** remove VPC, subnets, or NAT gateways from existing stacks
+- **NEVER** change `DeletionPolicy` from `Retain`/`Snapshot` to `Delete` on stateful resources
+- **NEVER** rotate or delete Secrets Manager secrets without explicit user confirmation
+- **NEVER** modify Cognito user pool settings that could lock out existing users (password policy, MFA changes)
+- All CDK stacks MUST have `DeletionPolicy: Retain` on: RDS clusters, S3 buckets, Cognito user pools, DynamoDB tables
+- All CDK stacks MUST have `removalPolicy: cdk.RemovalPolicy.RETAIN` on stateful resources
+
+### Data Protection
+- **NEVER** run UPDATE or DELETE SQL without a WHERE clause
+- **NEVER** run migrations that drop columns containing user data — always rename to `_deprecated_<name>` first
+- **NEVER** truncate or clear tables in staging or production — only in local dev
+- **NEVER** export, print, or log full database dumps or user data
+- Before any migration that alters data: backup the table first with `CREATE TABLE <name>_backup_<date> AS SELECT * FROM <name>`
+- All migrations MUST be idempotent (IF NOT EXISTS, IF EXISTS, ON CONFLICT DO NOTHING)
+- All migrations MUST be reversible — include a rollback comment block at the bottom
+
+### Git & Code Protection
+- **NEVER** force push (`git push --force` or `git push -f`) to `main` or `master`
+- **NEVER** rebase `main` branch
+- **NEVER** commit secrets, API keys, tokens, or .env files — verify with `git diff --staged` before every commit
+- **NEVER** delete branches that haven't been merged without asking first
+- Always create a new branch for risky changes — never experiment directly on `main`
+
+### Confirmation Protocol
+- Any command that modifies AWS infrastructure (cdk deploy, aws cli write operations): **state what will change BEFORE running**
+- Any command that modifies the database schema: **show the SQL and ask for confirmation**
+- Any command that affects more than 5 files: **list the files and ask for confirmation**
+- If unsure whether an action is destructive: **ask the user first, don't guess**
+
 ## Architecture
 
 - React Native (Expo) mobile app with AWS Lambda backend
@@ -134,6 +182,41 @@
 - Never commit: `.env`, secrets, `node_modules`, build artifacts, `console.log` debug statements
 - Branch naming: `feat/feature-name`, `fix/bug-name`, `security/audit-batch-N`
 
+## Bug Prevention Rules (MANDATORY)
+
+### Dependency Safety
+- **NEVER** use `^` for AWS SDK or Stripe versions in Lambda `package.json` — use exact versions (e.g., `"3.975.0"` not `"^3.975.0"`)
+- After ANY `npm install` or dependency update in Lambda: test critical endpoints (upload, auth, payments) with `aws lambda invoke` before considering it done
+- After ANY `npm install` in the mobile app: test on simulator before pushing to TestFlight
+- When upgrading AWS SDK: check the changelog for breaking changes, especially around S3 checksums, presigned URLs, and auth flows
+- Always commit `package-lock.json` — it locks transitive dependencies
+
+### Screen & Navigation Wiring
+- When creating a NEW screen, you MUST update ALL 3 files in a single commit:
+  1. `src/screens/<category>/index.ts` — add the export
+  2. `src/types/index.ts` — add the route to `MainStackParamList`
+  3. `src/navigation/MainNavigator.tsx` — add the import AND the `<Stack.Screen>` route
+- **NEVER** create a screen file without wiring it into navigation — an unwired screen is a bug
+- After adding a screen: verify with `npx tsc --noEmit` AND visually confirm the screen is reachable
+
+### Deployment Verification
+- After EVERY `cdk deploy`: test the modified Lambda(s) with `aws lambda invoke` to confirm the fix is live
+- After EVERY frontend change intended for TestFlight: run `eas update --branch production` (or `eas build` + `eas submit` if native changes)
+- **NEVER** tell the user "it's fixed" without verifying the deployment is live
+- For presigned URL changes: always check that the generated URL does NOT contain unexpected headers (checksums, metadata)
+
+### S3 & Presigned URLs
+- Always create S3Client with `requestChecksumCalculation: 'WHEN_REQUIRED'` and `responseChecksumValidation: 'WHEN_REQUIRED'`
+- Always use `unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm'])` in `getSignedUrl()` options
+- Mobile clients (React Native) do NOT compute CRC32 checksums — presigned URLs must not require them
+
+### Immediate Bug Fix Policy
+- If you introduce or discover a bug during development, fix it IMMEDIATELY — do not leave it for later
+- If a bug is in backend code: fix + `cdk deploy` + verify with `aws lambda invoke`
+- If a bug is in frontend code: fix + `npx tsc --noEmit` + test on simulator
+- If a bug affects TestFlight users: fix + `eas update --branch production`
+- **NEVER** leave broken code in the codebase — every commit must leave the app in a working state
+
 ## Pre-Merge Checklist
 
 For every endpoint, verify:
@@ -150,3 +233,34 @@ For every endpoint, verify:
 - [ ] No dead code or commented-out code
 - [ ] Error paths tested mentally (null, empty, duplicate, concurrent)
 - [ ] `npx tsc --noEmit` passes with zero errors
+- [ ] New screens wired in all 3 files (index.ts, types/index.ts, MainNavigator.tsx)
+- [ ] Lambda changes deployed and verified with `aws lambda invoke`
+- [ ] No `^` on AWS SDK or Stripe versions in Lambda package.json
+- [ ] Presigned URLs tested — no unexpected checksum headers
+
+## React Native Performance (Callstack Best Practices)
+
+Reference: `~/.claude/skills/react-native-best-practices/`
+
+### Critical Optimizations
+- **Lists**: Use FlashList/FlatList instead of ScrollView for large lists
+- **Re-renders**: Use React Compiler or manual memoization (useMemo, useCallback, React.memo)
+- **State**: Use atomic state (Zustand) to minimize re-renders
+- **Bundle**: Avoid barrel imports, enable tree shaking
+- **Animations**: Use Reanimated worklets for 60 FPS animations
+
+### Performance Commands
+```bash
+# Analyze bundle size
+npx react-native bundle --entry-file index.js --bundle-output output.js --platform ios --sourcemap-output output.js.map --dev false --minify true
+npx source-map-explorer output.js --no-border-checks
+
+# Profile React components (open DevTools: press 'j' in Metro)
+```
+
+### Priority Order
+1. FPS & Re-renders (CRITICAL)
+2. Bundle Size (CRITICAL)
+3. TTI/Startup Time (HIGH)
+4. Native Performance (HIGH)
+5. Memory Management (MEDIUM)

@@ -2,7 +2,7 @@
  * Logger Utility Unit Tests
  */
 
-import { createLogger, getRequestId, logger } from '../../utils/logger';
+import { createLogger, getRequestId } from '../../utils/logger';
 
 // Mock console.log to capture output
 const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();

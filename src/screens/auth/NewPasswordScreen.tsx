@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, FORM, SPACING } from '../../config/theme';
+import { GRADIENTS, FORM, SPACING } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface NewPasswordScreenProps {
   navigation: {
@@ -26,6 +28,8 @@ interface NewPasswordScreenProps {
 }
 
 export default function NewPasswordScreen({ navigation, route }: NewPasswordScreenProps) {
+  const { colors, isDark } = useTheme();
+  const { showDestructiveConfirm } = useSmuppyAlert();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -38,20 +42,20 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Get email and code from route params (passed from ResetCodeScreen)
   const email = route?.params?.email;
   const code = route?.params?.code;
 
   const handleGoBack = useCallback(() => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Leave password reset?',
       'If you go back, you will need to request a new reset code.',
-      [
-        { text: 'Stay', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: goBack },
-      ]
+      goBack,
+      'Leave'
     );
-  }, [goBack]);
+  }, [goBack, showDestructiveConfirm]);
 
   // Callback from context to signal recovery is complete
   const { onRecoveryComplete } = useAuthCallbacks();
@@ -92,9 +96,9 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
       setTimeout(() => {
         onRecoveryComplete();
       }, 1500);
-    } catch (err: any) {
-      console.error('[NewPassword] Update error:', err);
-      const errorMessage = err?.message || '';
+    } catch (err: unknown) {
+      if (__DEV__) console.warn('[NewPassword] Update error:', err);
+      const errorMessage = (err as Error)?.message || '';
 
       if (errorMessage.includes('ExpiredCodeException') || errorMessage.includes('expired')) {
         setErrorMessage('Reset code has expired. Please request a new one.');
@@ -106,7 +110,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
     } finally {
       setIsLoading(false);
     }
-  }, [isValid, isLoading, password, email, code, onRecoveryComplete, navigation]);
+  }, [isValid, isLoading, password, email, code, onRecoveryComplete]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);
@@ -136,14 +140,14 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
             end={GRADIENTS.primaryEnd}
             style={styles.successIcon}
           >
-            <Ionicons name="checkmark" size={48} color={COLORS.white} />
+            <Ionicons name="checkmark" size={48} color={colors.white} />
           </LinearGradient>
           <Text style={styles.successTitle}>Password Updated!</Text>
           <Text style={styles.successSubtitle}>
             Your password has been changed successfully.
           </Text>
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.loadingText}>
               {'Entering the app...'}
             </Text>
@@ -160,7 +164,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
           {/* Back Button */}
           <TouchableOpacity style={[styles.backBtn, disabled && styles.disabled]} onPress={handleGoBack} disabled={disabled}>
-            <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+            <Ionicons name="chevron-back" size={28} color={colors.dark} />
           </TouchableOpacity>
 
           {/* Header */}
@@ -172,7 +176,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           {/* Error Message */}
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={18} color={COLORS.error} />
+              <Ionicons name="alert-circle" size={18} color={colors.error} />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -180,17 +184,17 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           {/* New Password Input */}
           <Text style={styles.label}>New password</Text>
           <LinearGradient
-            colors={(password.length > 0 || isFocusedPassword) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(password.length > 0 || isFocusedPassword) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, password.length > 0 && passwordValid && styles.inputInnerValid]}>
-              <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || isFocusedPassword) ? COLORS.primary : COLORS.grayMuted} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || isFocusedPassword) ? colors.primary : colors.grayMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter new password"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -200,7 +204,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                 onBlur={() => setIsFocusedPassword(false)}
               />
               <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -213,7 +217,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                   <Ionicons
                     name={check.passed ? "checkmark-circle" : "ellipse-outline"}
                     size={16}
-                    color={check.passed ? COLORS.primary : COLORS.grayMuted}
+                    color={check.passed ? colors.primary : colors.grayMuted}
                   />
                   <Text style={[styles.requirementText, check.passed && styles.requirementMet]}>
                     {check.label}
@@ -237,11 +241,11 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           <Text style={styles.label}>Confirm new password</Text>
           {(confirmPassword.length > 0 && !passwordsMatch) ? (
             <View style={[styles.inputRow, styles.inputRowError]}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.error} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.error} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Confirm your password"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirm}
@@ -251,22 +255,22 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                 onBlur={() => setIsFocusedConfirm(false)}
               />
               <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
               </TouchableOpacity>
             </View>
           ) : (
             <LinearGradient
-              colors={(confirmPassword.length > 0 || isFocusedConfirm) ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              colors={(confirmPassword.length > 0 || isFocusedConfirm) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
             >
               <View style={[styles.inputInner, passwordsMatch && styles.inputInnerValid]}>
-                <Ionicons name="lock-closed-outline" size={20} color={(confirmPassword.length > 0 || isFocusedConfirm) ? COLORS.primary : COLORS.grayMuted} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color={(confirmPassword.length > 0 || isFocusedConfirm) ? colors.primary : colors.grayMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Confirm your password"
-                  placeholderTextColor={COLORS.grayMuted}
+                  placeholderTextColor={colors.grayMuted}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirm}
@@ -276,7 +280,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                   onBlur={() => setIsFocusedConfirm(false)}
                 />
                 <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.grayMuted} />
+                  <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
                 </TouchableOpacity>
               </View>
             </LinearGradient>
@@ -288,7 +292,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
               <Ionicons
                 name={passwordsMatch ? "checkmark-circle" : "close-circle"}
                 size={16}
-                color={passwordsMatch ? COLORS.primary : COLORS.error}
+                color={passwordsMatch ? colors.primary : colors.error}
               />
               <Text style={[styles.matchText, passwordsMatch ? styles.matchTextValid : styles.matchTextError]}>
                 {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
@@ -305,11 +309,11 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           >
             <TouchableOpacity style={styles.btnInner} onPress={handleSubmit} disabled={!isValid || disabled || isLoading} activeOpacity={0.8}>
               {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color={colors.white} />
               ) : (
                 <>
                   <Text style={styles.btnText}>Reset Password</Text>
-                  <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                  <Ionicons name="arrow-forward" size={20} color={colors.white} />
                 </>
               )}
             </TouchableOpacity>
@@ -324,114 +328,120 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
-  flex: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING['3xl'] },
-  disabled: { opacity: 0.6 },
+const createStyles = (colors: ThemeColors, isDark: boolean) => {
+  const errorBg = isDark ? 'rgba(239,68,68,0.15)' : '#FEE2E2';
+  const errorInputBg = isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2';
+  const validBg = isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8';
 
-  // Success state
-  successContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xl,
-  },
-  successIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  successTitle: {
-    fontFamily: 'WorkSans-Bold',
-    fontSize: 28,
-    color: COLORS.dark,
-    textAlign: 'center',
-    marginBottom: SPACING.md,
-  },
-  successSubtitle: {
-    fontSize: 16,
-    color: COLORS.gray,
-    textAlign: 'center',
-    marginBottom: SPACING.xl,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: COLORS.gray,
-  },
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    flex: { flex: 1 },
+    content: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: SPACING.base, paddingBottom: SPACING['3xl'] },
+    disabled: { opacity: 0.6 },
 
-  // Error box
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.errorLight,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.error,
-  },
+    // Success state
+    successContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: SPACING.xl,
+    },
+    successIcon: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.xl,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    successTitle: {
+      fontFamily: 'WorkSans-Bold',
+      fontSize: 28,
+      color: colors.dark,
+      textAlign: 'center',
+      marginBottom: SPACING.md,
+    },
+    successSubtitle: {
+      fontSize: 16,
+      color: colors.gray,
+      textAlign: 'center',
+      marginBottom: SPACING.xl,
+    },
+    loadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    loadingText: {
+      fontSize: 14,
+      color: colors.gray,
+    },
 
-  // Back Button
-  backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
+    // Error box
+    errorBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: errorBg,
+      borderRadius: 12,
+      padding: SPACING.md,
+      marginBottom: SPACING.lg,
+    },
+    errorText: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.error,
+    },
 
-  // Header
-  header: { alignItems: 'center', marginBottom: SPACING['2xl'] },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.md },
-  subtitle: { fontSize: 15, color: COLORS.gray, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md },
+    // Back Button
+    backBtn: { alignSelf: 'flex-start', padding: 4, marginLeft: -4, marginBottom: 16 },
 
-  // Labels
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.dark, marginBottom: SPACING.sm, marginTop: SPACING.md },
+    // Header
+    header: { alignItems: 'center', marginBottom: SPACING['2xl'] },
+    title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: colors.dark, textAlign: 'center', marginBottom: SPACING.md },
+    subtitle: { fontSize: 15, color: colors.gray, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md },
 
-  // Input
-  inputRow: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: COLORS.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: COLORS.white },
-  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: COLORS.backgroundValid },
-  inputRowError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: COLORS.errorLight },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, color: COLORS.dark },
+    // Labels
+    label: { fontSize: 14, fontWeight: '600', color: colors.dark, marginBottom: SPACING.sm, marginTop: SPACING.md },
 
-  // Requirements
-  requirements: { marginTop: SPACING.sm, marginBottom: SPACING.xs, paddingLeft: SPACING.xs },
-  requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  requirementText: { fontSize: 13, color: COLORS.grayMuted },
-  requirementMet: { color: COLORS.primary },
+    // Input
+    inputRow: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: colors.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: colors.background },
+    inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
+    inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: colors.background },
+    inputInnerValid: { backgroundColor: validBg },
+    inputRowError: { borderColor: colors.error, borderWidth: 2, backgroundColor: errorInputBg },
+    inputIcon: { marginRight: 12 },
+    input: { flex: 1, fontSize: 16, color: colors.dark },
 
-  // Strength Bar
-  strengthRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.sm, gap: 12 },
-  strengthBarBg: { flex: 1, height: 4, backgroundColor: COLORS.grayBorder, borderRadius: 2, overflow: 'hidden' },
-  strengthBar: { height: '100%', borderRadius: 2 },
-  strengthText: { fontSize: 12, fontWeight: '600', minWidth: 70 },
+    // Requirements
+    requirements: { marginTop: SPACING.sm, marginBottom: SPACING.xs, paddingLeft: SPACING.xs },
+    requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    requirementText: { fontSize: 13, color: colors.grayMuted },
+    requirementMet: { color: colors.primary },
 
-  // Match Indicator
-  matchIndicator: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.sm, paddingLeft: SPACING.xs },
-  matchText: { fontSize: 13 },
-  matchTextValid: { color: COLORS.primary },
-  matchTextError: { color: COLORS.error },
+    // Strength Bar
+    strengthRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.sm, gap: 12 },
+    strengthBarBg: { flex: 1, height: 4, backgroundColor: colors.grayBorder, borderRadius: 2, overflow: 'hidden' },
+    strengthBar: { height: '100%', borderRadius: 2 },
+    strengthText: { fontSize: 12, fontWeight: '600', minWidth: 70 },
 
-  // Button
-  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginTop: SPACING.xl },
-  btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  btnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
+    // Match Indicator
+    matchIndicator: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.sm, paddingLeft: SPACING.xs },
+    matchText: { fontSize: 13 },
+    matchTextValid: { color: colors.primary },
+    matchTextError: { color: colors.error },
 
-  // Footer
-  footer: { alignItems: 'center', marginTop: 'auto', paddingTop: 8, paddingBottom: 8 },
-});
+    // Button
+    btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, marginTop: SPACING.xl },
+    btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+    btnText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+
+    // Footer
+    footer: { alignItems: 'center', marginTop: 'auto', paddingTop: 8, paddingBottom: 8 },
+  });
+};

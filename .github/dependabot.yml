@@ -1,6 +1,9 @@
 # Dependabot Configuration
 # Automatically checks for dependency updates and security vulnerabilities
 # https://docs.github.com/en/code-security/dependabot
+#
+# NOTE: Dependabot PRs may fail CI checks because dependency upgrades can
+# introduce breaking changes. Review and merge manually when ready.
 
 version: 2
 updates:
@@ -8,18 +11,13 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Europe/Paris"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+    open-pull-requests-limit: 5
     versioning-strategy: "increase"
     labels:
       - "dependencies"
-      - "security"
     commit-message:
       prefix: "chore(deps)"
-    # Group minor and patch updates
     groups:
       minor-and-patch:
         patterns:
@@ -27,7 +25,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Ignore major updates for critical packages (review manually)
     ignore:
       - dependency-name: "react-native"
         update-types: ["version-update:semver-major"]
@@ -38,16 +35,12 @@ updates:
   - package-ecosystem: "npm"
     directory: "/aws-migration/lambda/api"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Europe/Paris"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 3
     versioning-strategy: "increase"
     labels:
       - "dependencies"
       - "backend"
-      - "security"
     commit-message:
       prefix: "chore(deps-lambda)"
     groups:
@@ -65,11 +58,8 @@ updates:
   - package-ecosystem: "npm"
     directory: "/aws-migration/infrastructure"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Europe/Paris"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "infrastructure"
@@ -85,7 +75,8 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "ci"

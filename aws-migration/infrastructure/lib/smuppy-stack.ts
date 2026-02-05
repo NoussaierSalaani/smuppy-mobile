@@ -21,8 +21,10 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import { LambdaStack } from './lambda-stack';
+import { LambdaStack2 } from './lambda-stack-2';
 import { ApiGatewayStack } from './api-gateway-stack';
 import { ApiGateway2Stack } from './api-gateway-2-stack';
+import { ApiGateway3Stack } from './api-gateway-3-stack';
 
 /**
  * Smuppy AWS Infrastructure Stack
@@ -973,11 +975,26 @@ export class SmuppyStack extends cdk.Stack {
     // This avoids CloudFormation circular/timing dependency issues
 
     // ========================================
+    // Lambda Stack 2 - Business Access & Notification Preferences Handlers
+    // ========================================
+    const lambdaStack2 = new LambdaStack2(this, 'LambdaStack2', {
+      vpc,
+      lambdaSecurityGroup,
+      dbCredentials,
+      stripeSecret,
+      lambdaEnvironment,
+      environment,
+      isProduction,
+      apiLogGroup,
+    });
+
+    // ========================================
     // API Gateway - Nested Stack (to stay under 500 resource limit)
     // ========================================
     const apiGatewayStack = new ApiGatewayStack(this, 'ApiGatewayStack', {
       userPool,
       lambdaStack,
+      lambdaStack2,
       environment,
       isProduction,
     });
@@ -995,6 +1012,19 @@ export class SmuppyStack extends cdk.Stack {
 
     // Get secondary API reference
     const api2 = apiGateway2Stack.api;
+
+    // ========================================
+    // API Gateway 3 - Business Access Endpoints
+    // ========================================
+    const apiGateway3Stack = new ApiGateway3Stack(this, 'ApiGateway3Stack', {
+      userPool,
+      lambdaStack2,
+      environment,
+      isProduction,
+    });
+
+    // Get third API reference
+    const api3 = apiGateway3Stack.api;
 
     // ========================================
     // WebSocket API Gateway - Real-time Messaging
@@ -1518,6 +1548,24 @@ export class SmuppyStack extends cdk.Stack {
     });
 
     lambdaStack.notificationsPushTokenFn.addToRolePolicy(snsPlatformPolicy);
+
+    // Grant SNS Publish to all Lambdas that send push notifications
+    const pushSendPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['sns:Publish'],
+      resources: [
+        `arn:aws:sns:${this.region}:${this.account}:endpoint/APNS/smuppy-ios-${environment}/*`,
+        `arn:aws:sns:${this.region}:${this.account}:endpoint/APNS_SANDBOX/smuppy-ios-${environment}/*`,
+        `arn:aws:sns:${this.region}:${this.account}:endpoint/GCM/smuppy-android-${environment}/*`,
+      ],
+    });
+    lambdaStack.followsCreateFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.postsLikeFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.commentsCreateFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.peaksLikeFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.peaksCommentFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.followRequestsAcceptFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.liveStreamsStartFn.addToRolePolicy(pushSendPolicy);
 
     // ========================================
     // CloudWatch Alarms - Monitoring & Alerting

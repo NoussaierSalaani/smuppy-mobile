@@ -332,18 +332,29 @@ def handler(event, context):
     safe_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif',
                        '.mp4', '.mov', '.webm', '.m4v', '.mp3', '.m4a', '.wav', '.aac']
     if any(key.lower().endswith(ext) for ext in safe_extensions):
-        print(f"Media file - tagging as scanned: {key}")
+        print(f"Media file - marking as pending scan (ClamAV layer not integrated): {key}")
         try:
             s3.put_object_tagging(
                 Bucket=bucket, Key=key,
                 Tagging={'TagSet': [
-                    {'Key': 'virus-scan', 'Value': 'clean'},
+                    {'Key': 'virus-scan', 'Value': 'pending'},
                     {'Key': 'scan-date', 'Value': datetime.utcnow().isoformat()}
                 ]}
             )
+            sns.publish(
+                TopicArn=ALERT_TOPIC_ARN,
+                Subject="[SECURITY ALERT] Media file requires AV scan",
+                Message=json.dumps({
+                    'type': 'MALWARE_SCAN_PENDING',
+                    'bucket': bucket,
+                    'key': key,
+                    'reason': 'Media file allowed through basic extension check; ClamAV layer missing',
+                    'timestamp': datetime.utcnow().isoformat()
+                }, indent=2)
+            )
         except Exception as e:
-            print(f"Failed to tag object: {e}")
-        return {'statusCode': 200, 'body': 'Media file - basic validation passed'}
+            print(f"Failed to tag or alert: {e}")
+        return {'statusCode': 202, 'body': 'Media file marked pending AV scan'}
 
     # For non-media files, quarantine by default until ClamAV is integrated
     # TODO: Integrate ClamAV Lambda Layer for production scanning

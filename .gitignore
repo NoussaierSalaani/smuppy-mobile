@@ -51,4 +51,18 @@ supabase/.branches/
 
 # CDK output
 aws-migration/infrastructure/cdk.out/
+aws-migration/infrastructure/cdk.out/**
+aws-migration/infrastructure/cdk-out-deploy/
+aws-migration/infrastructure/cdk-out-deploy/**
+aws-migration/infrastructure/cdk-out-diff/
+aws-migration/infrastructure/cdk-out-diff/**
+aws-migration/infrastructure/app.json
 aws-migration/lambda/shared/node_modules
+aws-migration/lambda/node_modules
+
+# Infrastructure env files
+aws-migration/infrastructure/.env
+
+# Duplicate project folder
+smuppy-mobile/
+

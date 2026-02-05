@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 import { Construct } from 'constructs';
 
 /**
@@ -66,6 +68,25 @@ export class NetworkStack extends cdk.NestedStack {
           trafficType: ec2.FlowLogTrafficType.ALL,
         },
       },
+    });
+
+    // CloudTrail - Audit logging (multi-region)
+    const cloudTrailBucket = new s3.Bucket(this, 'CloudTrailBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      versioned: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    new cloudtrail.Trail(this, 'AuditTrail', {
+      trailName: `smuppy-audit-${props.environment}`,
+      bucket: cloudTrailBucket,
+      isMultiRegionTrail: true,
+      enableFileValidation: true,
+      includeGlobalServiceEvents: true,
+      managementEvents: cloudtrail.ReadWriteType.ALL,
+      cloudWatchLogsRetention: logs.RetentionDays.THREE_MONTHS,
     });
 
     // S3 Gateway Endpoint (free)

@@ -32,6 +32,7 @@ export class DatabaseStack extends cdk.NestedStack {
       enableKeyRotation: true,
       description: 'KMS key for RDS encryption',
       alias: `smuppy-db-key-${environment}`,
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
     // Database credentials
@@ -43,6 +44,7 @@ export class DatabaseStack extends cdk.NestedStack {
         excludePunctuation: true,
         passwordLength: 32,
       },
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
     // Parameter groups
@@ -92,6 +94,7 @@ export class DatabaseStack extends cdk.NestedStack {
           publiclyAccessible: false,
         }),
       ],
+      removalPolicy: isProduction ? cdk.RemovalPolicy.SNAPSHOT : cdk.RemovalPolicy.DESTROY,
     });
 
     // RDS Proxy for connection pooling

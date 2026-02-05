@@ -4,10 +4,12 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
+import { LambdaStack2 } from './lambda-stack-2';
 
 export interface ApiGatewayStackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack: LambdaStack;
+  lambdaStack2: LambdaStack2;
   environment: string;
   isProduction: boolean;
 }
@@ -23,7 +25,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API with Throttling
@@ -77,13 +79,13 @@ export class ApiGatewayStack extends cdk.NestedStack {
     });
 
     // Create all API routes
-    this.createRoutes(lambdaStack, isProduction, bodyValidator);
+    this.createRoutes(lambdaStack, lambdaStack2, isProduction, bodyValidator);
 
     // Create WAF
     this.createWaf(environment, isProduction);
   }
 
-  private createRoutes(lambdaStack: LambdaStack, isProduction: boolean, bodyValidator: apigateway.RequestValidator) {
+  private createRoutes(lambdaStack: LambdaStack, lambdaStack2: LambdaStack2, isProduction: boolean, bodyValidator: apigateway.RequestValidator) {
     const authMethodOptions: apigateway.MethodOptions = {
       authorizer: this.authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
@@ -113,9 +115,15 @@ export class ApiGatewayStack extends cdk.NestedStack {
     postById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsGetFn));
     postById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsDeleteFn), authMethodOptions);
 
+    const postLikers = postById.addResource('likers');
+    postLikers.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsLikersFn), authMethodOptions);
+
     const postLike = postById.addResource('like');
     postLike.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsLikeFn), authMethodOptions);
     postLike.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.postsUnlikeFn), authMethodOptions);
+
+    const postView = postById.addResource('view');
+    postView.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsViewFn), authMethodOptions);
 
     const postSave = postById.addResource('save');
     postSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsSaveFn), authMethodOptions);
@@ -127,6 +135,10 @@ export class ApiGatewayStack extends cdk.NestedStack {
 
     const postSaved = postById.addResource('saved');
     postSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsIsSavedFn), authMethodOptions);
+
+    // Report check: GET /posts/{id}/reported
+    const postReported = postById.addResource('reported');
+    postReported.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.reportsCheckPostFn), authMethodOptions);
 
     // ========================================
     // Comments Endpoints
@@ -143,7 +155,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
     profiles.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesSearchFn));
 
     const profileById = profiles.addResource('{id}');
-    profileById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetFn));
+    profileById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetFn), authMethodOptions);
 
     const profileIsFollowing = profileById.addResource('is-following');
     profileIsFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesIsFollowingFn), authMethodOptions);
@@ -157,8 +169,34 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const profileMe = profiles.addResource('me');
     profileMe.addMethod('PATCH', new apigateway.LambdaIntegration(lambdaStack.profilesUpdateFn), authWithBodyValidation);
 
+    const profilesCreationLimits = profiles.addResource('creation-limits');
+    profilesCreationLimits.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesCreationLimitsFn), authMethodOptions);
+
     const profilesSuggested = profiles.addResource('suggested');
     profilesSuggested.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesSuggestedFn), authMethodOptions);
+
+    // Block & Mute
+    const profileBlock = profileById.addResource('block');
+    profileBlock.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesBlockFn), authMethodOptions);
+
+    const profileUnblock = profileById.addResource('unblock');
+    profileUnblock.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesUnblockFn), authMethodOptions);
+
+    const profileMute = profileById.addResource('mute');
+    profileMute.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesMuteFn), authMethodOptions);
+
+    const profileUnmute = profileById.addResource('unmute');
+    profileUnmute.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesUnmuteFn), authMethodOptions);
+
+    const profilesBlocked = profiles.addResource('blocked');
+    profilesBlocked.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetBlockedFn), authMethodOptions);
+
+    const profilesMuted = profiles.addResource('muted');
+    profilesMuted.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesGetMutedFn), authMethodOptions);
+
+    // Report check: GET /profiles/{id}/reported
+    const profileReported = profileById.addResource('reported');
+    profileReported.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.reportsCheckUserFn), authMethodOptions);
 
     // ========================================
     // Feed Endpoint
@@ -243,6 +281,10 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const notificationsPushToken = notifications.addResource('push-token');
     notificationsPushToken.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsPushTokenFn), authWithBodyValidation);
 
+    const notificationsPreferences = notifications.addResource('preferences');
+    notificationsPreferences.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.notificationsPreferencesGetFn), authMethodOptions);
+    notificationsPreferences.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack2.notificationsPreferencesUpdateFn), authWithBodyValidation);
+
     const notificationById = notifications.addResource('{id}');
     const notificationRead = notificationById.addResource('read');
     notificationRead.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsMarkReadFn), authMethodOptions);
@@ -262,6 +304,16 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const messages = this.api.root.addResource('messages');
     const messageById = messages.addResource('{id}');
     messageById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.messagesDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Reports Endpoints
+    // ========================================
+    const reports = this.api.root.addResource('reports');
+    const reportPost = reports.addResource('post');
+    reportPost.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsPostFn), authWithBodyValidation);
+
+    const reportUser = reports.addResource('user');
+    reportUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsUserFn), authWithBodyValidation);
 
     // ========================================
     // Auth Endpoints (no Cognito auth)
@@ -294,12 +346,66 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const checkUser = auth.addResource('check-user');
     checkUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkUserFn), bodyValidationOnly);
 
+    const wsToken = auth.addResource('ws-token');
+    wsToken.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.wsTokenFn), authMethodOptions);
+
     // ========================================
     // Media Endpoints
     // ========================================
     const media = this.api.root.addResource('media');
     const mediaUploadUrl = media.addResource('upload-url');
     mediaUploadUrl.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadUrlFn), authWithBodyValidation);
+
+    const mediaUploadVoice = media.addResource('upload-voice');
+    mediaUploadVoice.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadVoiceFn), authWithBodyValidation);
+
+    // ========================================
+    // Search (nested under existing posts/peaks)
+    // ========================================
+    const postsSearch = posts.addResource('search');
+    postsSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsSearchFn), authMethodOptions);
+
+    const peaksSearch = peaks.addResource('search');
+    peaksSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksSearchFn), authMethodOptions);
+
+    // ========================================
+    // Feed Variants (nested under existing /feed)
+    // ========================================
+    const feedOptimized = feed.addResource('optimized');
+    feedOptimized.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedOptimizedFn), authMethodOptions);
+
+    const feedFollowing = feed.addResource('following');
+    feedFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedFollowingFn), authMethodOptions);
+
+    const feedDiscover = feed.addResource('discover');
+    feedDiscover.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.feedDiscoverFn), authMethodOptions);
+
+    // ========================================
+    // Posts Batch & Saved (nested under existing /posts)
+    // ========================================
+    const postsLikes = posts.addResource('likes');
+    const postsLikesBatch = postsLikes.addResource('batch');
+    postsLikesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsLikesBatchFn), authMethodOptions);
+
+    const postsSaves = posts.addResource('saves');
+    const postsSavesBatch = postsSaves.addResource('batch');
+    postsSavesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.postsSavesBatchFn), authMethodOptions);
+
+    const postsSaved = posts.addResource('saved');
+    postsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsSavedListFn), authMethodOptions);
+
+    // ========================================
+    // Follow Requests Extended (nested under existing /follow-requests)
+    // ========================================
+    const followRequestsCount = followRequests.addResource('count');
+    followRequestsCount.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.followRequestsCountFn), authMethodOptions);
+
+    const followRequestsPending = followRequests.addResource('pending');
+    const followRequestsPendingByUser = followRequestsPending.addResource('{userId}');
+    followRequestsPendingByUser.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.followRequestsCheckPendingFn), authMethodOptions);
+
+    const followRequestCancel = followRequestById.addResource('cancel');
+    followRequestCancel.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followRequestsCancelFn), authMethodOptions);
   }
 
   private createWaf(environment: string, isProduction: boolean) {

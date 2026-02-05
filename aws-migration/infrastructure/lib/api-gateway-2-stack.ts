@@ -215,6 +215,22 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     eventJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.eventsJoinFn), authMethodOptions);
 
     // ========================================
+    // Groups Endpoints
+    // ========================================
+    const groups = this.api.root.addResource('groups');
+    groups.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.groupsCreateFn), authMethodOptions);
+    groups.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.groupsListFn));
+
+    const groupById = groups.addResource('{groupId}');
+    groupById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.groupsGetFn));
+
+    const groupJoin = groupById.addResource('join');
+    groupJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.groupsJoinFn), authMethodOptions);
+
+    const groupLeave = groupById.addResource('leave');
+    groupLeave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.groupsLeaveFn), authMethodOptions);
+
+    // ========================================
     // Settings Endpoints
     // ========================================
     const settings = this.api.root.addResource('settings');
@@ -233,6 +249,163 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     migrateData.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.dataMigrationFn, {
       timeout: cdk.Duration.seconds(29),
     }));
+
+    const checkProfiles = admin.addResource('check-profiles');
+    checkProfiles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkProfilesFn));
+
+    const migrateUsers = admin.addResource('migrate-users');
+    migrateUsers.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.userMigrationFn));
+
+    // Auth + body validation for POST/PATCH mutations
+    const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator2', {
+      restApi: this.api,
+      requestValidatorName: `smuppy-body-validator-2-${environment}`,
+      validateRequestBody: true,
+      validateRequestParameters: true,
+    });
+
+    const authWithBodyValidation: apigateway.MethodOptions = {
+      ...authMethodOptions,
+      requestValidator: bodyValidator,
+    };
+
+    // ========================================
+    // Hashtags Endpoints
+    // ========================================
+    const hashtags = this.api.root.addResource('hashtags');
+    const hashtagsTrending = hashtags.addResource('trending');
+    hashtagsTrending.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.hashtagsTrendingFn), authMethodOptions);
+
+    // ========================================
+    // Interests & Expertise Endpoints
+    // ========================================
+    const interests = this.api.root.addResource('interests');
+    interests.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.interestsListFn), authMethodOptions);
+
+    const expertise = this.api.root.addResource('expertise');
+    expertise.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.expertiseListFn), authMethodOptions);
+
+    // ========================================
+    // Spots Endpoints
+    // ========================================
+    const spots = this.api.root.addResource('spots');
+    spots.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsListFn), authMethodOptions);
+    spots.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsCreateFn), authWithBodyValidation);
+
+    const spotsNearby = spots.addResource('nearby');
+    spotsNearby.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsNearbyFn), authMethodOptions);
+
+    const spotsSaved = spots.addResource('saved');
+    spotsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsSavedListFn), authMethodOptions);
+
+    const spotById = spots.addResource('{id}');
+    spotById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsGetFn), authMethodOptions);
+    spotById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.spotsUpdateFn), authWithBodyValidation);
+    spotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsDeleteFn), authMethodOptions);
+
+    const spotSave = spotById.addResource('save');
+    spotSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsSaveFn), authMethodOptions);
+    spotSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsUnsaveFn), authMethodOptions);
+
+    const spotIsSaved = spotById.addResource('is-saved');
+    spotIsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsIsSavedFn), authMethodOptions);
+
+    const spotReviews = spotById.addResource('reviews');
+    spotReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsListFn), authMethodOptions);
+    spotReviews.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsCreateFn), authWithBodyValidation);
+
+    const spotReviewById = spotReviews.addResource('{reviewId}');
+    spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Business Endpoints
+    // ========================================
+    const businesses = this.api.root.addResource('businesses');
+
+    // Public: discover businesses
+    const businessDiscover = businesses.addResource('discover');
+    businessDiscover.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessDiscoverFn), authMethodOptions);
+
+    // Public: business profile by ID
+    const businessById = businesses.addResource('{businessId}');
+    businessById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessProfileGetFn), authMethodOptions);
+
+    // Public: business services
+    const businessServices = businessById.addResource('services');
+    businessServices.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessServicesListFn), authMethodOptions);
+
+    // Public: business schedule
+    const businessSchedule = businessById.addResource('schedule');
+    businessSchedule.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessScheduleGetFn), authMethodOptions);
+
+    // Public: business availability
+    const businessAvailability = businessById.addResource('availability');
+    businessAvailability.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessAvailabilityFn), authMethodOptions);
+
+    // Public: business reviews (reuse spots reviews pattern — placeholder for now)
+    const businessReviews = businessById.addResource('reviews');
+    businessReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessProfileGetFn), authMethodOptions);
+
+    // Public: business subscription plans (returns services with category=membership)
+    const businessSubPlans = businessById.addResource('subscription-plans');
+    businessSubPlans.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessServicesListFn), authMethodOptions);
+
+    // Auth: follow/unfollow business
+    const businessFollow = businessById.addResource('follow');
+    businessFollow.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followsCreateFn), authMethodOptions);
+    businessFollow.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.followsDeleteFn), authMethodOptions);
+
+    // Owner: /businesses/my/*
+    const businessMy = businesses.addResource('my');
+
+    const businessMyDashboard = businessMy.addResource('dashboard');
+    businessMyDashboard.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessDashboardFn), authMethodOptions);
+
+    const businessMyProgram = businessMy.addResource('program');
+    businessMyProgram.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.businessProgramGetFn), authMethodOptions);
+
+    const businessMyServices = businessMy.addResource('services');
+    businessMyServices.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessServicesCreateFn), authMethodOptions);
+
+    const businessMyServiceById = businessMyServices.addResource('{serviceId}');
+    businessMyServiceById.addMethod('PATCH', new apigateway.LambdaIntegration(lambdaStack.businessServicesUpdateFn), authMethodOptions);
+    businessMyServiceById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessServicesDeleteFn), authMethodOptions);
+
+    const businessMyActivities = businessMy.addResource('activities');
+    businessMyActivities.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyActivityById = businessMyActivities.addResource('{activityId}');
+    businessMyActivityById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+    businessMyActivityById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMySchedule = businessMy.addResource('schedule');
+    businessMySchedule.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyScheduleSlotById = businessMySchedule.addResource('{slotId}');
+    businessMyScheduleSlotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyTags = businessMy.addResource('tags');
+    businessMyTags.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    const businessMyTagById = businessMyTags.addResource('{tagId}');
+    businessMyTagById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.businessProgramUpdateFn), authMethodOptions);
+
+    // Payment: business checkout
+    const businessCheckout = payments.addResource('business-checkout');
+    businessCheckout.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.businessCheckoutFn), authMethodOptions);
+
+    // ========================================
+    // Live Streams Endpoints
+    // ========================================
+    const liveStreams = this.api.root.addResource('live-streams');
+    const liveStreamsActive = liveStreams.addResource('active');
+    liveStreamsActive.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.liveStreamsActiveFn), authMethodOptions);
+
+    const liveStreamsStart = liveStreams.addResource('start');
+    liveStreamsStart.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.liveStreamsStartFn), authMethodOptions);
+
+    const liveStreamsEnd = liveStreams.addResource('end');
+    liveStreamsEnd.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.liveStreamsEndFn), authMethodOptions);
 
     // ========================================
     // WAF for Secondary API
@@ -264,8 +437,33 @@ export class ApiGateway2Stack extends cdk.NestedStack {
           },
         },
         {
-          name: 'AWSManagedRulesCommonRuleSet',
+          name: 'WriteOperationsRateLimit',
           priority: 2,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 5000 : 1000,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                orStatement: {
+                  statements: [
+                    { byteMatchStatement: { searchString: 'POST', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'PUT', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'DELETE', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                  ],
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'WriteOperationsRateLimit2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesCommonRuleSet',
+          priority: 3,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -276,6 +474,38 @@ export class ApiGateway2Stack extends cdk.NestedStack {
           visibilityConfig: {
             cloudWatchMetricsEnabled: true,
             metricName: 'AWSManagedRulesCommonRuleSet2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesSQLiRuleSet',
+          priority: 4,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesSQLiRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesSQLiRuleSet2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesKnownBadInputsRuleSet',
+          priority: 5,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesKnownBadInputsRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'AWSManagedRulesKnownBadInputsRuleSet2',
             sampledRequestsEnabled: true,
           },
         },

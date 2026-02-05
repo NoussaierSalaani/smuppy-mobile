@@ -49,9 +49,11 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly profilesIsFollowingFn: NodejsFunction;
 
   // Phase 2: Posts & Comments
+  public readonly postsLikersFn: NodejsFunction;
   public readonly postsLikeFn: NodejsFunction;
   public readonly postsUnlikeFn: NodejsFunction;
   public readonly postsDeleteFn: NodejsFunction;
+  public readonly postsViewFn: NodejsFunction;
   public readonly postsSaveFn: NodejsFunction;
   public readonly postsUnsaveFn: NodejsFunction;
   public readonly commentsListFn: NodejsFunction;
@@ -123,6 +125,9 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly confirmForgotPasswordFn: NodejsFunction;
   public readonly checkUserFn: NodejsFunction;
 
+  // Auth - WebSocket Token
+  public readonly wsTokenFn: NodejsFunction;
+
   // WebSocket Functions
   public readonly wsConnectFn: NodejsFunction;
   public readonly wsDisconnectFn: NodejsFunction;
@@ -175,8 +180,92 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly eventsListFn: NodejsFunction;
   public readonly eventsJoinFn: NodejsFunction;
 
+  // Groups
+  public readonly groupsCreateFn: NodejsFunction;
+  public readonly groupsListFn: NodejsFunction;
+  public readonly groupsGetFn: NodejsFunction;
+  public readonly groupsJoinFn: NodejsFunction;
+  public readonly groupsLeaveFn: NodejsFunction;
+
+  // Content Moderation: Reports
+  public readonly reportsPostFn: NodejsFunction;
+  public readonly reportsUserFn: NodejsFunction;
+  public readonly reportsCheckPostFn: NodejsFunction;
+  public readonly reportsCheckUserFn: NodejsFunction;
+
+  // Content Moderation: Block & Mute
+  public readonly profilesBlockFn: NodejsFunction;
+  public readonly profilesUnblockFn: NodejsFunction;
+  public readonly profilesMuteFn: NodejsFunction;
+  public readonly profilesUnmuteFn: NodejsFunction;
+  public readonly profilesGetBlockedFn: NodejsFunction;
+  public readonly profilesGetMutedFn: NodejsFunction;
+  public readonly profilesCreationLimitsFn: NodejsFunction;
+
+  // Search & Discovery
+  public readonly postsSearchFn: NodejsFunction;
+  public readonly peaksSearchFn: NodejsFunction;
+  public readonly hashtagsTrendingFn: NodejsFunction;
+
+  // Feed Variants
+  public readonly feedOptimizedFn: NodejsFunction;
+  public readonly feedFollowingFn: NodejsFunction;
+  public readonly feedDiscoverFn: NodejsFunction;
+
+  // Posts Batch & Saved
+  public readonly postsLikesBatchFn: NodejsFunction;
+  public readonly postsSavesBatchFn: NodejsFunction;
+  public readonly postsSavedListFn: NodejsFunction;
+
+  // Interests & Expertise
+  public readonly interestsListFn: NodejsFunction;
+  public readonly expertiseListFn: NodejsFunction;
+
+  // Follow Requests - Extended
+  public readonly followRequestsCountFn: NodejsFunction;
+  public readonly followRequestsCheckPendingFn: NodejsFunction;
+  public readonly followRequestsCancelFn: NodejsFunction;
+
+  // Media - Voice Upload
+  public readonly mediaUploadVoiceFn: NodejsFunction;
+
+  // Spots
+  public readonly spotsListFn: NodejsFunction;
+  public readonly spotsGetFn: NodejsFunction;
+  public readonly spotsCreateFn: NodejsFunction;
+  public readonly spotsUpdateFn: NodejsFunction;
+  public readonly spotsDeleteFn: NodejsFunction;
+  public readonly spotsNearbyFn: NodejsFunction;
+  public readonly spotsSaveFn: NodejsFunction;
+  public readonly spotsUnsaveFn: NodejsFunction;
+  public readonly spotsIsSavedFn: NodejsFunction;
+  public readonly spotsSavedListFn: NodejsFunction;
+  public readonly spotsReviewsListFn: NodejsFunction;
+  public readonly spotsReviewsCreateFn: NodejsFunction;
+  public readonly spotsReviewsDeleteFn: NodejsFunction;
+
+  // Live Streams
+  public readonly liveStreamsStartFn: NodejsFunction;
+  public readonly liveStreamsEndFn: NodejsFunction;
+  public readonly liveStreamsActiveFn: NodejsFunction;
+
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
+
+  // Business
+  public readonly businessServicesListFn: NodejsFunction;
+  public readonly businessServicesCreateFn: NodejsFunction;
+  public readonly businessServicesUpdateFn: NodejsFunction;
+  public readonly businessServicesDeleteFn: NodejsFunction;
+  public readonly businessDashboardFn: NodejsFunction;
+  public readonly businessProgramGetFn: NodejsFunction;
+  public readonly businessProgramUpdateFn: NodejsFunction;
+  public readonly businessAvailabilityFn: NodejsFunction;
+  public readonly businessProfileGetFn: NodejsFunction;
+  public readonly businessDiscoverFn: NodejsFunction;
+  public readonly businessScheduleGetFn: NodejsFunction;
+  public readonly businessCheckoutFn: NodejsFunction;
+  // Business access handlers moved to LambdaStack2 to stay under CloudFormation limits
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -291,9 +380,11 @@ export class LambdaStack extends cdk.NestedStack {
     // ========================================
     // Phase 2: Posts & Comments Lambda Functions
     // ========================================
+    this.postsLikersFn = createLambda('PostsLikersFunction', 'posts/likers');
     this.postsLikeFn = createLambda('PostsLikeFunction', 'posts/like');
     this.postsUnlikeFn = createLambda('PostsUnlikeFunction', 'posts/unlike');
     this.postsDeleteFn = createLambda('PostsDeleteFunction', 'posts/delete');
+    this.postsViewFn = createLambda('PostsViewFunction', 'posts/view');
     this.postsSaveFn = createLambda('PostsSaveFunction', 'posts/save');
     this.postsUnsaveFn = createLambda('PostsUnsaveFunction', 'posts/unsave');
     this.commentsListFn = createLambda('CommentsListFunction', 'comments/list');
@@ -382,9 +473,136 @@ export class LambdaStack extends cdk.NestedStack {
     this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
 
     // ========================================
+    // Groups Lambda Functions
+    // ========================================
+    this.groupsCreateFn = createLambda('GroupsCreateFunction', 'groups/create');
+    this.groupsListFn = createLambda('GroupsListFunction', 'groups/list');
+    this.groupsGetFn = createLambda('GroupsGetFunction', 'groups/get');
+    this.groupsJoinFn = createLambda('GroupsJoinFunction', 'groups/join');
+    this.groupsLeaveFn = createLambda('GroupsLeavFunction', 'groups/leave');
+
+    // ========================================
+    // Content Moderation: Reports Lambda Functions
+    // ========================================
+    this.reportsPostFn = createLambda('ReportsPostFunction', 'reports/report-post');
+    this.reportsUserFn = createLambda('ReportsUserFunction', 'reports/report-user');
+    this.reportsCheckPostFn = createLambda('ReportsCheckPostFunction', 'reports/check-post-report');
+    this.reportsCheckUserFn = createLambda('ReportsCheckUserFunction', 'reports/check-user-report');
+
+    // ========================================
+    // Content Moderation: Block & Mute Lambda Functions
+    // ========================================
+    this.profilesBlockFn = createLambda('ProfilesBlockFunction', 'profiles/block');
+    this.profilesUnblockFn = createLambda('ProfilesUnblockFunction', 'profiles/unblock');
+    this.profilesMuteFn = createLambda('ProfilesMuteFunction', 'profiles/mute');
+    this.profilesUnmuteFn = createLambda('ProfilesUnmuteFunction', 'profiles/unmute');
+    this.profilesGetBlockedFn = createLambda('ProfilesGetBlockedFunction', 'profiles/get-blocked');
+    this.profilesGetMutedFn = createLambda('ProfilesGetMutedFunction', 'profiles/get-muted');
+    this.profilesCreationLimitsFn = createLambda('ProfilesCreationLimitsFunction', 'profiles/creation-limits');
+
+    // ========================================
+    // Live Streams Lambda Functions
+    // ========================================
+    this.liveStreamsStartFn = createLambda('LiveStreamsStartFunction', 'live-streams/start');
+    this.liveStreamsEndFn = createLambda('LiveStreamsEndFunction', 'live-streams/end');
+    this.liveStreamsActiveFn = createLambda('LiveStreamsActiveFunction', 'live-streams/active');
+
+    // ========================================
     // Settings Lambda Functions
     // ========================================
     this.settingsCurrencyFn = createLambda('SettingsCurrencyFunction', 'settings/currency');
+
+    // ========================================
+    // Business Lambda Functions
+    // ========================================
+    this.businessServicesListFn = createLambda('BusinessServicesListFunction', 'business/services-list');
+    this.businessServicesCreateFn = createLambda('BusinessServicesCreateFunction', 'business/services-create');
+    this.businessServicesUpdateFn = createLambda('BusinessServicesUpdateFunction', 'business/services-update');
+    this.businessServicesDeleteFn = createLambda('BusinessServicesDeleteFunction', 'business/services-delete');
+    this.businessDashboardFn = createLambda('BusinessDashboardFunction', 'business/dashboard');
+    this.businessProgramGetFn = createLambda('BusinessProgramGetFunction', 'business/program-get');
+    this.businessProgramUpdateFn = createLambda('BusinessProgramUpdateFunction', 'business/program-update');
+    this.businessAvailabilityFn = createLambda('BusinessAvailabilityFunction', 'business/availability');
+    this.businessProfileGetFn = createLambda('BusinessProfileGetFunction', 'business/profile-get');
+    this.businessDiscoverFn = createLambda('BusinessDiscoverFunction', 'business/discover', { memory: 1024 });
+    this.businessScheduleGetFn = createLambda('BusinessScheduleGetFunction', 'business/schedule-get');
+
+    // Note: Business access handlers (validate-access, log-entry, subscription-manage)
+    // are deployed via LambdaStack2 to stay under CloudFormation limits
+
+    // Business Checkout (needs Stripe)
+    this.businessCheckoutFn = new NodejsFunction(this, 'BusinessCheckoutFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/business-checkout.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        STRIPE_SECRET_ARN: stripeSecret.secretArn,
+        WEB_DOMAIN: process.env.WEB_DOMAIN || 'https://smuppy.com',
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.businessCheckoutFn);
+
+    // ========================================
+    // Search & Discovery Lambda Functions
+    // ========================================
+    this.postsSearchFn = createLambda('PostsSearchFunction', 'posts/search', { memory: 1024 });
+    this.peaksSearchFn = createLambda('PeaksSearchFunction', 'peaks/search', { memory: 1024 });
+    this.hashtagsTrendingFn = createLambda('HashtagsTrendingFunction', 'hashtags/trending');
+
+    // ========================================
+    // Feed Variants Lambda Functions
+    // ========================================
+    this.feedOptimizedFn = createLambda('FeedOptimizedFunction', 'feed/optimized', { memory: 2048, timeout: 60 });
+    this.feedFollowingFn = createLambda('FeedFollowingFunction', 'feed/following', { memory: 1024 });
+    this.feedDiscoverFn = createLambda('FeedDiscoverFunction', 'feed/discover', { memory: 1024 });
+
+    // ========================================
+    // Posts Batch & Saved Lambda Functions
+    // ========================================
+    this.postsLikesBatchFn = createLambda('PostsLikesBatchFunction', 'posts/likes-batch');
+    this.postsSavesBatchFn = createLambda('PostsSavesBatchFunction', 'posts/saves-batch');
+    this.postsSavedListFn = createLambda('PostsSavedListFunction', 'posts/saved-list');
+
+    // ========================================
+    // Interests & Expertise Lambda Functions
+    // ========================================
+    this.interestsListFn = createLambda('InterestsListFunction', 'interests/list');
+    this.expertiseListFn = createLambda('ExpertiseListFunction', 'expertise/list');
+
+    // ========================================
+    // Follow Requests Extended Lambda Functions
+    // ========================================
+    this.followRequestsCountFn = createLambda('FollowRequestsCountFunction', 'follow-requests/count');
+    this.followRequestsCheckPendingFn = createLambda('FollowRequestsCheckPendingFunction', 'follow-requests/check-pending');
+    this.followRequestsCancelFn = createLambda('FollowRequestsCancelFunction', 'follow-requests/cancel');
+
+    // ========================================
+    // Spots Lambda Functions
+    // ========================================
+    this.spotsListFn = createLambda('SpotsListFunction', 'spots/list', { memory: 1024 });
+    this.spotsGetFn = createLambda('SpotsGetFunction', 'spots/get');
+    this.spotsCreateFn = createLambda('SpotsCreateFunction', 'spots/create');
+    this.spotsUpdateFn = createLambda('SpotsUpdateFunction', 'spots/update');
+    this.spotsDeleteFn = createLambda('SpotsDeleteFunction', 'spots/delete');
+    this.spotsNearbyFn = createLambda('SpotsNearbyFunction', 'spots/nearby', { memory: 1024 });
+    this.spotsSaveFn = createLambda('SpotsSaveFunction', 'spots/save');
+    this.spotsUnsaveFn = createLambda('SpotsUnsaveFunction', 'spots/unsave');
+    this.spotsIsSavedFn = createLambda('SpotsIsSavedFunction', 'spots/is-saved');
+    this.spotsSavedListFn = createLambda('SpotsSavedListFunction', 'spots/saved-list');
+    this.spotsReviewsListFn = createLambda('SpotsReviewsListFunction', 'spots/reviews-list');
+    this.spotsReviewsCreateFn = createLambda('SpotsReviewsCreateFunction', 'spots/reviews-create');
+    this.spotsReviewsDeleteFn = createLambda('SpotsReviewsDeleteFunction', 'spots/reviews-delete');
 
     // ========================================
     // Phase 5: Notifications Lambda Functions
@@ -428,6 +646,38 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant S3 PutObject for presigned URL generation
     mediaBucket.grantPut(this.mediaUploadUrlFn);
+    // Grant DynamoDB rate limit table access
+    this.mediaUploadUrlFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
+
+    // Voice Upload Lambda - presigned S3 URL for voice messages
+    this.mediaUploadVoiceFn = new NodejsFunction(this, 'MediaUploadVoiceFunction', {
+      entry: path.join(__dirname, '../../lambda/api/media/upload-voice.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        MEDIA_BUCKET: mediaBucket.bucketName,
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.mediaUploadVoiceFn);
+    mediaBucket.grantPut(this.mediaUploadVoiceFn);
+    this.mediaUploadVoiceFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     // ========================================
     // Payment Lambda Functions (Stripe)
@@ -691,10 +941,35 @@ export class LambdaStack extends cdk.NestedStack {
       this.paymentRefundsFn,
       this.paymentMethodsFn,
       this.paymentWebCheckoutFn,
+      this.businessCheckoutFn,
     ];
     for (const fn of allPaymentLambdas) {
       stripeSecret.grantRead(fn);
+
+      // Grant Redis auth secret read permission
+      if (props.redisAuthSecret) {
+        props.redisAuthSecret.grantRead(fn);
+      }
+
+      // Grant DynamoDB rate limit table access
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['dynamodb:UpdateItem'],
+        resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+      }));
+
+      // Grant RDS Proxy IAM authentication permissions
+      if (props.rdsProxyArn) {
+        fn.addToRolePolicy(new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['rds-db:connect'],
+          resources: [props.rdsProxyArn],
+        }));
+      }
     }
+
+    // Grant Cognito ListUsers to payment Lambdas that need email fallback
+    userPool.grant(this.paymentConnectFn, 'cognito-idp:ListUsers');
+    userPool.grant(this.paymentChannelSubFn, 'cognito-idp:ListUsers');
 
     // DLQ for non-intent/webhook payment lambdas (intent & webhook have their own config)
     const paymentLambdasForDlq = [
@@ -707,6 +982,7 @@ export class LambdaStack extends cdk.NestedStack {
       this.paymentRefundsFn,
       this.paymentMethodsFn,
       this.paymentWebCheckoutFn,
+      this.businessCheckoutFn,
     ];
     for (const fn of paymentLambdasForDlq) {
       const cfnFn = fn.node.defaultChild as lambda.CfnFunction;
@@ -828,7 +1104,7 @@ export class LambdaStack extends cdk.NestedStack {
       securityGroups: [lambdaSecurityGroup],
       environment: {
         ...lambdaEnvironment,
-        APPLE_CLIENT_ID: 'com.smuppy.app',
+        APPLE_CLIENT_ID: 'com.nou09.Smuppy',
         CLIENT_ID: userPoolClientId,
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
@@ -845,6 +1121,11 @@ export class LambdaStack extends cdk.NestedStack {
         'cognito-idp:AdminInitiateAuth',
       ],
       resources: [userPool.userPoolArn],
+    }));
+    dbCredentials.grantRead(this.appleAuthFn);
+    this.appleAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     // SECURITY: Google OAuth credentials - use placeholder in staging to prevent runtime errors
@@ -884,6 +1165,11 @@ export class LambdaStack extends cdk.NestedStack {
         'cognito-idp:AdminInitiateAuth',
       ],
       resources: [userPool.userPoolArn],
+    }));
+    dbCredentials.grantRead(this.googleAuthFn);
+    this.googleAuthFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 
     this.signupAuthFn = new NodejsFunction(this, 'SignupAuthFunction', {
@@ -1046,6 +1332,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...lambdaEnvironment,
         CLIENT_ID: userPoolClientId,
         USER_POOL_ID: userPool.userPoolId,
+        RATE_LIMIT_TABLE: `smuppy-rate-limit-${environment}`,
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -1055,6 +1342,10 @@ export class LambdaStack extends cdk.NestedStack {
     });
     // Grant ListUsers permission to lookup user by email
     userPool.grant(this.confirmForgotPasswordFn, 'cognito-idp:ListUsers');
+    this.confirmForgotPasswordFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
 
     this.checkUserFn = new NodejsFunction(this, 'CheckUserFunction', {
       entry: path.join(__dirname, '../../lambda/api/auth/check-user.ts'),
@@ -1080,6 +1371,34 @@ export class LambdaStack extends cdk.NestedStack {
     this.checkUserFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
       resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
+
+    // ========================================
+    // Auth - WebSocket Token Lambda
+    // ========================================
+    this.wsTokenFn = new NodejsFunction(this, 'WsTokenFunction', {
+      entry: path.join(__dirname, '../../lambda/api/auth/ws-token.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        WS_TOKENS_TABLE: `smuppy-ws-tokens-${environment}`,
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: authLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.wsTokenFn);
+    this.wsTokenFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-ws-tokens-${environment}`],
     }));
 
     // ========================================

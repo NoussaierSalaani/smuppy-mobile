@@ -75,6 +75,8 @@ export default [
     rules: {
       // General
       'no-console': 'off',
+      'no-control-regex': 'off', // Intentional use for security sanitization (stripping control chars)
+      'no-undef': 'off', // TypeScript handles undefined variables; no-undef causes false positives on TS types
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', {
         argsIgnorePattern: '^_',
@@ -121,6 +123,7 @@ export default [
       'node_modules/**',
       'dist/**',
       '.expo/**',
+      '**/coverage/**',
       'babel.config.js',
       'metro.config.js',
       'eslint.config.mjs',

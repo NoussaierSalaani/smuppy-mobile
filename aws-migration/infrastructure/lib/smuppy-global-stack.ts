@@ -527,6 +527,18 @@ export class SmuppyGlobalStack extends cdk.Stack {
 
     cdk.Tags.of(rateLimitTable).add('service', 'smuppy');
 
+    // WebSocket Tokens Table - short-lived tokens for WebSocket authentication
+    const wsTokensTable = new dynamodb.Table(this, 'WsTokensTable', {
+      tableName: `smuppy-ws-tokens-${environment}`,
+      partitionKey: { name: 'token', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    cdk.Tags.of(wsTokensTable).add('service', 'smuppy');
+
     // Sessions Table for Redis backup/overflow
     const sessionsTable = new dynamodb.Table(this, 'SessionsTable', {
       tableName: `smuppy-sessions-${environment}`,

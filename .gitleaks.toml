@@ -4,6 +4,7 @@ paths = [
   '''node_modules''',
   '''\.expo''',
   '''cdk\.out''',
+  '''cdk-out-deploy''',
   '''dist''',
   '''coverage''',
   '''README\.md''',

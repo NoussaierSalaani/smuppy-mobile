@@ -126,8 +126,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION=8.21.2
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          chmod +x gitleaks
+          ./gitleaks version
+
+      - name: Scan for secrets
+        run: ./gitleaks detect --source . --verbose --no-git --config .gitleaks.toml
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -140,22 +149,6 @@ jobs:
 
       - name: Run npm audit
         run: npm audit --audit-level=critical || true
-
-      - name: Install gitleaks
-        run: |
-          mkdir -p /tmp/gitleaks
-          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz -O /tmp/gitleaks/gitleaks.tar.gz
-          tar -xzf /tmp/gitleaks/gitleaks.tar.gz -C /tmp/gitleaks
-          chmod +x /tmp/gitleaks/gitleaks
-
-      - name: Scan for secrets
-        run: >
-          /tmp/gitleaks/gitleaks detect --source . --verbose --no-git
-          --config .gitleaks.toml
-          --exclude-path node_modules
-          --exclude-path .expo
-          --exclude-path aws-migration/infrastructure/cdk.out
-          --exclude-path aws-migration/infrastructure/cdk-out-deploy
 
       - name: Check for hardcoded secrets in code
         run: |

@@ -1,0 +1,16 @@
+# Known false positives - safe to ignore
+
+# README.md: example sidekiq config (cafebabe:deadbeef placeholder)
+README.md:sidekiq-secret:42
+
+# README.md: example AWS keys from documentation (AKIAIMNOJVGFDXXXE4OA is a known test key)
+README.md:aws-access-token:221
+README.md:aws-access-token:223
+README.md:aws-access-token:259
+
+# src/config/aws-config.ts: Cognito User Pool Client ID (public, not a secret)
+src/config/aws-config.ts:generic-api-key:58
+
+# tests/: test JWT tokens with alg:none (intentionally invalid for security testing)
+tests/advanced-security-test.sh:jwt:223
+tests/pentest.sh:jwt:148

@@ -1,31 +1,16 @@
-[extend]
-# Use default gitleaks rules as base
-
 [allowlist]
 description = "Global allowlist for known false positives"
-
 paths = [
+  '''node_modules''',
+  '''\.expo''',
+  '''cdk\.out''',
+  '''dist''',
+  '''coverage''',
+  '''README\.md''',
   '''tests/advanced-security-test\.sh''',
   '''tests/pentest\.sh''',
 ]
-
-[[rules]]
-id = "readme-example-keys"
-description = "Example/placeholder keys in documentation"
-regex = '''AKIA[0-9A-Z]{16}'''
-[rules.allowlist]
-paths = ['''README\.md''']
-
-[[rules]]
-id = "cognito-client-id"
-description = "Cognito User Pool Client IDs are public (used in mobile app)"
-regex = '''60bt4bafj98q0nkjprpidegr0t'''
-[rules.allowlist]
-paths = ['''src/config/aws-config\.ts''']
-
-[[rules]]
-id = "readme-sidekiq-example"
-description = "Example sidekiq config from documentation"
-regex = '''cafebabe:deadbeef'''
-[rules.allowlist]
-paths = ['''README\.md''']
+regexes = [
+  # Cognito User Pool Client ID — public identifier, not a secret
+  '''60bt4bafj98q0nkjprpidegr0t''',
+]

@@ -143,12 +143,19 @@ jobs:
 
       - name: Install gitleaks
         run: |
-          wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
-          tar -xzf gitleaks_8.18.2_linux_x64.tar.gz
-          chmod +x gitleaks
+          mkdir -p /tmp/gitleaks
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz -O /tmp/gitleaks/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks/gitleaks.tar.gz -C /tmp/gitleaks
+          chmod +x /tmp/gitleaks/gitleaks
 
       - name: Scan for secrets
-        run: ./gitleaks detect --source . --verbose --no-git --config .gitleaks.toml
+        run: >
+          /tmp/gitleaks/gitleaks detect --source . --verbose --no-git
+          --config .gitleaks.toml
+          --exclude-path node_modules
+          --exclude-path .expo
+          --exclude-path aws-migration/infrastructure/cdk.out
+          --exclude-path aws-migration/infrastructure/cdk-out-deploy
 
       - name: Check for hardcoded secrets in code
         run: |

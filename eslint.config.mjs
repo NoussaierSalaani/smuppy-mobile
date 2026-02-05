@@ -75,6 +75,7 @@ export default [
     rules: {
       // General
       'no-console': 'off',
+      'no-undef': 'off', // TypeScript handles undefined variables; no-undef causes false positives on TS types
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', {
         argsIgnorePattern: '^_',

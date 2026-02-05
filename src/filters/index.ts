@@ -13,11 +13,6 @@
 export { useFilters, useFilterStore, FILTER_DEFINITIONS } from '../stores/filterStore';
 export { useFilterControls } from './hooks/useFilterControls';
 
-// Deprecated: FilterProvider is no longer needed with Zustand
-// Keeping for backward compatibility - it's now a passthrough
-import { ReactNode } from 'react';
-export const FilterProvider = ({ children }: { children: ReactNode }): ReactNode => children;
-
 // Types
 export * from './types';
 

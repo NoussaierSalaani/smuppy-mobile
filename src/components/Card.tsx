@@ -1,10 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
-import { COLORS, GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+import { GRADIENTS, SIZES, SHADOWS } from '../config/theme';
 import OptimizedImage, { AvatarImage } from './OptimizedImage';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +48,9 @@ interface CardProps {
  * Card Component - Memoized for performance in lists
  */
 const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress, style }: CardProps): React.JSX.Element | null {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Render Post Card
   if (variant === 'post') {
     const postData = data as PostData;
@@ -96,7 +100,7 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
 
             {/* Likes */}
             <View style={styles.postLikes}>
-              <SmuppyHeartIcon size={14} color={COLORS.graySecondary} />
+              <SmuppyHeartIcon size={14} color={colors.gray} />
               <Text style={styles.postLikesText}>{postData.likes || 0}</Text>
             </View>
           </View>
@@ -146,7 +150,7 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
       <View style={[styles.suggestionCard, style]}>
         {/* Add Icon Circle */}
         <View style={styles.addFriendCircle}>
-          <Ionicons name="person-add" size={24} color={COLORS.primary} />
+          <Ionicons name="person-add" size={24} color={colors.primary} />
           <Text style={styles.addFriendText}>Add people{'\n'}to Smuppy</Text>
         </View>
 
@@ -207,14 +211,14 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
 
 export default Card;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   // Post Card Styles
   postCard: {
     width: SIZES.postCardWidth,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderRadius: SIZES.radiusXl,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorderLight,
+    borderColor: colors.grayBorder,
     overflow: 'hidden',
   },
   postImageContainer: {
@@ -234,7 +238,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 11,
     left: 13,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: SIZES.radiusSm,
@@ -244,7 +248,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 0.48,
-    color: COLORS.dark,
+    color: colors.dark,
     textTransform: 'uppercase',
   },
   postContent: {
@@ -255,7 +259,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Bold',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 4,
   },
   postMeta: {
@@ -278,7 +282,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.graySecondary,
+    color: colors.gray,
     flex: 1,
   },
   postLikes: {
@@ -290,7 +294,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.graySecondary,
+    color: colors.gray,
   },
 
   // Suggestion Card Styles
@@ -305,7 +309,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: SIZES.radiusLg,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   suggestionInfo: {
     alignItems: 'center',
@@ -315,7 +319,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     fontSize: 10,
     lineHeight: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     width: SIZES.suggestionCardWidth,
     marginBottom: 2,
@@ -332,7 +336,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     fontSize: 10,
     lineHeight: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
 
   // Add Friend Card
@@ -341,8 +345,8 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: SIZES.radiusLg,
     borderWidth: 2,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.white,
+    borderColor: colors.primary,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -350,7 +354,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     fontSize: 10,
     lineHeight: 11,
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginTop: 4,
   },
@@ -376,6 +380,6 @@ const styles = StyleSheet.create({
   vibeTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: COLORS.white,
+    color: colors.white,
   },
 });

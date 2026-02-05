@@ -1,5 +1,5 @@
 // src/screens/sessions/SessionPaymentScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
-  Alert,
   StyleProp,
   ImageStyle,
 } from 'react-native';
@@ -16,178 +15,92 @@ import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { usePaymentSheet, PaymentSheetError } from '@stripe/stripe-react-native';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatFullDateShort } from '../../utils/dateFormatters';
 
 export default function SessionPaymentScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
+  const navigation = useNavigation<{ goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
+  const route = useRoute<{ key: string; name: string; params: { creator: { id: string; name: string; avatar: string | null }; date: { date: number; month: string; fullDate?: Date }; time: string; duration: number; price: number; sessionId?: string; datetime?: string } }>();
+  const { colors, gradients, isDark } = useTheme();
+
+  const { showError } = useSmuppyAlert();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const { creator, date, time, duration, price, sessionId } = route.params || {
-    creator: { id: '', name: 'Creator', avatar: 'https://i.pravatar.cc/100?img=33' },
+    creator: { id: '', name: 'Creator', avatar: null },
     date: { date: 15, month: 'Sep' },
     time: '15:00',
     duration: 60,
     price: 20,
   };
 
-  const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentReady, setPaymentReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Initialize payment sheet on mount
-  useEffect(() => {
-    initializePayment();
-  }, []);
-
-  const initializePayment = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Create payment intent on backend
-      const response = await awsAPI.createPaymentIntent({
-        creatorId: creator.id,
-        amount: price * 100, // Convert to cents
-        sessionId: sessionId,
-        description: `Session with ${creator.name} - ${duration} min`,
-      });
-
-      if (!response.success || !response.paymentIntent) {
-        throw new Error(response.message || 'Failed to create payment');
-      }
-
-      const { clientSecret } = response.paymentIntent;
-
-      // Initialize the Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: 'Smuppy',
-        allowsDelayedPaymentMethods: false,
-        defaultBillingDetails: {
-          name: '',
-        },
-        applePay: {
-          merchantCountryCode: 'US',
-        },
-        googlePay: {
-          merchantCountryCode: 'US',
-          testEnv: __DEV__,
-        },
-        style: 'automatic',
-        returnURL: 'smuppy://payment-complete',
-      });
-
-      if (initError) {
-        console.error('Payment sheet init error:', initError);
-        setError(initError.message);
-      } else {
-        setPaymentReady(true);
-      }
-    } catch (err: any) {
-      console.error('Payment initialization error:', err);
-      setError(err.message || 'Failed to initialize payment');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleBack = () => {
     navigation.goBack();
   };
 
   const handlePayment = async () => {
-    if (!paymentReady) {
-      Alert.alert('Please wait', 'Payment is still loading...');
-      return;
-    }
-
+    if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-      const { error: paymentError } = await presentPaymentSheet();
+      const response = await awsAPI.createPaymentIntent({
+        creatorId: creator.id,
+        amount: price * 100,
+        sessionId: sessionId,
+        type: 'session',
+        description: `Session with ${creator.name} - ${duration} min`,
+      });
 
-      if (paymentError) {
-        if (paymentError.code === PaymentSheetError.Canceled) {
-          // User cancelled - do nothing
-          console.log('Payment cancelled by user');
-        } else {
-          Alert.alert('Payment Failed', paymentError.message);
-        }
-      } else {
-        // Payment successful - now create the booking
-        try {
-          const bookingResponse = await awsAPI.bookSession({
-            creatorId: creator.id,
-            scheduledAt: route.params?.datetime || new Date(date.fullDate.setHours(
-              parseInt(time.split(':')[0]),
-              parseInt(time.split(':')[1])
-            )).toISOString(),
-            duration: duration,
-            price: price,
-          });
-
-          if (bookingResponse.success) {
-            navigation.replace('SessionBooked', {
-              creator,
-              date,
-              time,
-              duration,
-              sessionId: bookingResponse.session?.id,
-            });
-          } else {
-            // Payment succeeded but booking failed - rare edge case
-            Alert.alert('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
-          }
-        } catch (bookingError) {
-          console.error('Booking error:', bookingError);
-          Alert.alert('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
-        }
+      if (!response.success || !response.checkoutUrl) {
+        throw new Error(response.message || 'Failed to create payment');
       }
-    } catch (err: any) {
-      console.error('Payment error:', err);
-      Alert.alert('Error', err.message || 'Something went wrong');
+
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+
+      if (result.type === 'cancel') {
+        setIsProcessing(false);
+        return;
+      }
+
+      // After checkout, create booking
+      const bookingResponse = await awsAPI.bookSession({
+        creatorId: creator.id,
+        scheduledAt: route.params?.datetime || new Date(date.fullDate!.setHours(
+          parseInt(time.split(':')[0]),
+          parseInt(time.split(':')[1])
+        )).toISOString(),
+        duration: duration,
+        price: price,
+      });
+
+      if (bookingResponse.success) {
+        navigation.replace('SessionBooked', {
+          creator,
+          date,
+          time,
+          duration,
+          sessionId: bookingResponse.session?.id,
+        });
+      } else {
+        showError('Booking Issue', 'Payment was successful but there was an issue creating your booking. Please contact support.');
+      }
+    } catch (err: unknown) {
+      if (__DEV__) console.warn('Payment error:', err);
+      showError('Error', err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const formatDate = () => {
-    const d = date.fullDate || new Date();
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = () => formatFullDateShort(date.fullDate || new Date());
 
   const renderContent = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Setting up payment...</Text>
-        </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
-          <Text style={styles.errorTitle}>Payment Setup Failed</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={initializePayment}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     return (
       <>
         {/* Session Summary */}
@@ -225,7 +138,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
 
         {/* Secure Payment Badge */}
         <View style={styles.secureBadge}>
-          <Ionicons name="shield-checkmark" size={16} color={COLORS.primary} />
+          <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
           <Text style={styles.secureText}>Secure payment powered by Stripe</Text>
         </View>
       </>
@@ -239,7 +152,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payment</Text>
         <View style={styles.placeholder} />
@@ -250,42 +163,40 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       </View>
 
       {/* Bottom Button */}
-      {!isLoading && !error && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            onPress={handlePayment}
-            disabled={isProcessing || !paymentReady}
-            activeOpacity={0.9}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity
+          onPress={handlePayment}
+          disabled={isProcessing}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.payButton}
           >
-            <LinearGradient
-              colors={paymentReady ? GRADIENTS.primary : ['#CCC', '#AAA']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.payButton}
-            >
-              {isProcessing ? (
-                <>
-                  <ActivityIndicator size="small" color="white" />
-                  <Text style={styles.payButtonText}>Processing...</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.payButtonText}>Pay ${price.toFixed(2)}</Text>
-                  <Ionicons name="arrow-forward" size={20} color="white" />
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
+            {isProcessing ? (
+              <>
+                <ActivityIndicator size="small" color="white" />
+                <Text style={styles.payButtonText}>Processing...</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.payButtonText}>Pay ${price.toFixed(2)}</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -294,7 +205,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
   },
   backButton: {
     width: 40,
@@ -305,7 +216,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -315,50 +226,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: COLORS.dark,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  errorTitle: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.dark,
-  },
-  errorText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.6)',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -368,7 +239,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   summaryInfo: {
     flex: 1,
@@ -377,20 +248,20 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sessionDetails: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 2,
   },
   price: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   paymentInfo: {
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -403,28 +274,28 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     fontSize: 15,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
   },
   paymentValue: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
     marginTop: 8,
     paddingTop: 16,
   },
   totalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   totalValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   secureBadge: {
     flexDirection: 'row',
@@ -434,14 +305,14 @@ const styles = StyleSheet.create({
   },
   secureText: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   bottomContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    backgroundColor: 'white',
+    borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.background,
   },
   payButton: {
     flexDirection: 'row',

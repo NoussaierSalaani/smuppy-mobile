@@ -1,5 +1,6 @@
 // src/screens/live/LiveStreamingScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -13,18 +14,21 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { awsAPI } from '../../services/aws-api';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -37,16 +41,22 @@ interface UIComment {
 }
 
 export default function LiveStreamingScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const { showError } = useSmuppyAlert();
+  const navigation = useNavigation<{ goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
+  const route = useRoute<{ key: string; name: string; params: { title?: string; audience?: string; hostId?: string; hostName?: string; hostAvatar?: string | null } }>();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  // Get current user as fallback for host info
+  const currentUser = useUserStore((state) => state.user);
 
   const {
     title: _title = 'Live Session',
     audience: _audience = 'public',
-    hostId = 'host_123', // Should come from auth
-    hostName = 'Apte Fitness',
-    hostAvatar = 'https://i.pravatar.cc/100?img=33',
+    hostId = currentUser?.id || 'unknown',
+    hostName = currentUser?.displayName || currentUser?.username || 'Creator',
+    hostAvatar = currentUser?.avatar || null,
   } = route.params || {};
 
   // Generate channel name
@@ -57,7 +67,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     isInitialized: _isInitialized,
     isJoined,
     isLoading,
-    error,
+    error: _error,
     remoteUsers: _remoteUsers,
     isMuted,
     isVideoOff,
@@ -107,13 +117,14 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     return () => {
       destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startStream = async () => {
     setIsStarting(true);
     const success = await joinChannel(channelName, null);
-    if (!success && error) {
-      Alert.alert('Error', error || 'Failed to start stream');
+    if (!success) {
+      showError('Error', 'Failed to start stream. Please try again.');
       navigation.goBack();
       return;
     }
@@ -145,10 +156,21 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   };
 
   const endStream = async () => {
-    await leaveStream();
-    await leaveChannel();
-    await destroy();
-    navigation.replace('LiveEnded', { duration, viewerCount, channelName });
+    // End stream on backend (records stats)
+    const result = await awsAPI.endLiveStream().catch((err) => {
+      if (__DEV__) console.warn('[LiveStreaming] Failed to end stream:', err);
+      return null;
+    });
+    await leaveStream().catch(() => {});
+    await leaveChannel().catch(() => {});
+    await destroy().catch(() => {});
+    navigation.replace('LiveEnded', {
+      duration: result?.data?.durationSeconds || duration,
+      viewerCount: result?.data?.maxViewers || viewerCount,
+      totalComments: result?.data?.totalComments || 0,
+      totalReactions: result?.data?.totalReactions || 0,
+      channelName,
+    });
   };
 
   const sendComment = () => {
@@ -177,7 +199,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
           { opacity: fadeAnims[item.id] },
         ]}
       >
-        <Image source={{ uri: item.avatar }} style={styles.commentAvatar} />
+        <AvatarImage source={item.avatar} size={32} />
         <View style={styles.commentContent}>
           <Text style={styles.commentUser}>{item.user}</Text>
           <Text style={styles.commentMessage}>{item.message}</Text>
@@ -206,10 +228,16 @@ export default function LiveStreamingScreen(): React.JSX.Element {
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
         <View style={styles.creatorInfo}>
-          <Image
-            source={{ uri: hostAvatar }}
-            style={styles.creatorAvatar}
-          />
+          {hostAvatar ? (
+            <Image
+              source={{ uri: hostAvatar }}
+              style={styles.creatorAvatar}
+            />
+          ) : (
+            <View style={[styles.creatorAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#374151' }]}>
+              <Ionicons name="person" size={18} color="#9CA3AF" />
+            </View>
+          )}
           <View>
             <Text style={styles.creatorName}>{hostName}</Text>
             <Text style={styles.viewerCount}>{viewerCount} {viewerCount === 1 ? 'Viewer' : 'Viewers'}</Text>
@@ -286,7 +314,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             onSubmitEditing={sendComment}
           />
           <TouchableOpacity onPress={sendComment} style={styles.sendButton}>
-            <Ionicons name="send" size={20} color={COLORS.primary} />
+            <Ionicons name="send" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -345,7 +373,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -386,7 +414,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   creatorName: {
     color: 'white',
@@ -574,7 +602,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cancelStreamButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

@@ -3,14 +3,14 @@
  * Display spot details with map, route, reviews, and qualities.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
@@ -18,32 +18,63 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS, COLORS } from '../../config/theme';
+
+const STAR_COLOR = COLORS.gold;
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
 import AddReviewSheet from '../../components/AddReviewSheet';
 import type { ReviewData } from '../../components/AddReviewSheet';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: '#4ECDC4',
-  medium: '#FFD700',
-  hard: '#FF6B6B',
-  expert: '#9B59B6',
+  easy: COLORS.teal,
+  medium: COLORS.gold,
+  hard: COLORS.heartRed,
+  expert: COLORS.purple,
 };
 
-const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
+interface SpotData {
+  name: string;
+  description?: string;
+  category?: string;
+  subcategory?: string;
+  sport_type?: string;
+  latitude: number;
+  longitude: number;
+  is_route?: boolean;
+  route_geojson?: { type: string; coordinates: number[][] };
+  route_distance_km?: number;
+  route_duration_min?: number;
+  difficulty?: string;
+  qualities?: string[];
+  rating_average?: number;
+  rating_count?: number;
+  creator?: { avatar_url?: string; full_name?: string };
+  creator_id?: string;
+}
+
+interface SpotReview {
+  id: string;
+  rating: number;
+  comment?: string;
+  user?: { avatar_url?: string; full_name?: string };
+}
+
+const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }; route: { params: { spotId: string } } }> = ({ navigation, route }) => {
   const { spotId } = route.params;
+  const { colors, isDark } = useTheme();
   const accountType = useUserStore((s) => s.user?.accountType);
   const isVerified = useUserStore((s) => s.user?.isVerified);
   const isPremium = useUserStore((s) => s.user?.isPremium);
   const canReview = isVerified || accountType === 'pro_creator' || (accountType === 'pro_business' && isPremium);
 
-  const [spot, setSpot] = useState<any>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [spot, setSpot] = useState<SpotData | null>(null);
+  const [reviews, setReviews] = useState<SpotReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showReviewSheet, setShowReviewSheet] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -57,7 +88,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
       if (spotRes.success) setSpot(spotRes.spot);
       if (reviewsRes.success) setReviews(reviewsRes.reviews || []);
     } catch (err) {
-      console.error('Failed to load spot:', err);
+      if (__DEV__) console.warn('Failed to load spot:', err);
     } finally {
       setIsLoading(false);
     }
@@ -82,17 +113,19 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
         loadData();
       }
     } catch (err) {
-      console.error('Failed to submit review:', err);
+      if (__DEV__) console.warn('Failed to submit review:', err);
     } finally {
       setIsSubmittingReview(false);
     }
   }, [spotId, loadData]);
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -116,7 +149,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
     features: [{
       type: 'Feature' as const,
       properties: {},
-      geometry: spot.route_geojson,
+      geometry: spot.route_geojson as GeoJSON.Geometry,
     }],
   } : null;
 
@@ -126,7 +159,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-            <Ionicons name="arrow-back" size={normalize(24)} color={COLORS.dark} />
+            <Ionicons name="arrow-back" size={normalize(24)} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{spot.name}</Text>
         </View>
@@ -147,14 +180,14 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
             />
             <MarkerView coordinate={[spot.longitude, spot.latitude]}>
               <LinearGradient colors={GRADIENTS.primary} style={styles.pin}>
-                <Ionicons name="location" size={normalize(18)} color={COLORS.white} />
+                <Ionicons name="location" size={normalize(18)} color={colors.white} />
               </LinearGradient>
             </MarkerView>
             {routeGeoJSON && (
               <ShapeSource id="routeLine" shape={routeGeoJSON}>
                 <LineLayer
                   id="routeLineLayer"
-                  style={{ lineColor: COLORS.primary, lineWidth: 4, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.85 }}
+                  style={{ lineColor: colors.primary, lineWidth: 4, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.85 }}
                 />
               </ShapeSource>
             )}
@@ -165,7 +198,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
           {/* Name + Rating */}
           <Text style={styles.spotName}>{spot.name}</Text>
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={normalize(16)} color="#FFD700" />
+            <Ionicons name="star" size={normalize(16)} color={STAR_COLOR} />
             <Text style={styles.ratingText}>
               {spot.rating_average?.toFixed(1) || 'N/A'} ({spot.rating_count || 0} reviews)
             </Text>
@@ -180,7 +213,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
               style={styles.creatorRow}
               onPress={() => navigation.navigate('UserProfile', { userId: spot.creator_id })}
             >
-              <Image source={{ uri: spot.creator.avatar_url }} style={styles.creatorAvatar} />
+              <AvatarImage source={spot.creator.avatar_url} size={normalize(32)} />
               <Text style={styles.creatorName}>Suggested by {spot.creator.full_name}</Text>
             </TouchableOpacity>
           )}
@@ -200,7 +233,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
                 </View>
                 <View style={styles.routeStatDivider} />
                 <View style={styles.routeStat}>
-                  <Text style={[styles.routeStatValue, { color: DIFFICULTY_COLORS[spot.difficulty] || COLORS.dark }]}>
+                  <Text style={[styles.routeStatValue, { color: (spot.difficulty && DIFFICULTY_COLORS[spot.difficulty]) || colors.dark }]}>
                     {spot.difficulty ? spot.difficulty.charAt(0).toUpperCase() + spot.difficulty.slice(1) : 'N/A'}
                   </Text>
                   <Text style={styles.routeStatLabel}>Difficulty</Text>
@@ -224,7 +257,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
               <View style={styles.qualitiesRow}>
                 {spot.qualities.map((q: string) => (
                   <View key={q} style={styles.qualityChip}>
-                    <Ionicons name="checkmark-circle" size={normalize(14)} color={COLORS.primary} />
+                    <Ionicons name="checkmark-circle" size={normalize(14)} color={colors.primary} />
                     <Text style={styles.qualityText}>{q}</Text>
                   </View>
                 ))}
@@ -239,7 +272,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
               {canReview && (
                 <TouchableOpacity onPress={() => setShowReviewSheet(true)}>
                   <LinearGradient colors={GRADIENTS.primary} style={styles.addReviewBtn}>
-                    <Ionicons name="add" size={normalize(16)} color={COLORS.white} />
+                    <Ionicons name="add" size={normalize(16)} color={colors.white} />
                     <Text style={styles.addReviewText}>Add</Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -252,7 +285,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
               reviews.map((rev) => (
                 <View key={rev.id} style={styles.reviewItem}>
                   <View style={styles.reviewHeader}>
-                    <Image source={{ uri: rev.user?.avatar_url }} style={styles.reviewAvatar} />
+                    <AvatarImage source={rev.user?.avatar_url} size={normalize(30)} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.reviewName}>{rev.user?.full_name}</Text>
                       <View style={styles.reviewStars}>
@@ -261,7 +294,7 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
                             key={s}
                             name={s <= rev.rating ? 'star' : 'star-outline'}
                             size={normalize(12)}
-                            color={s <= rev.rating ? '#FFD700' : COLORS.gray300}
+                            color={s <= rev.rating ? STAR_COLOR : colors.grayBorder}
                           />
                         ))}
                       </View>
@@ -289,63 +322,63 @@ const SpotDetailScreen: React.FC<{ navigation: any; route: any }> = ({ navigatio
 
 export default SpotDetailScreen;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: normalize(16), color: COLORS.gray, marginBottom: 12 },
-  linkText: { fontSize: normalize(14), color: COLORS.primary, fontWeight: '500' },
+  errorText: { fontSize: normalize(16), color: colors.gray, marginBottom: 12 },
+  linkText: { fontSize: normalize(14), color: colors.primary, fontWeight: '500' },
 
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   headerBtn: { padding: 4 },
-  headerTitle: { flex: 1, fontSize: normalize(18), fontWeight: '700', color: COLORS.dark, marginLeft: 12 },
+  headerTitle: { flex: 1, fontSize: normalize(18), fontWeight: '700', color: colors.dark, marginLeft: 12 },
 
   mapContainer: { height: 220, marginHorizontal: 16, borderRadius: normalize(16), overflow: 'hidden' },
   map: { flex: 1 },
   pin: { width: normalize(36), height: normalize(36), borderRadius: normalize(18), justifyContent: 'center', alignItems: 'center' },
 
   content: { padding: 20 },
-  spotName: { fontSize: normalize(24), fontWeight: '700', color: COLORS.dark, marginBottom: 8 },
+  spotName: { fontSize: normalize(24), fontWeight: '700', color: colors.dark, marginBottom: 8 },
 
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 },
-  ratingText: { fontSize: normalize(14), fontWeight: '600', color: COLORS.dark },
-  categoryBadge: { fontSize: normalize(12), color: COLORS.gray, marginLeft: 8 },
+  ratingText: { fontSize: normalize(14), fontWeight: '600', color: colors.dark },
+  categoryBadge: { fontSize: normalize(12), color: colors.gray, marginLeft: 8 },
 
   creatorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
   creatorAvatar: { width: normalize(32), height: normalize(32), borderRadius: normalize(16) },
-  creatorName: { fontSize: normalize(13), color: COLORS.gray },
+  creatorName: { fontSize: normalize(13), color: colors.gray },
 
-  routeCard: { backgroundColor: COLORS.gray50, borderRadius: normalize(14), padding: 16, marginBottom: 16 },
+  routeCard: { backgroundColor: colors.gray50, borderRadius: normalize(14), padding: 16, marginBottom: 16 },
   routeStatsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   routeStat: { alignItems: 'center', gap: 4 },
-  routeStatValue: { fontSize: normalize(16), fontWeight: '700', color: COLORS.dark },
-  routeStatLabel: { fontSize: normalize(11), color: COLORS.gray },
-  routeStatDivider: { width: 1, height: 30, backgroundColor: COLORS.grayBorder },
+  routeStatValue: { fontSize: normalize(16), fontWeight: '700', color: colors.dark },
+  routeStatLabel: { fontSize: normalize(11), color: colors.gray },
+  routeStatDivider: { width: 1, height: 30, backgroundColor: colors.grayBorder },
 
   section: { marginBottom: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle: { fontSize: normalize(16), fontWeight: '600', color: COLORS.dark, marginBottom: 8 },
-  descriptionText: { fontSize: normalize(14), color: COLORS.gray, lineHeight: normalize(20) },
+  sectionTitle: { fontSize: normalize(16), fontWeight: '600', color: colors.dark, marginBottom: 8 },
+  descriptionText: { fontSize: normalize(14), color: colors.gray, lineHeight: normalize(20) },
 
   qualitiesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   qualityChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: '#E7FCF6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: normalize(16),
   },
-  qualityText: { fontSize: normalize(12), color: COLORS.primary, fontWeight: '500' },
+  qualityText: { fontSize: normalize(12), color: colors.primary, fontWeight: '500' },
 
   addReviewBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: normalize(20),
   },
-  addReviewText: { fontSize: normalize(13), fontWeight: '600', color: COLORS.white },
-  emptyText: { fontSize: normalize(14), color: COLORS.gray, fontStyle: 'italic' },
+  addReviewText: { fontSize: normalize(13), fontWeight: '600', color: colors.white },
+  emptyText: { fontSize: normalize(14), color: colors.gray, fontStyle: 'italic' },
 
   reviewItem: {
-    backgroundColor: COLORS.gray50, borderRadius: normalize(12), padding: 14, marginBottom: 10,
+    backgroundColor: colors.gray50, borderRadius: normalize(12), padding: 14, marginBottom: 10,
   },
   reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
   reviewAvatar: { width: normalize(30), height: normalize(30), borderRadius: normalize(15) },
-  reviewName: { fontSize: normalize(13), fontWeight: '600', color: COLORS.dark },
+  reviewName: { fontSize: normalize(13), fontWeight: '600', color: colors.dark },
   reviewStars: { flexDirection: 'row', gap: 2, marginTop: 2 },
-  reviewComment: { fontSize: normalize(13), color: COLORS.gray, lineHeight: normalize(18) },
+  reviewComment: { fontSize: normalize(13), color: colors.gray, lineHeight: normalize(18) },
 });

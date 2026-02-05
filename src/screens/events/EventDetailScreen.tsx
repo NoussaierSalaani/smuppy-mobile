@@ -3,17 +3,15 @@
  * View event details and join/pay to participate
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Image,
   Dimensions,
   ActivityIndicator,
-  Alert,
   Share,
   Animated,
 } from 'react-native';
@@ -24,20 +22,23 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
-import { useStripe } from '@stripe/stripe-react-native';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatLongDateTime } from '../../utils/dateFormatters';
 
-const { width, height } = Dimensions.get('window');
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+
+const { width: _width, height: _height } = Dimensions.get('window');
 
 interface EventDetailScreenProps {
   route: { params: { eventId: string } };
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 interface Event {
@@ -91,19 +92,13 @@ const DIFFICULTY_COLORS = {
   expert: '#9C27B0',
 };
 
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#0e1626' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
-];
 
 export default function EventDetailScreen({ route, navigation }: EventDetailScreenProps) {
+  const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const { eventId } = route.params;
-  const { formatAmount, currency } = useCurrency();
-  const user = useUserStore((state) => state.user);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { formatAmount, currency: _currency } = useCurrency();
+  const _user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,10 +106,15 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const [showFullDescription, setShowFullDescription] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapView>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
-    loadEventDetails();
+    loadEventDetails().catch((err) => {
+      if (__DEV__) console.warn('loadEventDetails error:', err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const loadEventDetails = async () => {
@@ -125,9 +125,9 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       } else {
         throw new Error(response.message || 'Failed to load event');
       }
-    } catch (error: any) {
-      console.error('Load event error:', error);
-      Alert.alert('Error', 'Failed to load event details');
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Load event error:', error);
+      showError('Error', 'Failed to load event details');
       navigation.goBack();
     } finally {
       setIsLoading(false);
@@ -139,13 +139,13 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
     // Check if already participating
     if (event.is_participating) {
-      Alert.alert('Already Joined', 'You are already participating in this event.');
+      showError('Already Joined', 'You are already participating in this event.');
       return;
     }
 
     // Check if event is full
     if (event.max_participants && event.participant_count >= event.max_participants) {
-      Alert.alert('Event Full', 'This event has reached maximum capacity.');
+      showError('Event Full', 'This event has reached maximum capacity.');
       return;
     }
 
@@ -166,14 +166,15 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       const response = await awsAPI.joinEvent(eventId);
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Joined!', 'You are now participating in this event.');
+        showSuccess('Joined!', 'You are now participating in this event.');
         loadEventDetails(); // Refresh to update participant count
       } else {
         throw new Error(response.message || 'Failed to join event');
       }
-    } catch (error: any) {
-      console.error('Join event error:', error);
-      Alert.alert('Error', error.message || 'Failed to join event');
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Join event error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to join event';
+      showError('Error', message);
     } finally {
       setIsJoining(false);
     }
@@ -184,64 +185,41 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
     setIsJoining(true);
     try {
-      // 1. Create payment intent for event participation
+      // 1. Create Stripe Checkout session for event participation
       const response = await awsAPI.createEventPayment({
         eventId: event.id,
         amount: event.price_cents || 0,
         currency: event.currency || 'eur',
       });
 
-      if (!response.success || !response.clientSecret) {
+      if (!response.success || !response.checkoutUrl) {
         throw new Error(response.message || 'Failed to create payment');
       }
 
-      // 2. Initialize Stripe Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: response.clientSecret,
-        merchantDisplayName: 'Smuppy',
-        style: 'automatic',
-        googlePay: { merchantCountryCode: 'FR', testEnv: true },
-        applePay: { merchantCountryCode: 'FR' },
-        defaultBillingDetails: {
-          name: user?.fullName || user?.displayName || undefined,
-        },
+      // 2. Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+
+      if (result.type === 'cancel') {
+        // User cancelled - do nothing
+        return;
+      }
+
+      // 3. Payment successful
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showAlert({
+        title: 'Payment Successful!',
+        message: `You're now registered for "${event.title}".
+
+See you there!`,
+        type: 'success',
+        buttons: [{ text: 'View Details', onPress: loadEventDetails }],
       });
-
-      if (initError) {
-        throw new Error(initError.message);
-      }
-
-      // 3. Present Payment Sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          // User cancelled - do nothing
-          return;
-        }
-        throw new Error(presentError.message);
-      }
-
-      // 4. Payment successful - confirm with backend
-      const confirmResponse = await awsAPI.confirmEventPayment({
-        eventId: event.id,
-        paymentIntentId: response.paymentIntentId!,
-      });
-
-      if (confirmResponse.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '🎉 Payment Successful!',
-          `You're now registered for "${event.title}".\n\nSee you there!`,
-          [{ text: 'View Details', onPress: loadEventDetails }]
-        );
-      } else {
-        throw new Error(confirmResponse.message || 'Payment confirmation failed');
-      }
-    } catch (error: any) {
-      console.error('Event payment error:', error);
+      await loadEventDetails();
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Event payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Payment Failed', error.message || 'Please try again');
+      const message = error instanceof Error ? error.message : 'Please try again';
+      showError('Payment Failed', message);
     } finally {
       setIsJoining(false);
     }
@@ -250,32 +228,27 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const handleLeaveEvent = async () => {
     if (!event) return;
 
-    Alert.alert(
+    showDestructiveConfirm(
       'Leave Event',
       'Are you sure you want to leave this event?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: async () => {
-            setIsJoining(true);
-            try {
-              const response = await awsAPI.leaveEvent(eventId);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadEventDetails();
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to leave event');
-            } finally {
-              setIsJoining(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setIsJoining(true);
+        try {
+          const response = await awsAPI.leaveEvent(eventId);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadEventDetails();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Failed to leave event';
+          showError('Error', message);
+        } finally {
+          setIsJoining(false);
+        }
+      },
+      'Leave'
     );
   };
 
@@ -284,33 +257,22 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
     try {
       const shareUrl = `https://smuppy.app/events/${event.id}`;
-      const shareMessage = `Join "${event.title}" on Smuppy!\n\n📅 ${formatDate(event.starts_at)}\n📍 ${event.location_name}\n${event.is_free ? '🆓 Free!' : `💰 ${formatAmount(event.price_cents || 0)}`}\n\n${shareUrl}`;
+      const shareMessage = `Join "${event.title}" on Smuppy!\n\n📅 ${formatLongDateTime(event.starts_at)}\n📍 ${event.location_name}\n${event.is_free ? '🆓 Free!' : `💰 ${formatAmount(event.price_cents || 0)}`}\n\n${shareUrl}`;
 
       await Share.share({
         message: shareMessage,
         title: event.title,
         url: shareUrl,
       });
-    } catch (error) {
-      console.error('Share error:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Share error:', error);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -318,7 +280,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   if (!event) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={COLORS.gray} />
+        <Ionicons name="alert-circle" size={64} color={colors.gray} />
         <Text style={styles.errorText}>Event not found</Text>
         <TouchableOpacity style={styles.backButtonLarge} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>Go Back</Text>
@@ -437,7 +399,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
           {/* Category Badge */}
           <View style={[styles.categoryBadge, { backgroundColor: event.category.color }]}>
-            <Ionicons name={event.category.icon as any} size={16} color="#fff" />
+            <Ionicons name={(event.category.icon || 'help-circle') as keyof typeof Ionicons.glyphMap} size={16} color="#fff" />
             <Text style={styles.categoryText}>{event.category.name}</Text>
           </View>
 
@@ -467,25 +429,25 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
             />
             <View style={styles.organizerInfo}>
               <View style={styles.organizerNameRow}>
-                <Text style={styles.organizerName}>{event.organizer.full_name}</Text>
+                <Text style={styles.organizerName}>{event.organizer.full_name || event.organizer.username}</Text>
                 {event.organizer.is_verified && (
                   <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
                 )}
               </View>
-              <Text style={styles.organizerUsername}>@{event.organizer.username} • Organizer</Text>
+              <Text style={styles.organizerUsername}>Organizer</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+            <Ionicons name="chevron-forward" size={20} color={colors.gray} />
           </TouchableOpacity>
 
           {/* Details Card */}
           <View style={styles.detailsCard}>
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                <Ionicons name="calendar" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
-                <Text style={styles.detailValue}>{formatDate(event.starts_at)}</Text>
+                <Text style={styles.detailValue}>{formatLongDateTime(event.starts_at)}</Text>
               </View>
             </View>
 
@@ -493,7 +455,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="location" size={20} color={COLORS.primary} />
+                <Ionicons name="location" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Location</Text>
@@ -509,7 +471,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
                 <View style={styles.detailDivider} />
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <Ionicons name="map" size={20} color={COLORS.primary} />
+                    <Ionicons name="map" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.detailText}>
                     <Text style={styles.detailLabel}>Route</Text>
@@ -530,7 +492,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="people" size={20} color={COLORS.primary} />
+                <Ionicons name="people" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Participants</Text>
@@ -625,7 +587,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
           ) : event.is_participating ? (
             <View style={styles.joinedActions}>
               <View style={styles.joinedBadge}>
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.joinedText}>Joined</Text>
               </View>
               <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveEvent}>
@@ -668,7 +630,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f1a',
@@ -688,13 +650,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   backButtonLarge: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   backButtonText: {
@@ -845,7 +807,7 @@ const styles = StyleSheet.create({
   },
   organizerUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -875,7 +837,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   detailValue: {
@@ -885,7 +847,7 @@ const styles = StyleSheet.create({
   },
   detailSubvalue: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   detailDivider: {
@@ -905,13 +867,13 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
     lineHeight: 22,
   },
   readMore: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 8,
   },
 
@@ -970,7 +932,7 @@ const styles = StyleSheet.create({
   },
   bottomPriceLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   bottomPriceAmount: {
     fontSize: 22,
@@ -980,7 +942,7 @@ const styles = StyleSheet.create({
   bottomPriceText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   joinButton: {
     borderRadius: 16,
@@ -1032,7 +994,7 @@ const styles = StyleSheet.create({
   joinedText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   leaveButton: {
     paddingHorizontal: 16,

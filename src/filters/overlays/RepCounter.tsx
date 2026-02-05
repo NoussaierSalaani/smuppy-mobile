@@ -43,6 +43,7 @@ export function RepCounter({ params, size = 80 }: RepCounterProps) {
 
       prevReps.current = currentReps;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentReps]);
 
   // Animated styles

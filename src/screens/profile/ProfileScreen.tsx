@@ -5,11 +5,13 @@ import {
   TouchableOpacity,
   StatusBar,
   Modal,
-  Alert,
   RefreshControl,
   ActivityIndicator,
   ScrollView,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import * as Clipboard from 'expo-clipboard';
 // FlashList import removed - not used
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -18,28 +20,35 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores';
-import { useCurrentProfile, useUserPosts, useSavedPosts } from '../../hooks';
+import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile } from '../../hooks';
+import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
+import EventGroupCard from '../../components/EventGroupCard';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
-import { MOCK_POSTS, MOCK_PEAKS, MOCK_COLLECTIONS, MOCK_VIDEOS, MOCK_LIVES, MOCK_SESSIONS } from '../../mocks';
+
 import { AccountBadge, PremiumBadge } from '../../components/Badge';
+import { FEATURES } from '../../config/featureFlags';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { unsavePost } from '../../services/database';
+import { unsavePost, updateProfile as updateDbProfile } from '../../services/database';
+import { uploadProfileImage } from '../../services/imageUpload';
+import { uploadCoverImage } from '../../services/mediaUpload';
 import { LiquidTabsWithMore } from '../../components/LiquidTabs';
-import { styles, AVATAR_SIZE } from './ProfileScreen.styles';
+import RippleVisualization from '../../components/RippleVisualization';
+import GradeFrame from '../../components/GradeFrame';
+import { getGrade } from '../../utils/gradeSystem';
+import { useVibeStore } from '../../stores/vibeStore';
+import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
+import { useTheme } from '../../hooks/useTheme';
+import { ProfileSkeleton } from '../../components/skeleton';
+import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
-// ProfileDataSource is now imported from ../../types/profile
-
-// INITIAL_USER_PROFILE is now imported from ../../types/profile
-// Using alias for backward compatibility
-const INITIAL_USER = INITIAL_USER_PROFILE;
-
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BIO_MAX_LINES = 2;
 const BIO_EXPANDED_MAX_LINES = 6;
+const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
-// Mock data is now imported from ../../mocks
 
 interface ProfileScreenProps {
   navigation: {
@@ -51,18 +60,35 @@ interface ProfileScreenProps {
 
 const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showSuccess, showError } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createProfileStyles(colors), [colors]);
   const storeUser = useUserStore((state) => state.user);
-  const { data: profileData, isLoading: isProfileLoading, refetch: refetchProfile } = useCurrentProfile();
+  const updateStoreProfile = useUserStore((state) => state.updateProfile);
+  const routeUserId = route?.params?.userId || null;
+  const currentUserId = storeUser?.id || null;
+
+  // Fetch profile data: route user if provided, otherwise current user
+  const { data: currentProfileData, isLoading: isCurrentProfileLoading, refetch: refetchCurrentProfile } = useCurrentProfile();
+  const { data: otherProfileData, isLoading: isOtherProfileLoading, refetch: refetchOtherProfile } = useProfile(routeUserId);
+
+  const profileData = routeUserId ? otherProfileData : currentProfileData;
+  const isProfileLoading = routeUserId ? isOtherProfileLoading : isCurrentProfileLoading;
+  const refetchProfile = routeUserId ? refetchOtherProfile : refetchCurrentProfile;
   const [activeTab, setActiveTab] = useState('posts');
   const [showMoreTabs, setShowMoreTabs] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
 
   // User state
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [user, setUser] = useState<UserProfile>(INITIAL_USER_PROFILE);
+
+  // Determine which user's data to show
+  const viewedUserId = routeUserId || profileData?.id || currentUserId || null;
+  const isOwnProfile = !routeUserId || routeUserId === currentUserId;
 
   // Get user's posts from database
-  const userId = profileData?.id || storeUser?.id;
+  const userId = viewedUserId;
   const {
     data: userPostsData,
     refetch: refetchPosts,
@@ -78,13 +104,100 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // Use mock data if no real data
   const posts = useMemo(() => {
     const realPosts = allUserPosts.filter(post => !post.is_peak);
-    return realPosts.length > 0 ? realPosts : MOCK_POSTS;
+    return realPosts;
   }, [allUserPosts]);
 
-  const peaks = useMemo(() => {
-    const realPeaks = allUserPosts.filter(post => post.is_peak && post.save_to_profile !== false);
-    return realPeaks.length > 0 ? realPeaks : MOCK_PEAKS;
+  // Fallback peaks from posts table (if peaks API fails or filters incorrectly)
+  const peaksFromPosts = useMemo(() => {
+    const peaksOnly = allUserPosts.filter(post => post.is_peak);
+    return peaksOnly.map(p => ({
+      id: p.id,
+      videoUrl: p.media_urls?.find(m => m?.endsWith('.mp4') || m?.includes('video')) || p.media_urls?.[0],
+      media_urls: p.media_urls || [],
+      media_type: p.media_type || 'video',
+      is_peak: true,
+      content: p.content || '',
+      created_at: p.created_at,
+      peak_duration: 15,
+      likes_count: p.likes_count,
+      comments_count: p.comments_count,
+      views_count: p.views_count,
+      author_id: p.author_id,
+    }));
   }, [allUserPosts]);
+
+  const peaksUserId = useMemo(() => {
+    if (UUID_REGEX.test(routeUserId || '')) return routeUserId;
+    if (UUID_REGEX.test(viewedUserId || '')) return viewedUserId;
+    return viewedUserId;
+  }, [routeUserId, viewedUserId]);
+
+  interface ProfilePeak {
+    id: string;
+    videoUrl?: string;
+    media_urls: string[];
+    media_type: string;
+    is_peak: boolean;
+    content: string;
+    created_at: string;
+    peak_duration: number;
+    likes_count?: number;
+    is_liked?: boolean;
+    comments_count?: number;
+    views_count?: number;
+    author_id: string | null;
+  }
+  const [peaks, setPeaks] = useState<ProfilePeak[]>([]);
+  useEffect(() => {
+    if (!userId) return;
+    let isMounted = true;
+    const toCdn = (url?: string | null) => {
+      if (!url) return null;
+      return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+    };
+    const mapPeaks = (list: APIPeak[]) => (list || []).map((p: APIPeak) => ({
+      id: p.id,
+      videoUrl: toCdn(p.videoUrl) || undefined,
+      media_urls: [toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER],
+      media_type: p.videoUrl ? 'video' : 'image',
+      is_peak: true,
+      content: p.caption || '',
+      created_at: p.createdAt || new Date().toISOString(),
+      peak_duration: p.duration || 15,
+      likes_count: p.likesCount,
+      is_liked: p.isLiked || false,
+      comments_count: p.commentsCount,
+      views_count: p.viewsCount,
+      author_id: p.authorId || p.author?.id || null,
+    }));
+
+    const targetUserId = peaksUserId || userId;
+    awsAPI.getPeaks({ userId: targetUserId, limit: 50 }).then((res) => {
+      if (!isMounted) return;
+      let list = mapPeaks(res.data || []);
+
+      // Filter client-side by author when userId is provided
+      if (targetUserId && list.length > 0) {
+        const filtered = list.filter(p => p.author_id === targetUserId);
+        list = filtered.length > 0 ? filtered : list; // if author missing, keep full list to avoid empty state
+      }
+
+      // If still empty, try an unfiltred fetch and filter client-side (handles gateways that ignore author params)
+      if (targetUserId && list.length === 0) {
+        awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
+          if (!isMounted) return;
+          const mapped = mapPeaks(allRes.data || []);
+          const filtered = mapped.filter(p => p.author_id === targetUserId);
+          setPeaks(filtered.length > 0 ? filtered : mapped); // last resort: show whatever we have
+        }).catch(() => {});
+        return;
+      }
+
+      setPeaks(list);
+    }).catch(() => { /* silent */ });
+
+    return () => { isMounted = false; };
+  }, [userId, peaksUserId]);
 
   // Get saved posts (collections) - only for own profile
   const {
@@ -93,30 +206,40 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   } = useSavedPosts();
 
   const collections = useMemo(() => {
-    if (!savedPostsData?.pages) return MOCK_COLLECTIONS;
+    if (!savedPostsData?.pages) return [];
     const realCollections = savedPostsData.pages.flatMap(page => page.posts);
-    return realCollections.length > 0 ? realCollections : MOCK_COLLECTIONS;
+    return realCollections;
   }, [savedPostsData]);
+
+  // Events & Groups
+  const { events, groups, isLoading: isEventsGroupsLoading, refresh: refreshEventsGroups } = useProfileEventsGroups();
 
   // Check if user has peaks (for avatar border indicator)
   const hasPeaks = peaks.length > 0;
+
+  // Grade system — decorative frame for 1M+ fans
+  const gradeInfo = useMemo(() => getGrade(user.stats.fans), [user.stats.fans]);
+
+  // Vibe score
+  const vibeScore = useVibeStore((s) => s.vibeScore);
 
   // Modal states
   const [showQRModal, setShowQRModal] = useState(false);
   const [showImageSheet, setShowImageSheet] = useState(false);
   const [imageSheetType, setImageSheetType] = useState<'avatar' | 'cover'>('avatar');
   const [collectionMenuVisible, setCollectionMenuVisible] = useState(false);
-  const [selectedCollectionPost, setSelectedCollectionPost] = useState<any>(null);
-
-  const isOwnProfile = route?.params?.userId === undefined;
+  const [selectedCollectionPost, setSelectedCollectionPost] = useState<{ id: string } | null>(null);
+  const [menuItem, setMenuItem] = useState<{ type: 'event' | 'group'; id: string } | null>(null);
 
   // Use shared resolveProfile utility
   const resolvedProfile = useMemo(() =>
     resolveProfile(profileData as ProfileDataSource, storeUser as ProfileDataSource),
     [profileData, storeUser]
   );
+  const displayProfile = useMemo(() => resolvedProfile || user, [resolvedProfile, user]);
 
   useEffect(() => {
+    if (!resolvedProfile) return;
     setUser(prev => ({
       ...prev,
       ...resolvedProfile,
@@ -127,11 +250,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchProfile(), refetchPosts(), refetchSavedPosts()]);
+      await Promise.all([
+        refetchProfile?.(),
+        userId ? refetchPosts() : Promise.resolve(),
+        isOwnProfile ? refetchSavedPosts() : Promise.resolve(),
+        refreshEventsGroups(),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchProfile, refetchPosts, refetchSavedPosts]);
+  }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups, userId, isOwnProfile]);
 
   // ==================== IMAGE PICKER ====================
   const showImageOptions = (type: 'avatar' | 'cover') => {
@@ -142,7 +270,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access is required');
+      showError('Permission needed', 'Camera access is required');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -158,7 +286,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleChooseLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Photo library access is required');
+      showError('Permission needed', 'Photo library access is required');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -171,9 +299,24 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }
   };
 
-  const handleRemovePhoto = async () => {
-    updateImage(imageSheetType, null);
-  };
+  const handleRemovePhoto = useCallback(async () => {
+    setUser(prev => ({
+      ...prev,
+      [imageSheetType === 'avatar' ? 'avatar' : 'coverImage']: null,
+    }));
+    try {
+      if (imageSheetType === 'avatar') {
+        await updateDbProfile({ avatar_url: '' });
+        updateStoreProfile({ avatar: null });
+      } else {
+        await updateDbProfile({ cover_url: '' });
+        updateStoreProfile({ coverImage: null });
+      }
+      refetchProfile();
+    } catch {
+      showError('Error', 'Failed to remove photo');
+    }
+  }, [imageSheetType, refetchProfile, showError, updateStoreProfile]);
 
   const getImageSheetOptions = () => {
     const hasExisting = imageSheetType === 'avatar' ? !!user.avatar : !!user.coverImage;
@@ -202,12 +345,44 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return options;
   };
 
-  const updateImage = (type: 'avatar' | 'cover', uri: string | null) => {
+  const updateImage = useCallback(async (type: 'avatar' | 'cover', uri: string | null) => {
+    // Optimistically update UI
     setUser(prev => ({
       ...prev,
       [type === 'avatar' ? 'avatar' : 'coverImage']: uri,
     }));
-  };
+
+    if (!uri || uri.startsWith('http')) return;
+
+    const currentUserId = profileData?.id || storeUser?.id;
+    if (!currentUserId) return;
+
+    try {
+      if (type === 'avatar') {
+        const { url, error } = await uploadProfileImage(uri, currentUserId);
+        if (error || !url) {
+          showError('Upload Failed', 'Could not upload avatar');
+          return;
+        }
+        await updateDbProfile({ avatar_url: url });
+        updateStoreProfile({ avatar: url });
+        setUser(prev => ({ ...prev, avatar: url }));
+      } else {
+        const result = await uploadCoverImage(currentUserId, uri);
+        if (!result.success || !result.cdnUrl) {
+          showError('Upload Failed', 'Could not upload cover image');
+          return;
+        }
+        const coverUrl = `${result.cdnUrl}?t=${Date.now()}`;
+        await updateDbProfile({ cover_url: coverUrl });
+        updateStoreProfile({ coverImage: coverUrl });
+        setUser(prev => ({ ...prev, coverImage: coverUrl }));
+      }
+      refetchProfile();
+    } catch {
+      showError('Upload Failed', 'Something went wrong');
+    }
+  }, [profileData?.id, storeUser?.id, showError, refetchProfile, updateStoreProfile]);
 
   // ==================== COPY PROFILE LINK ====================
   const getProfileUrl = () => {
@@ -218,9 +393,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleCopyLink = async () => {
     try {
       await Clipboard.setStringAsync(getProfileUrl());
-      Alert.alert('Copied!', 'Profile link copied to clipboard');
+      showSuccess('Copied!', 'Profile link copied to clipboard');
     } catch (_error) {
-      Alert.alert('Error', 'Failed to copy link');
+      showError('Error', 'Failed to copy link');
     }
   };
 
@@ -230,7 +405,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   };
 
   // Collection menu handlers
-  const handleCollectionMenu = (post: any, e: any) => {
+  const handleCollectionMenu = (post: { id: string }, e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     setSelectedCollectionPost(post);
     setCollectionMenuVisible(true);
@@ -243,12 +418,57 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     const { error } = await unsavePost(selectedCollectionPost.id);
     if (error) {
-      Alert.alert('Error', 'Failed to remove from collection');
+      showError('Error', 'Failed to remove from collection');
     } else {
       refetchSavedPosts();
     }
     setSelectedCollectionPost(null);
   };
+
+  // ==================== RENDER AVATAR ====================
+  const renderAvatarContent = useCallback(() => {
+    const avatarInner = (
+      <RippleVisualization size={AVATAR_SIZE}>
+        {hasPeaks ? (
+          <LinearGradient
+            colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatarGradientBorder}
+          >
+            <View style={styles.avatarInnerBorder}>
+              {user.avatar ? (
+                <AvatarImage source={user.avatar} size={AVATAR_SIZE - 8} style={styles.avatarWithPeaks} />
+              ) : (
+                <View style={styles.avatarEmptyWithPeaks}>
+                  <Ionicons name="person" size={32} color={colors.gray400} />
+                </View>
+              )}
+            </View>
+          </LinearGradient>
+        ) : (
+          user.avatar ? (
+            <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarEmpty}>
+              <Ionicons name="person" size={36} color={colors.gray400} />
+            </View>
+          )
+        )}
+      </RippleVisualization>
+    );
+
+    if (gradeInfo) {
+      return (
+        <GradeFrame grade={gradeInfo.grade} color={gradeInfo.color} size={AVATAR_SIZE}>
+          {avatarInner}
+        </GradeFrame>
+      );
+    }
+
+    return avatarInner;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPeaks, user.avatar, gradeInfo]);
 
   // ==================== RENDER HEADER ====================
   const renderHeader = () => (
@@ -259,6 +479,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           activeOpacity={0.95}
           onPress={() => isOwnProfile && showImageOptions('cover')}
           style={styles.coverTouchable}
+          accessibilityLabel={isOwnProfile ? "Change cover photo" : "Cover photo"}
+          accessibilityRole={isOwnProfile ? "button" : "image"}
+          accessibilityHint={isOwnProfile ? "Opens options to change your cover photo" : undefined}
         >
           {user.coverImage ? (
             <OptimizedImage source={user.coverImage} style={styles.coverImage} />
@@ -269,7 +492,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
         {/* Gradient that fades the cover into white */}
         <LinearGradient
-          colors={['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
+          colors={['transparent', 'transparent', isDark ? 'rgba(13,13,13,0.5)' : 'rgba(255,255,255,0.5)', isDark ? 'rgba(13,13,13,0.85)' : 'rgba(255,255,255,0.85)', colors.background]}
           locations={[0, 0.35, 0.55, 0.75, 1]}
           style={styles.coverGradientOverlay}
           pointerEvents="none"
@@ -286,41 +509,24 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => isOwnProfile && showImageOptions('avatar')}
+          accessibilityLabel={isOwnProfile ? "Change profile photo" : `${user.displayName}'s profile photo`}
+          accessibilityRole={isOwnProfile ? "button" : "image"}
+          accessibilityHint={isOwnProfile ? "Opens options to change your profile photo" : undefined}
         >
-          {/* Peaks indicator - gradient border around avatar */}
-          {hasPeaks ? (
-            <LinearGradient
-              colors={['#0EBF8A', '#00B5C1', '#0081BE']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarGradientBorder}
-            >
-              <View style={styles.avatarInnerBorder}>
-                {user.avatar ? (
-                  <AvatarImage source={user.avatar} size={AVATAR_SIZE - 8} style={styles.avatarWithPeaks} />
-                ) : (
-                  <View style={styles.avatarEmptyWithPeaks}>
-                    <Ionicons name="person" size={32} color="#6E6E73" />
-                  </View>
-                )}
-              </View>
-            </LinearGradient>
-          ) : (
-            user.avatar ? (
-              <AvatarImage source={user.avatar} size={AVATAR_SIZE} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarEmpty}>
-                <Ionicons name="person" size={36} color="#6E6E73" />
-              </View>
-            )
-          )}
+          {renderAvatarContent()}
         </TouchableOpacity>
 
         {/* Stats - Glassmorphism Style */}
         <View style={styles.statsGlass}>
-          <BlurView intensity={80} tint="light" style={styles.statsBlurContainer}>
-            <TouchableOpacity style={styles.statGlassItem} onPress={handleFansPress}>
-              <Text style={styles.statGlassValue}>{user.stats.fans || 128}</Text>
+          <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={styles.statsBlurContainer}>
+            <TouchableOpacity
+              style={styles.statGlassItem}
+              onPress={handleFansPress}
+              accessibilityLabel={`${user.stats.fans} fans`}
+              accessibilityRole="button"
+              accessibilityHint="View list of fans"
+            >
+              <Text style={styles.statGlassValue}>{user.stats.fans}</Text>
               <Text style={styles.statGlassLabel}>Fans</Text>
             </TouchableOpacity>
             <View style={styles.statGlassDivider} />
@@ -328,6 +534,21 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               <Text style={styles.statGlassValue}>{user.stats.peaks || 0}</Text>
               <Text style={styles.statGlassLabel}>Peaks</Text>
             </View>
+            {user.accountType !== 'pro_business' && (
+              <>
+                <View style={styles.statGlassDivider} />
+                <TouchableOpacity
+                  style={styles.statGlassItem}
+                  onPress={() => navigation.navigate('Prescriptions')}
+                  accessibilityLabel={`Vibe score ${vibeScore}`}
+                  accessibilityRole="button"
+                  accessibilityHint="View your prescriptions and vibe details"
+                >
+                  <Text style={styles.statGlassValue}>{vibeScore}</Text>
+                  <Text style={styles.statGlassLabel}>Vibe</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </BlurView>
         </View>
       </View>
@@ -341,11 +562,18 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             style={styles.badge}
             isVerified={user.isVerified}
             accountType={user.accountType as 'personal' | 'pro_creator' | 'pro_business'}
+            followerCount={user.stats?.fans ?? 0}
           />
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowQRModal(true)}>
-          <Ionicons name="qr-code-outline" size={18} color="#0A0A0F" />
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => setShowQRModal(true)}
+          accessibilityLabel="Show QR code"
+          accessibilityRole="button"
+          accessibilityHint="Opens your profile QR code to share"
+        >
+          <Ionicons name="qr-code-outline" size={18} color={colors.gray900} />
         </TouchableOpacity>
       </View>
 
@@ -363,6 +591,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               onPress={() => setBioExpanded(!bioExpanded)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={styles.seeMoreBtn}
+              accessibilityLabel={bioExpanded ? "Show less bio" : "Show more bio"}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: bioExpanded }}
             >
               <Text style={styles.seeMoreText}>
                 {bioExpanded ? 'Voir moins' : 'Voir plus'}
@@ -380,8 +611,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <TouchableOpacity
           style={styles.addBioBtn}
           onPress={() => navigation.navigate('EditProfile')}
+          accessibilityLabel="Add Bio"
+          accessibilityRole="button"
+          accessibilityHint="Opens your profile editor to add a bio"
         >
-          <Ionicons name="add" size={16} color="#0EBF8A" />
+          <Ionicons name="add" size={16} color={colors.primary} />
           <Text style={styles.addBioText}>Add Bio</Text>
         </TouchableOpacity>
       ) : null}
@@ -390,37 +624,33 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER TABS ====================
   // Dynamic tabs based on account type
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business' || resolvedProfile?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
 
-  // Primary tabs (always visible) - max 4
+  // Primary tabs (always visible) - max 3 to keep labels readable
   const PRIMARY_TABS = useMemo(() => {
-    const tabs = [
+    return [
       { key: 'posts', label: 'Posts', icon: 'grid-outline' },
       { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
+      { key: 'groupevent', label: 'Activities', icon: 'flash-outline' },
     ];
+  }, []) as { key: string; label: string; icon: string }[];
+
+  // Extra tabs (shown in "•••" menu)
+  const EXTRA_TABS = useMemo(() => {
+    const tabs: { key: string; label: string; icon: string }[] = [];
 
     if (isOwnProfile) {
       tabs.push({ key: 'collections', label: 'Saved', icon: 'bookmark-outline' });
     }
 
-    return tabs;
-  }, [isOwnProfile]) as { key: string; label: string; icon: string }[];
-
-  // Extra tabs (shown in "+" menu) - for pro_creator
-  const EXTRA_TABS = useMemo(() => {
-    if (!isProCreator) return [];
-
-    const tabs = [
-      { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
-    ];
-
-    if (isOwnProfile) {
-      tabs.push(
-        { key: 'sessions', label: 'Sessions', icon: 'calendar-outline' },
-        { key: 'lives', label: 'Lives', icon: 'radio-outline' },
-      );
-    } else {
-      tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+    if (isProCreator) {
+      tabs.push({ key: 'videos', label: 'Videos', icon: 'videocam-outline' });
+      if (isOwnProfile) {
+        if (FEATURES.PRIVATE_SESSIONS) tabs.push({ key: 'sessions', label: 'Sessions', icon: 'calendar-outline' });
+        if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+      } else {
+        if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+      }
     }
 
     return tabs;
@@ -465,11 +695,14 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                     setActiveTab(tab.key);
                     setShowMoreTabs(false);
                   }}
+                  accessibilityLabel={tab.label}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === tab.key }}
                 >
                   <Ionicons
-                    name={tab.icon as any}
+                    name={tab.icon as keyof typeof Ionicons.glyphMap}
                     size={22}
-                    color={activeTab === tab.key ? '#0EBF8A' : '#374151'}
+                    color={activeTab === tab.key ? colors.primary : colors.gray500}
                   />
                   <Text
                     style={[
@@ -480,7 +713,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                     {tab.label}
                   </Text>
                   {activeTab === tab.key && (
-                    <Ionicons name="checkmark" size={20} color="#0EBF8A" />
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -494,7 +727,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER EMPTY STATE ====================
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="images-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+      <Ionicons name="images-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
       <Text style={styles.emptyTitle}>No posts yet</Text>
       <Text style={styles.emptyDesc}>
         You're one click away from your{'\n'}first post
@@ -502,7 +735,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {isOwnProfile && (
         <TouchableOpacity
           style={styles.createBtn}
-          onPress={() => navigation.navigate('CreatePost')}
+          onPress={() => navigation.navigate('CreatePost', { fromProfile: true })}
+          accessibilityLabel="Create a post"
+          accessibilityRole="button"
+          accessibilityHint="Opens the post creator"
         >
           <Text style={styles.createBtnText}>Create a post</Text>
           <Ionicons name="arrow-forward" size={16} color="#FFF" />
@@ -511,21 +747,52 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     </View>
   );
 
+  // Transform posts array for detail screen
+  const transformPostsForDetail = useCallback((allPosts: typeof posts) => {
+    return allPosts.map(p => {
+      const allMedia = p.media_urls?.filter(Boolean) || [];
+      return {
+        id: p.id,
+        type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+        media: allMedia[0] || '',
+        thumbnail: allMedia[0] || '',
+        description: p.content || '',
+        likes: p.likes_count || 0,
+        views: p.views_count || 0,
+        location: p.location || null,
+        taggedUsers: p.tagged_users || [],
+        allMedia: allMedia.length > 1 ? allMedia : undefined,
+        user: {
+          id: user.id || '',
+          name: user.displayName || '',
+          avatar: user.avatar || '',
+        },
+      };
+    });
+  }, [user.id, user.displayName, user.avatar]);
+
   // ==================== RENDER POST ITEM (Simple grid style) ====================
   const renderPostItem = useCallback(({ item: post }: { item: { id: string; media_urls?: string[]; media_type?: string; likes_count?: number } }) => {
     const thumbnail = post.media_urls?.[0] || null;
-    const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
+    const isVideo = post.media_type === 'video';
 
     return (
       <TouchableOpacity
         style={styles.postCard}
-        onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
+        onPress={() => navigation.navigate('PostDetailProfile', {
+          postId: post.id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          profilePosts: transformPostsForDetail(posts) as any,
+        })}
+        accessibilityLabel={`Post with ${post.likes_count || 0} likes`}
+        accessibilityRole="button"
+        accessibilityHint="Opens the post details"
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
           <View style={[styles.postThumb, styles.postThumbEmpty]}>
-            <Ionicons name="image-outline" size={24} color="#6E6E73" />
+            <Ionicons name="image-outline" size={24} color={colors.gray400} />
           </View>
         )}
         {isVideo && (
@@ -542,74 +809,26 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       </TouchableOpacity>
     );
-  }, [navigation]);
-
-  // ==================== RENDER PEAK ITEM ====================
-  const renderPeakItem = useCallback((peak: { id: string; media_urls?: string[]; likes_count?: number; views_count?: number; replies_count?: number; peak_duration?: number; tags_count?: number }) => {
-    const thumbnail = peak.media_urls?.[0] || null;
-    // Mock stats for demo
-    const likes = peak.likes_count || Math.floor(Math.random() * 500) + 50;
-    const views = peak.views_count || Math.floor(Math.random() * 2000) + 200;
-    const replies = peak.replies_count || Math.floor(Math.random() * 30) + 5;
-
-    return (
-      <TouchableOpacity
-        key={peak.id}
-        style={styles.peakCard}
-        onPress={() => navigation.navigate('PeakView', { peakId: peak.id })}
-      >
-        {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={styles.peakThumb} />
-        ) : (
-          <View style={[styles.peakThumb, styles.postThumbEmpty]}>
-            <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
-          </View>
-        )}
-        {/* Duration badge */}
-        <View style={styles.peakDuration}>
-          <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
-        </View>
-        {/* Stats overlay */}
-        <View style={styles.peakStatsOverlay}>
-          <View style={styles.peakStat}>
-            <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
-            <Text style={styles.peakStatText}>{likes}</Text>
-          </View>
-          <View style={styles.peakStat}>
-            <Ionicons name="eye" size={11} color="#FFF" />
-            <Text style={styles.peakStatText}>{views}</Text>
-          </View>
-          <View style={styles.peakStat}>
-            <Ionicons name="chatbubble" size={10} color="#FFF" />
-            <Text style={styles.peakStatText}>{replies}</Text>
-          </View>
-          {/* Tags - only visible to the creator (own profile) */}
-          {isOwnProfile && (peak.tags_count ?? 0) > 0 && (
-            <View style={styles.peakStat}>
-              <Ionicons name="pricetag" size={10} color={COLORS.primary} />
-              <Text style={[styles.peakStatText, { color: COLORS.primary }]}>{peak.tags_count}</Text>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation]);
+  }, [navigation, posts, transformPostsForDetail]);
 
   // ==================== RENDER PEAKS ====================
   const renderPeaks = () => {
     if (peaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No peaks yet</Text>
           <Text style={styles.emptyDesc}>
             Share your best moments as Peaks
           </Text>
-          {isOwnProfile && (
+          {isOwnProfile && storeUser?.accountType !== 'pro_business' && (
             <TouchableOpacity
               style={styles.createBtn}
               onPress={() => navigation.navigate('CreatePeak')}
+              accessibilityLabel="Create a Peak"
+              accessibilityRole="button"
+              accessibilityHint="Opens the peak video creator"
             >
               <Text style={styles.createBtnText}>Create a Peak</Text>
               <Ionicons name="arrow-forward" size={16} color="#FFF" />
@@ -619,10 +838,56 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       );
     }
 
+    const displayPeaks = peaks.length > 0 ? peaks : peaksFromPosts;
+
     // Show peaks grid
     return (
       <View style={styles.peaksGrid}>
-        {peaks.map(renderPeakItem)}
+        {displayPeaks.map((peak, index) => (
+          <TouchableOpacity
+            key={`peak-${index}-${peak.id}`}
+            style={styles.peakCard}
+            onPress={() => {
+              const transformed = displayPeaks.map(p => ({
+                id: p.id,
+                videoUrl: p.videoUrl,
+                thumbnail: p.media_urls?.[0],
+                duration: p.peak_duration || 15,
+                user: {
+                  id: displayProfile?.id || user.id,
+                  name: displayProfile?.displayName || user.displayName,
+                  avatar: displayProfile?.avatar || user.avatar || '',
+                },
+                views: p.views_count || 0,
+                likes: p.likes_count || 0,
+                repliesCount: p.comments_count || 0,
+                createdAt: p.created_at,
+              }));
+              navigation.navigate('PeakView', { peaks: transformed, initialIndex: index });
+            }}
+          >
+            {peak.media_urls?.[0] ? (
+              <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
+            ) : (
+              <View style={[styles.peakThumb, styles.postThumbEmpty]}>
+                <Ionicons name="videocam-outline" size={24} color={colors.gray} />
+              </View>
+            )}
+            <View style={styles.peakDuration}>
+              <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+            </View>
+            <View style={styles.peakStatsOverlay}>
+              <View style={styles.peakStat}>
+                <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
+                <Text style={styles.peakStatText}>{peak.likes_count || 0}</Text>
+              </View>
+              <View style={styles.peakStat}>
+                <Ionicons name="eye" size={11} color="#FFF" />
+                <Text style={styles.peakStatText}>{peak.views_count || 0}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
     );
   };
@@ -636,7 +901,34 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       <TouchableOpacity
         key={post.id}
         style={styles.collectionCard}
-        onPress={() => navigation.navigate('PostDetailProfile', { postId: post.id })}
+        onPress={() => {
+          const collectionForDetail = collections.map(p => {
+            const allMedia = p.media_urls?.filter(Boolean) || [];
+            const author = p.author || (p['user'] as typeof p.author);
+            return {
+              id: p.id,
+              type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+              media: allMedia[0] || '',
+              thumbnail: allMedia[0] || '',
+              description: p.content || '',
+              likes: p.likes_count || 0,
+              views: p.views_count || 0,
+              location: p.location || null,
+              taggedUsers: p.tagged_users || [],
+              allMedia: allMedia.length > 1 ? allMedia : undefined,
+              user: {
+                id: author?.id || '',
+                name: author?.full_name || author?.username || '',
+                avatar: author?.avatar_url || '',
+              },
+            };
+          });
+          navigation.navigate('PostDetailProfile', {
+            postId: post.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            profilePosts: collectionForDetail as any,
+          });
+        }}
       >
         {thumbnail ? (
           <OptimizedImage source={thumbnail} style={styles.collectionThumb} />
@@ -653,7 +945,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         <View style={styles.collectionSaveIcon}>
           <Ionicons name="bookmark" size={12} color="#FFF" />
         </View>
-        <TouchableOpacity style={styles.collectionMenu} onPress={(e) => handleCollectionMenu(post, e)}>
+        <TouchableOpacity
+          style={styles.collectionMenu}
+          onPress={(e) => handleCollectionMenu(post, e)}
+          accessibilityLabel="Collection options"
+          accessibilityRole="button"
+          accessibilityHint="Opens options for this saved post"
+        >
           <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.collectionInfo}>
@@ -663,7 +961,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {post.author && (
             <View style={styles.collectionMeta}>
               <AvatarImage source={post.author.avatar_url} size={18} />
-              <Text style={styles.collectionAuthorName}>{post.author.full_name}</Text>
+              <Text style={styles.collectionAuthorName}>{post.author.full_name || post.author.username}</Text>
               <SmuppyHeartIcon size={12} color="#FF6B6B" filled />
               <Text style={styles.collectionLikes}>{post.likes_count || 0}</Text>
             </View>
@@ -671,14 +969,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       </TouchableOpacity>
     );
-  }, [navigation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, collections]);
 
   // ==================== RENDER COLLECTIONS ====================
   const renderCollections = () => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="lock-closed-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>Private</Text>
           <Text style={styles.emptyDesc}>
             Collections are only visible to the account owner
@@ -690,7 +989,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (collections.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="bookmark-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No collections yet</Text>
           <Text style={styles.emptyDesc}>
             Save posts to find them easily later
@@ -706,49 +1005,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     );
   };
 
-  // ==================== RENDER LIVE ITEM ====================
-  const renderLiveItem = useCallback((live: { id: string; thumbnail: string; title: string; viewers: number; date: string; duration?: string }) => (
-    <TouchableOpacity
-      key={live.id}
-      style={styles.liveCard}
-      onPress={() => {
-        // Navigate to recorded live playback
-        // navigation.navigate('LivePlayback', { liveId: live.id });
-      }}
-    >
-      <OptimizedImage source={live.thumbnail} style={styles.liveThumb} />
-      {/* Live icon overlay */}
-      <View style={styles.livePlayOverlay}>
-        <View style={styles.livePlayBtn}>
-          <Ionicons name="play" size={20} color="#FFF" />
-        </View>
-      </View>
-      {/* Duration badge */}
-      <View style={styles.liveDuration}>
-        <Ionicons name="time-outline" size={10} color="#FFF" />
-        <Text style={styles.liveDurationText}>{live.duration}</Text>
-      </View>
-      {/* Fans badge */}
-      <View style={styles.liveMembersBadge}>
-        <Ionicons name="people" size={10} color="#FFF" />
-        <Text style={styles.liveMembersText}>Fans</Text>
-      </View>
-      {/* Info section */}
-      <View style={styles.liveInfo}>
-        <Text style={styles.liveTitle} numberOfLines={2}>{live.title}</Text>
-        <View style={styles.liveMeta}>
-          <View style={styles.liveMetaItem}>
-            <Ionicons name="eye" size={12} color="#8E8E93" />
-            <Text style={styles.liveMetaText}>{live.viewers.toLocaleString()}</Text>
-          </View>
-          <Text style={styles.liveDate}>{new Date(live.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  ), []);
-
   // ==================== RENDER VIDEO ITEM ====================
-  const renderVideoItem = useCallback((video: typeof MOCK_VIDEOS[0]) => {
+  const renderVideoItem = useCallback((video: { id: string; thumbnail: string; title: string; duration: string; views: number; visibility: string; scheduledAt?: string }) => {
     const getVisibilityIcon = (): 'globe-outline' | 'lock-closed-outline' | 'eye-off-outline' | 'star-outline' | 'people-outline' => {
       switch (video.visibility) {
         case 'public': return 'globe-outline';
@@ -761,12 +1019,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     };
     const getVisibilityColor = () => {
       switch (video.visibility) {
-        case 'public': return COLORS.primary;
+        case 'public': return colors.primary;
         case 'subscribers': return '#FFD700'; // Gold for premium/subscribers
         case 'fans': return '#0081BE';
         case 'private': return '#8E8E93';
         case 'hidden': return '#8E8E93';
-        default: return COLORS.primary;
+        default: return colors.primary;
       }
     };
     const getVisibilityLabel = () => {
@@ -811,6 +1069,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       </TouchableOpacity>
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
 
   // ==================== RENDER VIDEOS ====================
@@ -821,14 +1080,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     // In production, this would check:
     // - fans: user is following this creator
     // - subscribers: user has active channel subscription
-    const visibleVideos = isOwnProfile
-      ? MOCK_VIDEOS
-      : MOCK_VIDEOS.filter(v => v.visibility === 'public');
+    const visibleVideos: { id: string; thumbnail: string; title: string; duration: string; views: number; visibility: string; scheduledAt?: string }[] = [];
 
     if (visibleVideos.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="film-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="film-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No videos yet</Text>
           <Text style={styles.emptyDesc}>
             {isOwnProfile
@@ -869,125 +1126,45 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER LIVES ====================
   const renderLives = () => {
-    // For fan viewing a pro_creator's profile - show all Lives (they're all for fans)
     if (!isOwnProfile) {
-      if (MOCK_LIVES.length === 0) {
-        return (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
-            <Text style={styles.emptyTitle}>No lives yet</Text>
-            <Text style={styles.emptyDesc}>
-              This creator hasn't shared any recorded lives yet
-            </Text>
-          </View>
-        );
-      }
-      return (
-        <View style={styles.livesGrid}>
-          {MOCK_LIVES.map(renderLiveItem)}
-        </View>
-      );
-    }
-
-    // For pro_creator viewing their own profile
-    if (MOCK_LIVES.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No lives yet</Text>
           <Text style={styles.emptyDesc}>
-            Go live to connect with your fans in real-time
+            This creator hasn't shared any recorded lives yet
           </Text>
-          <TouchableOpacity
-            style={styles.createBtn}
-            onPress={() => navigation.navigate('GoLive')}
-          >
-            <Text style={styles.createBtnText}>Go Live</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFF" />
-          </TouchableOpacity>
         </View>
       );
     }
 
     return (
-      <View>
-        {/* Schedule button for creator */}
+      <View style={styles.emptyContainer}>
+        <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
+        <Text style={styles.emptyTitle}>No lives yet</Text>
+        <Text style={styles.emptyDesc}>
+          Go live to connect with your fans in real-time
+        </Text>
         <TouchableOpacity
-          style={styles.scheduleLiveBtn}
+          style={styles.createBtn}
           onPress={() => navigation.navigate('GoLive')}
+          accessibilityLabel="Go Live"
+          accessibilityRole="button"
+          accessibilityHint="Start a live video broadcast"
         >
-          <LinearGradient
-            colors={['#0EBF8A', '#00B5C1']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.scheduleLiveBtnGradient}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-            <Text style={styles.scheduleLiveBtnText}>Go Live Now</Text>
-          </LinearGradient>
+          <Text style={styles.createBtnText}>Go Live</Text>
+          <Ionicons name="arrow-forward" size={16} color="#FFF" />
         </TouchableOpacity>
-        <View style={styles.livesGrid}>
-          {MOCK_LIVES.map(renderLiveItem)}
-        </View>
       </View>
     );
   };
-
-  // ==================== RENDER SESSION ITEM ====================
-  const renderSessionItem = useCallback((session: { id: string; status: string; date: string; client?: { name?: string; avatar?: string }; clientName?: string; clientAvatar?: string; type?: string; time?: string; duration?: number; price?: number }) => {
-    const isUpcoming = session.status === 'upcoming';
-    const sessionDate = new Date(session.date);
-    const dayName = sessionDate.toLocaleDateString('fr-FR', { weekday: 'short' });
-    const dayNum = sessionDate.getDate();
-    const month = sessionDate.toLocaleDateString('fr-FR', { month: 'short' });
-
-    return (
-      <View key={session.id} style={styles.sessionCard}>
-        <View style={styles.sessionDateBox}>
-          <Text style={styles.sessionDayName}>{dayName}</Text>
-          <Text style={styles.sessionDayNum}>{dayNum}</Text>
-          <Text style={styles.sessionMonth}>{month}</Text>
-        </View>
-        <View style={styles.sessionInfo}>
-          <View style={styles.sessionHeader}>
-            <AvatarImage source={session.clientAvatar} size={36} />
-            <View style={styles.sessionDetails}>
-              <Text style={styles.sessionClientName}>{session.clientName}</Text>
-              <Text style={styles.sessionTime}>
-                {session.time} • {session.duration} min
-              </Text>
-            </View>
-            <View style={[
-              styles.sessionStatusBadge,
-              isUpcoming ? styles.sessionStatusUpcoming : styles.sessionStatusCompleted
-            ]}>
-              <Text style={[
-                styles.sessionStatusText,
-                isUpcoming ? styles.sessionStatusTextUpcoming : styles.sessionStatusTextCompleted
-              ]}>
-                {isUpcoming ? 'Upcoming' : 'Completed'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.sessionFooter}>
-            <Text style={styles.sessionPrice}>${session.price}</Text>
-            {isUpcoming && (
-              <TouchableOpacity style={styles.sessionJoinBtn}>
-                <Text style={styles.sessionJoinText}>Join</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  }, []);
 
   // ==================== RENDER SESSIONS ====================
   const renderSessions = () => {
     if (!isOwnProfile) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
+          <Ionicons name="lock-closed-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>Private</Text>
           <Text style={styles.emptyDesc}>
             Sessions are only visible to the creator
@@ -996,35 +1173,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       );
     }
 
-    const upcomingSessions = MOCK_SESSIONS.filter(s => s.status === 'upcoming');
-    const pastSessions = MOCK_SESSIONS.filter(s => s.status === 'completed');
-
-    if (MOCK_SESSIONS.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={48} color={COLORS.grayMuted} style={styles.emptyIconMargin} />
-          <Text style={styles.emptyTitle}>No sessions yet</Text>
-          <Text style={styles.emptyDesc}>
-            Your 1:1 sessions with fans will appear here
-          </Text>
-        </View>
-      );
-    }
-
     return (
-      <View style={styles.sessionsContainer}>
-        {upcomingSessions.length > 0 && (
-          <>
-            <Text style={styles.sessionsSection}>Upcoming</Text>
-            {upcomingSessions.map(renderSessionItem)}
-          </>
-        )}
-        {pastSessions.length > 0 && (
-          <>
-            <Text style={styles.sessionsSection}>Past Sessions</Text>
-            {pastSessions.map(renderSessionItem)}
-          </>
-        )}
+      <View style={styles.emptyContainer}>
+        <Ionicons name="calendar-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
+        <Text style={styles.emptyTitle}>No sessions yet</Text>
+        <Text style={styles.emptyDesc}>
+          Your 1:1 sessions with fans will appear here
+        </Text>
       </View>
     );
   };
@@ -1042,6 +1197,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <TouchableOpacity
             style={styles.qrCloseBtn}
             onPress={() => setShowQRModal(false)}
+            accessibilityLabel="Close QR code"
+            accessibilityRole="button"
           >
             <Ionicons name="close" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -1049,7 +1206,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <View style={styles.qrContainer}>
             {/* Simple QR placeholder - replace with actual QR library if needed */}
             <View style={styles.qrCode}>
-              <Ionicons name="qr-code" size={150} color="#0A0A0F" />
+              <Ionicons name="qr-code" size={150} color={colors.dark} />
             </View>
           </View>
 
@@ -1063,7 +1220,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.qrCopyBtn} onPress={handleCopyLink}>
+          <TouchableOpacity
+            style={styles.qrCopyBtn}
+            onPress={handleCopyLink}
+            accessibilityLabel="Copy profile link"
+            accessibilityRole="button"
+            accessibilityHint="Copies your profile link to the clipboard"
+          >
             <Ionicons name="copy-outline" size={20} color="#FFF" />
             <Text style={styles.qrCopyText}>Copy profile link</Text>
           </TouchableOpacity>
@@ -1072,16 +1235,133 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     </Modal>
   );
 
+  // ==================== GROUP/EVENT HANDLERS ====================
+  const handleEventGroupCardPress = useCallback((type: 'event' | 'group', id: string) => {
+    navigation.navigate('ActivityDetail', { activityId: id, activityType: type });
+  }, [navigation]);
+
+  const handleEventGroupMenuPress = useCallback((type: 'event' | 'group', id: string) => {
+    setMenuItem({ type, id });
+  }, []);
+
+  const handleEventGroupMenuAction = useCallback((action: 'edit' | 'delete') => {
+    if (!menuItem) return;
+    if (action === 'edit') {
+      if (menuItem.type === 'event') {
+        navigation.navigate('EventManage', { eventId: menuItem.id });
+      }
+    }
+    setMenuItem(null);
+  }, [menuItem, navigation]);
+
+  const handleNewActivity = useCallback(() => {
+    navigation.navigate('CreateActivity');
+  }, [navigation]);
+
+  // ==================== RENDER GROUP/EVENT ====================
+  const renderGroupEvent = () => {
+    // Build merged + filtered list
+    const taggedEvents = events.map(e => ({ ...e, _type: 'event' as const, _title: e.title }));
+    const taggedGroups = groups.map(g => ({ ...g, _type: 'group' as const, _title: g.name }));
+    // Unified Activities - show all events and groups together
+    const items = [...taggedEvents, ...taggedGroups].sort(
+      (a, b) => new Date(b.starts_at || 0).getTime() - new Date(a.starts_at || 0).getTime()
+    );
+
+    return (
+      <View style={styles.groupEventContainer}>
+        {/* Header: New button only (no filter - unified as Activities) */}
+        {isOwnProfile && (
+          <View style={styles.groupEventHeader}>
+            <View />
+            <TouchableOpacity
+              style={styles.newButton}
+              onPress={handleNewActivity}
+              accessibilityLabel="Create new activity"
+              accessibilityRole="button"
+            >
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={styles.newButtonText}>New</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Content */}
+        {isEventsGroupsLoading ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name="calendar-outline"
+              size={48}
+              color={colors.grayMuted}
+              style={styles.emptyIconMargin}
+            />
+            <Text style={styles.emptyTitle}>No activities yet</Text>
+            <Text style={styles.emptyDesc}>Create your first activity to get started</Text>
+            {isOwnProfile && (
+              <TouchableOpacity
+                style={styles.createBtn}
+                onPress={handleNewActivity}
+                accessibilityLabel="Create new event or group"
+                accessibilityRole="button"
+              >
+                <Text style={styles.createBtnText}>Create New</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={styles.groupEventList}>
+            {items.map((item) => (
+              <EventGroupCard
+                key={`${item._type}-${item.id}`}
+                type={item._type}
+                id={item.id}
+                title={item._title}
+                location={item.address || ''}
+                coverImage={item.cover_image_url}
+                startDate={item.starts_at}
+                participantCount={item.current_participants}
+                maxParticipants={item.max_participants}
+                isOwner={item.creator_id === storeUser?.id}
+                onPress={() => handleEventGroupCardPress(item._type, item.id)}
+                onMenuPress={() => handleEventGroupMenuPress(item._type, item.id)}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // ==================== RENDER TAB CONTENT ====================
   const renderTabContent = () => {
     if (activeTab === 'posts') {
       if (posts.length === 0) {
         return renderEmpty();
       }
+      const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
+      const cardAspect = postColumns === 1 ? 0.9 : 1;
+      const gridPadding = 16 * 2;
+      const gridGap = 12;
+      const totalGaps = gridGap * (postColumns - 1);
+      const cardWidth = (SCREEN_WIDTH - gridPadding - totalGaps) / postColumns;
       return (
         <View style={styles.postsGrid}>
           {posts.map((post) => (
-            <View key={post.id} style={styles.postCardWrapper}>
+            <View
+              key={post.id}
+              style={[
+                styles.postCardWrapper,
+                {
+                  width: cardWidth,
+                  aspectRatio: cardAspect,
+                },
+              ]}
+            >
               {renderPostItem({ item: post })}
             </View>
           ))}
@@ -1100,6 +1380,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     if (activeTab === 'sessions') {
       return renderSessions();
     }
+    if (activeTab === 'groupevent') {
+      return renderGroupEvent();
+    }
     if (activeTab === 'collections') {
       return renderCollections();
     }
@@ -1109,12 +1392,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== EARLY RETURNS (after all hooks) ====================
   // Show loading only on initial load when we have no data at all
   if (isProfileLoading && !profileData && !user.displayName) {
-    return (
-      <View style={[styles.container, styles.loadingCenter]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={[styles.bioText, styles.loadingMargin]}>Loading profile...</Text>
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
 
   // Note: We no longer show a hard error screen - instead, we show the profile
@@ -1124,7 +1402,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== MAIN RENDER ====================
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
 
       {/* Settings Button - Fixed on top */}
       {isOwnProfile && (
@@ -1132,6 +1410,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           style={[styles.settingsBtnFixed, { top: insets.top + 8 }]}
           onPress={() => navigation.navigate('Settings')}
           testID="settings-button"
+          accessibilityLabel="Settings"
+          accessibilityRole="button"
+          accessibilityHint="Opens app settings"
         >
           <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -1143,7 +1424,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         stickyHeaderIndices={[1]} // Make tabs sticky when scrolling
       >
@@ -1172,6 +1453,26 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         options={getImageSheetOptions()}
       />
 
+      {/* Event/Group Menu */}
+      <SmuppyActionSheet
+        visible={!!menuItem}
+        onClose={() => setMenuItem(null)}
+        title={menuItem?.type === 'event' ? 'Event Options' : 'Group Options'}
+        options={[
+          {
+            label: 'Edit',
+            icon: 'create-outline',
+            onPress: async () => handleEventGroupMenuAction('edit'),
+          },
+          {
+            label: 'Delete',
+            icon: 'trash-outline',
+            onPress: async () => handleEventGroupMenuAction('delete'),
+            destructive: true,
+          },
+        ]}
+      />
+
       {/* Collection Menu Modal */}
       <Modal
         visible={collectionMenuVisible}
@@ -1185,16 +1486,23 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           onPress={() => setCollectionMenuVisible(false)}
         >
           <View style={styles.collectionMenuContainer}>
-            <TouchableOpacity style={styles.collectionMenuItem} onPress={handleRemoveFromCollection}>
-              <Ionicons name="bookmark-outline" size={22} color={COLORS.dark} />
+            <TouchableOpacity
+              style={styles.collectionMenuItem}
+              onPress={handleRemoveFromCollection}
+              accessibilityLabel="Remove from saved"
+              accessibilityRole="button"
+            >
+              <Ionicons name="bookmark-outline" size={22} color={colors.dark} />
               <Text style={styles.collectionMenuText}>Remove from saved</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.collectionMenuItem, styles.collectionMenuItemLast]}
               onPress={() => setCollectionMenuVisible(false)}
+              accessibilityLabel="Cancel"
+              accessibilityRole="button"
             >
-              <Ionicons name="close" size={22} color={COLORS.grayMuted} />
-              <Text style={[styles.collectionMenuText, { color: COLORS.grayMuted }]}>Cancel</Text>
+              <Ionicons name="close" size={22} color={colors.grayMuted} />
+              <Text style={[styles.collectionMenuText, { color: colors.grayMuted }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

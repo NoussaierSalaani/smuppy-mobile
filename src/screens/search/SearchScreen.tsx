@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -6,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Image,
   StatusBar,
   ActivityIndicator,
   Keyboard,
@@ -19,11 +19,14 @@ const GRID_SIZE = (width - 4) / 3;
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { AccountBadge } from '../../components/Badge';
 import OptimizedImage from '../../components/OptimizedImage';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { LiquidTabs } from '../../components/LiquidTabs';
+import { resolveDisplayName } from '../../types/profile';
+import { SearchSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
 import {
   searchProfiles,
   searchPosts,
@@ -38,14 +41,21 @@ import {
   Post,
   getCurrentProfile,
 } from '../../services/database';
+import { isValidUUID } from '../../utils/formatters';
 
 const PAGE_SIZE = 15;
 
 // Smuppy URL patterns
 const SMUPPY_URL_PATTERNS = {
-  post: /(?:smuppy\.app|localhost)\/p\/([a-f0-9-]{36})/i,
-  peak: /(?:smuppy\.app|localhost)\/peak\/([a-f0-9-]{36})/i,
-  profile: /(?:smuppy\.app|localhost)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i,
+  post: __DEV__
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/p\/([a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/p\/([a-f0-9-]{36})/i,
+  peak: __DEV__
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/peak\/([a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/peak\/([a-f0-9-]{36})/i,
+  profile: __DEV__
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i,
 };
 
 // ============================================
@@ -54,8 +64,8 @@ const SMUPPY_URL_PATTERNS = {
 
 type RootStackParamList = {
   UserProfile: { userId: string };
-  PostDetailFanFeed: { postId: string; fanFeedPosts: any[] };
-  PeakView: { peaks: any[]; initialIndex: number };
+  PostDetailFanFeed: { postId: string; fanFeedPosts: Record<string, unknown>[] };
+  PeakView: { peakData?: Record<string, unknown>[]; initialIndex?: number };
   [key: string]: object | undefined;
 };
 
@@ -64,7 +74,7 @@ type SearchTab = 'all' | 'users' | 'posts' | 'peaks' | 'tags';
 // ============================================
 // DEFAULT AVATAR
 // ============================================
-const DEFAULT_AVATAR = 'https://via.placeholder.com/100/0EBF8A/FFFFFF?text=S';
+const DEFAULT_AVATAR: string | undefined = undefined;
 
 // ============================================
 // MAIN COMPONENT
@@ -73,6 +83,8 @@ const DEFAULT_AVATAR = 'https://via.placeholder.com/100/0EBF8A/FFFFFF?text=S';
 const SearchScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const { colors, isDark } = useTheme();
+  const prefetchProfile = usePrefetchProfile();
   const searchInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -100,13 +112,15 @@ const SearchScreen = (): React.JSX.Element => {
 
   // Load current user on mount
   useEffect(() => {
+    let mounted = true;
     const loadCurrentUser = async () => {
       const { data: currentProfile } = await getCurrentProfile();
-      if (currentProfile) {
+      if (mounted && currentProfile) {
         setCurrentUserId(currentProfile.id);
       }
     };
     loadCurrentUser();
+    return () => { mounted = false; };
   }, []);
 
   // Detect Smuppy links and show content in results (not auto-navigate)
@@ -158,9 +172,8 @@ const SearchScreen = (): React.JSX.Element => {
     if (profileMatch) {
       const usernameOrId = profileMatch[1];
       // Try by ID first (UUID format)
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       let profile = null;
-      if (uuidRegex.test(usernameOrId)) {
+      if (isValidUUID(usernameOrId)) {
         const { data } = await getProfileById(usernameOrId);
         profile = data;
       } else {
@@ -183,13 +196,15 @@ const SearchScreen = (): React.JSX.Element => {
   }, []);
 
   // Load suggested content
-  const loadSuggestedContent = useCallback(async () => {
+  const loadSuggestedContent = useCallback(async (signal?: { aborted: boolean }) => {
     setIsLoading(true);
 
     const [profilesRes, hashtagsRes] = await Promise.all([
       getSuggestedProfiles(PAGE_SIZE, 0),
       getTrendingHashtags(10),
     ]);
+
+    if (signal?.aborted) return;
 
     if (profilesRes.data) {
       setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId));
@@ -202,9 +217,11 @@ const SearchScreen = (): React.JSX.Element => {
   }, [currentUserId]);
 
   useEffect(() => {
+    const signal = { aborted: false };
     if (currentUserId) {
-      loadSuggestedContent();
+      loadSuggestedContent(signal);
     }
+    return () => { signal.aborted = true; };
   }, [currentUserId, loadSuggestedContent]);
 
   // Perform search based on active tab
@@ -262,6 +279,7 @@ const SearchScreen = (): React.JSX.Element => {
       return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let newData: any[] = [];
 
     switch (tabType) {
@@ -329,7 +347,7 @@ const SearchScreen = (): React.JSX.Element => {
     if (searchQuery.length > 0) {
       searchTimeoutRef.current = setTimeout(async () => {
         // First check if it's a Smuppy link
-        const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('localhost');
+        const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
         if (isLink) {
           const handled = await detectAndShowLinkContent(searchQuery);
           if (handled) {
@@ -354,6 +372,7 @@ const SearchScreen = (): React.JSX.Element => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, performSearch, detectAndShowLinkContent]); // Removed activeTab from deps
 
   // Handle tab change separately (only for non-link searches)
@@ -361,10 +380,11 @@ const SearchScreen = (): React.JSX.Element => {
     if (linkDetected || searchQuery.length < 2) return;
 
     // Check if it's a link - don't re-search
-    const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('localhost');
+    const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
     if (isLink) return;
 
     performSearch(searchQuery, activeTab, 0, false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]); // Only trigger on tab change
 
   // Load more
@@ -374,6 +394,8 @@ const SearchScreen = (): React.JSX.Element => {
     setPage(nextPage);
     performSearch(searchQuery, activeTab, nextPage, true);
   }, [loadingMore, hasMore, searchQuery, activeTab, page, performSearch]);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // ============================================
   // HANDLERS
@@ -394,6 +416,7 @@ const SearchScreen = (): React.JSX.Element => {
   };
 
   const handleUserPress = (userId: string): void => {
+    prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
   };
 
@@ -408,7 +431,7 @@ const SearchScreen = (): React.JSX.Element => {
       comments: p.comments_count || 0,
       user: {
         id: p.author?.id || p.author_id,
-        name: p.author?.full_name || 'User',
+        name: resolveDisplayName(p.author),
         avatar: p.author?.avatar_url || DEFAULT_AVATAR,
         followsMe: false,
       },
@@ -423,7 +446,7 @@ const SearchScreen = (): React.JSX.Element => {
       duration: p.peak_duration || 15,
       user: {
         id: p.author?.id || p.author_id,
-        name: p.author?.full_name || 'User',
+        name: resolveDisplayName(p.author),
         avatar: p.author?.avatar_url || DEFAULT_AVATAR,
       },
       views: p.views_count || 0,
@@ -431,7 +454,7 @@ const SearchScreen = (): React.JSX.Element => {
       textOverlay: p.content || p.caption || '',
       createdAt: p.created_at, // Keep as ISO string for React Navigation serialization
     }));
-    navigation.navigate('PeakView', { peaks: transformedPeaks, initialIndex: index });
+    navigation.navigate('PeakView', { peakData: transformedPeaks, initialIndex: index });
   };
 
   const handleHashtagPress = (tag: string): void => {
@@ -448,13 +471,10 @@ const SearchScreen = (): React.JSX.Element => {
       style={styles.resultItem}
       onPress={() => handleUserPress(profile.id)}
     >
-      <Image
-        source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
-        style={styles.resultAvatar}
-      />
+      <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
       <View style={styles.resultInfo}>
         <View style={styles.usernameRow}>
-          <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
+          <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
           <AccountBadge
             size={16}
             style={{ marginLeft: 4 }}
@@ -462,9 +482,8 @@ const SearchScreen = (): React.JSX.Element => {
             accountType={profile.account_type}
           />
         </View>
-        <Text style={styles.resultFullName}>@{profile.username}</Text>
         {profile.fan_count !== undefined && profile.fan_count > 0 && (
-          <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
+          <Text style={[styles.resultMutual, { color: colors.primary }]}>{profile.fan_count} fans</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -478,10 +497,10 @@ const SearchScreen = (): React.JSX.Element => {
         onPress={() => handlePostPress(post)}
       >
         {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+          <OptimizedImage source={thumbnail} style={[styles.gridImage, { backgroundColor: colors.gray100 }]} />
         ) : (
-          <View style={[styles.gridImage, styles.gridPlaceholder]}>
-            <Ionicons name="image-outline" size={24} color={COLORS.grayMuted} />
+          <View style={[styles.gridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+            <Ionicons name="image-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
         {post.media_type === 'video' && (
@@ -505,10 +524,10 @@ const SearchScreen = (): React.JSX.Element => {
         onPress={() => handlePeakPress(peak, index)}
       >
         {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+          <OptimizedImage source={thumbnail} style={[styles.gridImage, { backgroundColor: colors.gray100 }]} />
         ) : (
-          <View style={[styles.gridImage, styles.gridPlaceholder]}>
-            <Ionicons name="videocam-outline" size={24} color={COLORS.grayMuted} />
+          <View style={[styles.gridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+            <Ionicons name="videocam-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
         <View style={styles.peakDuration}>
@@ -530,10 +549,10 @@ const SearchScreen = (): React.JSX.Element => {
         onPress={() => handlePostPress(post)}
       >
         {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+          <OptimizedImage source={thumbnail} style={[styles.gridImage, { backgroundColor: colors.gray100 }]} />
         ) : (
-          <View style={[styles.gridImage, styles.gridPlaceholder]}>
-            <Ionicons name="image-outline" size={24} color={COLORS.grayMuted} />
+          <View style={[styles.gridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+            <Ionicons name="image-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
         <View style={styles.gridStats}>
@@ -615,9 +634,9 @@ const SearchScreen = (): React.JSX.Element => {
 
   const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
-      <Ionicons name="search-outline" size={48} color={COLORS.grayMuted} />
-      <Text style={styles.emptyText}>No results found</Text>
-      <Text style={styles.emptySubtext}>Try a different search</Text>
+      <Ionicons name="search-outline" size={48} color={colors.grayMuted} />
+      <Text style={[styles.emptyText, { color: colors.dark }]}>No results found</Text>
+      <Text style={[styles.emptySubtext, { color: colors.grayMuted }]}>Try a different search</Text>
     </View>
   );
 
@@ -626,16 +645,16 @@ const SearchScreen = (): React.JSX.Element => {
       {/* Trending Hashtags */}
       {trendingHashtags.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Trending Hashtags</Text>
+          <Text style={[styles.sectionTitle, { color: colors.dark }]}>Trending Hashtags</Text>
           <View style={styles.hashtagsGrid}>
             {trendingHashtags.map((item, index) => (
               <TouchableOpacity
                 key={`tag-${index}`}
-                style={styles.hashtagChip}
+                style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]}
                 onPress={() => handleHashtagPress(item.tag)}
               >
-                <Text style={styles.hashtagText}>#{item.tag}</Text>
-                <Text style={styles.hashtagCount}>{item.count}</Text>
+                <Text style={[styles.hashtagText, { color: colors.dark }]}>#{item.tag}</Text>
+                <Text style={[styles.hashtagCount, { color: colors.gray }]}>{item.count}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -644,20 +663,17 @@ const SearchScreen = (): React.JSX.Element => {
 
       {/* Suggested Profiles */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Suggested</Text>
+        <Text style={[styles.sectionTitle, { color: colors.dark }]}>Suggested</Text>
         {suggestedProfiles.map((profile) => (
           <TouchableOpacity
             key={profile.id}
             style={styles.resultItem}
             onPress={() => handleUserPress(profile.id)}
           >
-            <Image
-              source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
-              style={styles.resultAvatar}
-            />
+            <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
             <View style={styles.resultInfo}>
               <View style={styles.usernameRow}>
-                <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
+                <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
                 <AccountBadge
                   size={16}
                   style={{ marginLeft: 4 }}
@@ -665,9 +681,8 @@ const SearchScreen = (): React.JSX.Element => {
                   accountType={profile.account_type}
                 />
               </View>
-              <Text style={styles.resultFullName}>@{profile.username}</Text>
               {profile.fan_count !== undefined && profile.fan_count > 0 && (
-                <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
+                <Text style={[styles.resultMutual, { color: colors.primary }]}>{profile.fan_count} fans</Text>
               )}
             </View>
           </TouchableOpacity>
@@ -683,10 +698,10 @@ const SearchScreen = (): React.JSX.Element => {
       {userResults.length > 0 && (
         <View style={styles.allSection}>
           <View style={styles.allSectionHeader}>
-            <Text style={styles.allSectionTitle}>Users</Text>
+            <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Users</Text>
             {userResults.length > 3 && (
               <TouchableOpacity onPress={() => setActiveTab('users')}>
-                <Text style={styles.seeAllText}>See all ({userResults.length})</Text>
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({userResults.length})</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -696,13 +711,10 @@ const SearchScreen = (): React.JSX.Element => {
               style={styles.resultItem}
               onPress={() => handleUserPress(profile.id)}
             >
-              <Image
-                source={{ uri: profile.avatar_url || DEFAULT_AVATAR }}
-                style={styles.resultAvatar}
-              />
+              <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
               <View style={styles.resultInfo}>
                 <View style={styles.usernameRow}>
-                  <Text style={styles.resultUsername}>{profile.display_name || profile.full_name}</Text>
+                  <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
                   <AccountBadge
                     size={16}
                     style={{ marginLeft: 4 }}
@@ -710,7 +722,6 @@ const SearchScreen = (): React.JSX.Element => {
                     accountType={profile.account_type}
                   />
                 </View>
-                <Text style={styles.resultFullName}>@{profile.username}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -721,10 +732,10 @@ const SearchScreen = (): React.JSX.Element => {
       {postResults.length > 0 && (
         <View style={styles.allSection}>
           <View style={styles.allSectionHeader}>
-            <Text style={styles.allSectionTitle}>Posts</Text>
+            <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Posts</Text>
             {postResults.length > 6 && (
               <TouchableOpacity onPress={() => setActiveTab('posts')}>
-                <Text style={styles.seeAllText}>See all ({postResults.length})</Text>
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({postResults.length})</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -738,10 +749,10 @@ const SearchScreen = (): React.JSX.Element => {
                   onPress={() => handlePostPress(post)}
                 >
                   {thumbnail ? (
-                    <OptimizedImage source={thumbnail} style={styles.allGridImage} />
+                    <OptimizedImage source={thumbnail} style={[styles.allGridImage, { backgroundColor: colors.gray100 }]} />
                   ) : (
-                    <View style={[styles.allGridImage, styles.gridPlaceholder]}>
-                      <Ionicons name="image-outline" size={20} color={COLORS.grayMuted} />
+                    <View style={[styles.allGridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+                      <Ionicons name="image-outline" size={20} color={colors.grayMuted} />
                     </View>
                   )}
                   {post.media_type === 'video' && (
@@ -760,10 +771,10 @@ const SearchScreen = (): React.JSX.Element => {
       {peakResults.length > 0 && (
         <View style={styles.allSection}>
           <View style={styles.allSectionHeader}>
-            <Text style={styles.allSectionTitle}>Peaks</Text>
+            <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Peaks</Text>
             {peakResults.length > 6 && (
               <TouchableOpacity onPress={() => setActiveTab('peaks')}>
-                <Text style={styles.seeAllText}>See all ({peakResults.length})</Text>
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({peakResults.length})</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -777,10 +788,10 @@ const SearchScreen = (): React.JSX.Element => {
                   onPress={() => handlePeakPress(peak, index)}
                 >
                   {thumbnail ? (
-                    <OptimizedImage source={thumbnail} style={styles.allGridImage} />
+                    <OptimizedImage source={thumbnail} style={[styles.allGridImage, { backgroundColor: colors.gray100 }]} />
                   ) : (
-                    <View style={[styles.allGridImage, styles.gridPlaceholder]}>
-                      <Ionicons name="videocam-outline" size={20} color={COLORS.grayMuted} />
+                    <View style={[styles.allGridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+                      <Ionicons name="videocam-outline" size={20} color={colors.grayMuted} />
                     </View>
                   )}
                   <View style={styles.peakDurationSmall}>
@@ -797,10 +808,10 @@ const SearchScreen = (): React.JSX.Element => {
       {hashtagResults.length > 0 && (
         <View style={styles.allSection}>
           <View style={styles.allSectionHeader}>
-            <Text style={styles.allSectionTitle}>Tagged Posts</Text>
+            <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Tagged Posts</Text>
             {hashtagResults.length > 6 && (
               <TouchableOpacity onPress={() => setActiveTab('tags')}>
-                <Text style={styles.seeAllText}>See all ({hashtagResults.length})</Text>
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({hashtagResults.length})</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -814,10 +825,10 @@ const SearchScreen = (): React.JSX.Element => {
                   onPress={() => handlePostPress(post)}
                 >
                   {thumbnail ? (
-                    <OptimizedImage source={thumbnail} style={styles.allGridImage} />
+                    <OptimizedImage source={thumbnail} style={[styles.allGridImage, { backgroundColor: colors.gray100 }]} />
                   ) : (
-                    <View style={[styles.allGridImage, styles.gridPlaceholder]}>
-                      <Ionicons name="image-outline" size={20} color={COLORS.grayMuted} />
+                    <View style={[styles.allGridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+                      <Ionicons name="image-outline" size={20} color={colors.grayMuted} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -830,7 +841,7 @@ const SearchScreen = (): React.JSX.Element => {
       {/* Loading more indicator */}
       {loadingMore && (
         <View style={styles.loadingMore}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       )}
     </ScrollView>
@@ -840,12 +851,7 @@ const SearchScreen = (): React.JSX.Element => {
     const results = getCurrentResults();
 
     if (isLoading && !loadingMore) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Searching...</Text>
-        </View>
-      );
+      return <SearchSkeleton />;
     }
 
     // For "All" tab, check if any results exist
@@ -872,7 +878,7 @@ const SearchScreen = (): React.JSX.Element => {
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.loadingMore}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : null
           }
@@ -897,7 +903,7 @@ const SearchScreen = (): React.JSX.Element => {
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : null
         }
@@ -912,8 +918,8 @@ const SearchScreen = (): React.JSX.Element => {
   // ============================================
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -922,16 +928,16 @@ const SearchScreen = (): React.JSX.Element => {
           onPress={handleGoBack}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
 
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color={COLORS.grayMuted} />
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.gray100 }]}>
+          <Ionicons name="search" size={20} color={colors.grayMuted} />
           <TextInput
             ref={searchInputRef}
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.dark }]}
             placeholder={activeTab === 'tags' ? 'Search #hashtags...' : 'Search...'}
-            placeholderTextColor={COLORS.grayMuted}
+            placeholderTextColor={colors.grayMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
@@ -939,14 +945,14 @@ const SearchScreen = (): React.JSX.Element => {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={handleClearSearch}>
-              <Ionicons name="close-circle" size={20} color={COLORS.grayMuted} />
+              <Ionicons name="close-circle" size={20} color={colors.grayMuted} />
             </TouchableOpacity>
           )}
         </View>
 
         {searchQuery.length > 0 && (
           <TouchableOpacity style={styles.cancelButton} onPress={handleCancelSearch}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={[styles.cancelText, { color: colors.primary }]}>Cancel</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -966,10 +972,10 @@ const SearchScreen = (): React.JSX.Element => {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -990,7 +996,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.gray100,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -999,7 +1005,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   cancelButton: {
     paddingHorizontal: 4,
@@ -1007,7 +1013,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Tabs
@@ -1031,7 +1037,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     paddingHorizontal: 16,
     marginBottom: 12,
   },
@@ -1047,7 +1053,7 @@ const styles = StyleSheet.create({
   hashtagChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.gray100,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1056,11 +1062,11 @@ const styles = StyleSheet.create({
   hashtagText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   hashtagCount: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Result item (users)
@@ -1086,16 +1092,16 @@ const styles = StyleSheet.create({
   resultUsername: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   resultFullName: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 1,
   },
   resultMutual: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 2,
   },
 
@@ -1113,11 +1119,11 @@ const styles = StyleSheet.create({
   allSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   seeAllText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
   allGrid: {
@@ -1133,7 +1139,7 @@ const styles = StyleSheet.create({
   allGridImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.gray100,
   },
   peakDurationSmall: {
     position: 'absolute',
@@ -1162,7 +1168,7 @@ const styles = StyleSheet.create({
   gridImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.gray100,
   },
   gridPlaceholder: {
     justifyContent: 'center',
@@ -1219,12 +1225,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
     marginTop: 4,
   },
 
@@ -1235,7 +1241,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 12,
   },
   loadingMore: {

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { AvatarImage } from '../OptimizedImage';
 import {
   View,
   Text,
@@ -24,8 +25,9 @@ interface TopTipper {
   rank: number;
   user_id: string;
   username: string;
+  display_name?: string;
   profile_picture_url?: string;
-  is_verified: boolean;
+  is_verified?: boolean;
   total_tips: number;
   tip_count: number;
 }
@@ -54,7 +56,7 @@ export default function TipLeaderboard({
   compact = false,
   maxItems = 10,
 }: TipLeaderboardProps) {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void }>();
   const { formatAmount } = useCurrency();
 
   const [topTippers, setTopTippers] = useState<TopTipper[]>([]);
@@ -74,7 +76,36 @@ export default function TipLeaderboard({
       const response = await awsAPI.getTipsLeaderboard(creatorId, selectedPeriod);
 
       if (response.success) {
-        const tippers = (response.leaderboard || []).slice(0, maxItems);
+        // Transform API response to flat structure
+        interface RawLeaderboardItem {
+          rank: number;
+          user_id?: string;
+          username?: string;
+          display_name?: string;
+          profile_picture_url?: string;
+          is_verified?: boolean;
+          total_tips?: number;
+          tip_count?: number;
+          totalAmount?: number;
+          tipCount?: number;
+          tipper?: {
+            id?: string;
+            username?: string;
+            displayName?: string;
+            avatarUrl?: string;
+            isVerified?: boolean;
+          };
+        }
+        const tippers: TopTipper[] = (response.leaderboard || []).slice(0, maxItems).map((item: RawLeaderboardItem) => ({
+          rank: item.rank,
+          user_id: item.tipper?.id || item.user_id || '',
+          username: item.tipper?.username || item.username || '',
+          display_name: item.tipper?.displayName || item.display_name,
+          profile_picture_url: item.tipper?.avatarUrl || item.profile_picture_url,
+          is_verified: item.tipper?.isVerified || item.is_verified || false,
+          total_tips: item.totalAmount || item.total_tips || 0,
+          tip_count: item.tipCount || item.tip_count || 0,
+        }));
         setTopTippers(tippers);
 
         // Initialize animations
@@ -92,7 +123,7 @@ export default function TipLeaderboard({
         });
       }
     } catch (error) {
-      console.error('Load leaderboard error:', error);
+      if (__DEV__) console.warn('Load leaderboard error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -128,22 +159,15 @@ export default function TipLeaderboard({
               { borderColor: RANK_COLORS[position] },
             ]}
           >
-            <Image
-              source={{
-                uri:
-                  tipper.profile_picture_url ||
-                  `https://ui-avatars.com/api/?name=${tipper.username}&background=random`,
-              }}
-              style={[styles.podiumAvatar, { width: avatarSize, height: avatarSize }]}
-            />
+            <AvatarImage source={tipper.profile_picture_url} size={avatarSize} />
             <View style={[styles.rankBadge, { backgroundColor: RANK_COLORS[position] }]}>
               <Text style={styles.rankText}>{position + 1}</Text>
             </View>
           </View>
 
-          {/* Username */}
+          {/* Display Name */}
           <Text style={styles.podiumUsername} numberOfLines={1}>
-            @{tipper.username}
+            {tipper.display_name || tipper.username}
           </Text>
 
           {/* Amount */}
@@ -178,24 +202,17 @@ export default function TipLeaderboard({
             ]}
           >
             {isTopThree ? (
-              <Ionicons name={RANK_ICONS[index] as any} size={18} color={RANK_COLORS[index]} />
+              <Ionicons name={RANK_ICONS[index] as keyof typeof Ionicons.glyphMap} size={18} color={RANK_COLORS[index]} />
             ) : (
               <Text style={styles.listRankText}>{index + 1}</Text>
             )}
           </View>
 
           {/* Avatar & Name */}
-          <Image
-            source={{
-              uri:
-                item.profile_picture_url ||
-                `https://ui-avatars.com/api/?name=${item.username}&background=random`,
-            }}
-            style={styles.listAvatar}
-          />
+          <AvatarImage source={item.profile_picture_url} size={40} style={styles.listAvatar} />
           <View style={styles.listInfo}>
             <View style={styles.listNameRow}>
-              <Text style={styles.listUsername}>@{item.username}</Text>
+              <Text style={styles.listUsername}>{item.display_name || item.username}</Text>
               {item.is_verified && (
                 <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
               )}
@@ -224,7 +241,7 @@ export default function TipLeaderboard({
           </View>
           <TouchableOpacity
             onPress={() =>
-              navigation.navigate('TipLeaderboard', { creatorId, creatorUsername })
+              navigation.navigate('UserProfile', { userId: creatorId })
             }
           >
             <Text style={styles.seeAllText}>See All</Text>
@@ -251,7 +268,7 @@ export default function TipLeaderboard({
                     source={{
                       uri:
                         tipper.profile_picture_url ||
-                        `https://ui-avatars.com/api/?name=${tipper.username}&background=random`,
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(tipper.display_name || tipper.username)}&background=random`,
                     }}
                     style={styles.compactAvatar}
                   />
@@ -260,7 +277,7 @@ export default function TipLeaderboard({
                   </View>
                 </View>
                 <Text style={styles.compactUsername} numberOfLines={1}>
-                  {tipper.username}
+                  {tipper.display_name || tipper.username}
                 </Text>
                 <Text style={[styles.compactAmount, { color: RANK_COLORS[index] }]}>
                   {formatAmount(tipper.total_tips)}

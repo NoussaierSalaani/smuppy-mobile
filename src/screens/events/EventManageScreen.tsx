@@ -3,7 +3,8 @@
  * Creator dashboard to manage their event (edit, participants, cancel)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -11,8 +12,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
-  Alert,
   ActivityIndicator,
   FlatList,
   Modal,
@@ -22,14 +21,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EventManageScreenProps {
   route: { params: { eventId: string } };
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 interface Participant {
@@ -59,10 +60,12 @@ interface EventData {
 }
 
 export default function EventManageScreen({ route, navigation }: EventManageScreenProps) {
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { eventId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
   const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const { colors, isDark } = useTheme();
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -77,8 +80,11 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   const [editPrice, setEditPrice] = useState('');
   const [editMaxParticipants, setEditMaxParticipants] = useState('');
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   useEffect(() => {
     loadEventData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const loadEventData = async () => {
@@ -100,8 +106,8 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
         setParticipants(participantsResponse.participants || []);
       }
     } catch (error) {
-      console.error('Load event data error:', error);
-      Alert.alert('Error', 'Failed to load event data');
+      if (__DEV__) console.warn('Load event data error:', error);
+      showError('Error', 'Failed to load event data');
     } finally {
       setIsLoading(false);
     }
@@ -125,86 +131,67 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
 
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Saved', 'Event updated successfully!');
+        showSuccess('Saved', 'Event updated successfully!');
         setShowEditModal(false);
         loadEventData();
       } else {
         throw new Error(response.message || 'Failed to update event');
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save changes');
+    } catch (error: unknown) {
+      showError('Error', (error instanceof Error ? error.message : null) || 'Failed to save changes');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCancelEvent = () => {
-    Alert.alert(
-      '⚠️ Cancel Event',
+    showDestructiveConfirm(
+      'Cancel Event',
       'Are you sure you want to cancel this event?\n\nAll participants will be notified and refunded if applicable.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel Event',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.cancelEvent(eventId);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Event Cancelled', 'All participants have been notified.', [
-                  { text: 'OK', onPress: () => navigation.goBack() },
-                ]);
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel event');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.cancelEvent(eventId);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            showSuccess('Event Cancelled', 'All participants have been notified.');
+            navigation.goBack();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: unknown) {
+          showError('Error', (error instanceof Error ? error.message : null) || 'Failed to cancel event');
+        }
+      },
+      'Yes, Cancel Event'
     );
   };
 
   const handleRemoveParticipant = (participant: Participant) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Remove Participant',
       `Remove @${participant.username} from this event?${participant.payment_status === 'paid' ? '\n\nThey will be refunded.' : ''}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.removeEventParticipant(eventId, participant.user_id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadEventData();
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to remove participant');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.removeEventParticipant(eventId, participant.user_id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadEventData();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: unknown) {
+          showError('Error', (error instanceof Error ? error.message : null) || 'Failed to remove participant');
+        }
+      },
+      'Remove'
     );
   };
 
   const renderParticipantItem = ({ item }: { item: Participant }) => (
     <View style={styles.participantItem}>
-      <Image
-        source={{
-          uri: item.avatar_url || `https://ui-avatars.com/api/?name=${item.username}&background=random`,
-        }}
-        style={styles.participantAvatar}
-      />
+      <AvatarImage source={item.avatar_url} size={44} />
       <View style={styles.participantInfo}>
-        <Text style={styles.participantName}>{item.full_name}</Text>
-        <Text style={styles.participantUsername}>@{item.username}</Text>
+        <Text style={styles.participantName}>{item.full_name || item.username}</Text>
       </View>
       <View style={styles.participantMeta}>
         {item.payment_status === 'paid' && (
@@ -231,7 +218,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -256,7 +243,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Event</Text>
           <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editButton}>
-            <Ionicons name="pencil" size={20} color={COLORS.primary} />
+            <Ionicons name="pencil" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -310,7 +297,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
             <View style={styles.tabContent}>
               <View style={styles.detailCard}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                  <Ionicons name="calendar" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Date</Text>
                     <Text style={styles.detailValue}>
@@ -326,7 +313,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Ionicons name="location" size={20} color={COLORS.primary} />
+                  <Ionicons name="location" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Location</Text>
                     <Text style={styles.detailValue}>{event.location_name}</Text>
@@ -334,7 +321,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Ionicons name="people" size={20} color={COLORS.primary} />
+                  <Ionicons name="people" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Capacity</Text>
                     <Text style={styles.detailValue}>
@@ -344,7 +331,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Ionicons name="pricetag" size={20} color={COLORS.primary} />
+                  <Ionicons name="pricetag" size={20} color={colors.primary} />
                   <View style={styles.detailInfo}>
                     <Text style={styles.detailLabel}>Entry Fee</Text>
                     <Text style={styles.detailValue}>
@@ -361,17 +348,17 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                   onPress={() => setShowEditModal(true)}
                 >
                   <View style={styles.actionIcon}>
-                    <Ionicons name="pencil" size={22} color={COLORS.primary} />
+                    <Ionicons name="pencil" size={22} color={colors.primary} />
                   </View>
                   <Text style={styles.actionText}>Edit Event</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => navigation.navigate('EventDetail', { eventId })}
+                  onPress={() => navigation.navigate('ActivityDetail', { activityId: eventId, activityType: 'event' })}
                 >
                   <View style={styles.actionIcon}>
-                    <Ionicons name="eye" size={22} color={COLORS.primary} />
+                    <Ionicons name="eye" size={22} color={colors.primary} />
                   </View>
                   <Text style={styles.actionText}>View Public</Text>
                 </TouchableOpacity>
@@ -393,7 +380,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
             <View style={styles.tabContent}>
               {participants.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="people-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="people-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No participants yet</Text>
                   <Text style={styles.emptySubtitle}>Share your event to get people to join!</Text>
                 </View>
@@ -467,7 +454,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                     value={editTitle}
                     onChangeText={setEditTitle}
                     placeholder="Event title"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -478,7 +465,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                     value={editDescription}
                     onChangeText={setEditDescription}
                     placeholder="Describe your event..."
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     multiline
                   />
                 </View>
@@ -494,7 +481,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                       value={editPrice}
                       onChangeText={setEditPrice}
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                       keyboardType="decimal-pad"
                     />
                     {!event.is_free && participants.length > 0 && (
@@ -515,7 +502,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                     value={editMaxParticipants}
                     onChangeText={setEditMaxParticipants}
                     placeholder="Unlimited"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     keyboardType="number-pad"
                   />
                 </View>
@@ -542,7 +529,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f1a',
@@ -564,7 +551,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Header
@@ -627,7 +614,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   statDivider: {
@@ -651,12 +638,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
     color: '#fff',
@@ -687,7 +674,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   detailValue: {
     fontSize: 15,
@@ -755,7 +742,7 @@ const styles = StyleSheet.create({
   },
   participantUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   participantMeta: {
     flexDirection: 'row',
@@ -785,7 +772,7 @@ const styles = StyleSheet.create({
   freeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   removeButton: {
     padding: 4,
@@ -806,7 +793,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Revenue Tab
@@ -820,7 +807,7 @@ const styles = StyleSheet.create({
   },
   revenueLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   revenueAmount: {
     fontSize: 36,
@@ -830,7 +817,7 @@ const styles = StyleSheet.create({
   },
   revenueSubtext: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   revenueBreakdown: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -851,7 +838,7 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   breakdownValue: {
     fontSize: 14,
@@ -919,7 +906,7 @@ const styles = StyleSheet.create({
   },
   formHint: {
     fontWeight: '400',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   formInput: {
     backgroundColor: 'rgba(255,255,255,0.05)',

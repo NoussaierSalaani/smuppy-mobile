@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface ActionOption {
   label: string;
@@ -39,6 +40,8 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
   cancelLabel = 'Cancel',
 }) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleOptionPress = (option: ActionOption) => {
     if (option.disabled) return;
@@ -89,7 +92,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
                         option.destructive && styles.iconDestructive,
                       ]}>
                         <Ionicons
-                          name={option.icon as any}
+                          name={option.icon as keyof typeof Ionicons.glyphMap}
                           size={22}
                           color={option.destructive ? '#FF3B30' : '#0EBF8A'}
                         />
@@ -121,7 +124,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
                   style={styles.cancelButton}
                 >
                   <LinearGradient
-                    colors={['#F5F5F5', '#EBEBEB']}
+                    colors={isDark ? [colors.backgroundSecondary, colors.backgroundSecondary] : ['#F5F5F5', '#EBEBEB']}
                     style={styles.cancelGradient}
                   >
                     <Text style={styles.cancelText}>{cancelLabel}</Text>
@@ -189,14 +192,14 @@ export const useImagePickerSheet = () => {
   };
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.cardBg,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 8,
@@ -206,22 +209,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.border,
     marginBottom: 8,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A252F',
+    color: colors.dark,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
   },
   optionsContainer: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 12,
@@ -231,9 +234,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.border,
   },
   optionFirst: {
     borderTopLeftRadius: 14,
@@ -263,13 +266,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: '#0A252F',
+    color: colors.dark,
   },
   optionTextDestructive: {
     color: '#FF3B30',
   },
   optionTextDisabled: {
-    color: '#C7C7CC',
+    color: colors.grayMuted,
   },
   cancelButton: {
     borderRadius: 14,
@@ -279,11 +282,12 @@ const styles = StyleSheet.create({
   cancelGradient: {
     paddingVertical: 16,
     alignItems: 'center',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#F5F5F5',
   },
   cancelText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
   },
 });
 

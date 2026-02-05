@@ -40,6 +40,7 @@ export function DayChallenge({ params, size = 120 }: DayChallengeProps) {
       -1,
       false
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Celebration animation on milestones
@@ -50,6 +51,7 @@ export function DayChallenge({ params, size = 120 }: DayChallengeProps) {
         withSpring(1, { damping: 12, stiffness: 180 })
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDay, isMilestone]);
 
   // Animated styles

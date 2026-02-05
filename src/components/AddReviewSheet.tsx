@@ -4,7 +4,7 @@
  * Includes star rating, text comment, photo upload, and quality checkboxes.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,13 +16,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { COLORS, GRADIENTS } from '../config/theme';
+import { GRADIENTS } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import QualityPicker from './QualityPicker';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -68,10 +69,14 @@ export default function AddReviewSheet({
   showQualities = true,
   isSubmitting = false,
 }: AddReviewSheetProps) {
+  const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [qualities, setQualities] = useState<string[]>([]);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleStarPress = useCallback((star: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -80,7 +85,7 @@ export default function AddReviewSheet({
 
   const handleSubmit = useCallback(() => {
     if (rating === 0) {
-      Alert.alert('Rating required', 'Please select a star rating');
+      showError('Rating required', 'Please select a star rating');
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -89,7 +94,7 @@ export default function AddReviewSheet({
     setRating(0);
     setComment('');
     setQualities([]);
-  }, [rating, comment, qualities, onSubmit]);
+  }, [rating, comment, qualities, onSubmit, showError]);
 
   const handleClose = useCallback(() => {
     setRating(0);
@@ -127,7 +132,7 @@ export default function AddReviewSheet({
                     <Ionicons
                       name={star <= rating ? 'star' : 'star-outline'}
                       size={normalize(36)}
-                      color={star <= rating ? '#FFD700' : COLORS.gray300}
+                      color={star <= rating ? '#FFD700' : colors.gray}
                     />
                   </TouchableOpacity>
                 ))}
@@ -144,7 +149,7 @@ export default function AddReviewSheet({
               <TextInput
                 style={styles.commentInput}
                 placeholder="Share your experience..."
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={colors.gray}
                 value={comment}
                 onChangeText={setComment}
                 multiline
@@ -169,7 +174,7 @@ export default function AddReviewSheet({
                 disabled={isSubmitting || rating === 0}
               >
                 <LinearGradient
-                  colors={rating === 0 ? [COLORS.gray300, COLORS.gray300] : GRADIENTS.primary}
+                  colors={rating === 0 ? [colors.gray, colors.gray] : GRADIENTS.primary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.submitButton}
@@ -191,7 +196,7 @@ export default function AddReviewSheet({
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -201,7 +206,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderTopLeftRadius: normalize(28),
     borderTopRightRadius: normalize(28),
     padding: wp(5),
@@ -210,7 +215,7 @@ const styles = StyleSheet.create({
   handle: {
     width: wp(10),
     height: 4,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.gray,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: hp(2),
@@ -218,11 +223,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: normalize(22),
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   targetName: {
     fontSize: normalize(14),
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     marginBottom: hp(2),
   },
@@ -236,24 +241,24 @@ const styles = StyleSheet.create({
   },
   ratingLabel: {
     fontSize: normalize(14),
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: hp(2),
   },
 
   // Comment
   commentInput: {
-    backgroundColor: COLORS.gray100,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: normalize(14),
     padding: 14,
     fontSize: normalize(14),
-    color: COLORS.dark,
+    color: colors.dark,
     minHeight: 100,
     marginBottom: 4,
   },
   charCount: {
     fontSize: normalize(11),
-    color: COLORS.gray400,
+    color: colors.gray,
     textAlign: 'right',
     marginBottom: hp(1.5),
   },
@@ -268,6 +273,6 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: normalize(16),
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

@@ -51,6 +51,7 @@ export function CalorieBurn({ params, size = 100 }: CalorieBurnProps) {
     }
 
     prevCalories.current = calories;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calories]);
 
   // Continuous flame animation
@@ -63,6 +64,7 @@ export function CalorieBurn({ params, size = 100 }: CalorieBurnProps) {
       -1,
       true
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Animated styles

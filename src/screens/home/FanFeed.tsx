@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { memo, useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -9,27 +9,31 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  Alert,
   Share,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { COLORS, GRADIENTS, SPACING } from '../../config/theme';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import { GRADIENTS, SPACING } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
-import { useContentStore, useUserSafetyStore } from '../../stores';
-import { useShareModal } from '../../hooks';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
+import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, likePost, unlikePost, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch } from '../../services/database';
+import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
-import { MOCK_FAN_POSTS } from '../../mocks';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme } from '../../hooks/useTheme';
+import { FeedSkeleton } from '../../components/skeleton';
+import { usePrefetchProfile } from '../../hooks';
+import { formatNumber } from '../../utils/formatters';
+
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +42,7 @@ interface UISuggestion {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   isVerified: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
 }
@@ -46,6 +50,225 @@ interface UISuggestion {
 // UIFanPost and transformToFanPost are now imported from utils/postTransformers
 // Using UIFanPost as UIPost alias for backward compatibility
 type UIPost = UIFanPost;
+
+// ============================================
+// Memoized PostItem component for FlashList
+// ============================================
+interface PostItemProps {
+  post: UIPost;
+  isLast: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+  styles: ReturnType<typeof createStyles>;
+  onUserPress: (userId: string) => void;
+  onLike: (postId: string) => void;
+  onSave: (postId: string) => void;
+  onMenu: (post: UIPost) => void;
+  onShare: (post: UIPost) => void;
+  onDetail: (post: UIPost) => void;
+  onLikersPress: (postId: string) => void;
+}
+
+const PostItem = memo<PostItemProps>(({
+  post, isLast, colors, styles,
+  onUserPress, onLike, onSave, onMenu, onShare, onDetail, onLikersPress,
+}) => {
+  const [carouselIndex, setCarouselIndex] = useState(0);
+
+  return (
+    <View style={styles.postContainer}>
+      {/* Header */}
+      <View style={styles.postHeader}>
+        <TouchableOpacity
+          style={styles.postUser}
+          onPress={() => onUserPress(post.user.id)}
+        >
+          <AvatarImage source={post.user.avatar} size={40} />
+          <View style={styles.postUserInfo}>
+            <View style={styles.postUserNameRow}>
+              <Text style={styles.postUserName}>{post.user.name}</Text>
+              <AccountBadge
+                size={16}
+                style={styles.verifiedBadge}
+                isVerified={post.user.isVerified}
+                accountType={post.user.accountType}
+              />
+              {post.user.isBot && (
+                <View style={styles.teamBadge}>
+                  <Text style={styles.teamBadgeText}>(Team Smuppy)</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.postMeta}>
+              {post.timeAgo}{post.location ? ` • ${post.location}` : null}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.postMore} onPress={() => onMenu(post)}>
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.dark} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Media */}
+      <DoubleTapLike
+        onDoubleTap={() => { if (!post.isLiked) onLike(post.id); }}
+        onSingleTap={() => onDetail(post)}
+        showAnimation={!post.isLiked}
+      >
+        <View style={styles.postMedia}>
+          {post.allMedia && post.allMedia.length > 1 ? (
+            <>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  setCarouselIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+                }}
+              >
+                {post.allMedia.map((mediaUrl, mediaIndex) => (
+                  <OptimizedImage
+                    key={`${post.id}-media-${mediaIndex}`}
+                    source={mediaUrl}
+                    style={styles.carouselMediaItem}
+                    contentFit="cover"
+                  />
+                ))}
+              </ScrollView>
+              <View style={styles.carouselPagination}>
+                {post.allMedia.map((_, dotIndex) => (
+                  <View
+                    key={`dot-${dotIndex}`}
+                    style={[
+                      styles.carouselDot,
+                      carouselIndex === dotIndex && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          ) : (
+            <>
+              <OptimizedImage
+                source={post.media}
+                style={styles.postImage}
+                contentFit="cover"
+                recyclingKey={`post-${post.id}`}
+              />
+              {post.type === 'video' && (
+                <View style={styles.videoOverlay}>
+                  <View style={styles.playButton}>
+                    <Ionicons name="play" size={30} color="#fff" />
+                  </View>
+                  <View style={styles.videoDuration}>
+                    <Text style={styles.videoDurationText}>{post.duration}</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </DoubleTapLike>
+
+      {/* Actions */}
+      <View style={styles.postActions}>
+        <View style={styles.postActionsLeft}>
+          <TouchableOpacity
+            style={styles.postActionLike}
+            onPress={() => onLike(post.id)}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
+            accessibilityLabel={post.isLiked ? 'Unlike this post' : 'Like this post'}
+            accessibilityRole="button"
+            accessibilityState={{ selected: post.isLiked }}
+            accessibilityHint="Double tap to toggle like"
+          >
+            <SmuppyHeartIcon
+              size={26}
+              color={post.isLiked ? "#FF6B6B" : colors.dark}
+              filled={post.isLiked}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.postAction}
+            onPress={() => onShare(post)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Share this post"
+            accessibilityRole="button"
+            accessibilityHint="Opens share options"
+          >
+            <Ionicons name="paper-plane-outline" size={22} color={colors.dark} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => onSave(post.id)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel={post.isSaved ? 'Remove from saved' : 'Save this post'}
+          accessibilityRole="button"
+          accessibilityState={{ selected: post.isSaved }}
+          accessibilityHint="Double tap to toggle save"
+        >
+          <Ionicons
+            name={post.isSaved ? "bookmark" : "bookmark-outline"}
+            size={22}
+            color={post.isSaved ? colors.primary : colors.dark}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Likes */}
+      <TouchableOpacity
+        onPress={() => onLikersPress(post.id)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.postLikes}>{formatNumber(post.likes)} likes</Text>
+      </TouchableOpacity>
+
+      {/* Caption */}
+      <View style={styles.postCaption}>
+        <Text style={styles.postCaptionText}>
+          <Text
+            style={styles.postCaptionUser}
+            onPress={() => onUserPress(post.user.id)}
+          >
+            {post.user.name}
+          </Text>
+          {'  '}{post.caption}
+        </Text>
+      </View>
+
+      {/* Tags */}
+      {post.tags && post.tags.length > 0 && (
+        <View style={styles.postTags}>
+          {post.tags.map((tag, tagIndex) => (
+            <Text key={`tag-${tagIndex}`} style={styles.postTag}>
+              #{tag}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {/* Tagged Users */}
+      {post.taggedUsers && post.taggedUsers.length > 0 && (
+        <View style={styles.taggedUsersRow}>
+          <Ionicons name="people-outline" size={14} color={colors.gray} />
+          <Text style={styles.taggedUsersText}>
+            {post.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+          </Text>
+        </View>
+      )}
+
+      {/* Divider */}
+      {!isLast && <View style={styles.postDivider} />}
+    </View>
+  );
+}, (prev, next) =>
+  prev.post.id === next.post.id &&
+  prev.post.isLiked === next.post.isLiked &&
+  prev.post.isSaved === next.post.isSaved &&
+  prev.post.likes === next.post.likes &&
+  prev.isLast === next.isLast &&
+  prev.styles === next.styles
+);
 
 interface FanFeedProps {
   headerHeight?: number;
@@ -56,9 +279,12 @@ export interface FanFeedRef {
 }
 
 const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
+  const { colors, isDark } = useTheme();
+  const { showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const navigation = useNavigation<NavigationProp<any>>();
   const { handleScroll, showBars } = useTabBar();
-  const listRef = useRef<any>(null);
+  const listRef = useRef<React.ElementRef<typeof FlashList<UIPost>>>(null);
 
   // Expose scrollToTop method to parent
   useImperativeHandle(ref, () => ({
@@ -69,12 +295,14 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }));
   const { isUnderReview } = useContentStore();
   const { isHidden } = useUserSafetyStore();
+  const currentUser = useUserStore((state) => state.user);
 
   // State for real posts from API
   const [posts, setPosts] = useState<UIPost[]>([]);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const nextCursorRef = useRef<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -84,7 +312,20 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const suggestionsOffsetRef = useRef(0);
   const loadingSuggestionsRef = useRef(false);
   const hasMoreSuggestionsRef = useRef(true);
+  const suggestionsErrorCountRef = useRef(0);
+  const MAX_SUGGESTIONS_ERRORS = 3;
+  const [suggestionsExhausted, setSuggestionsExhausted] = useState(false);
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
+  const trackingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Cleanup tracking timeouts on unmount to prevent memory leaks
+  useEffect(() => {
+    const timeouts = trackingTimeoutsRef.current;
+    return () => {
+      timeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      timeouts.clear();
+    };
+  }, []);
 
   // Share modal state (using shared hook)
   const shareModal = useShareModal();
@@ -94,74 +335,89 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [menuPost, setMenuPost] = useState<UIPost | null>(null);
 
   // Memoized styles to prevent re-renders
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const listContentStyle = useMemo(() => ({
     ...styles.listContent,
     paddingTop: headerHeight > 0 ? headerHeight : 0,
-  }), [headerHeight]);
+  }), [headerHeight, styles]);
 
   // Fetch posts from tracked users
-  const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
+  const fetchPosts = useCallback(async (cursor?: string, refresh = false) => {
+    const isInitial = !cursor;
     try {
-      const { data, error } = await getFeedFromFollowed(pageNum, 10);
+      if (isInitial) setLoadError(null);
+      const { data, nextCursor, hasMore: more, error } = await getFeedFromFollowed({
+        cursor,
+        limit: 10,
+      });
 
       if (error) {
-        console.error('[FanFeed] Error fetching posts:', error);
-        // On error, use mock data as fallback
-        if (refresh || pageNum === 0) {
-          console.log('[FanFeed] Using mock data as fallback');
-          setPosts(MOCK_FAN_POSTS);
+        if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
+        if (refresh) {
+          showError('Refresh failed', 'Unable to load new posts. Please try again.');
+        }
+        if (refresh || isInitial) {
+          setPosts([]);
           setHasMore(false);
+          setLoadError(error);
         }
         return;
       }
 
       // Handle null or undefined data
       if (!data || data.length === 0) {
-        console.warn('[FanFeed] No data returned, using mock data');
-        if (refresh || pageNum === 0) {
-          // Use mock data as fallback when API returns empty
-          setPosts(MOCK_FAN_POSTS);
+        if (refresh || isInitial) {
+          setPosts([]);
+          setHasMore(false);
+        } else {
           setHasMore(false);
         }
+        nextCursorRef.current = null;
         return;
       }
 
-      if (data.length > 0) {
-        // Use batch function for faster like checking (single query)
-        const postIds = data.map(post => post.id);
-        const likedMap = await hasLikedPostsBatch(postIds);
+      // Use batch functions for faster like/save checking (single query each)
+      const postIds = data.map(post => post.id);
+      const [likedMap, savedMap] = await Promise.all([
+        hasLikedPostsBatch(postIds),
+        hasSavedPostsBatch(postIds),
+      ]);
 
-        const likedIds = new Set<string>(
-          postIds.filter(id => likedMap.get(id))
-        );
+      const likedIds = new Set<string>(
+        postIds.filter(id => likedMap.get(id))
+      );
+      const savedIds = new Set<string>(
+        postIds.filter(id => savedMap.get(id))
+      );
 
-        const transformedPosts = data.map(post => transformToFanPost(post, likedIds));
+      const transformedPosts = data.map(post => transformToFanPost(post, likedIds, savedIds));
 
-        if (refresh || pageNum === 0) {
-          setPosts(transformedPosts);
-          setLikedPostIds(likedIds);
-        } else {
-          setPosts(prev => [...prev, ...transformedPosts]);
-          setLikedPostIds(prev => new Set([...prev, ...likedIds]));
-        }
-
-        setHasMore(data.length >= 10);
+      if (refresh || isInitial) {
+        setPosts(transformedPosts);
+        setLikedPostIds(likedIds);
       } else {
-        // This shouldn't be reached due to the check above, but as fallback
-        if (refresh || pageNum === 0) {
-          setPosts(MOCK_FAN_POSTS);
-          setLikedPostIds(new Set());
-        }
-        setHasMore(false);
+        // Deduplicate when appending — cursor pagination guarantees no overlap,
+        // but guard against edge cases (e.g. posts created between requests)
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = transformedPosts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+        setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
+
+      nextCursorRef.current = nextCursor;
+      setHasMore(more);
     } catch (err) {
-      console.error('[FanFeed] Error:', err);
-      // On exception, also clear loading state
-      if (refresh) {
+      if (__DEV__) console.warn('[FanFeed] Error:', err);
+      if (refresh || isInitial) {
         setPosts([]);
         setHasMore(false);
+        setLoadError('Unable to load feed. Check your connection and try again.');
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch suggestions with pagination - uses refs to avoid re-render loops
@@ -175,20 +431,28 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       const offset = append ? suggestionsOffsetRef.current : 0;
       const { data, error } = await getSuggestedProfiles(15, offset); // Fetch 15 to have buffer
 
-      // Stop retrying on error
+      // Stop retrying after too many consecutive errors
       if (error) {
-        console.error('[FanFeed] Error fetching suggestions:', error);
-        // Don't set hasMore to false on error - allow retry
+        if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', error);
+        suggestionsErrorCountRef.current += 1;
+        if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
+          hasMoreSuggestionsRef.current = false;
+          setSuggestionsExhausted(true);
+        }
         loadingSuggestionsRef.current = false;
         return;
       }
+
+      // Reset error count on success
+      suggestionsErrorCountRef.current = 0;
+      setSuggestionsExhausted(false);
 
       if (data && data.length > 0) {
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
           id: p.id,
           name: p.full_name || p.username || 'User',
           username: p.username || 'user',
-          avatar: p.avatar_url || 'https://via.placeholder.com/100',
+          avatar: p.avatar_url || null,
           isVerified: p.is_verified || false,
           accountType: p.account_type || 'personal',
         }));
@@ -214,8 +478,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         hasMoreSuggestionsRef.current = false;
       }
     } catch (err) {
-      console.error('[FanFeed] Error fetching suggestions:', err);
-      // Don't disable hasMore on error - allow retry
+      if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', err);
+      suggestionsErrorCountRef.current += 1;
+      if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
+        hasMoreSuggestionsRef.current = false;
+        setSuggestionsExhausted(true);
+      }
     } finally {
       loadingSuggestionsRef.current = false;
     }
@@ -223,6 +491,61 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Keep track of followed user IDs to exclude from suggestions
   const followedUserIds = useRef<Set<string>>(new Set());
+
+  // When screen regains focus (e.g. returning from PostDetail or UserProfile),
+  // re-sync like/save state and refresh suggestions
+  const isFirstFocus = useRef(true);
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      // Reset and refetch suggestions — the API excludes already-followed profiles
+      suggestionsOffsetRef.current = 0;
+      hasMoreSuggestionsRef.current = true;
+      fetchSuggestions(false, true);
+
+      // Immediately apply like overrides from detail screens (no flash)
+      const overrides = useFeedStore.getState().optimisticLikes;
+      const overrideIds = Object.keys(overrides);
+      if (overrideIds.length > 0) {
+        setPosts(prev => prev.map(p => {
+          const override = overrides[p.id];
+          if (override !== undefined && override !== p.isLiked) {
+            return { ...p, isLiked: override, likes: p.likes + (override ? 1 : -1) };
+          }
+          return p;
+        }));
+        // Clear applied overrides so they don't accumulate
+        const currentPostIds = postsRef.current.map(p => p.id);
+        const applied = currentPostIds.filter(id => id in overrides);
+        if (applied.length > 0) {
+          useFeedStore.getState().clearOptimisticLikes(applied);
+        }
+      }
+
+      // Re-sync like/save state from database (backup for accuracy)
+      const currentPosts = postsRef.current;
+      if (currentPosts.length > 0) {
+        const postIds = currentPosts.map(p => p.id);
+        Promise.all([
+          hasLikedPostsBatch(postIds),
+          hasSavedPostsBatch(postIds),
+        ]).then(([likedMap, savedMap]) => {
+          setPosts(prev => prev.map(p => ({
+            ...p,
+            isLiked: likedMap.get(p.id) ?? p.isLiked,
+            isSaved: savedMap.get(p.id) ?? p.isSaved,
+          })));
+        }).catch((err) => {
+          if (__DEV__) console.warn('[FanFeed] Error syncing like/save state:', err);
+        });
+      }
+    }, [fetchSuggestions])
+  );
 
   // Handle track/follow user - removes from list and immediately loads replacement
   const handleTrackUser = useCallback(async (userId: string) => {
@@ -238,8 +561,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       // Add to followed set to exclude from future suggestions
       followedUserIds.current.add(userId);
 
-      // Remove from suggestions immediately (smooth animation)
-      setSuggestions(prev => prev.filter(s => s.id !== userId));
+      // Capture the suggestion before removing (for rollback on error)
+      let removedSuggestion: UISuggestion | undefined;
+      setSuggestions(prev => {
+        removedSuggestion = prev.find(s => s.id === userId);
+        return prev.filter(s => s.id !== userId);
+      });
 
       // Immediately fetch more suggestions to replace the removed one
       // Use force=true to bypass loading check
@@ -249,37 +576,44 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       followUser(userId).then(() => {
         // If feed is empty, refresh to show new posts from followed user
         if (posts.length === 0) {
-          fetchPosts(0, true);
+          fetchPosts(undefined, true);
         }
       }).catch(err => {
-        console.error('[FanFeed] Error following user:', err);
-        // On error, remove from followed set
+        if (__DEV__) console.warn('[FanFeed] Error following user:', err);
+        // Rollback: remove from followed set and re-add suggestion
         followedUserIds.current.delete(userId);
+        if (removedSuggestion) {
+          setSuggestions(prev => [removedSuggestion!, ...prev]);
+        }
       });
     } finally {
       // Remove from tracking set after a short delay to prevent rapid re-clicks
-      setTimeout(() => {
+      // Store timeout ID for cleanup on unmount
+      const timeoutId = setTimeout(() => {
         setTrackingUserIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(userId);
           return newSet;
         });
+        // Remove from timeout map after it fires
+        trackingTimeoutsRef.current.delete(userId);
       }, 500);
+      trackingTimeoutsRef.current.set(userId, timeoutId);
     }
   }, [trackingUserIds, posts.length, fetchPosts, fetchSuggestions]);
 
   // Refill suggestions when running low - load more from database
   useEffect(() => {
-    // Refill when we have less than 5 suggestions (increased buffer)
-    if (suggestions.length < 5 && suggestions.length >= 0) {
-      fetchSuggestions(true, true); // Force fetch to ensure we always refill
+    // Refill when we have less than 5 suggestions — respect hasMore (no force)
+    if (suggestions.length < 5 && hasMoreSuggestionsRef.current) {
+      fetchSuggestions(true);
     }
   }, [suggestions.length, fetchSuggestions]);
 
   // Initial load
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([fetchPosts(0), fetchSuggestions(false)]).finally(() => setIsLoading(false));
+    Promise.all([fetchPosts(), fetchSuggestions(false)]).finally(() => setIsLoading(false));
   }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)
@@ -295,92 +629,57 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     [posts, isUnderReview, isHidden]
   );
 
-  // Navigate to user profile
+  // Prefetch profile data before navigation
+  const prefetchProfile = usePrefetchProfile();
+
+  // Navigate to user profile (or Profile tab if it's current user)
   const goToUserProfile = useCallback((userId: string) => {
-    navigation.navigate('UserProfile', { userId });
+    if (userId === currentUser?.id) {
+      // Navigate to the Profile tab for current user
+      navigation.navigate('Tabs', { screen: 'Profile' });
+    } else {
+      prefetchProfile(userId);
+      navigation.navigate('UserProfile', { userId });
+    }
+  }, [navigation, currentUser?.id, prefetchProfile]);
+
+  // Ref for latest visible posts (used in stable callback to avoid stale closure)
+  const visiblePostsRef = useRef(visiblePosts);
+  visiblePostsRef.current = visiblePosts;
+
+  // Navigate to full-screen post detail (single tap on media)
+  const handleOpenPostDetail = useCallback((post: UIPost) => {
+    const currentPosts = visiblePostsRef.current;
+    const fanFeedPosts = currentPosts.map(p => ({
+      id: p.id,
+      type: p.type,
+      media: p.media || '',
+      allMedia: p.allMedia,
+      thumbnail: p.media || '',
+      description: p.caption,
+      likes: p.likes,
+      views: p.views,
+      comments: p.comments,
+      location: p.location,
+      taggedUsers: p.taggedUsers,
+      user: {
+        id: p.user.id,
+        name: p.user.name,
+        avatar: p.user.avatar || '',
+        followsMe: false,
+      },
+    }));
+    navigation.navigate('PostDetailFanFeed', { postId: post.id, fanFeedPosts });
   }, [navigation]);
 
-  // Format numbers
-  const formatNumber = useCallback((num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  }, []);
 
-  // Toggle like with real API
-  const toggleLike = useCallback(async (postId: string) => {
-    // Get current like status from state using functional update
-    let wasLiked = false;
-
-    // Optimistic update and capture current state
-    setPosts(prevPosts => {
-      const post = prevPosts.find(p => p.id === postId);
-      if (post) wasLiked = post.isLiked;
-
-      return prevPosts.map(p => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            isLiked: !p.isLiked,
-            likes: p.isLiked ? p.likes - 1 : p.likes + 1,
-          };
-        }
-        return p;
-      });
-    });
-
-    try {
-      if (wasLiked) {
-        // Unlike
-        const { error } = await unlikePost(postId);
-        if (error) {
-          // Revert on error
-          setPosts(prevPosts => prevPosts.map(p => {
-            if (p.id === postId) {
-              return { ...p, isLiked: true, likes: p.likes + 1 };
-            }
-            return p;
-          }));
-        } else {
-          setLikedPostIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(postId);
-            return newSet;
-          });
-        }
-      } else {
-        // Like
-        const { error } = await likePost(postId);
-        if (error) {
-          // Revert on error
-          setPosts(prevPosts => prevPosts.map(p => {
-            if (p.id === postId) {
-              return { ...p, isLiked: false, likes: p.likes - 1 };
-            }
-            return p;
-          }));
-        } else {
-          setLikedPostIds(prev => new Set([...prev, postId]));
-        }
-      }
-    } catch (err) {
-      console.error('[FanFeed] Like toggle error:', err);
-    }
-  }, []);
-
-  // Toggle save
-  const toggleSave = useCallback((postId: string) => {
-    setPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isSaved: !post.isSaved,
-          saves: post.isSaved ? post.saves - 1 : post.saves + 1,
-        };
-      }
-      return post;
-    }));
-  }, []);
+  // Like/Save with optimistic update + rollback (shared hook)
+  const { toggleLike, toggleSave } = usePostInteractions({
+    setPosts,
+    onSaveToggle: (_postId, saved) => {
+      showSuccess(saved ? 'Saved' : 'Removed', saved ? 'Post added to your collection.' : 'Post removed from saved.');
+    },
+  });
 
   // Handle share post
   const handleSharePost = useCallback((post: UIPost) => {
@@ -405,68 +704,61 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const handleReportPost = useCallback(() => {
     if (!menuPost) return;
     setMenuVisible(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Report Post',
       'Are you sure you want to report this post?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Report',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Reported', 'Thank you for your report. We will review it.');
-          },
-        },
-      ]
+      () => {
+        showSuccess('Reported', 'Thank you for your report. We will review it.');
+      }
     );
-  }, [menuPost]);
+  }, [menuPost, showDestructiveConfirm, showSuccess]);
 
   // Handle mute user
   const handleMuteUser = useCallback(() => {
     if (!menuPost) return;
     setMenuVisible(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Mute User',
       `Mute ${menuPost.user.name}? You won't see their posts anymore.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mute',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
-          },
-        },
-      ]
+      () => {
+        showSuccess('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
+      }
     );
-  }, [menuPost]);
+  }, [menuPost, showDestructiveConfirm, showSuccess]);
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setPage(0);
-    await fetchPosts(0, true);
+    nextCursorRef.current = null;
+    await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);
 
-  // Load more posts
+  // Load more posts (cursor-based)
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || !nextCursorRef.current) return;
     setLoadingMore(true);
-    const nextPage = page + 1;
-    setPage(nextPage);
-    await fetchPosts(nextPage);
+    await fetchPosts(nextCursorRef.current);
     setLoadingMore(false);
-  }, [loadingMore, hasMore, page, fetchPosts]);
+  }, [loadingMore, hasMore, fetchPosts]);
 
   // Render suggestion item
   const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => {
     const isTracking = trackingUserIds.has(suggestion.id);
+    const firstName = suggestion.name.split(' ')[0] || suggestion.name;
     return (
-      <View key={`suggestion-${index}-${suggestion.id}`} style={styles.suggestionItem}>
+      <View
+        key={`suggestion-${index}-${suggestion.id}`}
+        style={styles.suggestionItem}
+        accessible={true}
+        accessibilityLabel={`${suggestion.name}${suggestion.isVerified ? ', verified' : ''}, suggested user`}
+      >
         <TouchableOpacity
           style={styles.suggestionAvatarWrapper}
           onPress={() => goToUserProfile(suggestion.id)}
+          accessibilityLabel={`View ${suggestion.name}'s profile`}
+          accessibilityRole="button"
+          accessibilityHint="Opens user profile"
         >
           <LinearGradient
             colors={GRADIENTS.primary}
@@ -484,166 +776,41 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           />
         </TouchableOpacity>
         <Text style={styles.suggestionName} numberOfLines={1}>
-          {suggestion.name.split(' ')[0]}
+          {firstName}
         </Text>
         <LiquidButton
           label={isTracking ? '...' : 'Track'}
           onPress={() => handleTrackUser(suggestion.id)}
           disabled={isTracking}
           size="xs"
+          accessibilityLabel={`Follow ${suggestion.name}`}
+          accessibilityHint="Double tap to follow this user"
         />
       </View>
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goToUserProfile, handleTrackUser, trackingUserIds]);
 
-  // Render post item for FlashList
+  const handleLikersPress = useCallback((postId: string) => {
+    navigation.navigate('PostLikers', { postId });
+  }, [navigation]);
+
+  // Render post item for FlashList — delegates to memoized PostItem
   const renderPost = useCallback(({ item: post, index }: { item: UIPost; index: number }) => (
-    <View style={styles.postContainer}>
-      {/* Header */}
-      <View style={styles.postHeader}>
-        <TouchableOpacity
-          style={styles.postUser}
-          onPress={() => goToUserProfile(post.user.id)}
-        >
-          <AvatarImage source={post.user.avatar} size={40} />
-          <View style={styles.postUserInfo}>
-            <View style={styles.postUserNameRow}>
-              <Text style={styles.postUserName}>{post.user.name}</Text>
-              <AccountBadge
-                  size={16}
-                  style={styles.verifiedBadge}
-                  isVerified={post.user.isVerified}
-                  accountType={post.user.accountType}
-                />
-              {post.user.isBot && (
-                <View style={styles.teamBadge}>
-                  <Text style={styles.teamBadgeText}>(Team Smuppy)</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.postMeta}>
-              {post.timeAgo}{post.location ? ` • ${post.location}` : null}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.postMore} onPress={() => handlePostMenu(post)}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.dark} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Media - Using OptimizedImage with caching + Double Tap to Like */}
-      <DoubleTapLike
-        onDoubleTap={() => {
-          if (!post.isLiked) {
-            toggleLike(post.id);
-          }
-        }}
-        onSingleTap={() => navigation.navigate('PostDetailFanFeed', {
-          postId: post.id,
-          fanFeedPosts: visiblePosts.map(p => ({
-            id: p.id,
-            type: p.type,
-            media: p.media,
-            thumbnail: p.media,
-            description: p.caption,
-            likes: p.likes,
-            comments: p.comments,
-            user: {
-              id: p.user.id,
-              name: p.user.name,
-              avatar: p.user.avatar,
-              followsMe: false,
-            },
-          }))
-        })}
-        showAnimation={!post.isLiked}
-      >
-        <View style={styles.postMedia}>
-          <OptimizedImage
-            source={post.media}
-            style={styles.postImage}
-            contentFit="cover"
-            recyclingKey={`post-${post.id}`}
-          />
-
-          {/* Video overlay */}
-          {post.type === 'video' && (
-            <View style={styles.videoOverlay}>
-              <View style={styles.playButton}>
-                <Ionicons name="play" size={30} color="#fff" />
-              </View>
-              <View style={styles.videoDuration}>
-                <Text style={styles.videoDurationText}>{post.duration}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Carousel indicator */}
-          {post.type === 'carousel' && (
-            <View style={styles.carouselIndicator}>
-              <Ionicons name="copy" size={16} color="#fff" />
-              <Text style={styles.carouselCount}>{post.slideCount}</Text>
-            </View>
-          )}
-        </View>
-      </DoubleTapLike>
-
-      {/* Actions */}
-      <View style={styles.postActions}>
-        <View style={styles.postActionsLeft}>
-          <TouchableOpacity
-            style={styles.postActionLike}
-            onPress={() => toggleLike(post.id)}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            activeOpacity={0.7}
-          >
-            <SmuppyHeartIcon
-              size={26}
-              color={post.isLiked ? "#FF6B6B" : COLORS.dark}
-              filled={post.isLiked}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.postAction}
-            onPress={() => handleSharePost(post)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="paper-plane-outline" size={22} color={COLORS.dark} />
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          onPress={() => toggleSave(post.id)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name={post.isSaved ? "bookmark" : "bookmark-outline"}
-            size={22}
-            color={post.isSaved ? COLORS.primary : COLORS.dark}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Likes */}
-      <Text style={styles.postLikes}>{formatNumber(post.likes)} likes</Text>
-
-      {/* Caption */}
-      <View style={styles.postCaption}>
-        <Text style={styles.postCaptionText}>
-          <Text
-            style={styles.postCaptionUser}
-            onPress={() => goToUserProfile(post.user.id)}
-          >
-            {post.user.name}
-          </Text>
-          {'  '}{post.caption}
-        </Text>
-      </View>
-
-
-      {/* Divider */}
-      {index < visiblePosts.length - 1 && <View style={styles.postDivider} />}
-    </View>
-  ), [visiblePosts, goToUserProfile, toggleLike, toggleSave, formatNumber, navigation, handlePostMenu, handleSharePost]);
+    <PostItem
+      post={post}
+      isLast={index === visiblePosts.length - 1}
+      colors={colors}
+      styles={styles}
+      onUserPress={goToUserProfile}
+      onLike={toggleLike}
+      onSave={toggleSave}
+      onMenu={handlePostMenu}
+      onShare={handleSharePost}
+      onDetail={handleOpenPostDetail}
+      onLikersPress={handleLikersPress}
+    />
+  ), [visiblePosts.length, colors, styles, goToUserProfile, toggleLike, toggleSave, handlePostMenu, handleSharePost, handleOpenPostDetail, handleLikersPress]);
 
   // Invite friends using native share
   const inviteFriends = useCallback(async () => {
@@ -653,16 +820,21 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         title: 'Join Smuppy',
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      if (__DEV__) console.warn('Error sharing:', error);
     }
   }, []);
 
   // List header with suggestions - ALWAYS show (even without suggestions)
   const ListHeader = useMemo(() => (
-    <View style={styles.suggestionsSection}>
+    <View style={styles.suggestionsSection} accessible={true} accessibilityLabel="Suggested users to follow">
       <View style={styles.suggestionsSectionHeader}>
         <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Search')}
+          accessibilityLabel="See all suggestions"
+          accessibilityRole="button"
+          accessibilityHint="Opens search to find more users"
+        >
           <Text style={styles.seeAllText}>See all</Text>
         </TouchableOpacity>
       </View>
@@ -672,12 +844,15 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           <TouchableOpacity
             style={styles.inviteButton}
             onPress={inviteFriends}
+            accessibilityLabel="Invite friends to Smuppy"
+            accessibilityRole="button"
+            accessibilityHint="Opens share dialog to invite friends"
           >
             <LinearGradient
-              colors={['#E8F5E9', '#C8E6C9']}
+              colors={isDark ? ['#1A2A1F', '#2A3A2F'] : ['#E8F5E9', '#C8E6C9']}
               style={styles.inviteButtonInner}
             >
-              <Ionicons name="person-add" size={28} color={COLORS.primary} />
+              <Ionicons name="person-add" size={28} color={colors.primary} />
             </LinearGradient>
           </TouchableOpacity>
           <Text style={styles.suggestionName} numberOfLines={1}>
@@ -690,23 +865,42 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             variant="outline"
           />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.suggestionsScrollContent}
-        >
-          {suggestions.map(renderSuggestion)}
-        </ScrollView>
+        {suggestions.length === 0 && suggestionsExhausted ? (
+          <View style={styles.suggestionsEmpty}>
+            <Text style={styles.suggestionsEmptyText}>No recommendations available right now</Text>
+            <TouchableOpacity
+              style={styles.suggestionsEmptyCTA}
+              onPress={() => navigation.navigate('Search')}
+              accessibilityRole="button"
+              accessibilityLabel="Explore users"
+              accessibilityHint="Opens search to find people to follow"
+            >
+              <Ionicons name="search-outline" size={16} color={colors.primary} />
+              <Text style={styles.suggestionsEmptyCTAText}>Explore</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestionsScrollContent}
+            accessibilityRole="list"
+            accessibilityLabel="Suggested users"
+          >
+            {suggestions.map(renderSuggestion)}
+          </ScrollView>
+        )}
       </View>
     </View>
-  ), [suggestions, renderSuggestion, navigation, inviteFriends]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [suggestions, suggestionsExhausted, renderSuggestion, navigation, inviteFriends]);
 
   // List footer with loading indicator
   const ListFooter = useCallback(() => {
     if (loadingMore) {
       return (
         <View style={styles.loadingMore}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       );
     }
@@ -714,7 +908,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     if (!hasMore && posts.length > 0) {
       return (
         <View style={styles.endOfFeed}>
-          <Ionicons name="checkmark-circle" size={50} color={COLORS.primary} />
+          <Ionicons name="checkmark-circle" size={50} color={colors.primary} />
           <Text style={styles.endOfFeedTitle}>You're All Caught Up</Text>
           <Text style={styles.endOfFeedSubtitle}>
             You've seen all posts from people you follow
@@ -723,41 +917,48 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       );
     }
     return null;
-  }, [loadingMore, hasMore, posts.length]);
+  }, [loadingMore, hasMore, posts.length, styles, colors]);
 
   const keyExtractor = useCallback((item: UIPost) => String(item.id), []);
-
+  const getItemType = useCallback((item: UIPost) => {
+    if (item.allMedia && item.allMedia.length > 1) return 'carousel';
+    return item.type === 'video' ? 'video' : 'image';
+  }, []);
 
   // Empty state component
   const EmptyState = useCallback(() => (
     <View style={styles.emptyState}>
-      <Ionicons name="people-outline" size={64} color={COLORS.grayMuted} />
-      <Text style={styles.emptyStateTitle}>No Posts Yet</Text>
+      <Ionicons name={loadError ? "cloud-offline-outline" : "people-outline"} size={64} color={colors.grayMuted} />
+      <Text style={styles.emptyStateTitle}>{loadError ? 'Connection Issue' : 'No Posts Yet'}</Text>
       <Text style={styles.emptyStateSubtitle}>
-        Track some users to see their posts here
+        {loadError || 'Track some users to see their posts here'}
       </Text>
-      <TouchableOpacity
-        style={styles.emptyStateButton}
-        onPress={() => navigation.navigate('Search')}
-      >
-        <Text style={styles.emptyStateButtonText}>Find People</Text>
-      </TouchableOpacity>
+      {loadError ? (
+        <TouchableOpacity
+          style={styles.emptyStateButton}
+          onPress={() => fetchPosts(undefined, true)}
+        >
+          <Text style={styles.emptyStateButtonText}>Retry</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.emptyStateButton}
+          onPress={() => navigation.navigate('Search')}
+        >
+          <Text style={styles.emptyStateButtonText}>Find People</Text>
+        </TouchableOpacity>
+      )}
     </View>
-  ), [navigation]);
+  ), [navigation, styles, colors, loadError, fetchPosts]);
 
   // Navigate to Peaks screen - MUST be before any conditional returns (Rules of Hooks)
   const openPeaks = useCallback(() => {
     navigation.navigate('Peaks');
   }, [navigation]);
 
-  // Loading state
+  // Loading state — show skeleton instead of spinner
   if (isLoading && posts.length === 0) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading your feed...</Text>
-      </View>
-    );
+    return <FeedSkeleton />;
   }
 
   return (
@@ -770,6 +971,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           data={visiblePosts}
           renderItem={renderPost}
           keyExtractor={keyExtractor}
+          getItemType={getItemType}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={EmptyState}
@@ -782,8 +984,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.primary}
-              colors={[COLORS.primary]}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
               progressViewOffset={headerHeight}
             />
           }
@@ -812,19 +1014,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         >
           <View style={styles.menuContainer}>
             <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
-              <Ionicons name="flag-outline" size={22} color={COLORS.dark} />
+              <Ionicons name="flag-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Report</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
-              <Ionicons name="volume-mute-outline" size={22} color={COLORS.dark} />
+              <Ionicons name="volume-mute-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Mute User</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemLast]}
               onPress={() => setMenuVisible(false)}
             >
-              <Ionicons name="close-outline" size={22} color={COLORS.gray} />
-              <Text style={[styles.menuItemText, { color: COLORS.gray }]}>Cancel</Text>
+              <Ionicons name="close-outline" size={22} color={colors.gray} />
+              <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -835,10 +1037,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
 export default FanFeed;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
 
   // Suggestions Section - Compact spacing
@@ -846,7 +1048,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
+    borderBottomColor: colors.grayBorder,
   },
   suggestionsSectionHeader: {
     flexDirection: 'row',
@@ -858,12 +1060,12 @@ const styles = StyleSheet.create({
   suggestionsSectionTitle: {
     fontSize: 16,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   seeAllText: {
     fontSize: 14,
     fontFamily: 'Poppins-Medium',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   suggestionsRow: {
     flexDirection: 'row',
@@ -871,6 +1073,34 @@ const styles = StyleSheet.create({
   suggestionsScrollContent: {
     paddingHorizontal: SPACING.sm,
     gap: 0,
+  },
+  suggestionsEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+  },
+  suggestionsEmptyText: {
+    fontSize: 13,
+    color: colors.gray,
+    textAlign: 'center',
+  },
+  suggestionsEmptyCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    gap: 6,
+  },
+  suggestionsEmptyCTAText: {
+    fontSize: 13,
+    fontFamily: 'Poppins-SemiBold',
+    color: colors.primary,
   },
   suggestionItem: {
     alignItems: 'center',
@@ -890,7 +1120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   suggestionAvatarContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderRadius: 38,
     padding: 2,
   },
@@ -901,32 +1131,10 @@ const styles = StyleSheet.create({
   },
   suggestionName: {
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     fontFamily: 'Poppins-Medium',
     textAlign: 'center',
     marginBottom: 4,
-  },
-  trackButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  trackButtonDisabled: {
-    opacity: 0.6,
-  },
-  trackButtonText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
-    color: COLORS.white,
-  },
-  trackedButton: {
-    backgroundColor: COLORS.primary + '20',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
   },
   // Invite button
   inviteButton: {
@@ -944,21 +1152,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
-  },
-  inviteTextButton: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-  },
-  inviteTextButtonText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
-    color: COLORS.primary,
   },
 
   // Post
@@ -966,7 +1161,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
   },
   postHeader: {
     flexDirection: 'row',
@@ -976,12 +1171,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
     // Shadow 3D effet extérieur prononcé
-    shadowColor: '#000',
+    shadowColor: isDark ? '#fff' : '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -1003,7 +1198,7 @@ const styles = StyleSheet.create({
   postUserName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   verifiedBadge: {
     marginLeft: 4,
@@ -1018,12 +1213,12 @@ const styles = StyleSheet.create({
   teamBadgeText: {
     fontSize: 9,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   postMeta: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   postMore: {
     padding: 4,
@@ -1031,7 +1226,11 @@ const styles = StyleSheet.create({
   postMedia: {
     width: width,
     height: width * 1.1,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.grayBorder,
+  },
+  carouselMediaItem: {
+    width: width,
+    height: width * 1.1,
   },
   postImage: {
     width: '100%',
@@ -1081,6 +1280,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 4,
   },
+  carouselPagination: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  carouselDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   postActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1103,7 +1324,7 @@ const styles = StyleSheet.create({
   postLikes: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     paddingHorizontal: SPACING.base,
   },
   postCaption: {
@@ -1113,15 +1334,40 @@ const styles = StyleSheet.create({
   postCaptionText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     lineHeight: 20,
   },
   postCaptionUser: {
     fontFamily: 'Poppins-SemiBold',
   },
+  postTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SPACING.base,
+    marginTop: 4,
+    gap: 6,
+  },
+  postTag: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: colors.primary,
+  },
+  taggedUsersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.base,
+    marginTop: 4,
+    gap: 4,
+  },
+  taggedUsersText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    color: colors.gray,
+    flex: 1,
+  },
   postDivider: {
     height: 8,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     marginTop: SPACING.md,
   },
 
@@ -1133,13 +1379,13 @@ const styles = StyleSheet.create({
   endOfFeedTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.md,
   },
   endOfFeedSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1147,7 +1393,7 @@ const styles = StyleSheet.create({
   // Comments Modal
   commentsContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   commentsHeader: {
     flexDirection: 'row',
@@ -1157,12 +1403,12 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
+    borderBottomColor: colors.grayBorder,
   },
   commentsTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   commentsList: {
     flex: 1,
@@ -1179,18 +1425,18 @@ const styles = StyleSheet.create({
   commentUser: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   commentText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 2,
   },
   commentTime: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   commentInput: {
@@ -1199,25 +1445,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.grayLight,
+    borderTopColor: colors.grayBorder,
   },
   commentInputField: {
     flex: 1,
     marginHorizontal: SPACING.sm,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
   },
   commentInputPlaceholder: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
   },
   commentPostBtn: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Pagination styles
@@ -1234,12 +1480,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
   },
   loadingText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: SPACING.md,
   },
 
@@ -1254,18 +1500,18 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 20,
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: SPACING.lg,
   },
   emptyStateSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },
   emptyStateButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
     borderRadius: 25,
@@ -1274,7 +1520,7 @@ const styles = StyleSheet.create({
   emptyStateButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.background,
   },
 
   // Post Menu Modal
@@ -1284,7 +1530,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: SPACING.md,
@@ -1296,7 +1542,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.grayBorder,
   },
   menuItemLast: {
     borderBottomWidth: 0,
@@ -1304,7 +1550,10 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginLeft: SPACING.md,
+  },
+  menuItemTextCancel: {
+    color: colors.gray,
   },
 });

@@ -1,6 +1,6 @@
 // src/screens/live/GoLiveScreen.tsx
 // Simplified: Just for going live (public). Private sessions managed separately.
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,28 @@ import {
   Animated,
   StatusBar,
   Image,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { awsAPI } from '../../services/aws-api';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
 export default function GoLiveScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
+  const { showAlert } = useSmuppyAlert();
+  const navigation = useNavigation<{ goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const [title, setTitle] = useState('');
   const [showTitleInput, setShowTitleInput] = useState(false);
@@ -35,13 +42,14 @@ export default function GoLiveScreen(): React.JSX.Element {
   // Protect route - only pro_creator can access
   useEffect(() => {
     if (user?.accountType !== 'pro_creator') {
-      Alert.alert(
-        'Pro Creator Feature',
-        'Live streaming is only available for Pro Creator accounts.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      showAlert({
+        title: 'Pro Creator Feature',
+        message: 'Live streaming is only available for Pro Creator accounts.',
+        type: 'warning',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
-  }, [user?.accountType, navigation]);
+  }, [user?.accountType, navigation, showAlert]);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const countdownAnim = useRef(new Animated.Value(1)).current;
@@ -64,6 +72,7 @@ export default function GoLiveScreen(): React.JSX.Element {
     );
     pulse.start();
     return () => pulse.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Countdown logic
@@ -82,13 +91,21 @@ export default function GoLiveScreen(): React.JSX.Element {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (isCountdown && countdownValue === 0) {
+      // Register the live stream on backend (notifies fans)
+      awsAPI.startLiveStream(title || 'Live Session').catch((err) => {
+        if (__DEV__) console.warn('[GoLive] Failed to register stream:', err);
+      });
       navigation.replace('LiveStreaming', {
         title: title || 'Live Session',
         audience: 'public',
         isPrivate: false,
+        hostId: user?.id,
+        hostName: user?.displayName || user?.username || 'Creator',
+        hostAvatar: user?.avatar || null,
       });
     }
-  }, [isCountdown, countdownValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCountdown, countdownValue, title, user, navigation]);
 
   const handleClose = () => {
     navigation.goBack();
@@ -105,7 +122,7 @@ export default function GoLiveScreen(): React.JSX.Element {
         <StatusBar barStyle="light-content" />
         <View style={styles.cameraBackground}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }}
+            source={{ uri: undefined }}
             style={styles.cameraBackgroundImage}
             blurRadius={3}
           />
@@ -152,7 +169,7 @@ export default function GoLiveScreen(): React.JSX.Element {
       {/* Camera preview background */}
       <View style={styles.cameraBackground}>
         <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }}
+          source={{ uri: undefined }}
           style={styles.cameraBackgroundImage}
         />
         <View style={styles.cameraOverlay} />
@@ -246,13 +263,16 @@ export default function GoLiveScreen(): React.JSX.Element {
           activeOpacity={1}
           onPress={() => setShowTitleInput(false)}
         >
-          <View style={styles.titleInputSheet}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.titleInputSheet}
+          >
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Add a title</Text>
             <TextInput
               style={styles.titleInput}
               placeholder="What's your live about?"
-              placeholderTextColor="rgba(10, 37, 47, 0.4)"
+              placeholderTextColor={colors.gray}
               value={title}
               onChangeText={setTitle}
               autoFocus
@@ -269,14 +289,14 @@ export default function GoLiveScreen(): React.JSX.Element {
                 <Text style={styles.titleSaveText}>Save</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </TouchableOpacity>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -325,7 +345,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   titleBadgeText: {
     color: 'white',
@@ -377,7 +397,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   liveIndicatorText: {
     color: 'white',
@@ -390,7 +410,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -420,7 +440,7 @@ const styles = StyleSheet.create({
   sheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(10, 37, 47, 0.15)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(10, 37, 47, 0.15)',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -428,24 +448,24 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 20,
   },
   titleInputSheet: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingTop: 12,
   },
   titleInput: {
-    backgroundColor: 'rgba(10, 37, 47, 0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 16,
   },
   titleSaveButton: {
@@ -477,7 +497,7 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 20,

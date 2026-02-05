@@ -7,10 +7,10 @@ import {
   ScrollView,
   StatusBar,
   Linking,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 // Website base URL for legal pages
 const WEBSITE_BASE_URL = 'https://smuppy.com';
@@ -60,6 +60,7 @@ interface TermsPoliciesScreenProps {
 
 const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showError } = useSmuppyAlert();
 
   const openLink = async (url: string, title: string) => {
     try {
@@ -67,10 +68,10 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('Error', `Unable to open ${title}. Please try again later.`);
+        showError('Error', `Unable to open ${title}. Please try again later.`);
       }
     } catch {
-      Alert.alert('Error', 'Failed to open link. Please check your internet connection.');
+      showError('Error', 'Failed to open link. Please check your internet connection.');
     }
   };
 

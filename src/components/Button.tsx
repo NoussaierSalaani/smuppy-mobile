@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+import { GRADIENTS, SIZES, SHADOWS } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger' | 'live' | 'reminder' | 'text';
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -19,6 +20,8 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   children?: ReactNode;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 /**
@@ -35,7 +38,11 @@ export default function Button({
   style,
   textStyle,
   children,
+  accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
+  const { colors, isDark } = useTheme();
+
   // Get size styles
   const sizeStyles = {
     xs: {
@@ -70,67 +77,66 @@ export default function Button({
 
   const currentSize = sizeStyles[size];
 
-  // Get variant styles
-  const getVariantStyles = () => {
+  // Get variant styles - memoized to prevent recalculation on every render
+  const variantStyles = useMemo(() => {
     const variants = {
       primary: {
         gradient: disabled ? GRADIENTS.buttonDisabled : GRADIENTS.button,
-        textColor: disabled ? COLORS.grayMuted : COLORS.dark,
+        textColor: disabled ? colors.grayMuted : colors.dark,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       secondary: {
         gradient: null,
-        backgroundColor: COLORS.white,
-        textColor: disabled ? COLORS.grayMuted : COLORS.dark,
-        borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? COLORS.buttonBorder : 'transparent',
+        backgroundColor: isDark ? colors.cardBg : colors.white,
+        textColor: disabled ? colors.grayMuted : colors.dark,
+        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
+        borderColor: isDark ? colors.buttonBorder : (disabled ? colors.grayBorder : 'transparent'),
       },
       tertiary: {
         gradient: null,
-        backgroundColor: COLORS.white,
-        textColor: disabled ? COLORS.grayMuted : COLORS.dark,
-        borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? COLORS.grayLight : 'transparent',
+        backgroundColor: isDark ? colors.cardBg : colors.white,
+        textColor: disabled ? colors.grayMuted : colors.dark,
+        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
+        borderColor: isDark ? colors.buttonBorderLight : (disabled ? colors.grayLight : 'transparent'),
       },
       ghost: {
         gradient: null,
         backgroundColor: 'transparent',
-        textColor: disabled ? COLORS.grayMuted : COLORS.primary,
+        textColor: disabled ? colors.grayMuted : colors.primary,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       danger: {
         gradient: null,
-        backgroundColor: COLORS.white,
-        textColor: disabled ? COLORS.errorLight : COLORS.error,
-        borderWidth: disabled ? 2 : 0,
-        borderColor: disabled ? COLORS.errorLight : 'transparent',
+        backgroundColor: isDark ? colors.cardBg : colors.white,
+        textColor: disabled ? (isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3') : colors.error,
+        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
+        borderColor: isDark ? 'rgba(239,68,68,0.3)' : (disabled ? '#FFB3B3' : 'transparent'),
       },
       live: {
         gradient: disabled ? GRADIENTS.liveDisabled : GRADIENTS.live,
-        textColor: disabled ? '#FFA7A3' : COLORS.white,
+        textColor: disabled ? '#FFA7A3' : colors.white,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       reminder: {
         gradient: disabled ? GRADIENTS.reminderDisabled : GRADIENTS.reminder,
-        textColor: disabled ? '#7CA0AE' : COLORS.white,
+        textColor: disabled ? '#7CA0AE' : colors.white,
         borderWidth: 0,
         borderColor: 'transparent',
       },
       text: {
         gradient: null,
         backgroundColor: 'transparent',
-        textColor: disabled ? COLORS.grayMuted : COLORS.primary,
+        textColor: disabled ? colors.grayMuted : colors.primary,
         borderWidth: 0,
         borderColor: 'transparent',
       },
     };
     return variants[variant] || variants.primary;
-  };
-
-  const variantStyles = getVariantStyles();
+  }, [variant, disabled, isDark, colors]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render icon
   const renderIcon = () => {
@@ -169,6 +175,10 @@ export default function Button({
     </View>
   );
 
+  // Derive accessibility label from children if not provided
+  const derivedLabel = accessibilityLabel || (typeof children === 'string' ? children : undefined);
+  const loadingLabel = loading ? 'Loading, please wait' : undefined;
+
   // Button with gradient
   if (variantStyles.gradient) {
     return (
@@ -177,6 +187,11 @@ export default function Button({
         disabled={disabled || loading}
         activeOpacity={0.8}
         style={[style]}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={loadingLabel || derivedLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: disabled || loading }}
       >
         <LinearGradient
           colors={variantStyles.gradient}
@@ -204,6 +219,11 @@ export default function Button({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={loadingLabel || derivedLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading }}
       style={[
         styles.button,
         {
@@ -223,7 +243,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   button: {
     flexDirection: 'row',
     justifyContent: 'center',

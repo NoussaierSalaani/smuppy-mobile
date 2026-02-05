@@ -1,6 +1,6 @@
 // src/screens/sessions/PrivateCallScreen.tsx
 // 1:1 Private Video Call Screen with Agora
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
-  Alert,
   ActivityIndicator,
   Animated,
   StyleProp,
@@ -20,10 +19,11 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { usePrivateCall } from '../../hooks/useAgora';
 import { LocalVideoView, RemoteVideoView, VideoPlaceholder } from '../../components/AgoraVideoView';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -41,13 +41,18 @@ interface _RouteParams {
 type CallState = 'connecting' | 'ringing' | 'connected' | 'ended';
 
 export default function PrivateCallScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<{ replace: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
+  const route = useRoute<{ key: string; name: string; params: { sessionId?: string; creator?: { id: string; name: string; avatar: string | null }; myUserId?: string; isIncoming?: boolean } }>();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+
+  const { showAlert } = useSmuppyAlert();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const {
     sessionId,
-    creator = { id: 'creator_123', name: 'Apte Fitness', avatar: 'https://i.pravatar.cc/100?img=33' },
+    creator = { id: 'creator_123', name: 'Apte Fitness', avatar: null },
     myUserId = 'user_123',
     isIncoming = false,
   } = route.params || {};
@@ -76,12 +81,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const [agoraToken, setAgoraToken] = useState<string | null>(null);
   const [agoraChannelName, setAgoraChannelName] = useState<string | null>(null);
 
-  const pulseAnim = new Animated.Value(1);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Fetch Agora token from backend
   const fetchAgoraToken = useCallback(async (): Promise<boolean> => {
     if (!sessionId) {
-      console.warn('No sessionId provided, using fallback channel');
+      if (__DEV__) console.warn('No sessionId provided, using fallback channel');
       return true; // Continue with fallback
     }
 
@@ -92,11 +97,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
         setAgoraChannelName(response.channelName || `private_${sessionId}`);
         return true;
       } else {
-        console.error('Failed to get Agora token:', response.message);
+        if (__DEV__) console.warn('Failed to get Agora token:', response.message);
         return false;
       }
     } catch (err) {
-      console.error('Error fetching Agora token:', err);
+      if (__DEV__) console.warn('Error fetching Agora token:', err);
       return false;
     }
   }, [sessionId]);
@@ -162,9 +167,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
     // First fetch the Agora token from backend
     const tokenFetched = await fetchAgoraToken();
     if (!tokenFetched) {
-      Alert.alert('Error', 'Failed to initialize video call. Please try again.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: 'Failed to initialize video call. Please try again.',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
       return;
     }
 
@@ -173,9 +181,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
     if (success) {
       setCallState('ringing');
     } else {
-      Alert.alert('Error', error || 'Failed to start call', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: error || 'Failed to start call',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
   };
 
@@ -185,17 +196,23 @@ export default function PrivateCallScreen(): React.JSX.Element {
     // First fetch the Agora token from backend
     const tokenFetched = await fetchAgoraToken();
     if (!tokenFetched) {
-      Alert.alert('Error', 'Failed to initialize video call. Please try again.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: 'Failed to initialize video call. Please try again.',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
       return;
     }
 
     const success = await joinChannel(agoraToken || undefined);
     if (!success) {
-      Alert.alert('Error', error || 'Failed to join call', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Error',
+        message: error || 'Failed to join call',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     }
   };
 
@@ -298,7 +315,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
           </Text>
 
           {isLoading && (
-            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
           )}
         </View>
 
@@ -467,7 +484,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -490,7 +507,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   callerName: {
     fontSize: 28,
@@ -576,7 +593,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   creatorName: {
     color: 'white',
@@ -593,7 +610,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   durationText: {
     color: 'rgba(255,255,255,0.8)',
@@ -674,7 +691,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   continueButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

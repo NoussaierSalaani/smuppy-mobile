@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,27 +7,25 @@ import {
   Modal,
   StatusBar,
   ActivityIndicator,
-  Alert,
   Switch,
   ScrollView,
 } from 'react-native';
-import { AvatarImage } from '../../components/OptimizedImage';
-import OptimizedImage from '../../components/OptimizedImage';
+import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// CommonActions removed - signOut auto-triggers navigation via onAuthStateChange
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
-import { biometrics } from '../../utils/biometrics';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
+import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 import { resetAllStores, useUserStore } from '../../stores';
+import type { ThemePreference } from '../../stores/themeStore';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { VerifiedBadge } from '../../components/Badge';
 
 const COVER_HEIGHT = 160;
-
-type BiometricType = 'face' | 'fingerprint' | null;
 
 interface SettingsScreenProps {
   navigation: {
@@ -36,8 +34,16 @@ interface SettingsScreenProps {
   };
 }
 
+const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { preference, setTheme, colors, isDark: _isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const getFullName = useUserStore((state) => state.getFullName);
   const { data: profileData, refetch } = useCurrentProfile();
@@ -46,8 +52,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [biometricType, setBiometricType] = useState<BiometricType>(null);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -56,6 +60,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [expertise, setExpertise] = useState<string[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const loadUserData = useCallback(async () => {
     try {
@@ -115,7 +121,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   }, [user, getFullName, profileData]);
 
   useEffect(() => {
-    checkBiometrics();
     loadUserData();
   }, [loadUserData]);
 
@@ -128,34 +133,32 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setIsPrivate(newValue);
       await refetch();
     } catch (error) {
-      console.error('Toggle privacy error:', error);
-      Alert.alert('Error', 'Failed to update privacy setting.');
+      if (__DEV__) console.warn('Toggle privacy error:', error);
+      showError('Error', 'Failed to update privacy setting.');
     } finally {
       setTogglingPrivacy(false);
     }
   };
 
-  const checkBiometrics = async () => {
-    const available = await biometrics.isAvailable();
-    setBiometricAvailable(available);
-    if (available) {
-      const type = await biometrics.getType();
-      setBiometricType(type);
-    }
-  };
+  // Separate checks for creator-only vs all pro features
+  const isProCreator = user?.accountType === 'pro_creator';
+  const isProBusiness = user?.accountType === 'pro_business';
+  const isPro = isProCreator || isProBusiness;
 
-  // Personal accounts use interests, pro accounts use expertise
-  const isPro = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
-
-  const MENU_ITEMS = [
+  const ACCOUNT_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
-    // Personal → Interests only, Pro → Expertise only
     ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
+    ...(isProBusiness ? [{ id: 'category', icon: 'storefront-outline' as const, label: 'Business Category', screen: 'EditBusinessCategory', params: { currentCategory: user?.businessCategory } }] : []),
     ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
-    ...(biometricAvailable ? [{ id: 'biometric', icon: (biometricType === 'face' ? 'scan-outline' : 'finger-print-outline') as 'scan-outline' | 'finger-print-outline', label: biometricType === 'face' ? 'Face ID' : 'Touch ID', screen: 'FacialRecognition' }] : []),
+  ];
+
+  const PREFERENCES_ITEMS = [
     { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
     { id: 'followRequests', icon: 'person-add-outline' as const, label: 'Follow Requests', screen: 'FollowRequests' },
+  ];
+
+  const SUPPORT_ITEMS = [
     { id: 'blocked', icon: 'ban-outline' as const, label: 'Blocked Users', screen: 'BlockedUsers' },
     { id: 'muted', icon: 'volume-mute-outline' as const, label: 'Muted Users', screen: 'MutedUsers' },
     { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a Problem', screen: 'ReportProblem' },
@@ -165,22 +168,28 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      // Clear ALL user data from all storage systems
+      // Clear SecureStore auth keys (remember me, tokens, etc.)
+      await storage.clear([
+        STORAGE_KEYS.REMEMBER_ME,
+        STORAGE_KEYS.ACCESS_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_ID,
+      ]);
+      // Clear AsyncStorage (Zustand persisted store, cached profile data)
       await AsyncStorage.multiRemove([
-        '@smuppy_remember_me',
         '@smuppy_saved_email',
         '@smuppy_user_profile',
         '@smuppy_user_store', // Zustand persisted store - CRITICAL!
       ]);
       // Reset all Zustand stores (user, feed, auth, app)
       resetAllStores();
-      await biometrics.disable();
+
       setShowLogoutModal(false);
       // signOut triggers onAuthStateChange in AppNavigator which auto-navigates to Auth
       // No need for manual navigation.reset - it causes "action not handled" warning
       await backend.signOut();
     } catch (error) {
-      console.error('Logout error:', error);
+      if (__DEV__) console.warn('Logout error:', error);
       setShowLogoutModal(false);
     } finally {
       setLoggingOut(false);
@@ -192,36 +201,42 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     try {
       const currentUser = await backend.getCurrentUser();
       if (!currentUser) {
-        Alert.alert('Error', 'User not found');
+        showError('Error', 'User not found');
         return;
       }
 
       // Delete account via AWS Lambda
       await awsAPI.deleteAccount();
 
-      // Clear ALL user data from all storage systems
+      // Clear SecureStore auth keys
+      await storage.clear([
+        STORAGE_KEYS.REMEMBER_ME,
+        STORAGE_KEYS.ACCESS_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_ID,
+      ]);
+      // Clear AsyncStorage (Zustand persisted store, cached profile data)
       await AsyncStorage.multiRemove([
-        '@smuppy_remember_me',
         '@smuppy_saved_email',
         '@smuppy_user_profile',
         '@smuppy_user_store', // Zustand persisted store - CRITICAL!
       ]);
       // Reset all Zustand stores
       resetAllStores();
-      await biometrics.disable();
+
       setShowDeleteModal(false);
       // signOut triggers onAuthStateChange in AppNavigator which auto-navigates to Auth
       // No need for manual navigation.reset - it causes "action not handled" warning
       await backend.signOut();
     } catch (error) {
-      console.error('Delete account error:', error);
-      Alert.alert('Error', 'Failed to delete account. Please try again.');
+      if (__DEV__) console.warn('Delete account error:', error);
+      showError('Error', 'Failed to delete account. Please try again.');
     } finally {
       setDeleting(false);
     }
   };
 
-  const renderMenuItem = (item: typeof MENU_ITEMS[0], index: number) => (
+  const renderMenuItem = (item: { id: string; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: string; params?: Record<string, unknown> }, index: number) => (
     <TouchableOpacity
       key={item.id}
       style={[styles.menuItem, index === 0 && styles.menuItemFirst]}
@@ -229,10 +244,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       activeOpacity={0.7}
     >
       <View style={styles.menuItemIcon}>
-        <Ionicons name={item.icon} size={20} color={COLORS.primaryGreen} />
+        <Ionicons name={item.icon} size={20} color={colors.primary} />
       </View>
       <Text style={styles.menuItemLabel}>{item.label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+      <Ionicons name="chevron-forward" size={18} color={colors.primary} />
     </TouchableOpacity>
   );
 
@@ -296,7 +311,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           ) : (
             <View style={[styles.coverImage, styles.coverPlaceholder]}>
               <LinearGradient
-                colors={[COLORS.primaryGreen, '#0A8F6A', '#064E3B']}
+                colors={[colors.primary, '#0A8F6A', '#064E3B']}
                 style={StyleSheet.absoluteFill}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -331,9 +346,11 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                   <Ionicons name="person" size={36} color="#9CA3AF" />
                 </View>
               )}
-              <View style={styles.avatarBadge}>
-                <Ionicons name="checkmark" size={12} color="#FFF" />
-              </View>
+              {user?.isVerified && (
+                <View style={styles.avatarBadge}>
+                  <Ionicons name="checkmark" size={12} color="#FFF" />
+                </View>
+              )}
             </View>
             <Text style={styles.displayName}>{displayName}</Text>
             {username ? <Text style={styles.username}>@{username}</Text> : null}
@@ -344,19 +361,19 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.menuCard}>
-            {MENU_ITEMS.slice(0, 4).map((item, index) => renderMenuItem(item, index))}
+            {ACCOUNT_ITEMS.map((item, index) => renderMenuItem(item, index))}
           </View>
         </View>
 
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Preferences</Text>
           <View style={styles.menuCard}>
-            {MENU_ITEMS.slice(4, 6).map((item, index) => renderMenuItem(item, index))}
+            {PREFERENCES_ITEMS.map((item, index) => renderMenuItem(item, index))}
 
             {/* Privacy Toggle */}
             <View style={styles.menuItem}>
               <View style={styles.menuItemIcon}>
-                <Ionicons name={isPrivate ? 'lock-closed-outline' : 'lock-open-outline'} size={20} color={COLORS.primaryGreen} />
+                <Ionicons name={isPrivate ? 'lock-closed-outline' : 'lock-open-outline'} size={20} color={colors.primary} />
               </View>
               <View style={styles.menuItemContent}>
                 <Text style={styles.menuItemLabel}>Private Account</Text>
@@ -367,11 +384,41 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Switch
                 value={isPrivate}
                 onValueChange={togglePrivacy}
-                trackColor={{ false: '#E5E7EB', true: COLORS.primaryGreen }}
-                thumbColor="#FFFFFF"
-                ios_backgroundColor="#E5E7EB"
+                trackColor={{ false: colors.gray200, true: colors.primary }}
+                thumbColor={colors.white}
+                ios_backgroundColor={colors.gray200}
                 disabled={togglingPrivacy}
               />
+            </View>
+
+            {/* Appearance Toggle */}
+            <View style={styles.menuItem}>
+              <View style={styles.menuItemIcon}>
+                <Ionicons name="contrast-outline" size={20} color={colors.primary} />
+              </View>
+              <Text style={styles.menuItemLabel}>Appearance</Text>
+              <View style={styles.appearanceChips}>
+                {APPEARANCE_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.appearanceChip,
+                      preference === opt.value && styles.appearanceChipActive,
+                    ]}
+                    onPress={() => setTheme(opt.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.appearanceChipText,
+                        preference === opt.value && styles.appearanceChipTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
         </View>
@@ -379,7 +426,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Support</Text>
           <View style={styles.menuCard}>
-            {MENU_ITEMS.slice(6).map((item, index) => renderMenuItem(item, index))}
+            {SUPPORT_ITEMS.map((item, index) => renderMenuItem(item, index))}
           </View>
         </View>
 
@@ -388,14 +435,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <Text style={styles.sectionTitle}>Payments & Monetization</Text>
           <View style={styles.menuCard}>
             {/* Upgrade to Pro Creator - Only for personal accounts */}
-            {user?.accountType !== 'pro_creator' && (
+            {user?.accountType === 'personal' && (
               <TouchableOpacity
                 style={[styles.menuItem, styles.menuItemFirst, styles.upgradeItem]}
                 onPress={() => navigation.navigate('UpgradeToPro')}
                 activeOpacity={0.7}
               >
                 <LinearGradient
-                  colors={[COLORS.primaryGreen, '#00B5C1']}
+                  colors={[colors.primary, '#00B5C1']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.upgradeGradient}
@@ -414,8 +461,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               </TouchableOpacity>
             )}
 
+            {/* Creator Wallet - Not for personal accounts */}
+            {user?.accountType !== 'personal' && (
             <TouchableOpacity
-              style={[styles.menuItem, user?.accountType === 'pro_creator' ? styles.menuItemFirst : undefined]}
+              style={[styles.menuItem, styles.menuItemFirst]}
               onPress={() => navigation.navigate('CreatorWallet')}
               activeOpacity={0.7}
             >
@@ -423,9 +472,12 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <Ionicons name="wallet-outline" size={20} color="#22C55E" />
               </View>
               <Text style={styles.menuItemLabel}>Creator Wallet</Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
+            )}
 
+            {/* Go Pro - Not for personal accounts */}
+            {user?.accountType !== 'personal' && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('PlatformSubscription')}
@@ -435,8 +487,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <Ionicons name="rocket-outline" size={20} color="#7C3AED" />
               </View>
               <Text style={styles.menuItemLabel}>Go Pro</Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.menuItem}
@@ -444,12 +497,36 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#E3F2FD' }]}>
-                <Ionicons name="shield-checkmark-outline" size={20} color="#2196F3" />
+                <VerifiedBadge size={20} />
               </View>
-              <Text style={styles.menuItemLabel}>Identity Verification</Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemLabel}>Identity Verification</Text>
+                <Text style={styles.menuItemSubtitle}>
+                  {user?.isVerified ? 'Active' : 'Not verified'}
+                </Text>
+              </View>
+              {user?.isVerified ? (
+                <View style={styles.verifiedStatusDot} />
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              )}
             </TouchableOpacity>
 
+            {/* Payment Methods - All users */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('PaymentMethods')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: '#F3E5F5' }]}>
+                <Ionicons name="card-outline" size={20} color="#9C27B0" />
+              </View>
+              <Text style={styles.menuItemLabel}>Payment Methods</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            </TouchableOpacity>
+
+            {/* Private Sessions - Creator only */}
+            {isProCreator && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate('PrivateSessionsManage')}
@@ -459,8 +536,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <Ionicons name="videocam-outline" size={20} color="#FF9800" />
               </View>
               <Text style={styles.menuItemLabel}>Private Sessions</Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.primaryGreen} />
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -501,10 +579,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof import('../../config/theme').getThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.gray100,
   },
   scrollView: {
     flex: 1,
@@ -569,17 +647,17 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 4,
-    borderColor: '#F3F4F6',
+    borderColor: colors.gray100,
   },
   avatarPlaceholder: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.gray200,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#F3F4F6',
+    borderColor: colors.gray100,
   },
   avatarBadge: {
     position: 'absolute',
@@ -588,21 +666,21 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: COLORS.primaryGreen,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#F3F4F6',
+    borderColor: colors.gray100,
   },
   displayName: {
     fontSize: 18,
     fontFamily: 'WorkSans-Bold',
-    color: '#111827',
+    color: colors.gray900,
   },
   username: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#6B7280',
+    color: colors.gray500,
     marginTop: 2,
   },
 
@@ -614,14 +692,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#6B7280',
+    color: colors.gray500,
     marginBottom: 8,
     marginLeft: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -636,7 +714,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.gray100,
   },
   menuItemFirst: {
     borderTopWidth: 0,
@@ -645,7 +723,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: `${COLORS.primaryGreen}15`,
+    backgroundColor: `${colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -657,13 +735,40 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontFamily: 'Poppins-Medium',
-    color: '#111827',
+    color: colors.gray900,
   },
   menuItemSubtitle: {
     fontSize: 12,
     fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
+    color: colors.gray400,
     marginTop: 1,
+  },
+  verifiedStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  appearanceChips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  appearanceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: colors.gray100,
+  },
+  appearanceChipActive: {
+    backgroundColor: colors.primary,
+  },
+  appearanceChipText: {
+    fontSize: 12,
+    fontFamily: 'Poppins-Medium',
+    color: colors.gray500,
+  },
+  appearanceChipTextActive: {
+    color: colors.white,
   },
   dangerIcon: {
     backgroundColor: '#FEE2E2',
@@ -716,23 +821,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Footer
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  footerLogo: {
-    fontSize: 22,
-    fontFamily: 'WorkSans-Bold',
-    color: '#D1D5DB',
-  },
-  footerVersion: {
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
-    marginTop: 4,
-  },
-
   // Modal Styles
   modalOverlay: {
     flex: 1,
@@ -742,7 +830,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
     borderRadius: 24,
     padding: 28,
     width: '100%',
@@ -760,13 +848,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontFamily: 'WorkSans-Bold',
-    color: '#0A0A0F',
+    color: colors.gray900,
     marginBottom: 8,
   },
   modalMessage: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#6B7280',
+    color: colors.gray500,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
@@ -781,13 +869,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryGreen,
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.primaryGreen,
+    color: colors.primary,
   },
   logoutButton: {
     flex: 1,

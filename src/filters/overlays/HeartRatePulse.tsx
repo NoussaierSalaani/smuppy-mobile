@@ -66,6 +66,7 @@ export function HeartRatePulse({ params, size = 100 }: HeartRatePulseProps) {
       heartScale.value = withTiming(1, { duration: 200 });
       glowOpacity.value = withTiming(0.5, { duration: 200 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAnimating, bpm, animationDuration]);
 
   // Animated styles

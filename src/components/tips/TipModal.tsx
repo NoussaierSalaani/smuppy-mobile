@@ -3,7 +3,7 @@
  * Modern, futuristic tip modal with animations
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -53,6 +54,8 @@ const TipModal: React.FC<TipModalProps> = ({
   isLoading = false,
 }) => {
   const { currency, formatAmount } = useCurrency();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [showCustom, setShowCustom] = useState(false);
@@ -233,7 +236,7 @@ const TipModal: React.FC<TipModalProps> = ({
               </View>
               <Text style={styles.title}>Send a Tip</Text>
               <Text style={styles.subtitle}>
-                to <Text style={styles.username}>@{receiver.username}</Text>
+                to <Text style={styles.username}>{receiver.displayName || receiver.username}</Text>
               </Text>
             </View>
 
@@ -258,7 +261,7 @@ const TipModal: React.FC<TipModalProps> = ({
               <Ionicons
                 name={showCustom ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color={COLORS.gray}
+                color={colors.gray}
               />
               <Text style={styles.customToggleText}>Custom amount</Text>
             </TouchableOpacity>
@@ -271,7 +274,7 @@ const TipModal: React.FC<TipModalProps> = ({
                   value={customAmount}
                   onChangeText={handleCustomAmountChange}
                   placeholder="0.00"
-                  placeholderTextColor={COLORS.gray}
+                  placeholderTextColor={colors.gray}
                   keyboardType="decimal-pad"
                   autoFocus
                 />
@@ -287,7 +290,7 @@ const TipModal: React.FC<TipModalProps> = ({
                 value={message}
                 onChangeText={setMessage}
                 placeholder="Add a message (optional)"
-                placeholderTextColor={COLORS.gray}
+                placeholderTextColor={colors.gray}
                 maxLength={200}
                 multiline
               />
@@ -305,7 +308,7 @@ const TipModal: React.FC<TipModalProps> = ({
                 ]}
               >
                 {isAnonymous && (
-                  <Ionicons name="checkmark" size={14} color={COLORS.white} />
+                  <Ionicons name="checkmark" size={14} color={colors.white} />
                 )}
               </View>
               <Text style={styles.anonymousText}>Send anonymously</Text>
@@ -343,17 +346,17 @@ const TipModal: React.FC<TipModalProps> = ({
                   colors={
                     getFinalAmount() && !error
                       ? ['#FFD700', '#FFA500']
-                      : [COLORS.darkGray, COLORS.darkGray]
+                      : [colors.darkGray, colors.darkGray]
                   }
                   style={styles.confirmButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color={COLORS.white} size="small" />
+                    <ActivityIndicator color={colors.white} size="small" />
                   ) : (
                     <>
-                      <Ionicons name="gift" size={18} color={COLORS.white} />
+                      <Ionicons name="gift" size={18} color={colors.white} />
                       <Text style={styles.confirmButtonText}>Send Tip</Text>
                     </>
                   )}
@@ -363,7 +366,7 @@ const TipModal: React.FC<TipModalProps> = ({
 
             {/* Secure Payment */}
             <View style={styles.secureRow}>
-              <Ionicons name="lock-closed" size={12} color={COLORS.gray} />
+              <Ionicons name="lock-closed" size={12} color={colors.gray} />
               <Text style={styles.secureText}>Secure payment via Stripe</Text>
             </View>
           </Animated.View>
@@ -373,7 +376,7 @@ const TipModal: React.FC<TipModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -388,7 +391,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     width: SCREEN_WIDTH - 40,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.cardBg,
     borderRadius: 28,
     padding: 24,
     shadowColor: '#000',
@@ -414,15 +417,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   username: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   amountsContainer: {
@@ -438,9 +441,9 @@ const styles = StyleSheet.create({
     width: (SCREEN_WIDTH - 100) / 2,
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -457,12 +460,12 @@ const styles = StyleSheet.create({
   amountButtonText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   amountButtonTextSelected: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: '#FFFFFF',
   },
   customToggle: {
     flexDirection: 'row',
@@ -473,22 +476,22 @@ const styles = StyleSheet.create({
   },
   customToggleText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   customInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     paddingHorizontal: 20,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   currencySymbol: {
     fontSize: 24,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
     marginRight: 8,
   },
   customInput: {
@@ -496,11 +499,11 @@ const styles = StyleSheet.create({
     height: 56,
     fontSize: 24,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   errorText: {
     fontSize: 13,
-    color: COLORS.error,
+    color: colors.error,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -508,16 +511,16 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   messageInput: {
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: COLORS.white,
+    color: colors.dark,
     minHeight: 60,
     maxHeight: 100,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   anonymousToggle: {
     flexDirection: 'row',
@@ -531,17 +534,17 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   anonymousText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   totalContainer: {
     flexDirection: 'row',
@@ -550,11 +553,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
   },
   totalLabel: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   totalAmount: {
     fontSize: 28,
@@ -570,16 +573,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 54,
     borderRadius: 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   confirmButton: {
     flex: 1.5,
@@ -600,7 +603,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: '#FFFFFF',
   },
   secureRow: {
     flexDirection: 'row',
@@ -611,7 +614,7 @@ const styles = StyleSheet.create({
   },
   secureText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });
 

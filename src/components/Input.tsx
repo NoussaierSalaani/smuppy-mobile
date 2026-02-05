@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS, BORDERS } from '../config/theme';
+import { SIZES, SHADOWS, BORDERS } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type InputState = 'default' | 'focus' | 'error' | 'disabled';
 
@@ -66,8 +67,14 @@ export default function Input({
   inputStyle,
   ...props
 }: InputProps): React.JSX.Element {
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isSecure, setIsSecure] = useState(secureTextEntry);
+
+  // Sync isSecure state when secureTextEntry prop changes
+  useEffect(() => {
+    setIsSecure(secureTextEntry);
+  }, [secureTextEntry]);
 
   // Determine current state
   const getState = (): InputState => {
@@ -82,44 +89,45 @@ export default function Input({
   // State-based styles
   const stateStyles: Record<InputState, StateStyle> = {
     default: {
-      backgroundColor: COLORS.white,
-      borderColor: COLORS.primary,
+      backgroundColor: colors.white,
+      borderColor: colors.primary,
       borderWidth: BORDERS.thin,
-      labelColor: COLORS.dark,
-      textColor: COLORS.dark,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.dark,
+      labelColor: colors.dark,
+      textColor: colors.dark,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.dark,
     },
     focus: {
-      backgroundColor: COLORS.backgroundFocus,
-      borderColor: COLORS.primary,
+      backgroundColor: colors.backgroundFocus,
+      borderColor: colors.primary,
       borderWidth: BORDERS.thin,
-      labelColor: COLORS.dark,
-      textColor: COLORS.dark,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.dark,
+      labelColor: colors.dark,
+      textColor: colors.dark,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.dark,
     },
     error: {
-      backgroundColor: COLORS.white,
-      borderColor: COLORS.error,
+      backgroundColor: colors.white,
+      borderColor: colors.error,
       borderWidth: BORDERS.thin,
-      labelColor: COLORS.dark,
-      textColor: COLORS.error,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.dark,
+      labelColor: colors.dark,
+      textColor: colors.error,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.dark,
     },
     disabled: {
-      backgroundColor: COLORS.backgroundDisabled,
+      backgroundColor: colors.backgroundDisabled,
       borderColor: 'transparent',
       borderWidth: 0,
-      labelColor: COLORS.graySecondary,
-      textColor: COLORS.grayLight,
-      placeholderColor: COLORS.grayLight,
-      iconColor: COLORS.grayMuted,
+      labelColor: colors.graySecondary,
+      textColor: colors.grayLight,
+      placeholderColor: colors.grayLight,
+      iconColor: colors.grayMuted,
     },
   };
 
   const currentStyle = stateStyles[state];
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Handle password visibility toggle
   const handleToggleSecure = (): void => {
@@ -130,7 +138,15 @@ export default function Input({
   const renderRightIcon = (): React.JSX.Element | null => {
     if (secureTextEntry) {
       return (
-        <TouchableOpacity onPress={handleToggleSecure} style={styles.iconButton}>
+        <TouchableOpacity
+          onPress={handleToggleSecure}
+          style={styles.iconButton}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={isSecure ? 'Show password' : 'Hide password'}
+          accessibilityHint="Double-tap to toggle password visibility"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons
             name={isSecure ? 'eye-off-outline' : 'eye-outline'}
             size={SIZES.iconMd}
@@ -145,6 +161,9 @@ export default function Input({
           onPress={onRightIconPress}
           disabled={!onRightIconPress}
           style={styles.iconButton}
+          accessible={true}
+          accessibilityRole="button"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons
             name={rightIcon}
@@ -211,6 +230,9 @@ export default function Input({
           multiline={multiline}
           numberOfLines={numberOfLines}
           textAlignVertical={multiline ? 'top' : 'center'}
+          accessible={true}
+          accessibilityLabel={label || placeholder}
+          accessibilityState={{ disabled }}
           {...props}
         />
 
@@ -220,13 +242,19 @@ export default function Input({
 
       {/* Error Message */}
       {error && (
-        <Text style={styles.errorText}>{error}</Text>
+        <Text
+          style={styles.errorText}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+        >
+          {error}
+        </Text>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginBottom: 8,
   },
@@ -265,7 +293,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.error,
+    color: colors.error,
     marginTop: 4,
   },
 });

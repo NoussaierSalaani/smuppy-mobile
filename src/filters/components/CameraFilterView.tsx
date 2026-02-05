@@ -16,7 +16,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 interface CameraFilterViewProps {
   facing: CameraType;
   mode?: CameraMode;
-  style?: any;
+  style?: import('react-native').ViewStyle;
   children?: React.ReactNode;
   onCameraReady?: () => void;
 }
@@ -80,7 +80,7 @@ interface FilteredImageViewProps {
   imageSource: string;
   width?: number;
   height?: number;
-  style?: any;
+  style?: import('react-native').ViewStyle;
 }
 
 export function FilteredImageView({

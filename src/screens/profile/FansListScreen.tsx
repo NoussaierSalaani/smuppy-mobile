@@ -8,7 +8,6 @@ import {
   StatusBar,
   Modal,
   TouchableWithoutFeedback,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -18,7 +17,9 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   getFollowers,
   getFollowing,
@@ -33,7 +34,7 @@ interface User {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   isVerified: boolean;
   accountType?: 'personal' | 'pro_creator' | 'pro_business';
   isFanOfMe: boolean;
@@ -53,7 +54,7 @@ const profileToUser = (
   id: profile.id,
   name: profile.full_name || profile.username || 'User',
   username: `@${profile.username || 'user'}`,
-  avatar: profile.avatar_url || 'https://via.placeholder.com/100',
+  avatar: profile.avatar_url || null,
   isVerified: profile.is_verified || false,
   accountType: profile.account_type || 'personal',
   isFanOfMe,
@@ -62,8 +63,23 @@ const profileToUser = (
   lastUnfollowAt: null,
 });
 
-export default function FansListScreen({ navigation, route }: { navigation: any; route: any }) {
+interface FansListScreenProps {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+  };
+  route: {
+    params?: {
+      initialTab?: 'fans' | 'tracking';
+      userId?: string;
+    };
+  };
+}
+
+export default function FansListScreen({ navigation, route }: FansListScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const { showError, showWarning } = useSmuppyAlert();
   const initialTab = route?.params?.initialTab || 'fans';
   const userId = route?.params?.userId; // Optional: view another user's fans
 
@@ -78,7 +94,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   const [showWarningPopup, setShowWarningPopup] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [_currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -93,7 +108,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       // Get current user ID
       const { data: currentProfile, error: profileError } = await getCurrentProfile();
       if (!currentProfile) {
-        console.warn('[FansListScreen] No current profile:', profileError);
+        if (__DEV__) console.warn('[FansListScreen] No current profile:', profileError);
         // Show empty state instead of crashing
         setFans([]);
         setTracking([]);
@@ -102,7 +117,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       }
 
       const targetUserId = userId || currentProfile.id;
-      setCurrentUserId(currentProfile.id);
 
       // Load followers (fans) and following (tracking) in parallel
       const [fansResult, trackingResult] = await Promise.all([
@@ -133,8 +147,8 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       setFans(transformedFans);
       setTracking(transformedTracking);
     } catch (error) {
-      console.error('[FansListScreen] Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data. Please try again.');
+      if (__DEV__) console.warn('[FansListScreen] Error loading data:', error);
+      showError('Error', 'Failed to load data. Please try again.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -181,10 +195,9 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
       if (!canRefollow(user)) {
         const days = getDaysRemaining(user.lastUnfollowAt);
-        Alert.alert(
+        showWarning(
           'Cannot become a fan yet',
-          `Wait ${days} more day${days > 1 ? 's' : ''} before becoming a fan of ${user.name} again.`,
-          [{ text: 'OK' }]
+          `Wait ${days} more day${days > 1 ? 's' : ''} before becoming a fan of ${user.name} again.`
         );
         return;
       }
@@ -194,7 +207,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       try {
         const { error } = await followUser(targetUserId);
         if (error) {
-          Alert.alert('Error', error);
+          showError('Error', error);
           return;
         }
 
@@ -212,13 +225,13 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           );
         });
       } catch (error) {
-        console.error('[FansListScreen] Follow error:', error);
-        Alert.alert('Error', 'Failed to follow. Please try again.');
+        if (__DEV__) console.warn('[FansListScreen] Follow error:', error);
+        showError('Error', 'Failed to follow. Please try again.');
       } finally {
         setActionLoading(null);
       }
     },
-    [fans, tracking, canRefollow, getDaysRemaining]
+    [fans, tracking, canRefollow, getDaysRemaining, showError, showWarning]
   );
 
   const handleUnfollowPress = useCallback((user: User) => {
@@ -238,7 +251,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     try {
       const { error } = await unfollowUser(selectedUser.id);
       if (error) {
-        Alert.alert('Error', error);
+        showError('Error', error);
         return;
       }
 
@@ -261,19 +274,22 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
       closePopups();
     } catch (error) {
-      console.error('[FansListScreen] Unfollow error:', error);
-      Alert.alert('Error', 'Failed to unfollow. Please try again.');
+      if (__DEV__) console.warn('[FansListScreen] Unfollow error:', error);
+      showError('Error', 'Failed to unfollow. Please try again.');
     } finally {
       setActionLoading(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUser]);
+  }, [selectedUser, showError]);
 
   const closePopups = useCallback(() => {
     setShowUnfollowPopup(false);
     setShowWarningPopup(false);
     setSelectedUser(null);
   }, []);
+
+  // Create styles with theme (must be before callbacks that reference styles)
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Render badge
   const renderBadge = useCallback(
@@ -284,7 +300,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       if (isLoadingThis) {
         return (
           <View style={styles.loadingBadge}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
         );
       }
@@ -297,7 +313,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
               style={styles.trackBadge}
               onPress={() => handleFollow(item.id)}
             >
-              <Ionicons name="add" size={14} color={COLORS.dark} />
+              <Ionicons name="add" size={14} color="#FFFFFF" />
               <Text style={styles.trackBadgeText}>Track</Text>
             </TouchableOpacity>
           );
@@ -306,7 +322,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         if (isMutual) {
           return (
             <View style={styles.mutualBadge}>
-              <Ionicons name="swap-horizontal" size={14} color={COLORS.primary} />
+              <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
             </View>
           );
         }
@@ -317,14 +333,14 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
             style={styles.fanBadge}
             onPress={() => handleUnfollowPress(item)}
           >
-            <SmuppyHeartIcon size={12} color={COLORS.primary} filled />
+            <SmuppyHeartIcon size={12} color={colors.heartRed} filled />
             <Text style={styles.fanBadgeText}>Fan</Text>
           </TouchableOpacity>
         );
       }
       return null;
     },
-    [activeTab, handleFollow, handleUnfollowPress, actionLoading]
+    [activeTab, handleFollow, handleUnfollowPress, actionLoading, styles, colors]
   );
 
   // Render user item
@@ -339,7 +355,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
         <View style={styles.userInfo}>
           <View style={styles.nameRow}>
-            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
             <AccountBadge
               size={16}
               style={styles.verifiedBadge}
@@ -347,13 +363,13 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
               accountType={item.accountType}
             />
           </View>
-          <Text style={styles.userUsername}>{item.username}</Text>
+          <Text style={styles.userUsername} numberOfLines={1}>{item.username}</Text>
         </View>
 
         {renderBadge(item)}
       </TouchableOpacity>
     ),
-    [navigation, renderBadge]
+    [navigation, renderBadge, styles]
   );
 
   const keyExtractor = useCallback((item: User) => item.id, []);
@@ -409,7 +425,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       <Ionicons
         name={activeTab === 'fans' ? 'people-outline' : 'heart-outline'}
         size={60}
-        color={COLORS.gray}
+        color={colors.gray}
       />
       <Text style={styles.emptyTitle}>
         {activeTab === 'fans' ? 'No fans yet' : 'Not tracking anyone'}
@@ -422,12 +438,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
     </View>
   );
 
-  // Loading state
-  if (isLoading) {
+  // Only show full loading state on first load when no cached data exists
+  if (isLoading && fans.length === 0 && tracking.length === 0) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -435,7 +451,7 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
@@ -443,12 +459,12 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
 
         <Text style={styles.headerText}>Community</Text>
 
-        <View style={{ width: 40 }} />
+        <View style={styles.backButton} />
       </View>
 
       {/* Tabs */}
@@ -457,17 +473,17 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.gray} />
+          <Ionicons name="search" size={20} color={colors.gray} />
           <TextInput
             style={styles.searchInput}
             placeholder={`Search ${activeTab}...`}
-            placeholderTextColor={COLORS.gray}
+            placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={20} color={colors.gray} />
             </TouchableOpacity>
           )}
         </View>
@@ -478,6 +494,8 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
         data={filteredList}
         renderItem={renderUserItem}
         keyExtractor={keyExtractor}
+        extraData={styles}
+        drawDistance={300}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
@@ -500,7 +518,6 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                   <>
                     <AvatarImage source={selectedUser.avatar} size={70} />
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
-                    <Text style={styles.popupUsername}>{selectedUser.username}</Text>
                     <Text style={styles.popupInfo}>
                       Are you sure you want to unfan?
                     </Text>
@@ -510,10 +527,10 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                       disabled={actionLoading === selectedUser.id}
                     >
                       {actionLoading === selectedUser.id ? (
-                        <ActivityIndicator size="small" color={COLORS.red} />
+                        <ActivityIndicator size="small" color={'#FF6B6B'} />
                       ) : (
                         <>
-                          <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                          <Ionicons name="heart-dislike-outline" size={18} color={'#FF6B6B'} />
                           <Text style={styles.unfollowButtonText}>Unfan</Text>
                         </>
                       )}
@@ -540,10 +557,9 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                 {selectedUser && (
                   <>
                     <View style={styles.warningIconContainer}>
-                      <Ionicons name="warning" size={40} color={COLORS.orange} />
+                      <Ionicons name="warning" size={40} color={'#FFA500'} />
                     </View>
                     <Text style={styles.popupName}>{selectedUser.name}</Text>
-                    <Text style={styles.popupUsername}>{selectedUser.username}</Text>
                     <Text style={styles.popupWarning}>
                       If you unfan now, you'll have to wait 7 days before becoming a fan again.
                     </Text>
@@ -557,10 +573,10 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
                         disabled={actionLoading === selectedUser.id}
                       >
                         {actionLoading === selectedUser.id ? (
-                          <ActivityIndicator size="small" color={COLORS.red} />
+                          <ActivityIndicator size="small" color={'#FF6B6B'} />
                         ) : (
                           <>
-                            <Ionicons name="heart-dislike-outline" size={18} color={COLORS.red} />
+                            <Ionicons name="heart-dislike-outline" size={18} color={'#FF6B6B'} />
                             <Text style={styles.unfollowButtonText}>Unfan</Text>
                           </>
                         )}
@@ -577,10 +593,10 @@ export default function FansListScreen({ navigation, route }: { navigation: any;
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -589,7 +605,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   loadingBadge: {
     width: 60,
@@ -610,14 +626,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
 
   // Tabs
@@ -625,7 +641,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
   },
   tab: {
     flex: 1,
@@ -640,24 +656,24 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
-    color: COLORS.white,
+    color: colors.dark,
   },
   tabCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
-    backgroundColor: '#2C2C2E',
+    color: colors.gray,
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     overflow: 'hidden',
   },
   tabCountActive: {
-    color: COLORS.dark,
-    backgroundColor: COLORS.primary,
+    color: '#FFFFFF',
+    backgroundColor: colors.primary,
   },
   tabIndicator: {
     position: 'absolute',
@@ -676,7 +692,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : colors.gray100,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -684,7 +700,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.dark,
     marginLeft: 10,
   },
 
@@ -700,7 +716,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
   },
   userInfo: {
     flex: 1,
@@ -713,11 +729,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   userUsername: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   verifiedBadge: {
@@ -728,7 +744,7 @@ const styles = StyleSheet.create({
   trackBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -736,7 +752,7 @@ const styles = StyleSheet.create({
   trackBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: '#FFFFFF',
     marginLeft: 2,
   },
   fanBadge: {
@@ -747,12 +763,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   fanBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
     marginLeft: 4,
   },
   mutualBadge: {
@@ -773,12 +789,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginTop: 16,
   },
   emptyDesc: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
@@ -792,7 +808,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   popupContainer: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: isDark ? '#1C1C1E' : colors.background,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -802,24 +818,19 @@ const styles = StyleSheet.create({
   popupName: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginTop: 12,
     marginBottom: 4,
   },
-  popupUsername: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginBottom: 12,
-  },
   popupInfo: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 16,
   },
   popupWarning: {
     fontSize: 13,
-    color: COLORS.orange,
+    color: '#FFA500',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
@@ -841,12 +852,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   unfollowButton: {
     flexDirection: 'row',
@@ -856,14 +867,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: COLORS.red,
+    borderColor: '#FF6B6B',
     minWidth: 100,
     justifyContent: 'center',
   },
   unfollowButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.red,
+    color: '#FF6B6B',
     marginLeft: 8,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   TextInput,
   ScrollView,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +23,11 @@ import { awsAuth } from '../../services/aws-auth';
 import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
-import SmuppyAlert, { useSmuppyAlert } from '../../components/SmuppyAlert';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { searchNominatim, NominatimSearchResult } from '../../config/api';
+import * as Location from 'expo-location';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateForDisplay } from '../../utils/dateFormatters';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -27,6 +35,7 @@ interface EditProfileScreenProps {
 
 const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const user = useUserStore((state) => state.user);
   const updateLocalProfile = useUserStore((state) => state.updateProfile);
   const { data: profileData, refetch } = useCurrentProfile();
@@ -36,7 +45,8 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const [avatarChanged, setAvatarChanged] = useState(false);
   const [showImageSheet, setShowImageSheet] = useState(false);
   const [userEmail, setUserEmail] = useState('');
-  const alert = useSmuppyAlert();
+  const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
+  const alert = { error: errorAlert, warning: warningAlert };
 
   // Load user email from auth
   useEffect(() => {
@@ -46,7 +56,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         setUserEmail(authUser.email);
       }
     };
-    loadEmail();
+    loadEmail().catch(err => { if (__DEV__) console.warn('[EditProfileScreen] Load error:', err); });
   }, []);
 
   // Merge profile data from DB and local context
@@ -67,6 +77,23 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const [bio, setBio] = useState(mergedProfile.bio || '');
   const [dateOfBirth, setDateOfBirth] = useState(mergedProfile.dateOfBirth || '');
   const [gender, setGender] = useState(mergedProfile.gender || '');
+
+  // Business address (pro_business only)
+  const isBusiness = user?.accountType === 'pro_business';
+  const [businessAddress, setBusinessAddress] = useState(user?.businessAddress || '');
+  const [businessLatitude, setBusinessLatitude] = useState<number | undefined>(user?.businessLatitude);
+  const [businessLongitude, setBusinessLongitude] = useState<number | undefined>(user?.businessLongitude);
+  const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const addressSearchTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup address search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (addressSearchTimeout.current) clearTimeout(addressSearchTimeout.current);
+    };
+  }, []);
 
   // Modals
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -92,6 +119,58 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const updateField = (setter: (value: string) => void, value: string) => {
     setter(value);
     setHasChanges(true);
+  };
+
+  // Business address handlers
+  const handleBusinessAddressChange = (text: string) => {
+    setBusinessAddress(text);
+    setBusinessLatitude(undefined);
+    setBusinessLongitude(undefined);
+    setHasChanges(true);
+    if (addressSearchTimeout.current) clearTimeout(addressSearchTimeout.current);
+    if (text.length < 3) { setAddressSuggestions([]); return; }
+    addressSearchTimeout.current = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const results = await searchNominatim(text, { limit: 4 });
+        setAddressSuggestions(results);
+      } catch { setAddressSuggestions([]); }
+      finally { setIsLoadingSuggestions(false); }
+    }, 300);
+  };
+
+  const selectBusinessAddress = (suggestion: NominatimSearchResult) => {
+    setBusinessAddress(suggestion.display_name);
+    setBusinessLatitude(parseFloat(suggestion.lat));
+    setBusinessLongitude(parseFloat(suggestion.lon));
+    setAddressSuggestions([]);
+    setHasChanges(true);
+    Keyboard.dismiss();
+  };
+
+  const detectBusinessLocation = async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setIsLoadingLocation(false); return; }
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [reverseResult] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      if (reverseResult) {
+        const parts = [reverseResult.streetNumber, reverseResult.street, reverseResult.city, reverseResult.postalCode, reverseResult.country].filter(Boolean);
+        setBusinessAddress(parts.join(', '));
+        setBusinessLatitude(location.coords.latitude);
+        setBusinessLongitude(location.coords.longitude);
+        setAddressSuggestions([]);
+        setHasChanges(true);
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('Location error:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
   };
 
   const showImagePicker = () => {
@@ -183,13 +262,19 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       }
 
       // Save to AWS
-      await updateDbProfile({
+      const profileUpdates: Record<string, unknown> = {
         full_name: fullName,
         avatar_url: avatarUrl,
         bio: bio,
         date_of_birth: dateOfBirth,
         gender: gender,
-      });
+      };
+      if (isBusiness) {
+        profileUpdates.business_address = businessAddress;
+        if (businessLatitude != null) profileUpdates.business_latitude = businessLatitude;
+        if (businessLongitude != null) profileUpdates.business_longitude = businessLongitude;
+      }
+      await updateDbProfile(profileUpdates);
 
       // Also update local store
       updateLocalProfile({
@@ -200,6 +285,11 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         bio,
         dateOfBirth,
         gender,
+        ...(isBusiness ? {
+          businessAddress,
+          businessLatitude,
+          businessLongitude,
+        } : {}),
       });
 
       // Refresh data
@@ -209,51 +299,22 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       setAvatarChanged(false);
       navigation.goBack();
     } catch (error) {
-      console.error('Save profile error:', error);
+      if (__DEV__) console.warn('Save profile error:', error);
       alert.error('Save Failed', 'Failed to save profile. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Format date for display (various formats → DD/MM/YYYY)
-  const formatDateForDisplay = (dateString: string | Date | null | undefined): string => {
-    if (!dateString) return '';
-
-    // If it's a Date object
-    if (dateString instanceof Date) {
-      const day = String(dateString.getDate()).padStart(2, '0');
-      const month = String(dateString.getMonth() + 1).padStart(2, '0');
-      const year = dateString.getFullYear();
-      return `${day}/${month}/${year}`;
-    }
-
-    // Convert to string if needed
-    const str = String(dateString);
-
-    // YYYY-MM-DD format
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      const [year, month, day] = str.split('-');
-      return `${day}/${month}/${year}`;
-    }
-
-    // ISO timestamp (YYYY-MM-DDTHH:mm:ss...)
-    if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
-      const datePart = str.split('T')[0];
-      const [year, month, day] = datePart.split('-');
-      return `${day}/${month}/${year}`;
-    }
-
-    // Already in DD/MM/YYYY format
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-      return str;
-    }
-
-    return '';
-  };
+  // Create styles with theme
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
@@ -377,6 +438,46 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
           </View>
         </View>
 
+        {/* Business Address Section (pro_business only) */}
+        {isBusiness && (
+          <View style={styles.formContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Business Address</Text>
+              <View style={styles.addressRow}>
+                <TouchableOpacity onPress={detectBusinessLocation} disabled={isLoadingLocation} style={styles.locationButton}>
+                  {isLoadingLocation ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Ionicons name="locate" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={businessAddress}
+                  onChangeText={handleBusinessAddressChange}
+                  placeholder="Start typing or use location..."
+                  placeholderTextColor="#C7C7CC"
+                />
+                {isLoadingSuggestions && <ActivityIndicator size="small" color={colors.primary} />}
+              </View>
+              {addressSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {addressSuggestions.map((s) => (
+                    <TouchableOpacity
+                      key={s.place_id.toString()}
+                      style={styles.suggestionItem}
+                      onPress={() => selectBusinessAddress(s)}
+                    >
+                      <Ionicons name="location" size={16} color={colors.primary} />
+                      <Text style={styles.suggestionText} numberOfLines={2}>{s.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Spacer for bottom */}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -405,17 +506,14 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         subtitle="Choose how to update your photo"
         options={getImageSheetOptions()}
       />
-
-      {/* Alert Modal */}
-      <SmuppyAlert {...alert.alertProps} />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -433,24 +531,24 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   saveButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   saveButtonDisabled: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.backgroundSecondary,
   },
   saveButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
   saveButtonTextDisabled: {
-    color: '#C7C7CC',
+    color: colors.gray,
   },
   content: {
     flex: 1,
@@ -473,7 +571,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     alignSelf: 'center',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
@@ -481,7 +579,7 @@ const styles = StyleSheet.create({
   updateButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
 
   // Form
@@ -494,16 +592,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.gray,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   bioInput: {
     minHeight: 80,
@@ -511,12 +609,12 @@ const styles = StyleSheet.create({
   },
   charCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.gray,
     textAlign: 'right',
     marginTop: 4,
   },
   selectInput: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -526,13 +624,13 @@ const styles = StyleSheet.create({
   },
   selectInputText: {
     fontSize: 16,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   selectInputPlaceholder: {
-    color: '#C7C7CC',
+    color: colors.gray,
   },
   readOnlyInput: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -542,7 +640,41 @@ const styles = StyleSheet.create({
   readOnlyText: {
     flex: 1,
     fontSize: 16,
-    color: '#6E6E73',
+    color: colors.gray,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 12,
+    paddingRight: 12,
+  },
+  locationButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  suggestionsContainer: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.dark,
+    marginLeft: 8,
   },
 });
 

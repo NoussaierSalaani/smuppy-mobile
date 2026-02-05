@@ -1,5 +1,6 @@
 // src/screens/sessions/SessionBookedScreen.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
+import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -7,22 +8,26 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Image,
-  Alert,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Calendar from 'expo-calendar';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatFullDate } from '../../utils/dateFormatters';
 
 export default function SessionBookedScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<{ popToTop: () => void; goBack: () => void }>();
+  const route = useRoute<{ key: string; name: string; params: { creator: { name: string; avatar: string | null }; date: { date: number; month: string; fullDate?: Date }; time: string; duration: number } }>();
+  const { colors, isDark } = useTheme();
+
+  const { showError, showSuccess } = useSmuppyAlert();
 
   const { creator, date, time, duration } = route.params || {
-    creator: { name: 'Apte Fitness', avatar: 'https://i.pravatar.cc/100?img=33' },
+    creator: { name: 'Apte Fitness', avatar: null },
     date: { date: 15, month: 'Sep' },
     time: '15:00',
     duration: 60,
@@ -38,11 +43,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please allow calendar access to add this event.',
-          [{ text: 'OK' }]
-        );
+        showError('Permission Required', 'Please allow calendar access to add this event.');
         return;
       }
 
@@ -57,7 +58,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
       ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
 
       if (!defaultCalendar) {
-        Alert.alert('Error', 'No writable calendar found on this device.');
+        showError('Error', 'No writable calendar found on this device.');
         return;
       }
 
@@ -83,30 +84,20 @@ export default function SessionBookedScreen(): React.JSX.Element {
         ],
       });
 
-      Alert.alert(
-        'Added to Calendar',
-        `Your session with ${creator.name} has been added to your calendar.`,
-        [{ text: 'OK' }]
-      );
+      showSuccess('Added to Calendar', `Your session with ${creator.name} has been added to your calendar.`);
     } catch (error) {
-      console.error('[Calendar] Error adding event:', error);
-      Alert.alert('Error', 'Failed to add event to calendar. Please try again.');
+      if (__DEV__) console.warn('[Calendar] Error adding event:', error);
+      showError('Error', 'Failed to add event to calendar. Please try again.');
     }
   };
 
-  const formatDate = () => {
-    const d = date.fullDate || new Date();
-    return d.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = () => formatFullDate(date.fullDate || new Date());
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <View style={styles.content}>
         {/* Success Icon */}
@@ -128,7 +119,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
         {/* Session Details Card */}
         <View style={styles.detailsCard}>
           <View style={styles.creatorRow}>
-            <Image source={{ uri: creator.avatar }} style={styles.creatorAvatar} />
+            <AvatarImage source={creator.avatar} size={52} />
             <View>
               <Text style={styles.creatorName}>{creator.name}</Text>
               <Text style={styles.sessionType}>1-to-1 Private Session</Text>
@@ -139,7 +130,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
           <View style={styles.detailRow}>
             <View style={styles.detailIconContainer}>
-              <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
             </View>
             <View>
               <Text style={styles.detailLabel}>Date</Text>
@@ -149,7 +140,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
           <View style={styles.detailRow}>
             <View style={styles.detailIconContainer}>
-              <Ionicons name="time-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="time-outline" size={20} color={colors.primary} />
             </View>
             <View>
               <Text style={styles.detailLabel}>Time</Text>
@@ -160,7 +151,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
 
         {/* Add to Calendar Button */}
         <TouchableOpacity style={styles.calendarButton} onPress={handleAddToCalendar}>
-          <Ionicons name="calendar" size={20} color={COLORS.primary} />
+          <Ionicons name="calendar" size={20} color={colors.primary} />
           <Text style={styles.calendarButtonText}>Add to Calendar</Text>
         </TouchableOpacity>
       </View>
@@ -182,10 +173,10 @@ export default function SessionBookedScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -202,7 +193,7 @@ const styles = StyleSheet.create({
     borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -211,19 +202,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 22,
   },
   detailsCard: {
     width: '100%',
-    backgroundColor: 'rgba(10, 37, 47, 0.03)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -238,22 +229,22 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     marginRight: 12,
   },
   creatorName: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   sessionType: {
     fontSize: 13,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(10, 37, 47, 0.08)',
+    backgroundColor: colors.border,
     marginBottom: 16,
   },
   detailRow: {
@@ -265,20 +256,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(14, 191, 138, 0.1)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.2)' : 'rgba(14, 191, 138, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   detailLabel: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     marginBottom: 2,
   },
   detailValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   calendarButton: {
     flexDirection: 'row',
@@ -287,20 +278,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     gap: 8,
   },
   calendarButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   bottomContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    backgroundColor: 'white',
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   doneButton: {
     flexDirection: 'row',

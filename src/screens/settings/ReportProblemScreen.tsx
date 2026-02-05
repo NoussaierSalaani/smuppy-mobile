@@ -10,13 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 // Anti-spam: minimum 20 chars, max 3 reports per hour
 const MIN_CHARS = 20;
@@ -29,6 +29,7 @@ interface ReportProblemScreenProps {
 
 const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { showError } = useSmuppyAlert();
   const [problemText, setProblemText] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [sending, setSending] = useState(false);
@@ -80,8 +81,8 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
 
       setShowSuccessModal(true);
     } catch (err) {
-      console.error('[ReportProblem] Error:', err);
-      Alert.alert('Error', 'Failed to send report. Please try again.');
+      if (__DEV__) console.warn('[ReportProblem] Error:', err);
+      showError('Error', 'Failed to send report. Please try again.');
     } finally {
       setSending(false);
     }

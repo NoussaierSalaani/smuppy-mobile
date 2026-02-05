@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Modal,
   Animated,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -20,18 +19,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore, useUserSafetyStore } from '../../stores';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
-const _CARD_WIDTH = (width - 48) / 2;
 const CONDENSED_HEIGHT = 220;
 const GRID_GAP = 12;
 const GRID_PADDING = 16;
-const _COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
 
 // View states
 const VIEW_STATES = {
@@ -40,148 +39,34 @@ const VIEW_STATES = {
   GRID_ONLY: 'grid_only',
 };
 
-// Mock data - posts du VibesFeed (basés sur centres d'intérêt)
-const MOCK_VIBESFEED_POSTS = [
-  {
-    id: '1',
-    type: 'video',
-    media: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800',
-    description: 'Today, I experienced the most blissful ride outside. The air is fresh and it feels amazing!',
-    likes: 1234,
-    views: 5420,
-    category: 'Adventure',
-    user: {
-      id: 'user1',
-      name: 'Dianne Russell',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      followsMe: false,
-    },
-  },
-  {
-    id: '2',
-    type: 'image',
-    media: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800',
-    description: 'Mountain vibes 🏔️',
-    likes: 892,
-    views: 3210,
-    category: 'Nature',
-    user: {
-      id: 'user2',
-      name: 'Alex Chen',
-      avatar: 'https://i.pravatar.cc/150?img=12',
-      followsMe: true,
-    },
-  },
-];
+interface VibesFeedPost { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; location?: string | null; allMedia?: string[]; user: { id: string; name: string; avatar: string; followsMe: boolean } }
 
-// Mock grid posts (Pinterest style)
-const MOCK_GRID_POSTS = [
-  {
-    id: 'g1',
-    thumbnail: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
-    title: 'Morning Workout',
-    likes: 234,
-    height: 200,
-    type: 'image',
-    category: 'Fitness',
-    user: { id: 'u1', name: 'FitCoach', avatar: 'https://i.pravatar.cc/150?img=1' },
-  },
-  {
-    id: 'g2',
-    thumbnail: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400',
-    title: 'Gym Session',
-    likes: 567,
-    height: 240,
-    type: 'video',
-    duration: '0:34',
-    category: 'Training',
-    user: { id: 'u2', name: 'GymBro', avatar: 'https://i.pravatar.cc/150?img=2' },
-  },
-  {
-    id: 'g3',
-    thumbnail: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400',
-    title: 'Yoga Flow',
-    likes: 891,
-    height: 180,
-    type: 'image',
-    category: 'Yoga',
-    user: { id: 'u3', name: 'YogaMaster', avatar: 'https://i.pravatar.cc/150?img=3' },
-  },
-  {
-    id: 'g4',
-    thumbnail: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400',
-    title: 'HIIT Training',
-    likes: 432,
-    height: 220,
-    type: 'video',
-    duration: '1:20',
-    category: 'HIIT',
-    user: { id: 'u4', name: 'HIITPro', avatar: 'https://i.pravatar.cc/150?img=4' },
-  },
-  {
-    id: 'g5',
-    thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
-    title: 'Trail Running',
-    likes: 1203,
-    height: 260,
-    type: 'image',
-    category: 'Running',
-    user: { id: 'u5', name: 'TrailRunner', avatar: 'https://i.pravatar.cc/150?img=5' },
-  },
-  {
-    id: 'g6',
-    thumbnail: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400',
-    title: 'Boxing Class',
-    likes: 765,
-    height: 190,
-    type: 'image',
-    category: 'Boxing',
-    user: { id: 'u6', name: 'BoxingCoach', avatar: 'https://i.pravatar.cc/150?img=6' },
-  },
-  {
-    id: 'g7',
-    thumbnail: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400',
-    title: 'Weight Training',
-    likes: 543,
-    height: 210,
-    type: 'image',
-    category: 'Strength',
-    user: { id: 'u7', name: 'LiftHeavy', avatar: 'https://i.pravatar.cc/150?img=7' },
-  },
-  {
-    id: 'g8',
-    thumbnail: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?w=400',
-    title: 'Pool Swim',
-    likes: 2341,
-    height: 180,
-    type: 'video',
-    duration: '0:45',
-    category: 'Swimming',
-    user: { id: 'u8', name: 'SwimChamp', avatar: 'https://i.pravatar.cc/150?img=8' },
-  },
-];
+interface GridPost { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }
 
 const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
   // Content store for reports and status
   const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
+  const currentUserId = useUserStore((state) => state.user?.id);
 
   // Params
   const params = route.params as {
     postId?: string;
-    post?: typeof MOCK_VIBESFEED_POSTS[0];
+    post?: VibesFeedPost;
     startCondensed?: boolean;
   } || {};
   const { postId: _postId, post: initialPost, startCondensed } = params;
-  const currentPost = initialPost || MOCK_VIBESFEED_POSTS[0];
+  const currentPost = initialPost;
 
+  // All hooks must be called before any early return
   // States - start in CONDENSED if coming from grid post click
   const [viewState, setViewState] = useState(startCondensed ? VIEW_STATES.CONDENSED : VIEW_STATES.FULLSCREEN);
   const [isLiked, setIsLiked] = useState(false);
@@ -193,7 +78,7 @@ const PostDetailVibesFeedScreen = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
-  const [gridPosts, setGridPosts] = useState(MOCK_GRID_POSTS);
+  const [gridPosts, setGridPosts] = useState<GridPost[]>([]);
 
   // Loading states for anti spam-click
   const [likeLoading, setLikeLoading] = useState(false);
@@ -202,16 +87,18 @@ const PostDetailVibesFeedScreen = () => {
   const [shareLoading, setShareLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [blockLoading, setBlockLoading] = useState(false);
 
   // Animation values
-  const _scrollY = useRef(new Animated.Value(0)).current;
+
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   const videoRef = useRef(null);
 
   // Card press animation refs
   const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
+  const viewedPosts = useRef<Set<string>>(new Set());
   const getCardScale = (id: string) => {
     if (!cardScales[id]) {
       cardScales[id] = new Animated.Value(1);
@@ -220,21 +107,24 @@ const PostDetailVibesFeedScreen = () => {
   };
 
   // User follows me?
-  const _theyFollowMe = currentPost.user?.followsMe || false;
+  const _theyFollowMe = currentPost?.user?.followsMe || false;
 
   // Check follow status on mount
   useEffect(() => {
+    if (!currentPost) return;
     const checkFollowStatus = async () => {
-      if (currentPost.user?.id) {
+      if (currentPost.user?.id && currentPost.user.id !== currentUserId) {
         const { following } = await isFollowing(currentPost.user.id);
         setIsFan(following);
       }
     };
     checkFollowStatus();
-  }, [currentPost.user?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPost?.user?.id]);
 
   // Check like/bookmark status on mount
   useEffect(() => {
+    if (!currentPost) return;
     const checkPostStatus = async () => {
       const postId = currentPost.id;
       if (!postId || !isValidUUID(postId)) return;
@@ -246,7 +136,22 @@ const PostDetailVibesFeedScreen = () => {
       setIsBookmarked(saved);
     };
     checkPostStatus();
-  }, [currentPost.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPost?.id]);
+
+  // Record post view (deduped per session)
+  useEffect(() => {
+    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
+    if (viewedPosts.current.has(currentPost.id)) return;
+
+    viewedPosts.current.add(currentPost.id);
+    recordPostView(currentPost.id);
+  }, [currentPost?.id]);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  // Guard: if no post data was passed, bail out
+  if (!currentPost) return null;
 
   // Double tap to like
   const handleDoubleTap = () => {
@@ -255,8 +160,7 @@ const PostDetailVibesFeedScreen = () => {
 
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
       if (!isLiked) {
-        setIsLiked(true);
-        triggerLikeAnimation();
+        toggleLike(); // Call API to persist the like
       }
     } else {
       if (currentPost.type === 'video') {
@@ -293,7 +197,7 @@ const PostDetailVibesFeedScreen = () => {
     } else if (viewState === VIEW_STATES.CONDENSED) {
       setViewState(VIEW_STATES.GRID_ONLY);
       // Shuffle grid posts for variety
-      setGridPosts([...MOCK_GRID_POSTS].sort(() => Math.random() - 0.5));
+      setGridPosts([...gridPosts].sort(() => Math.random() - 0.5));
     }
   };
 
@@ -317,11 +221,6 @@ const PostDetailVibesFeedScreen = () => {
     }
   };
 
-  // Validate UUID format
-  const isValidUUID = (id: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return id && uuidRegex.test(id);
-  };
 
   // Toggle like with anti spam-click - connected to database
   const toggleLike = async () => {
@@ -347,19 +246,20 @@ const PostDetailVibesFeedScreen = () => {
       if (!newLikedState) {
         const { error } = await unlikePost(postId);
         if (error) {
-          // Revert on error
           setIsLiked(true);
+        } else {
+          useFeedStore.getState().toggleLikeOptimistic(postId, false);
         }
       } else {
         const { error } = await likePost(postId);
         if (error) {
-          // Revert on error
           setIsLiked(false);
+        } else {
+          useFeedStore.getState().toggleLikeOptimistic(postId, true);
         }
       }
     } catch (error) {
-      console.error('[PostDetailVibesFeed] Like error:', error);
-      // Revert on error
+      if (__DEV__) console.warn('[PostDetailVibesFeed] Like error:', error);
       setIsLiked(!newLikedState);
     } finally {
       setLikeLoading(false);
@@ -389,16 +289,20 @@ const PostDetailVibesFeedScreen = () => {
         if (error) {
           // Revert on error
           setIsBookmarked(true);
+        } else {
+          showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
         const { error } = await savePost(postId);
         if (error) {
           // Revert on error
           setIsBookmarked(false);
+        } else {
+          showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
-      console.error('[PostDetailVibesFeed] Bookmark error:', error);
+      if (__DEV__) console.warn('[PostDetailVibesFeed] Bookmark error:', error);
       // Revert on error
       setIsBookmarked(!newBookmarkState);
     } finally {
@@ -415,10 +319,10 @@ const PostDetailVibesFeedScreen = () => {
       if (!error) {
         setIsFan(true);
       } else {
-        console.error('[PostDetail] Follow error:', error);
+        if (__DEV__) console.warn('[PostDetail] Follow error:', error);
       }
     } catch (error) {
-      console.error('[PostDetail] Follow error:', error);
+      if (__DEV__) console.warn('[PostDetail] Follow error:', error);
     } finally {
       setFanLoading(false);
     }
@@ -447,7 +351,7 @@ const PostDetailVibesFeedScreen = () => {
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
-      Alert.alert('Copied!', 'Post link copied to clipboard');
+      showSuccess('Copied!', 'Post link copied to clipboard');
     }
   };
 
@@ -460,21 +364,13 @@ const PostDetailVibesFeedScreen = () => {
 
       // Check if already reported (anti-spam)
       if (hasUserReported(currentPost.id)) {
-        Alert.alert(
-          'Déjà signalé',
-          'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.',
-          [{ text: 'OK' }]
-        );
+        showError('Déjà signalé', 'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.');
         return;
       }
 
       // Check if content is already under review
       if (isUnderReview(currentPost.id)) {
-        Alert.alert(
-          'Sous examen',
-          'Ce contenu est déjà en cours d\'examen par notre équipe.',
-          [{ text: 'OK' }]
-        );
+        showError('Sous examen', 'Ce contenu est déjà en cours d\'examen par notre équipe.');
         return;
       }
 
@@ -493,11 +389,11 @@ const PostDetailVibesFeedScreen = () => {
     const result = storeSubmitReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
-      Alert.alert('Déjà signalé', result.message, [{ text: 'OK' }]);
+      showError('Déjà signalé', result.message);
     } else if (result.success) {
-      Alert.alert('Signalé', result.message, [{ text: 'OK' }]);
+      showSuccess('Signalé', result.message);
     } else {
-      Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.', [{ text: 'OK' }]);
+      showError('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     }
   };
 
@@ -510,33 +406,27 @@ const PostDetailVibesFeedScreen = () => {
     // Check if already muted
     if (isUserMuted(userId)) {
       setShowMenu(false);
-      Alert.alert('Déjà masqué', 'Cet utilisateur est déjà masqué.', [{ text: 'OK' }]);
+      showError('Déjà masqué', 'Cet utilisateur est déjà masqué.');
       return;
     }
 
     setShowMenu(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Masquer cet utilisateur ?',
       'Vous ne verrez plus ses publications dans vos feeds.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Masquer',
-          onPress: async () => {
-            setMuteLoading(true);
-            try {
-              const { error } = await mute(userId);
-              if (error) {
-                Alert.alert('Erreur', 'Impossible de masquer cet utilisateur.', [{ text: 'OK' }]);
-              } else {
-                Alert.alert('Utilisateur masqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
-              }
-            } finally {
-              setMuteLoading(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setMuteLoading(true);
+        try {
+          const { error } = await mute(userId);
+          if (error) {
+            showError('Erreur', 'Impossible de masquer cet utilisateur.');
+          } else {
+            showSuccess('Utilisateur masqué', 'Vous ne verrez plus ses publications.');
+          }
+        } finally {
+          setMuteLoading(false);
+        }
+      }
     );
   };
 
@@ -549,46 +439,33 @@ const PostDetailVibesFeedScreen = () => {
     // Check if already blocked
     if (isBlocked(userId)) {
       setShowMenu(false);
-      Alert.alert('Déjà bloqué', 'Cet utilisateur est déjà bloqué.', [{ text: 'OK' }]);
+      showError('Déjà bloqué', 'Cet utilisateur est déjà bloqué.');
       return;
     }
 
     setShowMenu(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Bloquer cet utilisateur ?',
       'Vous ne verrez plus ses publications et il ne pourra plus interagir avec vous.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Bloquer',
-          style: 'destructive',
-          onPress: async () => {
-            setBlockLoading(true);
-            try {
-              const { error } = await block(userId);
-              if (error) {
-                Alert.alert('Erreur', 'Impossible de bloquer cet utilisateur.', [{ text: 'OK' }]);
-              } else {
-                Alert.alert('Utilisateur bloqué', 'Vous ne verrez plus ses publications.', [{ text: 'OK' }]);
-              }
-            } finally {
-              setBlockLoading(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setBlockLoading(true);
+        try {
+          const { error } = await block(userId);
+          if (error) {
+            showError('Erreur', 'Impossible de bloquer cet utilisateur.');
+          } else {
+            showSuccess('Utilisateur bloqué', 'Vous ne verrez plus ses publications.');
+          }
+        } finally {
+          setBlockLoading(false);
+        }
+      }
     );
   };
 
-  // Format numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
-  };
 
   // Navigate to post detail with animation
-  const _handleGridPostPress = (post: any) => {
+  const _handleGridPostPress = (post: GridPost) => {
     const scale = getCardScale(post.id);
 
     // Press animation
@@ -620,12 +497,12 @@ const PostDetailVibesFeedScreen = () => {
       thumbnail: post.thumbnail,
       description: post.title || '',
       likes: post.likes || 0,
-      views: Math.floor(Math.random() * 5000) + 1000,
+      views: 0,
       category: post.category || 'Fitness',
       user: {
         id: post.user?.id || 'unknown',
         name: post.user?.name || 'User',
-        avatar: post.user?.avatar || 'https://i.pravatar.cc/150',
+        avatar: post.user?.avatar || null,
         followsMe: false,
       },
     };
@@ -694,7 +571,7 @@ const PostDetailVibesFeedScreen = () => {
               <Text style={styles.gridUserName} numberOfLines={1}>{post.user?.name}</Text>
             </View>
             <View style={styles.gridStatsRow}>
-              <SmuppyHeartIcon size={14} color={COLORS.heartRed} filled />
+              <SmuppyHeartIcon size={14} color={colors.heartRed} filled />
               <Text style={styles.gridLikes}>{formatNumber(post.likes ?? 0)}</Text>
             </View>
           </View>
@@ -735,6 +612,37 @@ const PostDetailVibesFeedScreen = () => {
                   posterSource={{ uri: currentPost.thumbnail }}
                   usePoster
                 />
+              ) : currentPost.allMedia && currentPost.allMedia.length > 1 ? (
+                <View style={{ flex: 1 }}>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={(e) => {
+                      const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                      setCarouselIndex(slideIndex);
+                    }}
+                  >
+                    {currentPost.allMedia.map((mediaUrl, mediaIndex) => (
+                      <OptimizedImage
+                        key={`${currentPost.id}-media-${mediaIndex}`}
+                        source={mediaUrl}
+                        style={{ width, height: '100%' }}
+                      />
+                    ))}
+                  </ScrollView>
+                  <View style={styles.carouselPagination}>
+                    {currentPost.allMedia.map((_, dotIndex) => (
+                      <View
+                        key={`dot-${dotIndex}`}
+                        style={[
+                          styles.carouselDot,
+                          carouselIndex === dotIndex && styles.carouselDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
               ) : (
                 <OptimizedImage source={currentPost.media || currentPost.thumbnail} style={styles.fullscreenMedia} />
               )}
@@ -766,7 +674,7 @@ const PostDetailVibesFeedScreen = () => {
                     },
                   ]}
                 >
-                  <SmuppyHeartIcon size={100} color={COLORS.heartRed} filled />
+                  <SmuppyHeartIcon size={100} color={colors.heartRed} filled />
                 </Animated.View>
               )}
 
@@ -811,11 +719,11 @@ const PostDetailVibesFeedScreen = () => {
                   disabled={likeLoading}
                 >
                   {likeLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.heartRed} />
+                    <ActivityIndicator size="small" color={colors.heartRed} />
                   ) : (
                     <SmuppyHeartIcon
                       size={28}
-                      color={isLiked ? COLORS.heartRed : '#FFF'}
+                      color={isLiked ? colors.heartRed : '#FFF'}
                       filled={isLiked}
                     />
                   )}
@@ -827,12 +735,12 @@ const PostDetailVibesFeedScreen = () => {
                   disabled={bookmarkLoading}
                 >
                   {bookmarkLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                    <ActivityIndicator size="small" color={colors.primaryGreen} />
                   ) : (
                     <Ionicons
                       name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
                       size={28}
-                      color={isBookmarked ? COLORS.primaryGreen : '#FFF'}
+                      color={isBookmarked ? colors.primaryGreen : '#FFF'}
                     />
                   )}
                 </TouchableOpacity>
@@ -857,7 +765,13 @@ const PostDetailVibesFeedScreen = () => {
                 <View style={styles.userRow}>
                   <TouchableOpacity
                     style={styles.userInfo}
-                    onPress={() => navigation.navigate('UserProfile', { userId: currentPost.user.id })}
+                    onPress={() => {
+                      if (currentPost.user.id === currentUserId) {
+                        navigation.navigate('ProfileTab' as never);
+                      } else {
+                        navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                      }
+                    }}
                   >
                     <AvatarImage source={currentPost.user.avatar} size={44} style={styles.avatar} />
                     <View>
@@ -866,23 +780,31 @@ const PostDetailVibesFeedScreen = () => {
                     </View>
                   </TouchableOpacity>
 
-                  {!isFan && (
+                  {currentPost.user.id !== currentUserId && !isFan && (
                     <TouchableOpacity
                       style={[styles.fanBtn, fanLoading && styles.fanBtnDisabled]}
                       onPress={becomeFan}
                       disabled={fanLoading}
                     >
                       {fanLoading ? (
-                        <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+                        <ActivityIndicator size="small" color={colors.primaryGreen} />
                       ) : (
                         <>
-                          <Ionicons name="add" size={18} color={COLORS.primaryGreen} />
+                          <Ionicons name="add" size={18} color={colors.primaryGreen} />
                           <Text style={styles.fanBtnText}>Fan</Text>
                         </>
                       )}
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* Location */}
+                {currentPost.location ? (
+                  <View style={styles.locationRow}>
+                    <Ionicons name="location" size={14} color={colors.primary} />
+                    <Text style={styles.locationText}>{currentPost.location}</Text>
+                  </View>
+                ) : null}
 
                 {/* Description */}
                 <TouchableOpacity
@@ -899,10 +821,14 @@ const PostDetailVibesFeedScreen = () => {
 
                 {/* Stats bar */}
                 <View style={styles.statsBar}>
-                  <View style={styles.statItem}>
-                    <SmuppyHeartIcon size={16} color={COLORS.heartRed} filled />
+                  <TouchableOpacity
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('PostLikers', { postId: currentPost.id })}
+                    activeOpacity={0.7}
+                  >
+                    <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                     <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
-                  </View>
+                  </TouchableOpacity>
                   <View style={styles.statDot} />
                   <View style={styles.statItem}>
                     <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.7)" />
@@ -959,10 +885,14 @@ const PostDetailVibesFeedScreen = () => {
                     <Text style={styles.condensedCategory}>{currentPost.category}</Text>
                   </View>
                 </View>
-                <View style={styles.condensedStats}>
-                  <SmuppyHeartIcon size={16} color={COLORS.heartRed} filled />
+                <TouchableOpacity
+                  style={styles.condensedStats}
+                  onPress={() => navigation.navigate('PostLikers', { postId: currentPost.id })}
+                  activeOpacity={0.7}
+                >
+                  <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                   <Text style={styles.condensedLikes}>{formatNumber(currentPost.likes)}</Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
 
@@ -971,7 +901,7 @@ const PostDetailVibesFeedScreen = () => {
               <Text style={styles.sectionTitle}>More to explore</Text>
               <TouchableOpacity style={styles.seeAllBtn}>
                 <Text style={styles.seeAllText}>See all</Text>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.primaryGreen} />
+                <Ionicons name="chevron-forward" size={16} color={colors.primaryGreen} />
               </TouchableOpacity>
             </View>
 
@@ -1056,7 +986,11 @@ const PostDetailVibesFeedScreen = () => {
                 style={styles.menuItem}
                 onPress={() => {
                   setShowMenu(false);
-                  navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                  if (currentPost.user.id === currentUserId) {
+                    navigation.navigate('ProfileTab' as never);
+                  } else {
+                    navigation.navigate('UserProfile', { userId: currentPost.user.id });
+                  }
                 }}
               >
                 <View style={styles.menuIconBg}>
@@ -1065,28 +999,32 @@ const PostDetailVibesFeedScreen = () => {
                 <Text style={styles.menuItemText}>View Profile</Text>
               </TouchableOpacity>
 
-              <View style={styles.menuDivider} />
+              {currentPost.user.id !== currentUserId && (
+                <>
+                  <View style={styles.menuDivider} />
 
-              <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
-                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="eye-off-outline" size={22} color="#FFF" />
-                </View>
-                <Text style={styles.menuItemText}>Mute user</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
+                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                      <Ionicons name="eye-off-outline" size={22} color="#FFF" />
+                    </View>
+                    <Text style={styles.menuItemText}>Mute user</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
-                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
-                  <Ionicons name="ban-outline" size={22} color={COLORS.heartRed} />
-                </View>
-                <Text style={[styles.menuItemText, { color: COLORS.heartRed }]}>Block user</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
+                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                      <Ionicons name="ban-outline" size={22} color={colors.heartRed} />
+                    </View>
+                    <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Block user</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-                <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
-                  <Ionicons name="flag-outline" size={22} color={COLORS.heartRed} />
-                </View>
-                <Text style={[styles.menuItemText, { color: COLORS.heartRed }]}>Report</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                      <Ionicons name="flag-outline" size={22} color={colors.heartRed} />
+                    </View>
+                    <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Report</Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
               <TouchableOpacity
                 style={styles.menuCancel}
@@ -1171,10 +1109,10 @@ const PostDetailVibesFeedScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -1189,6 +1127,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'absolute',
+  },
+  carouselPagination: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  carouselDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   gradientOverlay: {
     position: 'absolute',
@@ -1332,7 +1293,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(14, 191, 138, 0.15)',
     borderWidth: 1.5,
-    borderColor: COLORS.primaryGreen,
+    borderColor: colors.primaryGreen,
     gap: 4,
   },
   fanBtnDisabled: {
@@ -1341,7 +1302,18 @@ const styles = StyleSheet.create({
   fanBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primaryGreen,
+    color: colors.primaryGreen,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  locationText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
   },
   description: {
     fontSize: 14,
@@ -1500,7 +1472,7 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primaryGreen,
+    color: colors.primaryGreen,
   },
 
   // Grid

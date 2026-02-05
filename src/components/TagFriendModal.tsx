@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,14 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { AvatarImage } from './OptimizedImage';
 import * as Haptics from 'expo-haptics';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import {
   getFollowing,
   getFollowers,
@@ -27,20 +28,11 @@ import {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const COLORS = {
-  primary: '#0EBF8A',
-  secondary: '#00B5C1',
-  dark: '#0A0A0F',
-  cardBg: '#1C1C1E',
-  white: '#FFFFFF',
-  gray: '#8E8E93',
-};
-
 interface Friend {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   isMutual?: boolean;
 }
 
@@ -57,7 +49,7 @@ const profileToFriend = (profile: Profile, isMutual: boolean): Friend => ({
   id: profile.id,
   name: profile.full_name || profile.username || 'User',
   username: profile.username || 'user',
-  avatar: profile.avatar_url || 'https://via.placeholder.com/100',
+  avatar: profile.avatar_url || null,
   isMutual,
 });
 
@@ -68,26 +60,23 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
   peakId: _peakId,
   existingTags = [],
 }) => {
+  const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
 
-  // Load friends on mount
-  useEffect(() => {
-    if (visible) {
-      loadFriends();
-    }
-  }, [visible]);
-
-  const loadFriends = async () => {
+  // Load friends function - defined before useEffect that uses it
+  const loadFriends = useCallback(async () => {
     setLoading(true);
     try {
       // Get current user
       const { data: currentProfile } = await getCurrentProfile();
       if (!currentProfile) {
-        console.error('[TagFriendModal] No current profile');
+        if (__DEV__) console.warn('[TagFriendModal] No current profile');
         setLoading(false);
         return;
       }
@@ -110,12 +99,19 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
       setFriends(transformedFriends);
     } catch (error) {
-      console.error('[TagFriendModal] Error loading friends:', error);
-      Alert.alert('Error', 'Failed to load friends. Please try again.');
+      if (__DEV__) console.warn('[TagFriendModal] Error loading friends:', error);
+      showError('Error', 'Failed to load friends. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showError]);
+
+  // Load friends on mount
+  useEffect(() => {
+    if (visible) {
+      loadFriends();
+    }
+  }, [visible, loadFriends]);
 
   // Filter friends based on search
   const filteredFriends = friends.filter(friend => {
@@ -175,28 +171,27 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
           <AvatarImage source={item.avatar} size={48} style={styles.friendAvatar} />
           {item.isMutual && (
             <View style={styles.mutualBadge}>
-              <Ionicons name="people" size={10} color={COLORS.white} />
+              <Ionicons name="people" size={10} color={colors.white} />
             </View>
           )}
         </View>
 
         <View style={styles.friendInfo}>
           <Text style={styles.friendName}>{item.name}</Text>
-          <Text style={styles.friendUsername}>@{item.username}</Text>
         </View>
 
         {isTagged ? (
           <View style={styles.taggedBadge}>
-            <Ionicons name="checkmark" size={16} color={COLORS.primary} />
+            <Ionicons name="checkmark" size={16} color={colors.primary} />
             <Text style={styles.taggedText}>Tagged</Text>
           </View>
         ) : isSelected ? (
           <View style={styles.selectedIndicator}>
             <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
+              colors={[colors.primary, colors.primaryDark]}
               style={styles.selectedGradient}
             >
-              <Ionicons name="checkmark" size={20} color={COLORS.dark} />
+              <Ionicons name="checkmark" size={20} color={colors.dark} />
             </LinearGradient>
           </View>
         ) : (
@@ -208,7 +203,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="people-outline" size={48} color={COLORS.gray} />
+      <Ionicons name="people-outline" size={48} color={colors.gray} />
       <Text style={styles.emptyTitle}>No friends found</Text>
       <Text style={styles.emptyDesc}>
         {searchQuery ? `No results for "${searchQuery}"` : 'Become a fan of people to tag them!'}
@@ -232,7 +227,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
         <View style={[styles.container, { paddingBottom: insets.bottom + 20 }]}>
           {/* Header Accent */}
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerAccent}
@@ -244,7 +239,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={COLORS.white} />
+              <Ionicons name="close" size={24} color={isDark ? colors.white : colors.dark} />
             </TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={styles.title}>Tag a Friend</Text>
@@ -255,7 +250,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
           {/* Privacy Note */}
           <View style={styles.privacyNote}>
-            <Ionicons name="lock-closed" size={14} color={COLORS.primary} />
+            <Ionicons name="lock-closed" size={14} color={colors.primary} />
             <Text style={styles.privacyText}>
               Only you, them & mutual friends will see the tag
             </Text>
@@ -263,11 +258,11 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
           {/* Search */}
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={COLORS.gray} />
+            <Ionicons name="search" size={20} color={colors.gray} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search friends..."
-              placeholderTextColor={COLORS.gray}
+              placeholderTextColor={colors.gray}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="none"
@@ -275,7 +270,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                <Ionicons name="close-circle" size={20} color={colors.gray} />
               </TouchableOpacity>
             )}
           </View>
@@ -283,7 +278,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
           {/* Friends List */}
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
             <FlatList
@@ -306,12 +301,12 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={[COLORS.primary, COLORS.secondary]}
+                  colors={[colors.primary, colors.primaryDark]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.confirmGradient}
                 >
-                  <Ionicons name="pricetag" size={20} color={COLORS.dark} />
+                  <Ionicons name="pricetag" size={20} color={colors.dark} />
                   <Text style={styles.confirmText}>
                     Tag {selectedFriend.name.split(' ')[0]}
                   </Text>
@@ -325,7 +320,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -335,7 +330,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   container: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: isDark ? colors.darkGray : colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.8,
@@ -353,7 +348,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -368,7 +363,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -379,11 +374,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
   },
   subtitle: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   privacyNote: {
@@ -392,20 +387,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
-    backgroundColor: 'rgba(14, 191, 138, 0.1)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.1)' : 'rgba(14, 191, 138, 0.08)',
     marginHorizontal: 16,
     borderRadius: 10,
     marginBottom: 12,
   },
   privacyText: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
     marginHorizontal: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -416,7 +411,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.white,
+    color: colors.dark,
   },
   loadingContainer: {
     flex: 1,
@@ -431,15 +426,15 @@ const styles = StyleSheet.create({
   friendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     padding: 12,
     borderRadius: 14,
     marginBottom: 8,
   },
   friendItemSelected: {
-    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.1)',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   friendItemTagged: {
     opacity: 0.5,
@@ -457,11 +452,11 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.cardBg,
+    borderColor: isDark ? colors.darkGray : colors.background,
   },
   friendInfo: {
     flex: 1,
@@ -470,11 +465,11 @@ const styles = StyleSheet.create({
   friendName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   friendUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   selectCircle: {
@@ -482,7 +477,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: colors.border,
   },
   selectedIndicator: {
     width: 28,
@@ -500,7 +495,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(14, 191, 138, 0.2)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.2)' : 'rgba(14, 191, 138, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -508,7 +503,7 @@ const styles = StyleSheet.create({
   taggedText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   emptyState: {
     alignItems: 'center',
@@ -517,12 +512,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginTop: 16,
   },
   emptyDesc: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -534,14 +529,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: isDark ? colors.darkGray : colors.background,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
   },
   confirmButton: {
     borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -557,7 +552,7 @@ const styles = StyleSheet.create({
   confirmText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
 });
 

@@ -3,7 +3,7 @@
  * Confirmation screen after successful channel subscription
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface ChannelTier {
   id: string;
@@ -42,13 +42,16 @@ type RouteParams = {
 
 const SubscriptionSuccessScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<RouteProp<RouteParams, 'SubscriptionSuccess'>>();
   const { tier, creator } = route.params;
+  const { colors, isDark } = useTheme();
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const confettiRef = useRef<any>(null);
+  const confettiRef = useRef<ConfettiCannon>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -71,6 +74,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
         useNativeDriver: true,
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleViewChannel = () => {
@@ -97,7 +101,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
         origin={{ x: -10, y: 0 }}
         autoStart={false}
         fadeOut
-        colors={[COLORS.primary, COLORS.secondary, '#EC4899', '#8B5CF6', '#F59E0B']}
+        colors={[colors.primary, colors.cyanBlue, '#EC4899', '#8B5CF6', '#F59E0B']}
       />
 
       <View style={styles.content}>
@@ -111,12 +115,12 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
           />
           <View style={styles.badgeContainer}>
             <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
+              colors={[colors.primary, colors.cyanBlue]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.badge}
             >
-              <Ionicons name="heart" size={24} color={COLORS.white} />
+              <Ionicons name="heart" size={24} color={colors.white} />
             </LinearGradient>
           </View>
         </Animated.View>
@@ -124,7 +128,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
         <Animated.View style={[styles.textContainer, { opacity: fadeAnim }]}>
           <Text style={styles.title}>Bienvenue dans la communauté !</Text>
           <Text style={styles.subtitle}>
-            Vous êtes maintenant abonné(e) à @{creator.username}
+            Vous êtes maintenant abonné(e) à {creator.name}
           </Text>
 
           {/* Tier Info */}
@@ -137,7 +141,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
             <View style={styles.perksContainer}>
               {tier.perks.slice(0, 3).map((perk, index) => (
                 <View key={index} style={styles.perkRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                   <Text style={styles.perkText}>{perk}</Text>
                 </View>
               ))}
@@ -149,7 +153,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
 
           {/* Renewal Info */}
           <View style={styles.renewalCard}>
-            <Ionicons name="calendar-outline" size={20} color={COLORS.gray} />
+            <Ionicons name="calendar-outline" size={20} color={colors.gray} />
             <Text style={styles.renewalText}>
               Prochain renouvellement le{' '}
               {renewalDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
@@ -162,12 +166,12 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
       <Animated.View style={[styles.actions, { paddingBottom: insets.bottom + 16, opacity: fadeAnim }]}>
         <TouchableOpacity style={styles.primaryButton} onPress={handleViewChannel}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.cyanBlue]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.buttonGradient}
           >
-            <Ionicons name="play-circle" size={22} color={COLORS.white} />
+            <Ionicons name="play-circle" size={22} color={colors.white} />
             <Text style={styles.primaryButtonText}>Voir le contenu exclusif</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -184,10 +188,10 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -204,7 +208,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   badgeContainer: {
     position: 'absolute',
@@ -218,7 +222,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: COLORS.dark,
+    borderColor: colors.background,
   },
   textContainer: {
     alignItems: 'center',
@@ -227,19 +231,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
     textAlign: 'center',
     marginBottom: 28,
   },
   tierCard: {
     width: '100%',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 18,
     marginBottom: 12,
@@ -251,17 +255,17 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.dark,
+    borderBottomColor: colors.border,
   },
   tierName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   tierPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   perksContainer: {
     gap: 10,
@@ -273,12 +277,12 @@ const styles = StyleSheet.create({
   },
   perkText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
     flex: 1,
   },
   morePerks: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 4,
     fontWeight: '500',
   },
@@ -288,13 +292,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     padding: 14,
   },
   renewalText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   actions: {
     paddingHorizontal: 24,
@@ -314,19 +318,19 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   secondaryButton: {
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   linkButton: {
     paddingVertical: 12,
@@ -334,7 +338,7 @@ const styles = StyleSheet.create({
   },
   linkButtonText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });
 

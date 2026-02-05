@@ -1,31 +1,34 @@
+import { AvatarImage } from '../../components/OptimizedImage';
+
 /**
  * My Sessions Screen
  * Shows user's upcoming and past sessions (Fan perspective)
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { SessionListSkeleton } from '../../components/skeleton';
 import { awsAPI, Session } from '../../services/aws-api';
+import { formatDateRelativeFrench, formatTime } from '../../utils/dateFormatters';
 
 type TabType = 'upcoming' | 'past';
 
 const MySessionsScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
+  const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,7 +49,7 @@ const MySessionsScreen = (): React.JSX.Element => {
         setPastSessions(pastRes.sessions || []);
       }
     } catch (error) {
-      console.error('Error fetching sessions:', error);
+      if (__DEV__) console.warn('Error fetching sessions:', error);
     } finally {
       setLoading(false);
     }
@@ -64,41 +67,15 @@ const MySessionsScreen = (): React.JSX.Element => {
 
   const sessions = activeTab === 'upcoming' ? upcomingSessions : pastSessions;
 
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return "Aujourd'hui";
-    } else if (diffDays === 1) {
-      return 'Demain';
-    } else if (diffDays === -1) {
-      return 'Hier';
-    } else if (diffDays < 0) {
-      return `Il y a ${Math.abs(diffDays)} jours`;
-    } else if (diffDays < 7) {
-      return `Dans ${diffDays} jours`;
-    } else {
-      return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    }
-  };
-
-  const formatTime = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  };
-
   const getStatusColor = (status: Session['status']): string => {
     switch (status) {
-      case 'confirmed': return COLORS.primary;
+      case 'confirmed': return colors.primary;
       case 'pending': return '#FFA500';
-      case 'completed': return COLORS.gray;
+      case 'completed': return colors.gray;
       case 'cancelled': return '#FF4444';
-      case 'in_progress': return COLORS.primary;
+      case 'in_progress': return colors.primary;
       case 'no_show': return '#FF4444';
-      default: return COLORS.gray;
+      default: return colors.gray;
     }
   };
 
@@ -142,15 +119,14 @@ const MySessionsScreen = (): React.JSX.Element => {
       activeOpacity={0.7}
     >
       <View style={styles.sessionHeader}>
-        <Image source={{ uri: session.creator.avatar }} style={styles.avatar} />
+        <AvatarImage source={session.creator.avatar} size={48} style={styles.avatar} />
         <View style={styles.creatorInfo}>
           <View style={styles.nameRow}>
             <Text style={styles.creatorName}>{session.creator.name}</Text>
             {session.creator.verified && (
-              <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
             )}
           </View>
-          <Text style={styles.username}>@{session.creator.username}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(session.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(session.status) }]}>
@@ -161,15 +137,15 @@ const MySessionsScreen = (): React.JSX.Element => {
 
       <View style={styles.sessionDetails}>
         <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={18} color={COLORS.gray} />
-          <Text style={styles.detailText}>{formatDate(session.scheduledAt)}</Text>
+          <Ionicons name="calendar-outline" size={18} color={colors.gray} />
+          <Text style={styles.detailText}>{formatDateRelativeFrench(session.scheduledAt)}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={18} color={COLORS.gray} />
+          <Ionicons name="time-outline" size={18} color={colors.gray} />
           <Text style={styles.detailText}>{formatTime(session.scheduledAt)}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Ionicons name="hourglass-outline" size={18} color={COLORS.gray} />
+          <Ionicons name="hourglass-outline" size={18} color={colors.gray} />
           <Text style={styles.detailText}>{session.duration} min</Text>
         </View>
       </View>
@@ -180,12 +156,12 @@ const MySessionsScreen = (): React.JSX.Element => {
           onPress={() => handleJoinSession(session)}
         >
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.cyanBlue]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.joinGradient}
           >
-            <Ionicons name="videocam" size={20} color={COLORS.white} />
+            <Ionicons name="videocam" size={20} color={colors.white} />
             <Text style={styles.joinText}>Rejoindre maintenant</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -196,7 +172,7 @@ const MySessionsScreen = (): React.JSX.Element => {
           style={styles.rebookButton}
           onPress={() => navigation.navigate('BookSession', { creatorId: session.creator.id })}
         >
-          <Ionicons name="refresh" size={18} color={COLORS.primary} />
+          <Ionicons name="refresh" size={18} color={colors.primary} />
           <Text style={styles.rebookText}>Réserver à nouveau</Text>
         </TouchableOpacity>
       )}
@@ -208,7 +184,7 @@ const MySessionsScreen = (): React.JSX.Element => {
       <Ionicons
         name={activeTab === 'upcoming' ? 'calendar-outline' : 'time-outline'}
         size={64}
-        color={COLORS.gray}
+        color={colors.gray}
       />
       <Text style={styles.emptyTitle}>
         {activeTab === 'upcoming' ? 'Aucune session à venir' : 'Aucune session passée'}
@@ -229,10 +205,12 @@ const MySessionsScreen = (): React.JSX.Element => {
     </View>
   );
 
-  if (loading) {
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  if (loading && upcomingSessions.length === 0 && pastSessions.length === 0) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <SessionListSkeleton />
       </View>
     );
   }
@@ -242,7 +220,7 @@ const MySessionsScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+          <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Mes Sessions</Text>
         <View style={styles.placeholder} />
@@ -285,7 +263,7 @@ const MySessionsScreen = (): React.JSX.Element => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
       />
@@ -293,14 +271,10 @@ const MySessionsScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -318,7 +292,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
   },
   placeholder: {
     width: 40,
@@ -336,24 +310,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     gap: 8,
   },
   activeTab: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   activeTabText: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   badge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -361,14 +335,14 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 100,
   },
   sessionCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -395,11 +369,11 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   username: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   statusBadge: {
@@ -423,7 +397,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   joinButton: {
     marginTop: 4,
@@ -439,7 +413,7 @@ const styles = StyleSheet.create({
   joinText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   rebookButton: {
     flexDirection: 'row',
@@ -449,13 +423,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     marginTop: 4,
   },
   rebookText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   emptyState: {
     flex: 1,
@@ -467,20 +441,20 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginTop: 16,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
   },
   exploreButton: {
     marginTop: 24,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -488,7 +462,7 @@ const styles = StyleSheet.create({
   exploreText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

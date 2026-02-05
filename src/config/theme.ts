@@ -46,6 +46,18 @@ export const COLORS = {
     heartRed: '#FF6B6B',          // Red for heart/like icons
     heartRedDark: '#E55555',      // Darker shade for pressed state
 
+    // Accent colors (for categories, badges, etc.)
+    gold: '#FFD700',              // Stars, premium badges, ratings
+    teal: '#4ECDC4',              // Easy difficulty, categories
+    purple: '#9B59B6',            // Expert difficulty, yoga
+    orange: '#FF6B35',            // Fire reaction, categories
+    yellow: '#FFD93D',            // Joy reaction, warnings
+
+    // Badge colors (verified, creator, premium)
+    badgeVerified: '#2D8EFF',     // Blue - Verified personal accounts
+    badgeCreator: '#0BCF93',      // Green - Pro/Creator accounts (100M+ followers)
+    badgePremium: '#D7B502',      // Gold - Premium/Pro Business accounts
+
     // Backgrounds
     background: '#FFFFFF',
     backgroundSecondary: '#F9FAFB',
@@ -65,39 +77,113 @@ export const COLORS = {
     overlay: 'rgba(0, 0, 0, 0.5)',
     overlayLight: 'rgba(255, 255, 255, 0.9)',
 
+    // Dark theme compatibility aliases (light mode values)
+    textMuted: '#6B7280',
+    darkBg: '#F9FAFB',
+    cardBg: '#FFFFFF',
+    border: '#E5E7EB',
+  };
+
+// Dark theme colors — full parity with COLORS + legacy extras
+export const DARK_COLORS = {
+    // Primary
+    primary: '#0EBF8A',
+    primaryDark: '#0EBF8A',
+    primaryLight: '#1A2F2A',
+
+    // Legacy
+    cyan: '#00E5FF',
+    cyanBlue: '#28B7D4',
+    blue: '#009BC5',
+    blueMedium: '#0081BE',
+    blueDark: '#0066ac',
+    primaryGreen: '#0EBF8A',
+
+    // Dark
+    dark: '#E5E7EB',
+    darkGray: '#1C1C1E',
+
+    // Gray scale (inverted for dark mode)
+    gray: '#8E8E93',
+    graySecondary: '#8E8E93',
+    grayMuted: '#6E6E73',
+    grayLight: '#3A3A3C',
+    grayBorder: '#2C2C2E',
+    gray50: '#1C1C1E',
+    gray100: '#2C2C2E',
+    gray200: '#3A3A3C',
+    gray300: '#48484A',
+    gray400: '#636366',
+    gray500: '#8E8E93',
+    gray600: '#AEAEB2',
+    gray700: '#C7C7CC',
+    gray800: '#D1D1D6',
+    gray900: '#E5E5EA',
+
+    // Base
+    white: '#FFFFFF',
+
+    // Status
+    error: '#EF4444',
+    errorLight: '#2D1F1F',
+    errorBorder: '#5C2020',
+    success: '#22C55E',
+
+    // Heart/Like colors
+    heartRed: '#FF6B6B',
+    heartRedDark: '#E55555',
+
+    // Accent colors (for categories, badges, etc.)
+    gold: '#FFD700',
+    teal: '#4ECDC4',
+    purple: '#9B59B6',
+    yellow: '#FFD93D',
+
+    // Badge colors (verified, creator, premium)
+    badgeVerified: '#2D8EFF',     // Blue - Verified personal accounts
+    badgeCreator: '#0BCF93',      // Green - Pro/Creator accounts (100M+ followers)
+    badgePremium: '#D7B502',      // Gold - Premium/Pro Business accounts
+
+    // Backgrounds
+    background: '#0D0D0D',
+    backgroundSecondary: '#1A1A1A',
+    backgroundFocus: '#0D2420',
+    backgroundValid: '#0D2420',
+    backgroundDisabled: '#2C2C2E',
+
+    // Buttons
+    buttonDisabled: '#3A3A3C',
+    buttonBorder: '#1A5C4A',
+    buttonBorderLight: '#2A4A3E',
+
+    // Section
+    sectionTitle: '#E5E7EB',
+
+    // Overlay
+    overlay: 'rgba(0, 0, 0, 0.6)',
+    overlayLight: 'rgba(0, 0, 0, 0.7)',
+
     // Dark theme compatibility aliases
     textMuted: '#6B7280',
     darkBg: '#0D0D0D',
     cardBg: '#1A1A1A',
     border: '#2A2A2A',
-  };
 
-// Dark theme colors (used in Peaks, Profile, etc.)
-export const DARK_COLORS = {
-    primary: '#0EBF8A',           // Green accent
-    primaryGreen: '#0EBF8A',      // Alias for primary
-    primaryDark: '#0EBF8A',       // Darker green
-    secondary: '#00B3C7',         // Secondary accent (cyan-blue)
-    cyan: '#00E5FF',              // Cyan accent
-    dark: '#0A0A0F',              // Near black background
-    darkBg: '#0D0D0D',            // Darker background variant
-    darkGray: '#1C1C1E',          // Card/elevated background
-    darkCard: '#1C1C1E',          // Card background
-    cardBg: '#1A1A1A',            // Alternative card bg
-    border: '#2A2A2A',            // Border color
-    white: '#FFFFFF',
-    textPrimary: '#FFFFFF',       // Primary text
-    textMuted: '#6B7280',         // Muted text
-    gray: '#8E8E93',              // iOS gray
-    grayLight: '#6E6E73',
-    lightGray: '#AEAEB2',         // Light gray text
-    red: '#FF6B6B',               // Danger/unfollow color
-    orange: '#FFA500',            // Warning color
-    error: '#EF4444',             // Error color
-    success: '#22C55E',           // Success color
-    overlay: 'rgba(0, 0, 0, 0.4)',
+    // Legacy dark theme keys (used in existing screens)
+    secondary: '#00B3C7',
+    lightGray: '#AEAEB2',
+    red: '#FF6B6B',
+    orange: '#FFA500',
+    darkCard: '#1C1C1E',
+    textPrimary: '#FFFFFF',
     cardBgTransparent: 'rgba(28, 28, 30, 0.95)',
   };
+
+export type ThemeMode = 'light' | 'dark';
+
+export function getThemeColors(mode: ThemeMode): typeof COLORS {
+  return mode === 'dark' ? DARK_COLORS as unknown as typeof COLORS : COLORS;
+}
   
   export const GRADIENTS = {
     // Primary gradient - optimized for readability with white text
@@ -174,7 +260,7 @@ export const DARK_COLORS = {
   
   export const TYPOGRAPHY = {
     pageTitle: { fontFamily: 'WorkSans-ExtraBold', fontSize: 48, lineHeight: 56, letterSpacing: -0.48, color: COLORS.sectionTitle },
-    sectionHeader: { fontFamily: 'WorkSans-Light', fontSize: 35, lineHeight: 41, letterSpacing: -0.35, color: COLORS.sectionTitle },
+    sectionHeader: { fontFamily: 'WorkSans-Regular', fontSize: 35, lineHeight: 41, letterSpacing: -0.35, color: COLORS.sectionTitle },
     title1: { fontFamily: 'WorkSans-Bold', fontSize: 30, lineHeight: 35, color: COLORS.dark },
     title2: { fontFamily: 'WorkSans-Bold', fontSize: 28, lineHeight: 33, color: COLORS.dark },
     title3: { fontFamily: 'WorkSans-Bold', fontSize: 18, lineHeight: 21, color: COLORS.dark },
@@ -285,6 +371,79 @@ export const DARK_COLORS = {
   
   export const Z_INDEX = { base: 0, dropdown: 10, sticky: 20, fixed: 30, modal: 40, popover: 50, tooltip: 60 };
   
-  const theme = { COLORS, DARK_COLORS, GRADIENTS, FORM, FONTS, TYPOGRAPHY, SPACING, SIZES, SHADOWS, BORDERS, ANIMATION, Z_INDEX };
+export const DARK_GRADIENTS = {
+    primary: ['#008A94', '#0A9E72', '#4BA888'] as const,
+    primaryStart: { x: 0, y: 0 },
+    primaryEnd: { x: 1, y: 0 },
+    diagonal: ['#008A94', '#0A9E72', '#4BA888'] as const,
+    diagonalStart: { x: 0, y: 0 },
+    diagonalEnd: { x: 1, y: 1 },
+    button: ['#008A94', '#0A9E72', '#4BA888'] as const,
+    buttonDisabled: ['#3A3A3C', '#3A3A3C'] as const,
+    primaryReverse: ['#4BA888', '#0A9E72', '#008A94'] as const,
+    live: ['#FF5E57', '#FA6B65'] as const,
+    liveDisabled: ['#3A2020', '#3A2222'] as const,
+    reminder: ['#0081BE', '#00B5C1'] as const,
+    reminderDisabled: ['#1A2E3A', '#1A3A3C'] as const,
+    bottomNav: ['rgba(0, 155, 137, 0.9)', 'rgba(0, 155, 137, 0.9)'] as const,
+    bottomNavWhite: ['rgba(26, 26, 26, 0.9)', 'rgba(26, 26, 26, 0.9)'] as const,
+  };
+
+  export const DARK_FORM: typeof FORM = {
+    inputHeight: 56,
+    inputRadius: 28,
+    inputBorderWidth: 1.5,
+    inputPaddingHorizontal: 20,
+    buttonHeight: 56,
+    buttonRadius: 28,
+    buttonSmallHeight: 48,
+    buttonSmallRadius: 24,
+    inputBorder: '#3A3A3C',
+    inputBorderFocus: '#0EBF8A',
+    inputBorderValid: '#0EBF8A',
+    inputBorderError: '#EF4444',
+    inputBgFocus: '#0D2420',
+    inputBgValid: '#0D2420',
+    inputBgError: '#2D1F1F',
+    iconDefault: '#6E6E73',
+    iconFocus: '#0EBF8A',
+    iconError: '#EF4444',
+    textPrimary: '#E5E5EA',
+    textSecondary: '#AEAEB2',
+    textMuted: '#6E6E73',
+    textLink: '#0EBF8A',
+    textError: '#EF4444',
+  };
+
+  export const DARK_SHADOWS: typeof SHADOWS = {
+    none: { shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
+    card: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 },
+    cardMedium: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+    button: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+    buttonGradient: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 8 },
+    nav: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 5 },
+    navLight: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.15, shadowRadius: 7, elevation: 3 },
+    appBar: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 4 },
+    float: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
+    inputFocus: { shadowColor: '#0EBF8A', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 0 },
+  };
+
+  export type ThemeGradients = typeof GRADIENTS;
+  export type ThemeForm = typeof FORM;
+  export type ThemeShadows = typeof SHADOWS;
+
+  export function getThemeGradients(mode: ThemeMode): ThemeGradients {
+    return mode === 'dark' ? DARK_GRADIENTS as unknown as ThemeGradients : GRADIENTS;
+  }
+
+  export function getThemeForm(mode: ThemeMode): ThemeForm {
+    return mode === 'dark' ? DARK_FORM : FORM;
+  }
+
+  export function getThemeShadows(mode: ThemeMode): ThemeShadows {
+    return mode === 'dark' ? DARK_SHADOWS : SHADOWS;
+  }
+
+  const theme = { COLORS, DARK_COLORS, GRADIENTS, DARK_GRADIENTS, FORM, DARK_FORM, FONTS, TYPOGRAPHY, SPACING, SIZES, SHADOWS, DARK_SHADOWS, BORDERS, ANIMATION, Z_INDEX };
 
   export default theme;

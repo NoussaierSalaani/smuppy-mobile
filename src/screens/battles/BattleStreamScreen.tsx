@@ -12,7 +12,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  Alert,
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,11 +22,12 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useCurrency } from '../../hooks/useCurrency';
 import TipModal from '../../components/tips/TipModal';
 
 // Get user from store
-const getUser = (state: any) => state.user;
+const getUser = (state: { user: { id: string } | null }) => state.user;
 
 const { height } = Dimensions.get('window');
 const STREAM_HEIGHT = (height - 200) / 2;
@@ -36,6 +36,7 @@ interface Participant {
   id: string;
   user_id: string;
   username: string;
+  full_name?: string;
   profile_picture_url?: string;
   is_verified: boolean;
   tips_received: number;
@@ -46,6 +47,7 @@ interface Participant {
 interface TipEvent {
   id: string;
   sender_username: string;
+  sender_full_name?: string;
   receiver_username: string;
   amount: number;
   created_at: string;
@@ -55,14 +57,16 @@ interface Comment {
   id: string;
   user_id: string;
   username: string;
+  full_name?: string;
   profile_picture_url?: string;
   text: string;
   created_at: string;
 }
 
 export default function BattleStreamScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const { showDestructiveConfirm } = useSmuppyAlert();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
+  const route = useRoute<{ key: string; name: string; params: { battleId: string; agoraToken: string; agoraUid: number } }>();
   const _user = useUserStore(getUser);
   const { formatAmount } = useCurrency();
 
@@ -124,7 +128,7 @@ export default function BattleStreamScreen() {
         }
       }
     } catch (error) {
-      console.error('Load battle state error:', error);
+      if (__DEV__) console.warn('Load battle state error:', error);
     }
   };
 
@@ -176,31 +180,17 @@ export default function BattleStreamScreen() {
   };
 
   const handleEndBattle = () => {
-    Alert.alert('End Battle?', 'Are you sure you want to end this battle?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End Battle',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await awsAPI.battleAction(battleId, 'end');
-          } catch (error) {
-            console.error('End battle error:', error);
-          }
-        },
-      },
-    ]);
+    showDestructiveConfirm('End Battle?', 'Are you sure you want to end this battle?', async () => {
+      try {
+        await awsAPI.battleAction(battleId, 'end');
+      } catch (error) {
+        if (__DEV__) console.warn('End battle error:', error);
+      }
+    }, 'End Battle');
   };
 
   const handleLeaveBattle = () => {
-    Alert.alert('Leave Battle?', 'Are you sure you want to leave?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: () => navigation.goBack(),
-      },
-    ]);
+    showDestructiveConfirm('Leave Battle?', 'Are you sure you want to leave?', () => navigation.goBack(), 'Leave');
   };
 
   const formatDuration = (seconds: number) => {
@@ -230,11 +220,11 @@ export default function BattleStreamScreen() {
             source={{
               uri:
                 participant.profile_picture_url ||
-                `https://ui-avatars.com/api/?name=${participant.username}&background=random`,
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.username)}&background=random`,
             }}
             style={styles.streamAvatar}
           />
-          <Text style={styles.streamUsername}>@{participant.username}</Text>
+          <Text style={styles.streamUsername}>{participant.full_name || participant.username}</Text>
         </View>
 
         {/* Leading indicator */}
@@ -316,7 +306,7 @@ export default function BattleStreamScreen() {
         >
           <Ionicons name="gift" size={20} color="#000" />
           <View>
-            <Text style={styles.tipAnimationSender}>@{tip.sender_username}</Text>
+            <Text style={styles.tipAnimationSender}>{tip.sender_full_name || tip.sender_username}</Text>
             <Text style={styles.tipAnimationAmount}>sent {formatAmount(tip.amount)}</Text>
           </View>
         </LinearGradient>
@@ -326,7 +316,7 @@ export default function BattleStreamScreen() {
 
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.comment}>
-      <Text style={styles.commentUsername}>@{item.username}</Text>
+      <Text style={styles.commentUsername}>{item.full_name || item.username}</Text>
       <Text style={styles.commentText}>{item.text}</Text>
     </View>
   );
@@ -424,13 +414,13 @@ export default function BattleStreamScreen() {
               setShowTipModal(false);
               loadBattleState();
             } catch (error) {
-              console.error('Send tip error:', error);
+              if (__DEV__) console.warn('Send tip error:', error);
             }
           }}
           receiver={{
             id: selectedParticipant.user_id,
             username: selectedParticipant.username,
-            displayName: selectedParticipant.username,
+            displayName: selectedParticipant.full_name || selectedParticipant.username,
             avatarUrl: selectedParticipant.profile_picture_url,
           }}
           contextType="battle"

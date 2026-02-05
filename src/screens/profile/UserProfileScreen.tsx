@@ -11,15 +11,19 @@ import {
   ActivityIndicator,
   Share,
   RefreshControl,
-  Alert,
+  Image,
 } from 'react-native';
-import { useUserSafetyStore } from '../../stores';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserStore, useUserSafetyStore } from '../../stores';
+import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS } from '../../config/theme';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
-import { followUser, unfollowUser, isFollowing, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest } from '../../services/database';
+import { queryKeys } from '../../lib/queryClient';
+import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest, isFollowing as checkIsFollowing } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { LiquidButton } from '../../components/LiquidButton';
@@ -29,20 +33,27 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
 import SubscribeChannelModal from '../../components/SubscribeChannelModal';
 import { TipButton } from '../../components/tips';
+import { awsAPI } from '../../services/aws-api';
+import { FEATURES } from '../../config/featureFlags';
+import GradeFrame from '../../components/GradeFrame';
+import { getGrade } from '../../utils/gradeSystem';
+import { ProfileSkeleton } from '../../components/skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
 
-// Type for profile data from API
+// Type for profile data from API (uses Profile type from database.ts)
 interface ProfileApiData {
   id?: string;
   username?: string;
   full_name?: string;
+  display_name?: string;
   avatar_url?: string | null;
   cover_url?: string | null;
   bio?: string;
   fan_count?: number;
+  following_count?: number;
   post_count?: number;
   peak_count?: number;
   is_verified?: boolean;
@@ -51,6 +62,10 @@ interface ProfileApiData {
   is_private?: boolean;
   interests?: string[];
   account_type?: 'personal' | 'pro_creator' | 'pro_business';
+  business_name?: string;
+  // Follow status from API (set in convertProfile from isFollowing)
+  is_following?: boolean;
+  is_followed_by?: boolean;
 }
 
 const DEFAULT_PROFILE = {
@@ -70,40 +85,12 @@ const DEFAULT_PROFILE = {
   accountType: 'personal' as const,
 };
 
-// Cover images by interest/category
-const COVER_IMAGES_BY_INTEREST: Record<string, string> = {
-  'Fitness': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
-  'Gym': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
-  'Yoga': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800',
-  'Running': 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800',
-  'Cardio': 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=800',
-  'Wellness': 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800',
-  'Meditation': 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800',
-  'Nutrition': 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800',
-  'CrossFit': 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=800',
-  'Swimming': 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
-  'Cycling': 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800',
-  'Basketball': 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800',
-  'Football': 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800',
-  'Tennis': 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800',
-  'Boxing': 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=800',
-  'Martial Arts': 'https://images.unsplash.com/photo-1555597673-b21d5c935865?w=800',
-  'Hiking': 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800',
-  'Climbing': 'https://images.unsplash.com/photo-1522163182402-834f871fd851?w=800',
-  'Dance': 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=800',
-  'Pilates': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800',
-};
-
-const DEFAULT_COVER = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800';
-
 // Get cover image based on interests
-const getCoverImage = (interests: string[] = []): string => {
-  for (const interest of interests) {
-    if (COVER_IMAGES_BY_INTEREST[interest]) {
-      return COVER_IMAGES_BY_INTEREST[interest];
-    }
-  }
-  return DEFAULT_COVER;
+const getCoverImage = (_interests: string[] = []): string | null => {
+  // Fallback cover to avoid empty space on profiles without custom cover
+   
+  const resolved = Image.resolveAssetSource(require('../../../assets/images/bg.png'));
+  return resolved?.uri || null;
 };
 
 
@@ -111,12 +98,16 @@ const UserProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  
+  const { colors, isDark } = useTheme();
+  const { showAlert, showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
+  const queryClient = useQueryClient();
+
   // Déterminer si c'est notre profil ou celui d'un autre
   const params = route?.params as { userId?: string } || {};
   const userId = params.userId;
-  const isOwnProfile = !userId;
-  const { data: profileData, isLoading, isError } = useProfile(userId);
+  const currentUser = useUserStore((state) => state.user);
+  const isOwnProfile = !userId || userId === currentUser?.id;
+  const { data: profileData, isLoading, isError, refetch: _refetch } = useProfile(userId);
 
   const profile = useMemo(() => {
     const data: ProfileApiData = profileData || {};
@@ -124,7 +115,7 @@ const UserProfileScreen = () => {
     return {
       id: data.id || userId || DEFAULT_PROFILE.id,
       username: data.username || DEFAULT_PROFILE.username,
-      displayName: data.full_name || data.username || DEFAULT_PROFILE.displayName,
+      displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.full_name || data.display_name || data.username || DEFAULT_PROFILE.displayName),
       avatar: data.avatar_url || DEFAULT_PROFILE.avatar,
       coverImage: data.cover_url || getCoverImage(interests),
       bio: data.bio || DEFAULT_PROFILE.bio,
@@ -141,11 +132,16 @@ const UserProfileScreen = () => {
   }, [profileData, userId]);
   
   // États
-  const [isFan, setIsFan] = useState(false);
+  // Initialize isFan from React Query cache so remounts show correct state instantly
+  const cachedProfile = queryClient.getQueryData<ProfileApiData>(queryKeys.user.profile(userId || ''));
+  const [isFan, setIsFan] = useState(cachedProfile?.is_following ?? false);
   const [isRequested, setIsRequested] = useState(false); // For private account follow requests
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
-  const hasUserInteracted = useRef(false);
   const [fanToggleCount, setFanToggleCount] = useState(0);
+  const [isVerifyingFollow, setIsVerifyingFollow] = useState(false);
+  const followFalseStrikesRef = useRef(0); // require 2 consecutive authenticated false checks before dropping fan
+  // Grace period: after follow/unfollow, ignore API responses for 10s to avoid read-replica-lag reversals
+  const followGraceUntilRef = useRef<number>(0);
   const [localFanCount, setLocalFanCount] = useState<number | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockEndDate, setBlockEndDate] = useState<Date | null>(null);
@@ -159,20 +155,47 @@ const UserProfileScreen = () => {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
 
-  // Live status for pro_creator (mock data - can be connected to real data later)
+  // On mount, if cache says not fan, double-check with follow-check endpoint to avoid stale flashes
+  useEffect(() => {
+    if (!userId || isFan) return;
+    let cancelled = false;
+    setIsVerifyingFollow(true);
+    checkIsFollowing(userId).then(({ isFollowing }) => {
+      if (cancelled) return;
+      if (isFollowing) {
+        setIsFan(true);
+        queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
+          old ? { ...old, is_following: true } : old
+        );
+      }
+    }).finally(() => {
+      if (!cancelled) setIsVerifyingFollow(false);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Live status for pro_creator
   const [creatorLiveStatus, setCreatorLiveStatus] = useState<{
     isLive: boolean;
     liveTitle?: string;
-    nextLiveDate?: Date;
-    nextLiveTitle?: string;
-    hasReminder?: boolean;
+    channelName?: string;
   }>({
-    isLive: false, // Set to true to show "LIVE NOW" section
-    liveTitle: 'Morning Workout Session',
-    nextLiveDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-    nextLiveTitle: 'Full Body Training',
-    hasReminder: false,
+    isLive: false,
   });
+
+  // Check if this creator is currently live
+  useEffect(() => {
+    if (profile.accountType !== 'pro_creator') return;
+    awsAPI.getActiveLiveStreams().then(res => {
+      if (res.success && res.data) {
+        const live = res.data.find(s => s.host.id === profile.id);
+        if (live) {
+          setCreatorLiveStatus({ isLive: true, liveTitle: live.title, channelName: live.channelName });
+        }
+      }
+    }).catch(() => {});
+  }, [profile.id, profile.accountType]);
 
   // Sync local fan count with profile data from server
   // Always update when profile.fanCount changes to get the latest value
@@ -185,6 +208,9 @@ const UserProfileScreen = () => {
   // Display fan count (local takes precedence for optimistic updates)
   const displayFanCount = localFanCount ?? profile.fanCount;
 
+  // Grade system — decorative frame for 1M+ fans
+  const gradeInfo = useMemo(() => getGrade(profile.fanCount), [profile.fanCount]);
+
   // User's posts
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
@@ -193,44 +219,129 @@ const UserProfileScreen = () => {
   const posts = useMemo(() => userPosts.filter(p => !p.is_peak), [userPosts]);
   const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
 
-  // Check if current user is following this profile or has pending request
+  // Sync follow status from profile data (API returns is_following)
+  // During the grace period after a follow/unfollow, skip syncing from API to avoid
+  // read-replica-lag reversals (the optimistic setQueryData value is already correct).
   useEffect(() => {
-    const checkFollowStatus = async () => {
-      if (userId) {
-        const { following } = await isFollowing(userId);
-        // Skip if user already tapped fan/unfan while we were loading
-        if (hasUserInteracted.current) return;
-        setIsFan(following);
+    if (!profileData) return;
+    let cancelled = false;
 
-        // If not following and profile is private, check for pending request
-        if (!following) {
-          const { pending } = await hasPendingFollowRequest(userId);
-          if (hasUserInteracted.current) return;
-          setIsRequested(pending);
-        } else {
-          setIsRequested(false);
-        }
+    // Skip API sync during grace period — our optimistic cache update is authoritative
+    if (Date.now() < followGraceUntilRef.current) return;
+
+    // Use is_following from profile API response (or cache)
+    const isFollowingFromApi = profileData.is_following;
+
+    // If API doesn't include the field (unauthenticated/stale), don't overwrite local state.
+    if (isFollowingFromApi === undefined) {
+      // Opportunistic verification if we think we're a fan
+      if (isFan && userId && !isVerifyingFollow) {
+        setIsVerifyingFollow(true);
+        checkIsFollowing(userId).then(({ isFollowing }) => {
+          if (cancelled) return;
+          setIsFan(isFollowing);
+          if (!isFollowing) {
+            hasPendingFollowRequest(userId).then(({ pending }) => {
+              if (!cancelled) setIsRequested(pending);
+            });
+          } else {
+            setIsRequested(false);
+          }
+        }).catch(() => {
+          // keep optimistic state on error
+        }).finally(() => {
+          if (!cancelled) setIsVerifyingFollow(false);
+        });
       }
-    };
-    hasUserInteracted.current = false;
-    checkFollowStatus();
-  }, [userId]);
+      return;
+    }
+
+    // If API says "not following" but local state says we are, double-check with the
+    // dedicated endpoint to avoid false negatives from stale/anonymous responses.
+    if (isFan && !isFollowingFromApi && userId && !isVerifyingFollow) {
+      setIsVerifyingFollow(true);
+      checkIsFollowing(userId).then(({ isFollowing }) => {
+        if (cancelled) return;
+        if (isFollowing) {
+          followFalseStrikesRef.current = 0;
+          setIsFan(true);
+          setIsRequested(false);
+          queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
+            old ? { ...old, is_following: true } : old
+          );
+        } else {
+          followFalseStrikesRef.current += 1;
+          if (followFalseStrikesRef.current >= 2) {
+            setIsFan(false);
+            // Re-check pending requests when we're truly not following
+            hasPendingFollowRequest(userId).then(({ pending }) => {
+              if (!cancelled) setIsRequested(pending);
+            });
+            queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
+              old ? { ...old, is_following: false } : old
+            );
+          }
+        }
+      }).catch(() => {
+        // If verification fails, keep existing optimistic state
+      }).finally(() => {
+        if (!cancelled) setIsVerifyingFollow(false);
+      });
+      return;
+    }
+
+    setIsFan(isFollowingFromApi);
+
+    // If not following and profile is private, check for pending request
+    if (!isFollowingFromApi && userId) {
+      hasPendingFollowRequest(userId).then(({ pending }) => {
+        if (!cancelled) setIsRequested(pending);
+      });
+    } else {
+      setIsRequested(false);
+    }
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileData, userId]);
+
+  // Effective fan status: profileData.is_following is updated immediately by both
+  // API responses and optimistic cache updates (setQueryData), while isFan state
+  // lags by one render cycle due to useEffect. This prevents the "Become a fan"
+  // button flash when navigating to a profile you already follow.
+  const effectiveIsFan = profileData?.is_following ?? isFan;
 
   // Load user's posts
   const loadUserPosts = useCallback(async () => {
-    if (userId) {
-      setIsLoadingPosts(true);
-      const { data, error } = await getPostsByUser(userId, 0, 50);
-      if (!error && data) {
-        setUserPosts(data);
-      }
-      setIsLoadingPosts(false);
+    if (!userId) return;
+
+    setIsLoadingPosts(true);
+    const { data, error } = await getPostsByUser(userId, 0, 50);
+    if (!error && data) {
+      setUserPosts(data);
     }
+    setIsLoadingPosts(false);
   }, [userId]);
 
   useEffect(() => {
     loadUserPosts();
   }, [loadUserPosts]);
+
+  // Silent refetch when returning from detail screens (PostDetailProfileScreen)
+  // Ensures likes_count and views_count reflect changes made in the detail view
+  const initialLoadDoneRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!initialLoadDoneRef.current) {
+        initialLoadDoneRef.current = true;
+        return; // Skip first focus — initial load handled by useEffect above
+      }
+      if (!userId) return;
+      getPostsByUser(userId, 0, 50).then(({ data, error }) => {
+        if (!error && data) setUserPosts(data);
+      });
+    }, [userId])
+  );
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {
@@ -248,7 +359,7 @@ const UserProfileScreen = () => {
         url: profileUrl,
       });
     } catch (error) {
-      console.error('Error sharing profile:', error);
+      if (__DEV__) console.warn('Error sharing profile:', error);
     }
   };
 
@@ -258,24 +369,21 @@ const UserProfileScreen = () => {
   // Report user
   const handleReportUser = () => {
     setShowMenuModal(false);
-    Alert.alert(
-      'Report User',
-      'Why are you reporting this user?',
-      [
+    showAlert({
+      title: 'Report User',
+      message: 'Why are you reporting this user?',
+      type: 'warning',
+      buttons: [
         { text: 'Spam', onPress: () => submitUserReport('spam') },
         { text: 'Harassment', onPress: () => submitUserReport('harassment') },
         { text: 'Inappropriate', onPress: () => submitUserReport('inappropriate') },
         { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+      ],
+    });
   };
 
   const submitUserReport = (_reason: string) => {
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for your report. We will review this user.',
-      [{ text: 'OK' }]
-    );
+    showSuccess('Report Submitted', 'Thank you for your report. We will review this user.');
   };
 
   // Block user
@@ -284,42 +392,38 @@ const UserProfileScreen = () => {
 
     if (isUserBlocked(userId)) {
       setShowMenuModal(false);
-      Alert.alert('Already Blocked', 'This user is already blocked.', [{ text: 'OK' }]);
+      showError('Already Blocked', 'This user is already blocked.');
       return;
     }
 
     setShowMenuModal(false);
-    Alert.alert(
+    showDestructiveConfirm(
       'Block User?',
       `You won't see ${profile.displayName}'s posts and they won't be able to interact with you.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await block(userId);
-            if (error) {
-              Alert.alert('Error', 'Failed to block user. Please try again.', [{ text: 'OK' }]);
-            } else {
-              Alert.alert('User Blocked', 'You will no longer see their content.', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-              ]);
-            }
-          },
-        },
-      ]
+      async () => {
+        const { error } = await block(userId);
+        if (error) {
+          showError('Error', 'Failed to block user. Please try again.');
+        } else {
+          showSuccess('User Blocked', 'You will no longer see their content.');
+          navigation.goBack();
+        }
+      },
+      'Block'
     );
   };
 
   // Gestion du bouton Fan
   const handleFanPress = () => {
+    // Guard: don't allow on own profile or while loading
+    if (isOwnProfile || isLoadingFollow) return;
+
     if (isBlocked) {
       setShowBlockedModal(true);
       return;
     }
 
-    if (isFan) {
+    if (effectiveIsFan) {
       setShowUnfanModal(true);
     } else if (isRequested) {
       // Show cancel request modal
@@ -332,7 +436,6 @@ const UserProfileScreen = () => {
   // Cancel follow request
   const handleCancelRequest = async () => {
     if (!userId || isLoadingFollow) return;
-    hasUserInteracted.current = true;
 
     setShowCancelRequestModal(false);
     setIsLoadingFollow(true);
@@ -346,79 +449,172 @@ const UserProfileScreen = () => {
     setIsLoadingFollow(false);
   };
   
-  const becomeFan = async () => {
-    if (!userId || isLoadingFollow) return;
-    hasUserInteracted.current = true;
-
-    const newCount = fanToggleCount + 1;
-    setFanToggleCount(newCount);
-
-    if (newCount > 2) {
-      // Bloquer pour 7 jours
+  const registerToggleAndMaybeBlock = () => {
+    const next = fanToggleCount + 1;
+    if (next > 2) {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 7);
       setBlockEndDate(endDate);
       setIsBlocked(true);
       setShowBlockedModal(true);
-      return;
+      return true;
     }
+    setFanToggleCount(next);
+    return false;
+  };
+
+  const becomeFan = async () => {
+    // Guard: require userId and not loading
+    if (!userId || isLoadingFollow || isOwnProfile) return;
 
     setIsLoadingFollow(true);
 
-    const { error, requestCreated } = await followUser(userId);
-    setIsLoadingFollow(false);
-
-    if (error) {
-      console.error('[UserProfile] Follow error:', error);
-      return;
-    }
-
-    if (requestCreated) {
-      // A follow request was created for a private account
+    // Optimistic update for responsive UI (will revert on error)
+    const wasPrivate = profile.isPrivate;
+    if (wasPrivate) {
       setIsRequested(true);
     } else {
-      // Direct follow was successful
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
+      // Optimistically update React Query cache so navigating away/back persists fan state
+      queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+        if (!old) return old;
+        return { ...old, is_following: true, fan_count: (old.fan_count ?? 0) + 1 };
+      });
+    }
+
+    try {
+      const { error, requestCreated, cooldown } = await followUser(userId);
+
+      if (error) {
+        // Revert optimistic update on error
+        if (wasPrivate) {
+          setIsRequested(false);
+        } else {
+          setIsFan(false);
+          setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+        }
+        // Revert cache to server truth
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
+
+        if (cooldown?.blocked) {
+          setBlockEndDate(new Date(cooldown.until));
+          setIsBlocked(true);
+          setShowBlockedModal(true);
+        } else {
+          showError('Follow Failed', 'Unable to follow this user. Please try again.');
+        }
+        if (__DEV__) console.warn('[UserProfile] Follow error:', error);
+        return;
+      }
+
+      // Adjust state based on actual API response
+      if (requestCreated) {
+        // A follow request was created for a private account
+        setIsRequested(true);
+        setIsFan(false);
+        // Revert fan count if we optimistically added it
+        if (!wasPrivate) {
+          setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+        }
+        // Update cache: not following yet (pending request)
+        queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+          if (!old) return old;
+          return { ...old, is_following: false };
+        });
+      } else {
+        // Direct follow was successful
+        setIsFan(true);
+        setIsRequested(false);
+        // Ensure fan count is incremented (may already be from optimistic update)
+        if (wasPrivate) {
+          setLocalFanCount(prev => (prev ?? 0) + 1);
+          // Update cache now that follow is confirmed
+          queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+            if (!old) return old;
+            return { ...old, is_following: true, fan_count: (old.fan_count ?? 0) + 1 };
+          });
+        }
+        if (useUserStore.getState().user?.accountType !== 'pro_business') {
+          useVibeStore.getState().addVibeAction('follow_user');
+        }
+      }
+
+      registerToggleAndMaybeBlock();
+
+      // Grace period: ignore API-sourced profileData updates for 10s to let the read
+      // replica catch up. Our setQueryData above is authoritative during this window.
+      followGraceUntilRef.current = Date.now() + 10_000;
+    } catch (err) {
+      // Revert optimistic update on unexpected error
+      if (wasPrivate) {
+        setIsRequested(false);
+      } else {
+        setIsFan(false);
+        setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+      }
+      // Revert cache to server truth
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
+      showError('Follow Failed', 'Something went wrong. Please try again.');
+      if (__DEV__) console.warn('[UserProfile] becomeFan unexpected error:', err);
+    } finally {
+      setIsLoadingFollow(false);
     }
   };
 
   const confirmUnfan = async () => {
-    if (!userId || isLoadingFollow) return;
-    hasUserInteracted.current = true;
+    // Guard: require userId and not loading
+    if (!userId || isLoadingFollow || isOwnProfile) return;
 
     setShowUnfanModal(false);
 
-    const newCount = fanToggleCount + 1;
-    setFanToggleCount(newCount);
-
-    if (newCount > 2) {
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 7);
-      setBlockEndDate(endDate);
-      setIsBlocked(true);
-      setTimeout(() => setShowBlockedModal(true), 300);
-      return;
-    }
-
     setIsLoadingFollow(true);
-    // Optimistic update
+    // Optimistic update: local state + cache
     setIsFan(false);
     setLocalFanCount(prev => Math.max((prev ?? 1) - 1, 0));
+    queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) => {
+      if (!old) return old;
+      return { ...old, is_following: false, fan_count: Math.max((old.fan_count ?? 1) - 1, 0) };
+    });
 
-    const { error } = await unfollowUser(userId);
-    setIsLoadingFollow(false);
+    try {
+      const { error, cooldown } = await unfollowUser(userId);
 
-    if (error) {
-      // Revert on error
+      if (error) {
+        // Revert on error: local state + cache
+        setIsFan(true);
+        setLocalFanCount(prev => (prev ?? 0) + 1);
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
+        showError('Unfollow Failed', 'Unable to unfollow this user. Please try again.');
+        if (__DEV__) console.warn('[UserProfile] Unfollow error:', error);
+        return;
+      }
+
+      if (cooldown?.blocked) {
+        setBlockEndDate(new Date(cooldown.until));
+        setIsBlocked(true);
+        setTimeout(() => setShowBlockedModal(true), 300);
+        return;
+      }
+
+      registerToggleAndMaybeBlock();
+
+      // Grace period: ignore API-sourced profileData updates for 10s (read replica lag)
+      followGraceUntilRef.current = Date.now() + 10_000;
+    } catch (err) {
+      // Revert on unexpected error: local state + cache
       setIsFan(true);
       setLocalFanCount(prev => (prev ?? 0) + 1);
-      console.error('[UserProfile] Unfollow error:', error);
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(userId) });
+      showError('Unfollow Failed', 'Something went wrong. Please try again.');
+      if (__DEV__) console.warn('[UserProfile] confirmUnfan unexpected error:', err);
+    } finally {
+      setIsLoadingFollow(false);
     }
   };
 
   const handleMessagePress = () => {
-    if (isFan) {
+    if (effectiveIsFan) {
       // Pass userId so ChatScreen can get/create the real conversation
       navigation.navigate('Chat', {
         userId: profile.id,
@@ -441,33 +637,43 @@ const UserProfileScreen = () => {
     return blockEndDate.toLocaleDateString('en-US', options);
   };
 
+  // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
     // Support both media_urls array and legacy media_url string
-    const thumbnail = post.media_urls?.[0] || (post as any).media_url || null;
-    const isVideo = post.media_type === 'video' || post.media_type === 'multiple';
+    const thumbnail = post.media_urls?.[0] || post.media_url || null;
+    const isVideo = post.media_type === 'video';
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
-    const transformedPosts = allPosts.map(p => ({
-      id: p.id,
-      type: p.media_type === 'video' ? 'video' : 'image',
-      media: p.media_urls?.[0] || (p as any).media_url || '',
-      thumbnail: p.media_urls?.[0] || (p as any).media_url || '',
-      description: p.content || (p as any).caption || '',
-      likes: p.likes_count || 0,
-      views: p.views_count || 0,
-      user: {
-        id: profile.id,
-        name: profile.displayName,
-        avatar: profile.avatar || '',
-      },
-    }));
+    const transformedPosts = allPosts.map(p => {
+      const pAllMedia = p.media_urls?.filter(Boolean) || [p.media_url].filter(Boolean);
+      return {
+        id: p.id,
+        type: p.media_type === 'video' ? 'video' : pAllMedia.length > 1 ? 'carousel' : 'image',
+        media: pAllMedia[0] || '',
+        thumbnail: pAllMedia[0] || '',
+        description: p.content || p.caption || '',
+        likes: p.likes_count || 0,
+        views: p.views_count || 0,
+        location: p.location || null,
+        taggedUsers: p.tagged_users || [],
+        allMedia: pAllMedia.length > 1 ? pAllMedia : undefined,
+        user: {
+          id: profile.id,
+          name: profile.displayName,
+          avatar: profile.avatar || '',
+        },
+      };
+    });
 
     return (
       <TouchableOpacity
         style={styles.postCard}
         onPress={() => navigation.navigate('PostDetailProfile', {
           postId: post.id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           profilePosts: transformedPosts as any,
         })}
       >
@@ -476,7 +682,7 @@ const UserProfileScreen = () => {
           <OptimizedImage source={thumbnail} style={styles.postThumb} />
         ) : (
           <View style={[styles.postThumb, styles.postThumbEmpty]}>
-            <Ionicons name="image-outline" size={28} color="#6E6E73" />
+            <Ionicons name="image-outline" size={28} color={colors.gray} />
           </View>
         )}
         {/* Video indicator */}
@@ -498,7 +704,7 @@ const UserProfileScreen = () => {
         </View>
       </TouchableOpacity>
     );
-  }, [navigation, profile]);
+  }, [navigation, profile, colors, styles]);
 
   // States: missing userId or loading/error
   if (!userId) {
@@ -516,12 +722,7 @@ const UserProfileScreen = () => {
   }
 
   if (isLoading) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primaryGreen} />
-        <Text style={[styles.bioText, { marginTop: 12 }]}>Loading profile...</Text>
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (isError || !profileData) {
@@ -542,7 +743,7 @@ const UserProfileScreen = () => {
   const renderPrivateAccount = () => (
     <View style={styles.privateContainer}>
       <View style={styles.privateLockContainer}>
-        <Ionicons name="lock-closed" size={48} color="#8E8E93" />
+        <Ionicons name="lock-closed" size={48} color={colors.gray} />
       </View>
       <Text style={styles.privateTitle}>This Account is Private</Text>
       <Text style={styles.privateDesc}>
@@ -568,7 +769,7 @@ const UserProfileScreen = () => {
       <Ionicons
         name={type === 'posts' ? 'images-outline' : type === 'peaks' ? 'videocam-outline' : 'bookmark-outline'}
         size={48}
-        color="#8E8E93"
+        color={colors.gray}
         style={{ marginBottom: 16 }}
       />
       <Text style={styles.emptyTitle}>
@@ -588,7 +789,7 @@ const UserProfileScreen = () => {
   // ==================== RENDER TAB CONTENT ====================
   const renderTabContent = () => {
     // Check if profile is private and user is not a fan
-    const isPrivateAndNotFan = profile.isPrivate && !isFan && !isOwnProfile;
+    const isPrivateAndNotFan = profile.isPrivate && !effectiveIsFan && !isOwnProfile;
 
     if (isPrivateAndNotFan) {
       return renderPrivateAccount();
@@ -597,7 +798,7 @@ const UserProfileScreen = () => {
     if (isLoadingPosts) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       );
@@ -605,10 +806,25 @@ const UserProfileScreen = () => {
 
     if (activeTab === 'posts') {
       if (posts.length === 0) return renderEmpty('posts');
+      const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
+      const cardAspect = postColumns === 1 ? 0.9 : 1;
+      const gridPadding = 16 * 2;
+      const gridGap = 12;
+      const totalGaps = gridGap * (postColumns - 1);
+      const cardWidth = (SCREEN_WIDTH - gridPadding - totalGaps) / postColumns;
       return (
         <View style={styles.postsGrid}>
           {posts.map((post, index) => (
-            <View key={`post-${index}-${post.id}`} style={styles.postCardWrapper}>
+            <View
+              key={`post-${index}-${post.id}`}
+              style={[
+                styles.postCardWrapper,
+                {
+                  width: cardWidth,
+                  aspectRatio: cardAspect,
+                },
+              ]}
+            >
               {renderPostItem(post, posts)}
             </View>
           ))}
@@ -629,7 +845,7 @@ const UserProfileScreen = () => {
                 <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
               ) : (
                 <View style={[styles.peakThumb, styles.postThumbEmpty]}>
-                  <Ionicons name="videocam-outline" size={24} color="#6E6E73" />
+                  <Ionicons name="videocam-outline" size={24} color={colors.gray} />
                 </View>
               )}
               <View style={styles.peakDuration}>
@@ -650,6 +866,16 @@ const UserProfileScreen = () => {
         </View>
       );
     }
+    if (activeTab === 'groupevent') {
+      // Unified Activities - no Event/Group toggle
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="flash-outline" size={48} color={colors.gray} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>No activities yet</Text>
+          <Text style={styles.emptyDesc}>This user hasn't created any activities yet</Text>
+        </View>
+      );
+    }
     if (activeTab === 'collections') {
       return renderEmpty('collections');
     }
@@ -660,6 +886,7 @@ const UserProfileScreen = () => {
   const TABS = [
     { key: 'posts', label: 'Posts' },
     { key: 'peaks', label: 'Peaks' },
+    { key: 'groupevent', label: 'Activities' },
     { key: 'collections', label: 'Collections' },
   ] as const;
 
@@ -681,28 +908,17 @@ const UserProfileScreen = () => {
       <View style={styles.coverAbsolute}>
         <OptimizedImage source={profile.coverImage} style={styles.coverImage} />
         <LinearGradient
-          colors={['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
+          colors={isDark
+            ? ['transparent', 'transparent', 'rgba(13, 13, 13, 0.5)', 'rgba(13, 13, 13, 0.85)', '#0D0D0D']
+            : ['transparent', 'transparent', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']
+          }
           locations={[0, 0.35, 0.55, 0.75, 1]}
           style={styles.coverGradientOverlay}
           pointerEvents="none"
         />
       </View>
 
-      {/* Back Button */}
-      <TouchableOpacity
-        style={[styles.backBtn, { top: insets.top + 8 }]}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
-
-      {/* Menu Button */}
-      <TouchableOpacity
-        style={[styles.menuBtn, { top: insets.top + 8 }]}
-        onPress={() => setShowMenuModal(true)}
-      >
-        <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Back & Menu buttons moved outside ScrollView for fixed positioning */}
 
       {/* Spacer for cover height */}
       <View style={styles.coverSpacer} />
@@ -710,12 +926,24 @@ const UserProfileScreen = () => {
       {/* Avatar & Stats Row */}
       <View style={styles.avatarRow}>
         <View>
-          {profile.avatar ? (
-            <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+          {gradeInfo ? (
+            <GradeFrame grade={gradeInfo.grade} color={gradeInfo.color} size={AVATAR_SIZE}>
+              {profile.avatar ? (
+                <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarEmpty}>
+                  <Ionicons name="person" size={36} color={colors.gray} />
+                </View>
+              )}
+            </GradeFrame>
           ) : (
-            <View style={styles.avatarEmpty}>
-              <Ionicons name="person" size={36} color="#6E6E73" />
-            </View>
+            profile.avatar ? (
+              <AvatarImage source={profile.avatar} size={AVATAR_SIZE} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarEmpty}>
+                <Ionicons name="person" size={36} color={colors.gray} />
+              </View>
+            )
           )}
         </View>
 
@@ -735,7 +963,7 @@ const UserProfileScreen = () => {
         </View>
       </View>
 
-      {/* Name & Share Button */}
+      {/* Name & Action Icons */}
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
           <Text style={styles.displayName}>{profile.displayName}</Text>
@@ -744,10 +972,18 @@ const UserProfileScreen = () => {
             style={styles.badge}
             isVerified={profile.isVerified}
             accountType={profile.accountType}
+            followerCount={localFanCount ?? profile.fanCount ?? 0}
           />
+          {/* Fan badge when following */}
+          {!isOwnProfile && effectiveIsFan && (
+            <View style={styles.fanBadge}>
+              <SmuppyHeartIcon size={10} color="#0EBF8A" filled />
+              <Text style={styles.fanBadgeText}>Fan</Text>
+            </View>
+          )}
           {profile.isPrivate && (
             <View style={styles.privateBadge}>
-              <Ionicons name="lock-closed" size={12} color="#8E8E93" />
+              <Ionicons name="lock-closed" size={12} color={colors.gray} />
             </View>
           )}
           {(profile.isBot || profile.isTeam) && (
@@ -756,9 +992,17 @@ const UserProfileScreen = () => {
             </View>
           )}
         </View>
-        <TouchableOpacity style={styles.actionBtn} onPress={handleShareProfile}>
-          <Ionicons name="share-outline" size={18} color="#0A0A0F" />
-        </TouchableOpacity>
+        <View style={styles.nameActions}>
+          {/* Message icon — only when fan and not own profile */}
+          {!isOwnProfile && effectiveIsFan && (
+            <TouchableOpacity style={styles.actionBtn} onPress={handleMessagePress}>
+              <Ionicons name="chatbubble-outline" size={18} color={colors.dark} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.actionBtn} onPress={handleShareProfile}>
+            <Ionicons name="share-outline" size={18} color={colors.dark} />
+          </TouchableOpacity>
+        </View>
       </View>
 
 
@@ -785,98 +1029,118 @@ const UserProfileScreen = () => {
         </View>
       ) : null}
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        {/* Row 1: Fan + Message */}
-        <View style={styles.actionButtonsRow}>
-          <TouchableOpacity
-            style={[
-              styles.fanButton,
-              isFan && styles.fanButtonActive,
-              isRequested && styles.fanButtonRequested
-            ]}
-            onPress={handleFanPress}
-            disabled={isLoadingFollow}
-          >
-            {isLoadingFollow ? (
-              <ActivityIndicator size="small" color={isFan ? '#FFFFFF' : isRequested ? '#8E8E93' : '#0EBF8A'} />
-            ) : (
-              <Text style={[
-                styles.fanButtonText,
-                isFan && styles.fanButtonTextActive,
-                isRequested && styles.fanButtonTextRequested
-              ]}>
-                {isFan ? 'Fan' : isRequested ? 'Requested' : 'Become a fan'}
-              </Text>
-            )}
-          </TouchableOpacity>
+      {/* Action Buttons — only render when profile data loaded (avoids fan button flash on device) */}
+      {(isOwnProfile || (!effectiveIsFan && !!profileData) || profile.accountType === 'pro_creator') && (
+        <View style={styles.actionButtonsContainer}>
+          {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
+          {isOwnProfile ? (
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={styles.editProfileButton}
+                onPress={() => navigation.navigate('EditProfile' as never)}
+              >
+                <Ionicons name="pencil-outline" size={18} color={colors.dark} />
+                <Text style={styles.editProfileText}>Edit Profile</Text>
+              </TouchableOpacity>
+            </View>
+          ) : !effectiveIsFan && !!profileData ? (
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.fanButton,
+                  isRequested && styles.fanButtonRequested
+                ]}
+                onPress={handleFanPress}
+                disabled={isLoadingFollow}
+              >
+                {isLoadingFollow ? (
+                  <ActivityIndicator size="small" color={isRequested ? '#8E8E93' : '#0EBF8A'} />
+                ) : (
+                  <Text style={[
+                    styles.fanButtonText,
+                    isRequested && styles.fanButtonTextRequested
+                  ]}>
+                    {isRequested ? 'Requested' : 'Become a fan'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
-          {(isFan || profile.accountType === 'pro_creator') && (
-            <TouchableOpacity
-              style={[styles.messageButton, !isFan && styles.messageButtonDisabled]}
-              onPress={handleMessagePress}
-              disabled={!isFan}
-            >
-              <Ionicons
-                name={isFan ? 'chatbubble-outline' : 'lock-closed-outline'}
-                size={18}
-                color="#0A0A0F"
+          {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
+          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
+            <View style={styles.actionButtonsRow}>
+              {FEATURES.CHANNEL_SUBSCRIBE && (
+                <LiquidButton
+                  label="Subscribe"
+                  onPress={() => setShowSubscribeModal(true)}
+                  size="sm"
+                  variant="outline"
+                  style={{ flex: 1 }}
+                  icon={<Ionicons name="star" size={14} color="#E74C3C" />}
+                  iconPosition="left"
+                  colorScheme="green"
+                  textStyle={{ color: '#E74C3C' }}
+                />
+              )}
+
+              {FEATURES.PRIVATE_SESSIONS && (
+                <LiquidButton
+                  label="Book 1:1"
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  onPress={() => (navigation as any).navigate('BookSession', {
+                    creator: {
+                      id: profile.id,
+                      name: profile.displayName,
+                      avatar: profile.avatar || '',
+                      specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
+                    }
+                  })}
+                  size="sm"
+                  variant="outline"
+                  style={{ flex: 1 }}
+                  icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
+                  iconPosition="left"
+                  colorScheme="green"
+                  textStyle={{ color: '#3B82F6' }}
+                />
+              )}
+
+              {FEATURES.TIPPING && (
+                <TipButton
+                  recipient={{
+                    id: profile.id,
+                    username: profile.username,
+                    displayName: profile.displayName,
+                    avatarUrl: profile.avatar || undefined,
+                  }}
+                  contextType="profile"
+                  variant="compact"
+                />
+              )}
+            </View>
+          )}
+
+          {/* Row 3: Offerings button (pro_creator only, not own profile) */}
+          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
+            <View style={styles.actionButtonsRow}>
+              <LiquidButton
+                label="View Offerings"
+                onPress={() => navigation.navigate('CreatorOfferings', { creatorId: profile.id })}
+                size="sm"
+                variant="outline"
+                style={{ flex: 1 }}
+                icon={<Ionicons name="pricetag" size={14} color="#0EBF8A" />}
+                iconPosition="left"
+                colorScheme="green"
               />
-              <Text style={styles.messageText}>Message</Text>
-            </TouchableOpacity>
+            </View>
           )}
         </View>
+      )}
 
-        {/* Row 2: Monetization buttons (pro_creator only) */}
-        {profile.accountType === 'pro_creator' && (
-          <View style={styles.actionButtonsRow}>
-            <LiquidButton
-              label="Subscribe"
-              onPress={() => setShowSubscribeModal(true)}
-              size="sm"
-              variant="outline"
-              style={{ flex: 1 }}
-              icon={<Ionicons name="star" size={14} color="#E74C3C" />}
-              iconPosition="left"
-              colorScheme="green"
-              textStyle={{ color: '#E74C3C' }}
-            />
-
-            <LiquidButton
-              label="Book 1:1"
-              onPress={() => (navigation as any).navigate('BookSession', {
-                creator: {
-                  id: profile.id,
-                  name: profile.displayName,
-                  avatar: profile.avatar || '',
-                  specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
-                }
-              })}
-              size="sm"
-              variant="outline"
-              style={{ flex: 1 }}
-              icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
-              iconPosition="left"
-              colorScheme="green"
-              textStyle={{ color: '#3B82F6' }}
-            />
-
-            <TipButton
-              recipient={{
-                id: profile.id,
-                username: profile.username,
-                displayName: profile.displayName,
-                avatarUrl: profile.avatar || undefined,
-              }}
-              contextType="profile"
-              variant="compact"
-            />
-          </View>
-        )}
-      </View>
-
-      {/* Pro Creator Live Section */}
-      {profile.accountType === 'pro_creator' && (
+      {/* Pro Creator Live Section (not own profile) */}
+      {!isOwnProfile && FEATURES.VIEWER_LIVE_STREAM && profile.accountType === 'pro_creator' && (
         <>
           {/* LIVE NOW Section */}
           {creatorLiveStatus.isLive && (
@@ -895,7 +1159,9 @@ const UserProfileScreen = () => {
                 <Text style={styles.liveTitle}>{creatorLiveStatus.liveTitle}</Text>
                 <TouchableOpacity
                   style={styles.joinLiveButton}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onPress={() => (navigation as any).navigate('ViewerLiveStream', {
+                    channelName: `live_${profile.id}`,
                     creatorId: profile.id,
                     creatorName: profile.displayName,
                     creatorAvatar: profile.avatar,
@@ -917,62 +1183,6 @@ const UserProfileScreen = () => {
             </View>
           )}
 
-          {/* Next Live Session Section - hidden once reminder is set */}
-          {!creatorLiveStatus.isLive && creatorLiveStatus.nextLiveDate && !creatorLiveStatus.hasReminder && (
-            <View style={styles.nextLiveSection}>
-              <View style={styles.nextLiveHeader}>
-                <View style={styles.nextLiveIconContainer}>
-                  <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
-                </View>
-                <View style={styles.nextLiveInfo}>
-                  <Text style={styles.nextLiveLabel}>Next Live Session</Text>
-                  <Text style={styles.nextLiveDate}>
-                    {creatorLiveStatus.nextLiveDate.toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                  {creatorLiveStatus.nextLiveTitle && (
-                    <Text style={styles.nextLiveTitle}>{creatorLiveStatus.nextLiveTitle}</Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.reminderButton,
-                    creatorLiveStatus.hasReminder && styles.reminderButtonActive
-                  ]}
-                  onPress={() => {
-                    setCreatorLiveStatus(prev => ({
-                      ...prev,
-                      hasReminder: !prev.hasReminder,
-                    }));
-                    Alert.alert(
-                      creatorLiveStatus.hasReminder ? 'Reminder Removed' : 'Reminder Set',
-                      creatorLiveStatus.hasReminder
-                        ? "You won't be notified about this live."
-                        : "We'll notify you when this live starts.",
-                      [{ text: 'OK' }]
-                    );
-                  }}
-                >
-                  <Ionicons
-                    name={creatorLiveStatus.hasReminder ? 'notifications' : 'notifications-outline'}
-                    size={18}
-                    color={creatorLiveStatus.hasReminder ? '#FFFFFF' : COLORS.primary}
-                  />
-                  <Text style={[
-                    styles.reminderButtonText,
-                    creatorLiveStatus.hasReminder && styles.reminderButtonTextActive
-                  ]}>
-                    {creatorLiveStatus.hasReminder ? 'Reminded' : 'Set Reminder'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
         </>
       )}
     </View>
@@ -980,25 +1190,45 @@ const UserProfileScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
 
-      {/* Fixed Header */}
-      {renderHeader()}
+      {/* Back Button - Fixed on top */}
+      <TouchableOpacity
+        style={[styles.backBtnFixed, { top: insets.top + 8 }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
 
-      {/* Fixed Tabs */}
-      {renderTabs()}
+      {/* Menu Button - Fixed on top */}
+      {!isOwnProfile && (
+        <TouchableOpacity
+          style={[styles.menuBtnFixed, { top: insets.top + 8 }]}
+          onPress={() => setShowMenuModal(true)}
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
 
-      {/* Scrollable Content Area */}
+      {/* Fully Scrollable Profile - Header, Tabs, and Content all scroll together */}
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
+        stickyHeaderIndices={[1]}
       >
+        {/* Scrollable Header */}
+        {renderHeader()}
+
+        {/* Sticky Tabs */}
+        {renderTabs()}
+
+        {/* Tab Content */}
         {renderTabContent()}
-        <View style={{ height: 120 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Modal Unfan Confirmation */}
@@ -1145,12 +1375,25 @@ const UserProfileScreen = () => {
                 handleShareProfile();
               }}
             >
-              <Ionicons name="share-outline" size={22} color="#0A0A0F" />
+              <Ionicons name="share-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Share Profile</Text>
             </TouchableOpacity>
 
+            {effectiveIsFan && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  setShowUnfanModal(true);
+                }}
+              >
+                <Ionicons name="heart-dislike-outline" size={22} color={colors.dark} />
+                <Text style={styles.menuItemText}>Unfan</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity style={styles.menuItem} onPress={handleReportUser}>
-              <Ionicons name="flag-outline" size={22} color="#0A0A0F" />
+              <Ionicons name="flag-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Report</Text>
             </TouchableOpacity>
 
@@ -1176,18 +1419,25 @@ const UserProfileScreen = () => {
         creatorName={profile.displayName}
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}
-        onSubscribe={(_tierId) => {
-          // TODO: Implement subscription logic with payment
+        onSubscribe={(tierId) => {
+          setShowSubscribeModal(false);
+          const tierMap: Record<string, { id: string; name: string; price: number; perks: string[] }> = {
+            basic: { id: 'basic', name: 'Fan', price: 4.99, perks: ['Access to exclusive posts', 'Join live streams', 'Fan badge on comments'] },
+            premium: { id: 'premium', name: 'Super Fan', price: 9.99, perks: ['All Fan benefits', 'Access to exclusive videos', 'Priority in live chat', 'Monthly 1-on-1 Q&A'] },
+            vip: { id: 'vip', name: 'VIP', price: 24.99, perks: ['All Super Fan benefits', 'Private Discord access', 'Early access to content', 'Personal shoutouts', '10% off private sessions'] },
+          };
+          const tier = tierMap[tierId] || tierMap.premium;
+          navigation.navigate('ChannelSubscribe', { creatorId: profile.id, tier });
         }}
       />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
 
   // ===== HEADER =====
@@ -1216,27 +1466,27 @@ const styles = StyleSheet.create({
   coverSpacer: {
     height: COVER_HEIGHT - 60,
   },
-  backBtn: {
+  backBtnFixed: {
     position: 'absolute',
     left: 16,
     padding: 8,
-    zIndex: 10,
+    zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.5,
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 10,
   },
-  menuBtn: {
+  menuBtnFixed: {
     position: 'absolute',
     right: 16,
     padding: 8,
-    zIndex: 10,
+    zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.5,
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 10,
   },
 
   // ===== AVATAR ROW =====
@@ -1245,6 +1495,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginTop: 15,
     zIndex: 2,
   },
   avatar: {
@@ -1252,17 +1503,17 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.white,
   },
   avatarEmpty: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.white,
   },
 
   // ===== STATS GLASSMORPHISM =====
@@ -1277,8 +1528,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+    backgroundColor: isDark ? 'rgba(26,26,26,0.8)' : 'rgba(255,255,255,0.4)',
   },
   statGlassItem: {
     alignItems: 'center',
@@ -1287,17 +1538,17 @@ const styles = StyleSheet.create({
   statGlassDivider: {
     width: 1,
     height: 20,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
   },
   statGlassValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0A252F',
+    color: colors.dark,
   },
   statGlassLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#555',
+    color: colors.gray,
   },
 
   // ===== NAME ROW =====
@@ -1306,7 +1557,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 4,
+    marginTop: 2,
     zIndex: 2,
   },
   nameWithBadges: {
@@ -1318,12 +1569,33 @@ const styles = StyleSheet.create({
   displayName: {
     fontFamily: 'WorkSans-SemiBold',
     fontSize: 20,
-    color: '#0A252F',
+    color: colors.dark,
     letterSpacing: -0.2,
     flexShrink: 1,
   },
   badge: {
     marginLeft: 6,
+  },
+  fanBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    backgroundColor: 'rgba(14, 191, 138, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+    flexShrink: 0,
+  },
+  fanBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0EBF8A',
+  },
+  nameActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   teamBadge: {
     marginLeft: 6,
@@ -1340,7 +1612,7 @@ const styles = StyleSheet.create({
   },
   privateBadge: {
     marginLeft: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     padding: 4,
     borderRadius: 10,
   },
@@ -1348,13 +1620,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   username: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     paddingHorizontal: 20,
     marginTop: 2,
     zIndex: 2,
@@ -1369,7 +1641,7 @@ const styles = StyleSheet.create({
   bioText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0A252F',
+    color: colors.dark,
     lineHeight: 18,
   },
   seeMoreBtn: {
@@ -1378,7 +1650,7 @@ const styles = StyleSheet.create({
   seeMoreText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
     paddingVertical: 1,
   },
 
@@ -1399,34 +1671,34 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fanButtonActive: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
   },
   fanButtonRequested: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E5E5',
+    backgroundColor: colors.backgroundSecondary,
+    borderColor: colors.gray,
   },
   fanButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   fanButtonTextActive: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   fanButtonTextRequested: {
-    color: '#8E8E93',
+    color: colors.gray,
   },
   messageButton: {
     flex: 1,
     flexDirection: 'row',
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -1434,10 +1706,25 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
   },
   messageButtonDisabled: {
     opacity: 0.5,
+  },
+  editProfileButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  editProfileText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.dark,
   },
   sessionButton: {
     flex: 1,
@@ -1514,12 +1801,12 @@ const styles = StyleSheet.create({
   liveViewers: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
   },
   liveTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
     marginBottom: 12,
   },
   joinLiveButton: {
@@ -1564,20 +1851,20 @@ const styles = StyleSheet.create({
   nextLiveLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   nextLiveDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
     marginTop: 2,
   },
   nextLiveTitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
     marginTop: 2,
   },
   reminderButton: {
@@ -1603,13 +1890,14 @@ const styles = StyleSheet.create({
 
   // ===== TABS (PILLS STYLE) =====
   tabsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+    paddingTop: 4,
+    backgroundColor: colors.background,
   },
   pillsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 10,
     padding: 3,
   },
@@ -1636,7 +1924,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.gray,
   },
   pillTextActive: {
     fontSize: 14,
@@ -1652,20 +1940,25 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 20,
   },
+  bottomSpacer: {
+    height: 120,
+  },
 
   // ===== POSTS GRID =====
   postsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 12,
+    columnGap: 12,
+    rowGap: 12,
+    alignItems: 'flex-start',
   },
   postCardWrapper: {
-    width: (SCREEN_WIDTH - 44) / 2,
+    // width is set dynamically via flexBasis/maxWidth inline styles
   },
   postCard: {
-    width: (SCREEN_WIDTH - 44) / 2,
-    height: 200,
+    width: '100%',
+    height: '100%',
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
@@ -1675,7 +1968,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   postThumbEmpty: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1715,7 +2008,7 @@ const styles = StyleSheet.create({
   postStatText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.gray,
   },
 
   // ===== PEAKS GRID =====
@@ -1730,7 +2023,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.backgroundSecondary,
   },
   peakThumb: {
     width: '100%',
@@ -1779,7 +2072,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     marginTop: 8,
   },
   emptyContainer: {
@@ -1790,13 +2083,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   emptyDesc: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 21,
   },
@@ -1811,7 +2104,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -1819,13 +2112,13 @@ const styles = StyleSheet.create({
   privateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   privateDesc: {
     fontSize: 15,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -1834,12 +2127,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 25,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
   },
   privateFollowBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 
   // ===== MODALS =====
@@ -1852,7 +2145,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -1864,13 +2157,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
     textAlign: 'center',
   },
   modalText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -1884,37 +2177,37 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
   },
   modalBtnCancelText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   modalBtnConfirm: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   modalBtnConfirmText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   modalBtnSingle: {
     width: '100%',
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
   modalBtnSingleText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 
   // ===== MENU MODAL =====
@@ -1924,7 +2217,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -1932,7 +2225,7 @@ const styles = StyleSheet.create({
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: colors.gray,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -1947,11 +2240,11 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   menuItemDanger: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.border,
     marginTop: 8,
     paddingTop: 24,
   },
@@ -1963,13 +2256,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
   },
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
 });
 

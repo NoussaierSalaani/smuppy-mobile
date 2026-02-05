@@ -4,10 +4,11 @@
  * 10x faster than FlatList for large lists
  */
 
-import React, { memo, useCallback, forwardRef, ReactNode, ReactElement } from 'react';
+import React, { memo, useCallback, forwardRef, ReactNode, ReactElement, useMemo } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator, ViewStyle, StyleProp } from 'react-native';
 import { FlashList, FlashListRef, ListRenderItem } from '@shopify/flash-list';
-import { COLORS, SPACING, TYPOGRAPHY } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { SPACING, TYPOGRAPHY } from '../config/theme';
 
 interface OptimizedListProps<T> {
   data: T[] | null;
@@ -102,6 +103,8 @@ function OptimizedListInner<T extends ItemWithId>(
   }: OptimizedListProps<T>,
   ref: React.Ref<FlashListRef<T>>
 ) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Default key extractor
   const defaultKeyExtractor = useCallback((item: T, index: number): string => {
@@ -113,7 +116,7 @@ function OptimizedListInner<T extends ItemWithId>(
     if (isLoadingMore) {
       return (
         <View style={styles.loadingFooter}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       );
     }
@@ -123,14 +126,14 @@ function OptimizedListInner<T extends ItemWithId>(
         : ListFooterComponent;
     }
     return null;
-  }, [isLoadingMore, ListFooterComponent]);
+  }, [isLoadingMore, ListFooterComponent, colors.primary, styles.loadingFooter]);
 
   // Empty component
   const renderEmpty = useCallback(() => {
     if (isLoading) {
       return (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       );
     }
@@ -145,7 +148,7 @@ function OptimizedListInner<T extends ItemWithId>(
         <Text style={styles.emptyText}>{emptyText}</Text>
       </View>
     );
-  }, [isLoading, ListEmptyComponent, emptyText, emptyIcon]);
+  }, [isLoading, ListEmptyComponent, emptyText, emptyIcon, colors.primary, styles.emptyContainer, styles.emptyText]);
 
   // Don't render if no data and not loading
   if (!data && !isLoading) {
@@ -315,7 +318,7 @@ export const GridList = memo(forwardRef(GridListInner)) as <T extends ItemWithId
   props: GridListProps<T> & { ref?: React.Ref<FlashListRef<T>> }
 ) => ReactElement;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   loadingFooter: {
     paddingVertical: SPACING.lg,
     alignItems: 'center',
@@ -329,7 +332,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...TYPOGRAPHY.body,
-    color: COLORS.gray500,
+    color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.md,
   },

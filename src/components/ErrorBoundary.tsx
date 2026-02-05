@@ -1,8 +1,9 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING } from '../config/theme';
+import { SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -12,6 +13,8 @@ interface ErrorBoundaryProps {
   title?: string;
   message?: string;
   showReportButton?: boolean;
+  colors?: ThemeColors;
+  isDark?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -46,7 +49,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     this.setState({ errorInfo });
 
     // Log to console in development
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    if (__DEV__) console.warn('ErrorBoundary caught an error:', error, errorInfo);
 
     // Add breadcrumb for context
     addBreadcrumb('Error caught by ErrorBoundary', 'error', {
@@ -77,6 +80,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   render() {
+    const { colors: propColors, isDark: _isDark } = this.props;
+    const colors = propColors || { background: '#FFFFFF', dark: '#0a252f', gray: '#6b7280', error: '#EF4444', errorLight: '#FEE2E2', primary: '#0EBF8A', white: '#FFFFFF' } as ThemeColors;
+    const styles = createStyles(colors, _isDark || false);
+
     if (this.state.hasError) {
       // Custom fallback UI from props
       if (this.props.fallback) {
@@ -99,7 +106,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return (
         <View style={styles.container}>
           <View style={styles.iconContainer}>
-            <Ionicons name="warning-outline" size={48} color={COLORS.error || '#EF4444'} />
+            <Ionicons name="warning-outline" size={48} color={colors?.error || '#EF4444'} />
           </View>
 
           <Text style={styles.title}>
@@ -147,95 +154,101 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-    backgroundColor: COLORS.white || '#FFFFFF',
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 20,
-    color: COLORS.dark || '#0A252F',
-    textAlign: 'center',
-  },
-  message: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: COLORS.gray || '#8E8E93',
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: SPACING.lg,
-  },
-  errorDetails: {
-    marginTop: SPACING.lg,
-    padding: SPACING.md,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    maxWidth: '100%',
-  },
-  errorText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: '#991B1B',
-  },
-  buttonContainer: {
-    marginTop: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    backgroundColor: COLORS.primary || '#00CDB5',
-    borderRadius: 28,
-    gap: 8,
-  },
-  retryText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  reportButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  reportText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: COLORS.gray || '#8E8E93',
-    textDecorationLine: 'underline',
-  },
-  // Minimal styles
-  minimalContainer: {
-    padding: SPACING.lg,
-    alignItems: 'center',
-  },
-  minimalText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: COLORS.gray || '#8E8E93',
-  },
-  minimalRetry: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: COLORS.primary || '#00CDB5',
-    marginTop: SPACING.sm,
-  },
-});
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: SPACING.xl,
+      backgroundColor: colors.background,
+    },
+    iconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.errorLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.lg,
+    },
+    title: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: 20,
+      color: colors.dark,
+      textAlign: 'center',
+    },
+    message: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 14,
+      color: colors.gray,
+      marginTop: SPACING.sm,
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingHorizontal: SPACING.lg,
+    },
+    errorDetails: {
+      marginTop: SPACING.lg,
+      padding: SPACING.md,
+      backgroundColor: colors.errorLight,
+      borderRadius: 8,
+      maxWidth: '100%',
+    },
+    errorText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 12,
+      color: colors.error,
+    },
+    buttonContainer: {
+      marginTop: SPACING.xl,
+      alignItems: 'center',
+      gap: SPACING.md,
+    },
+    retryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 28,
+      backgroundColor: colors.primary,
+      borderRadius: 28,
+      gap: 8,
+    },
+    retryText: {
+      fontFamily: 'Poppins-SemiBold',
+      fontSize: 15,
+      color: '#FFFFFF',
+    },
+    reportButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+    },
+    reportText: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: 14,
+      color: colors.gray,
+      textDecorationLine: 'underline',
+    },
+    // Minimal styles
+    minimalContainer: {
+      padding: SPACING.lg,
+      alignItems: 'center',
+    },
+    minimalText: {
+      fontFamily: 'Poppins-Regular',
+      fontSize: 14,
+      color: colors.gray,
+    },
+    minimalRetry: {
+      fontFamily: 'Poppins-Medium',
+      fontSize: 14,
+      color: colors.primary,
+      marginTop: SPACING.sm,
+    },
+  });
 
-export default ErrorBoundary;
+// Wrapper to inject theme into class component
+function ErrorBoundaryWithTheme(props: Omit<ErrorBoundaryProps, 'colors' | 'isDark'>) {
+  const { colors, isDark } = useTheme();
+  return <ErrorBoundary {...props} colors={colors} isDark={isDark} />;
+}
+
+export default ErrorBoundaryWithTheme;

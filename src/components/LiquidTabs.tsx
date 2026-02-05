@@ -29,6 +29,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useTheme } from '../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
   size = 'medium',
   fullWidth = true,
 }) => {
+  const { isDark } = useTheme();
   const [measuredWidth, setMeasuredWidth] = useState<number>(0);
   const activeIndex = tabs.findIndex((t) => t.key === activeTab);
   const translateX = useSharedValue(0);
@@ -148,11 +150,11 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
       {/* Glass background */}
       {variant === 'glass' && (
         <>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-          <View style={styles.glassOverlay} />
+          <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+          <View style={[styles.glassOverlay, isDark && styles.glassOverlayDark]} />
         </>
       )}
-      {variant === 'solid' && <View style={styles.solidBackground} />}
+      {variant === 'solid' && <View style={[styles.solidBackground, isDark && styles.solidBackgroundDark]} />}
 
       {/* Inner container */}
       <View style={[styles.innerContainer, { padding: containerPadding }]}>
@@ -194,12 +196,15 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
                   height: config.height - containerPadding * 2,
                 },
               ]}
+              accessibilityLabel={tab.label}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
             >
               <Text
                 style={[
                   styles.tabLabel,
                   { fontSize: config.fontSize },
-                  isActive ? styles.tabLabelActive : styles.tabLabelInactive,
+                  isActive ? styles.tabLabelActive : (isDark ? styles.tabLabelInactiveDark : styles.tabLabelInactive),
                 ]}
               >
                 {tab.label}
@@ -348,6 +353,16 @@ const styles = StyleSheet.create({
   },
   tabLabelInactive: {
     color: '#6B7280',
+  },
+  // Dark mode variants
+  glassOverlayDark: {
+    backgroundColor: 'rgba(20, 20, 20, 0.85)',
+  },
+  solidBackgroundDark: {
+    backgroundColor: '#1A1A1A',
+  },
+  tabLabelInactiveDark: {
+    color: '#9CA3AF',
   },
 
   // Border glow

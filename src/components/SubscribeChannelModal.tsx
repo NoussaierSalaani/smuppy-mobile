@@ -1,18 +1,19 @@
 // src/components/SubscribeChannelModal.tsx
 // Modal for subscribing to a pro_creator's channel
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AvatarImage } from './OptimizedImage';
-import { COLORS, GRADIENTS } from '../config/theme';
+import { GRADIENTS } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 interface SubscriptionTier {
   id: string;
@@ -80,29 +81,23 @@ export default function SubscribeChannelModal({
   creatorUsername,
   onSubscribe,
 }: SubscribeChannelModalProps): React.JSX.Element {
+  const { showSuccess, showConfirm } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [selectedTier, setSelectedTier] = useState<string>('premium');
 
   const handleSubscribe = () => {
     const tier = SUBSCRIPTION_TIERS.find(t => t.id === selectedTier);
     if (tier) {
-      Alert.alert(
+      showConfirm(
         'Confirm Subscription',
         `Subscribe to ${creatorName}'s ${tier.name} plan for $${tier.price}/${tier.period}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Subscribe',
-            onPress: () => {
-              onSubscribe?.(selectedTier);
-              onClose();
-              Alert.alert(
-                'Subscribed!',
-                `You're now a ${tier.name} of ${creatorName}!`,
-                [{ text: 'OK' }]
-              );
-            },
-          },
-        ]
+        () => {
+          onSubscribe?.(selectedTier);
+          onClose();
+          showSuccess('Subscribed!', `You're now a ${tier.name} of ${creatorName}!`);
+        },
+        'Subscribe'
       );
     }
   };
@@ -114,7 +109,7 @@ export default function SubscribeChannelModal({
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={COLORS.dark} />
+              <Ionicons name="close" size={24} color={colors.dark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Subscribe</Text>
             <View style={styles.closeButton} />
@@ -169,7 +164,7 @@ export default function SubscribeChannelModal({
                       <Ionicons
                         name="checkmark-circle"
                         size={16}
-                        color={selectedTier === tier.id ? COLORS.primary : 'rgba(10, 37, 47, 0.4)'}
+                        color={selectedTier === tier.id ? colors.primary : colors.grayLight}
                       />
                       <Text style={[
                         styles.featureText,
@@ -219,14 +214,14 @@ export default function SubscribeChannelModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   content: {
-    backgroundColor: 'white',
+    backgroundColor: colors.cardBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -248,7 +243,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   creatorSection: {
     alignItems: 'center',
@@ -257,12 +252,12 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 12,
   },
   creatorUsername: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginTop: 4,
   },
   tiersContainer: {
@@ -271,20 +266,20 @@ const styles = StyleSheet.create({
   },
   tierCard: {
     borderWidth: 2,
-    borderColor: 'rgba(10, 37, 47, 0.1)',
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(10, 37, 47, 0.1)',
     borderRadius: 16,
     padding: 16,
     position: 'relative',
   },
   tierCardSelected: {
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     backgroundColor: 'rgba(14, 191, 138, 0.05)',
   },
   popularBadge: {
     position: 'absolute',
     top: -10,
     right: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
@@ -303,10 +298,10 @@ const styles = StyleSheet.create({
   tierName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   tierNameSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   priceContainer: {
     flexDirection: 'row',
@@ -315,14 +310,14 @@ const styles = StyleSheet.create({
   tierPrice: {
     fontSize: 24,
     fontWeight: '800',
-    color: COLORS.dark,
+    color: colors.dark,
   },
   tierPriceSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   tierPeriod: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   featuresContainer: {
     gap: 8,
@@ -334,10 +329,10 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 14,
-    color: 'rgba(10, 37, 47, 0.7)',
+    color: colors.gray,
   },
   featureTextSelected: {
-    color: COLORS.dark,
+    color: colors.dark,
   },
   selectedIndicator: {
     position: 'absolute',
@@ -364,7 +359,7 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
     textAlign: 'center',
     marginTop: 12,
   },

@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { ALL_INTERESTS } from '../../config/interests';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditInterestsScreenProps {
   navigation: { goBack: () => void };
@@ -15,6 +17,8 @@ interface EditInterestsScreenProps {
 
 export default function EditInterestsScreen({ navigation, route }: EditInterestsScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const { data: profileData, refetch } = useCurrentProfile();
   const user = useUserStore((state) => state.user);
@@ -65,12 +69,14 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
       await refetch();
 
       navigation.goBack();
-    } catch (error: any) {
-      Alert.alert('Error', `Failed to save interests: ${error?.message || error}`);
+    } catch (_error: unknown) {
+      showError('Error', 'Failed to save interests. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
     if (isSelected) {
@@ -87,9 +93,9 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
             style={styles.chipGradientBorder}
           >
             <View style={styles.chipSelectedInner}>
-              <Ionicons name={item.icon as any} size={16} color={item.color} />
+              <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
               <Text style={styles.chipText}>{item.name}</Text>
-              <Ionicons name="close" size={14} color={COLORS.gray} style={{ marginLeft: 2 }} />
+              <Ionicons name="close" size={14} color={colors.gray} style={{ marginLeft: 2 }} />
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -102,20 +108,20 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
         onPress={() => toggle(item.name)}
         activeOpacity={0.7}
       >
-        <Ionicons name={item.icon as any} size={16} color={item.color} />
+        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
         <Text style={styles.chipText}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle]);
+  }, [toggle, styles, colors.gray]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Interests</Text>
         <TouchableOpacity
@@ -124,7 +130,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
           disabled={!hasChanges || isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color={colors.white} />
           ) : (
             <Text style={[styles.saveButtonText, (!hasChanges || isSaving) && styles.saveButtonTextDisabled]}>
               Save
@@ -153,7 +159,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
               {/* Category header with count */}
               <View style={styles.sectionHeader}>
                 <View style={[styles.sectionIcon, { backgroundColor: `${section.color}15` }]}>
-                  <Ionicons name={section.icon as any} size={18} color={section.color} />
+                  <Ionicons name={section.icon as keyof typeof Ionicons.glyphMap} size={18} color={section.color} />
                 </View>
                 <Text style={styles.sectionTitle}>
                   {section.category}
@@ -178,8 +184,8 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
 
   // Header
   header: {
@@ -198,10 +204,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   saveButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primaryGreen,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -209,15 +215,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: isDark ? colors.darkGray : colors.grayLight,
   },
   saveButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
   saveButtonTextDisabled: {
-    color: '#C7C7CC',
+    color: colors.grayMuted,
   },
 
   // Count
@@ -227,11 +233,11 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 14,
-    color: COLORS.grayMuted,
+    color: colors.grayMuted,
   },
   hintText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: isDark ? colors.gray : '#8E8E93',
     marginTop: 4,
   },
 
@@ -247,11 +253,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.grayBorder,
   },
   sectionIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0A0A0F' },
-  sectionCount: { fontSize: 14, fontWeight: '600', color: '#0EBF8A' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.dark },
+  sectionCount: { fontSize: 14, fontWeight: '600', color: colors.primaryGreen },
 
   // Items grid
   itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 12 },
@@ -262,9 +268,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.backgroundSecondary : colors.white,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: colors.grayBorder,
     borderRadius: 18,
     gap: 6,
   },
@@ -279,12 +285,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12.5,
     borderRadius: 16.5,
-    backgroundColor: '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E6FAF8',
     gap: 6,
   },
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
 });

@@ -3,7 +3,7 @@
  * Dashboard for Pro Creators to view their earnings from sessions, packs, and tips
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
+import { formatRelativeTimeFrench } from '../../utils/dateFormatters';
 
 const { width } = Dimensions.get('window');
 
@@ -59,7 +60,8 @@ interface EarningsData {
 
 const CreatorEarningsScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
+  const { colors, isDark } = useTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('month');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
         setEarningsData(response.earnings);
       }
     } catch (error) {
-      console.error('Failed to fetch earnings:', error);
+      if (__DEV__) console.warn('Failed to fetch earnings:', error);
     } finally {
       setLoading(false);
     }
@@ -128,26 +130,13 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
 
   const getTypeColor = (type: Transaction['type']): string => {
     switch (type) {
-      case 'session': return COLORS.primary;
+      case 'session': return colors.primary;
       case 'pack': return '#8B5CF6';
       case 'tip': return '#EC4899';
       case 'subscription': return '#06B6D4';
       case 'payout': return '#F59E0B';
-      default: return COLORS.gray;
+      default: return colors.gray;
     }
-  };
-
-  const formatDate = (date: Date): string => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffHours < 1) return "À l'instant";
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
   const formatAmount = (amount: number): string => {
@@ -162,11 +151,13 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
     { key: 'all', label: 'Tout' },
   ];
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.gray, marginTop: 16 }}>Loading earnings...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Loading earnings...</Text>
       </View>
     );
   }
@@ -176,24 +167,24 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+          <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Mes Revenus</Text>
         <TouchableOpacity style={styles.settingsButton}>
-          <Ionicons name="settings-outline" size={22} color={COLORS.white} />
+          <Ionicons name="settings-outline" size={22} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         {/* Balance Card */}
         <View style={styles.balanceCard}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.cyanBlue]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.balanceGradient}
@@ -202,7 +193,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
               <Text style={styles.balanceLabel}>Solde disponible</Text>
               <TouchableOpacity style={styles.withdrawButton}>
                 <Text style={styles.withdrawText}>Retirer</Text>
-                <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
+                <Ionicons name="arrow-forward" size={16} color={colors.white} />
               </TouchableOpacity>
             </View>
             <Text style={styles.balanceAmount}>{balance.available.toFixed(2)} €</Text>
@@ -238,8 +229,8 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Ionicons name="videocam" size={22} color={COLORS.primary} />
+            <View style={[styles.statIcon, { backgroundColor: colors.primary + '20' }]}>
+              <Ionicons name="videocam" size={22} color={colors.primary} />
             </View>
             <Text style={styles.statValue}>{stats.sessionsThisMonth}</Text>
             <Text style={styles.statLabel}>Sessions</Text>
@@ -282,13 +273,13 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
                 <>
                   <View style={styles.breakdownRow}>
                     <View style={styles.breakdownLeft}>
-                      <View style={[styles.breakdownDot, { backgroundColor: COLORS.primary }]} />
+                      <View style={[styles.breakdownDot, { backgroundColor: colors.primary }]} />
                       <Text style={styles.breakdownLabel}>Sessions 1:1</Text>
                     </View>
                     <Text style={styles.breakdownValue}>{sessionsPercent}%</Text>
                   </View>
                   <View style={styles.breakdownBar}>
-                    <View style={[styles.breakdownFill, { width: `${sessionsPercent}%`, backgroundColor: COLORS.primary }]} />
+                    <View style={[styles.breakdownFill, { width: `${sessionsPercent}%`, backgroundColor: colors.primary }]} />
                   </View>
 
                   <View style={styles.breakdownRow}>
@@ -329,25 +320,25 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
 
           {transactions.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-              <Ionicons name="receipt-outline" size={48} color={COLORS.gray} />
-              <Text style={{ color: COLORS.gray, marginTop: 12 }}>Aucune transaction</Text>
+              <Ionicons name="receipt-outline" size={48} color={colors.gray} />
+              <Text style={{ color: colors.gray, marginTop: 12 }}>Aucune transaction</Text>
             </View>
           ) : null}
 
           {transactions.map(transaction => (
             <View key={transaction.id} style={styles.transactionCard}>
               <View style={[styles.transactionIcon, { backgroundColor: getTypeColor(transaction.type) + '20' }]}>
-                <Ionicons name={getTypeIcon(transaction.type) as any} size={20} color={getTypeColor(transaction.type)} />
+                <Ionicons name={getTypeIcon(transaction.type) as keyof typeof Ionicons.glyphMap} size={20} color={getTypeColor(transaction.type)} />
               </View>
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionDescription}>{transaction.description}</Text>
                 <Text style={styles.transactionMeta}>
-                  {transaction.fanName ? `${transaction.fanName} • ` : ''}{formatDate(transaction.date)}
+                  {transaction.fanName ? `${transaction.fanName} • ` : ''}{formatRelativeTimeFrench(transaction.date)}
                 </Text>
               </View>
               <Text style={[
                 styles.transactionAmount,
-                { color: transaction.amount >= 0 ? COLORS.primary : '#FF4444' }
+                { color: transaction.amount >= 0 ? colors.primary : '#FF4444' }
               ]}>
                 {formatAmount(transaction.amount)}
               </Text>
@@ -357,7 +348,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
 
         {/* Payout Info */}
         <View style={styles.payoutInfo}>
-          <Ionicons name="information-circle-outline" size={20} color={COLORS.gray} />
+          <Ionicons name="information-circle-outline" size={20} color={colors.gray} />
           <Text style={styles.payoutText}>
             Les virements sont effectués automatiquement chaque lundi pour les soldes supérieurs à 50€.
             Smuppy prélève 20% de commission sur chaque transaction.
@@ -370,10 +361,10 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -391,7 +382,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: isDark ? colors.white : colors.dark,
   },
   settingsButton: {
     width: 40,
@@ -430,12 +421,12 @@ const styles = StyleSheet.create({
   withdrawText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   balanceAmount: {
     fontSize: 40,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 20,
   },
   balanceDetails: {
@@ -461,13 +452,13 @@ const styles = StyleSheet.create({
   balanceItemValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   periodSelector: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginBottom: 20,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     padding: 4,
   },
@@ -478,15 +469,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   periodButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   periodText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   periodTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -510,12 +501,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
   section: {
@@ -531,16 +522,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 12,
   },
   seeAllText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
   breakdownCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
   },
@@ -562,16 +553,16 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   breakdownValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
   breakdownBar: {
     height: 6,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     borderRadius: 3,
     marginBottom: 16,
     overflow: 'hidden',
@@ -583,7 +574,7 @@ const styles = StyleSheet.create({
   transactionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
@@ -602,12 +593,12 @@ const styles = StyleSheet.create({
   transactionDescription: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.white,
+    color: colors.white,
     marginBottom: 2,
   },
   transactionMeta: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   transactionAmount: {
     fontSize: 16,
@@ -619,13 +610,13 @@ const styles = StyleSheet.create({
     gap: 10,
     marginHorizontal: 16,
     padding: 16,
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
   },
   payoutText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 18,
   },
 });

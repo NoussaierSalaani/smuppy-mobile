@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,15 @@ import {
   FlatList,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { useUserSafetyStore } from '../../stores';
 import { MutedUser } from '../../services/database';
-import { COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { resolveDisplayName } from '../../types/profile';
 
 interface MutedUsersScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -22,6 +23,8 @@ interface MutedUsersScreenProps {
 
 const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const { showConfirm, showError } = useSmuppyAlert();
   const {
     getMutedUsers,
     unmute,
@@ -31,6 +34,8 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
 
   const [mutedUsers, setMutedUsers] = useState<MutedUser[]>([]);
   const [unmuting, setUnmuting] = useState<Record<string, boolean>>({});
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadMutedUsers();
@@ -42,33 +47,27 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
     setMutedUsers(getMutedUsers());
   };
 
-  const handleUnmute = async (userId: string, userName: string) => {
-    Alert.alert(
+  const handleUnmute = useCallback(async (userId: string, userName: string) => {
+    showConfirm(
       'Unmute User',
       `Are you sure you want to unmute ${userName}? Their posts will appear in your feeds again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unmute',
-          onPress: async () => {
-            setUnmuting(prev => ({ ...prev, [userId]: true }));
-            try {
-              const { error } = await unmute(userId);
-              if (!error) {
-                setMutedUsers(prev => prev.filter(u => u.muted_user_id !== userId));
-              } else {
-                Alert.alert('Error', 'Failed to unmute user. Please try again.');
-              }
-            } finally {
-              setUnmuting(prev => ({ ...prev, [userId]: false }));
-            }
-          },
-        },
-      ]
+      async () => {
+        setUnmuting(prev => ({ ...prev, [userId]: true }));
+        try {
+          const { error } = await unmute(userId);
+          if (!error) {
+            setMutedUsers(prev => prev.filter(u => u.muted_user_id !== userId));
+          } else {
+            showError('Error', 'Failed to unmute user. Please try again.');
+          }
+        } finally {
+          setUnmuting(prev => ({ ...prev, [userId]: false }));
+        }
+      }
     );
-  };
+  }, [showConfirm, showError, unmute]);
 
-  const renderMutedUser = ({ item }: { item: MutedUser }) => {
+  const renderMutedUser = useCallback(({ item }: { item: MutedUser }) => {
     const user = item.muted_user;
     if (!user) return null;
 
@@ -82,30 +81,29 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
         >
           <AvatarImage source={user.avatar_url} size={50} style={styles.avatar} />
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{user.full_name || user.username}</Text>
-            {user.username && <Text style={styles.userHandle}>@{user.username}</Text>}
+            <Text style={styles.userName}>{resolveDisplayName(user)}</Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.unmuteBtn, isUnmuting && styles.unmuteBtnDisabled]}
-          onPress={() => handleUnmute(item.muted_user_id, user.full_name || user.username || 'this user')}
+          onPress={() => handleUnmute(item.muted_user_id, resolveDisplayName(user, 'this user'))}
           disabled={isUnmuting}
         >
           {isUnmuting ? (
-            <ActivityIndicator size="small" color={COLORS.primaryGreen} />
+            <ActivityIndicator size="small" color={colors.primaryGreen} />
           ) : (
             <Text style={styles.unmuteBtnText}>Unmute</Text>
           )}
         </TouchableOpacity>
       </View>
     );
-  };
+  }, [styles, unmuting, navigation, handleUnmute, colors]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
-        <Ionicons name="volume-mute-outline" size={48} color="#9CA3AF" />
+        <Ionicons name="volume-mute-outline" size={48} color={colors.gray} />
       </View>
       <Text style={styles.emptyTitle}>No Muted Users</Text>
       <Text style={styles.emptySubtitle}>
@@ -116,12 +114,12 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Muted Users</Text>
         <View style={styles.headerSpacer} />
@@ -130,7 +128,7 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
       {/* Content */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primaryGreen} />
+          <ActivityIndicator size="large" color={colors.primaryGreen} />
         </View>
       ) : (
         <FlatList
@@ -146,10 +144,10 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -158,7 +156,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    borderBottomColor: colors.grayBorder,
   },
   backButton: {
     width: 40,
@@ -169,7 +167,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   headerSpacer: {
     width: 40,
@@ -190,7 +188,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    borderBottomColor: colors.grayBorder,
   },
   userInfo: {
     flexDirection: 'row',
@@ -201,7 +199,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#F2F2F2',
+    backgroundColor: colors.grayBorder,
   },
   userDetails: {
     marginLeft: 12,
@@ -210,12 +208,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   userHandle: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
+    color: colors.gray,
     marginTop: 2,
   },
   unmuteBtn: {
@@ -223,7 +221,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryGreen,
+    borderColor: colors.primaryGreen,
     minWidth: 80,
     alignItems: 'center',
   },
@@ -233,7 +231,7 @@ const styles = StyleSheet.create({
   unmuteBtnText: {
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
-    color: COLORS.primaryGreen,
+    color: colors.primaryGreen,
   },
   emptyState: {
     flex: 1,
@@ -245,7 +243,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDark ? colors.backgroundSecondary : colors.grayLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -253,13 +251,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#9CA3AF',
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 22,
   },

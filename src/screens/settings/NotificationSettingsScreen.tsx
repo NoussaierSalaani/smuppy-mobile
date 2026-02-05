@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,31 @@ import {
   TouchableOpacity,
   StatusBar,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-interface NotificationSettings {
-  all: boolean;
-  likes: boolean;
-  newFans: boolean;
-  peakReplies: boolean;
-  shares: boolean;
-  messages: boolean;
-  live: boolean;
-}
+import { useTheme } from '../../hooks/useTheme';
+import { awsAPI, NotificationPreferences } from '../../services/aws-api';
 
-const NOTIFICATION_OPTIONS = [
-  { id: 'all' as keyof NotificationSettings, label: 'All' },
-  { id: 'likes' as keyof NotificationSettings, label: 'Likes' },
-  { id: 'newFans' as keyof NotificationSettings, label: 'New Fans' },
-  { id: 'peakReplies' as keyof NotificationSettings, label: 'Peak Replies' },
-  { id: 'shares' as keyof NotificationSettings, label: 'Shares' },
-  { id: 'messages' as keyof NotificationSettings, label: 'Messages' },
-  { id: 'live' as keyof NotificationSettings, label: 'Live Streams' },
+const TOGGLE_OPTIONS: { key: keyof NotificationPreferences; label: string }[] = [
+  { key: 'likes', label: 'Likes' },
+  { key: 'follows', label: 'New Fans' },
+  { key: 'comments', label: 'Comments & Replies' },
+  { key: 'mentions', label: 'Mentions' },
+  { key: 'messages', label: 'Messages' },
+  { key: 'live', label: 'Live Streams' },
 ];
+
+const DEFAULTS: NotificationPreferences = {
+  likes: true,
+  comments: true,
+  follows: true,
+  messages: true,
+  mentions: true,
+  live: true,
+};
 
 interface NotificationSettingsScreenProps {
   navigation: { goBack: () => void };
@@ -36,73 +38,115 @@ interface NotificationSettingsScreenProps {
 
 const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenProps) => {
   const insets = useSafeAreaInsets();
-  
-  const [settings, setSettings] = useState({
-    all: false,
-    likes: true,
-    newFans: true,
-    peakReplies: true,
-    shares: true,
-    messages: true,
-    live: true,
-  });
+  const { colors, isDark } = useTheme();
 
-  const toggleSetting = (key: keyof NotificationSettings) => {
-    if (key === 'all') {
-      // Toggle all settings
-      const newValue = !settings.all;
-      const newSettings: NotificationSettings = {
-        all: newValue,
-        likes: newValue,
-        newFans: newValue,
-        peakReplies: newValue,
-        shares: newValue,
-        messages: newValue,
-        live: newValue,
-      };
-      setSettings(newSettings);
-    } else {
-      setSettings(prev => ({
-        ...prev,
-        [key]: !prev[key],
-        // If turning off any individual, turn off "All"
-        all: false,
-      }));
+  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    awsAPI.getNotificationPreferences()
+      .then(setPrefs)
+      .catch(() => {
+        // Keep defaults on error
+      })
+      .finally(() => setLoading(false));
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  const persistPreferences = useCallback((updated: Partial<NotificationPreferences>) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-  };
+    debounceTimerRef.current = setTimeout(() => {
+      awsAPI.updateNotificationPreferences(updated).catch(() => {
+        // Optimistic — silently fail; user can retry
+      });
+    }, 400);
+  }, []);
 
-  const renderToggle = (item: { id: keyof NotificationSettings; label: string }) => (
-    <View key={item.id} style={styles.toggleItem}>
-      <Text style={styles.toggleLabel}>{item.label}</Text>
+  const allEnabled = TOGGLE_OPTIONS.every(opt => prefs[opt.key]);
+
+  const toggleAll = useCallback(() => {
+    const newValue = !allEnabled;
+    const updated: NotificationPreferences = {
+      likes: newValue,
+      comments: newValue,
+      follows: newValue,
+      messages: newValue,
+      mentions: newValue,
+      live: newValue,
+    };
+    setPrefs(updated);
+    persistPreferences(updated);
+  }, [allEnabled, persistPreferences]);
+
+  const toggleOne = useCallback((key: keyof NotificationPreferences) => {
+    setPrefs(prev => {
+      const updated = { ...prev, [key]: !prev[key] };
+      persistPreferences({ [key]: updated[key] });
+      return updated;
+    });
+  }, [persistPreferences]);
+
+  const renderToggle = useCallback((
+    label: string,
+    value: boolean,
+    onToggle: () => void,
+    isFirst?: boolean,
+  ) => (
+    <View style={[styles.toggleItem, isFirst && styles.toggleItemFirst, { borderBottomColor: colors.gray200 }]}>
+      <Text style={[styles.toggleLabel, { color: colors.dark }]}>{label}</Text>
       <Switch
-        value={settings[item.id]}
-        onValueChange={() => toggleSetting(item.id)}
-        trackColor={{ false: '#E8E8E8', true: '#0EBF8A' }}
-        thumbColor="#FFFFFF"
-        ios_backgroundColor="#E8E8E8"
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: colors.gray200, true: colors.primary }}
+        thumbColor={colors.white}
+        ios_backgroundColor={colors.gray200}
       />
     </View>
-  );
+  ), [colors]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={colors.dark} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.dark }]}>Notifications</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={[styles.headerTitle, { color: colors.dark }]}>Notifications</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Toggle List */}
       <View style={styles.content}>
-        {NOTIFICATION_OPTIONS.map(renderToggle)}
+        {renderToggle('All', allEnabled, toggleAll, true)}
+        {TOGGLE_OPTIONS.map(opt => (
+          <React.Fragment key={opt.key}>
+            {renderToggle(opt.label, prefs[opt.key], () => toggleOne(opt.key))}
+          </React.Fragment>
+        ))}
       </View>
     </View>
   );
@@ -111,7 +155,6 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -129,7 +172,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
   },
   headerSpacer: {
     width: 40,
@@ -144,12 +186,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+  },
+  toggleItemFirst: {
+    borderBottomWidth: 2,
   },
   toggleLabel: {
     fontSize: 16,
     fontFamily: 'Poppins-Regular',
-    color: '#0A0A0F',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

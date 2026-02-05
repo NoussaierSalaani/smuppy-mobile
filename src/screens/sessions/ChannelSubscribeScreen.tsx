@@ -3,14 +3,13 @@
  * Checkout screen for subscribing to a creator's channel
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   StyleProp,
   ImageStyle,
@@ -20,9 +19,10 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useStripe } from '@stripe/stripe-react-native';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface ChannelTier {
   id: string;
@@ -36,7 +36,7 @@ interface Creator {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   verified: boolean;
   subscribersCount: number;
 }
@@ -45,117 +45,90 @@ type RouteParams = {
   ChannelSubscribe: { creatorId: string; tier: ChannelTier };
 };
 
-// Mock creator data
-const getCreator = (_creatorId: string): Creator => ({
-  id: 'c1',
-  name: 'Sarah Fitness',
-  username: 'sarah_fitness',
-  avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-  verified: true,
-  subscribersCount: 12500,
-});
-
 const ChannelSubscribeScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const route = useRoute<RouteProp<RouteParams, 'ChannelSubscribe'>>();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { colors, isDark } = useTheme();
 
+  const { showError, showSuccess } = useSmuppyAlert();
   const { creatorId, tier } = route.params;
-  const creator = getCreator(creatorId);
 
+  const [creator, setCreator] = useState<Creator>({
+    id: creatorId, name: '', username: '', avatar: null, verified: false, subscribersCount: 0,
+  });
   const [loading, setLoading] = useState(false);
-  const [paymentReady, setPaymentReady] = useState(false);
+  const [_fetchingCreator, setFetchingCreator] = useState(true);
+  const mountedRef = useRef(true);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
-    initializePayment();
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const initializePayment = async () => {
-    try {
-      setLoading(true);
-
-      // Create subscription checkout
-      const response = await awsAPI.subscribeToChannel(creatorId);
-
-      if (!response.success) {
-        throw new Error('Failed to create subscription');
-      }
-
-      // For subscriptions, we use Stripe's hosted checkout
-      // In a real app, you'd redirect to response.checkoutUrl
-      // For now, we'll use payment sheet for demo
-
-      const intentResponse = await awsAPI.createPaymentIntent({
-        creatorId,
-        amount: Math.round(tier.price * 100),
-        description: `Abonnement ${tier.name} - @${creator.username}`,
-      });
-
-      if (!intentResponse.success || !intentResponse.paymentIntent) {
-        throw new Error('Failed to create payment intent');
-      }
-
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: 'Smuppy',
-        paymentIntentClientSecret: intentResponse.paymentIntent.clientSecret,
-        defaultBillingDetails: {
-          name: '',
-        },
-        appearance: {
-          colors: {
-            primary: COLORS.primary,
-            background: COLORS.dark,
-            componentBackground: COLORS.darkGray,
-            componentText: COLORS.white,
-            primaryText: COLORS.white,
-            secondaryText: COLORS.gray,
-            placeholderText: COLORS.gray,
-          },
-        },
-      });
-
-      if (error) {
-        console.error('Payment sheet init error:', error);
-      } else {
-        setPaymentReady(true);
-      }
-    } catch (error) {
-      console.error('Payment init error:', error);
-      Alert.alert('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubscribe = async () => {
-    if (!paymentReady) {
-      await initializePayment();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await presentPaymentSheet();
-
-      if (error) {
-        if (error.code !== 'Canceled') {
-          Alert.alert('Erreur de paiement', error.message);
+  // Fetch creator info from API
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await awsAPI.request<{ success: boolean; channel?: { creatorId: string; username: string; fullName: string; avatarUrl: string | null; isVerified: boolean; subscriberCount: number } }>(
+          '/payments/channel-subscription',
+          { method: 'POST', body: { action: 'get-channel-info', creatorId } },
+        );
+        if (!mountedRef.current) return;
+        if (res.success && res.channel) {
+          setCreator({
+            id: res.channel.creatorId,
+            name: res.channel.fullName,
+            username: res.channel.username,
+            avatar: res.channel.avatarUrl,
+            verified: res.channel.isVerified,
+            subscribersCount: res.channel.subscriberCount,
+          });
         }
+      } catch (err) {
+        if (__DEV__) console.warn('Failed to fetch creator info:', err);
+      } finally {
+        if (mountedRef.current) setFetchingCreator(false);
+      }
+    })();
+  }, [creatorId]);
+
+  const handleSubscribe = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const response = await awsAPI.subscribeToChannel(creatorId);
+      if (!mountedRef.current) return;
+
+      if (!response.success || !response.checkoutUrl) {
+        showError('Erreur', 'Impossible de créer l\'abonnement. Veuillez réessayer.');
+        return;
+      }
+
+      // Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+        dismissButtonStyle: 'cancel',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+      });
+
+      if (!mountedRef.current) return;
+
+      if (result.type === 'cancel') {
+        // User dismissed — do nothing
       } else {
-        // Payment successful
-        navigation.replace('SubscriptionSuccess', {
-          tier,
-          creator,
-        });
+        // Assume success if browser closed normally (webhook handles the rest)
+        showSuccess('Abonnement en cours', 'Votre paiement est en cours de traitement.');
+        navigation.goBack();
       }
     } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
+      if (!mountedRef.current) return;
+      if (__DEV__) console.warn('Payment error:', error);
+      showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  };
+  }, [creatorId, navigation, showError, showSuccess]);
 
   const renewalDate = new Date();
   renewalDate.setMonth(renewalDate.getMonth() + 1);
@@ -165,7 +138,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={COLORS.white} />
+          <Ionicons name="close" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>S'abonner</Text>
         <View style={styles.placeholder} />
@@ -184,10 +157,9 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
             <View style={styles.nameRow}>
               <Text style={styles.heroName}>{creator.name}</Text>
               {creator.verified && (
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
               )}
             </View>
-            <Text style={styles.heroUsername}>@{creator.username}</Text>
             <Text style={styles.subscribersCount}>
               {creator.subscribersCount.toLocaleString()} abonnés
             </Text>
@@ -198,19 +170,19 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         <View style={styles.tierCard}>
           {tier.popular && (
             <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
+              colors={[colors.primary, colors.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.tierBadge}
             >
-              <Ionicons name="star" size={12} color={COLORS.white} />
+              <Ionicons name="star" size={12} color={colors.white} />
               <Text style={styles.tierBadgeText}>Recommandé</Text>
             </LinearGradient>
           )}
 
           <View style={styles.tierHeader}>
             <View style={styles.tierIconContainer}>
-              <Ionicons name="heart" size={28} color={COLORS.primary} />
+              <Ionicons name="heart" size={28} color={colors.heartRed} />
             </View>
             <View style={styles.tierTitleContainer}>
               <Text style={styles.tierName}>{tier.name}</Text>
@@ -227,7 +199,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           <View style={styles.perksList}>
             {tier.perks.map((perk, index) => (
               <View key={index} style={styles.perkRow}>
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                 <Text style={styles.perkText}>{perk}</Text>
               </View>
             ))}
@@ -259,8 +231,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         {/* Benefits */}
         <View style={styles.benefitsCard}>
           <View style={styles.benefitItem}>
-            <View style={[styles.benefitIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Ionicons name="lock-open" size={20} color={COLORS.primary} />
+            <View style={[styles.benefitIcon, { backgroundColor: colors.primary + '20' }]}>
+              <Ionicons name="lock-open" size={20} color={colors.primary} />
             </View>
             <View style={styles.benefitContent}>
               <Text style={styles.benefitTitle}>Accès immédiat</Text>
@@ -269,8 +241,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           </View>
 
           <View style={styles.benefitItem}>
-            <View style={[styles.benefitIcon, { backgroundColor: '#EC489920' }]}>
-              <Ionicons name="close-circle" size={20} color="#EC4899" />
+            <View style={[styles.benefitIcon, { backgroundColor: colors.error + '20' }]}>
+              <Ionicons name="close-circle" size={20} color={colors.error} />
             </View>
             <View style={styles.benefitContent}>
               <Text style={styles.benefitTitle}>Sans engagement</Text>
@@ -279,8 +251,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
           </View>
 
           <View style={styles.benefitItem}>
-            <View style={[styles.benefitIcon, { backgroundColor: '#22C55E20' }]}>
-              <Ionicons name="shield-checkmark" size={20} color="#22C55E" />
+            <View style={[styles.benefitIcon, { backgroundColor: colors.success + '20' }]}>
+              <Ionicons name="shield-checkmark" size={20} color={colors.success} />
             </View>
             <View style={styles.benefitContent}>
               <Text style={styles.benefitTitle}>Paiement sécurisé</Text>
@@ -301,21 +273,21 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
-          style={[styles.subscribeButton, !paymentReady && styles.subscribeButtonDisabled]}
+          style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
           onPress={handleSubscribe}
           disabled={loading}
         >
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.subscribeGradient}
           >
             {loading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
-                <Ionicons name="heart" size={20} color={COLORS.white} />
+                <Ionicons name="heart" size={20} color={colors.white} />
                 <Text style={styles.subscribeButtonText}>
                   S'abonner pour {tier.price.toFixed(2)} €/mois
                 </Text>
@@ -328,10 +300,10 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -349,7 +321,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -368,7 +340,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginBottom: 14,
     borderWidth: 3,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   heroInfo: {
     alignItems: 'center',
@@ -381,26 +353,26 @@ const styles = StyleSheet.create({
   heroName: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.dark,
   },
   heroUsername: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   subscribersCount: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     marginTop: 6,
     fontWeight: '500',
   },
   tierCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   tierBadge: {
     flexDirection: 'row',
@@ -415,7 +387,7 @@ const styles = StyleSheet.create({
   tierBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   tierHeader: {
     flexDirection: 'row',
@@ -426,7 +398,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -437,7 +409,7 @@ const styles = StyleSheet.create({
   tierName: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 4,
   },
   tierPriceRow: {
@@ -447,22 +419,22 @@ const styles = StyleSheet.create({
   tierPrice: {
     fontSize: 28,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   tierPeriod: {
     fontSize: 16,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     marginVertical: 16,
   },
   perksTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 12,
   },
   perksList: {
@@ -475,11 +447,11 @@ const styles = StyleSheet.create({
   },
   perkText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.gray,
     flex: 1,
   },
   billingCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -487,7 +459,7 @@ const styles = StyleSheet.create({
   billingTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 16,
   },
   billingRow: {
@@ -498,15 +470,15 @@ const styles = StyleSheet.create({
   },
   billingLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   billingValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   benefitsCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -530,17 +502,17 @@ const styles = StyleSheet.create({
   benefitTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 2,
   },
   benefitText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     lineHeight: 18,
   },
   terms: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: 20,
@@ -552,9 +524,9 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingTop: 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: COLORS.darkGray,
+    borderTopColor: colors.backgroundSecondary,
   },
   subscribeButton: {
     borderRadius: 16,
@@ -573,7 +545,7 @@ const styles = StyleSheet.create({
   subscribeButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

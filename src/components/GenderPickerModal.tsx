@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface GenderPickerModalProps {
   visible: boolean;
@@ -36,6 +37,8 @@ const GENDER_OPTIONS: GenderOption[] = [
  * @param {string} selectedGender - Genre actuellement sélectionné
  */
 export default function GenderPickerModal({ visible, onClose, onSelect, selectedGender }: GenderPickerModalProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleSelect = (gender: string) => {
     onSelect(gender);
@@ -55,7 +58,7 @@ export default function GenderPickerModal({ visible, onClose, onSelect, selected
           <View style={styles.header}>
             <Text style={styles.title}>Select Gender</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#0A252F" />
+              <Ionicons name="close" size={24} color={colors.dark} />
             </TouchableOpacity>
           </View>
 
@@ -71,10 +74,10 @@ export default function GenderPickerModal({ visible, onClose, onSelect, selected
                   activeOpacity={0.7}
                 >
                   <View style={[styles.optionIcon, isSelected && styles.optionIconSelected]}>
-                    <Ionicons 
-                      name={option.icon} 
-                      size={28} 
-                      color={isSelected ? '#FFFFFF' : '#0A252F'} 
+                    <Ionicons
+                      name={option.icon}
+                      size={28}
+                      color={isSelected ? '#FFFFFF' : colors.dark}
                     />
                   </View>
                   <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
@@ -100,7 +103,7 @@ export default function GenderPickerModal({ visible, onClose, onSelect, selected
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 24,
     overflow: 'hidden',
   },
@@ -121,12 +124,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0A252F',
+    color: colors.dark,
   },
   closeButton: {
     width: 40,
@@ -143,19 +146,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderRadius: 16,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   optionSelected: {
-    backgroundColor: '#E8FBF5',
-    borderColor: '#0EBF8A',
+    backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : '#E8FBF5',
+    borderColor: colors.primary,
   },
   optionIcon: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -166,16 +169,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   optionIconSelected: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
   },
   optionLabel: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A252F',
+    color: colors.dark,
   },
   optionLabelSelected: {
-    color: '#0A252F',
+    color: colors.dark,
   },
   checkmark: {
     marginLeft: 8,
@@ -186,12 +189,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 25,
     borderWidth: 1.5,
-    borderColor: '#E8E8E8',
+    borderColor: colors.border,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.gray,
   },
 });

@@ -1,5 +1,5 @@
 // src/screens/live/LiveEndedScreen.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 export default function LiveEndedScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<{ reset: (state: { index: number; routes: { name: string }[] }) => void }>();
+  const route = useRoute<{ key: string; name: string; params: { duration?: number; viewerCount?: number; peakViewers?: number } }>();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const { duration = 0, viewerCount = 0, peakViewers = 0 } = route.params || {};
 
@@ -67,19 +70,19 @@ export default function LiveEndedScreen(): React.JSX.Element {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Ionicons name="time-outline" size={24} color={COLORS.primary} />
+            <Ionicons name="time-outline" size={24} color={colors.primary} />
             <Text style={styles.statValue}>{formatDuration(duration)}</Text>
             <Text style={styles.statLabel}>Duration</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Ionicons name="people-outline" size={24} color={COLORS.primary} />
+            <Ionicons name="people-outline" size={24} color={colors.primary} />
             <Text style={styles.statValue}>{viewerCount}</Text>
             <Text style={styles.statLabel}>Total Viewers</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Ionicons name="trending-up-outline" size={24} color={COLORS.primary} />
+            <Ionicons name="trending-up-outline" size={24} color={colors.primary} />
             <Text style={styles.statValue}>{peakViewers || viewerCount}</Text>
             <Text style={styles.statLabel}>Peak Viewers</Text>
           </View>
@@ -97,7 +100,7 @@ export default function LiveEndedScreen(): React.JSX.Element {
       {/* Bottom Buttons */}
       <View style={styles.bottomButtons}>
         <TouchableOpacity style={styles.shareButton} onPress={handleShareHighlights}>
-          <Ionicons name="share-outline" size={20} color={COLORS.primary} />
+          <Ionicons name="share-outline" size={20} color={colors.primary} />
           <Text style={styles.shareButtonText}>Share Highlights</Text>
         </TouchableOpacity>
 
@@ -117,10 +120,10 @@ export default function LiveEndedScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -137,7 +140,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -146,12 +149,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(10, 37, 47, 0.6)',
+    color: colors.gray,
     marginBottom: 32,
   },
   statsContainer: {
@@ -161,7 +164,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(14, 191, 138, 0.08)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.12)' : 'rgba(14, 191, 138, 0.08)',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -169,18 +172,18 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: colors.dark,
     marginTop: 8,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(10, 37, 47, 0.5)',
+    color: colors.gray,
   },
   messageCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    backgroundColor: isDark ? 'rgba(255, 107, 107, 0.15)' : 'rgba(255, 107, 107, 0.1)',
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 14,
@@ -189,7 +192,7 @@ const styles = StyleSheet.create({
   messageText: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.dark,
+    color: colors.dark,
     lineHeight: 20,
   },
   bottomButtons: {
@@ -204,13 +207,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     gap: 8,
   },
   shareButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   doneButton: {
     flexDirection: 'row',

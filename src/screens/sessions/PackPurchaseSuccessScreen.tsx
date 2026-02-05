@@ -3,7 +3,7 @@
  * Confirmation screen after successful pack purchase
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Pack {
   id: string;
@@ -39,12 +39,15 @@ type RouteParams = {
 
 const PackPurchaseSuccessScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<RouteProp<RouteParams, 'PackPurchaseSuccess'>>();
+  const { colors, isDark } = useTheme();
   const { pack, creator } = route.params;
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -62,6 +65,7 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
         useNativeDriver: true,
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBookNow = () => {
@@ -85,12 +89,12 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
         {/* Success Animation */}
         <Animated.View style={[styles.successIcon, { transform: [{ scale: scaleAnim }] }]}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.iconGradient}
           >
-            <Ionicons name="checkmark" size={60} color={COLORS.white} />
+            <Ionicons name="checkmark" size={60} color={colors.white} />
           </LinearGradient>
         </Animated.View>
 
@@ -103,19 +107,19 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
           {/* Pack Summary */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <Ionicons name="cube" size={22} color={COLORS.primary} />
+              <Ionicons name="cube" size={22} color={colors.primary} />
               <Text style={styles.summaryText}>{pack.name}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Ionicons name="videocam" size={22} color={COLORS.primary} />
+              <Ionicons name="videocam" size={22} color={colors.primary} />
               <Text style={styles.summaryText}>{pack.sessionsIncluded} sessions disponibles</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Ionicons name="time" size={22} color={COLORS.primary} />
+              <Ionicons name="time" size={22} color={colors.primary} />
               <Text style={styles.summaryText}>{pack.sessionDuration} min/session</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Ionicons name="calendar" size={22} color={COLORS.primary} />
+              <Ionicons name="calendar" size={22} color={colors.primary} />
               <Text style={styles.summaryText}>
                 Expire le {expiryDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
               </Text>
@@ -124,7 +128,7 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
 
           {/* Info */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+            <Ionicons name="information-circle" size={24} color={colors.primary} />
             <Text style={styles.infoText}>
               Vous pouvez réserver vos sessions à tout moment depuis le profil de {creator.name}.
             </Text>
@@ -136,12 +140,12 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
       <Animated.View style={[styles.actions, { paddingBottom: insets.bottom + 16, opacity: fadeAnim }]}>
         <TouchableOpacity style={styles.primaryButton} onPress={handleBookNow}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.buttonGradient}
           >
-            <Ionicons name="calendar" size={20} color={COLORS.white} />
+            <Ionicons name="calendar" size={20} color={colors.white} />
             <Text style={styles.primaryButtonText}>Réserver une session</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -158,10 +162,10 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -186,19 +190,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.lightGray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
   },
   summaryCard: {
     width: '100%',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 20,
     gap: 16,
@@ -211,7 +215,7 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: 15,
-    color: COLORS.white,
+    color: colors.dark,
     flex: 1,
   },
   infoCard: {
@@ -219,14 +223,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: colors.primary + '15',
     borderRadius: 12,
     padding: 14,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.gray,
     lineHeight: 20,
   },
   actions: {
@@ -247,19 +251,19 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
   secondaryButton: {
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   linkButton: {
     paddingVertical: 12,
@@ -267,7 +271,7 @@ const styles = StyleSheet.create({
   },
   linkButtonText: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 });
 

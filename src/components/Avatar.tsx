@@ -1,8 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SIZES } from '../config/theme';
+import { GRADIENTS, SIZES } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import OptimizedImage from './OptimizedImage';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -25,6 +26,7 @@ interface AvatarProps {
   isOnline?: boolean;
   onPress?: () => void;
   style?: ViewStyle;
+  accessibilityLabel?: string;
 }
 
 /**
@@ -40,7 +42,11 @@ const Avatar = memo(function Avatar({
   isOnline = false,
   onPress,
   style,
+  accessibilityLabel,
 }: AvatarProps): React.JSX.Element {
+  const { colors, isDark: _isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, _isDark), [colors, _isDark]);
+
   // Size configurations
   const sizeConfig: Record<AvatarSize, SizeConfig> = {
     xs: {
@@ -90,7 +96,7 @@ const Avatar = memo(function Avatar({
       <Ionicons
         name="person"
         size={config.size * 0.5}
-        color={COLORS.grayLight}
+        color={colors.grayLight}
       />
     </View>
   );
@@ -160,6 +166,8 @@ const Avatar = memo(function Avatar({
             bottom: 2,
           },
         ]}
+        accessible={true}
+        accessibilityLabel="Online"
       />
     );
   };
@@ -188,7 +196,7 @@ const Avatar = memo(function Avatar({
             height: config.size + 4,
             borderRadius: config.borderRadius + 2,
             padding: 2,
-            backgroundColor: COLORS.white,
+            backgroundColor: colors.background,
           },
         ]}
       >
@@ -199,7 +207,20 @@ const Avatar = memo(function Avatar({
 
   // Main container
   const Container = onPress ? TouchableOpacity : View;
-  const containerProps = onPress ? { onPress, activeOpacity: 0.8 } : {};
+  const containerProps = onPress
+    ? {
+        onPress,
+        activeOpacity: 0.8,
+        accessible: true,
+        accessibilityRole: 'imagebutton' as const,
+        accessibilityLabel: accessibilityLabel || 'User avatar',
+        accessibilityHint: 'Double-tap to view profile',
+      }
+    : {
+        accessible: true,
+        accessibilityRole: 'image' as const,
+        accessibilityLabel: accessibilityLabel || 'User avatar',
+      };
 
   return (
     <Container style={[styles.container, style]} {...containerProps}>
@@ -226,15 +247,15 @@ Avatar.displayName = 'Avatar';
 
 export default Avatar;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     position: 'relative',
   },
   image: {
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: colors.grayLight,
   },
   placeholder: {
-    backgroundColor: COLORS.backgroundDisabled,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -248,30 +269,30 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    backgroundColor: COLORS.error,
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 1,
-    borderColor: COLORS.white,
+    borderColor: colors.background,
   },
   badgeText: {
     fontFamily: 'Poppins-Bold',
     fontSize: 8,
-    color: COLORS.white,
+    color: colors.white,
   },
   onlineIndicator: {
     position: 'absolute',
-    backgroundColor: COLORS.success,
+    backgroundColor: colors.success,
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: colors.background,
   },
   eventRing: {
     position: 'absolute',
     top: -3,
     left: -3,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     backgroundColor: 'transparent',
   },
 });

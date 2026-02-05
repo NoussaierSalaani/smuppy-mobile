@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES } from '../config/theme';
+import { SIZES } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface HeaderProps {
   title?: string;
@@ -36,7 +37,9 @@ export default function Header({
   rightComponent,
   style,
 }: HeaderProps): React.JSX.Element {
+  const { colors, isDark: _isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, _isDark), [colors, _isDark]);
 
   const renderLeft = (): ReactNode => {
     if (leftComponent) return leftComponent;
@@ -47,8 +50,12 @@ export default function Header({
           onPress={onBack}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Double-tap to go back to previous screen"
         >
-          <Ionicons name="chevron-back" size={28} color={COLORS.dark} />
+          <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
       );
     }
@@ -65,6 +72,9 @@ export default function Header({
           onPress={onRightPress}
           style={styles.rightTextButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={rightText}
         >
           <Text style={styles.rightText}>{rightText}</Text>
         </TouchableOpacity>
@@ -77,8 +87,11 @@ export default function Header({
           onPress={onRightPress}
           style={styles.rightButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={rightIcon.replace(/-/g, ' ').replace('outline', '').trim()}
         >
-          <Ionicons name={rightIcon} size={24} color={COLORS.dark} />
+          <Ionicons name={rightIcon} size={24} color={colors.dark} />
         </TouchableOpacity>
       );
     }
@@ -130,9 +143,9 @@ export default function Header({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 0,
   },
   transparent: {
@@ -179,7 +192,7 @@ const styles = StyleSheet.create({
     fontFamily: 'WorkSans-Bold',
     fontSize: 18,
     lineHeight: 24,
-    color: COLORS.dark,
+    color: colors.dark,
   },
   titleCentered: {
     textAlign: 'center',
@@ -188,12 +201,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   rightText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

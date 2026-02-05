@@ -166,7 +166,7 @@ export default function TipButton({
               </View>
               <View style={styles.textContainer}>
                 <Text style={styles.defaultText}>Send a Tip</Text>
-                <Text style={styles.subText}>Support @{recipient.username}</Text>
+                <Text style={styles.subText}>Support {recipient.displayName || recipient.username}</Text>
               </View>
             </>
           )}

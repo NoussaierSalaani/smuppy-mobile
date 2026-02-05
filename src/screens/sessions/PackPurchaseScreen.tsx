@@ -3,14 +3,13 @@
  * Checkout screen for buying a monthly session pack
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   StyleProp,
   ImageStyle,
@@ -20,9 +19,10 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useStripe } from '@stripe/stripe-react-native';
-import { DARK_COLORS as COLORS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Pack {
   id: string;
@@ -39,7 +39,7 @@ interface Creator {
   id: string;
   name: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   verified: boolean;
 }
 
@@ -49,15 +49,17 @@ type RouteParams = {
 
 const PackPurchaseScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<RouteProp<RouteParams, 'PackPurchase'>>();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { colors, isDark } = useTheme();
 
+  const { showError } = useSmuppyAlert();
   const { creatorId, pack } = route.params;
 
   const [creator, setCreator] = useState<Creator | null>(null);
   const [loading, setLoading] = useState(true);
-  const [paymentReady, setPaymentReady] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Fetch creator profile
   const fetchCreator = useCallback(async () => {
@@ -68,12 +70,14 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           id: profile.id,
           name: profile.fullName || profile.username,
           username: profile.username,
-          avatar: profile.avatarUrl || 'https://via.placeholder.com/100',
+          avatar: profile.avatarUrl || null,
           verified: profile.isVerified,
         });
       }
-    } catch (error) {
-      console.error('Failed to fetch creator:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Failed to fetch creator:', error);
+    } finally {
+      setLoading(false);
     }
   }, [creatorId]);
 
@@ -81,16 +85,9 @@ const PackPurchaseScreen = (): React.JSX.Element => {
     fetchCreator();
   }, [fetchCreator]);
 
-  const _platformFee = pack.price * 0.20; // 20% platform fee
-  const _creatorEarnings = pack.price * 0.80; // 80% to creator
+  const handlePurchase = async () => {
+    if (loading) return;
 
-  useEffect(() => {
-    if (creator) {
-      initializePayment();
-    }
-  }, [creator]);
-
-  const initializePayment = async () => {
     try {
       setLoading(true);
 
@@ -98,70 +95,31 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       const response = await awsAPI.createPaymentIntent({
         creatorId,
         amount: Math.round(pack.price * 100), // cents
+        packId: pack.id,
+        type: 'pack',
         description: `Pack: ${pack.name}`,
       });
 
-      if (!response.success || !response.paymentIntent) {
+      if (!response.success || !response.checkoutUrl) {
         throw new Error(response.message || 'Failed to create payment intent');
       }
 
-      // Initialize payment sheet
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: 'Smuppy',
-        paymentIntentClientSecret: response.paymentIntent.clientSecret,
-        defaultBillingDetails: {
-          name: '',
-        },
-        appearance: {
-          colors: {
-            primary: COLORS.primary,
-            background: COLORS.dark,
-            componentBackground: COLORS.darkGray,
-            componentText: COLORS.white,
-            primaryText: COLORS.white,
-            secondaryText: COLORS.gray,
-            placeholderText: COLORS.gray,
-          },
-        },
+      // Open checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+
+      if (result.type === 'cancel') {
+        setLoading(false);
+        return;
+      }
+
+      // Payment successful
+      navigation.replace('PackPurchaseSuccess', {
+        pack,
+        creator,
       });
-
-      if (error) {
-        console.error('Payment sheet init error:', error);
-      } else {
-        setPaymentReady(true);
-      }
-    } catch (error) {
-      console.error('Payment init error:', error);
-      Alert.alert('Erreur', 'Impossible d\'initialiser le paiement. Veuillez réessayer.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePurchase = async () => {
-    if (!paymentReady) {
-      await initializePayment();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await presentPaymentSheet();
-
-      if (error) {
-        if (error.code !== 'Canceled') {
-          Alert.alert('Erreur de paiement', error.message);
-        }
-      } else {
-        // Payment successful
-        navigation.replace('PackPurchaseSuccess', {
-          pack,
-          creator,
-        });
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Payment error:', error);
+      showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -171,8 +129,8 @@ const PackPurchaseScreen = (): React.JSX.Element => {
   if (!creator) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.gray, marginTop: 16 }}>Chargement...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Chargement...</Text>
       </View>
     );
   }
@@ -182,7 +140,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={COLORS.white} />
+          <Ionicons name="close" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Acheter un Pack</Text>
         <View style={styles.placeholder} />
@@ -201,10 +159,9 @@ const PackPurchaseScreen = (): React.JSX.Element => {
             <View style={styles.nameRow}>
               <Text style={styles.creatorName}>{creator.name}</Text>
               {creator.verified && (
-                <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
               )}
             </View>
-            <Text style={styles.creatorUsername}>@{creator.username}</Text>
           </View>
         </View>
 
@@ -212,7 +169,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         <View style={styles.packCard}>
           <View style={styles.packHeader}>
             <View style={styles.packIconContainer}>
-              <Ionicons name="cube" size={28} color={COLORS.primary} />
+              <Ionicons name="cube" size={28} color={colors.primary} />
             </View>
             <View style={styles.packTitleContainer}>
               <Text style={styles.packName}>{pack.name}</Text>
@@ -225,19 +182,19 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
           <View style={styles.packFeatures}>
             <View style={styles.featureRow}>
-              <Ionicons name="videocam" size={20} color={COLORS.primary} />
+              <Ionicons name="videocam" size={20} color={colors.primary} />
               <Text style={styles.featureText}>{pack.sessionsIncluded} sessions incluses</Text>
             </View>
             <View style={styles.featureRow}>
-              <Ionicons name="time" size={20} color={COLORS.primary} />
+              <Ionicons name="time" size={20} color={colors.primary} />
               <Text style={styles.featureText}>{pack.sessionDuration} minutes par session</Text>
             </View>
             <View style={styles.featureRow}>
-              <Ionicons name="calendar" size={20} color={COLORS.primary} />
+              <Ionicons name="calendar" size={20} color={colors.primary} />
               <Text style={styles.featureText}>Valide pendant {pack.validityDays} jours</Text>
             </View>
             <View style={styles.featureRow}>
-              <Ionicons name="refresh" size={20} color={COLORS.primary} />
+              <Ionicons name="refresh" size={20} color={colors.primary} />
               <Text style={styles.featureText}>Sessions reportables</Text>
             </View>
           </View>
@@ -271,7 +228,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
         {/* Info Card */}
         <View style={styles.infoCard}>
-          <Ionicons name="shield-checkmark" size={24} color={COLORS.primary} />
+          <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>Paiement sécurisé</Text>
             <Text style={styles.infoText}>
@@ -299,21 +256,21 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           <Text style={styles.priceValue}>{pack.price.toFixed(2)} €</Text>
         </View>
         <TouchableOpacity
-          style={[styles.payButton, !paymentReady && styles.payButtonDisabled]}
+          style={[styles.payButton, loading && styles.payButtonDisabled]}
           onPress={handlePurchase}
           disabled={loading}
         >
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.payGradient}
           >
             {loading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <>
-                <Ionicons name="lock-closed" size={18} color={COLORS.white} />
+                <Ionicons name="lock-closed" size={18} color={colors.white} />
                 <Text style={styles.payButtonText}>Payer maintenant</Text>
               </>
             )}
@@ -324,10 +281,10 @@ const PackPurchaseScreen = (): React.JSX.Element => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -345,7 +302,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
   },
   placeholder: {
     width: 40,
@@ -357,7 +314,7 @@ const styles = StyleSheet.create({
   creatorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     padding: 14,
     marginBottom: 16,
@@ -379,15 +336,15 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   creatorUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   packCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -401,7 +358,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 14,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -415,7 +372,7 @@ const styles = StyleSheet.create({
   packName: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
   },
   savingsBadge: {
     backgroundColor: '#22C55E20',
@@ -430,7 +387,7 @@ const styles = StyleSheet.create({
   },
   packDescription: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.gray,
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -444,10 +401,10 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 14,
-    color: COLORS.white,
+    color: colors.dark,
   },
   summaryCard: {
-    backgroundColor: COLORS.darkGray,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -455,7 +412,7 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 16,
   },
   summaryRow: {
@@ -466,37 +423,37 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 15,
-    color: COLORS.lightGray,
+    color: colors.gray,
   },
   summaryValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   summaryValueMuted: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     marginVertical: 12,
   },
   totalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
   },
   totalValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    backgroundColor: COLORS.primary + '10',
+    backgroundColor: colors.primary + '10',
     borderRadius: 14,
     padding: 14,
     marginBottom: 16,
@@ -507,22 +464,22 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.dark,
     marginBottom: 4,
   },
   infoText: {
     fontSize: 13,
-    color: COLORS.lightGray,
+    color: colors.gray,
     lineHeight: 18,
   },
   terms: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 18,
   },
   termsLink: {
-    color: COLORS.primary,
+    color: colors.primary,
     textDecorationLine: 'underline',
   },
   bottomBar: {
@@ -534,9 +491,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,
-    backgroundColor: COLORS.dark,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: COLORS.darkGray,
+    borderTopColor: colors.backgroundSecondary,
     gap: 16,
   },
   priceDisplay: {
@@ -544,12 +501,12 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   priceValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.dark,
   },
   payButton: {
     flex: 1,
@@ -569,7 +526,7 @@ const styles = StyleSheet.create({
   payButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
   },
 });
 

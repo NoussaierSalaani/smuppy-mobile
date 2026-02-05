@@ -6,16 +6,17 @@ import {
   TouchableOpacity,
   StatusBar,
   Animated,
+  Text,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { COLORS, GRADIENTS } from '../config/theme';
 import { SmuppyText } from './SmuppyLogo';
 import { useTabBar } from '../context/TabBarContext';
-import { useUserStore } from '../stores';
+import { useTheme } from '../hooks/useTheme';
+import { useUserStore, useAppStore } from '../stores';
 import { LiquidTabs } from './LiquidTabs';
 
 // Constants for tab bar calculations (kept for reference, LiquidTabs handles rendering now)
@@ -43,10 +44,12 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity, xplorerFullscreen } = useTabBar();
+  const { colors, gradients, isDark } = useTheme();
+  const unreadNotifications = useAppStore((state) => state.unreadNotifications);
 
   // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === 'pro_creator';
 
   const tabs: Tab[] = useMemo(() => [
     { id: 'Fan', label: 'Fan' },
@@ -89,7 +92,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   const topPadding = insets.top || StatusBar.currentHeight || 44;
 
   // Icon color based on account type (dark for both now)
-  const iconColor = COLORS.dark;
+  const iconColor = colors.dark;
 
   // ===== PRO CREATOR: Floating Glass Header compact =====
   if (isProCreator) {
@@ -109,23 +112,26 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
         >
           {/* Gradient border */}
           <LinearGradient
-            colors={GRADIENTS.primary}
+            colors={gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.gradientBorder}
+            style={[styles.gradientBorder, { shadowColor: colors.primary }]}
           >
             {/* Glass content */}
-            <BlurView intensity={90} tint="light" style={styles.floatingHeaderContent}>
+            <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={[styles.floatingHeaderContent, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)' }]}>
               {/* Single row: compact layout */}
               <View style={styles.compactRow}>
                 {/* Left: Search */}
                 <TouchableOpacity
-                  style={styles.compactIconButton}
+                  style={[styles.compactIconButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(10,37,47,0.04)' }]}
                   onPress={handleSearchPress}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   testID="search-button"
+                  accessibilityLabel="Search"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens the search screen"
                 >
-                  <Ionicons name="search-outline" size={20} color={COLORS.dark} />
+                  <Ionicons name="search-outline" size={20} color={colors.dark} />
                 </TouchableOpacity>
 
                 {/* Center: Liquid Glass Tabs */}
@@ -142,12 +148,15 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
 
                 {/* Right: Notifications */}
                 <TouchableOpacity
-                  style={styles.compactIconButton}
+                  style={[styles.compactIconButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(10,37,47,0.04)' }]}
                   onPress={handleNotificationsPress}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   testID="notifications-button"
+                  accessibilityLabel="Notifications"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens your notifications"
                 >
-                  <Ionicons name="notifications-outline" size={20} color={COLORS.dark} />
+                  <Ionicons name="notifications-outline" size={20} color={colors.dark} />
                 </TouchableOpacity>
               </View>
             </BlurView>
@@ -169,7 +178,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
           }
         ]}
       >
-        <BlurView intensity={80} tint="light" style={[styles.fixedHeader, { paddingTop: topPadding }]}>
+        <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.fixedHeader, { paddingTop: topPadding, backgroundColor: isDark ? 'rgba(13,13,13,0.85)' : 'rgba(255,255,255,0.85)' }]}>
           <View style={styles.fixedHeaderContent}>
             <View style={styles.leftIconContainer}>
               <TouchableOpacity
@@ -177,12 +186,15 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 onPress={handleSearchPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 testID="search-button"
+                accessibilityLabel="Search"
+                accessibilityRole="button"
+                accessibilityHint="Opens the search screen"
               >
                 <Ionicons name="search-outline" size={24} color={iconColor} />
               </TouchableOpacity>
             </View>
             <View style={styles.logoContainer}>
-              <SmuppyText width={120} variant="dark" />
+              <SmuppyText width={120} variant={isDark ? "white" : "dark"} />
             </View>
             <View style={styles.rightIconContainer}>
               <TouchableOpacity
@@ -190,8 +202,20 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 onPress={handleNotificationsPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 testID="notifications-button"
+                accessibilityLabel="Notifications"
+                accessibilityRole="button"
+                accessibilityHint="Opens your notifications"
               >
-                <Ionicons name="notifications-outline" size={24} color={iconColor} />
+                <View>
+                  <Ionicons name="notifications-outline" size={24} color={iconColor} />
+                  {unreadNotifications > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -274,7 +298,7 @@ const styles = StyleSheet.create({
   gradientBorder: {
     borderRadius: 28, // Même que bottom nav
     padding: 1.5,
-    shadowColor: COLORS.primary,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -284,8 +308,8 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   compactRow: {
     flexDirection: 'row',
@@ -310,5 +334,23 @@ const styles = StyleSheet.create({
   },
   liquidTabsCompact: {
     marginHorizontal: 0,
+  },
+
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    minWidth: 20,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

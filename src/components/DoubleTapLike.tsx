@@ -5,10 +5,11 @@ import {
   Animated,
   StyleProp,
   ViewStyle,
-  Pressable,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
 
 interface DoubleTapLikeProps {
@@ -22,9 +23,8 @@ interface DoubleTapLikeProps {
 
 /**
  * DoubleTapLike - Smuppy's unique double-tap to like gesture
- * Memoized for performance - this component wraps every post in feeds
- * Features:
- * - Double-tap detection with 300ms threshold
+ * Uses react-native-gesture-handler for proper gesture composition:
+ * - Double-tap works alongside horizontal ScrollView swiping (carousels)
  * - Haptic feedback (Success notification)
  * - Animated heart burst effect (main heart + 6 mini hearts exploding)
  */
@@ -36,18 +36,19 @@ const DoubleTapLike = memo(function DoubleTapLike({
   style,
   showAnimation = true,
 }: DoubleTapLikeProps) {
-  const lastTap = useRef<number>(0);
-  const singleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { colors } = useTheme();
   const [showHeart, setShowHeart] = useState(false);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (singleTapTimeout.current) {
-        clearTimeout(singleTapTimeout.current);
-      }
-    };
-  }, []);
+  // Store callbacks in refs so gestures always see latest values
+  const onDoubleTapRef = useRef(onDoubleTap);
+  const onSingleTapRef = useRef(onSingleTap);
+  const showAnimationRef = useRef(showAnimation);
+  const disabledRef = useRef(disabled);
+
+  useEffect(() => { onDoubleTapRef.current = onDoubleTap; }, [onDoubleTap]);
+  useEffect(() => { onSingleTapRef.current = onSingleTap; }, [onSingleTap]);
+  useEffect(() => { showAnimationRef.current = showAnimation; }, [showAnimation]);
+  useEffect(() => { disabledRef.current = disabled; }, [disabled]);
 
   // Animation values for the heart burst
   const heartScale = useRef(new Animated.Value(0)).current;
@@ -151,88 +152,98 @@ const DoubleTapLike = memo(function DoubleTapLike({
     });
   }, [heartScale, heartOpacity, miniHearts]);
 
-  const handlePress = useCallback(() => {
-    if (disabled) return;
-
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    // Clear any pending single tap
-    if (singleTapTimeout.current) {
-      clearTimeout(singleTapTimeout.current);
-      singleTapTimeout.current = null;
-    }
-
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected
-      if (showAnimation) {
-        triggerHeartAnimation();
-      } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      onDoubleTap();
-      lastTap.current = 0;
+  // JS-thread handlers dispatched from worklets
+  const handleDoubleTapJS = useCallback(() => {
+    if (disabledRef.current) return;
+    if (showAnimationRef.current) {
+      triggerHeartAnimation();
     } else {
-      // First tap - wait for potential second tap
-      lastTap.current = now;
-      // Schedule single tap callback
-      if (onSingleTap) {
-        singleTapTimeout.current = setTimeout(() => {
-          if (lastTap.current === now) {
-            onSingleTap();
-          }
-          singleTapTimeout.current = null;
-        }, DOUBLE_TAP_DELAY);
-      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-  }, [disabled, onDoubleTap, onSingleTap, showAnimation, triggerHeartAnimation]);
+    onDoubleTapRef.current();
+  }, [triggerHeartAnimation]);
+
+  const handleSingleTapJS = useCallback(() => {
+    if (disabledRef.current) return;
+    onSingleTapRef.current?.();
+  }, []);
+
+  // RNGH v2 gesture: double-tap (2 taps within 300ms)
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDuration(300)
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleDoubleTapJS)();
+    });
+
+  // Single-tap: fires only if double-tap doesn't activate
+  const singleTap = Gesture.Tap()
+    .numberOfTaps(1)
+    .maxDuration(300)
+    .requireExternalGestureToFail(doubleTap)
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleSingleTapJS)();
+    });
+
+  // Compose: double-tap has priority; single-tap waits for it to fail
+  const composedGesture = Gesture.Exclusive(doubleTap, singleTap);
 
   return (
-    <Pressable onPress={handlePress} style={style}>
-      {children}
+    <GestureDetector gesture={composedGesture}>
+      <View
+        style={style}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Post content"
+        accessibilityHint="Double-tap to like this post"
+      >
+        {children}
 
-      {/* Heart Animation Overlay */}
-      {showHeart && (
-        <View style={styles.heartContainer} pointerEvents="none">
-          {/* Main Heart */}
-          <Animated.View
-            style={[
-              styles.mainHeart,
-              {
-                transform: [{ scale: heartScale }],
-                opacity: heartOpacity,
-              },
-            ]}
-          >
-            <SmuppyHeartIcon size={80} color={COLORS.primary} filled />
-          </Animated.View>
-
-          {/* Mini Hearts Burst */}
-          {miniHearts.map((heart, index) => (
+        {/* Heart Animation Overlay */}
+        {showHeart && (
+          <View style={styles.heartContainer} pointerEvents="none">
+            {/* Main Heart */}
             <Animated.View
-              key={index}
               style={[
-                styles.miniHeart,
+                styles.mainHeart,
                 {
-                  transform: [
-                    { translateX: heart.x },
-                    { translateY: heart.y },
-                    { scale: heart.scale },
-                  ],
-                  opacity: heart.opacity,
+                  transform: [{ scale: heartScale }],
+                  opacity: heartOpacity,
                 },
               ]}
             >
-              <SmuppyHeartIcon
-                size={24}
-                color={index % 2 === 0 ? COLORS.primary : '#FF8FAB'}
-                filled
-              />
+              <SmuppyHeartIcon size={80} color={colors.heartRed} filled />
             </Animated.View>
-          ))}
-        </View>
-      )}
-    </Pressable>
+
+            {/* Mini Hearts Burst */}
+            {miniHearts.map((heart, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.miniHeart,
+                  {
+                    transform: [
+                      { translateX: heart.x },
+                      { translateY: heart.y },
+                      { scale: heart.scale },
+                    ],
+                    opacity: heart.opacity,
+                  },
+                ]}
+              >
+                <SmuppyHeartIcon
+                  size={24}
+                  color={index % 2 === 0 ? colors.heartRed : '#FF8FAB'}
+                  filled
+                />
+              </Animated.View>
+            ))}
+          </View>
+        )}
+      </View>
+    </GestureDetector>
   );
 });
 

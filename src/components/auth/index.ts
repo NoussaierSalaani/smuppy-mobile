@@ -4,8 +4,8 @@
 export { default as GoogleLogo } from './GoogleLogo';
 export {
   AUTH_FORM,
-  AUTH_COLORS,
-  authStyles,
-  getInputIconColor,
-  getButtonGradient,
+  createAuthColors,
+  createAuthStyles,
+  createGetInputIconColor,
+  createGetButtonGradient,
 } from './authStyles';

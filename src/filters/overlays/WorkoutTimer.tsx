@@ -42,6 +42,7 @@ export function WorkoutTimer({
       duration: 300,
       easing: Easing.out(Easing.cubic),
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressValue]);
 
   // Pulse animation when running
@@ -58,6 +59,7 @@ export function WorkoutTimer({
     } else {
       pulse.value = withTiming(1, { duration: 200 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
   // Animated styles

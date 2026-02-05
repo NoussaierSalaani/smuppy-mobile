@@ -6,8 +6,8 @@
 
 import React, { memo, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
-import { Image, ImageContentFit } from 'expo-image';
-import { COLORS } from '../config/theme';
+import { Image, ImageContentFit, ImageSource } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 
 // Blurhash placeholder for smooth loading
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -15,8 +15,21 @@ const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 // Cache policy
 const CACHE_POLICY = 'memory-disk';
 
+// CDN URL normalization - fix legacy URLs pointing to wrong CloudFront
+const WRONG_CDN = 'd3gy4x1feicix3.cloudfront.net';
+const CORRECT_CDN = 'dc8kq67t0asis.cloudfront.net';
+
+const normalizeCdnUrl = (url: string | undefined | null): string | undefined => {
+  if (!url || typeof url !== 'string') return undefined;
+  // Fix URLs with wrong CDN domain
+  if (url.includes(WRONG_CDN)) {
+    return url.replace(WRONG_CDN, CORRECT_CDN);
+  }
+  return url;
+};
+
 interface OptimizedImageProps {
-  source: any;
+  source?: ImageSource | string | number | null;
   style?: StyleProp<ImageStyle>;
   contentFit?: ImageContentFit;
   placeholder?: string;
@@ -28,26 +41,26 @@ interface OptimizedImageProps {
 }
 
 interface AvatarImageProps {
-  source: any;
+  source?: ImageSource | string | number | null;
   size?: number;
   style?: StyleProp<ViewStyle>;
   fallbackColor?: string;
 }
 
 interface PostImageProps {
-  source: any;
+  source?: ImageSource | string | number | null;
   aspectRatio?: number;
   style?: StyleProp<ImageStyle>;
 }
 
 interface BackgroundImageProps {
-  source: any;
+  source?: ImageSource | string | number | null;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
 }
 
 interface ThumbnailImageProps {
-  source: any;
+  source?: ImageSource | string | number | null;
   size?: number;
   style?: StyleProp<ImageStyle>;
 }
@@ -67,13 +80,20 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   onError,
   ...props
 }) => {
-  // Handle different source formats
-  const imageSource = typeof source === 'string'
-    ? { uri: source }
-    : source;
+  // Handle different source formats and normalize CDN URLs
+  let resolvedSource: ImageSource | number | undefined;
+  if (typeof source === 'string') {
+    resolvedSource = { uri: normalizeCdnUrl(source) };
+  } else if (source != null && typeof source === 'object') {
+    resolvedSource = source.uri
+      ? { ...source, uri: normalizeCdnUrl(source.uri) }
+      : source;
+  } else if (typeof source === 'number') {
+    resolvedSource = source;
+  }
 
   // Skip rendering if no valid source
-  if (!imageSource || (!imageSource?.uri && typeof source !== 'number')) {
+  if (!resolvedSource || (typeof resolvedSource === 'object' && !resolvedSource.uri)) {
     return (
       <View style={[styles.placeholder, style as StyleProp<ViewStyle>]} />
     );
@@ -81,7 +101,7 @@ const OptimizedImage = memo<OptimizedImageProps>(({
 
   return (
     <Image
-      source={imageSource}
+      source={resolvedSource}
       style={style}
       contentFit={contentFit}
       placeholder={placeholder}
@@ -104,7 +124,7 @@ export const AvatarImage = memo<AvatarImageProps>(({
   source,
   size = 40,
   style,
-  fallbackColor = COLORS.gray200,
+  fallbackColor = '#E5E7EB',
   ...props
 }) => {
   const avatarStyle = {
@@ -113,10 +133,12 @@ export const AvatarImage = memo<AvatarImageProps>(({
     borderRadius: size / 2,
   };
 
-  // If no source, show colored placeholder
+  // If no source, show placeholder with person icon
   if (!source) {
     return (
-      <View style={[avatarStyle, { backgroundColor: fallbackColor }, style]} />
+      <View style={[avatarStyle, { backgroundColor: fallbackColor, alignItems: 'center', justifyContent: 'center' }, style]}>
+        <Ionicons name="person" size={size * 0.5} color="#9CA3AF" />
+      </View>
     );
   }
 
@@ -197,7 +219,7 @@ export const ThumbnailImage = memo<ThumbnailImageProps>(({
 
 const styles = StyleSheet.create({
   placeholder: {
-    backgroundColor: COLORS.gray100,
+    backgroundColor: '#F3F4F6',
   },
   backgroundContainer: {
     flex: 1,

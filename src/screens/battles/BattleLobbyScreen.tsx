@@ -12,7 +12,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width: _width } = Dimensions.get('window');
 
@@ -30,6 +30,7 @@ interface Participant {
   id: string;
   user_id: string;
   username: string;
+  full_name?: string;
   profile_picture_url?: string;
   is_verified: boolean;
   status: 'pending' | 'accepted' | 'declined' | 'ready';
@@ -48,9 +49,10 @@ interface Battle {
 }
 
 export default function BattleLobbyScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const user = useUserStore((state: any) => state.user);
+  const { showError, showDestructiveConfirm } = useSmuppyAlert();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
+  const route = useRoute<{ key: string; name: string; params: { battleId: string } }>();
+  const user = useUserStore((state) => state.user);
 
   const battleId = route.params?.battleId;
 
@@ -72,7 +74,7 @@ export default function BattleLobbyScreen() {
 
   useEffect(() => {
     // Pulse animation
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.1,
@@ -85,10 +87,11 @@ export default function BattleLobbyScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulse.start();
 
     // Glow animation
-    Animated.loop(
+    const glow = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -101,7 +104,13 @@ export default function BattleLobbyScreen() {
           useNativeDriver: false,
         }),
       ])
-    ).start();
+    );
+    glow.start();
+
+    return () => {
+      pulse.stop();
+      glow.stop();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -134,7 +143,7 @@ export default function BattleLobbyScreen() {
         }
 
         // Animate in participants
-        response.battle.participants.forEach((_: any, i: number) => {
+        response.battle.participants.forEach((_: Participant, i: number) => {
           Animated.spring(scaleAnims[i], {
             toValue: 1,
             useNativeDriver: true,
@@ -152,20 +161,29 @@ export default function BattleLobbyScreen() {
         }
       }
     } catch (error) {
-      console.error('Load battle error:', error);
+      if (__DEV__) console.warn('Load battle error:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, []);
+
   const startCountdown = () => {
     setCountdown(3);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-    const timer = setInterval(() => {
+    countdownTimerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev === null || prev <= 1) {
-          clearInterval(timer);
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
           handleStartBattle();
           return null;
         }
@@ -184,7 +202,7 @@ export default function BattleLobbyScreen() {
       await awsAPI.battleAction(battleId, newReady ? 'ready' : 'unready');
       loadBattle();
     } catch (error) {
-      console.error('Toggle ready error:', error);
+      if (__DEV__) console.warn('Toggle ready error:', error);
       setIsReady(!newReady);
     }
   };
@@ -201,27 +219,20 @@ export default function BattleLobbyScreen() {
         });
       }
     } catch (error) {
-      console.error('Start battle error:', error);
-      Alert.alert('Error', 'Failed to start battle');
+      if (__DEV__) console.warn('Start battle error:', error);
+      showError('Error', 'Failed to start battle');
     }
   };
 
   const handleLeaveBattle = async () => {
-    Alert.alert('Leave Battle?', 'Are you sure you want to leave this battle?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await awsAPI.battleAction(battleId, 'leave');
-            navigation.goBack();
-          } catch (error) {
-            console.error('Leave battle error:', error);
-          }
-        },
-      },
-    ]);
+    showDestructiveConfirm('Leave Battle?', 'Are you sure you want to leave this battle?', async () => {
+      try {
+        await awsAPI.battleAction(battleId, 'leave');
+        navigation.goBack();
+      } catch (error) {
+        if (__DEV__) console.warn('Leave battle error:', error);
+      }
+    }, 'Leave');
   };
 
   const handleInvite = () => {
@@ -230,7 +241,10 @@ export default function BattleLobbyScreen() {
 
   const renderParticipant = (participant: Participant, index: number) => {
     const isCurrentUser = participant.user_id === user?.id;
-    const scaleAnim = scaleAnims[index] || new Animated.Value(1);
+    if (!scaleAnims[index]) {
+      scaleAnims[index] = new Animated.Value(1);
+    }
+    const scaleAnim = scaleAnims[index];
 
     return (
       <Animated.View
@@ -276,7 +290,7 @@ export default function BattleLobbyScreen() {
           <View style={styles.participantInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.participantName}>
-                {isCurrentUser ? 'You' : participant.username}
+                {isCurrentUser ? 'You' : participant.full_name || participant.username}
               </Text>
               {participant.is_verified && (
                 <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />

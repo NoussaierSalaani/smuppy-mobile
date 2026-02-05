@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, SIZES, BORDERS } from '../config/theme';
+import { GRADIENTS, SIZES, BORDERS } from '../config/theme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type TagVariant = 'default' | 'filled' | 'outline' | 'filter';
 type TagSize = 'sm' | 'md' | 'lg';
@@ -52,6 +53,9 @@ export default function Tag({
   onRemove,
   style,
 }: TagProps): React.JSX.Element {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   // Size configurations
   const sizeConfig: Record<TagSize, SizeConfig> = {
     sm: {
@@ -83,21 +87,21 @@ export default function Tag({
   const getVariantStyles = (): VariantStyle => {
     if (disabled) {
       return {
-        backgroundColor: COLORS.backgroundDisabled,
+        backgroundColor: colors.backgroundSecondary,
         borderColor: 'transparent',
         borderWidth: 0,
-        textColor: COLORS.grayMuted,
-        iconColor: COLORS.grayMuted,
+        textColor: colors.grayMuted,
+        iconColor: colors.grayMuted,
       };
     }
 
     if (selected) {
       return {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
         borderWidth: BORDERS.medium,
-        textColor: COLORS.white,
-        iconColor: COLORS.white,
+        textColor: colors.white,
+        iconColor: colors.white,
         useGradient: variant === 'filled',
       };
     }
@@ -105,35 +109,35 @@ export default function Tag({
     switch (variant) {
       case 'filled':
         return {
-          backgroundColor: COLORS.backgroundSecondary,
+          backgroundColor: colors.backgroundSecondary,
           borderColor: 'transparent',
           borderWidth: 0,
-          textColor: COLORS.dark,
-          iconColor: COLORS.primary,
+          textColor: colors.dark,
+          iconColor: colors.primary,
         };
       case 'outline':
         return {
-          backgroundColor: COLORS.white,
-          borderColor: COLORS.primary,
+          backgroundColor: colors.background,
+          borderColor: colors.primary,
           borderWidth: BORDERS.medium,
-          textColor: COLORS.dark,
-          iconColor: COLORS.primary,
+          textColor: colors.dark,
+          iconColor: colors.primary,
         };
       case 'filter':
         return {
-          backgroundColor: COLORS.backgroundSecondary,
+          backgroundColor: colors.backgroundSecondary,
           borderColor: 'transparent',
           borderWidth: 0,
-          textColor: COLORS.dark,
-          iconColor: COLORS.dark,
+          textColor: colors.dark,
+          iconColor: colors.dark,
         };
       default:
         return {
-          backgroundColor: COLORS.white,
-          borderColor: COLORS.primary,
+          backgroundColor: colors.background,
+          borderColor: colors.primary,
           borderWidth: BORDERS.medium,
-          textColor: COLORS.dark,
-          iconColor: COLORS.primary,
+          textColor: colors.dark,
+          iconColor: colors.primary,
         };
     }
   };
@@ -230,7 +234,7 @@ export default function Tag({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -3,8 +3,9 @@
 import React, { useState, useEffect, forwardRef, memo } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
+import type { Feature } from 'geojson';
 import Constants from 'expo-constants';
-import { COLORS } from '../config/theme';
+import { useTheme } from '../hooks/useTheme';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -14,7 +15,7 @@ interface LazyMapViewProps {
   style?: ViewStyle;
   centerCoordinate?: [number, number]; // [lng, lat]
   zoomLevel?: number;
-  onPress?: (event: any) => void;
+  onPress?: (feature: Feature) => void;
   children?: React.ReactNode;
   showsUserLocation?: boolean;
   scrollEnabled?: boolean;
@@ -22,10 +23,11 @@ interface LazyMapViewProps {
 }
 
 // Lazy-loaded MapView component
-const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
-  const [MapViewComponent, setMapViewComponent] = useState<any>(null);
-  const [CameraComponent, setCameraComponent] = useState<any>(null);
-  const [LocationPuckComponent, setLocationPuckComponent] = useState<any>(null);
+const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMapViewProps>((props, ref) => {
+  const { colors } = useTheme();
+  const [MapViewComponent, setMapViewComponent] = useState<typeof Mapbox.MapView | null>(null);
+  const [CameraComponent, setCameraComponent] = useState<typeof Mapbox.Camera | null>(null);
+  const [LocationPuckComponent, setLocationPuckComponent] = useState<typeof Mapbox.LocationPuck | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Failed to load MapView:', error);
+        if (__DEV__) console.warn('Failed to load MapView:', error);
         if (mounted) {
           setIsLoading(false);
         }
@@ -57,8 +59,8 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
 
   if (isLoading || !MapViewComponent) {
     return (
-      <View style={[styles.loadingContainer, props.style]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.darkGray }, props.style]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -82,9 +84,16 @@ const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
   );
 }));
 
+// Props for the lazy-loaded MarkerView
+interface LazyMarkerProps {
+  children: React.ReactElement;
+  coordinate?: { latitude: number; longitude: number };
+  coordinateArray?: [number, number];
+}
+
 // Export MarkerView separately for use in parent components
-export const LazyMarker = memo(({ children, coordinate, ...props }: any) => {
-  const [MarkerViewComponent, setMarkerViewComponent] = useState<any>(null);
+export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyMarkerProps) => {
+  const [MarkerViewComponent, setMarkerViewComponent] = useState<typeof Mapbox.MarkerView | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -96,15 +105,15 @@ export const LazyMarker = memo(({ children, coordinate, ...props }: any) => {
     return () => { mounted = false; };
   }, []);
 
-  if (!MarkerViewComponent) return null;
-
   // Convert coordinate from {latitude, longitude} to [lng, lat]
-  const coord = coordinate
+  const coord: [number, number] | undefined = coordinate
     ? [coordinate.longitude, coordinate.latitude]
-    : props.coordinateArray;
+    : coordinateArray;
+
+  if (!MarkerViewComponent || !coord) return null;
 
   return (
-    <MarkerViewComponent coordinate={coord} {...props}>
+    <MarkerViewComponent coordinate={coord}>
       {children}
     </MarkerViewComponent>
   );
@@ -117,6 +126,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    // backgroundColor set inline via theme colors.darkGray
   },
 });

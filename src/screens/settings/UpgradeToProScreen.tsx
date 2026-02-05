@@ -13,18 +13,21 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useCurrentProfile } from '../../hooks';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
-const { width } = Dimensions.get('window');
+const { width: _width } = Dimensions.get('window');
 
 interface Feature {
   icon: string;
@@ -108,9 +111,10 @@ const FEATURES: Feature[] = [
 ];
 
 export default function UpgradeToProScreen() {
-  const navigation = useNavigation<any>();
-  const user = useUserStore((state) => state.user);
-  const setUser = useUserStore((state) => state.setUser);
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
+  const { showDestructiveConfirm, showWarning, showAlert, showError } = useSmuppyAlert();
+  const _user = useUserStore((state) => state.user);
+  const _setUser = useUserStore((state) => state.setUser);
 
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -131,86 +135,96 @@ export default function UpgradeToProScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // FIRST CONFIRMATION: Warning about irreversibility
   const handleUpgrade = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    Alert.alert(
-      '⚠️ Irreversible Upgrade',
-      'Upgrading to Pro Creator is a ONE-WAY process.\n\n🚫 You will LOSE your Personal profile forever.\n\n✅ You will become a Pro Creator with monetization features.\n\nThis action CANNOT be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'I Understand, Continue',
-          style: 'destructive',
-          onPress: () => setStep('confirm'),
-        },
-      ]
+    showDestructiveConfirm(
+      'Irreversible Upgrade',
+      'Upgrading to Pro Creator is a ONE-WAY process.\n\nYou will LOSE your Personal profile forever.\n\nYou will become a Pro Creator with monetization features.\n\nThis action CANNOT be undone.',
+      () => setStep('confirm')
     );
   };
 
   // SECOND CONFIRMATION: Final "Are you sure?"
   const handleConfirmUpgrade = async () => {
     if (!acceptedTerms) {
-      Alert.alert('Terms Required', 'Please accept the Pro Creator terms to continue.');
+      showWarning('Terms Required', 'Please accept the Pro Creator terms to continue.');
       return;
     }
 
     // Final confirmation
-    Alert.alert(
-      '🔒 Final Confirmation',
+    showDestructiveConfirm(
+      'Final Confirmation',
       'Are you absolutely sure?\n\nOnce you upgrade, your Personal account will be permanently converted to Pro Creator.',
-      [
-        { text: 'No, Go Back', style: 'cancel' },
-        {
-          text: 'Yes, Upgrade Now',
-          style: 'destructive',
-          onPress: performUpgrade,
-        },
-      ]
+      performUpgrade
     );
   };
+
+  const { refetch: refetchProfile } = useCurrentProfile();
 
   const performUpgrade = async () => {
     setIsLoading(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
     try {
-      const response = await awsAPI.upgradeToProCreator();
+      // Create Stripe Checkout session for Pro Creator subscription
+      const response = await awsAPI.request<{ success: boolean; checkoutUrl: string; sessionId: string }>(
+        '/payments/platform-subscription',
+        { method: 'POST', body: { action: 'subscribe', planType: 'pro_creator' } }
+      );
 
-      if (response.success) {
-        // Update local user state
-        if (user) {
-          setUser({
-            ...user,
-            accountType: 'pro_creator',
-          });
-        }
+      if (!response.checkoutUrl) {
+        throw new Error('No checkout URL received');
+      }
 
+      // Open Stripe Checkout in browser
+      const canOpen = await Linking.canOpenURL(response.checkoutUrl);
+      if (canOpen) {
+        await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          dismissButtonStyle: 'cancel',
+        });
+      } else {
+        await Linking.openURL(response.checkoutUrl);
+      }
+
+      // After returning from checkout, refresh profile to check if upgrade went through
+      await refetchProfile();
+      const updatedUser = useUserStore.getState().user;
+
+      if (updatedUser?.accountType === 'pro_creator') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        Alert.alert(
-          '🎉 Welcome, Pro Creator!',
-          'Your account has been upgraded successfully!\n\nComplete your setup to start earning from your content.',
-          [
+        showAlert({
+          title: 'Welcome, Pro Creator!',
+          message: 'Your account has been upgraded successfully!\n\nComplete your setup to start earning from your content.',
+          type: 'success',
+          buttons: [
             {
-              text: 'Set Up Stripe',
+              text: 'Set Up Verification',
               onPress: () => navigation.replace('IdentityVerification'),
             },
             {
               text: 'Later',
               onPress: () => navigation.goBack(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        throw new Error(response.message || 'Upgrade failed');
+        // Payment may still be processing via webhook
+        showAlert({
+          title: 'Processing',
+          message: 'Your payment is being processed. Your account will be upgraded shortly.',
+          type: 'info',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+        });
       }
-    } catch (error: any) {
-      console.error('Upgrade error:', error);
-      Alert.alert('Upgrade Failed', error.message || 'Please try again later.');
+    } catch (_error: unknown) {
+      if (__DEV__) console.warn('Upgrade error:', _error);
+      showError('Upgrade Failed', 'Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -236,7 +250,7 @@ export default function UpgradeToProScreen() {
     >
       <View style={styles.featureInfo}>
         <View style={styles.featureIconContainer}>
-          <Ionicons name={feature.icon as any} size={20} color="#0EBF8A" />
+          <Ionicons name={feature.icon as keyof typeof Ionicons.glyphMap} size={20} color="#0EBF8A" />
         </View>
         <View style={styles.featureText}>
           <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -412,7 +426,7 @@ export default function UpgradeToProScreen() {
               <Text style={styles.upgradeButtonText}>Upgrade to Pro Creator</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <Text style={styles.freeText}>Free to upgrade • Start earning today</Text>
+          <Text style={styles.freeText}>$99/month • Cancel anytime</Text>
         </View>
       </SafeAreaView>
     </View>

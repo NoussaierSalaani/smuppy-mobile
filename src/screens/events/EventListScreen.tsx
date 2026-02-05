@@ -3,7 +3,7 @@
  * Browse and discover events on map
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Dimensions,
   FlatList,
   RefreshControl,
-  ActivityIndicator,
   Modal,
   ScrollView,
 } from 'react-native';
@@ -26,12 +25,15 @@ import { useNavigation } from '@react-navigation/native';
 import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
-
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { MapListSkeleton } from '../../components/skeleton';
+import { formatDateTimeRelative } from '../../utils/dateFormatters';
+
+const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width - 48;
@@ -52,6 +54,7 @@ interface Event {
   organizer: {
     id: string;
     username: string;
+    full_name?: string;
     profile_picture_url?: string;
     is_verified: boolean;
   };
@@ -100,24 +103,9 @@ const DIFFICULTY_COLORS = {
   expert: '#9C27B0',
 };
 
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  {
-    featureType: 'water',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0e1626' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#304a7d' }],
-  },
-];
-
 export default function EventListScreen() {
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const { formatAmount } = useCurrency();
 
   const [events, setEvents] = useState<Event[]>([]);
@@ -132,9 +120,11 @@ export default function EventListScreen() {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const filterDrawerAnim = useRef(new Animated.Value(0)).current;
 
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapView>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Check if selected category is in visible list
   const isSelectedInVisible = VISIBLE_CATEGORIES.some(c => c.id === selectedCategory.id);
@@ -172,6 +162,7 @@ export default function EventListScreen() {
   useEffect(() => {
     getUserLocation();
     loadEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory]);
 
   const getUserLocation = async () => {
@@ -185,13 +176,13 @@ export default function EventListScreen() {
         lng: location.coords.longitude,
       });
     } catch (error) {
-      console.error('Get location error:', error);
+      if (__DEV__) console.warn('Get location error:', error);
     }
   };
 
   const loadEvents = async () => {
     try {
-      const params: any = {
+      const params: Record<string, unknown> = {
         limit: 20,
       };
 
@@ -211,7 +202,7 @@ export default function EventListScreen() {
         setEvents(response.events || []);
       }
     } catch (error) {
-      console.error('Load events error:', error);
+      if (__DEV__) console.warn('Load events error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -229,27 +220,6 @@ export default function EventListScreen() {
     if (index !== -1 && flatListRef.current) {
       flatListRef.current.scrollToIndex({ index, animated: true });
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === now.toDateString()) {
-      return `Today, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    if (date.toDateString() === tomorrow.toDateString()) {
-      return `Tomorrow, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    return date.toLocaleDateString([], {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   // Glass-morphism filter chip
@@ -275,7 +245,7 @@ export default function EventListScreen() {
           ]}
         >
           <View style={[styles.glassChipIcon, { backgroundColor: `${item.color}30` }]}>
-            <Ionicons name={item.icon as any} size={compact ? 14 : 16} color={isSelected ? '#fff' : item.color} />
+            <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={compact ? 14 : 16} color={isSelected ? '#fff' : item.color} />
           </View>
           <Text style={[
             styles.glassChipText,
@@ -371,7 +341,7 @@ export default function EventListScreen() {
                           isSelected && { backgroundColor: category.color },
                         ]}>
                           <Ionicons
-                            name={category.icon as any}
+                            name={category.icon as keyof typeof Ionicons.glyphMap}
                             size={24}
                             color={isSelected ? '#fff' : category.color}
                           />
@@ -414,7 +384,7 @@ export default function EventListScreen() {
       <Animated.View style={[styles.eventCard, viewMode === 'map' ? { transform: [{ scale }] } : undefined]}>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+          onPress={() => navigation.navigate('ActivityDetail', { activityId: item.id, activityType: 'event' })}
         >
           {/* Cover Image */}
           <View style={styles.cardImageContainer}>
@@ -433,7 +403,7 @@ export default function EventListScreen() {
 
             {/* Category Badge */}
             <View style={styles.categoryBadge}>
-              <Ionicons name={item.category.icon as any} size={14} color="#fff" />
+              <Ionicons name={item.category.icon as keyof typeof Ionicons.glyphMap} size={14} color="#fff" />
               <Text style={styles.categoryBadgeText}>{item.category.name}</Text>
             </View>
 
@@ -472,11 +442,11 @@ export default function EventListScreen() {
                 source={{
                   uri:
                     item.organizer.profile_picture_url ||
-                    `https://ui-avatars.com/api/?name=${item.organizer.username}&background=random`,
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.username)}&background=random`,
                 }}
                 style={styles.organizerAvatar}
               />
-              <Text style={styles.organizerName}>@{item.organizer.username}</Text>
+              <Text style={styles.organizerName}>{item.organizer.full_name || item.organizer.username}</Text>
               {item.organizer.is_verified && (
                 <Ionicons name="checkmark-circle" size={12} color="#00BFFF" />
               )}
@@ -486,7 +456,7 @@ export default function EventListScreen() {
             <View style={styles.detailsRow}>
               <View style={styles.detail}>
                 <Ionicons name="calendar" size={14} color="#888" />
-                <Text style={styles.detailText}>{formatDate(item.start_date)}</Text>
+                <Text style={styles.detailText}>{formatDateTimeRelative(item.start_date)}</Text>
               </View>
 
               <View style={styles.detail}>
@@ -520,7 +490,7 @@ export default function EventListScreen() {
               <TouchableOpacity
                 style={[styles.joinButton, isFull ? styles.joinButtonDisabled : undefined]}
                 disabled={isFull ? true : false}
-                onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+                onPress={() => navigation.navigate('ActivityDetail', { activityId: item.id, activityType: 'event' })}
               >
                 <LinearGradient
                   colors={isFull ? ['#666', '#444'] : ['#FF6B35', '#FF4500']}
@@ -551,7 +521,7 @@ export default function EventListScreen() {
             selectedEvent?.id === event.id && styles.mapMarkerSelected,
           ]}
         >
-          <Ionicons name={event.category.icon as any} size={16} color="#fff" />
+          <Ionicons name={event.category.icon as keyof typeof Ionicons.glyphMap} size={16} color="#fff" />
         </View>
       </TouchableOpacity>
     </MarkerView>
@@ -580,7 +550,7 @@ export default function EventListScreen() {
 
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => navigation.navigate('CreateEvent')}
+              onPress={() => navigation.navigate('CreateActivity')}
             >
               <LinearGradient
                 colors={['#FF6B35', '#FF4500']}
@@ -676,9 +646,7 @@ export default function EventListScreen() {
             }
             ListEmptyComponent={
               isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#FF6B35" />
-                </View>
+                <MapListSkeleton />
               ) : (
                 <View style={styles.emptyContainer}>
                   <Ionicons name="calendar-outline" size={64} color="#444" />
@@ -688,7 +656,7 @@ export default function EventListScreen() {
                   </Text>
                   <TouchableOpacity
                     style={styles.emptyButton}
-                    onPress={() => navigation.navigate('CreateEvent')}
+                    onPress={() => navigation.navigate('CreateActivity')}
                   >
                     <LinearGradient
                       colors={['#FF6B35', '#FF4500']}
@@ -707,10 +675,10 @@ export default function EventListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,

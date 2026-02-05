@@ -5,6 +5,7 @@ paths = [
   '''\.expo''',
   '''cdk\.out''',
   '''cdk-out-deploy''',
+  '''cdk-out-diff''',
   '''dist''',
   '''coverage''',
   '''README\.md''',
@@ -14,4 +15,10 @@ paths = [
 regexes = [
   # Cognito User Pool Client ID — public identifier, not a secret
   '''60bt4bafj98q0nkjprpidegr0t''',
+]
+stopwords = [
+  "EXAMPLE",
+  "example",
+  "cafebabe",
+  "deadbeef",
 ]

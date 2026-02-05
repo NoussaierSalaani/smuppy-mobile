@@ -38,28 +38,3 @@ export {
   CommentList,
   GridList,
 } from './OptimizedList';
-
-// Usage examples:
-//
-// Basic components:
-// import { Button, Input, Card, SmuppyLogo } from '../components';
-//
-// Optimized images (with caching):
-// import { OptimizedImage, AvatarImage, PostImage } from '../components';
-// <AvatarImage source={user.avatar} size={50} />
-// <PostImage source={post.image} aspectRatio={16/9} />
-//
-// Optimized lists (10x faster than FlatList):
-// import { FeedList, UserList } from '../components';
-// <FeedList
-//   posts={posts}
-//   renderPost={({ item }) => <PostCard post={item} />}
-//   onLoadMore={fetchNextPage}
-//   isLoadingMore={isFetchingNextPage}
-// />
-//
-// Logo variants:
-// <SmuppyIcon size={80} variant="gradient" />
-// <SmuppyText width={100} variant="gradient" />
-// <SmuppyLogoFull iconSize={50} textWidth={120} />
-// <SmuppyLogoStacked iconSize={80} textWidth={100} />

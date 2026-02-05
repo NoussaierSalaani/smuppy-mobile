@@ -51,24 +51,10 @@ export {
   useInvalidateUserQueries,
 } from './queries';
 
-// Usage Examples:
-//
-// User profile:
-// const { data: profile, isLoading } = useCurrentProfile();
-// const { mutate: updateProfile } = useUpdateProfile();
-//
-// Feed with infinite scroll:
-// const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useFeedPosts();
-// const posts = data?.pages.flatMap(page => page.posts) ?? [];
-//
-// Like with optimistic update:
-// const { mutate: toggleLike } = useToggleLike();
-// toggleLike({ postId: post.id, liked: hasLiked });
-//
-// Follow/Unfollow:
-// const { data: isFollowing } = useIsFollowing(userId);
-// const { mutate: toggleFollow } = useToggleFollow();
 export { useCooldown } from './useCooldown';
+
+// Post Interactions (DRY like/save with optimistic updates)
+export { usePostInteractions } from './usePostInteractions';
 
 // Modal State Management
 export {
@@ -109,3 +95,6 @@ export {
 
 // Analytics
 export { useAnalytics } from './useAnalytics';
+
+// Theme
+export { useTheme } from './useTheme';

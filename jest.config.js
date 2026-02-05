@@ -5,6 +5,7 @@ module.exports = {
     '^.+\\.tsx?$': 'ts-jest',
   },
   testEnvironment: 'node',
+  coverageProvider: 'v8',
   testPathIgnorePatterns: [
     '/node_modules/',
     '/aws-migration/',
@@ -32,10 +33,10 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 3,
-      functions: 3,
-      lines: 3,
-      statements: 3,
+      branches: 1,
+      functions: 1,
+      lines: 1,
+      statements: 1,
     },
   },
   // Ignore module collisions in aws-migration

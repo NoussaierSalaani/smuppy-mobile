@@ -3,7 +3,7 @@
  * View and manage user's business subscriptions
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -19,9 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateShort } from '../../utils/dateFormatters';
 
 interface Subscription {
   id: string;
@@ -63,12 +65,16 @@ const PERIOD_LABELS = {
   yearly: '/year',
 };
 
-export default function MySubscriptionsScreen({ navigation }: { navigation: any }) {
+export default function MySubscriptionsScreen({ navigation }: { navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void } }) {
+  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { formatAmount } = useCurrency();
+  const { colors, isDark } = useTheme();
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     loadSubscriptions();
@@ -81,7 +87,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
         setSubscriptions(response.subscriptions || []);
       }
     } catch (error) {
-      console.error('Load subscriptions error:', error);
+      if (__DEV__) console.warn('Load subscriptions error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -94,29 +100,23 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
   };
 
   const handleCancelSubscription = (subscription: Subscription) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Cancel Subscription',
-      `Are you sure you want to cancel your ${subscription.plan.name} subscription at ${subscription.business.name}?\n\nYou'll still have access until ${formatDate(subscription.current_period_end)}.`,
-      [
-        { text: 'Keep Subscription', style: 'cancel' },
-        {
-          text: 'Cancel Subscription',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.cancelBusinessSubscription(subscription.id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadSubscriptions();
-              } else {
-                throw new Error(response.message);
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel subscription');
-            }
-          },
-        },
-      ]
+      `Are you sure you want to cancel your ${subscription.plan.name} subscription at ${subscription.business.name}?\n\nYou'll still have access until ${formatDateShort(subscription.current_period_end)}.`,
+      async () => {
+        try {
+          const response = await awsAPI.cancelBusinessSubscription(subscription.id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadSubscriptions();
+          } else {
+            throw new Error(response.message);
+          }
+        } catch (error: unknown) {
+          showError('Error', (error as Error).message || 'Failed to cancel subscription');
+        }
+      },
+      'Cancel Subscription'
     );
   };
 
@@ -125,23 +125,14 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
       const response = await awsAPI.reactivateBusinessSubscription(subscription.id);
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Reactivated', 'Your subscription has been reactivated!');
+        showSuccess('Reactivated', 'Your subscription has been reactivated!');
         loadSubscriptions();
       } else {
         throw new Error(response.message);
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to reactivate subscription');
+    } catch (error: unknown) {
+      showError('Error', (error as Error).message || 'Failed to reactivate subscription');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getDaysRemaining = (endDate: string) => {
@@ -171,7 +162,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
               <Image source={{ uri: subscription.business.logo_url }} style={styles.businessLogo} />
             ) : (
               <View style={[styles.businessLogoPlaceholder, { backgroundColor: subscription.business.category.color }]}>
-                <Ionicons name={subscription.business.category.icon as any} size={20} color="#fff" />
+                <Ionicons name={subscription.business.category.icon as keyof typeof Ionicons.glyphMap} size={20} color={colors.dark} />
               </View>
             )}
             <View style={styles.businessDetails}>
@@ -180,7 +171,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
             </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '20' }]}>
-            <Ionicons name={statusConfig.icon as any} size={14} color={statusConfig.color} />
+            <Ionicons name={statusConfig.icon as keyof typeof Ionicons.glyphMap} size={14} color={statusConfig.color} />
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {statusConfig.label}
             </Text>
@@ -219,16 +210,16 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
         {/* Period Info */}
         <View style={styles.periodInfo}>
           <View style={styles.periodItem}>
-            <Ionicons name="calendar-outline" size={16} color={COLORS.gray} />
+            <Ionicons name="calendar-outline" size={16} color={colors.gray} />
             <Text style={styles.periodText}>
               {subscription.cancel_at_period_end
-                ? `Ends ${formatDate(subscription.current_period_end)}`
-                : `Renews ${formatDate(subscription.current_period_end)}`}
+                ? `Ends ${formatDateShort(subscription.current_period_end)}`
+                : `Renews ${formatDateShort(subscription.current_period_end)}`}
             </Text>
           </View>
           {subscription.status === 'active' && !subscription.cancel_at_period_end && (
             <View style={styles.periodItem}>
-              <Ionicons name="time-outline" size={16} color={COLORS.gray} />
+              <Ionicons name="time-outline" size={16} color={colors.gray} />
               <Text style={styles.periodText}>{daysRemaining} days left</Text>
             </View>
           )}
@@ -240,7 +231,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
             style={styles.actionButton}
             onPress={() => navigation.navigate('BusinessProfile', { businessId: subscription.business.id })}
           >
-            <Ionicons name="eye-outline" size={18} color="#fff" />
+            <Ionicons name="eye-outline" size={18} color={colors.dark} />
             <Text style={styles.actionButtonText}>View</Text>
           </TouchableOpacity>
 
@@ -259,7 +250,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
               style={[styles.actionButton, styles.reactivateButton]}
               onPress={() => handleReactivate(subscription)}
             >
-              <Ionicons name="refresh-outline" size={18} color={COLORS.primary} />
+              <Ionicons name="refresh-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionButtonText, styles.reactivateButtonText]}>Reactivate</Text>
             </TouchableOpacity>
           )}
@@ -271,20 +262,18 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
-
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Subscriptions</Text>
           <View style={{ width: 40 }} />
@@ -297,7 +286,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor={COLORS.primary}
+              tintColor={colors.primary}
             />
           }
         >
@@ -330,7 +319,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
           {/* Subscriptions List */}
           {subscriptions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="card-outline" size={64} color={COLORS.gray} />
+              <Ionicons name="card-outline" size={64} color={colors.gray} />
               <Text style={styles.emptyTitle}>No Subscriptions</Text>
               <Text style={styles.emptySubtitle}>
                 Subscribe to gyms, studios, and more to see them here
@@ -357,10 +346,10 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: any 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -369,7 +358,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -384,14 +373,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   content: {
@@ -402,7 +391,7 @@ const styles = StyleSheet.create({
   // Stats
   statsCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -414,16 +403,16 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
   },
   statLabel: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.border,
     marginHorizontal: 20,
   },
 
@@ -432,7 +421,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   subscriptionCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 18,
   },
@@ -467,12 +456,12 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 2,
   },
   planName: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -508,7 +497,7 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   priceRow: {
@@ -518,11 +507,11 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
   },
   period: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 2,
   },
   sessionsInfo: {
@@ -530,20 +519,20 @@ const styles = StyleSheet.create({
   },
   sessionsLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   sessionsCount: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   periodInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
     marginBottom: 16,
   },
   periodItem: {
@@ -553,7 +542,7 @@ const styles = StyleSheet.create({
   },
   periodText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   cardActions: {
     flexDirection: 'row',
@@ -564,7 +553,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
@@ -572,7 +561,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   cancelButton: {
     backgroundColor: 'rgba(255,59,48,0.1)',
@@ -584,7 +573,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(14,191,138,0.1)',
   },
   reactivateButtonText: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Empty State
@@ -596,11 +585,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -615,6 +604,6 @@ const styles = StyleSheet.create({
   discoverButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 });

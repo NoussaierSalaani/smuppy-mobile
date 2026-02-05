@@ -4,7 +4,7 @@
  * Integrated with app categories (Fitness, Wellness, Sports, etc.)
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Dimensions,
   FlatList,
   RefreshControl,
-  ActivityIndicator,
   TextInput,
   Modal,
   ScrollView,
@@ -27,13 +26,15 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
+import { GRADIENTS } from '../../config/theme';
+import { awsAPI } from '../../services/aws-api';
+import { useCurrency } from '../../hooks/useCurrency';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { MapListSkeleton } from '../../components/skeleton';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
-import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
-import { awsAPI } from '../../services/aws-api';
-import { useCurrency } from '../../hooks/useCurrency';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width - 48;
@@ -87,15 +88,8 @@ interface Business {
   highlights?: string[];
 }
 
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#0e1626' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
-];
-
-export default function BusinessDiscoveryScreen({ navigation }: { navigation: any }) {
+export default function BusinessDiscoveryScreen({ navigation }: { navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void } }) {
+  const { colors, isDark } = useTheme();
   const { formatAmount: _formatAmount } = useCurrency();
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -113,9 +107,11 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
   const [filterRating, setFilterRating] = useState<number>(0);
   const [filterPriceRange, setFilterPriceRange] = useState<string[]>([]);
 
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapView>(null);
   const flatListRef = useRef<FlatList>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     getUserLocation();
@@ -123,6 +119,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
 
   useEffect(() => {
     loadBusinesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, userLocation, filterOpen, filterRating, filterPriceRange]);
 
   const getUserLocation = async () => {
@@ -136,13 +133,13 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         lng: location.coords.longitude,
       });
     } catch (error) {
-      console.error('Get location error:', error);
+      if (__DEV__) console.warn('Get location error:', error);
     }
   };
 
   const loadBusinesses = async () => {
     try {
-      const params: any = {
+      const params: Record<string, unknown> = {
         limit: 30,
       };
 
@@ -178,7 +175,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         setBusinesses(response.businesses || []);
       }
     } catch (error) {
-      console.error('Load businesses error:', error);
+      if (__DEV__) console.warn('Load businesses error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -193,6 +190,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
   const handleSearch = useCallback(() => {
     setIsLoading(true);
     loadBusinesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const handleSelectCategory = (category: BusinessCategory) => {
@@ -237,7 +235,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         activeOpacity={0.8}
       >
         <View style={[styles.categoryChipIcon, { backgroundColor: category.color + '20' }]}>
-          <Ionicons name={category.icon as any} size={14} color={isSelected ? category.color : COLORS.gray} />
+          <Ionicons name={category.icon as keyof typeof Ionicons.glyphMap} size={14} color={isSelected ? category.color : colors.gray} />
         </View>
         <Text style={[styles.categoryChipText, isSelected && { color: category.color }]}>
           {category.name}
@@ -290,7 +288,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
             {/* Badges */}
             <View style={styles.cardBadges}>
               <View style={[styles.categoryBadge, { backgroundColor: item.category.color }]}>
-                <Ionicons name={item.category.icon as any} size={10} color="#fff" />
+                <Ionicons name={item.category.icon as keyof typeof Ionicons.glyphMap} size={10} color="#fff" />
                 <Text style={styles.categoryBadgeText}>{item.category.name}</Text>
               </View>
               {item.is_verified && (
@@ -318,8 +316,6 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
               </Text>
             </View>
 
-            <Text style={styles.cardUsername}>@{item.username}</Text>
-
             {/* Rating & Location */}
             <View style={styles.cardMeta}>
               <View style={styles.cardMetaItem}>
@@ -330,7 +326,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
               </View>
               <View style={styles.cardMetaDivider} />
               <View style={styles.cardMetaItem}>
-                <Ionicons name="location-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="location-outline" size={14} color={colors.gray} />
                 <Text style={styles.cardLocationText}>
                   {item.location.distance_km
                     ? `${item.location.distance_km.toFixed(1)} km`
@@ -353,7 +349,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
             {/* Footer */}
             <View style={styles.cardFooter}>
               <View style={styles.cardFollowers}>
-                <Ionicons name="people-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="people-outline" size={14} color={colors.gray} />
                 <Text style={styles.cardFollowersText}>{item.stats.followers} followers</Text>
               </View>
               <TouchableOpacity
@@ -384,7 +380,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
             selectedBusiness?.id === business.id && styles.mapMarkerSelected,
           ]}
         >
-          <Ionicons name={business.category.icon as any} size={16} color="#fff" />
+          <Ionicons name={business.category.icon as keyof typeof Ionicons.glyphMap} size={16} color="#fff" />
         </View>
       </TouchableOpacity>
     </MarkerView>
@@ -506,9 +502,9 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
                       >
                         <View style={[styles.categoryGridIcon, { backgroundColor: category.color + '20' }]}>
                           <Ionicons
-                            name={category.icon as any}
+                            name={category.icon as keyof typeof Ionicons.glyphMap}
                             size={24}
-                            color={isSelected ? category.color : COLORS.gray}
+                            color={isSelected ? category.color : colors.gray}
                           />
                         </View>
                         <Text style={[
@@ -569,19 +565,19 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={COLORS.gray} />
+            <Ionicons name="search" size={18} color={colors.gray} />
             <TextInput
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search gyms, studios, shops..."
-              placeholderTextColor={COLORS.gray}
+              placeholderTextColor={colors.gray}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={COLORS.gray} />
+                <Ionicons name="close-circle" size={18} color={colors.gray} />
               </TouchableOpacity>
             )}
           </View>
@@ -589,7 +585,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
             style={[styles.filterButton, (filterOpen !== null || filterRating > 0 || filterPriceRange.length > 0) && styles.filterButtonActive]}
             onPress={() => setShowFilters(true)}
           >
-            <Ionicons name="options" size={20} color={filterOpen !== null || filterRating > 0 || filterPriceRange.length > 0 ? COLORS.primary : '#fff'} />
+            <Ionicons name="options" size={20} color={filterOpen !== null || filterRating > 0 || filterPriceRange.length > 0 ? colors.primary : '#fff'} />
           </TouchableOpacity>
         </View>
 
@@ -601,7 +597,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
         >
           {BUSINESS_CATEGORIES.slice(0, 6).map(renderCategoryChip)}
           <TouchableOpacity style={styles.moreChip} onPress={() => setShowFilters(true)}>
-            <Ionicons name="ellipsis-horizontal" size={16} color={COLORS.primary} />
+            <Ionicons name="ellipsis-horizontal" size={16} color={colors.primary} />
             <Text style={styles.moreChipText}>More</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -622,7 +618,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
               setFilterPriceRange([]);
               setIsLoading(true);
             }}>
-              <Ionicons name="close-circle" size={18} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={18} color={colors.gray} />
             </TouchableOpacity>
           </View>
         )}
@@ -672,17 +668,15 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
-                tintColor={COLORS.primary}
+                tintColor={colors.primary}
               />
             }
             ListEmptyComponent={
               isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={COLORS.primary} />
-                </View>
+                <MapListSkeleton />
               ) : (
                 <View style={styles.emptyContainer}>
-                  <Ionicons name="business-outline" size={64} color={COLORS.gray} />
+                  <Ionicons name="business-outline" size={64} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No businesses found</Text>
                   <Text style={styles.emptySubtitle}>Try adjusting your filters</Text>
                 </View>
@@ -698,10 +692,10 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: an
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -719,14 +713,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
   headerActions: {
     flexDirection: 'row',
@@ -736,7 +730,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -755,7 +749,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.cardBg,
     borderRadius: 14,
     paddingHorizontal: 14,
     gap: 10,
@@ -763,14 +757,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#fff',
+    color: colors.dark,
     paddingVertical: 12,
   },
   filterButton: {
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -787,7 +781,7 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -805,7 +799,7 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   moreChip: {
     flexDirection: 'row',
@@ -819,7 +813,7 @@ const styles = StyleSheet.create({
   moreChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Active Filters
@@ -836,7 +830,7 @@ const styles = StyleSheet.create({
   },
   activeFiltersText: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.primary,
     flex: 1,
   },
 
@@ -849,7 +843,7 @@ const styles = StyleSheet.create({
 
   // Business Card
   businessCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     borderRadius: 20,
     overflow: 'hidden',
     width: CARD_WIDTH,
@@ -875,7 +869,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 16,
     borderWidth: 3,
-    borderColor: '#0f0f1a',
+    borderColor: colors.background,
   },
   cardBadges: {
     position: 'absolute',
@@ -895,7 +889,7 @@ const styles = StyleSheet.create({
   categoryBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
   },
   verifiedBadge: {
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -927,7 +921,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
   },
   cardContent: {
     padding: 16,
@@ -942,7 +936,7 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
     flex: 1,
   },
   cardPriceRange: {
@@ -952,7 +946,7 @@ const styles = StyleSheet.create({
   },
   cardUsername: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 12,
   },
   cardMeta: {
@@ -968,7 +962,7 @@ const styles = StyleSheet.create({
   cardMetaDivider: {
     width: 1,
     height: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: colors.grayBorder,
     marginHorizontal: 10,
   },
   starsContainer: {
@@ -977,12 +971,12 @@ const styles = StyleSheet.create({
   },
   cardRatingText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 4,
   },
   cardLocationText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   cardHighlights: {
     flexDirection: 'row',
@@ -991,14 +985,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   highlightChip: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.background,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   highlightText: {
     fontSize: 11,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -1006,7 +1000,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.grayBorder,
   },
   cardFollowers: {
     flexDirection: 'row',
@@ -1015,7 +1009,7 @@ const styles = StyleSheet.create({
   },
   cardFollowersText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   viewButton: {
     borderRadius: 10,
@@ -1028,7 +1022,7 @@ const styles = StyleSheet.create({
   viewButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
 
   // Map
@@ -1045,11 +1039,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: colors.white,
   },
   mapMarkerSelected: {
     transform: [{ scale: 1.2 }],
-    shadowColor: '#000',
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1082,11 +1076,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Filters Modal
@@ -1122,17 +1116,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.grayBorder,
   },
   filtersTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
   filtersClear: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   filtersContent: {
     padding: 20,
@@ -1144,7 +1138,7 @@ const styles = StyleSheet.create({
   filterSectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 12,
   },
   filterOptions: {
@@ -1155,21 +1149,21 @@ const styles = StyleSheet.create({
   filterOption: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   filterOptionActive: {
     backgroundColor: 'rgba(14,191,138,0.15)',
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   filterOptionText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   filterOptionTextActive: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   categoriesGrid: {
@@ -1181,13 +1175,13 @@ const styles = StyleSheet.create({
     width: (width - 60) / 3,
     alignItems: 'center',
     padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.cardBg,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   categoryGridItemSelected: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.background,
   },
   categoryGridIcon: {
     width: 44,
@@ -1200,14 +1194,14 @@ const styles = StyleSheet.create({
   categoryGridText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
   filtersFooter: {
     padding: 20,
     paddingBottom: 40,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.grayBorder,
   },
   applyButton: {
     borderRadius: 14,
@@ -1220,6 +1214,6 @@ const styles = StyleSheet.create({
   applyButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
 });

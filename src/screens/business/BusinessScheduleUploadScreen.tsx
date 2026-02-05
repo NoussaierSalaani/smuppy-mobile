@@ -3,7 +3,7 @@
  * AI-powered program/schedule extraction from PDF or images
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   Animated,
   Modal,
@@ -22,12 +21,14 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import type { IconName } from '../../types';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 interface ExtractedActivity {
@@ -52,7 +53,7 @@ interface UploadedFile {
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const ACTIVITY_CATEGORIES = [
+const getActivityCategories = (colors: ThemeColors) => [
   { id: 'fitness', name: 'Fitness', icon: 'barbell' as IconName, color: '#E74C3C' },
   { id: 'yoga', name: 'Yoga', icon: 'body' as IconName, color: '#9B59B6' },
   { id: 'cardio', name: 'Cardio', icon: 'heart' as IconName, color: '#FF6B35' },
@@ -60,10 +61,12 @@ const ACTIVITY_CATEGORIES = [
   { id: 'dance', name: 'Dance', icon: 'musical-notes' as IconName, color: '#E91E63' },
   { id: 'swimming', name: 'Swimming', icon: 'water' as IconName, color: '#00BCD4' },
   { id: 'martial_arts', name: 'Martial Arts', icon: 'flash' as IconName, color: '#FF5722' },
-  { id: 'other', name: 'Other', icon: 'ellipse' as IconName, color: COLORS.gray },
+  { id: 'other', name: 'Other', icon: 'ellipse' as IconName, color: colors.gray },
 ];
 
 export default function BusinessScheduleUploadScreen({ navigation }: Props) {
+  const { showError, showAlert, showSuccess: _showSuccess } = useSmuppyAlert();
+  const { colors, isDark } = useTheme();
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -75,8 +78,14 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const ACTIVITY_CATEGORIES = useMemo(() => getActivityCategories(colors), [colors]);
+
+  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
   const startPulseAnimation = () => {
-    Animated.loop(
+    if (pulseAnimRef.current) pulseAnimRef.current.stop();
+    pulseAnimRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.05,
@@ -89,15 +98,22 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulseAnimRef.current.start();
   };
+
+  useEffect(() => {
+    return () => {
+      if (pulseAnimRef.current) pulseAnimRef.current.stop();
+    };
+  }, []);
 
   const handlePickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      showError('Permission Required', 'Please allow access to your photo library');
       return;
     }
 
@@ -123,7 +139,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your camera');
+      showError('Permission Required', 'Please allow access to your camera');
       return;
     }
 
@@ -147,15 +163,15 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // PDF support requires additional setup
     // For now, suggest using image instead
-    Alert.alert(
-      'PDF Support Coming Soon',
-      'For now, please take a photo or select an image of your schedule. PDF support will be available in a future update.',
-      [
+    showAlert({
+      title: 'PDF Support Coming Soon',
+      message: 'For now, please take a photo or select an image of your schedule. PDF support will be available in a future update.',
+      buttons: [
         { text: 'Take Photo', onPress: handleTakePhoto },
         { text: 'Select Image', onPress: handlePickImage },
         { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+      ],
+    });
   };
 
   const handleAnalyze = async () => {
@@ -173,12 +189,12 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
       useNativeDriver: false,
     }).start();
 
-    try {
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setAnalysisProgress((prev) => Math.min(prev + 10, 90));
-      }, 800);
+    // Simulate progress updates
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress((prev) => Math.min(prev + 10, 90));
+    }, 800);
 
+    try {
       // Call AI analysis API
       const response = await awsAPI.analyzeScheduleDocument({
         fileUri: uploadedFile.uri,
@@ -190,36 +206,30 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
       setAnalysisProgress(100);
 
       if (response.success && response.activities) {
-        const activities = response.activities.map((a: any, index: number) => ({
-          ...a,
+        const activities: ExtractedActivity[] = response.activities.map((a: Record<string, unknown>, index: number) => ({
+          name: String(a.name || ''),
+          day: String(a.day || ''),
+          startTime: String(a.startTime || ''),
+          endTime: String(a.endTime || ''),
+          instructor: a.instructor ? String(a.instructor) : undefined,
+          description: a.description ? String(a.description) : undefined,
+          category: a.category ? String(a.category) : undefined,
           id: `activity_${index}`,
           selected: true,
-          confidence: a.confidence || 0.85,
+          confidence: Number(a.confidence) || 0.85,
         }));
         setExtractedActivities(activities);
         setStep('review');
       } else {
-        // Demo data for testing
-        const demoActivities: ExtractedActivity[] = [
-          { id: '1', name: 'Morning Yoga', day: 'Monday', startTime: '07:00', endTime: '08:00', instructor: 'Sarah', category: 'yoga', confidence: 0.95, selected: true },
-          { id: '2', name: 'HIIT Training', day: 'Monday', startTime: '09:00', endTime: '10:00', instructor: 'Mike', category: 'cardio', confidence: 0.92, selected: true },
-          { id: '3', name: 'Strength Training', day: 'Monday', startTime: '11:00', endTime: '12:00', category: 'strength', confidence: 0.88, selected: true },
-          { id: '4', name: 'Pilates', day: 'Tuesday', startTime: '08:00', endTime: '09:00', instructor: 'Lisa', category: 'fitness', confidence: 0.91, selected: true },
-          { id: '5', name: 'Spinning Class', day: 'Tuesday', startTime: '10:00', endTime: '11:00', category: 'cardio', confidence: 0.89, selected: true },
-          { id: '6', name: 'Evening Yoga', day: 'Tuesday', startTime: '18:00', endTime: '19:00', instructor: 'Sarah', category: 'yoga', confidence: 0.94, selected: true },
-          { id: '7', name: 'CrossFit', day: 'Wednesday', startTime: '06:00', endTime: '07:00', instructor: 'John', category: 'fitness', confidence: 0.87, selected: true },
-          { id: '8', name: 'Zumba', day: 'Wednesday', startTime: '17:00', endTime: '18:00', category: 'dance', confidence: 0.90, selected: true },
-          { id: '9', name: 'Boxing', day: 'Thursday', startTime: '12:00', endTime: '13:00', instructor: 'Tom', category: 'martial_arts', confidence: 0.86, selected: true },
-          { id: '10', name: 'Pool Aquagym', day: 'Friday', startTime: '09:00', endTime: '10:00', category: 'swimming', confidence: 0.93, selected: true },
-        ];
-        setExtractedActivities(demoActivities);
-        setStep('review');
+        setExtractedActivities([]);
+        showError('No Data', 'Could not extract activities from the document. Please try a different file.');
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      console.error('Analysis error:', error);
-      Alert.alert('Analysis Failed', 'Could not analyze the document. Please try again.');
+      clearInterval(progressInterval);
+      if (__DEV__) console.warn('Analysis error:', error);
+      showError('Analysis Failed', 'Could not analyze the document. Please try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsAnalyzing(false);
@@ -247,7 +257,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   const handleSaveSchedule = async () => {
     const selectedActivities = extractedActivities.filter((a) => a.selected);
     if (selectedActivities.length === 0) {
-      Alert.alert('No Activities Selected', 'Please select at least one activity to save');
+      showError('No Activities Selected', 'Please select at least one activity to save');
       return;
     }
 
@@ -269,23 +279,25 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Schedule Imported',
-          `Successfully imported ${selectedActivities.length} activities to your schedule.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
+        showAlert({
+          title: 'Schedule Imported',
+          message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
+          type: 'success',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+        });
       } else {
         // Demo success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Schedule Imported',
-          `Successfully imported ${selectedActivities.length} activities to your schedule.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
+        showAlert({
+          title: 'Schedule Imported',
+          message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
+          type: 'success',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+        });
       }
     } catch (error) {
-      console.error('Save schedule error:', error);
-      Alert.alert('Error', 'Failed to save schedule. Please try again.');
+      if (__DEV__) console.warn('Save schedule error:', error);
+      showError('Error', 'Failed to save schedule. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -350,7 +362,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
             <Ionicons
               name={uploadedFile.type === 'pdf' ? 'document' : 'image'}
               size={24}
-              color={COLORS.primary}
+              color={colors.primary}
             />
             <View style={styles.filePreviewInfo}>
               <Text style={styles.filePreviewName} numberOfLines={1}>
@@ -361,7 +373,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
               </Text>
             </View>
             <TouchableOpacity onPress={() => setUploadedFile(null)}>
-              <Ionicons name="close-circle" size={24} color={COLORS.gray} />
+              <Ionicons name="close-circle" size={24} color={colors.gray} />
             </TouchableOpacity>
           </View>
 
@@ -390,7 +402,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
       {isAnalyzing && (
         <Animated.View style={[styles.analyzingContainer, { transform: [{ scale: pulseAnim }] }]}>
           <View style={styles.analyzingIconContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
           <Text style={styles.analyzingTitle}>Analyzing Document...</Text>
           <Text style={styles.analyzingProgress}>{analysisProgress}%</Text>
@@ -500,14 +512,14 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
                         <Text style={styles.activityName}>{activity.name}</Text>
                         <View style={styles.activityMeta}>
                           <View style={styles.activityMetaItem}>
-                            <Ionicons name="time-outline" size={12} color={COLORS.gray} />
+                            <Ionicons name="time-outline" size={12} color={colors.gray} />
                             <Text style={styles.activityMetaText}>
                               {activity.startTime} - {activity.endTime}
                             </Text>
                           </View>
                           {activity.instructor && (
                             <View style={styles.activityMetaItem}>
-                              <Ionicons name="person-outline" size={12} color={COLORS.gray} />
+                              <Ionicons name="person-outline" size={12} color={colors.gray} />
                               <Text style={styles.activityMetaText}>{activity.instructor}</Text>
                             </View>
                           )}
@@ -567,7 +579,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.backgroundSecondary, colors.background]} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
@@ -612,10 +624,10 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -640,7 +652,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   stepContainer: {
@@ -666,12 +678,12 @@ const styles = StyleSheet.create({
   uploadTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   uploadSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -700,12 +712,12 @@ const styles = StyleSheet.create({
   uploadOptionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   uploadOptionDesc: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // File Preview
@@ -729,11 +741,11 @@ const styles = StyleSheet.create({
   filePreviewName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   filePreviewType: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   filePreviewImage: {
     width: '100%',
@@ -765,7 +777,7 @@ const styles = StyleSheet.create({
   analyzeButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Analyzing
@@ -782,13 +794,13 @@ const styles = StyleSheet.create({
   analyzingTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   analyzingProgress: {
     fontSize: 32,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: 16,
   },
   progressBar: {
@@ -801,12 +813,12 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 3,
   },
   analyzingHint: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
 
@@ -818,7 +830,7 @@ const styles = StyleSheet.create({
   },
   supportedTitle: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 10,
   },
   formatTags: {
@@ -834,7 +846,7 @@ const styles = StyleSheet.create({
   formatTagText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
 
   // Review Step
@@ -844,12 +856,12 @@ const styles = StyleSheet.create({
   reviewTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   reviewSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 12,
   },
   selectionActions: {
@@ -865,7 +877,7 @@ const styles = StyleSheet.create({
   selectionButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
 
   activitiesScroll: {
@@ -877,7 +889,7 @@ const styles = StyleSheet.create({
   dayTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: 10,
   },
   activityCard: {
@@ -899,14 +911,14 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: COLORS.gray,
+    borderColor: colors.gray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   activityCheckboxSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   activityIcon: {
     width: 36,
@@ -922,7 +934,7 @@ const styles = StyleSheet.create({
   activityName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   activityMeta: {
@@ -936,7 +948,7 @@ const styles = StyleSheet.create({
   },
   activityMetaText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   confidenceBadge: {
     flexDirection: 'row',
@@ -950,7 +962,7 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Bottom Action
@@ -974,7 +986,7 @@ const styles = StyleSheet.create({
   },
   bottomInfoText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   saveButton: {
     borderRadius: 14,
@@ -993,7 +1005,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Preview Modal

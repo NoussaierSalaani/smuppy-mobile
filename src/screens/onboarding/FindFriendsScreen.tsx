@@ -1,12 +1,14 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
+import { SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { awsAPI } from '../../services/aws-api';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface FindFriendsScreenProps {
   navigation: {
@@ -15,13 +17,17 @@ interface FindFriendsScreenProps {
 }
 
 export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps) {
+  const { colors, isDark } = useTheme();
+  const { showError, showAlert } = useSmuppyAlert();
   const [loading, setLoading] = useState(false);
   const [friendsFound, setFriendsFound] = useState<number | null>(null);
 
-  const handleClose = () => {
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  const handleClose = useCallback(() => {
     storage.set(STORAGE_KEYS.FIND_FRIENDS_SHOWN, 'true');
     navigation.goBack();
-  };
+  }, [navigation]);
 
   const handleFindFriends = useCallback(async () => {
     if (loading) return;
@@ -31,11 +37,12 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
       const { status } = await Contacts.requestPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'To find your friends on Smuppy, we need access to your contacts. You can enable this later in Settings.',
-          [{ text: 'OK', onPress: handleClose }]
-        );
+        showAlert({
+          title: 'Permission Required',
+          message: 'To find your friends on Smuppy, we need access to your contacts. You can enable this later in Settings.',
+          type: 'warning',
+          buttons: [{ text: 'OK', onPress: handleClose }],
+        });
         setLoading(false);
         return;
       }
@@ -49,7 +56,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
       });
 
       if (!contactsData || contactsData.length === 0) {
-        Alert.alert('No Contacts', 'We couldn\'t find any contacts on your device.');
+        showError('No Contacts', 'We couldn\'t find any contacts on your device.');
         setLoading(false);
         handleClose();
         return;
@@ -76,23 +83,24 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
         throw new Error('Failed to sync contacts');
       }
     } catch (error) {
-      console.error('[FindFriends] Error:', error);
-      Alert.alert(
-        'Error',
-        'Something went wrong. You can try again later from Settings.',
-        [{ text: 'Continue', onPress: handleClose }]
-      );
+      if (__DEV__) console.warn('[FindFriends] Error:', error);
+      showAlert({
+        title: 'Error',
+        message: 'Something went wrong. You can try again later from Settings.',
+        type: 'error',
+        buttons: [{ text: 'Continue', onPress: handleClose }],
+      });
     } finally {
       setLoading(false);
     }
-  }, [loading, navigation]);
+  }, [loading, navigation, handleClose, showAlert, showError]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with close button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose} style={styles.closeBtn} disabled={loading}>
-          <Ionicons name="close" size={28} color={COLORS.dark} />
+          <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
@@ -100,7 +108,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
         {/* Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
-            <Ionicons name="people" size={60} color={COLORS.primary} />
+            <Ionicons name="people" size={60} color={colors.primary} />
           </View>
         </View>
 
@@ -116,7 +124,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
             <Ionicons
               name={friendsFound > 0 ? "checkmark-circle" : "information-circle"}
               size={48}
-              color={friendsFound > 0 ? COLORS.success : COLORS.primary}
+              color={friendsFound > 0 ? colors.success : colors.primary}
             />
             <Text style={styles.resultText}>
               {friendsFound > 0
@@ -130,15 +138,15 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
         {friendsFound === null && !loading && (
           <View style={styles.featuresList}>
             <View style={styles.featureItem}>
-              <Ionicons name="shield-checkmark" size={24} color={COLORS.success} />
+              <Ionicons name="shield-checkmark" size={24} color={colors.success} />
               <Text style={styles.featureText}>Your contacts are hashed for privacy</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="notifications" size={24} color={COLORS.primary} />
+              <Ionicons name="notifications" size={24} color={colors.primary} />
               <Text style={styles.featureText}>Get notified when friends join</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="lock-closed" size={24} color={COLORS.dark} />
+              <Ionicons name="lock-closed" size={24} color={colors.dark} />
               <Text style={styles.featureText}>We never spam your contacts</Text>
             </View>
           </View>
@@ -147,7 +155,7 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
         {/* Loading */}
         {loading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Syncing contacts...</Text>
           </View>
         )}
@@ -183,31 +191,31 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm },
   closeBtn: { padding: SPACING.xs },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
 
   iconContainer: { alignItems: 'center', marginBottom: SPACING.xl },
-  iconCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: `${COLORS.primary}15`, justifyContent: 'center', alignItems: 'center' },
+  iconCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: `${colors.primary}15`, justifyContent: 'center', alignItems: 'center' },
 
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center', marginBottom: SPACING.sm },
-  subtitle: { fontSize: 16, color: COLORS.darkGray, textAlign: 'center', lineHeight: 24, marginBottom: SPACING.xl },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: colors.dark, textAlign: 'center', marginBottom: SPACING.sm },
+  subtitle: { fontSize: 16, color: colors.darkGray, textAlign: 'center', lineHeight: 24, marginBottom: SPACING.xl },
 
   featuresList: { marginTop: SPACING.lg },
   featureItem: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.lg, paddingHorizontal: SPACING.md },
-  featureText: { fontSize: 15, color: COLORS.dark, marginLeft: SPACING.md, flex: 1 },
+  featureText: { fontSize: 15, color: colors.dark, marginLeft: SPACING.md, flex: 1 },
 
   loadingContainer: { alignItems: 'center', marginTop: SPACING.xl },
-  loadingText: { fontSize: 16, color: COLORS.darkGray, marginTop: SPACING.md },
+  loadingText: { fontSize: 16, color: colors.darkGray, marginTop: SPACING.md },
 
-  resultContainer: { alignItems: 'center', marginTop: SPACING.xl, padding: SPACING.xl, backgroundColor: COLORS.backgroundFocus, borderRadius: SIZES.radiusLg },
-  resultText: { fontSize: 18, fontWeight: '600', color: COLORS.dark, textAlign: 'center', marginTop: SPACING.md },
+  resultContainer: { alignItems: 'center', marginTop: SPACING.xl, padding: SPACING.xl, backgroundColor: colors.backgroundFocus, borderRadius: SIZES.radiusLg },
+  resultText: { fontSize: 18, fontWeight: '600', color: colors.dark, textAlign: 'center', marginTop: SPACING.md },
 
   spacer: { flex: 1 },
 
   btnContainer: { marginBottom: SPACING.lg },
   skipBtn: { alignItems: 'center', paddingVertical: SPACING.lg },
-  skipText: { fontSize: 16, color: COLORS.darkGray, textDecorationLine: 'underline' },
+  skipText: { fontSize: 16, color: colors.darkGray, textDecorationLine: 'underline' },
 });

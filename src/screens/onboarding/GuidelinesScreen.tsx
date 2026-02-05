@@ -1,8 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
+import { TYPOGRAPHY, SIZES, SPACING } from '../../config/theme';
 import Button from '../../components/Button';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import OnboardingHeader from '../../components/OnboardingHeader';
@@ -12,6 +11,8 @@ import { uploadProfileImage } from '../../services/imageUpload';
 import { useUserStore } from '../../stores';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface GuidelinesScreenProps {
   navigation: {
@@ -25,27 +26,31 @@ interface GuidelinesScreenProps {
 }
 
 export default function GuidelinesScreen({ navigation, route }: GuidelinesScreenProps) {
+  const { colors, isDark } = useTheme();
   const params = useMemo(() => route?.params || {}, [route?.params]);
   const { accountType } = params;
-  const { onProfileCreated } = useAuthCallbacks();
+  const { onProfileCreated: _onProfileCreated } = useAuthCallbacks();
+  const { showError } = useSmuppyAlert();
   const { goBack, disabled } = usePreventDoubleNavigation(navigation);
   const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState('');
   const setZustandUser = useUserStore((state) => state.setUser);
 
   const { currentStep, totalSteps } = useMemo(() => {
+    if (accountType === 'pro_creator') return { currentStep: 4, totalSteps: 4 };
+    // personal (3/3) and pro_business (3/3)
     return { currentStep: 3, totalSteps: 3 };
   }, [accountType]);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleAccept = useCallback(async () => {
     if (isCreating) return;
     setIsCreating(true);
-    setError('');
 
     try {
       const currentUser = await backend.getCurrentUser();
       if (!currentUser) {
-        setError('Not authenticated. Please try again.');
+        showError('Error', 'Not authenticated. Please try again.');
         setIsCreating(false);
         return;
       }
@@ -56,14 +61,19 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         displayName, bio, website, socialLinks, expertise,
         businessCategory, businessCategoryCustom, locationsMode,
         businessName, businessAddress,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } = params as Record<string, any>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const businessLatitude = (params as Record<string, any>).businessLatitude;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const businessLongitude = (params as Record<string, any>).businessLongitude;
 
       const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
       const generatedUsername = `${baseUsername}_${Math.floor(Math.random() * 1000000)}`;
       const profileData: Record<string, unknown> = {
         full_name: name || displayName || generatedUsername,
         username: generatedUsername,
-        account_type: accountType || 'personal',
+        account_type: (accountType && ['personal', 'pro_creator', 'pro_business'].includes(accountType)) ? accountType : 'personal',
       };
 
       if (gender) profileData.gender = gender;
@@ -75,22 +85,26 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       if (interests && interests.length > 0) profileData.interests = interests;
       if (expertise && expertise.length > 0) profileData.expertise = expertise;
       if (businessName) profileData.business_name = businessName;
-      if (businessCategory) profileData.business_category = businessCategory === 'Other' ? businessCategoryCustom : businessCategory;
+      if (businessCategory) profileData.business_category = businessCategory === 'other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;
+      const lat = typeof businessLatitude === 'number' && isFinite(businessLatitude) && Math.abs(businessLatitude) <= 90 ? businessLatitude : undefined;
+      const lon = typeof businessLongitude === 'number' && isFinite(businessLongitude) && Math.abs(businessLongitude) <= 180 ? businessLongitude : undefined;
+      if (lat != null) profileData.business_latitude = lat;
+      if (lon != null) profileData.business_longitude = lon;
       if (locationsMode) profileData.locations_mode = locationsMode;
 
       // Create profile with retries
       let profileCreated = false;
       let retryCount = 0;
-      let lastError = '';
+      let _lastError = '';
       const maxRetries = 2;
 
       while (!profileCreated && retryCount < maxRetries) {
         try {
           const { error: profileError } = await createProfile(profileData);
           if (profileError) {
-            console.error('[Guidelines] Profile creation error:', profileError);
-            lastError = profileError;
+            if (__DEV__) console.warn('[Guidelines] Profile creation error:', profileError);
+            _lastError = profileError;
             retryCount++;
             if (retryCount < maxRetries) {
               await new Promise(resolve => setTimeout(resolve, 1000));
@@ -98,9 +112,9 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           } else {
             profileCreated = true;
           }
-        } catch (retryErr: any) {
-          console.error('[Guidelines] Profile creation exception:', retryErr);
-          lastError = retryErr?.message || String(retryErr);
+        } catch (retryErr: unknown) {
+          if (__DEV__) console.warn('[Guidelines] Profile creation exception:', retryErr);
+          _lastError = (retryErr as Error)?.message || String(retryErr);
           retryCount++;
           if (retryCount < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -109,7 +123,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       }
 
       if (!profileCreated) {
-        setError(lastError || 'Failed to create profile. Please try again.');
+        showError('Error', 'Failed to create profile. Please try again.');
         setIsCreating(false);
         return;
       }
@@ -120,24 +134,26 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       // Update Zustand store
       const userData = {
         id: currentUser.id,
-        fullName: name || displayName || generatedUsername,
-        displayName: displayName || name || generatedUsername,
+        fullName: (name || displayName || generatedUsername) as string,
+        displayName: (displayName || name || generatedUsername) as string,
         email: currentUser.email || '',
-        dateOfBirth: dateOfBirth || '',
-        gender: gender || '',
-        avatar: undefined as string | undefined,
-        bio: bio || '',
+        dateOfBirth: (dateOfBirth || '') as string,
+        gender: (gender || '') as string,
+        avatar: null as string | null,
+        bio: (bio || '') as string,
         username: generatedUsername,
         accountType: (accountType || 'personal') as 'personal' | 'pro_creator' | 'pro_business',
-        interests: interests || [],
-        expertise: expertise || [],
-        website: website || '',
-        socialLinks: socialLinks || {},
-        businessName: businessName || '',
-        businessCategory: businessCategory === 'other' ? (businessCategoryCustom || '') : (businessCategory || ''),
-        businessAddress: businessAddress || '',
+        interests: (Array.isArray(interests) ? interests : []) as string[],
+        expertise: (Array.isArray(expertise) ? expertise : []) as string[],
+        website: (website || '') as string,
+        socialLinks: (socialLinks || {}) as Record<string, string>,
+        businessName: (businessName || '') as string,
+        businessCategory: (businessCategory === 'other' ? (businessCategoryCustom || '') : (businessCategory || '')) as string,
+        businessAddress: (businessAddress || '') as string,
+        businessLatitude: businessLatitude as number | undefined ?? undefined,
+        businessLongitude: businessLongitude as number | undefined ?? undefined,
         businessPhone: '',
-        locationsMode: locationsMode || '',
+        locationsMode: (locationsMode || '') as string,
       };
       setZustandUser(userData);
 
@@ -160,10 +176,10 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         routes: [{ name: 'Success' }],
       });
     } catch {
-      setError('An unexpected error occurred. Please try again.');
+      showError('Error', 'An unexpected error occurred. Please try again.');
       setIsCreating(false);
     }
-  }, [isCreating, params, accountType, navigation, setZustandUser]);
+  }, [isCreating, params, accountType, navigation, setZustandUser, showError]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -174,7 +190,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
 
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <SmuppyLogoFull iconSize={40} textWidth={110} iconVariant="dark" textVariant="dark" />
+          <SmuppyLogoFull iconSize={40} textWidth={110} iconVariant={isDark ? 'white' : 'dark'} textVariant={isDark ? 'white' : 'dark'} />
         </View>
 
         {/* Title */}
@@ -198,7 +214,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.listItem}>✅ Sports and well-being – Fitness, nutrition, relaxation, life balance...</Text>
           <Text style={styles.listItem}>✅ Culture and education – Artistic, historical, heritage, educational discoveries, learning...</Text>
           <Text style={styles.listItem}>✅ Entertainment and leisure – Enriching activities, sports challenges, creative content...</Text>
-          <Text style={styles.listItem}>✅ Science and innovation – Sharing scientific and technological knowledge.</Text>
+          <Text style={styles.listItem}>✅ Sports science and health innovation – Sharing knowledge on performance, recovery, and wellness technology.</Text>
           <Text style={styles.listItem}>✅ Intellectual growth and motivation – Inspiring content, positive mindset, and personal development...</Text>
           <Text style={styles.textBold}>We strictly prohibit any content that promotes negativity, incites hatred, and/or creates anxiety.</Text>
         </View>
@@ -210,11 +226,11 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.subTitle}>🔹 Allowed professional content:</Text>
           <Text style={styles.listItem}>✅ Promotion of services, products, or events related to Sports, Health, fitness, wellness, education, culture, science, and/or personal growth.</Text>
           <Text style={styles.listItem}>✅ Collaborations with brands, sponsorships, or ambassador programs in the authorized domains.</Text>
-          <Text style={styles.listItem}>✅ Educational and informative content that enhances the Smuppy community's knowledge and experience. And provides real values to users.</Text>
+          <Text style={styles.listItem}>✅ Educational and informative content that enhances the Smuppy community's knowledge and experience, providing real value to users.</Text>
           <Text style={styles.subTitle}>🔹 Prohibited professional content:</Text>
           <Text style={styles.listItem}>🚫 Aggressive or deceptive advertising like "This program guarantees weight loss in 7 days"</Text>
           <Text style={styles.listItem}>🚫 Unverified or misleading information on health, fitness, nutrition...</Text>
-          <Text style={styles.listItem}>🚫 Promotion of products or services outside the authorized fields (politics, finance, crypto, etc.).</Text>
+          <Text style={styles.listItem}>🚫 Promotion of speculative financial products, gambling, cryptocurrency trading, or any content unrelated to wellness, sports, culture, or education.</Text>
           <Text style={styles.textUnderline}>All professional content must remain informative, ethical, and aligned with Smuppy's mission.</Text>
         </View>
 
@@ -226,7 +242,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.listItem}>🚫 Politics and conflicts – No political news, international conflicts, or partisan debates.</Text>
           <Text style={styles.listItem}>🚫 Anxiety-inducing content – No alarming information, fake news, or conspiracy theories.</Text>
           <Text style={styles.listItem}>🚫 Discrimination, intolerance and prejudice – No racism, sexism, homophobia, intolerance or exclusionary content.</Text>
-          <Text style={styles.listItem}>🚫 Misinformation and pseudoscience – Prohibited from sharing unproven medical, sports, or scientific advice.</Text>
+          <Text style={styles.listItem}>🚫 Misinformation and pseudoscience – Sharing unproven medical, sports, or scientific advice is prohibited.</Text>
           <Text style={styles.listItem}>🚫 Illegal content – Defamation, fraud, child exploitation, identity theft, hacking.</Text>
           <Text style={styles.textBold}>Smuppy is a positive digital safe space, dedicated to physical, mental, and cultural well-being.</Text>
         </View>
@@ -251,7 +267,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
           <Text style={styles.bulletItem}>• A warning.</Text>
           <Text style={styles.bulletItem}>• A temporary suspension of the account.</Text>
           <Text style={styles.bulletItem}>• A permanent ban from the platform.</Text>
-          <Text style={styles.text}>Any sanctioned user has 7 days to contest a decision by emailing [contact support]. Smuppy commits to reviewing each request within 10 business days.</Text>
+          <Text style={styles.text}>Any sanctioned user has 7 days to contest a decision by emailing support@smuppy.com. Smuppy commits to reviewing each request within 5 business days.</Text>
           <Text style={styles.text}>Professional accounts found to repeatedly violate content guidelines may also be demonetized or restricted from promoting their services on Smuppy.</Text>
         </View>
 
@@ -271,23 +287,15 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         <View style={styles.conclusionBox}>
           <Text style={styles.conclusionTitle}>CONCLUSION</Text>
           <Text style={styles.conclusionText}>Smuppy is a space for motivation, well-being, and positive exchanges. Whether you are an individual user or a professional, you contribute to building an inspiring, uplifting, and valuable community.</Text>
-          <Text style={styles.conclusionHighlight}>By joining Smuppy, you become an ambassador for well-being, culture, and positivity! 🌟</Text>
+          <Text style={styles.conclusionHighlight}>By joining Smuppy, you become an ambassador for well-being, culture, and positivity.</Text>
         </View>
-
-        {/* Error */}
-        {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color={COLORS.error} />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
 
         {/* Accept Button */}
         <View style={styles.btnContainer}>
           {isCreating ? (
             <View style={styles.creatingBox}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={styles.creatingText}>Creating your profile...</Text>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.creatingText, { color: colors.primary }]}>Creating your profile...</Text>
             </View>
           ) : (
             <Button variant="primary" size="lg" icon="checkmark" iconPosition="right" disabled={disabled || isCreating} onPress={handleAccept}>
@@ -300,30 +308,28 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING['3xl'] },
   logoContainer: { alignItems: 'center', marginBottom: SPACING.lg },
-  title: { fontSize: 32, fontWeight: '900', color: '#111214', textAlign: 'left', marginBottom: SPACING.xs, lineHeight: 38 },
-  subtitle: { fontSize: 16, fontWeight: '400', color: '#111214', textAlign: 'left', marginBottom: SPACING.xl },
-  intro: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 24, marginBottom: SPACING.lg },
-  introBold: { fontWeight: '700', color: '#111214' },
+  title: { fontSize: 32, fontWeight: '900', color: colors.dark, textAlign: 'left', marginBottom: SPACING.xs, lineHeight: 38 },
+  subtitle: { fontSize: 16, fontWeight: '400', color: colors.dark, textAlign: 'left', marginBottom: SPACING.xl },
+  intro: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 24, marginBottom: SPACING.lg },
+  introBold: { fontWeight: '700', color: colors.dark },
   section: { marginBottom: SPACING.xl },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#111214', marginBottom: SPACING.sm },
-  text: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 24, marginBottom: SPACING.sm },
-  textBold: { fontSize: 15, fontWeight: '700', color: '#111214', lineHeight: 24, marginTop: SPACING.sm },
-  textUnderline: { fontSize: 14, color: COLORS.dark, fontWeight: '500', textDecorationLine: 'underline', lineHeight: 22, marginTop: SPACING.sm },
-  subTitle: { fontSize: 15, fontWeight: '700', color: '#111214', marginTop: SPACING.md, marginBottom: SPACING.xs },
-  listItem: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 24, marginLeft: SPACING.xs, marginBottom: 4 },
-  bulletItem: { fontSize: 15, fontWeight: '400', color: '#111214', lineHeight: 22, marginLeft: SPACING.xl, marginBottom: 2 },
-  conclusionBox: { backgroundColor: COLORS.backgroundFocus, borderRadius: SIZES.radiusLg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.primary },
-  conclusionTitle: { ...TYPOGRAPHY.subtitle, color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm, textDecorationLine: 'underline' },
-  conclusionText: { ...TYPOGRAPHY.bodySmall, color: COLORS.dark, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.sm },
-  conclusionHighlight: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '700', textAlign: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.dark, marginBottom: SPACING.sm },
+  text: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 24, marginBottom: SPACING.sm },
+  textBold: { fontSize: 15, fontWeight: '700', color: colors.dark, lineHeight: 24, marginTop: SPACING.sm },
+  textUnderline: { fontSize: 14, color: colors.dark, fontWeight: '500', textDecorationLine: 'underline', lineHeight: 22, marginTop: SPACING.sm },
+  subTitle: { fontSize: 15, fontWeight: '700', color: colors.dark, marginTop: SPACING.md, marginBottom: SPACING.xs },
+  listItem: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 24, marginLeft: SPACING.xs, marginBottom: 4 },
+  bulletItem: { fontSize: 15, fontWeight: '400', color: colors.dark, lineHeight: 22, marginLeft: SPACING.xl, marginBottom: 2 },
+  conclusionBox: { backgroundColor: colors.backgroundFocus, borderRadius: SIZES.radiusLg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: colors.primary },
+  conclusionTitle: { ...TYPOGRAPHY.subtitle, color: colors.primary, textAlign: 'center', marginBottom: SPACING.sm, textDecorationLine: 'underline' },
+  conclusionText: { ...TYPOGRAPHY.bodySmall, color: colors.dark, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.sm },
+  conclusionHighlight: { ...TYPOGRAPHY.body, color: colors.primary, fontWeight: '700', textAlign: 'center' },
   btnContainer: { marginTop: SPACING.md, marginBottom: SPACING.xl },
-  errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#FECACA', gap: 10 },
-  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: COLORS.error },
   creatingBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: SPACING.md },
-  creatingText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+  creatingText: { fontSize: 14, fontWeight: '500' },
 });

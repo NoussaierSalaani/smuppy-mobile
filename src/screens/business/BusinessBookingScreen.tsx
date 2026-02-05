@@ -1,10 +1,10 @@
 /**
  * BusinessBookingScreen
  * Book a service or session at a business
- * Supports one-time bookings and session packs
+ * Uses Stripe Checkout via WebBrowser (no PaymentSheet)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -21,16 +20,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useStripe } from '@stripe/stripe-react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { NavigationProp, ParamListBase } from '@react-navigation/native';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateLong } from '../../utils/dateFormatters';
 
 interface BusinessBookingScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
-  navigation: any;
+  navigation: NavigationProp<ParamListBase>;
 }
 
 interface Service {
@@ -58,10 +60,10 @@ interface Business {
 }
 
 export default function BusinessBookingScreen({ route, navigation }: BusinessBookingScreenProps) {
+  const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
-  const { formatAmount, currency } = useCurrency();
-  const user = useUserStore((state) => state.user);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { formatAmount } = useCurrency();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -77,20 +79,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Get today's date
   const today = new Date();
 
-  useEffect(() => {
-    loadBusinessData();
-  }, [businessId]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  useEffect(() => {
-    if (selectedService && selectedDateString) {
-      loadTimeSlots();
-    }
-  }, [selectedService, selectedDateString]);
-
-  const loadBusinessData = async () => {
+  const loadBusinessData = useCallback(async () => {
     try {
       const [profileRes, servicesRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
@@ -107,10 +100,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       }
 
       if (servicesRes.success) {
-        const bookableServices = (servicesRes.services || []).filter((s: any) => !s.is_subscription);
+        const bookableServices = (servicesRes.services || []).filter(
+          (s: Service & { is_subscription?: boolean }) => !s.is_subscription
+        );
         setServices(bookableServices);
 
-        // Auto-select service if provided
         if (serviceId) {
           const preselected = bookableServices.find((s: Service) => s.id === serviceId);
           if (preselected) {
@@ -120,14 +114,14 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         }
       }
     } catch (error) {
-      console.error('Load business data error:', error);
-      Alert.alert('Error', 'Failed to load business information');
+      if (__DEV__) console.warn('Load business data error:', error);
+      showError('Error', 'Failed to load business information');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [businessId, serviceId, showError]);
 
-  const loadTimeSlots = async () => {
+  const loadTimeSlots = useCallback(async () => {
     if (!selectedService || !selectedDateString) return;
 
     setIsLoadingSlots(true);
@@ -141,11 +135,21 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         setTimeSlots(response.slots || []);
       }
     } catch (error) {
-      console.error('Load time slots error:', error);
+      if (__DEV__) console.warn('Load time slots error:', error);
     } finally {
       setIsLoadingSlots(false);
     }
-  };
+  }, [businessId, selectedDateString, selectedService]);
+
+  useEffect(() => {
+    loadBusinessData();
+  }, [loadBusinessData]);
+
+  useEffect(() => {
+    if (selectedService && selectedDateString) {
+      loadTimeSlots();
+    }
+  }, [loadTimeSlots, selectedDateString, selectedService]);
 
   const handleSelectService = (service: Service) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -154,7 +158,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     setStep('date');
   };
 
-  const handleDateChange = (event: any, date?: Date) => {
+  const handleDateChange = (_event: DateTimePickerEvent, date?: Date) => {
     setShowDatePicker(false);
     if (date) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -179,83 +183,48 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
-      // 1. Create payment intent
-      const paymentResponse = await awsAPI.createBusinessBookingPayment({
+      // Create Stripe Checkout session
+      const response = await awsAPI.createBusinessCheckout({
         businessId,
         serviceId: selectedService.id,
         date: selectedDateString,
         slotId: selectedSlot.id,
-        amount: selectedService.price_cents,
-        currency: currency.code,
       });
 
-      if (!paymentResponse.success || !paymentResponse.clientSecret || !paymentResponse.bookingId) {
-        throw new Error(paymentResponse.message || 'Failed to create payment');
+      if (!response.success || !response.checkoutUrl) {
+        throw new Error('Failed to create checkout session');
       }
 
-      const bookingId = paymentResponse.bookingId;
-
-      // 2. Initialize Stripe Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: paymentResponse.clientSecret,
-        merchantDisplayName: business?.name || 'Smuppy Business',
-        style: 'automatic',
-        googlePay: { merchantCountryCode: 'FR', testEnv: true },
-        applePay: { merchantCountryCode: 'FR' },
-        defaultBillingDetails: {
-          name: user?.fullName || user?.displayName || undefined,
-        },
+      // Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+        dismissButtonStyle: 'cancel',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
       });
 
-      if (initError) {
-        throw new Error(initError.message);
+      // User returned from browser
+      if (result.type === 'cancel') {
+        return;
       }
 
-      // 3. Present Payment Sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          return;
-        }
-        throw new Error(presentError.message);
-      }
-
-      // 4. Confirm booking
-      const confirmResponse = await awsAPI.confirmBusinessBooking({
-        bookingId,
-        paymentIntentId: paymentResponse.paymentIntentId || '',
+      // Navigate to success (webhook handles DB updates)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      (navigation as unknown as { replace: (screen: string, params?: Record<string, unknown>) => void }).replace('BusinessBookingSuccess', {
+        businessName: business?.name || 'Business',
+        serviceName: selectedService.name,
+        date: selectedDateString,
+        time: selectedSlot.time,
       });
-
-      if (confirmResponse.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.replace('BusinessBookingSuccess', {
-          bookingId,
-          businessName: business?.name || 'Business',
-          serviceName: selectedService.name,
-          date: selectedDateString,
-          time: selectedSlot.time,
-        });
-      } else {
-        throw new Error(confirmResponse.message || 'Booking confirmation failed');
-      }
-    } catch (error: any) {
-      console.error('Booking error:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Booking error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Booking Failed', error.message || 'Please try again');
+      const message = error instanceof Error ? error.message : 'Please try again';
+      showError('Booking Failed', message);
     } finally {
       setIsBooking(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  };
+  const formatDate = (dateString: string) => formatDateLong(dateString);
 
   const renderServiceItem = (service: Service) => (
     <TouchableOpacity
@@ -279,7 +248,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         )}
         <View style={styles.serviceMeta}>
           <View style={styles.serviceMetaItem}>
-            <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+            <Ionicons name="time-outline" size={14} color={colors.gray} />
             <Text style={styles.serviceMetaText}>{service.duration_minutes} min</Text>
           </View>
           <View style={styles.servicePrice}>
@@ -325,7 +294,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -382,7 +351,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
               {services.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="calendar-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No bookable services</Text>
                 </View>
               ) : (
@@ -403,7 +372,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                     {selectedService?.duration_minutes} min • {formatAmount(selectedService?.price_cents || 0)}
                   </Text>
                 </View>
-                <Ionicons name="pencil" size={18} color={COLORS.primary} />
+                <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
 
               <Text style={styles.stepTitle}>Select Date</Text>
@@ -413,11 +382,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 style={styles.datePickerButton}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Ionicons name="calendar" size={24} color={COLORS.primary} />
+                <Ionicons name="calendar" size={24} color={colors.primary} />
                 <Text style={styles.datePickerText}>
                   {selectedDateString ? formatDate(selectedDateString) : 'Tap to select a date'}
                 </Text>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gray} />
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -443,7 +412,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                     {selectedService?.name} • {selectedService?.duration_minutes} min
                   </Text>
                 </View>
-                <Ionicons name="pencil" size={18} color={COLORS.primary} />
+                <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
 
               <Text style={styles.stepTitle}>Select Time</Text>
@@ -451,11 +420,11 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
               {isLoadingSlots ? (
                 <View style={styles.loadingSlots}>
-                  <ActivityIndicator color={COLORS.primary} />
+                  <ActivityIndicator color={colors.primary} />
                 </View>
               ) : timeSlots.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="time-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="time-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No available slots</Text>
                   <Text style={styles.emptySubtitle}>Try selecting a different date</Text>
                 </View>
@@ -475,7 +444,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
               <View style={styles.confirmCard}>
                 <View style={styles.confirmRow}>
-                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                  <Ionicons name="calendar" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Date</Text>
                     <Text style={styles.confirmValue}>{formatDate(selectedDateString)}</Text>
@@ -485,7 +454,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 <View style={styles.confirmDivider} />
 
                 <View style={styles.confirmRow}>
-                  <Ionicons name="time" size={20} color={COLORS.primary} />
+                  <Ionicons name="time" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Time</Text>
                     <Text style={styles.confirmValue}>{selectedSlot?.time}</Text>
@@ -495,7 +464,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 <View style={styles.confirmDivider} />
 
                 <View style={styles.confirmRow}>
-                  <Ionicons name="fitness" size={20} color={COLORS.primary} />
+                  <Ionicons name="fitness" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Service</Text>
                     <Text style={styles.confirmValue}>{selectedService?.name}</Text>
@@ -506,7 +475,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
                 <View style={styles.confirmDivider} />
 
                 <View style={styles.confirmRow}>
-                  <Ionicons name="business" size={20} color={COLORS.primary} />
+                  <Ionicons name="business" size={20} color={colors.primary} />
                   <View style={styles.confirmInfo}>
                     <Text style={styles.confirmLabel}>Location</Text>
                     <Text style={styles.confirmValue}>{business?.name}</Text>
@@ -621,10 +590,10 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -633,7 +602,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -648,7 +617,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -664,12 +633,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   headerBusinessName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Progress
@@ -684,32 +653,32 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   progressDotActive: {
-    backgroundColor: 'rgba(14,191,138,0.3)',
+    backgroundColor: colors.primaryLight,
   },
   progressDotCurrent: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   progressDotText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   progressDotTextActive: {
-    color: '#fff',
+    color: colors.dark,
   },
   progressLine: {
     flex: 1,
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     marginHorizontal: 8,
   },
   progressLineActive: {
-    backgroundColor: 'rgba(14,191,138,0.3)',
+    backgroundColor: colors.primaryLight,
   },
 
   content: {
@@ -722,11 +691,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   stepSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 8,
   },
 
@@ -734,11 +703,11 @@ const styles = StyleSheet.create({
   selectedServiceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14,191,138,0.1)',
+    backgroundColor: colors.primaryLight,
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(14,191,138,0.3)',
+    borderColor: colors.primaryLight,
     marginBottom: 8,
   },
   selectedServiceInfo: {
@@ -747,11 +716,11 @@ const styles = StyleSheet.create({
   selectedServiceName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   selectedServiceMeta: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
@@ -761,15 +730,15 @@ const styles = StyleSheet.create({
   },
   serviceItem: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   serviceItemSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(14,191,138,0.1)',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   serviceImage: {
     width: 80,
@@ -782,12 +751,12 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   serviceDescription: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 8,
   },
   serviceMeta: {
@@ -802,10 +771,10 @@ const styles = StyleSheet.create({
   },
   serviceMetaText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   servicePrice: {
-    backgroundColor: 'rgba(14,191,138,0.15)',
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -813,7 +782,7 @@ const styles = StyleSheet.create({
   servicePriceText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   serviceCheck: {
     position: 'absolute',
@@ -822,7 +791,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -831,18 +800,18 @@ const styles = StyleSheet.create({
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.border,
   },
   datePickerText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Time Slots
@@ -858,7 +827,7 @@ const styles = StyleSheet.create({
   timeSlot: {
     width: '23%',
     paddingVertical: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
@@ -868,30 +837,30 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   timeSlotSelected: {
-    backgroundColor: 'rgba(14,191,138,0.2)',
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
   },
   timeSlotText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   timeSlotTextUnavailable: {
-    color: COLORS.gray,
+    color: colors.gray,
     textDecorationLine: 'line-through',
   },
   timeSlotTextSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   spotsLeft: {
     fontSize: 10,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
 
   // Confirm
   confirmCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 16,
   },
@@ -906,27 +875,27 @@ const styles = StyleSheet.create({
   },
   confirmLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   confirmValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   confirmSubvalue: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   confirmDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.border,
   },
 
   // Price Summary
   priceSummary: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     marginTop: 16,
@@ -938,28 +907,28 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   priceValue: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.dark,
   },
   priceRowTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
   },
   priceTotalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   priceTotalValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Empty State
@@ -971,11 +940,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Bottom Action
@@ -989,9 +958,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingBottom: 34,
-    backgroundColor: 'rgba(15,15,26,0.9)',
+    backgroundColor: isDark ? 'rgba(15,15,26,0.9)' : 'rgba(255,255,255,0.9)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
   },
   bottomActions: {
     flexDirection: 'row',
@@ -1003,14 +972,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     gap: 6,
   },
   backStepText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   actionButton: {
     flex: 1,
@@ -1046,7 +1015,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   modalBlur: {
-    backgroundColor: 'rgba(20,20,35,0.95)',
+    backgroundColor: isDark ? 'rgba(20,20,35,0.95)' : 'rgba(255,255,255,0.95)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1055,12 +1024,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   modalScroll: {
     padding: 16,

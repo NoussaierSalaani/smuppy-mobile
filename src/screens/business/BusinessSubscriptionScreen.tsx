@@ -3,7 +3,7 @@
  * Subscribe to recurring services (gym membership, monthly pass, etc.)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,15 +18,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useStripe } from '@stripe/stripe-react-native';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import * as WebBrowser from 'expo-web-browser';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { NavigationProp, ParamListBase } from '@react-navigation/native';
+import type { IconName } from '../../types';
 
 interface BusinessSubscriptionScreenProps {
   route: { params: { businessId: string; serviceId?: string } };
-  navigation: any;
+  navigation: NavigationProp<ParamListBase>;
 }
 
 interface SubscriptionPlan {
@@ -50,9 +52,16 @@ interface Business {
   logo_url?: string;
   category: {
     name: string;
-    icon: string;
+    icon: IconName;
     color: string;
   };
+}
+
+interface UserSubscription {
+  id: string;
+  plan_id?: string;
+  plan_name?: string;
+  status?: string;
 }
 
 const PERIOD_LABELS = {
@@ -62,23 +71,21 @@ const PERIOD_LABELS = {
 };
 
 export default function BusinessSubscriptionScreen({ route, navigation }: BusinessSubscriptionScreenProps) {
+  const { colors } = useTheme();
+  const { showError, showConfirm } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
-  const { formatAmount, currency } = useCurrency();
-  const user = useUserStore((state) => state.user);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { formatAmount } = useCurrency();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribing, setIsSubscribing] = useState(false);
-  const [existingSubscription, setExistingSubscription] = useState<any>(null);
+  const [existingSubscription, setExistingSubscription] = useState<UserSubscription | null>(null);
 
-  useEffect(() => {
-    loadSubscriptionData();
-  }, [businessId]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const loadSubscriptionData = async () => {
+  const loadSubscriptionData = useCallback(async () => {
     try {
       const [profileRes, plansRes, subRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
@@ -112,12 +119,16 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         setExistingSubscription(subRes.subscription);
       }
     } catch (error) {
-      console.error('Load subscription data error:', error);
-      Alert.alert('Error', 'Failed to load subscription plans');
+      if (__DEV__) console.warn('Load subscription data error:', error);
+      showError('Error', 'Failed to load subscription plans');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [businessId, serviceId, showError]);
+
+  useEffect(() => {
+    loadSubscriptionData();
+  }, [loadSubscriptionData]);
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -129,16 +140,11 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
 
     // Already subscribed warning
     if (existingSubscription) {
-      Alert.alert(
+      showConfirm(
         'Already Subscribed',
         `You already have an active subscription to ${business?.name}.\n\nWould you like to change your plan?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Change Plan',
-            onPress: () => processSubscription(),
-          },
-        ]
+        () => processSubscription(),
+        'Change Plan'
       );
       return;
     }
@@ -153,66 +159,39 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
-      // 1. Create subscription
-      const response = await awsAPI.createBusinessSubscription({
+      // Create Stripe Checkout session
+      const response = await awsAPI.createBusinessCheckout({
         businessId,
-        planId: selectedPlan.id,
-        currency: currency.code,
+        serviceId: selectedPlan.id,
       });
 
-      if (!response.success || !response.clientSecret) {
-        throw new Error(response.message || 'Failed to create subscription');
+      if (!response.success || !response.checkoutUrl) {
+        throw new Error('Failed to create checkout session');
       }
 
-      // 2. Initialize Stripe Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: response.clientSecret,
-        merchantDisplayName: business?.name || 'Smuppy Business',
-        style: 'automatic',
-        googlePay: { merchantCountryCode: 'FR', testEnv: true },
-        applePay: { merchantCountryCode: 'FR' },
-        defaultBillingDetails: {
-          name: user?.fullName || user?.displayName || undefined,
-        },
+      // Open Stripe Checkout in browser
+      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
+        dismissButtonStyle: 'cancel',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
       });
 
-      if (initError) {
-        throw new Error(initError.message);
+      if (result.type === 'cancel') {
+        return;
       }
 
-      // 3. Present Payment Sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          return;
-        }
-        throw new Error(presentError.message);
-      }
-
-      // 4. Confirm subscription
-      const subscriptionId = response.subscriptionId || '';
-      const confirmResponse = await awsAPI.confirmBusinessSubscription({
-        subscriptionId,
-        paymentIntentId: response.paymentIntentId || '',
+      // Navigate to success (webhook handles DB updates)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      (navigation as unknown as { replace: (screen: string, params?: Record<string, unknown>) => void }).replace('BusinessSubscriptionSuccess', {
+        businessName: business?.name || 'Business',
+        planName: selectedPlan.name,
+        period: selectedPlan.period,
+        trialDays: selectedPlan.trial_days,
       });
-
-      if (confirmResponse.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.replace('BusinessSubscriptionSuccess', {
-          subscriptionId,
-          businessName: business?.name || 'Business',
-          planName: selectedPlan.name,
-          period: selectedPlan.period,
-          trialDays: selectedPlan.trial_days,
-        });
-      } else {
-        throw new Error(confirmResponse.message || 'Subscription confirmation failed');
-      }
-    } catch (error: any) {
-      console.error('Subscription error:', error);
+    } catch (error: unknown) {
+      if (__DEV__) console.warn('Subscription error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Subscription Failed', error.message || 'Please try again');
+      const message = error instanceof Error ? error.message : 'Please try again';
+      showError('Subscription Failed', message);
     } finally {
       setIsSubscribing(false);
     }
@@ -284,7 +263,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         <View style={styles.planFeatures}>
           {plan.features.map((feature, index) => (
             <View key={index} style={styles.featureRow}>
-              <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
               <Text style={styles.featureText}>{feature}</Text>
             </View>
           ))}
@@ -294,7 +273,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
           <Ionicons
             name={plan.access_type === 'unlimited' ? 'infinite' : 'ticket'}
             size={16}
-            color={COLORS.primary}
+            color={colors.primary}
           />
           <Text style={styles.accessText}>
             {plan.access_type === 'unlimited'
@@ -309,10 +288,13 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
+
+  const categoryColor = business?.category.color ?? colors.primary;
+  const categoryIcon = business?.category.icon ?? 'briefcase-outline';
 
   return (
     <View style={styles.container}>
@@ -334,15 +316,15 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
             {business?.logo_url ? (
               <Image source={{ uri: business.logo_url }} style={styles.businessLogo} />
             ) : (
-              <View style={[styles.businessLogoPlaceholder, { backgroundColor: business?.category.color }]}>
-                <Ionicons name={business?.category.icon as any} size={28} color="#fff" />
+              <View style={[styles.businessLogoPlaceholder, { backgroundColor: categoryColor }]}>
+                <Ionicons name={categoryIcon} size={28} color="#fff" />
               </View>
             )}
             <View style={styles.businessInfo}>
               <Text style={styles.businessName}>{business?.name}</Text>
               <View style={styles.businessCategory}>
-                <Ionicons name={business?.category.icon as any} size={12} color={business?.category.color} />
-                <Text style={[styles.businessCategoryText, { color: business?.category.color }]}>
+                <Ionicons name={categoryIcon} size={12} color={categoryColor} />
+                <Text style={[styles.businessCategoryText, { color: categoryColor }]}>
                   {business?.category.name}
                 </Text>
               </View>
@@ -371,7 +353,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
           {/* Plans */}
           {plans.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="card-outline" size={48} color={COLORS.gray} />
+              <Ionicons name="card-outline" size={48} color={colors.gray} />
               <Text style={styles.emptyTitle}>No subscription plans</Text>
               <Text style={styles.emptySubtitle}>This business hasn't set up subscription plans yet</Text>
             </View>
@@ -387,7 +369,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
             <View style={styles.benefitsList}>
               <View style={styles.benefitItem}>
                 <View style={styles.benefitIcon}>
-                  <Ionicons name="calendar" size={18} color={COLORS.primary} />
+                  <Ionicons name="calendar" size={18} color={colors.primary} />
                 </View>
                 <View style={styles.benefitContent}>
                   <Text style={styles.benefitTitle}>Priority Booking</Text>
@@ -397,7 +379,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
 
               <View style={styles.benefitItem}>
                 <View style={styles.benefitIcon}>
-                  <Ionicons name="pricetag" size={18} color={COLORS.primary} />
+                  <Ionicons name="pricetag" size={18} color={colors.primary} />
                 </View>
                 <View style={styles.benefitContent}>
                   <Text style={styles.benefitTitle}>Member Discounts</Text>
@@ -407,7 +389,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
 
               <View style={styles.benefitItem}>
                 <View style={styles.benefitIcon}>
-                  <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
+                  <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
                 </View>
                 <View style={styles.benefitContent}>
                   <Text style={styles.benefitTitle}>Flexible Cancellation</Text>
@@ -457,10 +439,10 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -469,7 +451,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -491,7 +473,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 
   content: {
@@ -527,7 +509,7 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   businessCategory: {
@@ -568,12 +550,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 16,
   },
 
@@ -591,7 +573,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   planCardSelected: {
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     backgroundColor: 'rgba(14,191,138,0.08)',
   },
   popularBadge: {
@@ -600,7 +582,7 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderBottomLeftRadius: 8,
@@ -639,19 +621,19 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   planCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planDescription: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   planPricing: {
     flexDirection: 'row',
@@ -661,11 +643,11 @@ const styles = StyleSheet.create({
   planPrice: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
   },
   planPeriod: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 4,
   },
   trialBadge: {
@@ -695,7 +677,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   accessInfo: {
     flexDirection: 'row',
@@ -708,7 +690,7 @@ const styles = StyleSheet.create({
   accessText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Benefits
@@ -720,7 +702,7 @@ const styles = StyleSheet.create({
   benefitsTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 16,
   },
   benefitsList: {
@@ -745,12 +727,12 @@ const styles = StyleSheet.create({
   benefitTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 2,
   },
   benefitText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Empty State
@@ -762,11 +744,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
 
@@ -793,7 +775,7 @@ const styles = StyleSheet.create({
   },
   bottomPlanName: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   bottomPriceRow: {
     flexDirection: 'row',
@@ -802,11 +784,11 @@ const styles = StyleSheet.create({
   bottomPrice: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
   },
   bottomPeriod: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginLeft: 2,
   },
   subscribeButton: {

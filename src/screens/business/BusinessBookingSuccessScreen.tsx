@@ -3,7 +3,7 @@
  * Confirmation screen after successful booking
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,15 @@ import {
   TouchableOpacity,
   Share,
   Animated,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateLong } from '../../utils/dateFormatters';
 
 interface Props {
   route: {
@@ -29,13 +31,17 @@ interface Props {
       time: string;
     };
   };
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; popToTop: () => void };
 }
 
 export default function BusinessBookingSuccessScreen({ route, navigation }: Props) {
+  const { colors, isDark } = useTheme();
+  const { showConfirm, showSuccess } = useSmuppyAlert();
   const { bookingId, businessName, serviceName, date, time } = route.params;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -52,42 +58,29 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
         useNativeDriver: true,
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const formatDate = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  };
 
   const handleAddToCalendar = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
+    showConfirm(
       'Add to Calendar',
-      `Would you like to add "${serviceName}" at ${businessName} on ${formatDate(date)} at ${time} to your calendar?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: () => {
-            // Calendar integration would go here with expo-calendar
-            Alert.alert('Added', 'Event added to your calendar');
-          },
-        },
-      ]
+      `Would you like to add "${serviceName}" at ${businessName} on ${formatDateLong(date)} at ${time} to your calendar?`,
+      () => {
+        // Calendar integration would go here with expo-calendar
+        showSuccess('Added', 'Event added to your calendar');
+      },
+      'Add'
     );
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDate(date)} at ${time}`,
+        message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDateLong(date)} at ${time}`,
       });
     } catch (error) {
-      console.error('Share error:', error);
+      if (__DEV__) console.warn('Share error:', error);
     }
   };
 
@@ -127,7 +120,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
           <View style={styles.detailsCard}>
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="business" size={20} color={COLORS.primary} />
+                <Ionicons name="business" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Location</Text>
@@ -139,7 +132,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="fitness" size={20} color={COLORS.primary} />
+                <Ionicons name="fitness" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Service</Text>
@@ -151,11 +144,11 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                <Ionicons name="calendar" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
-                <Text style={styles.detailValue}>{formatDate(date)}</Text>
+                <Text style={styles.detailValue}>{formatDateLong(date)}</Text>
                 <Text style={styles.detailSubvalue}>{time}</Text>
               </View>
             </View>
@@ -164,7 +157,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
-                <Ionicons name="receipt" size={20} color={COLORS.primary} />
+                <Ionicons name="receipt" size={20} color={colors.primary} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Booking ID</Text>
@@ -207,10 +200,10 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -238,19 +231,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
   },
   detailsCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
@@ -264,7 +257,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(14,191,138,0.15)',
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -274,28 +267,28 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   detailValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   detailSubvalue: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
     marginTop: 2,
   },
   detailValueSmall: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.lightGray,
+    color: colors.grayLight,
     fontFamily: 'monospace',
   },
   detailDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.border,
   },
   reminderCard: {
     flexDirection: 'row',
@@ -325,7 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.backgroundSecondary,
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
@@ -333,7 +326,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   primaryButton: {
     borderRadius: 14,

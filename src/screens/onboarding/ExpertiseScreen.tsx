@@ -3,11 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SPACING, GRADIENTS, SIZES } from '../../config/theme';
+import { SPACING, GRADIENTS, SIZES } from '../../config/theme';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const INITIAL_CATEGORIES = 4;
 const EXPAND_BY = 4;
@@ -24,10 +25,11 @@ interface ExpertiseScreenProps {
 }
 
 export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenProps) {
+  const { colors, isDark } = useTheme();
   const [selected, setSelected] = useState<string[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_CATEGORIES);
 
-  const params = route?.params || {};
+  const params = useMemo(() => route?.params || {}, [route?.params]);
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
 
   const toggle = useCallback((itemName: string) => {
@@ -55,6 +57,8 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
 
   const hasMoreCategories = visibleCount < ALL_EXPERTISE.length;
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
     if (isSelected) {
       return (
@@ -70,7 +74,7 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
             style={styles.chipGradientBorder}
           >
             <View style={styles.chipSelectedInner}>
-              <Ionicons name={item.icon as any} size={16} color={item.color} />
+              <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
               <Text style={styles.chipText}>{item.name}</Text>
             </View>
           </LinearGradient>
@@ -84,15 +88,15 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
         onPress={() => toggle(item.name)}
         activeOpacity={0.7}
       >
-        <Ionicons name={item.icon as any} size={16} color={item.color} />
+        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
         <Text style={styles.chipText}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle]);
+  }, [toggle, styles.chip, styles.chipGradientBorder, styles.chipSelectedInner, styles.chipText]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={3} />
+      <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={3} totalSteps={4} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -111,7 +115,7 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
               {/* Category header with count */}
               <View style={styles.sectionHeader}>
                 <View style={[styles.sectionIcon, { backgroundColor: `${section.color}15` }]}>
-                  <Ionicons name={section.icon as any} size={18} color={section.color} />
+                  <Ionicons name={section.icon as keyof typeof Ionicons.glyphMap} size={18} color={section.color} />
                 </View>
                 <Text style={styles.sectionTitle}>
                   {section.category}
@@ -136,7 +140,7 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
             onPress={handleExploreMore}
             activeOpacity={0.7}
           >
-            <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
             <Text style={styles.exploreMoreText}>
               Explore more ({ALL_EXPERTISE.length - visibleCount} more categories)
             </Text>
@@ -164,14 +168,14 @@ export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenPr
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
 
   // Header
   header: { paddingHorizontal: SPACING.xl, marginBottom: SPACING.md },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: COLORS.grayMuted },
-  infoText: { fontSize: 13, color: COLORS.primary, marginTop: 8, fontWeight: '500' },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, marginBottom: 4 },
+  subtitle: { fontSize: 14, color: colors.grayMuted },
+  infoText: { fontSize: 13, color: colors.primary, marginTop: 8, fontWeight: '500' },
 
   // Scroll
   scrollView: { flex: 1 },
@@ -185,11 +189,11 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight
+    borderBottomColor: colors.grayLight
   },
   sectionIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dark },
-  sectionCount: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.dark },
+  sectionCount: { fontSize: 14, fontWeight: '600', color: colors.primary },
 
   // Items grid
   itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, paddingTop: SPACING.md },
@@ -200,9 +204,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: COLORS.grayLight,
+    borderColor: colors.grayLight,
     borderRadius: 18,
     gap: 6,
   },
@@ -217,10 +221,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12.5,
     borderRadius: 16.5,
-    backgroundColor: '#E8FAF7',
+    backgroundColor: isDark ? colors.primaryDark : '#E8FAF7',
     gap: 6,
   },
-  chipText: { fontSize: 13, fontWeight: '500', color: COLORS.dark },
+  chipText: { fontSize: 13, fontWeight: '500', color: colors.dark },
 
   // Explore more button
   exploreMoreBtn: {
@@ -229,18 +233,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
-    backgroundColor: `${COLORS.primary}10`,
+    backgroundColor: `${colors.primary}10`,
     borderRadius: SIZES.radiusMd,
     borderWidth: 1,
-    borderColor: `${COLORS.primary}30`,
+    borderColor: `${colors.primary}30`,
     borderStyle: 'dashed',
     marginTop: SPACING.md,
     gap: SPACING.sm,
   },
-  exploreMoreText: { fontSize: 15, fontWeight: '600', color: COLORS.primary },
+  exploreMoreText: { fontSize: 15, fontWeight: '600', color: colors.primary },
 
   // Footer
-  footer: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.grayLight },
+  footer: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: colors.grayLight },
   skipBtn: { alignItems: 'center', paddingVertical: SPACING.md },
-  skipText: { fontSize: 14, color: COLORS.grayMuted },
+  skipText: { fontSize: 14, color: colors.grayMuted },
 });

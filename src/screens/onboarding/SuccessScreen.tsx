@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
@@ -33,6 +34,7 @@ const Confetti = ({ delay, startX, color, size }: ConfettiProps) => {
       ]).start();
     }, delay);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -87,6 +89,7 @@ const FireworkParticle = ({ delay, centerX, centerY, angle, color }: FireworkPar
       ]).start();
     }, delay);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -126,6 +129,7 @@ interface SuccessScreenProps {
 }
 
 export default function SuccessScreen({ navigation: _navigation }: SuccessScreenProps) {
+  const { colors, isDark } = useTheme();
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslate = useRef(new Animated.Value(20)).current;
@@ -135,6 +139,8 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
   const ringOpacity = useRef(new Animated.Value(0)).current;
 
   const { onProfileCreated } = useAuthCallbacks();
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     // Logo and text appear together quickly
@@ -166,6 +172,7 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
       clearTimeout(circleTimer);
       clearTimeout(redirectTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onProfileCreated]);
 
   const confettis = Array.from({ length: 50 }, (_, i) => (
@@ -199,7 +206,7 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
       {/* Content */}
       <View style={styles.content}>
         <Animated.View style={{ opacity: logoOpacity }}>
-          <SmuppyLogoFull iconSize={50} textWidth={130} iconVariant="dark" textVariant="dark" />
+          <SmuppyLogoFull iconSize={50} textWidth={130} iconVariant={isDark ? 'white' : 'dark'} textVariant={isDark ? 'white' : 'dark'} />
         </Animated.View>
 
         <Animated.View style={[styles.textContainer, { opacity: textOpacity, transform: [{ translateY: textTranslate }] }]}>
@@ -216,7 +223,7 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
               style={styles.successRing}
             >
               <Animated.View style={{ transform: [{ scale: checkScale }], opacity: checkOpacity }}>
-                <Ionicons name="checkmark" size={50} color={COLORS.white} />
+                <Ionicons name="checkmark" size={50} color={colors.white} />
               </Animated.View>
             </LinearGradient>
           </Animated.View>
@@ -226,12 +233,12 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   animationLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   textContainer: { marginTop: 20 },
   successContainer: { marginTop: 40 },
-  successRing: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 15, elevation: 10 },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: COLORS.dark, textAlign: 'center' },
+  successRing: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 15, elevation: 10 },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 28, color: colors.dark, textAlign: 'center' },
 });

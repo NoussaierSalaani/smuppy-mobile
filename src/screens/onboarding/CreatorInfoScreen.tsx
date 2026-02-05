@@ -1,17 +1,20 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, Keyboard, Modal, Image, Alert,
+  KeyboardAvoidingView, Platform, Keyboard, Modal, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS, TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
+import { TYPOGRAPHY, SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDDMMYYYY } from '../../utils/dateFormatters';
 
 const MIN_AGE = 16;
 const GENDERS = [
@@ -20,7 +23,6 @@ const GENDERS = [
   { id: 'other', icon: 'male-female' as const, label: 'Other', color: '#1C1C1E' },
 ];
 
-const formatDate = (d: Date) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
 const getAge = (birthDate: Date) => {
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -41,6 +43,8 @@ interface CreatorInfoScreenProps {
 }
 
 export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScreenProps) {
+  const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [gender, setGender] = useState('');
@@ -50,13 +54,15 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
   const [ageError, setAgeError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const params = route?.params || {};
+  const params = useMemo(() => route?.params || {}, [route?.params]);
   const { goBack, navigate, disabled } = usePreventDoubleNavigation(navigation);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos to add a profile picture.');
+      showError('Permission needed', 'Please allow access to your photos to add a profile picture.');
       return;
     }
 
@@ -70,7 +76,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
     if (!result.canceled && result.assets[0]) {
       setProfileImage(result.assets[0].uri);
     }
-  }, []);
+  }, [showError]);
 
   const hasDisplayName = displayName.trim().length > 0;
   const isAgeValid = useMemo(() => getAge(date) >= MIN_AGE, [date]);
@@ -80,7 +86,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
     setAgeError(getAge(d) < MIN_AGE ? 'You must be at least 16 years old' : '');
   }, []);
 
-  const onDateChange = useCallback((_: any, selected?: Date) => {
+  const onDateChange = useCallback((_: unknown, selected?: Date) => {
     if (Platform.OS === 'android') setShowPicker(false);
     if (selected) {
       setDate(selected);
@@ -91,7 +97,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
-    navigate('Expertise', {
+    navigate('CreatorOptionalInfo', {
       ...params,
       profileImage,
       displayName: displayName.trim(),
@@ -104,8 +110,8 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        {/* Header with Progress Bar - Pro Creator flow step 1/3 */}
-        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={3} />
+        {/* Header with Progress Bar - Pro Creator flow step 1/4 */}
+        <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={1} totalSteps={4} />
 
         <View style={styles.content}>
           <View style={styles.header}>
@@ -117,7 +123,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
           <View style={styles.photoSection}>
             <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
               <LinearGradient
-                colors={profileImage ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+                colors={profileImage ? GRADIENTS.button : GRADIENTS.buttonDisabled}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.photoGradient}
@@ -126,12 +132,12 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} style={styles.profileImage} />
                   ) : (
-                    <Ionicons name="camera" size={32} color={COLORS.grayMuted} />
+                    <Ionicons name="camera" size={32} color={colors.grayMuted} />
                   )}
                 </View>
               </LinearGradient>
               <View style={styles.photoBadge}>
-                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={COLORS.white} />
+                <Ionicons name={profileImage ? "checkmark" : "add"} size={14} color={colors.white} />
               </View>
             </TouchableOpacity>
             <Text style={styles.photoLabel}>{profileImage ? 'Tap to change' : 'Add a photo'}</Text>
@@ -140,17 +146,17 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
           {/* Display Name */}
           <Text style={styles.label}>Display Name <Text style={styles.required}>*</Text></Text>
           <LinearGradient
-            colors={(hasDisplayName || focusedField === 'displayName') ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+            colors={(hasDisplayName || focusedField === 'displayName') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, hasDisplayName && styles.inputInnerValid]}>
-              <Ionicons name="person-outline" size={18} color={(hasDisplayName || focusedField === 'displayName') ? COLORS.primary : COLORS.grayMuted} />
+              <Ionicons name="person-outline" size={18} color={(hasDisplayName || focusedField === 'displayName') ? colors.primary : colors.grayMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="Your brand or display name"
-                placeholderTextColor={COLORS.grayMuted}
+                placeholderTextColor={colors.grayMuted}
                 value={displayName}
                 onChangeText={setDisplayName}
                 onFocus={() => setFocusedField('displayName')}
@@ -183,7 +189,7 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
                     activeOpacity={0.7}
                   >
                     <View style={[styles.genderIcon, { backgroundColor: g.color }]}>
-                      <Ionicons name={g.icon} size={22} color={COLORS.white} />
+                      <Ionicons name={g.icon} size={22} color={colors.white} />
                     </View>
                     <Text style={[styles.genderText, { color: g.color }]}>{g.label}</Text>
                   </TouchableOpacity>
@@ -212,14 +218,14 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
               onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="calendar-outline" size={18} color={COLORS.error} />
+              <Ionicons name="calendar-outline" size={18} color={colors.error} />
               <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
-                {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
+                {hasSelectedDate ? formatDDMMYYYY(date) : 'DD/MM/YYYY'}
               </Text>
             </TouchableOpacity>
           ) : (
             <LinearGradient
-              colors={hasSelectedDate ? GRADIENTS.button : ['#CED3D5', '#CED3D5']}
+              colors={hasSelectedDate ? GRADIENTS.button : GRADIENTS.buttonDisabled}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.inputGradientBorder}
@@ -229,16 +235,16 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
                 onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="calendar-outline" size={18} color={hasSelectedDate ? COLORS.primary : COLORS.grayMuted} />
+                <Ionicons name="calendar-outline" size={18} color={hasSelectedDate ? colors.primary : colors.grayMuted} />
                 <Text style={[styles.dobText, !hasSelectedDate && styles.placeholder]}>
-                  {hasSelectedDate ? formatDate(date) : 'DD/MM/YYYY'}
+                  {hasSelectedDate ? formatDDMMYYYY(date) : 'DD/MM/YYYY'}
                 </Text>
               </TouchableOpacity>
             </LinearGradient>
           )}
           {!!ageError && (
             <View style={styles.errorRow}>
-              <Ionicons name="alert-circle" size={14} color={COLORS.error} />
+              <Ionicons name="alert-circle" size={14} color={colors.error} />
               <Text style={styles.errorText}>{ageError}</Text>
             </View>
           )}
@@ -281,45 +287,45 @@ export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScre
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flex: 1, paddingHorizontal: SPACING.xl },
   header: { alignItems: 'center', marginBottom: SPACING.sm },
-  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
-  subtitle: { fontSize: 13, color: '#676C75', textAlign: 'center' },
+  title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 2 },
+  subtitle: { fontSize: 13, color: colors.grayMuted, textAlign: 'center' },
   // Profile Photo
   photoSection: { alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.lg },
   photoGradient: { width: 110, height: 110, borderRadius: 55, padding: 3 },
-  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  photoContainerFilled: { backgroundColor: '#E8FAF7' },
+  photoContainer: { flex: 1, borderRadius: 52, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoContainerFilled: { backgroundColor: colors.backgroundValid },
   profileImage: { width: '100%', height: '100%', borderRadius: 52 },
-  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: COLORS.white },
-  photoLabel: { fontSize: 12, color: COLORS.grayMuted, marginTop: 4 },
-  label: { ...TYPOGRAPHY.label, color: COLORS.dark, marginBottom: 4, fontSize: 12 },
-  required: { color: COLORS.error },
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: COLORS.white },
+  photoBadge: { position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: colors.background },
+  photoLabel: { fontSize: 12, color: colors.grayMuted, marginTop: 4 },
+  label: { ...TYPOGRAPHY.label, color: colors.dark, marginBottom: 4, fontSize: 12 },
+  required: { color: colors.error },
+  inputBox: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 2, borderColor: colors.grayLight, borderRadius: SIZES.radiusInput, paddingHorizontal: SPACING.sm, marginBottom: SPACING.sm, backgroundColor: colors.background },
   inputGradientBorder: { borderRadius: SIZES.radiusInput, padding: 2, marginBottom: SPACING.sm },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: COLORS.white },
-  inputInnerValid: { backgroundColor: '#E8FAF7' },
-  inputError: { borderColor: COLORS.error, borderWidth: 2, backgroundColor: '#FEE' },
-  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14 },
-  greeting: { fontSize: 14, fontWeight: '500', color: COLORS.primary, textAlign: 'center', marginBottom: SPACING.sm },
-  greetingName: { fontWeight: '700', color: COLORS.dark },
-  dobText: { ...TYPOGRAPHY.body, color: COLORS.dark, marginLeft: SPACING.sm, fontSize: 14 },
-  placeholder: { color: COLORS.grayMuted },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: 44, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.sm, backgroundColor: colors.background },
+  inputInnerValid: { backgroundColor: colors.backgroundValid },
+  inputError: { borderColor: colors.error, borderWidth: 2, backgroundColor: isDark ? 'rgba(255, 68, 68, 0.1)' : '#FEE' },
+  input: { flex: 1, ...TYPOGRAPHY.body, marginLeft: SPACING.xs, fontSize: 14, color: colors.dark },
+  greeting: { fontSize: 14, fontWeight: '500', color: colors.primary, textAlign: 'center', marginBottom: SPACING.sm },
+  greetingName: { fontWeight: '700', color: colors.dark },
+  dobText: { ...TYPOGRAPHY.body, color: colors.dark, marginLeft: SPACING.sm, fontSize: 14 },
+  placeholder: { color: colors.grayMuted },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -2, marginBottom: SPACING.sm, gap: 4 },
-  errorText: { fontSize: 12, color: COLORS.error },
+  errorText: { fontSize: 12, color: colors.error },
   genderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
-  genderBox: { width: 80, height: 80, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.grayLight, borderRadius: SIZES.radiusMd, justifyContent: 'center', alignItems: 'center' },
+  genderBox: { width: 80, height: 80, backgroundColor: colors.background, borderWidth: 2, borderColor: colors.grayLight, borderRadius: SIZES.radiusMd, justifyContent: 'center', alignItems: 'center' },
   genderGradientBorder: { width: 80, height: 80, borderRadius: SIZES.radiusMd, padding: 2 },
-  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: '#E8FAF7', justifyContent: 'center', alignItems: 'center' },
+  genderBoxInner: { flex: 1, borderRadius: SIZES.radiusMd - 2, backgroundColor: colors.backgroundValid, justifyContent: 'center', alignItems: 'center' },
   genderIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  genderText: { ...TYPOGRAPHY.caption, color: COLORS.dark, fontSize: 11 },
-  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.white },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
-  pickerBox: { backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
-  pickerCancel: { ...TYPOGRAPHY.body, color: COLORS.dark },
-  pickerDone: { ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '600' },
+  genderText: { ...TYPOGRAPHY.caption, color: colors.dark, fontSize: 11 },
+  fixedFooter: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: colors.background },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)' },
+  pickerBox: { backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.base, borderBottomWidth: 1, borderBottomColor: colors.grayLight },
+  pickerCancel: { ...TYPOGRAPHY.body, color: colors.dark },
+  pickerDone: { ...TYPOGRAPHY.body, color: colors.primary, fontWeight: '600' },
 });

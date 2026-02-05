@@ -4,7 +4,7 @@
  * Business scans this to validate entry
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { formatDateShort } from '../../utils/dateFormatters';
 
 const { width } = Dimensions.get('window');
 const QR_SIZE = width * 0.55;
@@ -34,7 +35,7 @@ interface Props {
       businessName: string;
     };
   };
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 interface AccessPass {
@@ -50,8 +51,10 @@ interface AccessPass {
 }
 
 export default function MemberAccessScreen({ route, navigation }: Props) {
+  const { colors, isDark } = useTheme();
   const { subscriptionId, businessId, businessName } = route.params;
   const user = useUserStore((state) => state.user);
+  const getFullName = useUserStore((state) => state.getFullName);
 
   const [accessPass, setAccessPass] = useState<AccessPass | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,14 +62,13 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   useEffect(() => {
     loadAccessPass();
-    startAnimations();
-  }, []);
 
-  const startAnimations = () => {
     // Pulse animation for QR container
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.02,
@@ -79,10 +81,11 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulse.start();
 
     // Glow animation
-    Animated.loop(
+    const glow = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -95,8 +98,15 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
-  };
+    );
+    glow.start();
+
+    return () => {
+      pulse.stop();
+      glow.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadAccessPass = async () => {
     try {
@@ -115,7 +125,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
             userId: user?.id,
             timestamp: Date.now(),
           }),
-          memberName: user?.fullName || user?.displayName || 'Member',
+          memberName: getFullName() || 'Member',
           membershipType: 'Premium',
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           status: 'active',
@@ -123,7 +133,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
         });
       }
     } catch (error) {
-      console.error('Load access pass error:', error);
+      if (__DEV__) console.warn('Load access pass error:', error);
       // Set demo pass on error
       setAccessPass({
         id: subscriptionId,
@@ -134,7 +144,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           userId: user?.id,
           timestamp: Date.now(),
         }),
-        memberName: user?.fullName || user?.displayName || 'Member',
+        memberName: getFullName() || 'Member',
         membershipType: 'Premium',
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'active',
@@ -151,20 +161,12 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
     loadAccessPass();
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#0EBF8A';
       case 'expired': return '#FF6B6B';
       case 'suspended': return '#FFD93D';
-      default: return COLORS.gray;
+      default: return colors.gray;
     }
   };
 
@@ -180,7 +182,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading your access pass...</Text>
       </View>
     );
@@ -254,16 +256,16 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
           {/* Pass Details */}
           <View style={styles.passDetails}>
             <View style={styles.detailItem}>
-              <Ionicons name="calendar-outline" size={20} color={COLORS.gray} />
+              <Ionicons name="calendar-outline" size={20} color={colors.gray} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Valid Until</Text>
-                <Text style={styles.detailValue}>{formatDate(accessPass?.validUntil || '')}</Text>
+                <Text style={styles.detailValue}>{formatDateShort(accessPass?.validUntil || '')}</Text>
               </View>
             </View>
 
             {accessPass?.remainingSessions !== undefined && (
               <View style={styles.detailItem}>
-                <Ionicons name="ticket-outline" size={20} color={COLORS.gray} />
+                <Ionicons name="ticket-outline" size={20} color={colors.gray} />
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Sessions Left</Text>
                   <Text style={styles.detailValue}>{accessPass.remainingSessions}</Text>
@@ -274,7 +276,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
 
           {/* Instructions */}
           <View style={styles.instructions}>
-            <Ionicons name="scan" size={24} color={COLORS.primary} />
+            <Ionicons name="scan" size={24} color={colors.primary} />
             <Text style={styles.instructionsText}>
               Show this QR code at the entrance for quick access
             </Text>
@@ -288,7 +290,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
             onPress={() => navigation.navigate('MySubscriptions')}
           >
             <Text style={styles.viewSubscriptionText}>View Subscription Details</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -296,10 +298,10 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -308,12 +310,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
     gap: 16,
   },
   loadingText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Header
@@ -335,7 +337,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   refreshButton: {
     width: 40,
@@ -360,7 +362,7 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   statusBadge: {
@@ -392,7 +394,7 @@ const styles = StyleSheet.create({
     left: -20,
     right: -20,
     bottom: -20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 40,
     opacity: 0.3,
   },
@@ -462,12 +464,12 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   membershipType: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
 
@@ -490,13 +492,13 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 2,
   },
   detailValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Instructions
@@ -512,7 +514,7 @@ const styles = StyleSheet.create({
   instructionsText: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Footer
@@ -531,6 +533,6 @@ const styles = StyleSheet.create({
   viewSubscriptionText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

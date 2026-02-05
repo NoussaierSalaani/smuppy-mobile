@@ -3,7 +3,7 @@
  * CRUD for services and products with pricing
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Switch,
@@ -24,13 +23,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import type { IconName } from '../../types';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 interface Service {
@@ -71,7 +72,9 @@ const SUBSCRIPTION_PERIODS = [
 ];
 
 export default function BusinessServicesManageScreen({ navigation }: Props) {
+  const { showError, showDestructiveConfirm } = useSmuppyAlert();
   const { formatAmount, currency } = useCurrency();
+  const { colors, isDark } = useTheme();
 
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,6 +82,8 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -149,7 +154,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         ]);
       }
     } catch (error) {
-      console.error('Load services error:', error);
+      if (__DEV__) console.warn('Load services error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -198,36 +203,30 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   };
 
   const handleDelete = (service: Service) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Delete Service',
       `Are you sure you want to delete "${service.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            try {
-              await awsAPI.deleteBusinessService(service.id);
-              setServices((prev) => prev.filter((s) => s.id !== service.id));
-            } catch (_error) {
-              Alert.alert('Error', 'Failed to delete service');
-            }
-          },
-        },
-      ]
+      async () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        try {
+          await awsAPI.deleteBusinessService(service.id);
+          setServices((prev) => prev.filter((s) => s.id !== service.id));
+        } catch (_error) {
+          showError('Error', 'Failed to delete service');
+        }
+      },
+      'Delete'
     );
   };
 
   const handleSave = async () => {
     if (!formName.trim()) {
-      Alert.alert('Error', 'Service name is required');
+      showError('Error', 'Service name is required');
       return;
     }
 
     if (!formPrice || isNaN(parseFloat(formPrice))) {
-      Alert.alert('Error', 'Valid price is required');
+      showError('Error', 'Valid price is required');
       return;
     }
 
@@ -272,8 +271,8 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error('Save service error:', error);
-      Alert.alert('Error', 'Failed to save service');
+      if (__DEV__) console.warn('Save service error:', error);
+      showError('Error', 'Failed to save service');
     } finally {
       setIsSaving(false);
     }
@@ -287,7 +286,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         prev.map((s) => (s.id === service.id ? { ...s, is_active: !s.is_active } : s))
       );
     } catch (error) {
-      console.error('Toggle active error:', error);
+      if (__DEV__) console.warn('Toggle active error:', error);
     }
   };
 
@@ -332,13 +331,13 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
             </Text>
             {service.duration_minutes && (
               <View style={styles.serviceMetaItem}>
-                <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="time-outline" size={14} color={colors.gray} />
                 <Text style={styles.serviceMetaText}>{service.duration_minutes} min</Text>
               </View>
             )}
             {service.max_capacity && (
               <View style={styles.serviceMetaItem}>
-                <Ionicons name="people-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="people-outline" size={14} color={colors.gray} />
                 <Text style={styles.serviceMetaText}>Max {service.max_capacity}</Text>
               </View>
             )}
@@ -350,7 +349,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
             value={service.is_active}
             onValueChange={() => handleToggleActive(service)}
             trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(14,191,138,0.4)' }}
-            thumbColor={service.is_active ? COLORS.primary : COLORS.gray}
+            thumbColor={service.is_active ? colors.primary : colors.gray}
           />
           <TouchableOpacity
             style={styles.deleteButton}
@@ -366,14 +365,14 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.backgroundSecondary, colors.background]} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
@@ -394,7 +393,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor={COLORS.primary}
+              tintColor={colors.primary}
             />
           }
         >
@@ -406,7 +405,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: COLORS.primary }]}>
+              <Text style={[styles.statValue, { color: colors.primary }]}>
                 {services.filter((s) => s.is_active).length}
               </Text>
               <Text style={styles.statLabel}>Active</Text>
@@ -426,12 +425,12 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
 
             {services.length === 0 && (
               <View style={styles.emptyState}>
-                <Ionicons name="pricetags-outline" size={48} color={COLORS.gray} />
+                <Ionicons name="pricetags-outline" size={48} color={colors.gray} />
                 <Text style={styles.emptyTitle}>No services yet</Text>
                 <Text style={styles.emptySubtitle}>Add your first service or product</Text>
                 <TouchableOpacity style={styles.emptyButton} onPress={handleAddNew}>
                   <LinearGradient colors={GRADIENTS.primary} style={styles.emptyButtonGradient}>
-                    <Ionicons name="add" size={20} color="#fff" />
+                    <Ionicons name="add" size={20} color={colors.dark} />
                     <Text style={styles.emptyButtonText}>Add Service</Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -470,7 +469,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                         value={formName}
                         onChangeText={setFormName}
                         placeholder="Service name"
-                        placeholderTextColor={COLORS.gray}
+                        placeholderTextColor={colors.gray}
                       />
                     </View>
 
@@ -482,7 +481,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                         value={formDescription}
                         onChangeText={setFormDescription}
                         placeholder="Brief description"
-                        placeholderTextColor={COLORS.gray}
+                        placeholderTextColor={colors.gray}
                         multiline
                         numberOfLines={3}
                       />
@@ -510,7 +509,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                               <Ionicons
                                 name={cat.icon}
                                 size={20}
-                                color={formCategory === cat.id ? cat.color : COLORS.gray}
+                                color={formCategory === cat.id ? cat.color : colors.gray}
                               />
                               <Text
                                 style={[
@@ -534,7 +533,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                         value={formPrice}
                         onChangeText={setFormPrice}
                         placeholder="0.00"
-                        placeholderTextColor={COLORS.gray}
+                        placeholderTextColor={colors.gray}
                         keyboardType="decimal-pad"
                       />
                     </View>
@@ -548,7 +547,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                           value={formDuration}
                           onChangeText={setFormDuration}
                           placeholder="60"
-                          placeholderTextColor={COLORS.gray}
+                          placeholderTextColor={colors.gray}
                           keyboardType="number-pad"
                         />
                       </View>
@@ -563,7 +562,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                           value={formMaxCapacity}
                           onChangeText={setFormMaxCapacity}
                           placeholder="15"
-                          placeholderTextColor={COLORS.gray}
+                          placeholderTextColor={colors.gray}
                           keyboardType="number-pad"
                         />
                       </View>
@@ -579,7 +578,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                         value={formIsSubscription}
                         onValueChange={setFormIsSubscription}
                         trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(14,191,138,0.4)' }}
-                        thumbColor={formIsSubscription ? COLORS.primary : COLORS.gray}
+                        thumbColor={formIsSubscription ? colors.primary : colors.gray}
                       />
                     </View>
 
@@ -596,7 +595,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                                   styles.periodOption,
                                   formSubscriptionPeriod === period.id && styles.periodOptionSelected,
                                 ]}
-                                onPress={() => setFormSubscriptionPeriod(period.id as any)}
+                                onPress={() => setFormSubscriptionPeriod(period.id as 'weekly' | 'monthly' | 'yearly')}
                               >
                                 <Text
                                   style={[
@@ -618,7 +617,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                             value={formTrialDays}
                             onChangeText={setFormTrialDays}
                             placeholder="0"
-                            placeholderTextColor={COLORS.gray}
+                            placeholderTextColor={colors.gray}
                             keyboardType="number-pad"
                           />
                         </View>
@@ -635,7 +634,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
                         value={formIsActive}
                         onValueChange={setFormIsActive}
                         trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(14,191,138,0.4)' }}
-                        thumbColor={formIsActive ? COLORS.primary : COLORS.gray}
+                        thumbColor={formIsActive ? colors.primary : colors.gray}
                       />
                     </View>
 
@@ -668,10 +667,10 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -680,7 +679,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -702,13 +701,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -734,12 +733,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   statDivider: {
     width: 1,
@@ -780,7 +779,7 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   subscriptionBadge: {
     backgroundColor: 'rgba(155,89,182,0.2)',
@@ -795,7 +794,7 @@ const styles = StyleSheet.create({
   },
   serviceDescription: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 6,
   },
   serviceMeta: {
@@ -806,7 +805,7 @@ const styles = StyleSheet.create({
   servicePrice: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   serviceMetaItem: {
     flexDirection: 'row',
@@ -815,7 +814,7 @@ const styles = StyleSheet.create({
   },
   serviceMetaText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   serviceActions: {
     alignItems: 'center',
@@ -834,11 +833,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   emptyButton: {
     marginTop: 16,
@@ -855,7 +854,7 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
   },
 
   // Modal
@@ -888,7 +887,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
   modalScroll: {
     paddingHorizontal: 20,
@@ -915,12 +914,12 @@ const styles = StyleSheet.create({
   formLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 8,
   },
   formHint: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: -4,
   },
   formInput: {
@@ -929,7 +928,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
-    color: '#fff',
+    color: colors.dark,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
@@ -957,7 +956,7 @@ const styles = StyleSheet.create({
   categoryOptionText: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
 
   // Period Picker
@@ -975,16 +974,16 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   periodOptionSelected: {
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     backgroundColor: 'rgba(14,191,138,0.1)',
   },
   periodOptionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   periodOptionTextSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Save Button
@@ -1001,6 +1000,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.dark,
   },
 });

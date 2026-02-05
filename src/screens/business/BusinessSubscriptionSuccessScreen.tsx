@@ -3,7 +3,7 @@
  * Confirmation screen after successful subscription
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { GRADIENTS } from '../../config/theme';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Props {
   route: {
@@ -28,7 +29,7 @@ interface Props {
       trialDays?: number;
     };
   };
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; popToTop: () => void; replace: (screen: string, params?: Record<string, unknown>) => void };
 }
 
 const PERIOD_TEXT = {
@@ -38,9 +39,12 @@ const PERIOD_TEXT = {
 };
 
 export default function BusinessSubscriptionSuccessScreen({ route, navigation }: Props) {
-  const { subscriptionId, businessName, planName, period, trialDays } = route.params;
+  const { colors, isDark } = useTheme();
+  const { subscriptionId: _subscriptionId, businessName, planName, period, trialDays } = route.params;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -57,6 +61,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
         useNativeDriver: true,
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleShare = async () => {
@@ -65,7 +70,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
         message: `I just subscribed to ${businessName} on Smuppy! 🏋️‍♂️\n\nJoin me and let's workout together!`,
       });
     } catch (error) {
-      console.error('Share error:', error);
+      if (__DEV__) console.warn('Share error:', error);
     }
   };
 
@@ -134,15 +139,15 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
 
             <View style={styles.benefitsList}>
               <View style={styles.benefitItem}>
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.benefitText}>Unlimited access to all facilities</Text>
               </View>
               <View style={styles.benefitItem}>
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.benefitText}>Priority booking for classes</Text>
               </View>
               <View style={styles.benefitItem}>
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.benefitText}>Exclusive member discounts</Text>
               </View>
             </View>
@@ -150,7 +155,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
 
           {/* Info Card */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+            <Ionicons name="information-circle" size={20} color={colors.primary} />
             <Text style={styles.infoText}>
               You can manage your subscription anytime from your profile settings
             </Text>
@@ -183,10 +188,10 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -214,13 +219,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -253,13 +258,13 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginBottom: 4,
   },
   planName: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.dark,
     marginBottom: 16,
   },
   trialInfo: {
@@ -291,7 +296,7 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   infoCard: {
     flexDirection: 'row',
@@ -305,7 +310,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
   },
   actions: {
     padding: 20,

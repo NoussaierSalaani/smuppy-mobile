@@ -3,7 +3,7 @@
  * Manage business activities, schedule, and services (for Pro Business owners)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,20 +11,23 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DARK_COLORS as COLORS, GRADIENTS } from '../../config/theme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Activity {
   id: string;
@@ -72,9 +75,11 @@ const RECOMMENDED_TAGS = [
   'Group Class', 'Equipment Included', 'Bring Your Own Mat',
 ];
 
-export default function BusinessProgramScreen({ navigation }: { navigation: any }) {
+export default function BusinessProgramScreen({ navigation }: { navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void } }) {
+  const { showError, showDestructiveConfirm, showWarning } = useSmuppyAlert();
   const { formatAmount: _formatAmount, currency: _currency } = useCurrency();
   const _user = useUserStore((state) => state.user);
+  const { colors, isDark } = useTheme();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
@@ -83,6 +88,8 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'activities' | 'schedule' | 'tags'>('activities');
   const [selectedDay, setSelectedDay] = useState(0);
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Modal states
   const [showActivityModal, setShowActivityModal] = useState(false);
@@ -116,7 +123,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         setTags(response.tags || []);
       }
     } catch (error) {
-      console.error('Load program error:', error);
+      if (__DEV__) console.warn('Load program error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +131,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
   const handleSaveActivity = async () => {
     if (!activityName.trim()) {
-      Alert.alert('Error', 'Please enter an activity name');
+      showError('Error', 'Please enter an activity name');
       return;
     }
 
@@ -158,35 +165,29 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
       } else {
         throw new Error(response.message);
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save activity');
+    } catch (error: unknown) {
+      showError('Error', (error as Error).message || 'Failed to save activity');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteActivity = (activity: Activity) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Delete Activity',
       `Are you sure you want to delete "${activity.name}"?\n\nThis will also remove all scheduled slots for this activity.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.deleteBusinessActivity(activity.id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadProgramData();
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.deleteBusinessActivity(activity.id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadProgramData();
+          }
+        } catch (error: unknown) {
+          showError('Error', (error as Error).message);
+        }
+      },
+      'Delete'
     );
   };
 
@@ -213,7 +214,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
   const handleSaveSlot = async () => {
     if (!slotActivityId) {
-      Alert.alert('Error', 'Please select an activity');
+      showError('Error', 'Please select an activity');
       return;
     }
 
@@ -239,35 +240,29 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
       } else {
         throw new Error(response.message);
       }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add slot');
+    } catch (error: unknown) {
+      showError('Error', (error as Error).message || 'Failed to add slot');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteSlot = (slot: ScheduleSlot) => {
-    Alert.alert(
+    showDestructiveConfirm(
       'Remove Slot',
       `Remove "${slot.activity_name}" from ${DAYS[slot.day_of_week]}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await awsAPI.deleteBusinessScheduleSlot(slot.id);
-              if (response.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                loadProgramData();
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await awsAPI.deleteBusinessScheduleSlot(slot.id);
+          if (response.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadProgramData();
+          }
+        } catch (error: unknown) {
+          showError('Error', (error as Error).message);
+        }
+      },
+      'Remove'
     );
   };
 
@@ -296,7 +291,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         }
       }
     } catch (error) {
-      console.error('Toggle tag error:', error);
+      if (__DEV__) console.warn('Toggle tag error:', error);
     }
   };
 
@@ -313,7 +308,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
           <View style={styles.activityHeader}>
             <Text style={styles.activityName}>{item.name}</Text>
             <View style={[styles.categoryBadge, { backgroundColor: item.color + '20' }]}>
-              <Ionicons name={categoryData?.icon as any} size={12} color={item.color} />
+              <Ionicons name={categoryData?.icon as keyof typeof Ionicons.glyphMap} size={12} color={item.color} />
               <Text style={[styles.categoryBadgeText, { color: item.color }]}>
                 {categoryData?.name}
               </Text>
@@ -321,18 +316,18 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
           </View>
           <View style={styles.activityMeta}>
             <View style={styles.activityMetaItem}>
-              <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+              <Ionicons name="time-outline" size={14} color={colors.gray} />
               <Text style={styles.activityMetaText}>{item.duration_minutes} min</Text>
             </View>
             {item.max_participants && (
               <View style={styles.activityMetaItem}>
-                <Ionicons name="people-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="people-outline" size={14} color={colors.gray} />
                 <Text style={styles.activityMetaText}>Max {item.max_participants}</Text>
               </View>
             )}
             {item.instructor && (
               <View style={styles.activityMetaItem}>
-                <Ionicons name="person-outline" size={14} color={COLORS.gray} />
+                <Ionicons name="person-outline" size={14} color={colors.gray} />
                 <Text style={styles.activityMetaText}>{item.instructor}</Text>
               </View>
             )}
@@ -340,7 +335,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
         </View>
         <View style={styles.activityActions}>
           <TouchableOpacity style={styles.activityActionButton} onPress={() => handleEditActivity(item)}>
-            <Ionicons name="pencil" size={18} color={COLORS.primary} />
+            <Ionicons name="pencil" size={18} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.activityActionButton} onPress={() => handleDeleteActivity(item)}>
             <Ionicons name="trash" size={18} color="#FF3B30" />
@@ -369,7 +364,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -399,7 +394,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
               <Ionicons
                 name={tab === 'activities' ? 'fitness' : tab === 'schedule' ? 'calendar' : 'pricetags'}
                 size={18}
-                color={activeTab === tab ? '#fff' : COLORS.gray}
+                color={activeTab === tab ? '#fff' : colors.gray}
               />
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -428,7 +423,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
               {activities.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="fitness-outline" size={48} color={COLORS.gray} />
+                  <Ionicons name="fitness-outline" size={48} color={colors.gray} />
                   <Text style={styles.emptyTitle}>No activities yet</Text>
                   <Text style={styles.emptySubtitle}>
                     Add activities that your business offers
@@ -479,7 +474,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     style={[styles.addButton, activities.length === 0 && styles.addButtonDisabled]}
                     onPress={() => {
                       if (activities.length === 0) {
-                        Alert.alert('No Activities', 'Please add activities first before creating a schedule.');
+                        showWarning('No Activities', 'Please add activities first before creating a schedule.');
                         return;
                       }
                       resetSlotForm();
@@ -494,7 +489,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
                 {getDaySlots(selectedDay).length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                    <Ionicons name="calendar-outline" size={48} color={colors.gray} />
                     <Text style={styles.emptyTitle}>No classes scheduled</Text>
                     <Text style={styles.emptySubtitle}>
                       Add time slots for {DAYS[selectedDay]}
@@ -530,7 +525,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                         {tagName}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark" size={14} color={COLORS.primary} />
+                        <Ionicons name="checkmark" size={14} color={colors.primary} />
                       )}
                     </TouchableOpacity>
                   );
@@ -538,7 +533,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
               </View>
 
               <View style={styles.selectedTagsInfo}>
-                <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+                <Ionicons name="information-circle" size={18} color={colors.primary} />
                 <Text style={styles.selectedTagsText}>
                   {tags.length} tag{tags.length !== 1 ? 's' : ''} selected • These will appear in search results
                 </Text>
@@ -552,6 +547,11 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
 
       {/* Activity Modal */}
       <Modal visible={showActivityModal} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
@@ -564,7 +564,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Activity Name *</Text>
                   <TextInput
@@ -572,7 +572,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={activityName}
                     onChangeText={setActivityName}
                     placeholder="e.g., Morning Yoga"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -589,7 +589,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                           ]}
                           onPress={() => setActivityCategory(cat.id)}
                         >
-                          <Ionicons name={cat.icon as any} size={20} color={cat.color} />
+                          <Ionicons name={cat.icon as keyof typeof Ionicons.glyphMap} size={20} color={cat.color} />
                           <Text style={styles.categorySelectorText}>{cat.name}</Text>
                         </TouchableOpacity>
                       ))}
@@ -605,7 +605,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={activityDuration}
                       onChangeText={setActivityDuration}
                       placeholder="60"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                       keyboardType="number-pad"
                     />
                   </View>
@@ -616,7 +616,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={activityMaxParticipants}
                       onChangeText={setActivityMaxParticipants}
                       placeholder="Unlimited"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                       keyboardType="number-pad"
                     />
                   </View>
@@ -629,7 +629,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={activityInstructor}
                     onChangeText={setActivityInstructor}
                     placeholder="Optional"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -640,7 +640,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={activityDescription}
                     onChangeText={setActivityDescription}
                     placeholder="Describe this activity..."
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                     multiline
                   />
                 </View>
@@ -664,10 +664,16 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
             </BlurView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Schedule Slot Modal */}
       <Modal visible={showScheduleModal} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
@@ -678,7 +684,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Activity *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -708,7 +714,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={slotStartTime}
                       onChangeText={setSlotStartTime}
                       placeholder="09:00"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                     />
                   </View>
                   <View style={[styles.formGroup, { flex: 1 }]}>
@@ -718,7 +724,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                       value={slotEndTime}
                       onChangeText={setSlotEndTime}
                       placeholder="10:00"
-                      placeholderTextColor={COLORS.gray}
+                      placeholderTextColor={colors.gray}
                     />
                   </View>
                 </View>
@@ -730,7 +736,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
                     value={slotInstructor}
                     onChangeText={setSlotInstructor}
                     placeholder="Use activity default"
-                    placeholderTextColor={COLORS.gray}
+                    placeholderTextColor={colors.gray}
                   />
                 </View>
 
@@ -756,15 +762,16 @@ export default function BusinessProgramScreen({ navigation }: { navigation: any 
             </BlurView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -773,7 +780,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -816,12 +823,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tabTextActive: {
     color: '#fff',
@@ -847,14 +854,14 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 4,
     marginBottom: 16,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
@@ -921,7 +928,7 @@ const styles = StyleSheet.create({
   },
   activityMetaText: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   activityActions: {
     flexDirection: 'row',
@@ -947,19 +954,19 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   dayButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   dayButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.gray,
+    color: colors.gray,
   },
   dayButtonTextActive: {
     color: '#fff',
   },
   daySlotCount: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   daySlotCountActive: {
@@ -992,11 +999,11 @@ const styles = StyleSheet.create({
   },
   slotActivity: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   slotInstructor: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: colors.gray,
     marginTop: 2,
   },
   slotDelete: {
@@ -1023,14 +1030,14 @@ const styles = StyleSheet.create({
   },
   tagChipSelected: {
     backgroundColor: 'rgba(14,191,138,0.1)',
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
   },
   tagChipText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   tagChipTextSelected: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   selectedTagsInfo: {
@@ -1044,7 +1051,7 @@ const styles = StyleSheet.create({
   selectedTagsText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.primary,
+    color: colors.primary,
   },
 
   // Empty State
@@ -1060,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
     textAlign: 'center',
   },
 
@@ -1077,7 +1084,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   modalBlur: {
-    backgroundColor: 'rgba(20,20,35,0.95)',
+    backgroundColor: isDark ? 'rgba(20,20,35,0.95)' : 'rgba(255,255,255,0.95)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1139,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   categorySelectorText: {
     fontSize: 12,
-    color: COLORS.lightGray,
+    color: colors.grayLight,
   },
   activitySelector: {
     flexDirection: 'row',
@@ -1176,7 +1183,7 @@ const styles = StyleSheet.create({
   },
   slotPreviewLabel: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: colors.gray,
   },
   slotPreviewDay: {
     fontSize: 14,

@@ -36,11 +36,12 @@
 - All migrations MUST be reversible — include a rollback comment block at the bottom
 
 ### Git & Code Protection
-- **NEVER** force push (`git push --force` or `git push -f`) to `main` or `master`
-- **NEVER** rebase `main` branch
+- **NEVER** force push (`git push --force` or `git push -f`) to `main` without explicit user approval and a backup branch
+- If force push is needed, always use `--force-with-lease` and create `backup/main-pre-<action>` first
+- **NEVER** rebase `main` branch without explicit user approval
 - **NEVER** commit secrets, API keys, tokens, or .env files — verify with `git diff --staged` before every commit
 - **NEVER** delete branches that haven't been merged without asking first
-- Always create a new branch for risky changes — never experiment directly on `main`
+- **NEVER** commit directly on `main` — always use a feature branch + squash merge (see Git Discipline)
 
 ### Confirmation Protocol
 - Any command that modifies AWS infrastructure (cdk deploy, aws cli write operations): **state what will change BEFORE running**
@@ -177,10 +178,20 @@
 
 ## Git Discipline
 
+### Branching Workflow (MANDATORY)
+- **NEVER commit directly on `main`** — always create a feature branch first (`feat/xxx`, `fix/xxx`, `chore/xxx`)
+- **Squash before merge** — use `git merge --squash feature-branch` or `gh pr merge --squash` for a single clean commit
+- **One commit = one logical change** — no "fix", then "fix the fix", then "fix the fix of the fix"
+- **PR even when solo** — `gh pr create` then `gh pr merge --squash` to keep history clean
+- **Test BEFORE commit** — run `npx tsc --noEmit` + local test BEFORE each commit, not after
+- Branch naming: `feat/feature-name`, `fix/bug-name`, `security/audit-batch-N`, `chore/task-name`
+
+### Commit Hygiene
 - Atomic commits: one logical change per commit
 - Commit message format: `type(scope): description` — types: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `security`
 - Never commit: `.env`, secrets, `node_modules`, build artifacts, `console.log` debug statements
-- Branch naming: `feat/feature-name`, `fix/bug-name`, `security/audit-batch-N`
+- Never push broken code — every commit on `main` must leave the app in a working state
+- Group related changes into a single commit instead of scattering across many micro-commits
 
 ## Bug Prevention Rules (MANDATORY)
 

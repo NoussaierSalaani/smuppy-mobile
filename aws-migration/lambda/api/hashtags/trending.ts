@@ -32,10 +32,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const pool = await getReaderPool();
 
     const result = await pool.query(
-      `SELECT tag, COUNT(*) as count
+      `SELECT tag, SUM(cnt)::int as count
        FROM (
-         SELECT LOWER(unnest(regexp_matches(content, '#([a-zA-Z0-9_]+)', 'g'))) as tag
+         SELECT LOWER(unnest(regexp_matches(content, '#([a-zA-Z0-9_]+)', 'g'))) as tag, 1 as cnt
          FROM posts
+         WHERE created_at > NOW() - INTERVAL '7 days'
+         UNION ALL
+         SELECT hashtag as tag, 1 as cnt
+         FROM peak_hashtags
          WHERE created_at > NOW() - INTERVAL '7 days'
        ) tags
        GROUP BY tag

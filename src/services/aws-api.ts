@@ -3453,6 +3453,7 @@ export interface CreatePeakInput {
   caption?: string;
   duration: number;
   replyToPeakId?: string;
+  hashtags?: string[];
 }
 
 export interface UpdateProfileInput {

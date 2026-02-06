@@ -28,6 +28,7 @@ import { uploadPostMedia } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
+import { extractHashtags } from '../../utils/hashtags';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -170,11 +171,13 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
       // Create peak via dedicated peaks API
       const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
+      const hashtags = textOverlay ? extractHashtags(textOverlay) : [];
       const peakResult = await awsAPI.createPeak({
         videoUrl: mediaUrl,
         caption: textOverlay || undefined,
         duration: duration,
         replyToPeakId: replyTo || undefined,
+        hashtags: hashtags.length > 0 ? hashtags : undefined,
       }) as unknown as { success?: boolean; peak?: { id: string }; message?: string };
 
       if (!peakResult || peakResult.success === false || !peakResult.peak?.id) {

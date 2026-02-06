@@ -51,7 +51,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { videoUrl, thumbnailUrl, caption, duration, replyToPeakId } = body;
+    const { videoUrl, thumbnailUrl, caption, duration, replyToPeakId, hashtags } = body;
 
     // Validate required fields
     if (!videoUrl || typeof videoUrl !== 'string') {
@@ -89,6 +89,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Validate duration (max 60 seconds for peaks)
     const videoDuration = typeof duration === 'number' ? Math.min(duration, 60) : null;
+
+    // Validate hashtags if provided (max 30 hashtags, each max 100 chars)
+    const validHashtags: string[] = [];
+    if (Array.isArray(hashtags)) {
+      for (const tag of hashtags.slice(0, 30)) {
+        if (typeof tag === 'string' && tag.length > 0 && tag.length <= 100) {
+          validHashtags.push(tag.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+        }
+      }
+    }
 
     const db = await getPool();
 
@@ -156,6 +166,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       } catch (notifErr) {
         log.error('Failed to send reply notification', notifErr);
+      }
+    }
+
+    // Insert hashtags (fire and forget)
+    if (validHashtags.length > 0) {
+      try {
+        const hashtagValues = validHashtags.map((_, i) => `($1, $${i + 2})`).join(', ');
+        await db.query(
+          `INSERT INTO peak_hashtags (peak_id, hashtag) VALUES ${hashtagValues} ON CONFLICT DO NOTHING`,
+          [peak.id, ...validHashtags]
+        );
+      } catch (hashtagErr) {
+        log.error('Failed to insert peak hashtags', hashtagErr);
       }
     }
 

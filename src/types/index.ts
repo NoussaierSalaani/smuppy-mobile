@@ -632,6 +632,10 @@ export interface Peak {
   challengeRules?: string;
   challengeEndsAt?: string;
   challengeResponseCount?: number;
+  // Filter & overlay metadata (rendered as UI overlays during playback)
+  filterId?: string;
+  filterIntensity?: number;
+  overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
 }
 
 // ============================================
@@ -704,6 +708,9 @@ export type MainStackParamList = {
     originalPeak?: { id: string; user?: { id: string; name: string; avatar: string } };
     challengeId?: string;
     challengeTitle?: string;
+    filterId?: string;
+    filterIntensity?: number;
+    overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
   };
   Challenges: undefined;
 

@@ -72,6 +72,10 @@ interface Peak {
   challengeRules?: string;
   challengeEndsAt?: string;
   challengeResponseCount?: number;
+  // Filter & overlay metadata
+  filterId?: string;
+  filterIntensity?: number;
+  overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
 }
 
 type RootStackParamList = {
@@ -811,6 +815,36 @@ const PeakViewScreen = (): React.JSX.Element => {
         visible={false}
       />
 
+      {/* Filter badge */}
+      {carouselVisible && currentPeak.filterId && (
+        <View style={[styles.filterBadge, { top: insets.top + 82 }]}>
+          <Ionicons name="color-wand" size={12} color={colors.primary} />
+          <Text style={styles.filterBadgeText}>{currentPeak.filterId.replace(/_/g, ' ')}</Text>
+        </View>
+      )}
+
+      {/* Overlay indicators */}
+      {carouselVisible && currentPeak.overlays && currentPeak.overlays.length > 0 && (
+        <View style={[styles.overlayIndicators, { top: insets.top + (currentPeak.filterId ? 110 : 82) }]}>
+          {currentPeak.overlays.map((overlay) => (
+            <View key={overlay.id} style={styles.overlayIndicator}>
+              <Ionicons
+                name={
+                  overlay.type === 'workout_timer' ? 'timer-outline' :
+                  overlay.type === 'rep_counter' ? 'fitness-outline' :
+                  overlay.type === 'day_challenge' ? 'calendar-outline' :
+                  overlay.type === 'calorie_burn' ? 'flame-outline' :
+                  overlay.type === 'heart_rate_pulse' ? 'heart-outline' :
+                  'layers-outline'
+                }
+                size={14}
+                color={colors.white}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Vertical Action Buttons - Right Side */}
       {carouselVisible && (
         <View style={[styles.actionButtonsContainer, { bottom: insets.bottom + 100 }]}>
@@ -1312,6 +1346,39 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 14,
   },
 
+  filterBadge: {
+    position: 'absolute',
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    zIndex: 90,
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+    textTransform: 'capitalize',
+  },
+  overlayIndicators: {
+    position: 'absolute',
+    left: 12,
+    flexDirection: 'row',
+    gap: 6,
+    zIndex: 90,
+  },
+  overlayIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   challengeMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',

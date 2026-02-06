@@ -3454,6 +3454,9 @@ export interface CreatePeakInput {
   duration: number;
   replyToPeakId?: string;
   hashtags?: string[];
+  filterId?: string;
+  filterIntensity?: number;
+  overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
 }
 
 export interface UpdateProfileInput {

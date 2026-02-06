@@ -62,9 +62,11 @@ interface RecordedVideo {
   uri: string;
 }
 
+type OverlayData = { id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> };
+
 type RootStackParamList = {
   CreatePeak: { replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string };
-  PeakPreview: { videoUri: string; duration: number; replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string };
+  PeakPreview: { videoUri: string; duration: number; replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string; filterId?: string; filterIntensity?: number; overlays?: OverlayData[] };
   [key: string]: object | undefined;
 };
 
@@ -299,6 +301,11 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     }
 
     if (recordedVideo) {
+      // Serialize filter/overlay metadata for navigation params
+      const overlayData: OverlayData[] | undefined = activeOverlays.length > 0
+        ? activeOverlays.map(o => ({ id: o.id, type: o.type, position: { ...o.position }, params: { ...o.params } }))
+        : undefined;
+
       navigation.navigate('PeakPreview', {
         videoUri: recordedVideo.uri,
         duration: selectedDuration,
@@ -306,6 +313,9 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         originalPeak,
         challengeId,
         challengeTitle,
+        filterId: activeFilter?.filterId,
+        filterIntensity: activeFilter?.intensity,
+        overlays: overlayData,
       });
       setRecordedVideo(null);
       setIsPreviewPlaying(false);

@@ -54,6 +54,8 @@ interface OriginalPeak {
   user?: OriginalPeakUser;
 }
 
+type OverlayData = { id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> };
+
 type RootStackParamList = {
   PeakPreview: {
     videoUri: string;
@@ -62,6 +64,9 @@ type RootStackParamList = {
     originalPeak?: OriginalPeak;
     challengeId?: string;
     challengeTitle?: string;
+    filterId?: string;
+    filterIntensity?: number;
+    overlays?: OverlayData[];
   };
   Tabs: { screen: string };
   [key: string]: object | undefined;
@@ -75,7 +80,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const { showError: errorAlert } = useSmuppyAlert();
   const alert = { error: errorAlert };
 
-  const { videoUri, duration, replyTo, originalPeak, challengeId, challengeTitle: challengeTitleParam } = route.params || {};
+  const { videoUri, duration, replyTo, originalPeak, challengeId, challengeTitle: challengeTitleParam, filterId, filterIntensity, overlays: overlayData } = route.params || {};
 
   const videoRef = useRef<Video>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -178,6 +183,9 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         duration: duration,
         replyToPeakId: replyTo || undefined,
         hashtags: hashtags.length > 0 ? hashtags : undefined,
+        filterId: filterId || undefined,
+        filterIntensity: filterIntensity ?? undefined,
+        overlays: overlayData && overlayData.length > 0 ? overlayData : undefined,
       }) as unknown as { success?: boolean; peak?: { id: string }; message?: string };
 
       if (!peakResult || peakResult.success === false || !peakResult.peak?.id) {

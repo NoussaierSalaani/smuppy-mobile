@@ -335,7 +335,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         >
           <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit profil</Text>
+        <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity 
           style={[styles.saveButton, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}

@@ -1463,6 +1463,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
     const result = await awsAPI.request<{ messages: Array<{
       id: string; content: string; media_url?: string; media_type?: string;
       sender_id: string; read: boolean; created_at: string;
+      shared_post_id?: string; is_deleted?: boolean;
       sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
     }> }>(`/conversations/${conversationId}/messages?limit=${limit}`);
     const messages: Message[] = (result.messages || []).map((m) => ({
@@ -1472,6 +1473,8 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
       content: m.content,
       media_url: m.media_url,
       media_type: m.media_type as Message['media_type'],
+      shared_post_id: m.shared_post_id,
+      is_deleted: m.is_deleted,
       created_at: m.created_at,
       sender: m.sender ? {
         id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',

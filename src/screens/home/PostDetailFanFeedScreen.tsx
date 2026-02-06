@@ -522,7 +522,7 @@ const PostDetailFanFeedScreen = () => {
             <View style={styles.underReviewOverlay}>
               <View style={styles.underReviewBadge}>
                 <Ionicons name="alert-circle" size={24} color="#FFF" />
-                <Text style={styles.underReviewText}>Contenu sous examen</Text>
+                <Text style={styles.underReviewText}>Content under review</Text>
               </View>
             </View>
           )}

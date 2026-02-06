@@ -209,7 +209,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const [sessionTime, _setSessionTime] = useState('14:30');
   const [sessionDuration, setSessionDuration] = useState(60);
   const [sessionPrice, setSessionPrice] = useState('20');
-  const [selectedDays, setSelectedDays] = useState<string[]>(['mer', 'ven', 'sam']);
+  const [selectedDays, setSelectedDays] = useState<string[]>(['wed', 'fri', 'sat']);
 
   // Add pack form states
   const [packName, setPackName] = useState('');
@@ -237,13 +237,6 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       // Build availability object from selected days and times
       const availability: { [day: string]: { start: string; end: string }[] } = {};
       const dayMapping: { [key: string]: string } = {
-        'lun': 'monday',
-        'mar': 'tuesday',
-        'mer': 'wednesday',
-        'jeu': 'thursday',
-        'ven': 'friday',
-        'sam': 'saturday',
-        'dim': 'sunday',
         'mon': 'monday',
         'tue': 'tuesday',
         'wed': 'wednesday',
@@ -494,7 +487,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       {/* Calendar Grid */}
       <View style={styles.calendarGrid}>
         {/* Day headers */}
-        {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
           <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
         ))}
 

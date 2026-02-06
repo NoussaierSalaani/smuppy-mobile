@@ -398,6 +398,29 @@ Optional body: explain WHY, not WHAT (the diff shows WHAT).
 - If a bug affects TestFlight users: fix + `eas update --branch production`
 - **NEVER** leave broken code in the codebase — every commit must leave the app in a working state
 
+### Feature Completion Policy (CRITICAL — NO HALF-DONE WORK)
+A feature is **NOT done** until every layer is implemented, deployed, and verified. Never stop halfway.
+
+**Migrations:**
+- If you create a SQL migration file, **deploy it to the database immediately** via `run-ddl` action
+- Verify the migration with a `run-sql` query (check columns/tables exist)
+- A migration file sitting in `aws-migration/scripts/` without being deployed is a bug
+
+**Backend (Lambda):**
+- If you modify a Lambda handler, **`cdk deploy` immediately** after committing
+- After deploy, **verify with `aws lambda invoke`** that the endpoint works
+- Never tell the user "it's done" if the Lambda hasn't been deployed
+
+**Frontend (Visual):**
+- If a feature requires visual rendering (filters, overlays, animations), **implement the actual visual effect**
+- Never substitute a badge/indicator/placeholder for actual rendering — that is an incomplete feature
+- If Skia shaders can't be applied to `<Video>` in real-time, use the next best approach (color overlays, gradient tints) — do not skip rendering entirely
+
+**End-to-End Rule:**
+- A feature is complete ONLY when: code committed → migrations deployed → Lambda deployed → frontend renders correctly → `npx tsc --noEmit` passes → `git push origin main`
+- If any step is missing, the feature is **not done** — go back and complete it before moving on
+- **NEVER** say "it's done" or "everything works" when there are undeployed migrations, undeployed Lambdas, or placeholder UI
+
 ## Pre-Merge Checklist
 
 For every endpoint, verify:

@@ -613,7 +613,7 @@ const PostDetailVibesFeedScreen = () => {
                   usePoster
                 />
               ) : currentPost.allMedia && currentPost.allMedia.length > 1 ? (
-                <View style={{ flex: 1 }}>
+                <View style={styles.scrollView}>
                   <ScrollView
                     horizontal
                     pagingEnabled
@@ -627,7 +627,7 @@ const PostDetailVibesFeedScreen = () => {
                       <OptimizedImage
                         key={`${currentPost.id}-media-${mediaIndex}`}
                         source={mediaUrl}
-                        style={{ width, height: '100%' }}
+                        style={styles.carouselImage}
                       />
                     ))}
                   </ScrollView>
@@ -1127,6 +1127,10 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     width: '100%',
     height: '100%',
     position: 'absolute',
+  },
+  carouselImage: {
+    width: width,
+    height: '100%',
   },
   carouselPagination: {
     position: 'absolute',

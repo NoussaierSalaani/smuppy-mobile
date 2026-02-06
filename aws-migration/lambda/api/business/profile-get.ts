@@ -29,12 +29,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get business profile
+    // Get business profile (include fan_count to avoid separate COUNT query)
     const profileResult = await db.query(
       `SELECT id, full_name, username, bio, avatar_url, cover_url,
               business_category, business_address, business_phone, business_website,
               business_hours, latitude, longitude, is_verified,
-              stripe_account_id, stripe_charges_enabled
+              stripe_account_id, stripe_charges_enabled, fan_count
        FROM profiles
        WHERE id = $1 AND account_type IN ('business', 'pro_business')`,
       [businessId]
@@ -46,8 +46,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profile = profileResult.rows[0];
 
-    // Run parallel queries for related data
-    const [servicesResult, tagsResult, followersResult, isFollowingResult] = await Promise.all([
+    // Run parallel queries for related data (fan_count comes from profile, no separate COUNT needed)
+    const [servicesResult, tagsResult, isFollowingResult] = await Promise.all([
       db.query(
         `SELECT id, name, description, category, price_cents, duration_minutes,
                 max_capacity, is_subscription, subscription_period, trial_days,
@@ -59,10 +59,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ),
       db.query(
         `SELECT id, name, category FROM business_tags WHERE business_id = $1 ORDER BY name`,
-        [businessId]
-      ),
-      db.query(
-        `SELECT COUNT(*) as count FROM follows WHERE following_id = $1`,
         [businessId]
       ),
       // Check if current user follows this business (if authenticated)
@@ -93,7 +89,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       longitude: profile.longitude,
       isVerified: profile.is_verified,
       paymentsEnabled: !!profile.stripe_account_id && profile.stripe_charges_enabled,
-      followersCount: parseInt(followersResult.rows[0]?.count || '0'),
+      followersCount: profile.fan_count ?? 0,
       isFollowing: isFollowingResult.rows[0]?.is_following || false,
       tags: tagsResult.rows.map((t: Record<string, unknown>) => ({ id: t.id, name: t.name, category: t.category })),
       services: servicesResult.rows.map((s: Record<string, unknown>) => ({

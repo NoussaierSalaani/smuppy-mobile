@@ -304,10 +304,9 @@ async function createCheckoutSession(
         };
       }
 
-      // Get creator details
+      // Get creator details (use cached fan_count column instead of COUNT subquery)
       const creatorResult = await db.query(
-        `SELECT id, full_name, username, stripe_account_id, channel_price_cents,
-                (SELECT COUNT(*) FROM follows WHERE following_id = id) as fan_count
+        `SELECT id, full_name, username, stripe_account_id, channel_price_cents, fan_count
          FROM profiles WHERE id = $1`,
         [creatorId]
       );

@@ -172,6 +172,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         participationStatus = 'registered';
         message = 'Successfully registered for the event';
 
+        // Update cached participant count
+        await client.query(
+          `UPDATE events SET current_participants = current_participants + 1 WHERE id = $1`,
+          [eventId]
+        );
+
         // Notify creator
         if (eventData.creator_id !== userId) {
           await client.query(
@@ -226,6 +232,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           [eventId, userId]
         );
 
+        // Decrement cached participant count
+        await client.query(
+          `UPDATE events SET current_participants = GREATEST(current_participants - 1, 0) WHERE id = $1`,
+          [eventId]
+        );
+
         participationStatus = 'cancelled';
         message = 'Registration cancelled';
         break;
@@ -233,12 +245,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('COMMIT');
 
-    // Get updated participant count
-    const countResult = await client.query(
-      `SELECT COUNT(*) as count FROM event_participants
-       WHERE event_id = $1 AND status IN ('registered', 'confirmed', 'attended')`,
+    // Get updated participant count from cached column (faster than COUNT)
+    const updatedEvent = await client.query(
+      `SELECT current_participants FROM events WHERE id = $1`,
       [eventId]
     );
+    const currentParticipants = updatedEvent.rows[0]?.current_participants ?? 0;
 
     return cors({
       statusCode: 200,
@@ -246,9 +258,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         success: true,
         message,
         participationStatus,
-        currentParticipants: parseInt(countResult.rows[0].count),
+        currentParticipants,
         spotsLeft: eventData.max_participants
-          ? eventData.max_participants - parseInt(countResult.rows[0].count)
+          ? eventData.max_participants - currentParticipants
           : null,
       }),
     });

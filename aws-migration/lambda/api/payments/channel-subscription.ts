@@ -164,10 +164,9 @@ async function subscribeToChannel(
       };
     }
 
-    // Get creator info (fan count, stripe account, channel price)
+    // Get creator info (use cached fan_count column instead of COUNT subquery)
     const creatorResult = await client.query(
-      `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name,
-              (SELECT COUNT(*) FROM follows WHERE following_id = p.id) as fan_count
+      `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name, p.fan_count
        FROM profiles p
        WHERE p.id = $1 AND p.account_type IN ('pro_creator', 'pro_business')`,
       [creatorId]
@@ -465,8 +464,7 @@ async function getChannelInfo(creatorId: string, headers: Record<string, string>
   try {
     const result = await client.query(
       `SELECT p.id, p.username, p.full_name, p.avatar_url, p.is_verified,
-              p.channel_price_cents, p.channel_description,
-              (SELECT COUNT(*) FROM follows WHERE following_id = p.id) as fan_count,
+              p.channel_price_cents, p.channel_description, p.fan_count,
               (SELECT COUNT(*) FROM channel_subscriptions WHERE creator_id = p.id AND status = 'active') as subscriber_count
        FROM profiles p
        WHERE p.id = $1`,

@@ -637,6 +637,10 @@ export default function EventListScreen() {
             renderItem={renderEventCard}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            initialNumToRender={8}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}

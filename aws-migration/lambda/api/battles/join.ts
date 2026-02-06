@@ -230,14 +230,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           [participant.id]
         );
 
-        // Check if all participants left
+        // Check if any participants remain streaming (EXISTS is faster than COUNT)
         const remainingResult = await client.query(
-          `SELECT COUNT(*) as count FROM battle_participants
-           WHERE battle_id = $1 AND status = 'joined' AND is_streaming = TRUE`,
+          `SELECT EXISTS(
+             SELECT 1 FROM battle_participants
+             WHERE battle_id = $1 AND status = 'joined' AND is_streaming = TRUE
+           ) as has_streaming`,
           [battleId]
         );
 
-        if (parseInt(remainingResult.rows[0].count) === 0) {
+        if (!remainingResult.rows[0].has_streaming) {
           // End battle if no one is streaming
           await client.query(
             `UPDATE live_battles

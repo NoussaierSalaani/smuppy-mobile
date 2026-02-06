@@ -664,6 +664,10 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
             renderItem={renderBusinessCard}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            initialNumToRender={8}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}

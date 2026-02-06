@@ -32,7 +32,6 @@ import {
   getMessages,
   sendMessage as sendMessageToDb,
   uploadVoiceMessage,
-  markConversationAsRead,
   getOrCreateConversation,
   getCurrentUserId,
   blockUser,
@@ -246,10 +245,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       if (changed) {
         messagesRef.current = merged;
         setMessages(merged);
-        // Mark as read only once on first load, not every poll
+        // Mark as read is handled automatically by the backend when fetching messages.
+        // We only need to update the local unread badge once on first load.
         if (!hasMarkedReadRef.current) {
           hasMarkedReadRef.current = true;
-          markConversationAsRead(conversationId);
           // Decrement the global unread messages badge
           if (routeUnreadCount && routeUnreadCount > 0) {
             useAppStore.getState().setUnreadMessages((prev) => Math.max(0, prev - routeUnreadCount));
@@ -473,13 +472,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const displayName = resolveDisplayName(otherUserProfile);
 
   // Memoized empty state — avoids re-creating on every render
-  const listEmptyComponent = useMemo(() => (
-    <View style={styles.emptyChat}>
-      <AvatarImage source={otherUserProfile?.avatar_url} size={80} />
-      <Text style={styles.emptyChatName}>{resolveDisplayName(otherUserProfile)}</Text>
-      <Text style={styles.emptyChatText}>Start a conversation with {otherUserProfile?.full_name?.split(' ')[0] || resolveDisplayName(otherUserProfile)}</Text>
-    </View>
-  ), [styles, otherUserProfile]);
+  const listEmptyComponent = useMemo(() => {
+    const firstName = displayName.split(' ')[0];
+    return (
+      <View style={styles.emptyChat}>
+        <AvatarImage source={otherUserProfile?.avatar_url} size={80} />
+        <Text style={styles.emptyChatName}>{displayName}</Text>
+        <Text style={styles.emptyChatText}>Start a conversation with {firstName}</Text>
+      </View>
+    );
+  }, [styles, otherUserProfile, displayName]);
 
   const keyExtractor = useCallback((item: Message) => item.id, []);
 

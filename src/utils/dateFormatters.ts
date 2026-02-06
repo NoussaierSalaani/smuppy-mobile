@@ -200,8 +200,25 @@ export const formatTimeAgo = (input: Date | string): string => {
   return toDate(input).toLocaleDateString();
 };
 
+/**
+ * "Today", "Tomorrow", "Yesterday", "3 days ago", "In 3 days" — English relative date (past + future)
+ */
+export const formatDateRelative = (input: Date | string): string => {
+  const date = toDate(input);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffDays = Math.round(diffMs / 86400000);
+
+  if (date.toDateString() === now.toDateString()) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays === -1) return 'Yesterday';
+  if (diffDays < 0) return `${Math.abs(diffDays)} days ago`;
+  if (diffDays < 7) return `In ${diffDays} days`;
+  return formatDateShort(date);
+};
+
 // ============================================
-// FRENCH LOCALE
+// FRENCH LOCALE (deprecated — use English equivalents above)
 // ============================================
 
 /**

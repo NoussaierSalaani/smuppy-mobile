@@ -597,7 +597,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               accessibilityState={{ expanded: bioExpanded }}
             >
               <Text style={styles.seeMoreText}>
-                {bioExpanded ? 'Voir moins' : 'Voir plus'}
+                {bioExpanded ? 'See less' : 'See more'}
               </Text>
             </TouchableOpacity>
           )}
@@ -1034,7 +1034,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         case 'subscribers': return 'Subscribers Only';
         case 'fans': return 'Fans Only';
         case 'private': return 'Private';
-        case 'hidden': return video.scheduledAt ? `Scheduled ${new Date(video.scheduledAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : 'Hidden';
+        case 'hidden': return video.scheduledAt ? `Scheduled ${new Date(video.scheduledAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}` : 'Hidden';
         default: return 'Public';
       }
     };
@@ -1211,7 +1211,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </View>
           </View>
 
-          <Text style={styles.qrUsername}>@{user.username || user.displayName.toLowerCase().replace(/\s+/g, '')}</Text>
+          <Text style={styles.qrUsername}>{user.displayName}</Text>
           <Text style={styles.qrHint}>Scan to be my fan!</Text>
 
           {/* Profile Link */}

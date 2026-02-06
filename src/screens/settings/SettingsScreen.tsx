@@ -360,7 +360,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               )}
             </View>
             <Text style={styles.displayName}>{displayName}</Text>
-            {username ? <Text style={styles.username}>@{username}</Text> : null}
+            {null}
           </View>
         </View>
 

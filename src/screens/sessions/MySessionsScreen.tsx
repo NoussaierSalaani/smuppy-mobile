@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { SessionListSkeleton } from '../../components/skeleton';
 import { awsAPI, Session } from '../../services/aws-api';
-import { formatDateRelativeFrench, formatTime } from '../../utils/dateFormatters';
+import { formatDateRelative, formatTime } from '../../utils/dateFormatters';
 
 type TabType = 'upcoming' | 'past';
 
@@ -138,7 +138,7 @@ const MySessionsScreen = (): React.JSX.Element => {
       <View style={styles.sessionDetails}>
         <View style={styles.detailRow}>
           <Ionicons name="calendar-outline" size={18} color={colors.gray} />
-          <Text style={styles.detailText}>{formatDateRelativeFrench(session.scheduledAt)}</Text>
+          <Text style={styles.detailText}>{formatDateRelative(session.scheduledAt)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Ionicons name="time-outline" size={18} color={colors.gray} />

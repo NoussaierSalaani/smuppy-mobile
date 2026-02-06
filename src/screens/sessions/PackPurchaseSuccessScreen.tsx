@@ -99,9 +99,9 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
         </Animated.View>
 
         <Animated.View style={[styles.textContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.title}>Achat réussi !</Text>
+          <Text style={styles.title}>Purchase successful!</Text>
           <Text style={styles.subtitle}>
-            Vous avez acheté le {pack.name} avec {creator.name}
+            You purchased the {pack.name} with {creator.name}
           </Text>
 
           {/* Pack Summary */}
@@ -112,7 +112,7 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
             </View>
             <View style={styles.summaryRow}>
               <Ionicons name="videocam" size={22} color={colors.primary} />
-              <Text style={styles.summaryText}>{pack.sessionsIncluded} sessions disponibles</Text>
+              <Text style={styles.summaryText}>{pack.sessionsIncluded} sessions available</Text>
             </View>
             <View style={styles.summaryRow}>
               <Ionicons name="time" size={22} color={colors.primary} />
@@ -121,7 +121,7 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
             <View style={styles.summaryRow}>
               <Ionicons name="calendar" size={22} color={colors.primary} />
               <Text style={styles.summaryText}>
-                Expire le {expiryDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                Expires on {expiryDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
               </Text>
             </View>
           </View>
@@ -130,7 +130,7 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
           <View style={styles.infoCard}>
             <Ionicons name="information-circle" size={24} color={colors.primary} />
             <Text style={styles.infoText}>
-              Vous pouvez réserver vos sessions à tout moment depuis le profil de {creator.name}.
+              You can book your sessions anytime from {creator.name}'s profile.
             </Text>
           </View>
         </Animated.View>
@@ -146,16 +146,16 @@ const PackPurchaseSuccessScreen = (): React.JSX.Element => {
             style={styles.buttonGradient}
           >
             <Ionicons name="calendar" size={20} color={colors.white} />
-            <Text style={styles.primaryButtonText}>Réserver une session</Text>
+            <Text style={styles.primaryButtonText}>Book a session</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={handleViewSessions}>
-          <Text style={styles.secondaryButtonText}>Voir mes sessions</Text>
+          <Text style={styles.secondaryButtonText}>View my sessions</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.linkButton} onPress={handleGoHome}>
-          <Text style={styles.linkButtonText}>Retour à l'accueil</Text>
+          <Text style={styles.linkButtonText}>Back to home</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

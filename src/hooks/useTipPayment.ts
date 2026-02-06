@@ -81,7 +81,7 @@ export function useTipPayment(): UseTipPaymentReturn {
           }
 
           if (checkoutResult.status === 'success') {
-            showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
+            showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to ${recipient.displayName || recipient.username}`);
           } else {
             showWarning('Tip Processing', 'Your tip is being processed. You will be notified when complete.');
           }

@@ -169,7 +169,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   const handleRemoveParticipant = (participant: Participant) => {
     showDestructiveConfirm(
       'Remove Participant',
-      `Remove @${participant.username} from this event?${participant.payment_status === 'paid' ? '\n\nThey will be refunded.' : ''}`,
+      `Remove ${participant.full_name || participant.username} from this event?${participant.payment_status === 'paid' ? '\n\nThey will be refunded.' : ''}`,
       async () => {
         try {
           const response = await awsAPI.removeEventParticipant(eventId, participant.user_id);

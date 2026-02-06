@@ -126,16 +126,16 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
         </Animated.View>
 
         <Animated.View style={[styles.textContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.title}>Bienvenue dans la communauté !</Text>
+          <Text style={styles.title}>Welcome to the community!</Text>
           <Text style={styles.subtitle}>
-            Vous êtes maintenant abonné(e) à {creator.name}
+            You are now subscribed to {creator.name}
           </Text>
 
           {/* Tier Info */}
           <View style={styles.tierCard}>
             <View style={styles.tierHeader}>
               <Text style={styles.tierName}>{tier.name}</Text>
-              <Text style={styles.tierPrice}>{tier.price.toFixed(2)} €/mois</Text>
+              <Text style={styles.tierPrice}>${tier.price.toFixed(2)}/mo</Text>
             </View>
 
             <View style={styles.perksContainer}>
@@ -146,7 +146,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
                 </View>
               ))}
               {tier.perks.length > 3 && (
-                <Text style={styles.morePerks}>+{tier.perks.length - 3} autres avantages</Text>
+                <Text style={styles.morePerks}>+{tier.perks.length - 3} more perks</Text>
               )}
             </View>
           </View>
@@ -155,8 +155,8 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
           <View style={styles.renewalCard}>
             <Ionicons name="calendar-outline" size={20} color={colors.gray} />
             <Text style={styles.renewalText}>
-              Prochain renouvellement le{' '}
-              {renewalDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+              Next renewal on{' '}
+              {renewalDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
             </Text>
           </View>
         </Animated.View>
@@ -172,16 +172,16 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
             style={styles.buttonGradient}
           >
             <Ionicons name="play-circle" size={22} color={colors.white} />
-            <Text style={styles.primaryButtonText}>Voir le contenu exclusif</Text>
+            <Text style={styles.primaryButtonText}>View exclusive content</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={handleExploreContent}>
-          <Text style={styles.secondaryButtonText}>Explorer le feed</Text>
+          <Text style={styles.secondaryButtonText}>Explore feed</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.linkButton} onPress={handleManageSubscription}>
-          <Text style={styles.linkButtonText}>Gérer mon abonnement</Text>
+          <Text style={styles.linkButtonText}>Manage my subscription</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

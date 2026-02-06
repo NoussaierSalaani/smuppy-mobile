@@ -363,7 +363,7 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
               accountType={item.accountType}
             />
           </View>
-          <Text style={styles.userUsername} numberOfLines={1}>{item.username}</Text>
+          <Text style={styles.userUsername} numberOfLines={1}>{item.name}</Text>
         </View>
 
         {renderBadge(item)}

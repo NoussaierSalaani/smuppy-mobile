@@ -23,7 +23,7 @@ import * as Calendar from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
-import { formatLongDateFrench, formatTime } from '../../utils/dateFormatters';
+import { formatFullDate, formatTime } from '../../utils/dateFormatters';
 
 interface Session {
   id: string;
@@ -70,10 +70,10 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
   const getStatusLabel = (status: Session['status']): string => {
     switch (status) {
-      case 'confirmed': return 'Confirmée';
-      case 'pending': return 'En attente de confirmation';
-      case 'completed': return 'Terminée';
-      case 'cancelled': return 'Annulée';
+      case 'confirmed': return 'Confirmed';
+      case 'pending': return 'Pending confirmation';
+      case 'completed': return 'Completed';
+      case 'cancelled': return 'Cancelled';
       default: return status;
     }
   };
@@ -82,7 +82,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
     try {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status !== 'granted') {
-        showError('Permission refusée', "L'accès au calendrier est nécessaire.");
+        showError('Permission Denied', 'Calendar access is required.');
         return;
       }
 
@@ -92,7 +92,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
       ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
 
       if (!defaultCalendar) {
-        showError('Erreur', 'Aucun calendrier disponible.');
+        showError('Error', 'No calendar available.');
         return;
       }
 
@@ -100,20 +100,20 @@ const SessionDetailScreen = (): React.JSX.Element => {
       endDate.setMinutes(endDate.getMinutes() + session.duration);
 
       await Calendar.createEventAsync(defaultCalendar.id, {
-        title: `Session avec ${session.creatorName}`,
+        title: `Session with ${session.creatorName}`,
         startDate: session.scheduledAt,
         endDate,
-        notes: `Session de ${session.duration} minutes avec @${session.creatorUsername}`,
+        notes: `${session.duration}-minute session with ${session.creatorName}`,
         alarms: [
           { relativeOffset: -30 }, // 30 min before
           { relativeOffset: -1440 }, // 1 day before
         ],
       });
 
-      showSuccess('Ajouté', 'La session a été ajoutée à votre calendrier.');
+      showSuccess('Added', 'Session added to your calendar.');
     } catch (error) {
       if (__DEV__) console.warn('Calendar error:', error);
-      showError('Erreur', "Impossible d'ajouter au calendrier.");
+      showError('Error', 'Could not add to calendar.');
     }
   };
 
@@ -123,13 +123,13 @@ const SessionDetailScreen = (): React.JSX.Element => {
       await awsAPI.declineSession(session.id, 'Cancelled by user');
       setShowCancelModal(false);
       showAlert({
-        title: 'Session annulée',
-        message: 'Votre session a été annulée avec succès.',
+        title: 'Session Cancelled',
+        message: 'Your session has been cancelled successfully.',
         type: 'success',
         buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
       });
     } catch (_error) {
-      showError('Erreur', "Impossible d'annuler la session.");
+      showError('Error', 'Could not cancel the session.');
     } finally {
       setCancelling(false);
     }
@@ -162,7 +162,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>Détails de la session</Text>
+        <Text style={styles.title}>Session Details</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -204,7 +204,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
         {/* Session Info */}
         <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>Informations</Text>
+          <Text style={styles.sectionTitle}>Information</Text>
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
@@ -212,7 +212,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Date</Text>
-              <Text style={styles.infoValue}>{formatLongDateFrench(session.scheduledAt)}</Text>
+              <Text style={styles.infoValue}>{formatFullDate(session.scheduledAt)}</Text>
             </View>
           </View>
 
@@ -221,7 +221,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               <Ionicons name="time-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Heure</Text>
+              <Text style={styles.infoLabel}>Time</Text>
               <Text style={styles.infoValue}>{formatTime(session.scheduledAt)}</Text>
             </View>
           </View>
@@ -231,7 +231,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               <Ionicons name="hourglass-outline" size={22} color={colors.primary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Durée</Text>
+              <Text style={styles.infoLabel}>Duration</Text>
               <Text style={styles.infoValue}>{session.duration} minutes</Text>
             </View>
           </View>
@@ -254,8 +254,8 @@ const SessionDetailScreen = (): React.JSX.Element => {
                 <Ionicons name="card-outline" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Prix payé</Text>
-                <Text style={styles.infoValue}>{session.price.toFixed(2)} €</Text>
+                <Text style={styles.infoLabel}>Price paid</Text>
+                <Text style={styles.infoValue}>${session.price.toFixed(2)}</Text>
               </View>
             </View>
           )}
@@ -268,7 +268,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               <View style={styles.actionIcon}>
                 <Ionicons name="calendar" size={22} color={colors.white} />
               </View>
-              <Text style={styles.actionText}>Ajouter au calendrier</Text>
+              <Text style={styles.actionText}>Add to calendar</Text>
               <Ionicons name="chevron-forward" size={20} color={colors.gray} />
             </TouchableOpacity>
 
@@ -276,7 +276,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               <View style={styles.actionIcon}>
                 <Ionicons name="chatbubble" size={22} color={colors.white} />
               </View>
-              <Text style={styles.actionText}>Envoyer un message</Text>
+              <Text style={styles.actionText}>Send a message</Text>
               <Ionicons name="chevron-forward" size={20} color={colors.gray} />
             </TouchableOpacity>
 
@@ -288,7 +288,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
                 <View style={[styles.actionIcon, styles.cancelIcon]}>
                   <Ionicons name="close-circle" size={22} color="#FF4444" />
                 </View>
-                <Text style={[styles.actionText, styles.cancelText]}>Annuler la session</Text>
+                <Text style={[styles.actionText, styles.cancelText]}>Cancel session</Text>
                 <Ionicons name="chevron-forward" size={20} color="#FF4444" />
               </TouchableOpacity>
             )}
@@ -303,7 +303,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               onPress={() => navigation.navigate('BookSession', { creatorId: session.creatorId })}
             >
               <Ionicons name="refresh" size={20} color={colors.white} />
-              <Text style={styles.rebookButtonText}>Réserver à nouveau</Text>
+              <Text style={styles.rebookButtonText}>Book again</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -322,7 +322,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               style={styles.joinGradient}
             >
               <Ionicons name="videocam" size={24} color={colors.white} />
-              <Text style={styles.joinText}>Rejoindre la session</Text>
+              <Text style={styles.joinText}>Join session</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -338,13 +338,13 @@ const SessionDetailScreen = (): React.JSX.Element => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Ionicons name="warning" size={48} color="#FFA500" />
-            <Text style={styles.modalTitle}>Annuler la session ?</Text>
+            <Text style={styles.modalTitle}>Cancel session?</Text>
             <Text style={styles.modalText}>
-              Êtes-vous sûr de vouloir annuler cette session avec {session.creatorName} ?
+              Are you sure you want to cancel this session with {session.creatorName}?
             </Text>
             {session.price > 0 && (
               <Text style={styles.modalNote}>
-                Le remboursement sera effectué sous 5-7 jours ouvrés.
+                Refund will be processed within 5-7 business days.
               </Text>
             )}
             <View style={styles.modalButtons}>
@@ -352,7 +352,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
                 style={styles.modalButtonCancel}
                 onPress={() => setShowCancelModal(false)}
               >
-                <Text style={styles.modalButtonCancelText}>Non, garder</Text>
+                <Text style={styles.modalButtonCancelText}>No, keep it</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalButtonConfirm}
@@ -360,7 +360,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
                 disabled={cancelling}
               >
                 <Text style={styles.modalButtonConfirmText}>
-                  {cancelling ? 'Annulation...' : 'Oui, annuler'}
+                  {cancelling ? 'Cancelling...' : 'Yes, cancel'}
                 </Text>
               </TouchableOpacity>
             </View>

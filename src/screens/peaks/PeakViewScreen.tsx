@@ -661,8 +661,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       case 'share':
         await sharePeak(
           currentPeak.id,
-          currentPeak.user.name,
-          currentPeak.user.name.toLowerCase().replace(/\s/g, '')
+          currentPeak.user.name
         );
         break;
     }

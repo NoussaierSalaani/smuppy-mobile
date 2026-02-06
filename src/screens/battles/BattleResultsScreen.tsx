@@ -190,7 +190,7 @@ export default function BattleResultsScreen() {
                 </View>
               )}
             </View>
-            <Text style={styles.username}>{participant.username}</Text>
+            <Text style={styles.username}>{participant.display_name || participant.username}</Text>
           </View>
 
           <View style={styles.tipsSection}>

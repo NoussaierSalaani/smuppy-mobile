@@ -72,7 +72,7 @@ interface ProfileApiData {
 const DEFAULT_PROFILE = {
   id: 'unknown',
   username: 'user',
-  displayName: 'Utilisateur',
+  displayName: 'User',
   avatar: null,
   coverImage: null,
   bio: '',

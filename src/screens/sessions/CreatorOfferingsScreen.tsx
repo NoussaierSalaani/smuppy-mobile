@@ -72,9 +72,9 @@ const defaultChannelTiers: ChannelTier[] = [
     name: 'Fan',
     price: 4.99,
     perks: [
-      'Accès au contenu exclusif',
-      'Badge Fan dans les commentaires',
-      'Émojis personnalisés',
+      'Access to exclusive content',
+      'Fan badge in comments',
+      'Custom emojis',
     ],
   },
   {
@@ -82,10 +82,10 @@ const defaultChannelTiers: ChannelTier[] = [
     name: 'Super Fan',
     price: 9.99,
     perks: [
-      'Tout le niveau Fan',
-      'Accès aux Lives privés',
-      'Réponse prioritaire aux DMs',
-      '10% de réduction sur les sessions',
+      'Everything in Fan tier',
+      'Access to private Lives',
+      'Priority DM responses',
+      '10% off sessions',
     ],
     popular: true,
   },
@@ -94,11 +94,11 @@ const defaultChannelTiers: ChannelTier[] = [
     name: 'VIP',
     price: 24.99,
     perks: [
-      'Tout le niveau Super Fan',
-      '1 session gratuite par mois',
-      'Accès au groupe privé',
-      'Appel mensuel de groupe',
-      '25% de réduction sur les packs',
+      'Everything in Super Fan tier',
+      '1 free session per month',
+      'Access to private group',
+      'Monthly group call',
+      '25% off packs',
     ],
   },
 ];
@@ -199,11 +199,11 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
 
   const getSessionDescription = (duration: number): string => {
     switch (duration) {
-      case 30: return 'Session rapide - Idéal pour un suivi';
-      case 45: return 'Session standard - Coaching complet';
-      case 60: return 'Session longue - Analyse approfondie';
-      case 90: return 'Session premium - Programme personnalisé';
-      default: return `Session de ${duration} minutes`;
+      case 30: return 'Quick session - Ideal for follow-ups';
+      case 45: return 'Standard session - Full coaching';
+      case 60: return 'Long session - In-depth analysis';
+      case 90: return 'Premium session - Personalized program';
+      default: return `${duration}-minute session`;
     }
   };
 
@@ -234,12 +234,12 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   const renderSessionsTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.tabDescription}>
-        Réservez une session 1:1 en vidéo avec {creator?.name || 'ce créateur'}
+        Book a 1:1 video session with {creator?.name || 'this creator'}
       </Text>
       {sessionOfferings.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 32 }}>
           <Ionicons name="videocam-outline" size={48} color={colors.gray} />
-          <Text style={{ color: colors.gray, marginTop: 12 }}>Aucune session disponible</Text>
+          <Text style={{ color: colors.gray, marginTop: 12 }}>No sessions available</Text>
         </View>
       ) : null}
       {sessionOfferings.map(offering => (
@@ -257,7 +257,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           </View>
           <Text style={styles.offeringDescription}>{offering.description}</Text>
           <View style={styles.offeringFooter}>
-            <Text style={styles.bookNowText}>Réserver</Text>
+            <Text style={styles.bookNowText}>Book</Text>
             <Ionicons name="arrow-forward" size={18} color={colors.primary} />
           </View>
         </TouchableOpacity>
@@ -268,12 +268,12 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   const renderPacksTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.tabDescription}>
-        Économisez avec les packs de sessions mensuels
+        Save with monthly session packs
       </Text>
       {packs.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 32 }}>
           <Ionicons name="cube-outline" size={48} color={colors.gray} />
-          <Text style={{ color: colors.gray, marginTop: 12 }}>Aucun pack disponible</Text>
+          <Text style={{ color: colors.gray, marginTop: 12 }}>No packs available</Text>
         </View>
       ) : null}
       {packs.map(pack => (
@@ -285,7 +285,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           {pack.popular && (
             <View style={styles.popularBadge}>
               <Ionicons name="star" size={12} color={colors.white} />
-              <Text style={styles.popularText}>Populaire</Text>
+              <Text style={styles.popularText}>Popular</Text>
             </View>
           )}
           <View style={styles.packHeader}>
@@ -306,7 +306,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             </View>
             <View style={styles.packDetailItem}>
               <Ionicons name="calendar-outline" size={18} color={colors.gray} />
-              <Text style={styles.packDetailText}>Valide {pack.validityDays} jours</Text>
+              <Text style={styles.packDetailText}>Valid {pack.validityDays} days</Text>
             </View>
           </View>
           <View style={styles.packFooter}>
@@ -317,7 +317,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
               </Text>
             </View>
             <TouchableOpacity style={styles.buyButton} onPress={() => handleBuyPack(pack)}>
-              <Text style={styles.buyButtonText}>Acheter</Text>
+              <Text style={styles.buyButtonText}>Buy</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -328,7 +328,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   const renderChannelTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.tabDescription}>
-        Rejoignez la communauté et accédez au contenu exclusif
+        Join the community and access exclusive content
       </Text>
       {channelTiers.map(tier => (
         <TouchableOpacity
@@ -343,14 +343,14 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
               end={{ x: 1, y: 0 }}
               style={styles.tierPopularBadge}
             >
-              <Text style={styles.tierPopularText}>Recommandé</Text>
+              <Text style={styles.tierPopularText}>Recommended</Text>
             </LinearGradient>
           )}
           <View style={styles.tierHeader}>
             <Text style={styles.tierName}>{tier.name}</Text>
             <View style={styles.tierPriceContainer}>
               <Text style={styles.tierPrice}>{tier.price.toFixed(2)} €</Text>
-              <Text style={styles.tierPeriod}>/mois</Text>
+              <Text style={styles.tierPeriod}>/mo</Text>
             </View>
           </View>
           <View style={styles.tierPerks}>
@@ -372,10 +372,10 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
                 end={{ x: 1, y: 0 }}
                 style={styles.subscribeGradient}
               >
-                <Text style={styles.subscribeButtonText}>S'abonner</Text>
+                <Text style={styles.subscribeButtonText}>Subscribe</Text>
               </LinearGradient>
             ) : (
-              <Text style={[styles.subscribeButtonText, { color: colors.primary }]}>S'abonner</Text>
+              <Text style={[styles.subscribeButtonText, { color: colors.primary }]}>Subscribe</Text>
             )}
           </TouchableOpacity>
         </TouchableOpacity>
@@ -389,7 +389,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.gray, marginTop: 16 }}>Chargement...</Text>
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Loading...</Text>
       </View>
     );
   }
@@ -398,9 +398,9 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.gray} />
-        <Text style={{ color: colors.gray, marginTop: 16 }}>Créateur non trouvé</Text>
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Creator not found</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.primary }}>Retour</Text>
+          <Text style={{ color: colors.primary }}>Go back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -413,7 +413,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>Offres</Text>
+        <Text style={styles.title}>Offerings</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -432,7 +432,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
               )}
             </View>
             <Text style={styles.subscribersCount}>
-              {creator.subscribersCount.toLocaleString()} abonnés
+              {creator.subscribersCount.toLocaleString()} subscribers
             </Text>
           </View>
         </TouchableOpacity>
@@ -475,7 +475,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
               color={activeTab === 'channel' ? colors.primary : colors.gray}
             />
             <Text style={[styles.tabText, activeTab === 'channel' && styles.activeTabText]}>
-              Chaîne
+              Channel
             </Text>
           </TouchableOpacity>
         </View>

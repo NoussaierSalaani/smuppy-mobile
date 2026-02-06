@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
-import { formatRelativeTimeFrench } from '../../utils/dateFormatters';
+import { formatRelativeTime } from '../../utils/dateFormatters';
 
 const { width } = Dimensions.get('window');
 
@@ -333,7 +333,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionDescription}>{transaction.description}</Text>
                 <Text style={styles.transactionMeta}>
-                  {transaction.fanName ? `${transaction.fanName} • ` : ''}{formatRelativeTimeFrench(transaction.date)}
+                  {transaction.fanName ? `${transaction.fanName} • ` : ''}{formatRelativeTime(transaction.date)}
                 </Text>
               </View>
               <Text style={[

@@ -139,7 +139,7 @@ export default function PostLikersScreen() {
               accountType={item.accountType}
             />
           </View>
-          <Text style={styles.userUsername} numberOfLines={1}>{item.username}</Text>
+          <Text style={styles.userUsername} numberOfLines={1}>{item.name}</Text>
         </View>
       </TouchableOpacity>
     ),

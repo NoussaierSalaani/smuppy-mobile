@@ -437,7 +437,7 @@ export default function NotificationsScreen(): React.JSX.Element {
           >
             {(item as UserNotification).isFollowing ? (
               <View style={styles.followingButton}>
-                <Text style={styles.followingButtonText}>Tracking</Text>
+                <Text style={styles.followingButtonText}>Following</Text>
               </View>
             ) : (
               <LinearGradient

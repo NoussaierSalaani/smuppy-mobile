@@ -43,24 +43,24 @@ interface ActionCard {
 const ACTION_CARDS: ActionCard[] = [
   {
     id: 'offers',
-    label: 'Mes Offres',
-    description: 'Gérer vos services et tarifs',
+    label: 'My Offers',
+    description: 'Manage your services and pricing',
     icon: 'pricetags',
     color: '#FF6B35',
     screen: 'BusinessServicesManage',
   },
   {
     id: 'program',
-    label: 'Mon Programme',
-    description: 'Planning et activités',
+    label: 'My Schedule',
+    description: 'Schedule and activities',
     icon: 'calendar',
     color: '#9B59B6',
     screen: 'BusinessProgram',
   },
   {
     id: 'scanner',
-    label: 'Scanner Accès',
-    description: 'Vérifier les QR codes',
+    label: 'Scan Access',
+    description: 'Verify QR codes',
     icon: 'qr-code',
     color: '#3498DB',
     screen: 'BusinessScanner',
@@ -185,13 +185,13 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
             <View style={styles.statItem}>
               <Ionicons name="calendar-outline" size={16} color={colors.primary} />
               <Text style={styles.statValue}>{stats?.todayBookings ?? 0}</Text>
-              <Text style={styles.statLabel}>réservations aujourd'hui</Text>
+              <Text style={styles.statLabel}>bookings today</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Ionicons name="people-outline" size={16} color={colors.primary} />
               <Text style={styles.statValue}>{stats?.activeMembers ?? 0}</Text>
-              <Text style={styles.statLabel}>membres actifs</Text>
+              <Text style={styles.statLabel}>active members</Text>
             </View>
           </View>
         </ScrollView>

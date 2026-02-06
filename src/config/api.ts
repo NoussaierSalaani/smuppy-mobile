@@ -7,6 +7,70 @@
 import { ENV } from './env';
 
 // ============================================
+// COORDINATE VALIDATION UTILITY
+// ============================================
+
+/**
+ * Validates that coordinates are valid geographic coordinates
+ * @param lat Latitude (-90 to 90)
+ * @param lng Longitude (-180 to 180)
+ * @returns true if coordinates are valid
+ */
+export const isValidCoordinate = (lat: number, lng: number): boolean => {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+};
+
+// ============================================
+// QUERY VALIDATION CONSTANTS
+// ============================================
+
+const MAX_SEARCH_QUERY_LENGTH = 100;
+
+/**
+ * Sanitizes and validates a search query
+ * @param query The raw search query
+ * @returns Sanitized query or null if invalid
+ */
+const sanitizeSearchQuery = (query: string): string | null => {
+  if (!query || typeof query !== 'string') {
+    return null;
+  }
+
+  // Trim whitespace
+  let sanitized = query.trim();
+
+  // Check if empty after trimming
+  if (sanitized.length === 0) {
+    return null;
+  }
+
+  // Enforce max length
+  if (sanitized.length > MAX_SEARCH_QUERY_LENGTH) {
+    sanitized = sanitized.substring(0, MAX_SEARCH_QUERY_LENGTH);
+  }
+
+  // Strip HTML tags
+  sanitized = sanitized.replace(/<[^>]*>/g, '');
+
+  // Strip control characters (except normal whitespace)
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+  // Re-check if empty after sanitization
+  if (sanitized.trim().length === 0) {
+    return null;
+  }
+
+  return sanitized.trim();
+};
+
+// ============================================
 // NOMINATIM API (OpenStreetMap - FREE)
 // ============================================
 export const NOMINATIM_API = {
@@ -144,8 +208,14 @@ export const searchNominatim = async (
   query: string,
   options: NominatimSearchOptions = {}
 ): Promise<NominatimSearchResult[]> => {
+  // Validate and sanitize query
+  const sanitizedQuery = sanitizeSearchQuery(query);
+  if (!sanitizedQuery) {
+    return [];
+  }
+
   const params = {
-    q: query,
+    q: sanitizedQuery,
     format: 'json',
     limit: options.limit || 5,
     addressdetails: options.addressdetails !== false ? 1 : 0,
@@ -176,6 +246,11 @@ export const reverseGeocodeNominatim = async (
   lon: number,
   language?: string
 ): Promise<NominatimSearchResult | null> => {
+  // Validate coordinates
+  if (!isValidCoordinate(lat, lon)) {
+    return null;
+  }
+
   const params = {
     lat: lat,
     lon: lon,
@@ -197,7 +272,25 @@ export const reverseGeocodeNominatim = async (
   }
 
   const data = await response.json();
-  return data.error ? null : data;
+
+  // Validate response structure
+  if (data.error) {
+    return null;
+  }
+
+  // Validate required fields exist
+  if (!data.display_name || data.lat === undefined || data.lon === undefined) {
+    return null;
+  }
+
+  // Validate lat/lon in response are valid numbers
+  const responseLat = parseFloat(data.lat);
+  const responseLon = parseFloat(data.lon);
+  if (!isValidCoordinate(responseLat, responseLon)) {
+    return null;
+  }
+
+  return data;
 };
 
 /**

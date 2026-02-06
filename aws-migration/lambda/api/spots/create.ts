@@ -39,11 +39,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const body = event.body ? JSON.parse(event.body) : {};
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid JSON' }) };
+    }
+
     const {
       name, description, category, sport_type,
       address, city, country, latitude, longitude,
       images, amenities, opening_hours, contact_info,
+      tags, qualities, subcategory, initial_rating, initial_review,
     } = body;
 
     // Validate required fields
@@ -87,6 +94,53 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Validate tags array
+    if (tags !== undefined && !Array.isArray(tags)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Tags must be an array' }),
+      };
+    }
+
+    // Validate qualities array
+    if (qualities !== undefined && !Array.isArray(qualities)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Qualities must be an array' }),
+      };
+    }
+
+    // Validate subcategory
+    if (subcategory !== undefined && typeof subcategory !== 'string') {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Subcategory must be a string' }),
+      };
+    }
+
+    // Validate initial_rating (1-5 integer)
+    if (initial_rating !== undefined) {
+      if (typeof initial_rating !== 'number' || !Number.isInteger(initial_rating) || initial_rating < 1 || initial_rating > 5) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Initial rating must be an integer between 1 and 5' }),
+        };
+      }
+    }
+
+    // Validate initial_review
+    if (initial_review !== undefined && typeof initial_review !== 'string') {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Initial review must be a string' }),
+      };
+    }
+
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
@@ -115,6 +169,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const sanitizedCountry = country ? sanitizeText(country, 100) : null;
     const sanitizedImages = images ? images.map((img: string) => sanitizeText(img, 2000)) : null;
     const sanitizedAmenities = amenities ? amenities.map((a: string) => sanitizeText(a, 100)) : null;
+    // NOTE: The columns tags, qualities, subcategory, initial_rating, initial_review do not exist in the spots table yet.
+    // A database migration is required to add these columns before using them in the INSERT statement.
+    // After running the migration, rename these to remove underscore prefix and add to INSERT/RETURNING.
+    // Migration needed:
+    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS qualities TEXT[] DEFAULT '{}';
+    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS subcategory VARCHAR(100);
+    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS initial_rating INTEGER CHECK (initial_rating >= 1 AND initial_rating <= 5);
+    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS initial_review TEXT;
+    const _sanitizedTags = tags ? tags.map((t: string) => sanitizeText(t, 100)) : null;
+    const _sanitizedQualities = qualities ? qualities.map((q: string) => sanitizeText(q, 100)) : null;
+    const _sanitizedSubcategory = subcategory ? sanitizeText(subcategory, 100) : null;
+    const _sanitizedInitialRating = initial_rating ?? null;
+    const _sanitizedInitialReview = initial_review ? sanitizeText(initial_review, 5000) : null;
+    // Suppress unused variable warnings - these are prepared for post-migration use
+    void _sanitizedTags;
+    void _sanitizedQualities;
+    void _sanitizedSubcategory;
+    void _sanitizedInitialRating;
+    void _sanitizedInitialReview;
 
     const result = await db.query(
       `INSERT INTO spots (

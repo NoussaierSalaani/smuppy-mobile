@@ -690,11 +690,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     position: 'relative',
     marginRight: SPACING.md,
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
   typeIcon: {
     position: 'absolute',
     bottom: -2,
@@ -786,17 +781,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
     color: colors.white,
-  },
-  loadingState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-  },
-  loadingText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.gray,
-    marginTop: SPACING.md,
   },
   emptyState: {
     alignItems: 'center',

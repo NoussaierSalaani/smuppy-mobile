@@ -64,7 +64,8 @@ export async function getWeather(): Promise<WeatherData> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      return getDefaultWeather();
+      if (__DEV__) console.warn('[WeatherService] Location permission denied');
+      return getDefaultWeather('Location permission required for weather');
     }
 
     const location = await Location.getCurrentPositionAsync({
@@ -119,11 +120,11 @@ export function clearWeatherCache(): void {
 // FALLBACK
 // ============================================================================
 
-function getDefaultWeather(): WeatherData {
+function getDefaultWeather(reason: string = 'Weather unavailable'): WeatherData {
   return {
     temp: 20,
     condition: 'clear',
-    description: 'Weather unavailable',
+    description: reason,
     isOutdoorFriendly: true,
     humidity: 50,
     windSpeed: 0,

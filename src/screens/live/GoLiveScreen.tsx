@@ -91,12 +91,16 @@ export default function GoLiveScreen(): React.JSX.Element {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (isCountdown && countdownValue === 0) {
+      // Sanitize inputs: strip HTML tags and control characters
+      const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+      const sanitizedTitle = sanitize(title) || 'Live Session';
+
       // Register the live stream on backend (notifies fans)
-      awsAPI.startLiveStream(title || 'Live Session').catch((err) => {
+      awsAPI.startLiveStream(sanitizedTitle).catch((err) => {
         if (__DEV__) console.warn('[GoLive] Failed to register stream:', err);
       });
       navigation.replace('LiveStreaming', {
-        title: title || 'Live Session',
+        title: sanitizedTitle,
         audience: 'public',
         isPrivate: false,
         hostId: user?.id,

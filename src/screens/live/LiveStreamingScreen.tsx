@@ -174,8 +174,10 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   };
 
   const sendComment = () => {
-    if (newComment.trim()) {
-      sendLiveComment(newComment);
+    // Sanitize: strip HTML tags and control characters
+    const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+    if (sanitized) {
+      sendLiveComment(sanitized);
       setNewComment('');
     }
   };
@@ -316,6 +318,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             value={newComment}
             onChangeText={setNewComment}
             onSubmitEditing={sendComment}
+            maxLength={500}
           />
           <TouchableOpacity onPress={sendComment} style={styles.sendButton}>
             <Ionicons name="send" size={20} color={colors.primary} />

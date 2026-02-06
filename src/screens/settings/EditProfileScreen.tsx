@@ -24,7 +24,7 @@ import DatePickerModal from '../../components/DatePickerModal';
 import GenderPickerModal from '../../components/GenderPickerModal';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { searchNominatim, NominatimSearchResult } from '../../config/api';
+import { searchNominatim, isValidCoordinate, NominatimSearchResult } from '../../config/api';
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateForDisplay } from '../../utils/dateFormatters';
@@ -140,9 +140,19 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   };
 
   const selectBusinessAddress = (suggestion: NominatimSearchResult) => {
+    const parsedLat = parseFloat(suggestion.lat);
+    const parsedLng = parseFloat(suggestion.lon);
+
+    // Validate parsed coordinates before setting state
+    if (!isValidCoordinate(parsedLat, parsedLng)) {
+      if (__DEV__) console.warn('[EditProfileScreen] Invalid coordinates from Nominatim:', { lat: suggestion.lat, lon: suggestion.lon });
+      alert.error('Invalid Location', 'The selected location has invalid coordinates. Please try another address.');
+      return;
+    }
+
     setBusinessAddress(suggestion.display_name);
-    setBusinessLatitude(parseFloat(suggestion.lat));
-    setBusinessLongitude(parseFloat(suggestion.lon));
+    setBusinessLatitude(parsedLat);
+    setBusinessLongitude(parsedLng);
     setAddressSuggestions([]);
     setHasChanges(true);
     Keyboard.dismiss();

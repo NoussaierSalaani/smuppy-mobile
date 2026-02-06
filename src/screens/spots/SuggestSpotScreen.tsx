@@ -107,16 +107,23 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
     }
 
     setIsLoading(true);
+
+    // Sanitize inputs: strip HTML tags and control characters
+    const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+
     try {
+      const sanitizedSubcategory = sanitize(selectedSubcategory || customSubcategory);
+      const sanitizedTags = tags.split(',').map(t => sanitize(t)).filter(Boolean);
+
       const response = await awsAPI.createSpot({
-        name: name.trim(),
-        description: description.trim(),
+        name: sanitize(name),
+        description: sanitize(description),
         category: selectedCategory.key,
-        subcategory: subcategory,
+        subcategory: sanitizedSubcategory,
         latitude: coordinates.lat,
         longitude: coordinates.lng,
-        address: locationName,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        address: sanitize(locationName),
+        tags: sanitizedTags,
         qualities,
         is_route: !!routeData,
         route_start: routeData?.start,
@@ -129,14 +136,15 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
         route_elevation_gain: routeData?.elevationGain,
         difficulty: routeData?.difficulty,
         initial_rating: rating > 0 ? rating : undefined,
-        initial_review: review.trim() || undefined,
+        initial_review: sanitize(review) || undefined,
       });
 
       // Suggest custom subcategory if new
-      if (customSubcategory.trim()) {
+      const sanitizedCustomSub = sanitize(customSubcategory);
+      if (sanitizedCustomSub) {
         awsAPI.suggestSubcategory({
           parent_category: selectedCategory.key,
-          name: customSubcategory.trim(),
+          name: sanitizedCustomSub,
         }).catch((err) => { if (__DEV__) console.warn('[SuggestSpotScreen]', err); });
       }
 
@@ -155,7 +163,8 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
         showError('Error', response.message || 'Failed to suggest spot');
       }
     } catch (error: unknown) {
-      showError('Error', (error instanceof Error ? error.message : null) || 'Something went wrong');
+      if (__DEV__) console.error('[SuggestSpotScreen] Submit error:', error);
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -248,6 +257,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
                     placeholderTextColor={colors.grayMuted}
                     value={customSubcategory}
                     onChangeText={(t) => { setCustomSubcategory(t); setSelectedSubcategory(''); }}
+                    maxLength={100}
                   />
                 </View>
               )}
@@ -288,6 +298,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
                 placeholderTextColor={colors.grayMuted}
                 value={tags}
                 onChangeText={setTags}
+                maxLength={500}
               />
             </View>
           )}

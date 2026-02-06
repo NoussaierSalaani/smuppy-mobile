@@ -27,7 +27,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const rateLimit = await checkRateLimit({ prefix: 'spot-delete', identifier: userId, windowSeconds: 60, maxRequests: 10 });
     if (!rateLimit.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ error: 'Too many requests. Please try again later.' }) };
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
     }
 
     const spotId = event.pathParameters?.id;

@@ -27,7 +27,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
+import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 import { extractHashtags } from '../../utils/hashtags';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -266,6 +266,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { setIsLoadingLocation(false); return; }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+
+      // Validate coordinates before reverse geocoding
+      if (!isValidCoordinate(loc.coords.latitude, loc.coords.longitude)) {
+        if (__DEV__) console.warn('[PeakPreviewScreen] Invalid coordinates from device location:', loc.coords);
+        setIsLoadingLocation(false);
+        return;
+      }
+
       const [reverseResult] = await Location.reverseGeocodeAsync({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,

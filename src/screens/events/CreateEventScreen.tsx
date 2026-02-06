@@ -224,7 +224,10 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        showError('Permission needed', 'Please allow location access to set event location.');
+        return;
+      }
       const location = await Location.getCurrentPositionAsync({});
       setUserLocation({ lat: location.coords.latitude, lng: location.coords.longitude });
       if (!coordinates) {
@@ -344,6 +347,9 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   };
 
   // ─── Submit ─────────────────────────────────────────────────
+  // Sanitize inputs: strip HTML tags and control characters (CLAUDE.md compliance)
+  const sanitize = useCallback((str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim(), []);
+
   const handleCreate = async () => {
     if (!selectedCategory || !title || (!coordinates && !groupRouteData)) {
       showError('Error', 'Please fill in all required fields');
@@ -359,9 +365,8 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
         await handleCreateEvent();
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : `Failed to create ${mode}`;
       if (__DEV__) console.warn(`Create ${mode} error:`, error);
-      showError('Error', message);
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -370,10 +375,10 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const handleCreateEvent = async () => {
     if (!selectedCategory || !coordinates) return;
     const eventData = {
-      title: title.trim(),
-      description: description.trim() || undefined,
+      title: sanitize(title),
+      description: sanitize(description) || undefined,
       categorySlug: selectedCategory.slug,
-      locationName: locationName.trim() || 'Event Location',
+      locationName: sanitize(locationName) || 'Event Location',
       latitude: coordinates.lat,
       longitude: coordinates.lng,
       startsAt: startDate.toISOString(),
@@ -422,14 +427,14 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const handleCreateGroup = async () => {
     if (!selectedCategory) return;
     const response = await awsAPI.createGroup({
-      name: title.trim(),
-      description: description.trim(),
+      name: sanitize(title),
+      description: sanitize(description),
       category: selectedCategory.slug,
       subcategory: '',
       sport_type: selectedCategory.slug,
       latitude: coordinates?.lat || groupRouteData?.start?.lat || 0,
       longitude: coordinates?.lng || groupRouteData?.start?.lng || 0,
-      address: locationName,
+      address: sanitize(locationName) || 'Location',
       starts_at: startDate.toISOString(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       max_participants: maxParticipants ? parseInt(maxParticipants) : undefined,
@@ -582,6 +587,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
         placeholder="Type Here ..."
         placeholderTextColor={colors.gray}
         keyboardType="number-pad"
+        maxLength={6}
       />
 
       {/* Cover image */}
@@ -656,6 +662,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           placeholder={`Price (${currency.symbol})`}
           placeholderTextColor={colors.gray}
           keyboardType="decimal-pad"
+          maxLength={10}
         />
       )}
     </View>
@@ -694,6 +701,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
               onChangeText={handleLocationNameChange}
               placeholder="Search address or place..."
               placeholderTextColor={colors.gray}
+              maxLength={200}
             />
             {isLoadingLocationSearch && <ActivityIndicator size="small" color={colors.primary} />}
           </View>

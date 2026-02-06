@@ -17,6 +17,13 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
 
+// UUID validation regex for API calls
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Sanitize user-generated text: remove HTML tags and control characters
+const sanitizeText = (text: string | undefined | null): string =>
+  text?.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '') || '';
+
 // Initialize Mapbox with access token
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) {
@@ -199,8 +206,31 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // Event/Group/Live markers loaded from API
   const [eventGroupMarkers, setEventGroupMarkers] = useState<MapMarker[]>([]);
   const [liveMarkers, setLiveMarkers] = useState<MapMarker[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [selectedEventData, setSelectedEventData] = useState<any>(null);
+  // Event or Group detail data for popup display
+  const [selectedEventData, setSelectedEventData] = useState<{
+    id?: string;
+    title?: string;
+    name?: string;
+    description?: string;
+    cover_image_url?: string;
+    coverImageUrl?: string;
+    location_name?: string;
+    locationName?: string;
+    address?: string;
+    starts_at?: string;
+    startsAt?: string;
+    is_public?: boolean;
+    category_slug?: string;
+    categorySlug?: string;
+    sport_type?: string;
+    category?: string;
+    max_participants?: number;
+    maxParticipants?: number;
+    current_participants?: number;
+    currentParticipants?: number;
+    is_joined?: boolean;
+    isJoined?: boolean;
+  } | null>(null);
   const [joiningEvent, setJoiningEvent] = useState(false);
 
   // Pre-fetch creation limits (non-blocking)
@@ -213,12 +243,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
   }, [accountType, isVerified]);
 
-  // Advanced filter sheet
-  const [_showAdvancedFilter, _setShowAdvancedFilter] = useState(false);
-  const [filterDistance, _setFilterDistance] = useState(25);
-  const [_filterDays, _setFilterDays] = useState<string[]>([]);
-  const [_filterTimeOfDay, _setFilterTimeOfDay] = useState<string[]>([]);
-  const [_filterTypes, _setFilterTypes] = useState<string[]>([]);
+  // Filter distance for events/groups fetch radius
+  const [filterDistance] = useState(25);
 
   // Fetch events/groups when location is available
   useEffect(() => {
@@ -315,8 +341,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           }));
           setLiveMarkers(markers);
         }
-      } catch {
-        // silent
+      } catch (error) {
+        if (__DEV__) console.warn('[XplorerFeed] Failed to fetch live streams:', error);
       }
     };
     fetchLiveStreams();
@@ -450,11 +476,19 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     // For event/group markers, also load full detail
     if (marker.category === 'event') {
       const eventId = marker.id.replace('event_', '');
+      if (!UUID_REGEX.test(eventId)) {
+        if (__DEV__) console.warn('[XplorerFeed] Invalid event UUID:', eventId);
+        return;
+      }
       awsAPI.getEventDetail(eventId).then(res => {
         if (res.success && res.event) setSelectedEventData(res.event);
       }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
     } else if (marker.category === 'group') {
       const groupId = marker.id.replace('group_', '');
+      if (!UUID_REGEX.test(groupId)) {
+        if (__DEV__) console.warn('[XplorerFeed] Invalid group UUID:', groupId);
+        return;
+      }
       awsAPI.getGroup(groupId).then(res => {
         if (res.success && res.group) setSelectedEventData(res.group);
       }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
@@ -497,7 +531,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (accountType === 'pro_business' && businessLatitude != null && businessLongitude != null) {
           // Pro Business: locked to business address + business category
           navigation.navigate('CreateActivity', {
-            lockedLocation: { address: businessAddress, latitude: businessLatitude, longitude: businessLongitude },
+            lockedLocation: { lat: businessLatitude, lng: businessLongitude },
           });
         } else {
           navigation.navigate('CreateActivity');
@@ -598,8 +632,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <AvatarImage source={marker.avatar} size={wp(9)} />
       </View>
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [colors, styles]);
 
   const renderUserPopup = () => {
     if (!selectedMarker) return null;
@@ -611,13 +644,13 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <View style={styles.popupContent}>
           <AvatarImage source={selectedMarker.avatar} size={wp(15)} style={styles.popupAvatar} />
           <View style={styles.popupInfo}>
-            <Text style={styles.popupName}>{selectedMarker.name}</Text>
+            <Text style={styles.popupName}>{sanitizeText(selectedMarker.name)}</Text>
             <View style={styles.popupStats}>
               <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
               <Text style={styles.popupStatDot}>·</Text>
               <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
             </View>
-            <Text style={styles.popupBio} numberOfLines={2}>{selectedMarker.bio}</Text>
+            <Text style={styles.popupBio} numberOfLines={2}>{sanitizeText(selectedMarker.bio)}</Text>
           </View>
         </View>
         <LiquidButton
@@ -640,19 +673,19 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         </TouchableOpacity>
         <Image source={{ uri: selectedMarker.coverImage }} style={styles.businessCover} />
         <View style={styles.businessContent}>
-          <Text style={styles.businessName}>{selectedMarker.name}</Text>
+          <Text style={styles.businessName}>{sanitizeText(selectedMarker.name)}</Text>
           <View style={styles.businessRow}>
             <Ionicons name="location-outline" size={normalize(16)} color={colors.gray} />
-            <Text style={styles.businessText}>{selectedMarker.address}</Text>
+            <Text style={styles.businessText}>{sanitizeText(selectedMarker.address)}</Text>
           </View>
           <View style={styles.businessRow}>
             <Ionicons name="time-outline" size={normalize(16)} color={colors.gray} />
-            <Text style={styles.businessText}>{selectedMarker.hours}</Text>
+            <Text style={styles.businessText}>{sanitizeText(selectedMarker.hours)}</Text>
           </View>
           <View style={styles.expertiseTags}>
             {selectedMarker.expertise?.map((tag, index) => (
               <View key={index} style={styles.expertiseTag}>
-                <Text style={styles.expertiseTagText}>{tag}</Text>
+                <Text style={styles.expertiseTagText}>{sanitizeText(tag)}</Text>
               </View>
             ))}
           </View>
@@ -802,14 +835,14 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     const data = selectedEventData;
     const isJoined = data?.is_joined || data?.isJoined || false;
     const coverUrl = data?.cover_image_url || data?.coverImageUrl || selectedMarker.coverImage;
-    const eventTitle = data?.title || data?.name || selectedMarker.name;
-    const location = data?.location_name || data?.locationName || data?.address || selectedMarker.address || '';
+    const eventTitle = sanitizeText(data?.title || data?.name || selectedMarker.name);
+    const location = sanitizeText(data?.location_name || data?.locationName || data?.address || selectedMarker.address || '');
     const startsAt = data?.starts_at || data?.startsAt;
     const isPublic = data?.is_public !== false;
-    const category = data?.category_slug || data?.categorySlug || data?.sport_type || data?.category || '';
+    const category = sanitizeText(data?.category_slug || data?.categorySlug || data?.sport_type || data?.category || '');
     const maxPart = data?.max_participants || data?.maxParticipants;
     const currentPart = data?.current_participants || data?.currentParticipants || 0;
-    const desc = data?.description || selectedMarker.bio || '';
+    const desc = sanitizeText(data?.description || selectedMarker.bio || '');
 
     return (
       <View style={[styles.eventDetailContainer, { bottom: insets.bottom + hp(2) }]}>

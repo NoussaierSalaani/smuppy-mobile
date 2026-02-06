@@ -34,6 +34,7 @@ import {
   searchNominatim,
   reverseGeocodeNominatim,
   formatNominatimResult,
+  isValidCoordinate,
   type NominatimSearchResult,
 } from '../config/api';
 import {
@@ -297,6 +298,13 @@ export default function RouteMapPicker({
     if (!geometry || geometry.type !== 'Point') return;
 
     const [lng, lat] = (geometry as Point).coordinates;
+
+    // Validate coordinates before using them
+    if (!isValidCoordinate(lat, lng)) {
+      if (__DEV__) console.warn('[RouteMapPicker] Invalid coordinates from map press:', { lat, lng });
+      return;
+    }
+
     const coord: Coordinate = { lat, lng };
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -350,7 +358,16 @@ export default function RouteMapPicker({
   const selectSuggestion = useCallback((result: NominatimSearchResult, field: ActiveField) => {
     const formatted = formatNominatimResult(result);
     const address = formatted.mainText + (formatted.secondaryText ? ', ' + formatted.secondaryText : '');
-    const coord: Coordinate = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
+    const parsedLat = parseFloat(result.lat);
+    const parsedLng = parseFloat(result.lon);
+
+    // Validate parsed coordinates before using them
+    if (!isValidCoordinate(parsedLat, parsedLng)) {
+      if (__DEV__) console.warn('[RouteMapPicker] Invalid coordinates from Nominatim:', { lat: result.lat, lon: result.lon });
+      return;
+    }
+
+    const coord: Coordinate = { lat: parsedLat, lng: parsedLng };
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Keyboard.dismiss();
@@ -655,6 +672,7 @@ export default function RouteMapPicker({
                   searchAddress(text, 'departure');
                 }}
                 onFocus={() => setActiveField('departure')}
+                maxLength={500}
               />
               {searchingDeparture && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
               {departureAddress && !searchingDeparture && (
@@ -697,6 +715,7 @@ export default function RouteMapPicker({
                   searchAddress(text, 'arrival');
                 }}
                 onFocus={() => setActiveField('arrival')}
+                maxLength={500}
               />
               {searchingArrival && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
               {arrivalAddress && !searchingArrival && (
@@ -737,6 +756,7 @@ export default function RouteMapPicker({
                   searchAddress(text, 'location');
                 }}
                 editable={!lockedLocation}
+                maxLength={500}
               />
               {searchingLocation && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
               {locationAddress && !searchingLocation && !lockedLocation && (

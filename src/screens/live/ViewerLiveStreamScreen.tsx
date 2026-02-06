@@ -160,8 +160,10 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   }, [isJoined, remoteUsers.length, creatorName, navigation, showAlert]);
 
   const handleSendComment = () => {
-    if (!newComment.trim()) return;
-    sendLiveComment(newComment.trim());
+    // Sanitize: strip HTML tags and control characters
+    const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+    if (!sanitized) return;
+    sendLiveComment(sanitized);
     setNewComment('');
   };
 
@@ -348,6 +350,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
               onChangeText={setNewComment}
               onSubmitEditing={handleSendComment}
               returnKeyType="send"
+              maxLength={500}
             />
             {newComment.trim() && (
               <TouchableOpacity onPress={handleSendComment} style={styles.sendButton}>

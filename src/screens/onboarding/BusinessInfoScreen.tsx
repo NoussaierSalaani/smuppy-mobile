@@ -8,11 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { SIZES, SPACING, TYPOGRAPHY, GRADIENTS } from '../../config/theme';
-import { searchNominatim, NominatimSearchResult } from '../../config/api';
+import { searchNominatim, isValidCoordinate, NominatimSearchResult } from '../../config/api';
 import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 interface BusinessInfoScreenProps {
   navigation: {
@@ -27,6 +28,7 @@ interface BusinessInfoScreenProps {
 
 export default function BusinessInfoScreen({ navigation, route }: BusinessInfoScreenProps) {
   const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
@@ -79,9 +81,19 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   }, [searchPlaces]);
 
   const selectAddress = useCallback((suggestion: NominatimSearchResult) => {
+    const parsedLat = parseFloat(suggestion.lat);
+    const parsedLng = parseFloat(suggestion.lon);
+
+    // Validate parsed coordinates before setting state
+    if (!isValidCoordinate(parsedLat, parsedLng)) {
+      if (__DEV__) console.warn('[BusinessInfoScreen] Invalid coordinates from Nominatim:', { lat: suggestion.lat, lon: suggestion.lon });
+      Alert.alert('Invalid Location', 'The selected location has invalid coordinates. Please try another address.');
+      return;
+    }
+
     setAddress(suggestion.display_name);
-    setBusinessLatitude(parseFloat(suggestion.lat));
-    setBusinessLongitude(parseFloat(suggestion.lon));
+    setBusinessLatitude(parsedLat);
+    setBusinessLongitude(parsedLng);
     setAddressSuggestions([]);
     Keyboard.dismiss();
   }, []);
@@ -91,6 +103,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
+        showError('Permission needed', 'Please allow location access to detect your business location.');
         setIsLoadingLocation(false);
         return;
       }

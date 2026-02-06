@@ -31,6 +31,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
 import { formatDateTimeRelative } from '../../utils/dateFormatters';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -107,6 +108,7 @@ export default function EventListScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const { formatAmount } = useCurrency();
+  const { showError } = useSmuppyAlert();
 
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -168,7 +170,10 @@ export default function EventListScreen() {
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        showError('Permission needed', 'Please allow location access to discover nearby events.');
+        return;
+      }
 
       const location = await Location.getCurrentPositionAsync({});
       setUserLocation({

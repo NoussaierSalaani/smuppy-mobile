@@ -784,11 +784,11 @@ export type MainStackParamList = {
   EventManage: { eventId: string };
 
   // Groups
-  CreateGroup: { lockedLocation?: { latitude: number; longitude: number; address: string } } | undefined;
+  CreateGroup: { lockedLocation?: { lat: number; lng: number } } | undefined;
   GroupDetail: { groupId: string };
 
   // Activities (unified)
-  CreateActivity: { lockedLocation?: { latitude: number; longitude: number; address: string } } | undefined;
+  CreateActivity: { lockedLocation?: { lat: number; lng: number } } | undefined;
   ActivityDetail: { activityId: string; activityType: 'event' | 'group' };
 
   // Spots

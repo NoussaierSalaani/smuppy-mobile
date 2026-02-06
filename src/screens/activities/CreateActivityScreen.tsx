@@ -168,19 +168,22 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
+    // Sanitize inputs: strip HTML tags and control characters
+    const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+
     try {
-      const sub = selectedSubcategory || customSubcategory.trim();
+      const sub = sanitize(selectedSubcategory || customSubcategory);
 
       // Create via group endpoint (unified backend)
       const response = await awsAPI.createGroup({
-        name: title.trim(),
-        description: description.trim(),
+        name: sanitize(title),
+        description: sanitize(description),
         category: selectedCategory.slug,
         subcategory: sub,
         sport_type: selectedCategory.slug,
         latitude: coordinates.lat,
         longitude: coordinates.lng,
-        address: locationName.trim() || 'Activity Location',
+        address: sanitize(locationName) || 'Activity Location',
         starts_at: startDate.toISOString(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         max_participants: maxParticipants ? parseInt(maxParticipants) : undefined,
@@ -203,10 +206,11 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
 
       if (response.success) {
         // Fire-and-forget custom subcategory suggestion
-        if (customSubcategory.trim() && selectedCategory) {
+        const sanitizedCustomSub = sanitize(customSubcategory);
+        if (sanitizedCustomSub && selectedCategory) {
           awsAPI.suggestSubcategory({
             parent_category: selectedCategory.slug,
-            name: customSubcategory.trim(),
+            name: sanitizedCustomSub,
           }).catch((err) => { if (__DEV__) console.warn('[CreateActivityScreen]', err); });
         }
 
@@ -255,8 +259,8 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
         showError('Error', response.message || 'Failed to create activity');
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Something went wrong';
-      showError('Error', message);
+      if (__DEV__) console.error('[CreateActivityScreen] Submit error:', error);
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -355,6 +359,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
             placeholderTextColor={colors.gray}
             value={customSubcategory}
             onChangeText={(t) => { setCustomSubcategory(t); setSelectedSubcategory(''); }}
+            maxLength={100}
           />
         </View>
       )}
@@ -418,6 +423,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
           placeholder="Leave empty for unlimited"
           placeholderTextColor={colors.gray}
           keyboardType="number-pad"
+          maxLength={6}
         />
       </View>
 
@@ -467,6 +473,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
               placeholder="0.00"
               placeholderTextColor={colors.gray}
               keyboardType="decimal-pad"
+              maxLength={10}
             />
           </View>
         )}

@@ -32,6 +32,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -91,6 +92,7 @@ interface Business {
 export default function BusinessDiscoveryScreen({ navigation }: { navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void } }) {
   const { colors, isDark } = useTheme();
   const { formatAmount: _formatAmount } = useCurrency();
+  const { showError } = useSmuppyAlert();
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -125,7 +127,10 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        showError('Permission needed', 'Please allow location access to discover nearby businesses.');
+        return;
+      }
 
       const location = await Location.getCurrentPositionAsync({});
       setUserLocation({

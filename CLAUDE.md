@@ -43,6 +43,16 @@
 - **NEVER** delete branches that haven't been merged without asking first
 - **NEVER** commit directly on `main` — always use a feature branch + squash merge (see Git Discipline)
 
+### Expo & React Native Dependency Management (CRITICAL)
+- **NEVER** run `npm update`, `yarn upgrade`, or `npm install <package>@latest` — these bypass Expo version constraints
+- **NEVER** run `npm install <package>` without `npx expo install` — npm ignores Expo SDK compatibility
+- **ALWAYS** use `npx expo install <package>` for adding or updating ANY dependency
+- **ALWAYS** run `npx expo-doctor` after any dependency change to verify compatibility
+- **ALWAYS** run `npx expo install --fix` if expo-doctor reports version mismatches
+- Expo SDK versions are tightly coupled to specific React Native versions — mixing versions causes native/JS mismatches
+- Current project: **Expo SDK 54** requires **React Native 0.81.x** — do not upgrade RN without upgrading Expo SDK first
+- Before ANY Expo SDK upgrade: create a dedicated PR, test ALL features (camera, auth, payments, notifications, maps)
+
 ### Confirmation Protocol
 - Any command that modifies AWS infrastructure (cdk deploy, aws cli write operations): **state what will change BEFORE running**
 - Any command that modifies the database schema: **show the SQL and ask for confirmation**

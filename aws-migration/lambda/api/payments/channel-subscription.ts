@@ -346,9 +346,11 @@ async function getOrCreateChannelPrice(
     return existingPrice.id;
   }
 
-  // Deactivate old prices if amount changed
-  for (const oldPrice of prices.data) {
-    await stripe.prices.update(oldPrice.id, { active: false });
+  // Deactivate old prices if amount changed (parallel for performance)
+  if (prices.data.length > 0) {
+    await Promise.all(
+      prices.data.map(oldPrice => stripe.prices.update(oldPrice.id, { active: false }))
+    );
   }
 
   // Create new price

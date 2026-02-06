@@ -243,10 +243,14 @@ export async function sendPushNotificationBatch(
   const iosTargets = nativeTargets.filter(t => t.platform === 'ios' && t.snsEndpointArn);
   const androidTargets = nativeTargets.filter(t => t.platform === 'android');
 
-  // Send to iOS devices via SNS
-  for (const target of iosTargets) {
-    const result = await sendToiOS(target.snsEndpointArn!, payload);
-    result ? success++ : failed++;
+  // Send to iOS devices via SNS (parallel for performance)
+  if (iosTargets.length > 0) {
+    const iosResults = await Promise.all(
+      iosTargets.map(target => sendToiOS(target.snsEndpointArn!, payload))
+    );
+    for (const result of iosResults) {
+      result ? success++ : failed++;
+    }
   }
 
   // Send to Android devices via Firebase

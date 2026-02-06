@@ -350,8 +350,8 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
         <View style={styles.payoutInfo}>
           <Ionicons name="information-circle-outline" size={20} color={colors.gray} />
           <Text style={styles.payoutText}>
-            Les virements sont effectués automatiquement chaque lundi pour les soldes supérieurs à 50€.
-            Smuppy prélève 20% de commission sur chaque transaction.
+            Transfers are made automatically every Monday for balances over $50.
+            Smuppy takes a 20% commission on each transaction.
           </Text>
         </View>
 

@@ -162,7 +162,7 @@ const MySessionsScreen = (): React.JSX.Element => {
             style={styles.joinGradient}
           >
             <Ionicons name="videocam" size={20} color={colors.white} />
-            <Text style={styles.joinText}>Rejoindre maintenant</Text>
+            <Text style={styles.joinText}>Join now</Text>
           </LinearGradient>
         </TouchableOpacity>
       )}
@@ -173,7 +173,7 @@ const MySessionsScreen = (): React.JSX.Element => {
           onPress={() => navigation.navigate('BookSession', { creatorId: session.creator.id })}
         >
           <Ionicons name="refresh" size={18} color={colors.primary} />
-          <Text style={styles.rebookText}>Réserver à nouveau</Text>
+          <Text style={styles.rebookText}>Book again</Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -233,7 +233,7 @@ const MySessionsScreen = (): React.JSX.Element => {
           onPress={() => setActiveTab('upcoming')}
         >
           <Text style={[styles.tabText, activeTab === 'upcoming' && styles.activeTabText]}>
-            À venir
+            Upcoming
           </Text>
           {upcomingSessions.length > 0 && (
             <View style={styles.badge}>
@@ -246,7 +246,7 @@ const MySessionsScreen = (): React.JSX.Element => {
           onPress={() => setActiveTab('past')}
         >
           <Text style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}>
-            Historique
+            History
           </Text>
         </TouchableOpacity>
       </View>

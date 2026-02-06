@@ -27,6 +27,7 @@ import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
+import { WorkoutTimer, RepCounter, DayChallenge, CalorieBurn, HeartRatePulse } from '../../filters/overlays';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
@@ -34,7 +35,87 @@ import { reportPost, savePost, unsavePost } from '../../services/database';
 import { useContentStore, useUserStore, useFeedStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
 
-const { width } = Dimensions.get('window');
+const { width, height: screenHeight } = Dimensions.get('window');
+
+// Filter color overlay mapping — approximates GPU shader effects with gradient overlays
+const FILTER_COLOR_MAP: Record<string, { colors: [string, string]; start: { x: number; y: number }; end: { x: number; y: number } }> = {
+  gym_lighting:   { colors: ['rgba(255,248,240,0.18)', 'rgba(255,240,220,0.08)'], start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
+  natural_glow:   { colors: ['rgba(255,220,200,0.15)', 'rgba(255,200,180,0.08)'], start: { x: 0.5, y: 0.3 }, end: { x: 0.5, y: 0.8 } },
+  golden_hour:    { colors: ['rgba(255,180,50,0.22)', 'rgba(255,140,0,0.10)'],    start: { x: 1, y: 0 },   end: { x: 0, y: 1 } },
+  tan_tone:       { colors: ['rgba(200,150,80,0.18)', 'rgba(180,120,60,0.10)'],   start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
+  muscle_boost:   { colors: ['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.15)'],             start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
+  sweat_glow:     { colors: ['rgba(255,255,230,0.15)', 'rgba(255,255,200,0.05)'], start: { x: 0.5, y: 0.2 }, end: { x: 0.5, y: 0.8 } },
+  energy_aura:    { colors: ['rgba(100,200,255,0.12)', 'rgba(200,100,255,0.12)'], start: { x: 0, y: 0 },   end: { x: 1, y: 1 } },
+  neon_outline:   { colors: ['rgba(0,255,200,0.10)', 'rgba(255,0,200,0.10)'],     start: { x: 0, y: 0 },   end: { x: 1, y: 1 } },
+  lightning_flex: { colors: ['rgba(70,130,255,0.15)', 'rgba(100,180,255,0.08)'],   start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
+};
+
+// Render overlay widget at stored position based on type + params
+function renderOverlayWidget(type: string, params: Record<string, unknown>): React.JSX.Element | null {
+  switch (type) {
+    case 'workout_timer':
+      return (
+        <WorkoutTimer
+          params={{
+            totalSeconds: (params.totalSeconds as number) || 60,
+            currentSeconds: (params.currentSeconds as number) || 0,
+            isRunning: (params.isRunning as boolean) ?? false,
+            mode: (params.mode as 'countdown' | 'stopwatch') || 'stopwatch',
+            color: (params.color as string) || '#11E3A3',
+          }}
+          size={80}
+        />
+      );
+    case 'rep_counter':
+      return (
+        <RepCounter
+          params={{
+            currentReps: (params.currentReps as number) || 0,
+            targetReps: (params.targetReps as number | null) ?? null,
+            exerciseName: (params.exerciseName as string) || 'REPS',
+            color: (params.color as string) || '#11E3A3',
+          }}
+          size={60}
+        />
+      );
+    case 'day_challenge':
+      return (
+        <DayChallenge
+          params={{
+            currentDay: (params.currentDay as number) || 1,
+            totalDays: (params.totalDays as number) || 30,
+            challengeName: (params.challengeName as string) || 'Challenge',
+            color: (params.color as string) || '#FFD700',
+          }}
+          size={100}
+        />
+      );
+    case 'calorie_burn':
+      return (
+        <CalorieBurn
+          params={{
+            calories: (params.calories as number) || 0,
+            targetCalories: (params.targetCalories as number | null) ?? null,
+            color: (params.color as string) || '#FF5722',
+          }}
+          size={80}
+        />
+      );
+    case 'heart_rate_pulse':
+      return (
+        <HeartRatePulse
+          params={{
+            bpm: (params.bpm as number) || 72,
+            isAnimating: (params.isAnimating as boolean) ?? true,
+            color: (params.color as string) || '#FF1744',
+          }}
+          size={80}
+        />
+      );
+    default:
+      return null;
+  }
+}
 
 interface PeakUser {
   id: string;
@@ -721,6 +802,39 @@ const PeakViewScreen = (): React.JSX.Element => {
               source={currentPeak.thumbnail || (placeholder as any)}
               style={styles.media}
             />
+          )}
+
+          {/* Filter color overlay — approximates GPU shader effect on video */}
+          {currentPeak.filterId && FILTER_COLOR_MAP[currentPeak.filterId] && (
+            <LinearGradient
+              colors={FILTER_COLOR_MAP[currentPeak.filterId].colors}
+              start={FILTER_COLOR_MAP[currentPeak.filterId].start}
+              end={FILTER_COLOR_MAP[currentPeak.filterId].end}
+              style={[StyleSheet.absoluteFill, { opacity: currentPeak.filterIntensity ?? 1 }]}
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Overlay widgets rendered at stored positions */}
+          {currentPeak.overlays && currentPeak.overlays.length > 0 && (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              {currentPeak.overlays.map((overlay) => (
+                <View
+                  key={overlay.id}
+                  style={{
+                    position: 'absolute' as const,
+                    left: overlay.position.x * width,
+                    top: overlay.position.y * screenHeight,
+                    transform: [
+                      { scale: overlay.position.scale || 1 },
+                      { rotate: `${overlay.position.rotation || 0}deg` },
+                    ],
+                  }}
+                >
+                  {renderOverlayWidget(overlay.type, overlay.params)}
+                </View>
+              ))}
+            </View>
           )}
         </View>
       </TouchableWithoutFeedback>

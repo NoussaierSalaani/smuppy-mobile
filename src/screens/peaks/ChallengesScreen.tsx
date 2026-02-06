@@ -134,15 +134,6 @@ const ChallengesScreen = (): React.JSX.Element => {
     />
   ), [handleChallengePress, handleAcceptChallenge]);
 
-  const renderNewItem = useCallback(({ item }: { item: Challenge }) => (
-    <ChallengeCard
-      challenge={item}
-      onPress={handleChallengePress}
-      onAccept={handleAcceptChallenge}
-      compact
-    />
-  ), [handleChallengePress, handleAcceptChallenge]);
-
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>

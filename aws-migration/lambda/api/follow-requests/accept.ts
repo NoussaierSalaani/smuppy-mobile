@@ -119,11 +119,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       // Get accepter's name for notification
+      // Per CLAUDE.md: use explicit column names, never SELECT *
       const accepterResult = await client.query(
-        'SELECT name FROM profiles WHERE id = $1',
+        'SELECT display_name, username FROM profiles WHERE id = $1',
         [profileId]
       );
-      const accepterName = accepterResult.rows[0]?.name || 'Someone';
+      const accepterRow = accepterResult.rows[0];
+      const accepterName = accepterRow?.display_name || accepterRow?.username || 'Someone';
 
       // Create notification for the requester
       await client.query(

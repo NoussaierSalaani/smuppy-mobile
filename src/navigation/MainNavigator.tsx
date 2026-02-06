@@ -129,6 +129,7 @@ const UpgradeToProScreen = lazyScreen(() => import('../screens/settings/UpgradeT
 // PEAKS (create/preview)
 const CreatePeakScreen = lazyScreen(() => import('../screens/peaks/CreatePeakScreen'));
 const PeakPreviewScreen = lazyScreen(() => import('../screens/peaks/PeakPreviewScreen'));
+const ChallengesScreen = lazyScreen(() => import('../screens/peaks/ChallengesScreen'));
 
 // Live Streaming Screens
 const GoLiveIntroScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.GoLiveIntroScreen })));
@@ -423,6 +424,7 @@ export default function MainNavigator() {
       <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="CreatePeak" component={CreatePeakScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="PeakPreview" component={PeakPreviewScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="Challenges" component={ChallengesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Live Streaming */}
       <Stack.Screen name="GoLiveIntro" component={GoLiveIntroScreen} options={{ animation: 'slide_from_bottom' }} />

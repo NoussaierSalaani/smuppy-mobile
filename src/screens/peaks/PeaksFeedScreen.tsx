@@ -48,6 +48,7 @@ interface Peak {
 type RootStackParamList = {
   PeakView: { peaks: Peak[]; initialIndex: number };
   CreatePeak: undefined;
+  Challenges: undefined;
   [key: string]: object | undefined;
 };
 
@@ -183,16 +184,23 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
         <Text style={styles.headerTitle}>Peaks</Text>
 
-        {!isBusiness && peaks.length > 0 ? (
+        <View style={styles.headerRight}>
           <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreatePeak}
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('Challenges')}
           >
-            <Ionicons name="add" size={28} color={colors.primary} />
+            <Ionicons name="trophy" size={22} color="#FFD700" />
           </TouchableOpacity>
-        ) : (
-          <View style={styles.createButton} />
-        )}
+
+          {!isBusiness && peaks.length > 0 ? (
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={handleCreatePeak}
+            >
+              <Ionicons name="add" size={28} color={colors.primary} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       {/* Loading skeleton */}
@@ -280,9 +288,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontWeight: '700',
     color: isDark ? colors.white : colors.dark,
   },
-  createButton: {
-    width: 44,
-    height: 44,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -107,19 +107,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Rate limit POST requests: 5 per minute per user (DynamoDB-based, works across Lambda instances)
-    if (event.httpMethod === 'POST') {
+    // Rate limit POST and DELETE requests: 5 per minute per user (DynamoDB-based, works across Lambda instances)
+    // Per CLAUDE.md: rate limit ALL endpoints that create resources or cost money
+    if (event.httpMethod === 'POST' || event.httpMethod === 'DELETE') {
       const rateLimitResult = await checkRateLimit({
-        prefix: 'push-token',
+        prefix: `push-token-${event.httpMethod.toLowerCase()}`,
         identifier: userId,
         windowSeconds: 60,
         maxRequests: 5,
       });
       if (!rateLimitResult.allowed) {
+        const message = event.httpMethod === 'POST'
+          ? 'Too many token registrations. Please wait.'
+          : 'Too many token deletions. Please wait.';
         return {
           statusCode: 429,
           headers,
-          body: JSON.stringify({ message: 'Too many token registrations. Please wait.' }),
+          body: JSON.stringify({ message }),
         };
       }
     }

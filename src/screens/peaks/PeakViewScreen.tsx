@@ -903,7 +903,21 @@ const PeakViewScreen = (): React.JSX.Element => {
                   {currentPeak.challengeRules}
                 </Text>
               ) : null}
-              {!isBusiness && (
+              <View style={styles.challengeMetaRow}>
+                {currentPeak.challengeResponseCount != null && (
+                  <Text style={styles.challengeMetaText}>
+                    {currentPeak.challengeResponseCount} responses
+                  </Text>
+                )}
+                {currentPeak.challengeEndsAt ? (
+                  <Text style={styles.challengeMetaText}>
+                    {new Date(currentPeak.challengeEndsAt) > new Date()
+                      ? `Ends ${new Date(currentPeak.challengeEndsAt).toLocaleDateString()}`
+                      : 'Ended'}
+                  </Text>
+                ) : null}
+              </View>
+              {!isBusiness && (!currentPeak.challengeEndsAt || new Date(currentPeak.challengeEndsAt) > new Date()) && (
                 <TouchableOpacity
                   style={styles.acceptChallengeButton}
                   onPress={handleAcceptChallenge}
@@ -1298,6 +1312,16 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 14,
   },
 
+  challengeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 6,
+  },
+  challengeMetaText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
   acceptChallengeText: {
     fontSize: 14,
     fontWeight: '700',

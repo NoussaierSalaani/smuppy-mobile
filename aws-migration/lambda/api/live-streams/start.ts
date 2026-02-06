@@ -86,15 +86,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 };
 
+/**
+ * Helper to pause execution for rate limiting
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function notifyFans(
   db: import('pg').Pool,
   host: { id: string; username: string; display_name: string; avatar_url: string }
 ): Promise<void> {
-  // Get all fans (people who follow this creator)
+  // Get all fans who follow this creator AND have live notifications enabled
+  // Per CLAUDE.md: respect notification preferences
   const fansResult = await db.query(
     `SELECT f.follower_id
      FROM follows f
-     WHERE f.following_id = $1 AND f.status = 'accepted'
+     LEFT JOIN notification_preferences np ON np.user_id = f.follower_id
+     WHERE f.following_id = $1
+       AND f.status = 'accepted'
+       AND (np.live_enabled IS NULL OR np.live_enabled = true)
      LIMIT 5000`,
     [host.id]
   );
@@ -129,8 +140,11 @@ async function notifyFans(
     );
   }
 
-  // Send push notifications (in parallel, max 50 at a time)
+  // Send push notifications with rate limiting (max 50 at a time, 100ms delay between batches)
+  // Per CLAUDE.md: rate limit operations that cost money (push notifications)
   const pushBatchSize = 50;
+  const PUSH_BATCH_DELAY_MS = 100; // Rate limit: ~500 notifications/second max
+
   for (let i = 0; i < fanIds.length; i += pushBatchSize) {
     const batch = fanIds.slice(i, i + pushBatchSize);
     await Promise.all(
@@ -146,5 +160,10 @@ async function notifyFans(
         }).catch(() => {})
       )
     );
+
+    // Rate limit between batches to prevent notification service exhaustion
+    if (i + pushBatchSize < fanIds.length) {
+      await sleep(PUSH_BATCH_DELAY_MS);
+    }
   }
 }

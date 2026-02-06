@@ -263,7 +263,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               {method.isDefault && (
                 <View style={styles.defaultChip}>
                   <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-                  <Text style={styles.defaultChipText}>Principale</Text>
+                  <Text style={styles.defaultChipText}>Default</Text>
                 </View>
               )}
             </View>

@@ -66,7 +66,7 @@ export default function ChannelSubscriptionScreen() {
   const [subscribing, setSubscribing] = useState(false);
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const { showError, showSuccess } = useSmuppyAlert();
+  const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -130,7 +130,7 @@ export default function ChannelSubscriptionScreen() {
           showSuccess('Subscribed!', 'Your subscription is now active.');
           await checkSubscription();
         } else if (checkoutResult.status === 'pending') {
-          showSuccess('Processing', checkoutResult.message);
+          showWarning('Processing', checkoutResult.message);
         } else if (checkoutResult.status === 'failed') {
           showError('Payment Failed', checkoutResult.message);
         }

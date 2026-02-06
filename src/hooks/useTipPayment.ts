@@ -33,7 +33,7 @@ interface UseTipPaymentReturn {
 }
 
 export function useTipPayment(): UseTipPaymentReturn {
-  const { showSuccess, showError } = useSmuppyAlert();
+  const { showSuccess, showError, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export function useTipPayment(): UseTipPaymentReturn {
           if (checkoutResult.status === 'success') {
             showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
           } else {
-            showSuccess('Tip Processing', 'Your tip is being processed.');
+            showWarning('Tip Processing', 'Your tip is being processed. You will be notified when complete.');
           }
           processingRef.current = false;
           setIsProcessing(false);
@@ -108,7 +108,7 @@ export function useTipPayment(): UseTipPaymentReturn {
         return false;
       }
     },
-    [showError, showSuccess]
+    [openCheckout, showError, showSuccess, showWarning]
   );
 
   return {

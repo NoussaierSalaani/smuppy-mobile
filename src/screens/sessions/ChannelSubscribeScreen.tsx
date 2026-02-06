@@ -51,7 +51,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RouteParams, 'ChannelSubscribe'>>();
   const { colors, isDark } = useTheme();
 
-  const { showError, showSuccess } = useSmuppyAlert();
+  const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
   const { creatorId, tier } = route.params;
 
@@ -118,7 +118,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         showSuccess('Subscription Active', 'Your payment has been confirmed.');
         navigation.goBack();
       } else if (checkoutResult.status === 'pending') {
-        showSuccess('Payment Processing', checkoutResult.message);
+        showWarning('Payment Processing', checkoutResult.message);
         navigation.goBack();
       } else {
         showError('Payment Failed', checkoutResult.message);
@@ -130,7 +130,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [creatorId, navigation, showError, showSuccess]);
+  }, [creatorId, openCheckout, navigation, showError, showSuccess, showWarning]);
 
   const renewalDate = new Date();
   renewalDate.setMonth(renewalDate.getMonth() + 1);
@@ -142,7 +142,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="close" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>S'abonner</Text>
+        <Text style={styles.title}>Subscribe</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -163,7 +163,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               )}
             </View>
             <Text style={styles.subscribersCount}>
-              {creator.subscribersCount.toLocaleString()} abonnés
+              {creator.subscribersCount.toLocaleString()} subscribers
             </Text>
           </View>
         </View>
@@ -178,7 +178,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               style={styles.tierBadge}
             >
               <Ionicons name="star" size={12} color={colors.white} />
-              <Text style={styles.tierBadgeText}>Recommandé</Text>
+              <Text style={styles.tierBadgeText}>Recommended</Text>
             </LinearGradient>
           )}
 
@@ -190,14 +190,14 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               <Text style={styles.tierName}>{tier.name}</Text>
               <View style={styles.tierPriceRow}>
                 <Text style={styles.tierPrice}>{tier.price.toFixed(2)} €</Text>
-                <Text style={styles.tierPeriod}>/mois</Text>
+                <Text style={styles.tierPeriod}>/month</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.perksTitle}>Ce qui est inclus :</Text>
+          <Text style={styles.perksTitle}>What's included:</Text>
           <View style={styles.perksList}>
             {tier.perks.map((perk, index) => (
               <View key={index} style={styles.perkRow}>
@@ -291,7 +291,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               <>
                 <Ionicons name="heart" size={20} color={colors.white} />
                 <Text style={styles.subscribeButtonText}>
-                  S'abonner pour {tier.price.toFixed(2)} €/mois
+                  Subscribe for {tier.price.toFixed(2)} €/month
                 </Text>
               </>
             )}

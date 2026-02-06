@@ -53,7 +53,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RouteParams, 'PackPurchase'>>();
   const { colors, isDark } = useTheme();
 
-  const { showError } = useSmuppyAlert();
+  const { showError, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
   const { creatorId, pack } = route.params;
 
@@ -117,7 +117,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       }
 
       if (checkoutResult.status === 'pending') {
-        showError('Payment Processing', checkoutResult.message);
+        showWarning('Payment Processing', checkoutResult.message);
         return;
       }
 
@@ -151,7 +151,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="close" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>Acheter un Pack</Text>
+        <Text style={styles.title}>Buy a Pack</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -192,26 +192,26 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           <View style={styles.packFeatures}>
             <View style={styles.featureRow}>
               <Ionicons name="videocam" size={20} color={colors.primary} />
-              <Text style={styles.featureText}>{pack.sessionsIncluded} sessions incluses</Text>
+              <Text style={styles.featureText}>{pack.sessionsIncluded} sessions included</Text>
             </View>
             <View style={styles.featureRow}>
               <Ionicons name="time" size={20} color={colors.primary} />
-              <Text style={styles.featureText}>{pack.sessionDuration} minutes par session</Text>
+              <Text style={styles.featureText}>{pack.sessionDuration} minutes per session</Text>
             </View>
             <View style={styles.featureRow}>
               <Ionicons name="calendar" size={20} color={colors.primary} />
-              <Text style={styles.featureText}>Valide pendant {pack.validityDays} jours</Text>
+              <Text style={styles.featureText}>Valid for {pack.validityDays} days</Text>
             </View>
             <View style={styles.featureRow}>
               <Ionicons name="refresh" size={20} color={colors.primary} />
-              <Text style={styles.featureText}>Sessions reportables</Text>
+              <Text style={styles.featureText}>Reschedulable sessions</Text>
             </View>
           </View>
         </View>
 
         {/* Price Summary */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Récapitulatif</Text>
+          <Text style={styles.summaryTitle}>Summary</Text>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{pack.name}</Text>
@@ -220,7 +220,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>
-              Prix par session
+              Price per session
             </Text>
             <Text style={styles.summaryValueMuted}>
               {(pack.price / pack.sessionsIncluded).toFixed(2)} €
@@ -249,10 +249,10 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
         {/* Terms */}
         <Text style={styles.terms}>
-          En continuant, vous acceptez les{' '}
-          <Text style={styles.termsLink}>Conditions d'utilisation</Text>
-          {' '}et la{' '}
-          <Text style={styles.termsLink}>Politique de remboursement</Text>.
+          By continuing, you agree to the{' '}
+          <Text style={styles.termsLink}>Terms of Service</Text>
+          {' '}and the{' '}
+          <Text style={styles.termsLink}>Refund Policy</Text>.
         </Text>
 
         <View style={{ height: 120 }} />
@@ -280,7 +280,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
             ) : (
               <>
                 <Ionicons name="lock-closed" size={18} color={colors.white} />
-                <Text style={styles.payButtonText}>Payer maintenant</Text>
+                <Text style={styles.payButtonText}>Pay now</Text>
               </>
             )}
           </LinearGradient>

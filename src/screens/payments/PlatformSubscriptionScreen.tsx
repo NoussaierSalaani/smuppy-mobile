@@ -89,7 +89,7 @@ export default function PlatformSubscriptionScreen() {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
-  const { showError, showSuccess } = useSmuppyAlert();
+  const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
   const { colors, isDark } = useTheme();
 
@@ -152,7 +152,7 @@ export default function PlatformSubscriptionScreen() {
         if (checkoutResult.status === 'success') {
           showSuccess('Subscribed!', 'Your subscription is now active.');
         } else if (checkoutResult.status === 'pending') {
-          showSuccess('Processing', checkoutResult.message);
+          showWarning('Processing', checkoutResult.message);
         } else if (checkoutResult.status === 'failed') {
           showError('Payment Failed', checkoutResult.message);
         }

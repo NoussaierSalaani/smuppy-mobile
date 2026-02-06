@@ -72,7 +72,7 @@ const PERIOD_LABELS = {
 
 export default function BusinessSubscriptionScreen({ route, navigation }: BusinessSubscriptionScreenProps) {
   const { colors } = useTheme();
-  const { showError, showConfirm } = useSmuppyAlert();
+  const { showError, showWarning, showConfirm } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
   const { formatAmount } = useCurrency();
   const { openCheckout } = useStripeCheckout();
@@ -182,7 +182,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
       }
 
       if (checkoutResult.status === 'pending') {
-        showError('Payment Processing', checkoutResult.message);
+        showWarning('Payment Processing', checkoutResult.message);
         return;
       }
 

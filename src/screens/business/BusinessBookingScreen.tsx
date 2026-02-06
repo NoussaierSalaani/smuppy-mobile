@@ -61,7 +61,7 @@ interface Business {
 
 export default function BusinessBookingScreen({ route, navigation }: BusinessBookingScreenProps) {
   const { colors, isDark } = useTheme();
-  const { showError } = useSmuppyAlert();
+  const { showError, showWarning } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
   const { formatAmount } = useCurrency();
   const { openCheckout } = useStripeCheckout();
@@ -208,7 +208,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       }
 
       if (checkoutResult.status === 'pending') {
-        showError('Payment Processing', checkoutResult.message);
+        showWarning('Payment Processing', checkoutResult.message);
         return;
       }
 

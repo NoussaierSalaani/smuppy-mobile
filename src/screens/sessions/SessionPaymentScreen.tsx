@@ -26,7 +26,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
   const route = useRoute<{ key: string; name: string; params: { creator: { id: string; name: string; avatar: string | null }; date: { date: number; month: string; fullDate?: Date }; time: string; duration: number; price: number; sessionId?: string; datetime?: string } }>();
   const { colors, gradients, isDark } = useTheme();
 
-  const { showError } = useSmuppyAlert();
+  const { showError, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -74,7 +74,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       }
 
       if (checkoutResult.status === 'pending') {
-        showError('Payment Processing', checkoutResult.message);
+        showWarning('Payment Processing', checkoutResult.message);
         return;
       }
 
